@@ -313,6 +313,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -427,6 +428,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -607,6 +609,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                    &
                 p_patch%edges%area_edge(je,jb) *                                    &
@@ -625,6 +628,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
@@ -643,6 +647,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                   &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*             &
@@ -662,6 +667,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                &
                 p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *         &
@@ -679,6 +685,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                        &
                 p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb)* z_nabla2_e(je,jk,jb)
@@ -695,6 +702,7 @@ MODULE mo_nh_diffusion
                            i_startidx, i_endidx, rl_start, rl_end)
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO je = i_startidx, i_endidx
             p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  -    &
               diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *        &
@@ -775,6 +783,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -791,6 +800,7 @@ MODULE mo_nh_diffusion
 
         ! Add nabla2 diffusion in upper damping layer (if present)
         DO jk = 2, nrdmax(jg)
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) +                         &
               diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
@@ -853,6 +863,7 @@ MODULE mo_nh_diffusion
         ic = 0
 
         DO jk = nlev-1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             ! Perturbation potential temperature difference between local point and average of the three neighbors
             tdiff = p_nh_prog%theta_v(jc,jk,jb) -                          &
@@ -952,6 +963,7 @@ MODULE mo_nh_diffusion
           ! compute kh_smag_e * grad(theta) (stored in z_nabla2_e for memory efficiency)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
+!DIR$ IVDEP
             DO jk = 1, nlev
 #else
 !CDIR UNROLL=6
@@ -1040,6 +1052,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
                 p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
@@ -1051,6 +1064,7 @@ MODULE mo_nh_diffusion
 
           IF (iforcing /= inwp .OR. linit) THEN
             DO jk = 1, nlev
+!DIR$ IVDEP
               DO jc = i_startidx, i_endidx
               p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) * &
                 p_nh_prog%rho(jc,jk,jb)
@@ -1068,6 +1082,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh_diag%ddt_exner(jc,jk,jb) = p_patch%cells%area(jc,jb)* rd_o_cvd / dtime * &
                 p_nh_prog%exner(jc,jk,jb)/p_nh_prog%theta_v(jc,jk,jb)*z_temp(jc,jk,jb)
@@ -1491,4 +1506,3 @@ MODULE mo_nh_diffusion
   END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
-
