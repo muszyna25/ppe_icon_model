@@ -67,6 +67,7 @@ USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 
 IMPLICIT NONE
 
@@ -517,7 +518,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
 
   IF (jgp == 0) THEN
-
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+12, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,             &
                             RECV2=rg_pres,     SEND2=z_pres,                 &
@@ -757,9 +757,11 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
 
   nlev_tot = 4*nlevp1_rg + n2dvars
 
-  CALL exchange_data_mult(p_pp%comm_pat_c, 5, nlev_tot, recv1=p_lwflxclr,       &
-    &                     recv2=p_lwflxall, recv3=p_trsolclr, recv4=p_trsolall, &
-    &                     recv5=zrg_aux3d                                       )
+  IF (.NOT. my_process_is_mpi_seq()) THEN
+    CALL exchange_data_mult(p_pp%comm_pat_c, 5, nlev_tot, recv1=p_lwflxclr,          &
+      &                     recv2=p_lwflxall, recv3=p_trsolclr, recv4=p_trsolall, &
+      &                     recv5=zrg_aux3d                                       )
+  END IF
 
   IF (p_test_run) THEN
     trsolall = 0._wp
@@ -1544,8 +1546,10 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
 
   nlev_tot = 2*nlevp1_rg + n2dvars
     
-  CALL exchange_data_mult(p_pp%comm_pat_c, 3 ,nlev_tot, recv1=p_lwflxall, recv2=p_trsolall, &
-    &                     recv3=zrg_aux3d )
+  IF (.NOT. my_process_is_mpi_seq()) THEN
+    CALL exchange_data_mult(p_pp%comm_pat_c, 3 ,nlev_tot, recv1=p_lwflxall, recv2=p_trsolall, &
+      &                     recv3=zrg_aux3d )
+  END IF
 
   IF (p_test_run) THEN
     trsolall = 0._wp

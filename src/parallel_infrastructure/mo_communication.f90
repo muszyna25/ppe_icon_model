@@ -226,6 +226,11 @@ INTERFACE exchange_data
    MODULE PROCEDURE exchange_data_l2d
 END INTERFACE
 
+INTERFACE exchange_data_seq
+   MODULE PROCEDURE exchange_data_r3d_seq
+   MODULE PROCEDURE exchange_data_r2d_seq
+END INTERFACE
+
 INTERFACE exchange_data_reverse
    MODULE PROCEDURE exchange_data_reverse_3
    MODULE PROCEDURE exchange_data_reverse_2
@@ -1083,6 +1088,8 @@ SUBROUTINE exchange_data_r3d_seq(p_pat, recv, send, add, send_lbound3)
    ! consistency checks
    ! ------------------
 
+   if (use_exchange_delayed) call finish(routine, "Not yet implemented!")
+
    ! make sure that we are in sequential mode
    IF (.NOT. my_process_is_mpi_seq()) THEN
      CALL finish(routine, "Internal error: sequential routine called in parallel run!")
@@ -1158,12 +1165,17 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
    INTEGER, OPTIONAL :: send_lbound3
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i3d"
    INTEGER :: send_buf(SIZE(recv,2),p_pat%n_send), &
                recv_buf(SIZE(recv,2),p_pat%n_recv)
 
    INTEGER, POINTER :: send_ptr(:,:,:)
 
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
 
    !-----------------------------------------------------------------------
    IF (activate_sync_timers) CALL timer_start(timer_exch_data)
@@ -1348,6 +1360,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    INTEGER, OPTIONAL :: send_lbound3
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_l3d"
    LOGICAL :: send_buf(SIZE(recv,2),p_pat%n_send), &
                recv_buf(SIZE(recv,2),p_pat%n_recv)
 
@@ -1713,6 +1726,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      REAL(wp), POINTER :: fld(:,:,:)
    END TYPE t_fieldptr
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_mult"
    TYPE(t_fieldptr) :: recv(nfields), send(nfields), add(nfields)
    INTEGER        :: ndim2(nfields), noffset(nfields)
 
@@ -1745,7 +1759,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      kshift = 0
    ENDIF
 
-   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
+     & .NOT. use_exchange_delayed                       .AND. &
+     & .NOT. my_process_is_mpi_seq()) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
 
@@ -1833,6 +1849,23 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
            CALL exchange_data(p_pat, recv(n)%fld(:,:,:), add=add(n)%fld(:,:,:))
          ELSE
            CALL exchange_data(p_pat, recv(n)%fld(:,:,:))
+         ENDIF
+       ENDIF
+     ENDDO
+     RETURN
+   ELSE IF(my_process_is_mpi_seq()) THEN
+     DO n = 1, nfields
+       IF(lsend) THEN
+         IF(ladd) THEN
+           CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:), add(n)%fld(:,:,:))
+         ELSE
+           CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:))
+         ENDIF
+       ELSE
+         IF(ladd) THEN
+           CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), add=add(n)%fld(:,:,:))
+         ELSE
+           CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:))
          ENDIF
        ENDIF
      ENDDO
@@ -2131,6 +2164,7 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
    REAL(wp), INTENT(INOUT)           :: recv(:,:,:,:)
    REAL(wp), INTENT(IN   ), OPTIONAL :: send(:,:,:,:)
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_4de3"
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
    INTEGER :: ndim2, noffset
@@ -2146,6 +2180,11 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
               maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
+
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
      IF (activate_sync_timers) CALL timer_start(timer_barrier)
      CALL work_mpi_barrier()
@@ -2407,6 +2446,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
      add1(:,:,:), add2(:,:,:), add3(:,:,:), add4(:,:,:), add5(:,:,:), add6(:,:,:),       &
      add7(:,:,:), add4d(:,:,:,:)
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_gm"
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
    REAL(wp) , INTENT(INOUT) :: send_buf(:,:),recv_buf(:,:)
@@ -2427,6 +2467,11 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
               maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
+
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
 !$OMP MASTER
      IF (activate_sync_timers) CALL timer_start(timer_barrier)
@@ -2997,7 +3042,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
                              recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
                              recv6, send6, recv4d1, send4d1, recv4d2, send4d2)
 
-   TYPE(t_comm_pattern), INTENT(IN) :: p_pat(:)
+  TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat(:)
 
    REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
      recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
@@ -3008,6 +3053,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      send1(:,:,:), send2(:,:,:), send3(:,:,:), send4d1(:,:,:,:), &
      send4(:,:,:), send5(:,:,:), send6(:,:,:), send4d2(:,:,:,:)
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_grf"
    INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
    INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
    INTEGER, INTENT(IN)           :: nsendtot ! total number of send points
@@ -3359,11 +3405,19 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
    INTEGER, OPTIONAL :: send_lbound2
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_r2d"
    REAL(wp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    REAL(wp) :: send_buf(1,p_pat%n_send)
    INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
+
+   ! special treatment for trivial communication patterns of
+   ! sequential runs
+   IF(my_process_is_mpi_seq()) THEN
+     CALL exchange_data_r2d_seq(p_pat, recv, send, add, send_lbound2,l_recv_exists)
+     RETURN
+   END IF
 
    IF (use_exchange_delayed) THEN
 
@@ -3431,6 +3485,72 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_r2d
+
+
+! SEQUENTIAL version of subroutine "exchange_data_r3d"
+!
+SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   REAL(wp), INTENT(INOUT), TARGET        :: recv(:,:)
+   REAL(wp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+   REAL(wp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
+   INTEGER, OPTIONAL :: send_lbound2
+   LOGICAL, OPTIONAL :: l_recv_exists
+   ! local variables
+    CHARACTER(*), PARAMETER :: routine = "mo_communication:exchange_data_r2d_seq"
+   INTEGER :: i, lbound2
+
+   ! consistency checks
+   ! ------------------
+
+   if (use_exchange_delayed) call finish(routine, "Not yet implemented!")
+
+   ! make sure that we are in sequential mode
+   IF (.NOT. my_process_is_mpi_seq()) THEN
+     CALL finish(routine, "Internal error: sequential routine called in parallel run!")
+   END IF
+   ! further tests
+   IF ( (p_pat%np_recv /= 1) .OR. (p_pat%np_send /= 1) ) THEN
+     CALL finish(routine, "Internal error: inconsistent no. send/receive peers!")
+   END IF
+   IF ( (p_pat%recv_limits(1) - p_pat%recv_limits(0)) /= (p_pat%send_limits(1) - p_pat%send_limits(0)) ) THEN
+     CALL finish(routine, "Internal error: inconsistent sender/receiver size!")
+   END IF
+   IF ( (p_pat%recv_limits(0) /= 0) .OR. (p_pat%send_limits(0) /= 0) ) THEN
+     CALL finish(routine, "Internal error: inconsistent sender/receiver start position!")
+   END IF
+   IF ( (p_pat%recv_limits(1) /= p_pat%n_recv) .OR. (p_pat%n_recv /= p_pat%n_send) ) THEN
+     CALL finish(routine, "Internal error: inconsistent counts for sender/receiver!")
+   END IF
+
+   ! "communication" (direct copy)
+   ! -----------------------------
+
+   IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+     lbound2 = send_lbound2 - 1
+   ELSE
+     lbound2 = 0
+   ENDIF
+
+   IF(PRESENT(add)) THEN
+     DO i=1,p_pat%n_pnts
+       recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+         &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
+         &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+         &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+     END DO
+   ELSE
+     DO i=1,p_pat%n_pnts
+       recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+         &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+         &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+     END DO
+   END IF
+
+ END SUBROUTINE exchange_data_r2d_seq
+
+
 !================================================================================================
 ! INTEGER SECTION -------------------------------------------------------------------------------
 ! 
@@ -3443,11 +3563,16 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
    INTEGER, OPTIONAL :: send_lbound2
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
    INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    INTEGER :: send_buf(1,p_pat%n_send)
    INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
 
    IF (use_exchange_delayed) THEN
 
@@ -3526,11 +3651,16 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
    INTEGER, OPTIONAL :: send_lbound2
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_l2d"
    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    LOGICAL :: send_buf(1,p_pat%n_send)
    INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
 
    IF (use_exchange_delayed) THEN
 
@@ -3600,7 +3730,7 @@ SUBROUTINE exchange_data_reverse_2(p_pat, recv, send)
 
 
 ! !LOCAL VARIABLES:
-
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_reverse_2"
    REAL(wp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    REAL(wp) :: send_buf(1,p_pat%n_recv)
    INTEGER :: i
@@ -3608,6 +3738,10 @@ SUBROUTINE exchange_data_reverse_2(p_pat, recv, send)
 !EOP
 !-----------------------------------------------------------------------
 !BOC
+
+   IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+   END IF
 
    IF(use_exchange_delayed) THEN
 
