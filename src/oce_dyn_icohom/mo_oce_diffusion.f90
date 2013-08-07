@@ -1369,7 +1369,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
-!! mpi parallelized, no sync required
+!! The result diff_column is calculated on in_domain_cells
 SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
                                          & field_column,&
                                          & h_c,         &
@@ -1397,25 +1397,26 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
   REAL(wp) :: inv_zinv_m(1:n_zlev)
   REAL(wp) :: dt_inv
   INTEGER  :: z_dolic
-  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_subset_range), POINTER :: cells_in_domain !all_cells
   TYPE(t_patch), POINTER         :: p_patch 
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
   !-----------------------------------------------------------------------
   p_patch   => p_patch_3D%p_patch_2D(1)
-  all_cells => p_patch%cells%all
+  ! all_cells => p_patch%cells%all
+  cells_in_domain => p_patch%cells%in_domain
   !-----------------------------------------------------------------------
   slev    = 1
   !A_v    = 0.0001_wp
   dt_inv = 1.0_wp/dtime
 
-  field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)&
-  &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)*dt_inv
+  field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  &
+    & = field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) * dt_inv
 
-  CALL sync_patch_array(SYNC_C, p_patch, field_column)
+  ! CALL sync_patch_array(SYNC_C, p_patch, field_column)
 
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
 
@@ -1468,7 +1469,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
     END DO
   END DO
 
-  CALL sync_patch_array(SYNC_C, p_patch, diff_column)
+  ! CALL sync_patch_array(SYNC_C, p_patch, diff_column)
 
 END SUBROUTINE tracer_diffusion_vert_impl_hom
 !-------------------------------------------------------------------------  

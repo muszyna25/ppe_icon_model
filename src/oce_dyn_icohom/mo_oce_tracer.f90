@@ -551,7 +551,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
             ENDDO
         END DO
       END DO
-      CALL sync_patch_array(SYNC_C, p_patch, z_temp)
+
+      ! This is not needed, the tracer_diffusion_vert_impl_hom is only column-wise
+      ! CALL sync_patch_array(SYNC_C, p_patch, z_temp)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
@@ -636,7 +638,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
             ENDDO
         END DO
       END DO
-      CALL sync_patch_array(SYNC_C, p_patch, z_temp)
+
+      ! not further used
+      ! CALL sync_patch_array(SYNC_C, p_patch, z_temp)
 
     ENDIF ! lvertical_diff_implicit
   ENDIF!iswm_oce /= 1)
