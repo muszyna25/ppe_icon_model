@@ -1309,8 +1309,6 @@ CONTAINS
     !CALL ice_dynamics   (ice, QatmAve)
     ! At the moment we just pretend the ice movement is zero and modify the oceanic stress
     ! accordingly
-    CALL dbg_print('forc_wind_u before' ,p_sfc_flx%forc_wind_u ,str_module,1, in_subset=p_patch%cells%owned)
-    CALL dbg_print('forc_wind_v before' ,p_sfc_flx%forc_wind_v ,str_module,1, in_subset=p_patch%cells%owned)
     p_sfc_flx%forc_wind_u(:,:) =                                                                  &
       & p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) )                                   &
       & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
@@ -1319,8 +1317,6 @@ CONTAINS
       & p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) )                                   &
       & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
       &         *p_os%p_diag%v(:,1,:)*1e-3_wp
-    CALL dbg_print('forc_wind_u after' ,p_sfc_flx%forc_wind_u ,str_module,1, in_subset=p_patch%cells%owned)
-    CALL dbg_print('forc_wind_v after' ,p_sfc_flx%forc_wind_v ,str_module,1, in_subset=p_patch%cells%owned)
 
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
