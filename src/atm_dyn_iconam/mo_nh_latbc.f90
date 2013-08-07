@@ -880,6 +880,10 @@ MODULE mo_nh_latbc
 !$OMP END DO
 #endif
 
+#ifndef __SX__
+!$OMP END PARALLEL
+#endif
+
   END SUBROUTINE adjust_boundary_data
   !-------------------------------------------------------------------------
 
