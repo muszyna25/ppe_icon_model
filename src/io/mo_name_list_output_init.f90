@@ -47,7 +47,7 @@ MODULE mo_name_list_output_init
     &                                             get_var_timelevel, get_var_name,                &
     &                                             get_var_tileidx
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
-    &                                             level_type_il, lev_type_str
+    &                                             level_type_il
   USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
   ! MPI Communication routines              
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
