@@ -60,7 +60,8 @@ USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
   &                              init_oce_relax, irelax_3d_S, irelax_3d_T, irelax_2d_S,     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
-  &                              basin_height_deg,  basin_width_deg, temperature_relaxation
+  &                              basin_height_deg,  basin_width_deg, temperature_relaxation,&
+  &                              oce_t_ref, oce_s_ref
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
   &                              land_boundary,                                             &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -1534,7 +1535,7 @@ CONTAINS
 
     CASE (46)
     ! T and S are horizontally and vertically homegeneous
-    ! Values are hardcoded and used for comparison with MPIOM
+    ! Values are taken from namelist and used for comparison with MPIOM; default: t=16 C, s=35 psu
       CALL message(TRIM(routine), 'Initialization of testcases (46)')
       CALL message(TRIM(routine), &
         &  ' - here: horizontally and vertically homogen')
@@ -1545,15 +1546,9 @@ CONTAINS
           DO jk=1,n_zlev
 
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ! #slo# 2011-11-17 - for MPIOM comparison - set T/S to 5C/35psu
-              ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
-              ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 2.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 16.0_wp !5.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = oce_t_ref
               IF (no_tracer == 2) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = oce_s_ref
               END IF
             END IF
           END DO
@@ -1739,7 +1734,6 @@ CONTAINS
         END DO
       END IF
 
-
     CASE (51)
       CALL message(TRIM(routine), 'Simple Initialization of testcases (51)')
       CALL message(TRIM(routine), &
@@ -1816,6 +1810,7 @@ CONTAINS
           END DO
         END DO
       END DO
+
     CASE(53)
       CALL message(TRIM(routine), 'LOCK exchange (53)')
       p_os%p_prog(nold(1))%h  = 0.0_wp

@@ -188,7 +188,7 @@ MODULE mo_intp_coeffs
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coeff, &
     & nudge_efold_width
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg
   
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range

@@ -234,8 +234,8 @@ MODULE mo_ocean_nml
                                                  ! keep constant over time and are set to the background values; no convection
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
 
-  REAL(wp) :: t_ref                 = 15.0_wp    ! reference temperature for initialization
-  REAL(wp) :: s_ref                 = 35.0_wp    ! reference salinity for initialization
+  REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
+  REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
@@ -332,7 +332,8 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 l_forc_freshw, limit_elevation, seaice_limit 
+    &                 l_forc_freshw, limit_elevation, seaice_limit,        &
+    &                 oce_t_ref, oce_s_ref
 
   NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland
