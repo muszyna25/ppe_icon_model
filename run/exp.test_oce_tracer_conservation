@@ -90,7 +90,7 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=240        # ocean model output interval hours [hours]
+nhours_data=6          # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
 ndays_restart=100      # stop model for restart [days]
@@ -145,7 +145,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  't','s','t_acc','s_acc'
+  ml_varlist       =  't','s','t_acc','s_acc','wet_c'
 !/
 ! no complete sea ice
 !&output_nml
