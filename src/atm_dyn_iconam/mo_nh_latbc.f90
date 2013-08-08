@@ -729,6 +729,7 @@ MODULE mo_nh_latbc
     ! Set local variables for time levels on the global domain
     n_now  = nnow(1)
 
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     ! Boundary update of horizontal velocity
     rl_start = 1
     rl_end   = grf_bdywidth_e
@@ -848,14 +849,13 @@ MODULE mo_nh_latbc
       ENDDO
 !OMP END DO
     ENDIF
+!$OMP END PARALLEL
     
     ! OpenMP directives are commented for the NEC because the overhead is too large
-#ifndef __SX__
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-#endif
     ! Index list over halo points lying in the boundary interpolation zone
     ! Note: this list typically contains at most 10 grid points 
 #ifndef __SX__
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO ic = 1, p_nh_state%metrics%bdy_halo_c_dim
@@ -878,9 +878,6 @@ MODULE mo_nh_latbc
     ENDDO
 #ifndef __SX__
 !$OMP END DO
-#endif
-
-#ifndef __SX__
 !$OMP END PARALLEL
 #endif
 
