@@ -129,6 +129,9 @@ MODULE mo_oce_state
   PUBLIC :: t_ptr3d
   PUBLIC :: t_oce_config
 
+  PUBLIC :: t_ocean_areas
+  PUBLIC :: t_ocean_basins
+
   !
   !constructors
   PRIVATE :: construct_hydro_ocean_diag
@@ -440,6 +443,47 @@ MODULE mo_oce_state
     CHARACTER(len=max_char_length) :: tracer_tags(max_tracers)
     INTEGER                        :: tracer_codes(max_tracers)
   END TYPE t_oce_config
+
+  !----------------------------------------------------------------------------
+  !
+  ! Ocean areas/regions:
+  !  0 = land point
+  !  1 = Greenland-Iceland-Norwegian Sea
+  !  2 = Arctic Ocean
+  !  3 = Labrador Sea
+  !  4 = North Atlantic Ocean
+  !  5 = Tropical Atlantic Ocean
+  !  6 = Southern Ocean
+  !  7 = Indian Ocean
+  !  8 = Tropical Pacific Ocean
+  !  9 = North Pacific Ocean
+  !
+  !-----------------------------
+  TYPE t_ocean_areas
+    INTEGER            :: &
+      & land                            = 0,&
+      & greenland_iceland_norwegian_sea = 1,&
+      & arctic_ocean                    = 2,&
+      & labrador_sea                    = 3,&
+      & north_atlantic                  = 4,&
+      & tropical_atlantic               = 5,&
+      & southern_ocean                  = 6,&
+      & indian_ocean                    = 7,&
+      & tropical_pacific                = 8,&
+      & north_pacific                   = 9,&
+      & caribbean                       = -33
+  END TYPE t_ocean_areas
+  !-----------------------------
+  !
+  ! Ocean basins:
+  !  1: Atlantic; 3: Pacific, for Indean and pacific the area values ara used
+  !
+  !-----------------------------
+  TYPE t_ocean_basins
+    INTEGER            :: &
+      & atlantic = 1, pacific = 3
+  END TYPE t_ocean_basins
+  !----------------------------------------------------------------------------
 
   ! variables
   TYPE(t_var_list)         , PUBLIC                      :: ocean_restart_list
@@ -2286,45 +2330,11 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
     LOGICAL :: is_area_5, is_area_8, p_test_run_bac
 
+    TYPE(t_ocean_areas)  :: ocean_areas
+    TYPE(t_ocean_basins) :: ocean_basins
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &        routine = 'mo_oce_state:init_ho_basins'
-
-    !-----------------------------
-    !
-    ! Ocean areas/regions:
-    !  0 = land point
-    !  1 = Greenland-Iceland-Norwegian Sea
-    !  2 = Arctic Ocean
-    !  3 = Labrador Sea
-    !  4 = North Atlantic Ocean
-    !  5 = Tropical Atlantic Ocean
-    !  6 = Southern Ocean
-    !  7 = Indian Ocean
-    !  8 = Tropical Pacific Ocean
-    !  9 = North Pacific Ocean
-    !
-    !-----------------------------
-    INTEGER, PARAMETER :: &
-      & LAND                            = 0,&
-      & GREENLAND_ICELAND_NORWEGIAN_SEA = 1,&
-      & ARCTIC_OCEAN                    = 2,&
-      & LABRADOR_SEA                    = 3,&
-      & NORTH_ATLANTIC                  = 4,&
-      & TROPICAL_ATLANTIC               = 5,&
-      & SOUTHERN_OCEAN                  = 6,&
-      & INDIAN_OCEAN                    = 7,&
-      & TROPICAL_PACIFIC                = 8,&
-      & NORTH_PACIFIC                   = 9,&
-      & CARIBBEAN                       = -33
-
-    !-----------------------------
-    !
-    ! Ocean basins:
-    !  1: Atlantic; 3: Pacific, for Indean and pacific the area values ara used
-    !
-    !-----------------------------
-    INTEGER, PARAMETER :: &
-      & ATLANTIC = 1, PACIFIC = 3
 
     !-----------------------------------------------------------------------------
     all_cells => p_patch%cells%all
@@ -2383,7 +2393,7 @@ CONTAINS
          IF (z_lon_deg < -180.0_wp) z_lon_deg = z_lon_deg+360.0_wp
 
          ! Arctic Ocean: default
-         iarea(jc,jb) = ARCTIC_OCEAN
+         iarea(jc,jb) = ocean_areas%arctic_ocean
 
          ! GIN Sea (not yet)
 
@@ -2393,43 +2403,43 @@ CONTAINS
          IF (                                                           &
            & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
            & (z_lon_deg >= z_lon_nam .AND. z_lon_deg < z_lon_med)       &
-           & ) iarea(jc,jb) = NORTH_ATLANTIC
+           & ) iarea(jc,jb) = ocean_areas%north_atlantic
 
          ! 9 = North Pacific
          IF (                                                           &
            & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
            & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_nam)       &
-           & ) iarea(jc,jb) = NORTH_PACIFIC
+           & ) iarea(jc,jb) = ocean_areas%north_pacific
 
          ! 5 = Tropical Atlantic (without Caribbean - yet)
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_pta .AND. z_lon_deg < z_lon_med)       &
-           & ) iarea(jc,jb) = TROPICAL_ATLANTIC
+           & ) iarea(jc,jb) = ocean_areas%tropical_atlantic
 
          ! 6 = Southern Ocean
-         IF (z_lat_deg < z30s) iarea(jc,jb) = SOUTHERN_OCEAN
+         IF (z_lat_deg < z30s) iarea(jc,jb) = ocean_areas%southern_ocean
 
          ! 7 = Indian (including Indonesian Pacific - yet)
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_ati .AND. z_lon_deg < z_lon_itp)       &
-           & ) iarea(jc,jb) = INDIAN_OCEAN
+           & ) iarea(jc,jb) = ocean_areas%indian_ocean
 
          ! 8 = Tropical Pacific
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_pta)       &
-           & ) iarea(jc,jb) = TROPICAL_PACIFIC
+           & ) iarea(jc,jb) = ocean_areas%tropical_pacific
 
          ! Crucial Region: Caribbean undefined (-33)
          IF (                                                           &
            & (z_lat_deg >= z10n      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z100w     .AND. z_lon_deg < z_lon_pta)       &
-           & ) iarea(jc,jb) = CARIBBEAN
+           & ) iarea(jc,jb) = ocean_areas%caribbean
 
          ! Land points
-         IF (v_base%lsm_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = LAND
+         IF (v_base%lsm_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = ocean_areas%land
 
       END DO
     END DO
@@ -2458,24 +2468,24 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
            is_area_5 = .false.
            is_area_8 = .false.
-           IF (iarea(jc,jb) == CARIBBEAN) THEN
+           IF (iarea(jc,jb) == ocean_areas%caribbean) then
              DO i = 1, 3  !  no_of_edges
                ! coordinates of neighbouring cells
                n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
                n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
-               IF (iarea(n_idx(i),n_blk(i)) == TROPICAL_ATLANTIC) THEN       ! neighbor is TropAtl
+               IF (iarea(n_idx(i),n_blk(i)) == ocean_areas%tropical_atlantic) then       ! NEIGHBOR IS tROPaTL
                  is_area_5 = .true.
-               ELSE IF (iarea(n_idx(i),n_blk(i)) == TROPICAL_PACIFIC) THEN  ! neighbor is TropPac
+               ELSE IF (iarea(n_idx(i),n_blk(i)) == ocean_areas%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
                  is_area_8 = .true.
                END IF
              END DO
 
              IF (is_area_5) THEN
-                iarea(jc,jb)=TROPICAL_ATLANTIC
+                iarea(jc,jb)=ocean_areas%tropical_atlantic
                 no_cor =  no_cor + 1
              ENDIF
              IF (is_area_8) THEN
-               iarea(jc,jb)=TROPICAL_PACIFIC
+               iarea(jc,jb)=ocean_areas%tropical_pacific
                no_cor =  no_cor + 1
              ENDIF
            END IF
@@ -2516,18 +2526,18 @@ CONTAINS
     !-----------------------------
     ! Fill ocean basins using ocean areas:
 
-    WHERE ( iarea(:,:) <= TROPICAL_ATLANTIC )
-      ibase(:,:) = ATLANTIC
-    ELSEWHERE ( iarea(:,:) == SOUTHERN_OCEAN )
-      ibase(:,:) = SOUTHERN_OCEAN
-    ELSEWHERE ( iarea(:,:) == INDIAN_OCEAN )
-      ibase(:,:) = INDIAN_OCEAN
-    ELSEWHERE ( iarea(:,:) >= TROPICAL_PACIFIC)
-      ibase(:,:) = PACIFIC
+    WHERE ( iarea(:,:) <= ocean_areas%tropical_atlantic )
+      ibase(:,:) = ocean_basins%atlantic
+    ELSEWHERE ( iarea(:,:) == ocean_areas%southern_ocean )
+      ibase(:,:) = ocean_areas%southern_ocean
+    ELSEWHERE ( iarea(:,:) == ocean_areas%indian_ocean )
+      ibase(:,:) = ocean_areas%indian_ocean
+    ELSEWHERE ( iarea(:,:) >= ocean_areas%tropical_pacific)
+      ibase(:,:) = ocean_basins%pacific
     END WHERE
 
-    WHERE ( iarea(:,:) == LAND )
-      ibase(:,:) = LAND
+    WHERE ( iarea(:,:) == ocean_areas%land )
+      ibase(:,:) = ocean_areas%land
     END WHERE
 
     v_base%basin_c(:,:) = ibase(:,:)
