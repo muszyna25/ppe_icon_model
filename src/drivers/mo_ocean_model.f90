@@ -36,16 +36,17 @@ MODULE mo_ocean_model
   USE mo_exception,           ONLY: message, finish
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
-  USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work
+  USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output
+  USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_grid_config,         ONLY: n_dom 
   USE mo_dynamics_config,     ONLY: iequations
 
-  USE mo_io_async,            ONLY: vlist_io_main_proc            ! main procedure for I/O PEs
+  USE mo_io_async,            ONLY: vlist_io_main_proc
 
   USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
@@ -380,6 +381,8 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
+      write(0,*)'process_mpi_io_size:',process_mpi_io_size
+      IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
       CALL init_name_list_output(lprintlist=.TRUE.,l_is_ocean=.TRUE.)
     ENDIF
