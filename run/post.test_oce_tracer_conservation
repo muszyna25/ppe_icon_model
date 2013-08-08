@@ -20,7 +20,7 @@ case "$(hostname -d)" in
 esac
 # ================================================================================
 # plotting
-## find the last input file
+# find the last input file
 cd ${dataPath}
 iFile=$(ls ${EXP}*.nc | tail -n 1)
 if [[ ! -f ${iFile} ]]; then
@@ -28,7 +28,7 @@ if [[ ! -f ${iFile} ]]; then
   echo "Give up!"
   exit 1
 fi
-## get the index of the last timestamp
+### get the index of the last timestamp
 nTimesteps=$(cdo ntime ${iFile})
 tOutput=$((nTimesteps - 1))
 # perform the ploting
@@ -40,10 +40,28 @@ for varname in ${varNames}; do
     -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput} -levIndex=1
   mv ${oFile}.${oType} plots/.
 done
+# ================================================================================
+# error check
+file=${iFile}
+cdo div $file -selname,wet_c $file _$file 2>/dev/null
+mv _$file $file
+# put differences into the log file
+for v in t s; do
+  cdo diffv -select,name=${v},timestep=${nTimesteps} $file -select,name=${v},timestep=1 $file 2>/dev/null;
+done;
+# compute global error sum
+globalDiff=$(cdo outputkey,value -gtc,0 -vertsum -fldsum -abs -sub -select,name=t,timestep=${nTimesteps} $file -select,name=t,timestep=1 $file 2>/dev/null)
+if test ${globalDiff} -eq 1; then
+  echo "# ================================================================================"
+  echo "Tracer 't' NOT conserved!"
+  echo "# ================================================================================"
+  exit 1;
+else
+  echo "# ================================================================================"
+  echo "Tracer 't' conserved"
+  echo "# ================================================================================"
+  exit 0;
+fi;
 
-# $nclCaller does not reveal an error code
-# check error needed for buildbot
-check_error 0 "oce_default: $nclCaller"
-
-exit
+# vim:ft=sh
 
