@@ -2,6 +2,7 @@
 /CMakeLists.txt -text
 /Makefile.in -text
 /README -text
+/Rakefile -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
 blas/dasum.f -text
