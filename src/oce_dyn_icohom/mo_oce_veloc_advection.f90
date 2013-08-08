@@ -250,8 +250,10 @@ CONTAINS
       & p_patch_3D,           &
       & p_op_coeff%grad_coeff,&
       & p_diag%grad)
+    ! the result is on edges_in_domain
 
-    CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))    
+    ! This is not needed at this point
+    ! CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)

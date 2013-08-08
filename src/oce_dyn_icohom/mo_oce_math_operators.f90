@@ -309,7 +309,8 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !!Boundary handling for triangles by P. Korn (2009)
-  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  !!
+  !!  mpi note: the result is on edges_in_domain.
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, p_patch_3D, grad_coeff, grad_norm_psi_e)
 
     !  patch on which computation is performed
