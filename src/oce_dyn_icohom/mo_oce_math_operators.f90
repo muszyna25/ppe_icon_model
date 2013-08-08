@@ -707,7 +707,9 @@ CONTAINS
   !! in the calculation of the tangential velocity, which is only need at lateral boundaries. Mimetic
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose.
-  !!   mpi note: the results is not synced. should be done by the calling method if necessary
+  !!
+  !! mpi note: the results is not synced. should be done by the calling method if necessary
+  !!     vn, p_vn_dual must have been synced on level 2 (in_domain + 1)
   SUBROUTINE rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
