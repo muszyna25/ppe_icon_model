@@ -55,26 +55,27 @@ MODULE mo_nwp_phy_init
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape, &
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
                                     igme, iedmf, ivdiff  
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
+    &                               cldopt_filename
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi, tsi,irad_o3, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
-  USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,      &
-    &                               init_aerosol_props_tanre_rg,   &
-    &                               init_aerosol_props_tanre_rrtm, &
-    &                               init_aerosol_props_tegen_rg,   &
-    &                               init_aerosol_props_tegen_rrtm, &
-    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
+  USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
+    &                               init_aerosol_props_tanre_rg,                    &
+    &                               init_aerosol_props_tanre_rrtm,                  &
+    &                               init_aerosol_props_tegen_rg,                    &
+    &                               init_aerosol_props_tegen_rrtm,                  &
+    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
@@ -492,9 +493,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
     CALL setup_srtm
 
-    CALL lrtm_setup
+    CALL lrtm_setup(lrtm_filename)
 
-    CALL setup_newcld_optics
+    CALL setup_newcld_optics(cldopt_filename)
     
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell

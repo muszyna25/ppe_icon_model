@@ -170,8 +170,8 @@ CONTAINS
       ssi(:) = ssi_amip(:)
       tsi    = SUM(ssi(:))
       CALL setup_srtm
-      CALL lrtm_setup
-      CALL setup_newcld_optics
+      CALL lrtm_setup('rrtmg_lw.nc')
+      CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
     END IF
 
     ! For cumulus convection:

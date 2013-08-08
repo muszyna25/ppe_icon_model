@@ -44,6 +44,7 @@ MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
   USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
@@ -62,6 +63,8 @@ MODULE mo_atm_phy_nwp_config
 
   PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, dt_phy
   PUBLIC :: configure_atm_phy_nwp
+  PUBLIC :: lrtm_filename
+  PUBLIC :: cldopt_filename
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -106,7 +109,6 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
 
-
     ! Derived variables
     !
     LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
@@ -125,6 +127,12 @@ MODULE mo_atm_phy_nwp_config
   !!
   TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
+  !> NetCDF file containing longwave absorption coefficients and other data
+  !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
+  CHARACTER(LEN=filename_max) :: lrtm_filename
+
+  !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
+  CHARACTER(LEN=filename_max) :: cldopt_filename
 
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
     &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process

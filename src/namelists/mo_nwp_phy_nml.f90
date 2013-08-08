@@ -46,13 +46,16 @@ MODULE mo_nwp_phy_nml
   USE mo_impl_constants,      ONLY: max_dom, icosmo
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: is_restart_run
 
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
 
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
+    &                               config_lrtm_filename   => lrtm_filename,   &
+    &                               config_cldopt_filename => cldopt_filename
+
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -88,7 +91,12 @@ MODULE mo_nwp_phy_nml
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
   real(wp) :: mu_snow            !! ...for snow
   
+  !> NetCDF file containing longwave absorption coefficients and other data
+  !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
+  CHARACTER(LEN=filename_max) :: lrtm_filename
 
+  !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
+  CHARACTER(LEN=filename_max) :: cldopt_filename
 
   NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
     &                    inwp_radiation, inwp_sso, inwp_gwd,       &
@@ -97,7 +105,9 @@ MODULE mo_nwp_phy_nml
     &                    dt_conv, dt_ccov, dt_rad, dt_sso, dt_gwd, &
     &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
-    &                    latm_above_top, itype_z0, mu_rain, mu_snow
+    &                    latm_above_top, itype_z0, mu_rain,        &
+    &                    mu_snow,                                  &
+    &                    lrtm_filename, cldopt_filename
 
 
 
@@ -174,8 +184,8 @@ CONTAINS
     dt_sso  (:) = -999._wp
     dt_gwd  (:) = -999._wp
 
-   
-
+    lrtm_filename   = 'rrtmg_lw.nc'  
+    cldopt_filename = 'ECHAM6_CldOptProps.nc'
 
 
     !------------------------------------------------------------------
@@ -217,7 +227,6 @@ CONTAINS
       IF (my_process_is_stdio()) WRITE(temp_settings(), nwp_phy_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml
-
 
     !-----------------------
     ! 3. apply default settings where nothing is specified explicitly (except for restart)
@@ -322,8 +331,10 @@ CONTAINS
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
-
     ENDDO
+
+    config_lrtm_filename   = TRIM(lrtm_filename)
+    config_cldopt_filename = TRIM(cldopt_filename)
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
