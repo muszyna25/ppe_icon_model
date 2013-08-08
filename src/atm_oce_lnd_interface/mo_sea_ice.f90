@@ -1309,14 +1309,12 @@ CONTAINS
     !CALL ice_dynamics   (ice, QatmAve)
     ! At the moment we just pretend the ice movement is zero and modify the oceanic stress
     ! accordingly
-    p_sfc_flx%forc_wind_u(:,:) =                                                                  &
-      & p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) )                                   &
-      & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
-      &         *p_os%p_diag%u(:,1,:)
-    p_sfc_flx%forc_wind_v(:,:) =                                                                  &
-      & p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) )                                   &
-      & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
-      &         *p_os%p_diag%v(:,1,:)
+    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) )!         &
+!     & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
+!     &         *p_os%p_diag%u(:,1,:)
+    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) )!         &
+!     & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
+!     &         *p_os%p_diag%v(:,1,:)
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
