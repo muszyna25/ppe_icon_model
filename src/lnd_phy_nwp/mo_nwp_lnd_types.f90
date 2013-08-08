@@ -70,7 +70,11 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_lnd_prog
 
-    REAL(wp), POINTER :: &
+    REAL(wp), POINTER             &
+#ifdef _CRAYFTN
+    , CONTIGUOUS                  &
+#endif
+    &  ::                         &
     &  t_snow_t       (:,:,:)   , & ! temperature of the snow-surface               (  K  )
     &  t_snow_mult_t  (:,:,:,:) , & ! temperature of snow                           (  K  )
     &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
@@ -114,7 +118,11 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_wtr_prog
 
-    REAL(wp), POINTER :: &
+    REAL(wp), POINTER         &
+#ifdef _CRAYFTN
+    , CONTIGUOUS              &
+#endif
+    &  ::                     &
     &  t_ice        (:,:)   , & ! temperature of the sea ice             (  K  )
     &  h_ice        (:,:)   , & ! depth of the sea ice                   (  m  )
     &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice     (  K  )
@@ -138,7 +146,11 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_lnd_diag
 
-    REAL(wp), POINTER ::   &
+    REAL(wp), POINTER         &
+#ifdef _CRAYFTN
+    , CONTIGUOUS              &
+#endif
+    &  ::                     &
     &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
     &  t_snow       (:,:)   , & ! temperature of the snow-surface               (  K  )
     &  t_snow_mult  (:,:,:) , & ! temperature of snow                           (  K  )

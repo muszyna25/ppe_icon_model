@@ -122,7 +122,11 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
 
-    REAL(wp), POINTER ::  &
+    REAL(wp), POINTER          &
+#ifdef _CRAYFTN
+      , CONTIGUOUS             &
+#endif
+      &  ::                    &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
       &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
       &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
@@ -220,8 +224,12 @@ MODULE mo_nwp_phy_types
 
 
     !> Parameter fields for turbulence
-    REAL(wp), POINTER ::  &
-      rcld(:,:,:)      ,    & !> standard deviation of the saturation deficit    --
+    REAL(wp), POINTER      &
+#ifdef _CRAYFTN
+      , CONTIGUOUS         &
+#endif
+      ::                   &
+      rcld(:,:,:)      ,   & !> standard deviation of the saturation deficit    --
       tcm(:,:)        ,    & !! turbulent transfer coefficients for momentum    --
       tch(:,:)        ,    & !! turbulent transfer coefficients for heat        --
       tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
@@ -268,7 +276,11 @@ MODULE mo_nwp_phy_types
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
 
     ! need only for vdiff (and some for EDMF)
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & ri      (:,:,:),    &!< moist Richardson number at layer interfaces
       & mixlen  (:,:,:),    &!< mixing length at layer interfaces
       & thvvar  (:,:,:),    &!< variance of virtual potential temperature at layer interfaces.
@@ -284,7 +296,11 @@ MODULE mo_nwp_phy_types
       & ocv     (:,:)        !< northward velocity of ocean surface current
 
 
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & cfm    (:,:,:),     &!< turbulent exchange coefficient
       & cfm_tile(:,:,:),    &!< turbulent exchange coefficient
       & cfh    (:,:,:),     &!< turbulent exchange coefficient
@@ -296,18 +312,30 @@ MODULE mo_nwp_phy_types
 
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & aersea  (:,:),      &
       & aerlan  (:,:),      &
       & aerurb  (:,:),      &
       & aerdes  (:,:)
 
-    INTEGER, POINTER :: &
+    INTEGER, POINTER        &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       &  mbas_con(:,:),     & !< cloud base level index
       &  mtop_con(:,:),     & !< cloud top  level index
       &  ktype   (:,:)        !< Type of convection
 
-    LOGICAL, POINTER :: &
+    LOGICAL, POINTER        &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & locum     (:,:),    & !< convective  activity indicator
       & ldshcv    (:,:)       !< shallow convection indicator
 
@@ -321,7 +349,11 @@ MODULE mo_nwp_phy_types
   !
   TYPE t_nwp_phy_tend
 
-    REAL(wp),POINTER ::  &
+    REAL(wp), POINTER           &
+#ifdef _CRAYFTN
+      , CONTIGUOUS              &
+#endif
+      ::                        &
       ddt_temp_radsw  (:,:,:)  ,& !! Temp-tendency from shortwave radiation
       ddt_temp_radlw  (:,:,:)  ,& !! Temp-tendency from longwave radiation
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence

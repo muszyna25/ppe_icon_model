@@ -184,6 +184,7 @@ CONTAINS
       ENDIF
 
       DO jk = 1,nlev
+!DIR$ IVDEP
         DO je = i_startidx, i_endidx
 
           ! trajectory-velocity
@@ -232,6 +233,7 @@ CONTAINS
       ENDIF
 
       DO jk = 1, nlevp1
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
 
 ! Note(DR): This is somewhat inconsistent since for horizontal trajectories
@@ -271,6 +273,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_rhodz_mc_now(jc,jk,jb) =                                          &
@@ -291,6 +294,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_rhodz_mc_new(jc,jk,jb) =                                          &
@@ -377,7 +381,6 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             p_mass_flx_ic(jc,jk,jb) = r_iadv_rcf * p_mass_flx_ic(jc,jk,jb)
-
             p_w_traj(jc,jk,jb)      = r_iadv_rcf * p_w_traj(jc,jk,jb)
 
           ENDDO
@@ -444,6 +447,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
         DO jt = 1, ntracer
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
               &                    * p_mass_flx_ic(jc,1,jb)
