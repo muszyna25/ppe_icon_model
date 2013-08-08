@@ -1,0 +1,49 @@
+EXP="test_oce_tracer_conservation"
+varNames3D="t s"
+varNames="${varNames3D}"
+maskName="wet_c"
+oType="eps"
+# ================================================================================
+# technical stuff
+basePath=${ICON_BASE_PATH}
+dataPath="${baseBath}../experiments/${EXP}/"
+scriptPath="/pool/data/ICON/tools"
+nclCaller="nclsh"
+plotCmd="${scriptPath}/icon_plot.ncl"
+# set the CDO path for the dwd to a local installation
+case "$(hostname -d)" in
+  dwd.de)
+    CDO="/e/uhome/extrmuel/local/bin/cdo"
+    ;;
+  *)
+    CDO="cdo"
+esac
+# ================================================================================
+# plotting
+## find the last input file
+cd ${dataPath}
+iFile=$(ls ${EXP}*.nc | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+fi
+## get the index of the last timestamp
+nTimesteps=$(cdo ntime ${iFile})
+tOutput=$((nTimesteps - 1))
+# perform the ploting
+mkdir -p plots
+for varname in ${varNames}; do 
+  oFile=${varname}_${iFile}
+  ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
+    -varName=$varname -maskName=${maskName} -noConfig \
+    -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput} -levIndex=1
+  mv ${oFile}.${oType} plots/.
+done
+
+# $nclCaller does not reveal an error code
+# check error needed for buildbot
+check_error 0 "oce_default: $nclCaller"
+
+exit
+
