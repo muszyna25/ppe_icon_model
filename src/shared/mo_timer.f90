@@ -147,7 +147,14 @@ MODULE mo_timer
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
 
-  PUBLIC :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
+  PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
+            timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
+            timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
+            timer_extra16, timer_extra17, timer_extra18, timer_extra19, timer_extra20, &
+            timer_extra21, timer_extra22, timer_extra23, timer_extra24, timer_extra25, &
+            timer_extra26, timer_extra27, timer_extra28, timer_extra29, timer_extra30, &
+            timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
+            timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
   ! low level timing routine
   PUBLIC :: tic, toc
@@ -273,7 +280,14 @@ MODULE mo_timer
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
-  INTEGER :: timer_extra1, timer_extra2, timer_extra3, timer_extra4
+  INTEGER :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
+             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
+             timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
+             timer_extra16, timer_extra17, timer_extra18, timer_extra19, timer_extra20, &
+             timer_extra21, timer_extra22, timer_extra23, timer_extra24, timer_extra25, &
+             timer_extra26, timer_extra27, timer_extra28, timer_extra29, timer_extra30, &
+             timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
+             timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
   INTEGER :: timer_ls_forcing
 CONTAINS
@@ -440,10 +454,46 @@ CONTAINS
     timer_feedback   = new_timer("nesting.feedback")
 
     ! extra timers for on-demand (non-permanent) timings
-    timer_extra1 = new_timer("extra1")
-    timer_extra2 = new_timer("extra2")
-    timer_extra3 = new_timer("extra3")
-    timer_extra4 = new_timer("extra4")
+    timer_extra1  = new_timer("extra1")
+    timer_extra2  = new_timer("extra2")
+    timer_extra3  = new_timer("extra3")
+    timer_extra4  = new_timer("extra4")
+    timer_extra5  = new_timer("extra5")
+    timer_extra6  = new_timer("extra6")
+    timer_extra7  = new_timer("extra7")
+    timer_extra8  = new_timer("extra8")
+    timer_extra9  = new_timer("extra9")
+    timer_extra10 = new_timer("extra10")
+    timer_extra11 = new_timer("extra11")
+    timer_extra12 = new_timer("extra12")
+    timer_extra13 = new_timer("extra13")
+    timer_extra14 = new_timer("extra14")
+    timer_extra15 = new_timer("extra15")
+    timer_extra16 = new_timer("extra16")
+    timer_extra17 = new_timer("extra17")
+    timer_extra18 = new_timer("extra18")
+    timer_extra19 = new_timer("extra19")
+    timer_extra20 = new_timer("extra20")
+    timer_extra21 = new_timer("extra21")
+    timer_extra22 = new_timer("extra22")
+    timer_extra23 = new_timer("extra23")
+    timer_extra24 = new_timer("extra24")
+    timer_extra25 = new_timer("extra25")
+    timer_extra26 = new_timer("extra26")
+    timer_extra27 = new_timer("extra27")
+    timer_extra28 = new_timer("extra28")
+    timer_extra29 = new_timer("extra29")
+    timer_extra30 = new_timer("extra30")
+    timer_extra31 = new_timer("extra31")
+    timer_extra32 = new_timer("extra32")
+    timer_extra33 = new_timer("extra33")
+    timer_extra34 = new_timer("extra34")
+    timer_extra35 = new_timer("extra35")
+    timer_extra36 = new_timer("extra36")
+    timer_extra37 = new_timer("extra37")
+    timer_extra38 = new_timer("extra38")
+    timer_extra39 = new_timer("extra39")
+    timer_extra40 = new_timer("extra40")
 
     timer_ls_forcing = new_timer("ls_forcing")
 
