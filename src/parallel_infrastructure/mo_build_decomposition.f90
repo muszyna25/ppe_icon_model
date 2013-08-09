@@ -188,10 +188,11 @@ CONTAINS
     ENDIF
 #endif
 
-
-    DO jg = n_dom_start, n_dom
-      CALL complete_patchinfo_oce(p_patch(jg))
-    END DO
+    IF (l_is_ocean) THEN    
+      DO jg = n_dom_start, n_dom
+        CALL complete_patchinfo_oce(p_patch(jg))
+      END DO
+    END IF
 
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
