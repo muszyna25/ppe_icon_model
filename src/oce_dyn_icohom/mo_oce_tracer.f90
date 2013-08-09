@@ -47,12 +47,12 @@ USE mo_kind,                      ONLY: wp
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
-USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
+USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
-  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,    &
-  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
-  &                                     MIMETIC_MIURA, l_forc_freshw
+  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
+  &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
+  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
+  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -442,6 +442,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   INTEGER  :: i_startidx_c, i_endidx_c
   TYPE(t_subset_range), POINTER :: cells_in_domain
   TYPE(t_patch), POINTER         :: p_patch 
+
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_tracer_advection:advect_individual_tracer')
   !-------------------------------------------------------------------------------_
@@ -466,6 +467,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   !content_old=content
   !write(*,*)'content before h-adv',content_old 
 
+  IF (l_skip_tracer) THEN
+    trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c) = trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c)
+    RETURN
+  ENDIF
+
   CALL advect_diffuse_flux_horz( p_patch_3D,            &
                                & trac_old,              &
                                & p_os,                  &
@@ -477,7 +483,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('after AdvDiffHorz: flux horz',flux_horz,str_module,idt_src)
+  CALL dbg_print('aft. AdvDiffHorz:flux horz',flux_horz,str_module,idt_src)
   !---------------------------------------------------------------------
 
   !Shallow water is done with horizontal advection
@@ -508,8 +514,13 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('after AdvDiffVert: flux vert',flux_vert,str_module,idt_src)
+    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert,str_module,idt_src)
     !---------------------------------------------------------------------
+
+    ! #slo# 2013-08-09 - test: no tracer horz/vert advection/horz diffusion
+    !  - should be controlled by namelist parameter for horz/vert advect/diffuse
+    !flux_vert=0.0_wp
+    !flux_horz=0.0_wp
 
     !Case: Implicit Vertical diffusion
     IF(expl_vertical_tracer_diff==1)THEN
@@ -558,6 +569,10 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
             ENDDO
         END DO
       END DO
+
+      ! #slo# 2013-08-09 - test: no tracer horz/vert advection/horz diffusion
+      !  this line should not be necessary, since z_temp=z_old if flux_vert, flux_horz and bc_top_tracer are zero?
+      !z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c) = trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c)
 
       ! This is not needed, the tracer_diffusion_vert_impl_hom is only column-wise
       ! CALL sync_patch_array(SYNC_C, p_patch, z_temp)

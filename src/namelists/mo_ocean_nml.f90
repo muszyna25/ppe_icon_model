@@ -266,7 +266,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: CWA                   = 5.0E-4_wp  ! Tuning parameters for vertical mixing
   REAL(wp) :: CWT                   = 5.0E-4_wp  !   of tracer and velocity
 
-
   LOGICAL  :: lviscous              = .TRUE.    
   LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
@@ -281,6 +280,8 @@ MODULE mo_ocean_nml
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
+
+  LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
 
   ! special diagnostics configuration
   !
@@ -297,7 +298,7 @@ MODULE mo_ocean_nml
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
     &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
-    &                 l_partial_cells,                                     &
+    &                 l_partial_cells, l_skip_tracer,                      &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
