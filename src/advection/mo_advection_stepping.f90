@@ -431,6 +431,7 @@ CONTAINS
               ! index of top half level
               ikp1 = jk + 1
 
+!DIR$ IVDEP
               DO jc = i_startidx, i_endidx
 
                 p_tracer_new(jc,jk,jb,jt) =                                         &
@@ -653,6 +654,7 @@ CONTAINS
 
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_tracer_new(jc,jk,jb,jt) =                                         &
@@ -768,6 +770,7 @@ CONTAINS
             ! index of top half level
             ikp1 = jk + 1
 
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
 
               p_tracer_new(jc,jk,jb,jt) =                                         &
