@@ -2661,7 +2661,7 @@ CONTAINS
        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,lu_subs)
+!$OMP DO PRIVATE(jb,jt,ic,i_count,jc,lu_subs,jt_in)
        DO jb = i_startblk, i_endblk
          IF (ext_data(jg)%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
          IF (ntiles_lnd == 1) THEN 
