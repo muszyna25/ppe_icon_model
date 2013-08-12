@@ -70,13 +70,12 @@ MODULE mo_nh_latbc
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
   USE mo_netcdf_read,         ONLY: nf, read_netcdf_data_single,        &
                                     read_netcdf_data
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_sync,                ONLY: cumulative_sync_patch_array, &
+    &                               SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
-  USE mo_initicon_config,     ONLY: nlev_in
-  USE mo_dynamics_config,     ONLY: nnow, nnew, nsav1
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -99,6 +98,7 @@ MODULE mo_nh_latbc
                             last_latbc_tlev     ! last_ext_tlev is the last written time level index
   TYPE(t_datetime)       :: last_latbc_datetime ! last read time step
   TYPE(t_initicon_state) :: p_latbc_data(2)     ! storage for two time-level boundary data
+  INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
 
   PUBLIC :: allocate_latbc_data, read_latbc_data, deallocate_latbc_data,  &
     &       p_latbc_data, latbc_fileid, read_latbc_tlev, last_latbc_tlev, &
@@ -128,6 +128,7 @@ MODULE mo_nh_latbc
       "mo_nh_latbc::allocate_latbc_data"
 
     CALL message(TRIM(routine),'start')
+    nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
     END IF
@@ -258,7 +259,6 @@ MODULE mo_nh_latbc
 
     ! local variables
     TYPE(t_patch), POINTER              :: patch
-    INTEGER                             :: rl_start, rl_end
     INTEGER                             :: jc,je,jk,jb                ! loop indices
     INTEGER                             :: nblks_c, nblks_e           ! number of blocks
     INTEGER                             :: i_startblk, i_endblk
@@ -277,9 +277,7 @@ MODULE mo_nh_latbc
     iidx           => patch%edges%cell_idx
     iblk           => patch%edges%cell_blk
 
-    IF (nlev_in == 0) THEN
-      CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
-    END IF
+    nlev_in = latbc_config%nlev_in
       
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -323,7 +321,7 @@ MODULE mo_nh_latbc
         & 'n_patch_cells_g and cells in IFS2ICON file do not match.')
       ENDIF
 
-      IF(nlev_in /= no_levels+1) THEN
+      IF(nlev_in /= no_levels) THEN
         CALL finish(TRIM(routine),&
         & 'nlev_in does not match the number of levels in IFS2ICON file.')
       ENDIF
@@ -349,6 +347,10 @@ MODULE mo_nh_latbc
       &                           patch%n_patch_cells,  patch%cells%glb_index,          &
       &                           patch%nlevp1,         p_latbc_data(tlev)%atm%w        )
 
+    CALL read_netcdf_data_single( latbc_fileid, 'pres', patch%n_patch_cells_g,          &
+      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
+      &                           patch%nlev,           p_latbc_data(tlev)%atm%pres     )
+
     CALL read_netcdf_data_single( latbc_fileid, 'qv',   patch%n_patch_cells_g,          &
       &                           patch%n_patch_cells,  patch%cells%glb_index,          &
       &                           patch%nlev,           p_latbc_data(tlev)%atm%qv       )
@@ -368,10 +370,6 @@ MODULE mo_nh_latbc
     CALL read_netcdf_data_single( latbc_fileid, 'qs',   patch%n_patch_cells_g,          &
       &                           patch%n_patch_cells,  patch%cells%glb_index,          &
       &                           patch%nlev,           p_latbc_data(tlev)%atm%qs       )
-
-    CALL read_netcdf_data_single( latbc_fileid, 'pres', patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%pres     )
 
     !
     ! Convert u and v on cell points to vn at edge points
@@ -446,9 +444,7 @@ MODULE mo_nh_latbc
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
                                             
     patch => p_patch(1)                                        
-    IF (nlev_in == 0) THEN
-      CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
-    END IF
+    nlev_in = latbc_config%nlev_in
       
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -712,40 +708,37 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-08-02)
   !!
-  SUBROUTINE adjust_boundary_data ( p_patch, p_nh_state, latbc_inter1, latbc_inter2 )
+  SUBROUTINE adjust_boundary_data ( p_patch, latbc_inter1, latbc_inter2, &
+    &                               tlev, p_nh_state )
     TYPE(t_patch),    INTENT(IN)    :: p_patch
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state
     REAL(wp),         INTENT(IN)    :: latbc_inter1, latbc_inter2
+    INTEGER,          INTENT(IN)    :: tlev   ! nnow or nnew
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state
 
     ! Local variables
-    INTEGER                         :: rl_start, rl_end, i_startblk, i_endblk, &
+    INTEGER                         :: i_startblk, i_endblk, &
       &                                i_startidx, i_endidx
-    INTEGER                         :: ic, jc, jk, jb, je, n_now
+    INTEGER                         :: ic, jc, jk, jb, je
     INTEGER                         :: nlev, nlevp1
 
     nlev = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    ! Set local variables for time levels on the global domain
-    n_now  = nnow(1)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-    ! Boundary update of horizontal velocity
-    rl_start = 1
-    rl_end   = grf_bdywidth_e
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,1)
+    ! a) Boundary update of horizontal velocity
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
+                         i_startidx, i_endidx, 1, grf_bdywidth_e)
 
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
-          p_nh_state%prog(n_now)%vn(je,jk,jb) = &
+          p_nh_state%prog(tlev)%vn(je,jk,jb) = &
             &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%vn(je,jk,jb) &
             &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%vn(je,jk,jb)
         ENDDO
@@ -753,43 +746,37 @@ MODULE mo_nh_latbc
     ENDDO
 !$OMP END DO
 
-    ! Boundary update of variables at cell centers
-    rl_start = 1
-    rl_end   = grf_bdywidth_c
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-
-    IF (my_process_is_mpi_all_seq()) THEN
+    ! b) Boundary update of variables at cell centers
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+                           i_startidx, i_endidx, 1, grf_bdywidth_c)
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
-            p_nh_state%prog(n_now)%rho(jc,jk,jb) = &
+            p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
               &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
               &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
 
-            p_nh_state%prog(n_now)%theta_v(jc,jk,jb) = &
+            p_nh_state%prog(tlev)%theta_v(jc,jk,jb) = &
               &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
               &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
 
             ! Diagnose rhotheta from rho and theta
-            p_nh_state%prog(n_now)%rhotheta_v(jc,jk,jb) = &
-              &   p_nh_state%prog(n_now)%rho(jc,jk,jb) * &
-              &   p_nh_state%prog(n_now)%theta_v(jc,jk,jb)
+            p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb) = &
+              &   p_nh_state%prog(tlev)%rho(jc,jk,jb) * &
+              &   p_nh_state%prog(tlev)%theta_v(jc,jk,jb)
 
             ! Diagnose exner from rhotheta
-            p_nh_state%prog(n_now)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
-              & p_nh_state%prog(n_now)%rhotheta_v(jc,jk,jb)))
+            p_nh_state%prog(tlev)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
+              & p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb)))
 
-            p_nh_state%prog(n_now)%w(jc,jk,jb) = &
+            p_nh_state%prog(tlev)%w(jc,jk,jb) = &
               &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
               &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
 
@@ -797,89 +784,13 @@ MODULE mo_nh_latbc
         ENDDO
 
         DO jc = i_startidx, i_endidx
-          p_nh_state%prog(n_now)%w(jc,nlevp1,jb) = &
+          p_nh_state%prog(tlev)%w(jc,nlevp1,jb) = &
             &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
             &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
         ENDDO
       ENDDO
-!OMP END DO
-
-    ELSE
-      ! In the MPI-parallelized case, only rho and w are updated here,
-      ! and theta_v is preliminarily stored on exner in order to save
-      ! halo communications
-
-      rl_start = 1
-      rl_end   = grf_bdywidth_c
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-
-            p_nh_state%prog(n_now)%rho(jc,jk,jb) = &
-              &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
-              &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
-
-            ! *** Storing theta_v on exner is done to save MPI communications ***
-            ! DO NOT TOUCH THIS!
-            p_nh_state%prog(n_now)%exner(jc,jk,jb) = &
-              &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
-              &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
-
-            p_nh_state%prog(n_now)%w(jc,jk,jb) = &
-              &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
-              &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-
-        DO jc = i_startidx, i_endidx
-          p_nh_state%prog(n_now)%w(jc,nlevp1,jb) = &
-            &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
-            &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
-        ENDDO
-      ENDDO
-!OMP END DO
-    ENDIF
-!$OMP END PARALLEL
-    
-    ! OpenMP directives are commented for the NEC because the overhead is too large
-    ! Index list over halo points lying in the boundary interpolation zone
-    ! Note: this list typically contains at most 10 grid points 
-#ifndef __SX__
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
-    DO ic = 1, p_nh_state%metrics%bdy_halo_c_dim
-
-      jb = p_nh_state%metrics%bdy_halo_c_blk(ic)
-      jc = p_nh_state%metrics%bdy_halo_c_idx(ic)
-
-      DO jk = 1, nlev
-        p_nh_state%prog(n_now)%theta_v(jc,jk,jb) = p_nh_state%prog(n_now)%exner(jc,jk,jb)
-
-        ! Diagnose rhotheta from rho and theta
-        p_nh_state%prog(n_now)%rhotheta_v(jc,jk,jb) = p_nh_state%prog(n_now)%rho(jc,jk,jb) * &
-          p_nh_state%prog(n_now)%theta_v(jc,jk,jb)
-
-        ! Diagnose exner from rhotheta
-        p_nh_state%prog(n_now)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
-          p_nh_state%prog(n_now)%rhotheta_v(jc,jk,jb)))
-
-      ENDDO
-    ENDDO
-#ifndef __SX__
 !$OMP END DO
 !$OMP END PARALLEL
-#endif
 
   END SUBROUTINE adjust_boundary_data
   !-------------------------------------------------------------------------

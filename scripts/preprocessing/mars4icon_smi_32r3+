@@ -38,13 +38,13 @@ set -x
 
 pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
 step=${2:-0}              # forecast step (in hours)
-res="${3:-255}"           # resolution
-levelist=${4:-1/to/137}   # levels (L137 from 2013062512)
+res="${3:-1279}"           # resolution
+levelist=${4:-1/to/91}   # levels (L137 from 2013062512)
 
 # --- data output ---
 
 # define data directory (if not set otherwise)
-datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data}
+datadir=${IFSDATADIR:-/e/uwork/${USER}/icon/ifs.data/ecmwf-june}
 mkdir -p $datadir
 tempdir=${TMPDIR}
 
@@ -104,7 +104,7 @@ retrieve,
         levtype  = ml,                                  # model levels,
         levelist = ${levelist}
 retrieve,
-        param    = lnsp/z,
+        param    = lnps/z,
         levelist = 1
 retrieve,
         param    = tsn/skt/sst/stl1/stl2/stl3/stl4/sd/rsn/asn/src/slt/z,

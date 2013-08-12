@@ -62,10 +62,11 @@ MODULE mo_limarea_nml
   !------------------------------------------------------------------------
   INTEGER                         :: itype_latbc    ! type of limited area boundary nudging
   REAL(wp)                        :: dtime_latbc    ! dt between two consequtive external latbc files
+  INTEGER                         :: nlev_latbc     ! number of vertical levels in boundary data
   CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
   CHARACTER(LEN=MAX_STRING_LEN)   :: latbc_path     ! directory containing external latbc files
 
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, latbc_filename, latbc_path
+  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path
 
 CONTAINS
   !>
@@ -81,6 +82,7 @@ CONTAINS
     !------------------------------------------------------------
     itype_latbc      = 0
     dtime_latbc      = 43200._wp
+    nlev_latbc       = 0
     latbc_filename   = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
     latbc_path       = "<path>"
 
@@ -112,6 +114,7 @@ CONTAINS
     !----------------------------------------------------
     latbc_config% itype_latbc     = itype_latbc
     latbc_config% dtime_latbc     = dtime_latbc
+    latbc_config% nlev_in         = nlev_latbc
     latbc_config% latbc_filename  = latbc_filename
     latbc_config% latbc_path      = latbc_path//'//'
 

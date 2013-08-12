@@ -385,6 +385,10 @@ MODULE mo_nh_stepping
       l_have_output = .TRUE.
     END IF
 
+    ! fix the first grf_bdywidth(=4) boundary cell-layers
+    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+      CALL adjust_boundary_data ( p_patch(1), 0._wp, 1._wp, nnow(1), p_nh_state(1) )
+
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output( datetime, 0._wp, .FALSE. )
     END IF
@@ -1020,12 +1024,11 @@ MODULE mo_nh_stepping
         ! and nudging increments (or, alternatively, the full fields) should be
         ! written to the grf_tend fields
 
-        !CALL adjust_boundary_data ( p_patch(jg), p_nh_state(jg), latbc_inter1, latbc_inter2 )
+        CALL adjust_boundary_data ( p_patch(jg), latbc_inter1, latbc_inter2, nnow(jg), p_nh_state(jg) )
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
 
-        CALL outer_boundary_nudging (jg, &
-          &                          nnow(jg),nnow_rcf(jg),nsav2(jg),lstep_adv(jg))
+        CALL outer_boundary_nudging (jg, nnow(jg),nnow_rcf(jg),nsav2(jg),lstep_adv(jg))
       ENDIF
       ! Note: boundary nudging in nested domains (if feedback is turned off) is
       ! applied in solve_nh for velocity components and in SR nest_boundary_nudging
@@ -1194,7 +1197,7 @@ MODULE mo_nh_stepping
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
           ELSE
-            
+
             CALL finish ( 'mo_nh_stepping', 'asynchronous halo communication currently not implemented')
           ENDIF
 
