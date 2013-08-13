@@ -512,7 +512,8 @@ _again:
 	}
 
 #line 264 "support/nml_annotate.rl"
-   if ( data->cs == nml_error ) { fprintf(stderr, "PARSE ERROR\n" ); break; }
+   if ( data->cs == nml_error ) { 
+     fprintf(stderr, "nml_annotate: could not translate the collected namelist data into a table!\n" ); break; }
 
    have = 0;
    if ( data->ts != 0 ) {

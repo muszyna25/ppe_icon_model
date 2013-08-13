@@ -261,7 +261,8 @@ int util_annotate_nml(char* in_filename, char* out_filename)
   
    %% write exec;   # execute Finite State Machine
 
-   if ( data->cs == nml_error ) { fprintf(stderr, "PARSE ERROR\n" ); break; }
+   if ( data->cs == nml_error ) { 
+     fprintf(stderr, "nml_annotate: could not translate the collected namelist data into a table!\n" ); break; }
 
    have = 0;
    if ( data->ts != 0 ) {
