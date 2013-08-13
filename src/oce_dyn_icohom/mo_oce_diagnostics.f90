@@ -75,9 +75,9 @@ IMPLICIT NONE
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
-INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
-CHARACTER(len=max_char_length)  :: diag_fname, moc_fname
+INTEGER                        :: diag_unit = -1 ! file handle for the global timeseries output
+INTEGER                        :: moc_unit  = -1 ! file handle for the global timeseries output
+CHARACTER(len=max_char_length) :: diag_fname, moc_fname
 
 !
 ! PUBLIC INTERFACE
