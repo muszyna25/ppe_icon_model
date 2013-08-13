@@ -330,12 +330,14 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
        prism_area               = p_patch%cells%area(jc,jb)
        ocean_region_areas%total = ocean_region_areas%total + prism_area
 
+       ! volume
        CALL compute_vertical_volume(jb,jc, &
          &                          prism_area, &
          &                          p_os%p_prog(nnew(1))%h(jc,jb), &
          &                          p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
          &                          p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
          &                          column_volume)
+       ocean_region_volumes%total = ocean_region_volumes%total + column_volume
 
        region_index = regions(jc,jb)
        IF     (ocean_regions%greenland_iceland_norwegian_sea == region_index) THEN
@@ -381,6 +383,10 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
 
      END DO
    END DO
+   ! compute global values
+   ocean_region_volumes%total = global_sum_array(ocean_region_volumes%total)
+   ocean_region_areas%total   = global_sum_array(ocean_region_areas%total)
+
    CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
 SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
@@ -496,16 +502,14 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
 
       DO jc =  i_startidx_c, i_endidx_c
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-          prism_vol = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
-            !prism_vol = p_op_coeff%fixed_vol_norm(jc,1,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!p_os%p_prog(nold(1))%h(jc,jb)
+          prism_vol      = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
           monitor%volume = monitor%volume + prism_vol
 
 
           monitor%pot_energy = monitor%pot_energy &
             &+ 0.5_wp*grav* prism_vol*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
 
-          monitor%kin_energy = monitor%kin_energy &
-            &+p_os%p_diag%kin(jc,1,jb)*prism_vol!p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+          monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,1,jb)*prism_vol
 
           monitor%total_energy=monitor%kin_energy+monitor%pot_energy
           DO i_no_t=1, no_tracer
