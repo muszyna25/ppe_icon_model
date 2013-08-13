@@ -54,7 +54,7 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                              set_lateral_boundary_values, t_ocean_areas, t_ocean_area_volumes
+    &                              set_lateral_boundary_values, t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert, t_grid_edges
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -176,8 +176,10 @@ PRIVATE             :: oce_section_count
 TYPE(t_oce_section) :: oce_sections(oce_section_count)
 PRIVATE             :: oce_sections
 
-TYPE(t_ocean_area_volumes),SAVE :: ocean_area_volumes
-PRIVATE                         :: ocean_area_volumes
+TYPE(t_ocean_region_volumes),SAVE :: ocean_region_volumes
+PRIVATE                           :: ocean_region_volumes
+TYPE(t_ocean_region_areas),SAVE   :: ocean_region_areas
+PRIVATE                           :: ocean_region_areas
 
 CONTAINS
 !-------------------------------------------------------------------------
@@ -202,13 +204,14 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
     & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
   !-----------------------------------------------------------------------
   CHARACTER(len=max_char_length) :: headerLine
-  TYPE(t_patch), POINTER         :: p_patch
   CHARACTER(len=max_char_length) :: listname
   INTEGER                        :: nblks_c,nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
-  REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, volume
+  REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, column_volume
+
+  TYPE(t_patch), POINTER         :: p_patch
   INTEGER, POINTER               :: regions(:,:)
   TYPE(t_subset_range), POINTER  :: owned_cells
-  TYPE(t_ocean_areas)            :: ocean_areas
+  TYPE(t_ocean_regions)          :: ocean_regions
   !-----------------------------------------------------------------------
   p_patch => p_patch_3D%p_patch_2D(1)
   regions => p_patch_3D%regio_c
@@ -317,53 +320,63 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
    surface_height = 0.0_wp
    prism_vol      = 0.0_wp
    prism_area     = 0.0_wp
-   volume         = 0.0_wp
+   column_volume  = 0.0_wp
    ! compute regional ocean volumes
    DO jb = owned_cells%start_block, owned_cells%end_block
    CALL get_index_range(owned_cells, jb, start_index, end_index)
      DO jc = start_index, end_index
 
        ! area
-       prism_area   = p_patch%cells%area(jc,jb)
-       region_index = regions(jc,jb)
-       surface_area = surface_area + prism_area
+       prism_area               = p_patch%cells%area(jc,jb)
+       ocean_region_areas%total = ocean_region_areas%total + prism_area
 
        CALL compute_vertical_volume(jb,jc, &
          &                          prism_area, &
          &                          p_os%p_prog(nnew(1))%h(jc,jb), &
          &                          p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
          &                          p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
-         &                          volume)
+         &                          column_volume)
 
-       IF     (ocean_areas%greenland_iceland_norwegian_sea == region_index) THEN
-         ocean_area_volumes%greenland_iceland_norwegian_sea = ocean_area_volumes%greenland_iceland_norwegian_sea + volume
+       region_index = regions(jc,jb)
+       IF     (ocean_regions%greenland_iceland_norwegian_sea == region_index) THEN
+         ocean_region_volumes%greenland_iceland_norwegian_sea = ocean_region_volumes%greenland_iceland_norwegian_sea + column_volume
+         ocean_region_areas%greenland_iceland_norwegian_sea   = ocean_region_areas%greenland_iceland_norwegian_sea + prism_area
 
-       ELSEIF (ocean_areas%arctic_ocean == region_index) THEN
-         ocean_area_volumes%arctic_ocean                    = ocean_area_volumes%arctic_ocean + volume
+       ELSEIF (ocean_regions%arctic_ocean == region_index) THEN
+         ocean_region_volumes%arctic_ocean                    = ocean_region_volumes%arctic_ocean + column_volume
+         ocean_region_areas%arctic_ocean                      = ocean_region_areas%arctic_ocean + prism_area
 
-       ELSEIF (ocean_areas%labrador_sea == region_index) THEN
-         ocean_area_volumes%labrador_sea                    = ocean_area_volumes%labrador_sea + volume
+       ELSEIF (ocean_regions%labrador_sea == region_index) THEN
+         ocean_region_volumes%labrador_sea                    = ocean_region_volumes%labrador_sea + column_volume
+         ocean_region_areas%labrador_sea                      = ocean_region_areas%labrador_sea + prism_area
 
-       ELSEIF (ocean_areas%north_atlantic == region_index) THEN
-         ocean_area_volumes%north_atlantic                  = ocean_area_volumes%north_atlantic + volume
+       ELSEIF (ocean_regions%north_atlantic == region_index) THEN
+         ocean_region_volumes%north_atlantic                  = ocean_region_volumes%north_atlantic + column_volume
+         ocean_region_areas%north_atlantic                    = ocean_region_areas%north_atlantic + prism_area
 
-       ELSEIF (ocean_areas%tropical_atlantic == region_index) THEN
-         ocean_area_volumes%tropical_atlantic               = ocean_area_volumes%tropical_atlantic + volume
+       ELSEIF (ocean_regions%tropical_atlantic == region_index) THEN
+         ocean_region_volumes%tropical_atlantic               = ocean_region_volumes%tropical_atlantic + column_volume
+         ocean_region_areas%tropical_atlantic                 = ocean_region_areas%tropical_atlantic + prism_area
 
-       ELSEIF (ocean_areas%southern_ocean == region_index) THEN
-         ocean_area_volumes%southern_ocean                  = ocean_area_volumes%southern_ocean + volume
+       ELSEIF (ocean_regions%southern_ocean == region_index) THEN
+         ocean_region_volumes%southern_ocean                  = ocean_region_volumes%southern_ocean + column_volume
+         ocean_region_areas%southern_ocean                    = ocean_region_areas%southern_ocean + prism_area
 
-       ELSEIF (ocean_areas%indian_ocean == region_index) THEN
-         ocean_area_volumes%indian_ocean                    = ocean_area_volumes%indian_ocean + volume
+       ELSEIF (ocean_regions%indian_ocean == region_index) THEN
+         ocean_region_volumes%indian_ocean                    = ocean_region_volumes%indian_ocean + column_volume
+         ocean_region_areas%indian_ocean                      = ocean_region_areas%indian_ocean + prism_area
 
-       ELSEIF (ocean_areas%tropical_pacific == region_index) THEN
-         ocean_area_volumes%tropical_pacific                = ocean_area_volumes%tropical_pacific + volume
+       ELSEIF (ocean_regions%tropical_pacific == region_index) THEN
+         ocean_region_volumes%tropical_pacific                = ocean_region_volumes%tropical_pacific + column_volume
+         ocean_region_areas%tropical_pacific                  = ocean_region_areas%tropical_pacific + prism_area
 
-       ELSEIF (ocean_areas%north_pacific == region_index) THEN
-         ocean_area_volumes%north_pacific                   = ocean_area_volumes%north_pacific + volume
+       ELSEIF (ocean_regions%north_pacific == region_index) THEN
+         ocean_region_volumes%north_pacific                   = ocean_region_volumes%north_pacific + column_volume
+         ocean_region_areas%north_pacific                     = ocean_region_areas%north_pacific + prism_area
 
-       ELSEIF (ocean_areas%caribbean == region_index) THEN
-         ocean_area_volumes%caribbean                       = ocean_area_volumes%caribbean + volume
+       ELSEIF (ocean_regions%caribbean == region_index) THEN
+         ocean_region_volumes%caribbean                       = ocean_region_volumes%caribbean + column_volume
+         ocean_region_areas%caribbean                         = ocean_region_areas%caribbean + prism_area
        END IF
 
      END DO
@@ -371,9 +384,9 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
    CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
 SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
-  INTEGER,  INTENT(IN)    :: jb,jc,max_vertical_level
-  REAL(wp), INTENT(IN)    :: prism_area, surface_height, thicknesses(:)
-  REAL(wp), INTENT(INOUT) :: volume
+  INTEGER,  INTENT(IN)  :: jb,jc,max_vertical_level
+  REAL(wp), INTENT(IN)  :: prism_area, surface_height, thicknesses(:)
+  REAL(wp), INTENT(OUT) :: volume
 
   INTEGER :: jk
   REAL(wp) :: surface_height_,prism_vol_
@@ -460,7 +473,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   CHARACTER(len=1024)           :: fmt_string, real_fmt
   CHARACTER(len=date_len)       :: datestring
   REAL(wp), PARAMETER           :: equator = 0.00001_wp
-  TYPE(t_ocean_areas)           :: ocean_areas
+  TYPE(t_ocean_regions)         :: ocean_regions
 
   !-----------------------------------------------------------------------
   p_patch        => p_patch_3D%p_patch_2D(1)
