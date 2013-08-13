@@ -130,6 +130,7 @@ MODULE mo_oce_state
   PUBLIC :: t_oce_config
 
   PUBLIC :: t_ocean_areas
+  PUBLIC :: t_ocean_area_volumes
   PUBLIC :: t_ocean_basins
 
   !
@@ -473,6 +474,21 @@ MODULE mo_oce_state
       & north_pacific                   = 9,&
       & caribbean                       = -33
   END TYPE t_ocean_areas
+  TYPE t_ocean_area_volumes
+    REAL(wp)            :: &
+      & land                            = 0.0_wp,&
+      & greenland_iceland_norwegian_sea = 0.0_wp,&
+      & arctic_ocean                    = 0.0_wp,&
+      & labrador_sea                    = 0.0_wp,&
+      & north_atlantic                  = 0.0_wp,&
+      & tropical_atlantic               = 0.0_wp,&
+      & southern_ocean                  = 0.0_wp,&
+      & indian_ocean                    = 0.0_wp,&
+      & tropical_pacific                = 0.0_wp,&
+      & north_pacific                   = 0.0_wp,&
+      & caribbean                       = 0.0_wp,&
+      & total                           = 0.0_wp
+  END TYPE t_ocean_area_volumes
   !-----------------------------
   !
   ! Ocean basins:
@@ -904,10 +920,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
-!   REAL(wp), SAVE, TARGET :: x, y   ! must be a pointer
-
-!-------------------------------------------------------------------------
-
+    !-------------------------------------------------------------------------
     !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
 
     all_cells => p_patch%cells%all
