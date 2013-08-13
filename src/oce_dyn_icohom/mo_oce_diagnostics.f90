@@ -209,12 +209,14 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, column_volume
 
   TYPE(t_patch), POINTER         :: p_patch
-  INTEGER, POINTER               :: regions(:,:)
   TYPE(t_subset_range), POINTER  :: owned_cells
+  INTEGER, POINTER               :: regions(:,:)
   TYPE(t_ocean_regions)          :: ocean_regions
   !-----------------------------------------------------------------------
   p_patch => p_patch_3D%p_patch_2D(1)
   regions => p_patch_3D%regio_c
+  !-----------------------------------------------------------------------
+  owned_cells => p_patch%cells%owned
   !-----------------------------------------------------------------------
 
   CALL message (TRIM(routine), 'start')
@@ -320,7 +322,6 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
    surface_height = 0.0_wp
    prism_vol      = 0.0_wp
    prism_area     = 0.0_wp
-   column_volume  = 0.0_wp
    ! compute regional ocean volumes
    DO jb = owned_cells%start_block, owned_cells%end_block
    CALL get_index_range(owned_cells, jb, start_index, end_index)
@@ -397,6 +398,7 @@ SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,m
   INTEGER :: jk
   REAL(wp) :: surface_height_,prism_vol_
 
+  volume  = 0.0_wp
   DO jk = 1,max_vertical_level
     !local volume
     surface_height_ = merge(surface_height,0.0_wp, 1 == jk)
