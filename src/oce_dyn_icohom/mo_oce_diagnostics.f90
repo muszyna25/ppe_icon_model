@@ -54,7 +54,7 @@ MODULE mo_oce_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                              set_lateral_boundary_values
+    &                              set_lateral_boundary_values, t_ocean_areas, t_ocean_area_volumes
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert, t_grid_edges
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -120,6 +120,8 @@ TYPE t_oce_monitor
     REAL(wp) :: drake_passage ! though flow                                               [Sv]
     REAL(wp) :: indonesian_throughflow !                                                  [Sv]
     REAL(wp) :: scotland_iceland !                                                        [Sv]
+    REAL(wp) :: t_mean_NA_200m !                                                        [degC]
+    REAL(wp) :: t_mean_NA_800m !                                                        [degC]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -127,7 +129,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(31)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(33)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -157,6 +159,8 @@ TYPE t_oce_timeseries
       & "drake_passage                           ", &
       & "indonesian_throughflow                  ", &
       & "scotland_iceland                        ", &
+      & "t_mean_NA_200m                          ", &
+      & "t_mean_NA_800m                          ", &
       & "total_temperature                       ", &
       & "total_salinity                          "/)
 
@@ -172,6 +176,9 @@ PRIVATE             :: oce_section_count
 TYPE(t_oce_section) :: oce_sections(oce_section_count)
 PRIVATE             :: oce_sections
 
+TYPE(t_ocean_area_volumes),SAVE :: ocean_area_volumes
+PRIVATE                         :: ocean_area_volumes
+
 CONTAINS
 !-------------------------------------------------------------------------
 !
@@ -184,7 +191,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
 SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
-  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
   TYPE(t_oce_timeseries),POINTER          :: oce_ts
   CHARACTER(len=32)                       :: datestring
@@ -194,12 +201,18 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   CHARACTER(len=max_char_length), PARAMETER :: &
     & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
   !-----------------------------------------------------------------------
-  CHARACTER(len=max_char_length)      :: headerLine
-  TYPE(t_patch), POINTER              :: p_patch
-  CHARACTER(len=max_char_length)      :: listname
-  INTEGER :: nblks_c,nblks_e,nblks_v
+  CHARACTER(len=max_char_length) :: headerLine
+  TYPE(t_patch), POINTER         :: p_patch
+  CHARACTER(len=max_char_length) :: listname
+  INTEGER                        :: nblks_c,nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
+  REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, volume
+  INTEGER, POINTER               :: regions(:,:)
+  TYPE(t_subset_range), POINTER  :: owned_cells
+  TYPE(t_ocean_areas)            :: ocean_areas
   !-----------------------------------------------------------------------
-  p_patch   => p_patch_3D%p_patch_2D(1)
+  p_patch => p_patch_3D%p_patch_2D(1)
+  regions => p_patch_3D%regio_c
+  !-----------------------------------------------------------------------
 
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
@@ -239,6 +252,8 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%indonesian_throughflow     = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%t_mean_NA_200m             = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%t_mean_NA_800m             = 0.0_wp
 
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -298,8 +313,81 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      & global_vertex_array =scotland_iceland,      &
      & subset_name = 'scotland_iceland')
 
-  CALL message (TRIM(routine), 'end')
+   surface_area   = 0.0_wp
+   surface_height = 0.0_wp
+   prism_vol      = 0.0_wp
+   prism_area     = 0.0_wp
+   volume         = 0.0_wp
+   ! compute regional ocean volumes
+   DO jb = owned_cells%start_block, owned_cells%end_block
+   CALL get_index_range(owned_cells, jb, start_index, end_index)
+     DO jc = start_index, end_index
+
+       ! area
+       prism_area   = p_patch%cells%area(jc,jb)
+       region_index = regions(jc,jb)
+       surface_area = surface_area + prism_area
+
+       CALL compute_vertical_volume(jb,jc, &
+         &                      prism_area, &
+         &                      p_os%p_prog(nnew(1))%h(jc,jb), &
+         &                      p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
+         &                      p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
+         &                      volume)
+
+       IF     (ocean_areas%greenland_iceland_norwegian_sea == region_index) THEN
+         ocean_area_volumes%greenland_iceland_norwegian_sea = ocean_area_volumes%greenland_iceland_norwegian_sea + volume
+
+       ELSEIF (ocean_areas%arctic_ocean == region_index) THEN
+         ocean_area_volumes%arctic_ocean                    = ocean_area_volumes%arctic_ocean + volume
+
+       ELSEIF (ocean_areas%labrador_sea == region_index) THEN
+         ocean_area_volumes%labrador_sea                    = ocean_area_volumes%labrador_sea + volume
+
+       ELSEIF (ocean_areas%north_atlantic == region_index) THEN
+         ocean_area_volumes%north_atlantic                  = ocean_area_volumes%north_atlantic + volume
+
+       ELSEIF (ocean_areas%tropical_atlantic == region_index) THEN
+         ocean_area_volumes%tropical_atlantic               = ocean_area_volumes%tropical_atlantic + volume
+
+       ELSEIF (ocean_areas%southern_ocean == region_index) THEN
+         ocean_area_volumes%southern_ocean                  = ocean_area_volumes%southern_ocean + volume
+
+       ELSEIF (ocean_areas%indian_ocean == region_index) THEN
+         ocean_area_volumes%indian_ocean                    = ocean_area_volumes%indian_ocean + volume
+
+       ELSEIF (ocean_areas%tropical_pacific == region_index) THEN
+         ocean_area_volumes%tropical_pacific                = ocean_area_volumes%tropical_pacific + volume
+
+       ELSEIF (ocean_areas%north_pacific == region_index) THEN
+         ocean_area_volumes%north_pacific                   = ocean_area_volumes%north_pacific + volume
+
+       ELSEIF (ocean_areas%caribbean == region_index) THEN
+         ocean_area_volumes%caribbean                       = ocean_area_volumes%caribbean + volume
+       END IF
+
+     END DO
+   END DO
+   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
+SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
+  INTEGER,  INTENT(IN)    :: jb,jc,max_vertical_level
+  REAL(wp), INTENT(IN)    :: prism_area, surface_height, thicknesses(:)
+  REAL(wp), INTENT(INOUT) :: volume
+
+  INTEGER :: jk
+  REAL(wp) :: surface_height_,prism_vol_
+
+  DO jk = 1,max_vertical_level
+
+    !local volume
+    surface_height_          = merge(surface_height,0.0_wp, 1 == jk)
+    prism_vol_               = prism_area * (thicknesses(jk) + surface_height_)
+    !Fluid volume wrt lsm
+    volume = volume + prism_vol_
+
+  END DO
+END SUBROUTINE compute_vertical_volume
 !-------------------------------------------------------------------------
 !
 !
@@ -374,6 +462,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   CHARACTER(len=1024)           :: fmt_string, real_fmt
   CHARACTER(len=date_len)       :: datestring
   REAL(wp), PARAMETER           :: equator = 0.00001_wp
+  TYPE(t_ocean_areas)           :: ocean_areas
 
   !-----------------------------------------------------------------------
   p_patch        => p_patch_3D%p_patch_2D(1)
@@ -589,7 +678,9 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
       & monitor%denmark_strait, &
       & monitor%drake_passage,  &
       & monitor%indonesian_throughflow, &
-      & monitor%scotland_iceland
+      & monitor%scotland_iceland, &
+      & monitor%t_mean_NA_200m, &
+      & monitor%t_mean_NA_800m
     ! * tracers
     DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
