@@ -329,11 +329,11 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
        surface_area = surface_area + prism_area
 
        CALL compute_vertical_volume(jb,jc, &
-         &                      prism_area, &
-         &                      p_os%p_prog(nnew(1))%h(jc,jb), &
-         &                      p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
-         &                      p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
-         &                      volume)
+         &                          prism_area, &
+         &                          p_os%p_prog(nnew(1))%h(jc,jb), &
+         &                          p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
+         &                          p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
+         &                          volume)
 
        IF     (ocean_areas%greenland_iceland_norwegian_sea == region_index) THEN
          ocean_area_volumes%greenland_iceland_norwegian_sea = ocean_area_volumes%greenland_iceland_norwegian_sea + volume
