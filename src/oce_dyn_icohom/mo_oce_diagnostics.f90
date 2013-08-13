@@ -379,13 +379,11 @@ SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,m
   REAL(wp) :: surface_height_,prism_vol_
 
   DO jk = 1,max_vertical_level
-
     !local volume
-    surface_height_          = merge(surface_height,0.0_wp, 1 == jk)
-    prism_vol_               = prism_area * (thicknesses(jk) + surface_height_)
+    surface_height_ = merge(surface_height,0.0_wp, 1 == jk)
+    prism_vol_      = prism_area * (thicknesses(jk) + surface_height_)
     !Fluid volume wrt lsm
-    volume = volume + prism_vol_
-
+    volume          = volume + prism_vol_
   END DO
 END SUBROUTINE compute_vertical_volume
 !-------------------------------------------------------------------------
