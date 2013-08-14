@@ -72,7 +72,7 @@ MODULE mo_setup_subdivision
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
     & ext_div_medial_redrad_cluster, redrad_split_factor
-    
+
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis
 #endif
@@ -96,7 +96,7 @@ MODULE mo_setup_subdivision
   PUBLIC :: decompose_domain
 
   ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
+  TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
@@ -110,7 +110,7 @@ CONTAINS
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states.
-  !! 
+  !!
   !!  If the parameter @p opt_n_procs is given, a domain decomposition
   !!  for @p opt_n_procsprocessors is done (called from a single
   !!  processor run).
@@ -118,7 +118,7 @@ CONTAINS
   !!  @note Despite its name, this subroutine is also called in
   !!        sequential runs where it simply copies (and initializes)
   !!        the patch data structure.
-  !!  
+  !!
   SUBROUTINE decompose_domain( p_patch_global, opt_n_procs )
 
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
@@ -289,8 +289,6 @@ CONTAINS
         wrk_p_parent_patch_g => p_patch_global(jgp)
       ENDIF
 
-      wrk_p_patch_g => p_patch_global(jg)
-
       ! Set division method, divide_for_radiation is only used for patch 0
 
       divide_for_radiation = (jg == 0)
@@ -304,7 +302,7 @@ CONTAINS
       END IF
 
       IF (my_process_is_mpi_parallel()) THEN
-        CALL divide_patch_cells(jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
       END IF
@@ -323,7 +321,7 @@ CONTAINS
       ! if this is not the case, the ghost rows can be dropped again.
 
       IF(PRESENT(opt_n_procs)) THEN
-        
+
         ! ----------------------------------------------
         ! operation mode 1: "opt_n_proc" present
         ! ----------------------------------------------
@@ -341,8 +339,6 @@ CONTAINS
 
         ! Do all domain decompositions
 
-        wrk_p_patch_g => p_patch_global(jg)
-
 #ifndef __xlC__
 !$OMP PARALLEL DO PRIVATE(n)
 #endif
@@ -351,28 +347,27 @@ CONTAINS
           WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
           p_patch_out(n)%n_proc = p_patch(jg)%n_proc
           p_patch_out(n)%proc0  = p_patch(jg)%proc0
-          CALL divide_patch(p_patch_out(n), cell_owner, n_ghost_rows, .TRUE., n-1)
+          CALL divide_patch(p_patch_out(n), p_patch_global(jg), cell_owner, n_ghost_rows, .TRUE., n-1)
           CALL discard_large_arrays(p_patch_out(n), n)
 
         ENDDO
 #ifndef __xlC__
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 #endif
 
         IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
 #ifndef __xlC__
 !$OMP PARALLEL DO PRIVATE(n)
 #endif
           DO n = 1, opt_n_procs
 
             ! Divide local parent
-            CALL divide_patch(p_patch_lp_out(n), cell_owner_p, 1, .FALSE., n-1)
+            CALL divide_patch(p_patch_lp_out(n), p_patch_global(jgp), cell_owner_p, 1, .FALSE., n-1)
             CALL discard_large_arrays(p_patch_lp_out(n), n)
 
           ENDDO
 #ifndef __xlC__
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 #endif
         ENDIF
 
@@ -397,13 +392,11 @@ CONTAINS
         ! operation modes 2,3: "opt_n_procs" not present
         ! ----------------------------------------------
 
-        wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(p_patch(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
 
         IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
           ! SR divide_patch(wrk_p_patch,              cell_owner,   n_boundary_rows, l_compute_grid, my_proc  )
-          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1,               .FALSE.,        p_pe_work)
+          CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1,               .FALSE.,        p_pe_work)
         ENDIF
 
       ENDIF ! IF (PRESENT(opt_n_procs))
@@ -469,14 +462,15 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(patch_no, n_proc, proc0, cell_owner)
+  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner)
 
+    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
-    
+
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
@@ -486,7 +480,7 @@ CONTAINS
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
-    
+
     IF (division_method(patch_no) == div_from_file) THEN
 
       ! Area subdivision is read from file
@@ -499,7 +493,7 @@ CONTAINS
         ELSE
           use_division_file_name = division_file_name(patch_no)
         ENDIF
-        
+
         WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
         n = find_next_free_unit(10,99)
 
@@ -530,8 +524,8 @@ CONTAINS
     ELSE IF (division_method(patch_no) > 100) THEN
 
       CALL finish('mo_setup_subdivision', "external decompositions cannot be used from this module")
-        
-    ELSE    
+
+    ELSE
       ! Built in subdivison methods
 
       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
@@ -629,7 +623,7 @@ CONTAINS
 
   END SUBROUTINE divide_patch_cells
 
-  
+
   !-------------------------------------------------------------------------------------------------
   !>
   !! Sets the owner for the division of the cells of the parent patch
@@ -687,10 +681,11 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch(wrk_p_patch, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_g, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
+    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
 
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
@@ -1217,7 +1212,7 @@ CONTAINS
       i_nchdom = MAX(1,wrk_p_patch%n_childdom)
       wrk_p_patch%cells%end_idx(min_rlcell:min_rlcell_int-1,:) = wrk_p_patch%cells%end_idx(min_rlcell_int,i_nchdom)
       wrk_p_patch%cells%end_blk(min_rlcell:min_rlcell_int-1,:) = wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
-      
+
       IF (wrk_p_patch%cells%end_idx(min_rlcell_int,i_nchdom) == nproma) THEN
         wrk_p_patch%cells%start_blk(min_rlcell:min_rlcell_int-1,:) = &
           &   wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom) + 1
@@ -1241,10 +1236,10 @@ CONTAINS
             wrk_p_patch%cells%start_blk(i,1) == -9999 .OR. &
             wrk_p_patch%cells%end_idx(i,1)   == -9999 .OR. &
             wrk_p_patch%cells%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%cells%start_idx(i,:) = wrk_p_patch%cells%start_idx(i+1,1) 
-          wrk_p_patch%cells%start_blk(i,:) = wrk_p_patch%cells%start_blk(i+1,1) 
-          wrk_p_patch%cells%end_idx(i,:)   = wrk_p_patch%cells%end_idx(i+1,1) 
-          wrk_p_patch%cells%end_blk(i,:)   = wrk_p_patch%cells%end_blk(i+1,1) 
+          wrk_p_patch%cells%start_idx(i,:) = wrk_p_patch%cells%start_idx(i+1,1)
+          wrk_p_patch%cells%start_blk(i,:) = wrk_p_patch%cells%start_blk(i+1,1)
+          wrk_p_patch%cells%end_idx(i,:)   = wrk_p_patch%cells%end_idx(i+1,1)
+          wrk_p_patch%cells%end_blk(i,:)   = wrk_p_patch%cells%end_blk(i+1,1)
         ENDIF
       ENDDO
     ENDIF
@@ -1405,10 +1400,10 @@ CONTAINS
             wrk_p_patch%edges%start_blk(i,1) == -9999 .OR. &
             wrk_p_patch%edges%end_idx(i,1)   == -9999 .OR. &
             wrk_p_patch%edges%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(i+1,1) 
-          wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(i+1,1) 
-          wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(i+1,1) 
-          wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(i+1,1) 
+          wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(i+1,1)
+          wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(i+1,1)
+          wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(i+1,1)
+          wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(i+1,1)
         ENDIF
       ENDDO
     ENDIF
@@ -1429,7 +1424,7 @@ CONTAINS
       i_nchdom = MAX(1,wrk_p_patch%n_childdom)
       wrk_p_patch%edges%end_idx(min_rledge:min_rledge_int-1,:) = wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom)
       wrk_p_patch%edges%end_blk(min_rledge:min_rledge_int-1,:) = wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom)
-      
+
       IF (wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) == nproma) THEN
         wrk_p_patch%edges%start_blk(min_rledge:min_rledge_int-1,:) = &
           &   wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) + 1
@@ -1587,10 +1582,10 @@ CONTAINS
             wrk_p_patch%verts%start_blk(i,1) == -9999 .OR. &
             wrk_p_patch%verts%end_idx(i,1)   == -9999 .OR. &
             wrk_p_patch%verts%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(i+1,1) 
-          wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(i+1,1) 
-          wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(i+1,1) 
-          wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(i+1,1) 
+          wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(i+1,1)
+          wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(i+1,1)
+          wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(i+1,1)
+          wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(i+1,1)
         ENDIF
       ENDDO
     ENDIF
@@ -1611,7 +1606,7 @@ CONTAINS
       i_nchdom = MAX(1,wrk_p_patch%n_childdom)
       wrk_p_patch%verts%end_idx(min_rlvert:min_rlvert_int-1,:) = wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom)
       wrk_p_patch%verts%end_blk(min_rlvert:min_rlvert_int-1,:) = wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
-      
+
       IF (wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) == nproma) THEN
         wrk_p_patch%verts%start_blk(min_rlvert:min_rlvert_int-1,:) = &
           &   wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) + 1
@@ -1785,7 +1780,7 @@ CONTAINS
       wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
     ENDDO
-            
+
     DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
 
   END SUBROUTINE divide_patch
@@ -2000,8 +1995,8 @@ CONTAINS
         ! Patch division for radiation calculations:
         ! To minimize load imbalance, every patch contains 10 areas
         ! distributed in a way similar as the "diamonds" in GME
-        ! This is accomplished by mapping all cells to one section  
-        ! lying in the NH and having a width of 0.4*pi (72 deg) 
+        ! This is accomplished by mapping all cells to one section
+        ! lying in the NH and having a width of 0.4*pi (72 deg)
 
         cclat = wrk_divide_patch%cells%center(jl,jb)%lat
         cclon = wrk_divide_patch%cells%center(jl,jb)%lon

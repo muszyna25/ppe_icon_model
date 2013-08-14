@@ -1698,7 +1698,7 @@ CONTAINS
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), POINTER :: wrk_divide_patch
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
@@ -2235,7 +2235,7 @@ CONTAINS
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), POINTER :: wrk_divide_patch
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
