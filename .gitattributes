@@ -700,6 +700,7 @@ run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_parallel -text
+run/exp.oce_tracer_conservation -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.r2b4_amip_thunder.run -text
@@ -714,7 +715,6 @@ run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_oce_default -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_parallel -text
-run/exp.test_oce_tracer_conservation -text
 run/exp.tracer_solid_body -text
 run/grid.check_grid -text
 run/grid.create_atmo_grids -text
