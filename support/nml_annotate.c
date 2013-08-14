@@ -178,8 +178,8 @@ static const char _nml_actions[] = {
 
 static const unsigned char _nml_key_offsets[] = {
 	0, 0, 17, 18, 23, 27, 32, 45, 
-	46, 59, 71, 86, 104, 110, 124, 128, 
-	145, 149, 152
+	46, 59, 71, 86, 104, 118, 122, 139, 
+	144, 148, 151, 157
 };
 
 static const char _nml_trans_keys[] = {
@@ -196,31 +196,32 @@ static const char _nml_trans_keys[] = {
 	48, 57, 65, 90, 97, 122, 32, 37, 
 	44, 47, 61, 95, 9, 13, 40, 41, 
 	42, 46, 48, 57, 65, 90, 97, 122, 
-	32, 44, 47, 61, 9, 13, 32, 37, 
-	61, 95, 9, 13, 40, 41, 48, 57, 
-	65, 90, 97, 122, 32, 61, 9, 13, 
-	32, 34, 38, 39, 42, 43, 95, 9, 
-	13, 45, 46, 48, 57, 65, 90, 97, 
-	122, 32, 47, 9, 13, 32, 9, 13, 
-	32, 9, 13, 0
+	32, 37, 61, 95, 9, 13, 40, 41, 
+	48, 57, 65, 90, 97, 122, 32, 61, 
+	9, 13, 32, 34, 38, 39, 42, 43, 
+	95, 9, 13, 45, 46, 48, 57, 65, 
+	90, 97, 122, 32, 44, 47, 9, 13, 
+	32, 47, 9, 13, 32, 9, 13, 32, 
+	44, 47, 61, 9, 13, 32, 9, 13, 
+	0
 };
 
 static const char _nml_single_lengths[] = {
 	0, 7, 1, 3, 2, 1, 3, 1, 
-	5, 4, 5, 6, 4, 4, 2, 7, 
-	2, 1, 1
+	5, 4, 5, 6, 4, 2, 7, 3, 
+	2, 1, 4, 1
 };
 
 static const char _nml_range_lengths[] = {
 	0, 5, 0, 1, 1, 2, 5, 0, 
-	4, 4, 5, 6, 1, 5, 1, 5, 
-	1, 1, 1
+	4, 4, 5, 6, 5, 1, 5, 1, 
+	1, 1, 1, 1
 };
 
 static const unsigned char _nml_index_offsets[] = {
 	0, 0, 13, 15, 20, 24, 28, 37, 
-	39, 49, 58, 69, 82, 88, 98, 102, 
-	115, 119, 122
+	39, 49, 58, 69, 82, 92, 96, 109, 
+	114, 118, 121, 127
 };
 
 static const char _nml_indicies[] = {
@@ -234,19 +235,20 @@ static const char _nml_indicies[] = {
 	20, 1, 11, 21, 12, 13, 20, 11, 
 	20, 22, 20, 20, 1, 23, 24, 12, 
 	13, 26, 25, 23, 24, 20, 25, 25, 
-	25, 1, 23, 12, 13, 26, 23, 1, 
-	27, 24, 26, 24, 27, 24, 24, 24, 
-	24, 1, 27, 26, 27, 1, 0, 2, 
-	3, 4, 5, 6, 8, 0, 6, 7, 
-	8, 8, 1, 15, 13, 15, 28, 17, 
-	17, 29, 26, 26, 30, 0
+	25, 1, 27, 24, 26, 24, 27, 24, 
+	24, 24, 24, 1, 27, 26, 27, 1, 
+	0, 2, 3, 4, 5, 6, 8, 0, 
+	6, 7, 8, 8, 1, 11, 12, 13, 
+	11, 28, 15, 13, 15, 28, 17, 17, 
+	29, 23, 12, 13, 26, 23, 28, 26, 
+	26, 30, 0
 };
 
 static const char _nml_trans_targs[] = {
 	1, 0, 2, 5, 7, 8, 9, 10, 
-	11, 2, 3, 3, 16, 15, 15, 4, 
-	6, 17, 6, 7, 9, 8, 10, 12, 
-	13, 11, 18, 14, 15, 15, 15
+	11, 2, 3, 15, 16, 14, 14, 4, 
+	6, 17, 6, 7, 9, 8, 10, 18, 
+	12, 11, 19, 13, 14, 14, 14
 };
 
 static const char _nml_trans_actions[] = {
@@ -258,27 +260,27 @@ static const char _nml_trans_actions[] = {
 
 static const char _nml_to_state_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 
-	0, 0, 0, 0, 0, 0, 0, 3, 
-	0, 0, 0
+	0, 0, 0, 0, 0, 0, 3, 0, 
+	0, 0, 0, 0
 };
 
 static const char _nml_from_state_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 
-	0, 0, 0, 0, 0, 0, 0, 5, 
-	0, 0, 0
+	0, 0, 0, 0, 0, 0, 5, 0, 
+	0, 0, 0, 0
 };
 
 static const unsigned char _nml_eof_trans[] = {
 	0, 0, 0, 0, 15, 0, 0, 0, 
-	0, 0, 0, 0, 0, 0, 0, 0, 
-	29, 30, 31
+	0, 0, 0, 0, 0, 0, 0, 29, 
+	29, 30, 29, 31
 };
 
-static const int nml_start = 15;
-static const int nml_first_final = 15;
+static const int nml_start = 14;
+static const int nml_first_final = 14;
 static const int nml_error = 0;
 
-static const int nml_en_main = 15;
+static const int nml_en_main = 14;
 
 
 #line 227 "support/nml_annotate.rl"
@@ -311,7 +313,7 @@ int util_annotate_nml(char* in_filename, char* out_filename)
  }
 
  
-#line 315 "support/nml_annotate.c"
+#line 317 "support/nml_annotate.c"
 	{
 	 data->cs = nml_start;
 	 data->ts = 0;
@@ -326,7 +328,7 @@ int util_annotate_nml(char* in_filename, char* out_filename)
    char *pe  = buf + strlen(buf);   /* pointer to input end. */
   
    
-#line 330 "support/nml_annotate.c"
+#line 332 "support/nml_annotate.c"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -347,7 +349,7 @@ _resume:
 #line 1 "NONE"
 	{ data->ts = p;}
 	break;
-#line 351 "support/nml_annotate.c"
+#line 353 "support/nml_annotate.c"
 		}
 	}
 
@@ -478,7 +480,7 @@ _eof_trans:
   else                       data->cur_val = data->cur_val->next  = new_val;
  }}
 	break;
-#line 482 "support/nml_annotate.c"
+#line 484 "support/nml_annotate.c"
 		}
 	}
 
@@ -491,7 +493,7 @@ _again:
 #line 1 "NONE"
 	{ data->ts = 0;}
 	break;
-#line 495 "support/nml_annotate.c"
+#line 497 "support/nml_annotate.c"
 		}
 	}
 

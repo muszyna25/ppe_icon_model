@@ -48,7 +48,7 @@ MODULE mo_sea_ice
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
-  USE mo_dynamics_config,     ONLY: nold
+  USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
@@ -1338,9 +1338,20 @@ CONTAINS
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
-    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,5, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,5, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%u'        ,p_os%p_diag%u,          str_module,5, &
+      & in_subset=p_patch%cells%owned)                                    
+    CALL dbg_print('IceSlow: p_os%diag%v'        ,p_os%p_diag%v,          str_module,5, &
+      & in_subset=p_patch%cells%owned)                                    
+    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi,                 str_module,5, &
+      & in_subset=p_patch%cells%owned)                                    
+    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc,               str_module,5, &
+      & in_subset=p_patch%cells%owned)                                    
+    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum,            str_module,5, &
+      & in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_slow
   !-------------------------------------------------------------------------
@@ -1897,6 +1908,7 @@ CONTAINS
 
     ! Fractions of SWin in each band (from cice)
     fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
+    Tsurf(:,:) = 0._wp ! For debug output
     DO i = 1, p_ice%kice
       WHERE (p_ice%hi(:,i,:)>0._wp)
         Qatm%SWnet(:,i,:) = ( 1._wp-Qatm%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
@@ -1954,6 +1966,7 @@ CONTAINS
     CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
     CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: Tsurf ice'       ,Tsurf             ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%LWnet ice'  ,Qatm%LWnet        ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%sens ice'   ,Qatm%sens         ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%lat ice'    ,Qatm%lat          ,str_module,idt_src)
@@ -2115,6 +2128,9 @@ CONTAINS
     CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
     CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
     idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('CalcBulk: Tsurf ocean'     ,Tsurf             ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Tsurf ocean (nnew)', &
+      &                      p_os%p_prog(nnew(1))%tracer(:,1,:,1), str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw       ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw        ,str_module,idt_src)
     CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)

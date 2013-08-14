@@ -213,7 +213,7 @@ int define_odd_namelists_as_defaults(struct t_nml **nml) {
  # valid namelist key (followed by '=' sign)
  nml_key         = space* identifier space* '=' space* ;
  # right hand side namelist value (followed by comma and/or '/')
- nml_value       = space* (value|string >clear $append) space* (','|(','? space* '/')) ;
+ nml_value       = space* (value|string >clear $append) space* (space+|','|(','? space* '/')) ;
 
  # namelist tokens:
  main := |*

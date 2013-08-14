@@ -1307,9 +1307,9 @@ MODULE mo_nh_testcases
       DO jg = 1, n_dom
         !Snow and sea ice initialization to avoid problems in EDMF
         p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
-        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
-        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
-        p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = th_cbl(1) !snow
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = th_cbl(1) !sea ice
+        p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = th_cbl(1) !sea ice
       END DO !jg
     ENDIF
   END IF
