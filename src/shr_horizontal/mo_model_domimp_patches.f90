@@ -105,7 +105,7 @@
 
 MODULE mo_model_domimp_patches
   !-------------------------------------------------------------------------
-  
+
   USE mo_kind,               ONLY: wp
   !USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: success,                &
@@ -152,14 +152,14 @@ MODULE mo_model_domimp_patches
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
-  
+
 !  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
   ! and broadcasting the results
-  
+
   USE mo_read_netcdf_parallel, ONLY:                &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
     & nf_open            => p_nf_open,               &
@@ -175,27 +175,27 @@ MODULE mo_model_domimp_patches
 #endif
 
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
 #ifdef NOMPI
   INCLUDE 'netcdf.inc'
 #endif
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: import_basic_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
-  
+
   INTEGER :: ishift_child_id
-  
+
   !-------------------------------------------------------------------------
-  
+
 CONTAINS
-   
+
   !-------------------------------------------------------------------------
   !>
   !!               This subroutine provides patch information to the model.
@@ -226,31 +226,31 @@ CONTAINS
   !!    into the full (undivided, global) patch data structure
   !!
   SUBROUTINE import_basic_patches( patch,num_lev,num_levp1,nshift)
-    
+
     INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
-    
+
     INTEGER :: jg, jg1, n_chd, n_chdc
     INTEGER :: jgp            ! parent patch index
     !INTEGER :: jlev
-    
+
     !LOGICAL :: l_exist
-    
+
     !CHARACTER(filename_max) :: patch_file, gridtype
-    
+
     TYPE(t_patch), POINTER ::  &
       & p_single_patch => NULL()
-    
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     !-----------------------------------------------------------------------
-    
+
     CALL message ('mo_model_domimp_patches:import_basic_patches', &
       & 'start to import patches')
-    
+
     ! Set some basic flow control variables on the patch
-    
+
     max_childdom = 0
-    
+
     IF(n_dom_start==0) THEN
       ! The physics parent (parent of the root patch) should also be read
       patch(0)%id = 0
@@ -267,11 +267,11 @@ CONTAINS
     ELSE
       patch(1)%parent_child_index = 0
     ENDIF
-    
+
     DO jg = 1, n_dom
-      
+
       patch(jg)%id = jg
-      
+
       IF (jg == 1) THEN
         patch(jg)%level = start_lev
         patch(jg)%parent_id = 0
@@ -279,9 +279,9 @@ CONTAINS
         patch(jg)%level = patch(dynamics_parent_grid_id(jg))%level + 1
         patch(jg)%parent_id = dynamics_parent_grid_id(jg)
       ENDIF
-      
+
       n_chd = 0
-      
+
       DO jg1 = jg+1, n_dom
         IF (jg == dynamics_parent_grid_id(jg1)) THEN
           n_chd = n_chd + 1
@@ -289,16 +289,16 @@ CONTAINS
           patch(jg1)%parent_child_index = n_chd
         ENDIF
       ENDDO
-      
+
       patch(jg)%n_childdom = n_chd
       max_childdom = MAX(1,max_childdom,n_chd)
-      
+
       !
       ! store information about vertical levels
       !
       patch(jg)%nlev   = num_lev(jg)
       patch(jg)%nlevp1 = num_levp1(jg)
-      
+
       IF (jg > 1) THEN
         IF (nshift(jg) > 0 ) THEN
           ! nshift has been modified via Namelist => use it
@@ -309,7 +309,7 @@ CONTAINS
           !- 1 nested domain per grid level
           patch(jg)%nshift = num_lev(patch(jg)%parent_id) - num_lev(jg)
         ENDIF
-        
+
         jgp = patch(jg)%parent_id
         patch(jg)%nshift_total = patch(jgp)%nshift_total + patch(jg)%nshift
       ELSE
@@ -317,18 +317,18 @@ CONTAINS
         patch(jg)%nshift = 0
         patch(jg)%nshift_total = 0
       ENDIF
-      
+
     ENDDO
-    
+
     ! Set information about total number of child domains (called recursively)
     ! and corresponding index lists
-    
+
     ! Initialization
     DO jg = 1, n_dom
       patch(jg)%n_chd_total      = 0
       patch(jg)%child_id_list(:) = 0
     ENDDO
-    
+
     DO jg = n_dom, 2, -1
       jg1 = patch(jg)%parent_id
       n_chd = patch(jg1)%n_chd_total
@@ -339,10 +339,10 @@ CONTAINS
       ENDIF
       patch(jg1)%n_chd_total = n_chd+1+n_chdc
     ENDDO
-    
-    
+
+
     DO jg = 1, n_dom
-      
+
       ! make nshift parameter also available for the parent patch
       IF (patch(jg)%n_childdom >= 1) THEN
         patch(jg)%nshift_child = patch(patch(jg)%child_id(1))%nshift
@@ -354,9 +354,9 @@ CONTAINS
       ELSE
         patch(jg)%nshift_child = 0
       ENDIF
-      
+
     ENDDO
-    
+
     IF (n_dom_start == 0) THEN ! reduced grid for radiation
       ! In case of n_dom_start == 0 nlev, nlevp1, nshift need to be copied from
       ! jg=1 to jg=0
@@ -366,28 +366,28 @@ CONTAINS
       ! The reduced grid always has the same levels as the global one
       patch(0)%nshift_child = 0
     ENDIF
-    
+
     patch(n_dom_start:n_dom)%max_childdom =  max_childdom
-    
-    
+
+
     !init patch by reading data from file
     !required: path to patch directory and file names, see top of module
     ! l_exist = .FALSE.
-    
+
     ! IF (lplane) THEN
     !   gridtype='plan'
     ! ELSE
     !   gridtype='icon'
     ! END IF
-    
+
     CALL set_patches_grid_filename(patch)
-    
+
     ishift_child_id = 0
-    
+
     grid_level_loop: DO jg = n_dom_start, n_dom
-      
+
       !   jlev = patch(jg)%level
-      
+
       ! Allow file names without "DOM" specifier if n_dom=1.
       !   IF (n_dom == 1) THEN
       !     ! Check if file name without "DOM" specifier exists.
@@ -403,32 +403,32 @@ CONTAINS
       !     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
       !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
       !   ENDIF
-      
-      
+
+
       p_single_patch => patch(jg)
-      
+
       CALL read_basic_patch( jg, p_single_patch )
-      
+
     ENDDO grid_level_loop
-    
+
     CALL complete_parent_index(patch)
     CALL set_pc_idx(patch)
-    
+
 
   END SUBROUTINE import_basic_patches
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! This method_name completes basic patches by
   !! - allocating the remaining arrays
   !! - reading the remaining arrays which are not in the basic patch
   !! - calculating arrays which are not read from input file
-  
+
   SUBROUTINE complete_patches(patch)
-    
+
     TYPE(t_patch), INTENT(inout) :: patch(n_dom_start:)
-    
+
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
 
@@ -436,12 +436,12 @@ CONTAINS
 
       ! Allocate and preset remaining arrays in patch
       ! operation mode=3: allocate all but the parallelization-related arrays
-      !                   (the parallelization-related arrays are allocated in mo_setup_subdivision) 
+      !                   (the parallelization-related arrays are allocated in mo_setup_subdivision)
       CALL allocate_remaining_patch(patch(jg),3)
       IF (jg > n_dom_start)  &
         CALL allocate_remaining_patch(p_patch_local_parent(jg),3)
     ENDDO
-    
+
     ! Fill the subsets information
     DO jg = n_dom_start, n_dom
       CALL fill_grid_subsets(patch(jg))
@@ -457,36 +457,36 @@ CONTAINS
           id_lp(n_lp) = jgp  ! these are children of the current patch
         ENDIF
       ENDDO
-   
+
       ! Get all patch information not read by read_basic_patch
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
     ENDDO
-    
+
     ! rescale grids
     DO jg = n_dom_start, n_dom
       CALL rescale_grid( patch(jg), grid_length_rescale_factor  )
       IF (jg > n_dom_start)  CALL rescale_grid( p_patch_local_parent(jg), grid_length_rescale_factor )
     ENDDO
-          
-    ! do other stuff  
+
+    ! do other stuff
     DO jg = n_dom_start, n_dom
-      
+
       ! Initialize the data for the quadrilateral cells
       ! formed by the two adjacent cells of an edge.
       ! (later this should be provided by the grid generator)
       CALL init_quad_twoadjcells( patch(jg) )
 
-      ! Initialize butterfly data structure, formed by the 
+      ! Initialize butterfly data structure, formed by the
       ! 4 cells sharing the 2 vertices which bound a given edge.
       IF (patch(jg)%cell_type == 3) THEN
-        ! not useful for hexagonal grid 
+        ! not useful for hexagonal grid
         CALL init_butterfly_idx( patch(jg) )
       ENDIF
 
       CALL init_coriolis( lcoriolis, lplane, patch(jg) )
-      
+
       CALL set_verts_phys_id( patch(jg) )
-      
+
       ! The same has to be done for local parents in parallel runs
       !
       ! Please note: The call to init_quad_twoadjcells involves boundary
@@ -494,16 +494,16 @@ CONTAINS
       ! The arrays calculated there are transfered to the local parent
       ! in transfer_interpol_state where also a lot of other arrays
       ! from the patch state are transferred
-      
+
       IF (jg>n_dom_start) THEN
         CALL disable_sync_checks
         CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
         CALL set_verts_phys_id( p_patch_local_parent(jg) )
         CALL enable_sync_checks
       ENDIF
-      
+
     ENDDO
-    
+
   END SUBROUTINE complete_patches
   !-------------------------------------------------------------------------
 
@@ -527,7 +527,7 @@ CONTAINS
 
     ! -- reorder cells
     ntot      = idx_1d( patch%cells%end_idx(min_rlcell,1), &
-      &                 patch%cells%end_blk(min_rlcell,1) ) 
+      &                 patch%cells%end_blk(min_rlcell,1) )
     ninterior = idx_1d( patch%cells%start_idx(min_rlcell_int-1,1), &
       &                 patch%cells%start_blk(min_rlcell_int-1,1) ) - 1
     ALLOCATE(old2new(ntot))
@@ -553,7 +553,7 @@ CONTAINS
 
     ! -- reorder edges
     ntot      = idx_1d( patch%edges%end_idx(min_rledge,1), &
-      &                 patch%edges%end_blk(min_rledge,1) ) 
+      &                 patch%edges%end_blk(min_rledge,1) )
     ninterior = idx_1d( patch%edges%start_idx(min_rledge_int-1,1), &
       &                 patch%edges%start_blk(min_rledge_int-1,1) ) - 1
     ALLOCATE(old2new(ntot))
@@ -579,7 +579,7 @@ CONTAINS
 
     ! -- reorder verts
     ntot      = idx_1d( patch%verts%end_idx(min_rlvert,1), &
-      &                 patch%verts%end_blk(min_rlvert,1) ) 
+      &                 patch%verts%end_blk(min_rlvert,1) )
     ninterior = idx_1d( patch%verts%start_idx(min_rlvert_int-1,1), &
       &                 patch%verts%start_blk(min_rlvert_int-1,1) ) - 1
     ALLOCATE(old2new(ntot))
@@ -602,24 +602,24 @@ CONTAINS
     END DO
     CALL reorder_verts(patch, old2new)
     DEALLOCATE(old2new)
-    
+
   END SUBROUTINE reorder_patch_refin_ctrl
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
-  !> 
+  !>
   ! calculate mean geometry properties for old grids,
   ! the new grids should have these values filled
   ! All the patches should have the same geometry type
   SUBROUTINE set_grid_mean_geometry_info( patch )
-    TYPE(t_patch), INTENT(inout), TARGET ::  patch  
-    
+    TYPE(t_patch), INTENT(inout), TARGET ::  patch
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:set_grid_mean_geometry_info'
-    
+
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
-    
+
     CASE (planar_torus_geometry)
 
       CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
@@ -633,22 +633,22 @@ CONTAINS
         & (4._wp * pi * patch%geometry_info%sphere_radius &
         & * patch%geometry_info%sphere_radius)            &
         & / REAL(20*nroot**2*4**(patch%level),wp)
-        
+
       patch%geometry_info%domain_length  = 2.0_wp * pi * patch%geometry_info%sphere_radius
       patch%geometry_info%domain_height  = patch%geometry_info%domain_length
-      
+
       ! Note: the mean_edge_length is not used for the sphere geometry,
       ! and calculating will require global communication. Set to 0
       patch%geometry_info%mean_edge_length = 0.0_wp
-    
-    CASE default    
+
+    CASE default
       CALL finish(method_name, "Undefined geometry type")
-      
+
     END SELECT
-    
+
   END SUBROUTINE set_grid_mean_geometry_info
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! This method_name completes the patch information for parent edges
@@ -658,47 +658,47 @@ CONTAINS
   !! Moved here by Rainer Johanni, Oct 2011
   !!
   SUBROUTINE complete_parent_index(patch)
-    
+
     TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
-    
+
     ! local variables
-    
+
     TYPE(t_grid_edges), POINTER :: p_gep => NULL()
     TYPE(t_patch),      POINTER :: p_pp => NULL()
-    
+
     INTEGER :: jb, je, jg, ji, i_startblk, i_endblk,         &
       & i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
-    
+
     !-----------------------------------------------------------------------
     !
-    
+
     DO jg = n_dom_start, n_dom-1
-      
+
       p_gep  => patch(jg)%edges
       p_pp   => patch(jg)
-      
+
       i_nchdom = p_pp%n_childdom
       IF (i_nchdom == 0) CYCLE
-      
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-      
+
       i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
       i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-      
+
       ! Complete parent edge information
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
-        
+
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-        
+
         DO ji = 3, 4 ! Index completion only needed for child edges 3+4
           DO je = i_startidx, i_endidx
-            
+
             iic = p_gep%child_idx(je,jb,ji)
             ibc = p_gep%child_blk(je,jb,ji)
             i_child_id = p_gep%child_id(je,jb)
-            
+
             IF ((iic/= 0) .AND. (ibc/= 0)) THEN
               patch(i_child_id)%edges%parent_idx(iic,ibc) = je
               patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
@@ -708,11 +708,11 @@ CONTAINS
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-      
+
     ENDDO
-    
+
   END SUBROUTINE complete_parent_index
-  
+
   !-------------------------------------------------------------------------
   !>
   !! This method_name sets the parent-child-index for cells and edges
@@ -721,35 +721,35 @@ CONTAINS
   !! Developed  by Rainer Johanni, Dec 2011
   !!
   SUBROUTINE set_pc_idx(patch)
-    
+
     TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
-    
+
     ! local variables
-    
+
     INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen
-    
+
     !-----------------------------------------------------------------------
-    
+
     DO jg = n_dom_start+1, n_dom
-      
+
       jgp = patch(jg)%parent_id
-      
+
       patch(jg)%cells%pc_idx(:,:) = 0
       patch(jg)%edges%pc_idx(:,:) = 0
-      
+
       DO jb = 1, patch(jg)%nblks_c
-        
+
         IF (jb /= patch(jg)%nblks_c) THEN
           nlen = nproma
         ELSE
           nlen = patch(jg)%npromz_c
         ENDIF
-        
+
         DO jl = 1, nlen
-          
+
           ilp = patch(jg)%cells%parent_idx(jl,jb)
           ibp = patch(jg)%cells%parent_blk(jl,jb)
-          
+
           IF(patch(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
             & patch(jgp)%cells%child_blk(ilp,ibp,1) == jb ) patch(jg)%cells%pc_idx(jl,jb) = 1
           IF(patch(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
@@ -759,24 +759,24 @@ CONTAINS
           IF(patch(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
             & patch(jgp)%cells%child_blk(ilp,ibp,4) == jb ) patch(jg)%cells%pc_idx(jl,jb) = 4
 !          IF(patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
-          
+
         ENDDO
-        
+
       ENDDO
-      
+
       DO jb = 1, patch(jg)%nblks_e
-        
+
         IF (jb /= patch(jg)%nblks_e) THEN
           nlen = nproma
         ELSE
           nlen = patch(jg)%npromz_e
         ENDIF
-        
+
         DO jl = 1, nlen
-          
+
           ilp = patch(jg)%edges%parent_idx(jl,jb)
           ibp = patch(jg)%edges%parent_blk(jl,jb)
-          
+
           IF(patch(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
             & patch(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch(jg)%edges%pc_idx(jl,jb) = 1
           IF(patch(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
@@ -786,17 +786,17 @@ CONTAINS
           IF(patch(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
             & patch(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch(jg)%edges%pc_idx(jl,jb) = 4
 !          IF(patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
-          
+
         ENDDO
-        
+
       ENDDO
-      
+
     ENDDO
-    
+
   END SUBROUTINE set_pc_idx
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Initialization of the patch components with data stored
@@ -823,73 +823,73 @@ CONTAINS
   !!   for reading the remaining information
   !!
   SUBROUTINE read_basic_patch( ig, patch, patch_file )
-    
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_basic_patch'
     INTEGER,             INTENT(in)    ::  ig           ! domain ID
     CHARACTER(LEN=*),    INTENT(in), OPTIONAL ::  patch_file   ! name of grid file
-    
+
     TYPE(t_patch), TARGET, INTENT(inout) ::  patch      ! patch data structure
-    
+
     INTEGER, ALLOCATABLE :: &
       & array_c_int(:,:),  &  ! temporary arrays to read in integer values
       & array_e_int(:,:),  &
       & array_v_int(:,:)
-    
+
     REAL(wp), ALLOCATABLE :: &
       & array_c_real(:,:), &  ! temporary arrays to read in real values
       & array_e_real(:,:), &
       & array_v_real(:,:)
-    
+
     INTEGER, ALLOCATABLE :: &
       & start_idx_c(:,:), end_idx_c(:,:), &  ! temporary arrays to read in index lists
       & start_idx_e(:,:), end_idx_e(:,:), &
       & start_idx_v(:,:), end_idx_v(:,:)
-    
+
     ! dummy values for number of internal halo cells, edges, vertices
     INTEGER :: n_e_halo_cells
     INTEGER :: n_e_halo_edges
     INTEGER :: n_e_halo_verts
-    
+
     ! INTEGER :: patch_unit
-    
+
     ! LOGICAL :: lnetcdf = .TRUE.
     ! CHARACTER(len=filename_max) :: file
-    
+
     CHARACTER(LEN=uuid_string_length) :: uuid_string
-    
+
     ! status variables
     INTEGER :: ist, netcd_status
-    
+
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
     INTEGER :: jc, je, ilc, ibc
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
-    INTEGER :: block_size    
+    INTEGER :: block_size
     !-----------------------------------------------------------------------
-    
+
     ! set dummy values to zero
     n_e_halo_cells = 0
     n_e_halo_edges = 0
     n_e_halo_verts = 0
-    
+
     ilev = patch%level
     ipar_id = patch%parent_id
-    
+
     !
     ! start to fill patch type
     !
     IF (PRESENT(patch_file)) THEN
       patch%grid_filename=patch_file
     ENDIF
-    
-    
+
+
     CALL message (TRIM(method_name), 'start to init patch')
-    
+
     WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(patch%grid_filename)
     CALL message ('', TRIM(message_text))
-    
+
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-    
+
     uuid_string = 'warning: not given ...' ! To avoid null characters in the standard output
 
     IF (nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string) /= nf_noerr) THEN
@@ -909,7 +909,7 @@ CONTAINS
     ! number_of_grid_used
     netcd_status = nf_get_att_int(ncid, nf_global, 'center', &
       &                           grid_generatingCenter(ig)  )
-    IF (netcd_status == nf_noerr) THEN 
+    IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'generating center of patch ', ig, ': ',grid_generatingCenter(ig)
       CALL message  (TRIM(method_name), TRIM(message_text))
@@ -920,10 +920,10 @@ CONTAINS
       ! set default value
       grid_generatingCenter(ig) = 78    ! DWD
     ENDIF
-    
+
     netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', &
       &                           grid_generatingSubcenter(ig)  )
-    IF (netcd_status == nf_noerr) THEN 
+    IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'generating subcenter of patch ', ig, ': ',grid_generatingSubcenter(ig)
       CALL message  (TRIM(method_name), TRIM(message_text))
@@ -937,7 +937,7 @@ CONTAINS
 
     netcd_status = nf_get_att_int(ncid, nf_global, 'number_of_grid_used', &
       &            number_of_grid_used(ig))
-    IF (netcd_status == nf_noerr) THEN 
+    IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'number_of_grid_used of patch ', ig, ': ',number_of_grid_used(ig)
       CALL message  (TRIM(method_name), TRIM(message_text))
@@ -950,7 +950,7 @@ CONTAINS
     ENDIF
 
 
-    
+
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
     IF (icheck /= nroot) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -960,7 +960,7 @@ CONTAINS
         & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-    
+
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', igrid_level))
     IF (igrid_level /= ilev) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -970,7 +970,7 @@ CONTAINS
         & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-    
+
     ! Check additional attributes for consistency with the current namelist settings
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))
     IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
@@ -981,7 +981,7 @@ CONTAINS
         & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-    
+
     CALL nf(nf_get_att_int(ncid, nf_global, 'parent_grid_ID', iparent_id))
     IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -991,7 +991,7 @@ CONTAINS
         & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-    
+
     CALL nf(nf_get_att_int(ncid, nf_global, 'max_childdom', i_max_childdom))
     IF (i_max_childdom /= max_childdom) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -1001,8 +1001,8 @@ CONTAINS
         & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-    
-     
+
+
     !--------------------------------------
     ! get number of cells, edges and vertices
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
@@ -1028,7 +1028,7 @@ CONTAINS
     ! total number of cells
     patch%n_patch_cells = patch%n_patch_cells + n_e_halo_cells
     patch%npromz_c      = patch%n_patch_cells - (patch%nblks_c - 1)*nproma
-    
+
     ! ... for the edges
     patch%nblks_e       = ( patch%n_patch_edges + n_e_halo_edges - 1 )  &
       & / nproma + 1
@@ -1038,7 +1038,7 @@ CONTAINS
     ! total number of edges
     patch%n_patch_edges = patch%n_patch_edges + n_e_halo_edges
     patch%npromz_e      = patch%n_patch_edges - (patch%nblks_e - 1)*nproma
-    
+
     ! ... for the vertices
     patch%nblks_v       = ( patch%n_patch_verts + n_e_halo_verts - 1 )  &
       & / nproma + 1
@@ -1048,7 +1048,7 @@ CONTAINS
     ! total number of vertices
     patch%n_patch_verts = patch%n_patch_verts + n_e_halo_verts
     patch%npromz_v      = patch%n_patch_verts - (patch%nblks_v - 1)*nproma
-    
+
     !
     ! allocate temporary arrays to read in data form the grid/patch generator
     !
@@ -1076,24 +1076,24 @@ CONTAINS
       & start_idx_v(min_rlvert:max_rlvert,max_childdom),  &
       & end_idx_v  (min_rlvert:max_rlvert,max_childdom),  &
       & stat=ist )
-    
+
     IF (ist /= success) THEN
       CALL finish (TRIM(method_name), 'allocation for array_[cev]_indlist failed')
     ENDIF
-    
+
     ! Number of global cells/edges/verts
     ! These are needed for patch allocation
     ! For a non-divided patch they are identical to the non-global values
-    
+
     patch%n_patch_cells_g = patch%n_patch_cells
     patch%n_patch_edges_g = patch%n_patch_edges
     patch%n_patch_verts_g = patch%n_patch_verts
-    
+
     !
     ! Allocate patch arrays which are read here
     !
     CALL allocate_basic_patch( patch )
-    
+
     ! patch%cells%start_idx(:,:)
     ! patch%cells%start_blk(:,:)
     ! patch%cells%end_idx(:,:)
@@ -1107,7 +1107,7 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
     CALL reshape_idx_list( end_idx_c,                                &
         & patch%cells%end_idx, patch%cells%end_blk )
-    
+
     ! patch%edges%start_idx(:,:)
     ! patch%edges%start_blk(:,:)
     ! patch%edges%end_idx(:,:)
@@ -1120,7 +1120,7 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, end_idx_e(:,:)))
     CALL reshape_idx_list( end_idx_e,                                &
       & patch%edges%end_idx, patch%edges%end_blk )
-    
+
     ! patch%verts%start_idx(:,:)
     ! patch%verts%start_blk(:,:)
     ! patch%verts%end_idx(:,:)
@@ -1134,7 +1134,7 @@ CONTAINS
     CALL reshape_idx_list( end_idx_v,                                &
       & patch%verts%end_idx, patch%verts%end_blk )
 
-    
+
     ! patch%cells%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
@@ -1150,7 +1150,7 @@ CONTAINS
         & patch%cells%neighbor_idx(:,:,ji),  &
         & patch%cells%neighbor_blk(:,:,ji) )
     END DO
-    
+
     ! patch%cells%edge_idx(:,:,:)
     ! patch%cells%edge_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
@@ -1160,7 +1160,7 @@ CONTAINS
         & patch%cells%edge_idx(:,:,ji),  &
         & patch%cells%edge_blk(:,:,ji) )
     END DO
-    
+
     ! patch%cells%vertex_idx(:,:,:)
     ! patch%cells%vertex_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
@@ -1170,35 +1170,35 @@ CONTAINS
         & patch%cells%vertex_idx(:,:,ji),  &
         & patch%cells%vertex_blk(:,:,ji) )
     END DO
-    
+
     ! patch%cells%center(:,:)%lon
     CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     CALL reshape_real( array_c_real(:,1), patch%nblks_c, patch%npromz_c,  &
        & patch%cells%center(:,:)%lon )
-    
+
     ! patch%cells%center(:,:)%lat
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     CALL reshape_real( array_c_real(:,1), patch%nblks_c, patch%npromz_c,  &
       & patch%cells%center(:,:)%lat )
-    
+
     ! patch%verts%vertex(:,:)%lon
     CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     CALL reshape_real( array_v_real(:,1), patch%nblks_v, patch%npromz_v,  &
       & patch%verts%vertex(:,:)%lon )
-    
+
     ! patch%verts%vertex(:,:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     CALL reshape_real( array_v_real(:,1), patch%nblks_v, patch%npromz_v,  &
       & patch%verts%vertex(:,:)%lat )
-    
+
     !------------------------------------------
     ! nesting/lateral boundary indexes
     IF (global_cell_type == 3) THEN ! triangular grid
-    
+
       CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
       ! patch%cells%parent_idx(:,:)
       ! patch%cells%parent_blk(:,:)
@@ -1214,38 +1214,38 @@ CONTAINS
         CALL reshape_idx( array_c_int(:,ji), patch%nblks_c, patch%npromz_c,  &
           & patch%cells%child_idx(:,:,ji),  &
           & patch%cells%child_blk(:,:,ji) )
-      END DO    
+      END DO
       ! patch%cells%child_id(:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
       CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-      
+
       ! Preparation: In limited-area mode, check if child domain ID's read
       ! from the grid files need to be shifted
       IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
         ! domain ID of first nested domain should be 2
         ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
       ENDIF
-      
+
       IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
         DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
           array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
         ENDDO
       ENDIF
-      
+
       CALL reshape_int( array_c_int(:,1), patch%nblks_c, patch%npromz_c,  &
         & patch%cells%child_id(:,:) )
-        
+
     ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
       CALL message ('read_patch',&
         & 'nesting incompatible with hexagonal grid')
     ENDIF
-    
+
     ! patch%cells%refin_ctrl(:,:)
     CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
     CALL reshape_int( array_c_int(:,1), patch%nblks_c, patch%npromz_c,  &
       & patch%cells%refin_ctrl(:,:) )
-    
+
     ! patch%edges%parent_idx(:,:)
     ! patch%edges%parent_blk(:,:)
     CALL nf(nf_inq_varid(ncid, 'parent_edge_index', varid))
@@ -1253,53 +1253,53 @@ CONTAINS
     CALL reshape_idx( array_e_int(:,1), patch%nblks_e, patch%npromz_e,  &
       & patch%edges%parent_idx(:,:),  &
       & patch%edges%parent_blk(:,:) )
-    
+
     ! patch%edges%child_idx(:,:,:)
     ! patch%edges%child_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'child_edge_index', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:4)))
-    
+
     ! First ensure that child edge indices are all positive;
-    ! if there are negative values, grid files are too old    
+    ! if there are negative values, grid files are too old
     IF(ANY(array_e_int(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
-    
+
     DO ji = 1, 4
       CALL reshape_idx( array_e_int(:,ji), patch%nblks_e, patch%npromz_e,  &
         & patch%edges%child_idx(:,:,ji),  &
         & patch%edges%child_blk(:,:,ji) )
     END DO
-    
+
     ! patch%edges%child_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-    
+
     IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
       DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,patch%n_childdom)
         array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
       ENDDO
     ENDIF
-    
+
     CALL reshape_int( array_e_int(:,1), patch%nblks_e, patch%npromz_e,  &
       & patch%edges%child_id(:,:) )
-        
+
     ! patch%edges%refin_ctrl(:,:)
     CALL nf(nf_inq_varid(ncid, 'refin_e_ctrl', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
     CALL reshape_int( array_e_int(:,1), patch%nblks_e, patch%npromz_e,  &
       & patch%edges%refin_ctrl(:,:) )
-    
+
     ! patch%verts%refin_ctrl(:,:)
     CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
     CALL reshape_int( array_v_int(:,1), patch%nblks_v, patch%npromz_v,  &
       & patch%verts%refin_ctrl(:,:) )
-    
+
     CALL nf(nf_close(ncid))
-    
-    
+
+
     !
     ! deallocate temporary arrays to read in data form the grid/patch generator
     !
@@ -1338,7 +1338,7 @@ CONTAINS
 
       END DO
     END DO
-    
+
     !----------------------------------------------------------------------------------
     ! account for pentagons in the hex model
     IF (global_cell_type == 6) THEN ! hexagonal grid
@@ -1346,9 +1346,9 @@ CONTAINS
         block_size = nproma
         IF (ibc == patch%nblks_c) block_size = patch%npromz_c
         DO ilc=1, block_size
-        
+
           DO ji = 1, 6
-          
+
             ! account for dummy cells arising in case of a pentagon
             IF ( patch%cells%neighbor_idx(ilc,ibc,ji) == 0 ) THEN
               IF ( ji /= 6 ) THEN
@@ -1378,7 +1378,7 @@ CONTAINS
               patch%cells%vertex_idx(ilc,ibc,6) = patch%cells%vertex_idx(ilc,ibc,5)
               patch%cells%vertex_blk(ilc,ibc,6) = patch%cells%vertex_blk(ilc,ibc,5)
             END IF
-            
+
             ! account for dummy edges arising in case of a pentagon
             IF ( patch%cells%edge_idx(ilc,ibc,ji) == 0 ) THEN
               IF ( ji /= 6 ) THEN
@@ -1392,15 +1392,15 @@ CONTAINS
               patch%cells%edge_idx(ilc,ibc,6) = patch%cells%edge_idx(ilc,ibc,5)
               patch%cells%edge_blk(ilc,ibc,6) = patch%cells%edge_blk(ilc,ibc,5)
             END IF
-          
+
           END DO  ! ji = 1, 6
-          
+
         END DO  ! ilc=1, block_size
       END DO ! blocks
     ENDIF  ! global_cell_type == 6
-        
-        
-      
+
+
+
     !
     ! Set values which are needed for parallel runs
     ! to the correct values for a single patch owner
@@ -1409,54 +1409,54 @@ CONTAINS
     patch%rank   = 0
     patch%n_proc = 1
     patch%proc0  = 0
-    
+
     CALL message (TRIM(method_name), 'read_patches finished')
-    
+
   END SUBROUTINE read_basic_patch
   !-------------------------------------------------------------------------
-   
-    
+
+
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
   SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp )
-    
+
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    
+
     INTEGER, POINTER :: &
       & array_c_int(:,:),  &  ! temporary arrays to read in integer values
       & array_e_int(:,:),  &
       & array_v_int(:,:)
-    
+
     REAL(wp), POINTER :: &
       & array_c_real(:,:), &  ! temporary arrays to read in real values
       & array_e_real(:,:), &
       & array_v_real(:,:)
-    
+
     ! status variable
     INTEGER :: ist
-    
+
     INTEGER :: ncid, dimid, varid
     INTEGER :: ip, ji, jv
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
     INTEGER :: return_status
-    
+
     TYPE(t_patch), POINTER :: p_p, patch0
-    
+
 !    REAL(wp), POINTER :: tmp_check_array(:,:)
 !    REAL(wp) :: max_diff
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_remaining_patch'
     !-----------------------------------------------------------------------
-    
+
     CALL message ('mo_model_domimp_patches:read_remaining_patch', &
       & 'Read gridmap file '//TRIM(patch%grid_filename))
-    
+
     CALL nf(nf_open(TRIM(patch%grid_filename), nf_nowrite, ncid))
-            
+
     !-------------------------------------------------
     !
     ! allocate temporary arrays to read in data from the grid/patch generator
@@ -1479,7 +1479,7 @@ CONTAINS
       CALL finish ('mo_model_domain_import:read_patch',  &
         & 'allocation for array_[cev]_real failed')
     ENDIF
-        
+
     !--------------------------------------------------
     CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
@@ -1487,7 +1487,7 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     !--------------------------------------------------
 
-    
+
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
     ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
@@ -1558,7 +1558,7 @@ CONTAINS
           & p_p%edges%cell_blk(:,:,ji) )
       END DO
     END DO
-    
+
     ! p_p%edges%vertex_idx(:,:,:)
     ! p_p%edges%vertex_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
@@ -1572,7 +1572,7 @@ CONTAINS
           & p_p%edges%vertex_blk(:,:,ji) )
       END DO
     END DO
-    
+
     ! p_p%edges%system_orientation(:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_system_orientation', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
@@ -1582,7 +1582,7 @@ CONTAINS
         & p_p%n_patch_edges, p_p%edges%glb_index,    &
         & p_p%edges%system_orientation(:,:) )
     ENDDO
-    
+
     ! p_p%edges%center(:,:)%lon
     CALL nf(nf_inq_varid(ncid, 'lon_edge_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1591,7 +1591,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%center(:,:)%lon )
     ENDDO
-    
+
     ! p_p%edges%center(:,:)%lat
     CALL nf(nf_inq_varid(ncid, 'lat_edge_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1600,7 +1600,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%center(:,:)%lat )
     ENDDO
-    
+
     ! p_p%edges%primal_normal(:,:)%v1
     CALL nf(nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1609,7 +1609,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%primal_normal(:,:)%v1 )
     ENDDO
-    
+
     ! p_p%edges%primal_normal(:,:)%v2
     CALL nf(nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1618,7 +1618,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%primal_normal(:,:)%v2 )
     ENDDO
-    
+
     ! p_p%edges%dual_normal(:,:)%v1
     CALL nf(nf_inq_varid(ncid, 'zonal_normal_dual_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1627,7 +1627,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%dual_normal(:,:)%v1 )
     ENDDO
-    
+
     ! p_p%edges%dual_normal(:,:)%v2
     CALL nf(nf_inq_varid(ncid, 'meridional_normal_dual_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1636,7 +1636,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%dual_normal(:,:)%v2 )
     ENDDO
-    
+
     ! p_p%edges%primal_edge_length(:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_length', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1645,7 +1645,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%primal_edge_length(:,:) )
     ENDDO
-    
+
     ! p_p%edges%dual_edge_length(:,:)
     CALL nf(nf_inq_varid(ncid, 'dual_edge_length', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
@@ -1654,7 +1654,7 @@ CONTAINS
       CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
         & p_p%edges%dual_edge_length(:,:) )
     ENDDO
-    
+
     ! p_p%edges%edge_vert_length(:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_vert_distance', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
@@ -1665,7 +1665,7 @@ CONTAINS
           & p_p%edges%edge_vert_length(:,:,ji) )
       ENDDO
     ENDDO
-    
+
     ! p_p%edges%edge_cell_length(:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_cell_distance', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
@@ -1676,7 +1676,7 @@ CONTAINS
           & p_p%edges%edge_cell_length(:,:,ji) )
       ENDDO
     ENDDO
-    
+
     ! p_p%verts%neighbor_idx(:,:,:)
     ! p_p%verts%neighbor_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
@@ -1690,7 +1690,7 @@ CONTAINS
           & p_p%verts%neighbor_blk(:,:,ji) )
       END DO
     END DO
-    
+
     ! p_p%verts%cell_idx(:,:,:)
     ! p_p%verts%cell_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
@@ -1710,10 +1710,10 @@ CONTAINS
           & p_p%verts%cell_blk(:,:,ji) )
       END DO
     END DO
-    
+
     ! p_p%verts%edge_idx(:,:,:)
     ! p_p%verts%edge_blk(:,:,:)
-    CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))    
+    CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
     !
     ! Set verts%num_edges (in array_v_real(:,1))
@@ -1727,7 +1727,7 @@ CONTAINS
 
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
-    ! Note, however, that related multiplication factors must be zero   
+    ! Note, however, that related multiplication factors must be zero
 !     IF (global_cell_type == 3) &
       CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
@@ -1747,7 +1747,7 @@ CONTAINS
       CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%glb_index,  &
         & p_p%verts%num_edges(:,:) )
     ENDDO
-              
+
     ! p_p%verts%edge_orientation(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
@@ -1761,7 +1761,7 @@ CONTAINS
           & p_p%verts%edge_orientation(:,:,ji) )
       END DO
     END DO
-    
+
     ! p_p%verts%dual_area(:,:)
     CALL nf(nf_inq_varid(ncid, 'dual_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
@@ -1770,7 +1770,7 @@ CONTAINS
       CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
         & p_p%verts%dual_area(:,:) )
     ENDDO
-    
+
     !-------------------------------------------------
     ! read geometry parameters
     patch0 => get_patch_ptr(patch, id_lp, 0)
@@ -1782,7 +1782,7 @@ CONTAINS
       CALL set_grid_mean_geometry_info(patch0)
     ENDIF
     CALL set_grid_geometry_derived_info(patch0%geometry_info)
-        
+
     DO ip = 1, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       CALL copy_grid_geometry_info(from_geometry_info = patch0%geometry_info, &
@@ -1799,22 +1799,22 @@ CONTAINS
     IF (return_status /= 0) & ! this is an old grid
       CALL calculate_cartesian_positions(ig, patch, n_lp, id_lp)
     !-------------------------------------------------
-    
-                       
+
+
     CALL nf(nf_close(ncid))
     !-------------------------------------------------
      !Check for plane_torus case
     IF(p_p%geometry_info%geometry_type == planar_torus_geometry .AND. .NOT. is_plane_torus) THEN
       CALL message(TRIM(method_name), &
-        & "Grid is plane torus: turning on is_plane_torus automatically")    
-      is_plane_torus = .TRUE. 
+        & "Grid is plane torus: turning on is_plane_torus automatically")
+      is_plane_torus = .TRUE.
     END IF
 
     IF(p_p%geometry_info%geometry_type /= planar_torus_geometry .AND. is_plane_torus) &
       CALL finish(TRIM(method_name),"Input grid is NOT plane torus, Stopping")
     !-------------------------------------------------
-        
-        
+
+
     !
     ! deallocate temporary arrays to read in data from the grid/patch generator
     !
@@ -1834,15 +1834,15 @@ CONTAINS
     ENDIF
 
     CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
-    
+
   !-------------------------------------------------------------------------
   CONTAINS
-       
+
     !-------------------------------------------------------------------------
     ! Checks for the pentagon case and moves dummy cells to end.
     ! The dummy entry is either set to 0 or duplicated from the last one
     SUBROUTINE move_dummies_to_end(array, array_size, max_connectivity, duplicate)
-      
+
       INTEGER, INTENT(inout) :: array(:,:)
       INTEGER, INTENT(in) :: array_size, max_connectivity
       LOGICAL, INTENT(in) :: duplicate
@@ -1925,39 +1925,39 @@ CONTAINS
       ENDDO ! j = 1, UBOUND(array,1)
 
       DEALLOCATE (indlist)
-      
+
     END SUBROUTINE move_dummies_to_end
     !-------------------------------------------------------------------------
-    
+
   END SUBROUTINE read_remaining_patch
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION read_cartesian_positions(ncid, ig, patch, n_lp, id_lp, &
     & array_c_real, array_e_real, array_v_real)
-    
+
     INTEGER,       INTENT(in)    :: ncid
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    
+
     REAL(wp), POINTER :: &
       & array_c_real(:,:), &  ! temporary arrays to read in real values
       & array_e_real(:,:), &
       & array_v_real(:,:)
-    
+
     INTEGER :: varid
     INTEGER :: ip
 
     INTEGER :: return_status
-    
+
     TYPE(t_patch), POINTER :: p_p
-    
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_cartesian_positions'
     !-----------------------------------------------------------------------
     read_cartesian_positions = -1
-    return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)    
+    return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)
     IF (return_status /= nf_noerr) RETURN ! ERROR
 
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
@@ -2106,20 +2106,20 @@ CONTAINS
 
     IF (MAXVAL(ABS(patch%edges%primal_cart_normal(1,1)%x(:))) < 0.001_wp) &
       & RETURN  ! Error , the normal are filled properly
-    
+
     read_cartesian_positions = 0
 
   END FUNCTION read_cartesian_positions
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE calculate_cartesian_positions(ig, patch, n_lp, id_lp)
-    
+
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    
+
     TYPE(t_patch), POINTER :: p_p
 
     INTEGER :: ip
@@ -2128,7 +2128,7 @@ CONTAINS
     CALL warning(method_name, " is called")
     IF (patch%geometry_info%geometry_type /= sphere_geometry) &
       CALL finish(method_name, "geometry_type /= sphere_geometry")
-    
+
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
 
@@ -2136,11 +2136,11 @@ CONTAINS
       ! (these are old grids)
       CALL calculate_patch_cartesian_positions( p_p )
 
-    ENDDO  
+    ENDDO
 
   END SUBROUTINE calculate_cartesian_positions
   !-------------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   ! get_patch_ptr returns a pointer to patch for idx=0,
   ! a pointer to a local parent patch from the list otherwise
@@ -2167,7 +2167,7 @@ CONTAINS
   !!
   SUBROUTINE divide_real( p_real_array_in, nvals, glb_index, &
     & p_divided_real_array_out )
-    
+
     ! input array
     REAL(wp), INTENT(in):: p_real_array_in(:)
     ! number of values
@@ -2176,14 +2176,14 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index(:)
     ! output array
     REAL(wp), INTENT(inout) :: p_divided_real_array_out(:,:)
-    
+
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_real'
     INTEGER nblks, npromz, n, nlen, jb, jl
-    
+
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
-    
+
     ! consistency check
     IF ( (SIZE(p_divided_real_array_out,1) /= nproma) .OR.  &
       &  (SIZE(p_divided_real_array_out,2) >  nblks) ) THEN
@@ -2192,23 +2192,23 @@ CONTAINS
 
     n = 0
     DO jb = 1, nblks
-      
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
       END IF
-      
+
       DO jl = 1, nlen
         n = n+1
         p_divided_real_array_out(jl,jb) = p_real_array_in(glb_index(n))
       END DO
-      
+
     END DO
-    
+
   END SUBROUTINE divide_real
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Divide and reshape (for blocking) a integer array
@@ -2218,7 +2218,7 @@ CONTAINS
   !!
   SUBROUTINE divide_int( p_int_array_in, nvals, glb_index, &
     & p_divided_int_array_out )
-    
+
     ! input array
     INTEGER, INTENT(in):: p_int_array_in(:)
     ! number of values
@@ -2227,11 +2227,11 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index(:)
     ! output array
     INTEGER, INTENT(inout) :: p_divided_int_array_out(:,:)
-    
+
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_int'
     INTEGER nblks, npromz, n, nlen, jb, jl
-    
+
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
 
@@ -2240,26 +2240,26 @@ CONTAINS
       &  (SIZE(p_divided_int_array_out,2) >  nblks) ) THEN
       CALL finish(routine, "Internal error!")
     END IF
-    
+
     n = 0
     DO jb = 1, nblks
-      
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
       END IF
-      
+
       DO jl = 1, nlen
         n = n+1
         p_divided_int_array_out(jl,jb) = p_int_array_in(glb_index(n))
       END DO
-      
+
     END DO
-    
+
   END SUBROUTINE divide_int
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Divide and reshape (for blocking) a index array
@@ -2269,7 +2269,7 @@ CONTAINS
   !!
   SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, loc_index, &
     & idx_array_out, blk_array_out )
-    
+
     ! input array
     INTEGER, INTENT(in):: p_idx_array_in(:)
     ! number of values
@@ -2280,21 +2280,21 @@ CONTAINS
     INTEGER, INTENT(in) :: loc_index(:)
     ! output array
     INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
-    
+
     INTEGER nblks, npromz, n, nlen, jb, jl, j_g, j_l
-    
+
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
-    
+
     n = 0
     DO jb = 1, nblks
-      
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
         nlen = npromz
       END IF
-      
+
       DO jl = 1, nlen
         n = n+1
         ! get global index in divided array
@@ -2312,12 +2312,12 @@ CONTAINS
           blk_array_out(jl,jb) = blk_no(j_l)
         ENDIF
       END DO
-      
+
     END DO
-    
+
   END SUBROUTINE divide_idx
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!               reshape an integer index array for the blocking.
@@ -2328,29 +2328,29 @@ CONTAINS
   SUBROUTINE reshape_idx( p_idx_array_in, nblks, npromz,  &
     & p_reshaped_idx_array_out,       &
     & p_reshaped_blk_array_out )
-    
-    
-    
+
+
+
     ! input index array
     INTEGER, INTENT(in) :: p_idx_array_in(:)
     ! number of blocks
     INTEGER, INTENT(in) :: nblks
     ! chunk length
     INTEGER, INTENT(in) :: npromz
-    
+
     ! output line index array
     INTEGER, INTENT(inout) :: p_reshaped_idx_array_out(:,:)
     ! output block index array
     INTEGER, INTENT(inout) :: p_reshaped_blk_array_out(:,:)
-    
+
     INTEGER :: nlen
     INTEGER :: jl, jb
     INTEGER :: il, idx_in, idx, blk
-    
+
     !-----------------------------------------------------------------------
-    
+
     DO jb = 1, nblks
-      
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
@@ -2360,7 +2360,7 @@ CONTAINS
           p_reshaped_blk_array_out(jl,nblks) = 0
         END DO
       END IF
-      
+
       DO jl = 1, nlen
         il  = jl + ( jb - 1 )*nproma
         idx_in = p_idx_array_in(il)
@@ -2374,12 +2374,12 @@ CONTAINS
         p_reshaped_idx_array_out(jl,jb) = idx
         p_reshaped_blk_array_out(jl,jb) = blk
       END DO
-      
+
     END DO
-    
-  END SUBROUTINE reshape_idx  
+
+  END SUBROUTINE reshape_idx
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!               reshape an index list array for the blocking.
@@ -2390,29 +2390,29 @@ CONTAINS
   SUBROUTINE reshape_indlist( indlist_in,                     &
     & start_idx_out, start_blk_out,   &
     & end_idx_out,   end_blk_out )
-    
-    
-    
+
+
+
     ! input index array
     INTEGER, INTENT(in) :: indlist_in(:,:)
-    
+
     ! output line index array
     INTEGER, INTENT(inout) :: start_idx_out(:,:), end_idx_out(:,:)
     ! output block index array
     INTEGER, INTENT(inout) :: start_blk_out(:,:), end_blk_out(:,:)
-    
+
     !-----------------------------------------------------------------------
-    
+
     start_blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
     start_idx_out(:,1) =  indlist_in(:,1) - (start_blk_out(:,1) - 1) * nproma
-    
+
     end_blk_out(:,1) = (indlist_in(:,2) - 1) / nproma + 1
     end_idx_out(:,1) =  indlist_in(:,2) - (end_blk_out(:,1) - 1) * nproma
-    
-    
+
+
   END SUBROUTINE reshape_indlist
-  !-------------------------------------------------------------------------  
-  
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !!               reshape the start_idx / end_idx fields for blocking.
@@ -2421,40 +2421,40 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD (2009-07-22)
   !!
   SUBROUTINE reshape_idx_list( indlist_in, idx_out, blk_out )
-    
-    
-    
+
+
+
     ! input index array
     INTEGER, INTENT(in) :: indlist_in(:,:)
-    
+
     ! output line index array
     INTEGER, INTENT(inout) :: idx_out(:,:)
     ! output block index array
     INTEGER, INTENT(inout) :: blk_out(:,:)
-    
+
     !-----------------------------------------------------------------------
-    
+
     blk_out(:,1:max_childdom) = (indlist_in(:,1:max_childdom) - 1) / nproma + 1
     idx_out(:,1:max_childdom) =  indlist_in(:,1:max_childdom) - &
       & (blk_out(:,1:max_childdom) - 1) * nproma
-    
-  END SUBROUTINE reshape_idx_list  
+
+  END SUBROUTINE reshape_idx_list
   !-------------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS, warnonly, silent)
-    
+
     INTEGER, INTENT(in)           :: STATUS
     LOGICAL, INTENT(in), OPTIONAL :: warnonly
     LOGICAL, INTENT(in), OPTIONAL :: silent
-    
+
     LOGICAL :: lwarnonly, lsilent
-    
+
     lwarnonly = .FALSE.
     lsilent   = .FALSE.
     IF(PRESENT(warnonly)) lwarnonly = .TRUE.
     IF(PRESENT(silent))   lsilent   = silent
-    
+
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
@@ -2464,9 +2464,9 @@ CONTAINS
         CALL finish('mo_model_domain_import netCDF error', nf_strerror(STATUS))
       ENDIF
     ENDIF
-    
+
   END SUBROUTINE nf
-  
+
 END MODULE mo_model_domimp_patches
 
 
