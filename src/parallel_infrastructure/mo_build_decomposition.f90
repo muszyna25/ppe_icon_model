@@ -1,7 +1,6 @@
 MODULE mo_build_decomposition
   USE mo_complete_subdivision
   USE mo_setup_subdivision
-  USE mo_ext_decompose_patches
   USE mo_sync,                ONLY: sync_patch_array, sync_idx,disable_sync_checks, &
     &                               enable_sync_checks, SYNC_E, SYNC_V,             &
     &                               decomposition_statistics
@@ -130,24 +129,15 @@ CONTAINS
 
         CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
 
-        IF (division_method(1) > 100) THEN
+        ! use internal domain decomposition algorithm
 
-          ! use ext decomposition library driver
-          CALL ext_decompose_patches(p_patch, p_patch_global)
-
+        IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN
+          ! If ldump_dd is set in a single processor run, a domain
+          ! decomposition for nproc_dd processors is done
+          CALL decompose_domain(p_patch, p_patch_global, nproc_dd)
         ELSE
-
-          ! use internal domain decomposition algorithm
-
-          IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN
-            ! If ldump_dd is set in a single processor run, a domain
-            ! decomposition for nproc_dd processors is done
-            CALL decompose_domain(p_patch, p_patch_global, nproc_dd)
-          ELSE
-            CALL decompose_domain(p_patch, p_patch_global)
-          END IF
-
-        ENDIF ! division_method
+          CALL decompose_domain(p_patch, p_patch_global)
+        END IF
 
         DEALLOCATE(p_patch_global)
 

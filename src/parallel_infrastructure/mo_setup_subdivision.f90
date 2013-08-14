@@ -143,7 +143,6 @@ CONTAINS
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
-
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
 
     CALL message(routine, 'start of domain decomposition')
@@ -312,7 +311,7 @@ CONTAINS
       END IF
 
       IF (my_process_is_mpi_parallel()) THEN
-        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner, p_patch(jg)%cells%radiation_owner)
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
       END IF
