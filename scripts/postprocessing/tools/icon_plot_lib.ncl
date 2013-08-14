@@ -29,9 +29,10 @@
   DEFAULTCOLOR = "BlueDarkRed18"      ; ncolors = 256
   DEFAULTCOLOR = "BlueWhiteOrangeRed" ; ncolors = 256
 ;-------------------------------------------------------------------------------
-procedure setCDO(path)
+undef("setCDO")
+procedure setCDO(path2Cdo)
 begin
-  CDO=path
+  CDO=path2Cdo
 end
 ;-------------------------------------------------------------------------------
 ; signum function
@@ -44,12 +45,62 @@ begin
     return(val/abs(val))
   end if
 end
+;---------------------------------------------------------------
+; return ncl version string
+undef("getNclVersion")
+function getNclVersion()
+begin
+  version_string = systemfunc("ncl -V")
+  version_array  = str_split(version_string, ".")
+  ; use integers instead
+  return stringtointeger(version_array)
+end
+;---------------------------------------------------------------
+; return true if ncl uses groups for netcdf4 input (release 6.1.1 with netcdf4 input)
+undef("versionWithNC4GroupNotationSupport")
+function versionWithNC4GroupNotationSupport()
+begin
+  return (/6,1,1/)
+end
+undef("versionIsGE")
+function versionIsGE(otherVersion)
+begin
+  return True
+  diff = otherVersion .gt. getNclVersion()
+  print(""+diff)
+  do i=0,dimsizes(diff)
+    if (.not. diff(i)) then
+      return False
+    end if
+  end do
+  return True
+end
+;-------------------------------------------------------------------------------
+; return a filehandle that can access variables names without leading '/' even
+; if the input it nc4 and ncl has version 6.1.1 or above
+undef("nc4Aware_addfile")
+function nc4Aware_addfile(filename,debug)
+begin
+  filehandle = addfile( filename, "r" )
+  filetype   = get_file_version(filehandle)
+  if debug then
+    print("[nc4Aware_addfile]Read in file:'" + filename +"'")
+    print("[nc4Aware_addfile]    Filetype:'" + filetype +"'")
+    print("[nc4Aware_addfile]NCL  version:'" + str_join(getNclVersion(),".") +"'")
+    print("[nc4Aware_addfile]version > 611'" + versionIsGE((/6,1,1/)) )
+  end if
+  if ((get_file_version(filehandle) .eq. "NETCDF4") .and. versionIsGE((/6,1,1/))) then
+    print("[nc4Aware_addfile]switch to root group '/'")
+    filehandle = filehandle=>/
+  end if
+  return filehandle
+end
 ;-------------------------------------------------------------------------------
 ; Is the 'time' variable a dimesions in the input dimensions array?
 undef("has_time")
 function has_time(dims)
 begin
-  if (any(dims.eq."time")) then
+  if (.not.ismissing(any(dims.eq."time"))) then
     return(True)
   else
     return(False)
@@ -486,6 +537,7 @@ begin
 end
 ;---------------------------------------------------------------
 ; Print information about dimensions and attributes of a given varaiable
+undef("printVar")
 procedure printVar(varname, filehandle)
 begin
   dims  = getfilevardims(filehandle,varname)
@@ -1026,7 +1078,8 @@ end
 undef("setBaseString")
 procedure setBaseString(workstation,plot,resource,basestring)
 begin
-  resource@txFontHeightF = 0.01 ; if this is changed, please adjust the implementation of getLshiftForNDCString()
+  resource@txFontHeightF = 0.01 ; if this is changed, please adjust 
+                                ; the implementation of getLshiftForNDCString()
   gsn_text_ndc(workstation,basestring,getLshiftForNDCString(basestring),.01,resource)
 end
 ;---------------------------------------------------------------

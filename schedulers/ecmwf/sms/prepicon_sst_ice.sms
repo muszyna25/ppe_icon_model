@@ -36,7 +36,8 @@ basename=%SUITE%_%EXPNUM%_%FDATE%%INIHOUR%
 
 mkdir -p ${SSTICEDIR}
 cd ${SSTICEDIR}
-
+rm SST*nc
+rm CI*nc
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
@@ -45,8 +46,9 @@ dwd_grib_api=/home/ms/de/dwd/grib_api
 export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 # =============================================
 
-ICON_GRIDFILE="icon%RES%_DOM01.nc"
-ln -sf $GRIDDIR/icon*DOM*.nc .
+ICON_GRIDFILE="icon_grid_%RES%_G.nc"
+ln -sf ${GRIDDIR}/icon_grid_*_%RES%_G.nc ${ICON_GRIDFILE}
+
 #set +x
 
 # -------------------------------------------------
@@ -118,7 +120,7 @@ do
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
 IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
 &parallel_nml
@@ -166,7 +168,7 @@ fi
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
 IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
 &parallel_nml

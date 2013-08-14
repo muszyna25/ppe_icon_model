@@ -7,9 +7,10 @@
 # Default EXPNAME is the suffix of this script after "exp."
 #
 #-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model (hom)
+#-----------------------------------------------------------------------------
+# Basic specifications for the ICON ocean model: comparison to MPIOM
 # --------------------------------------
-# Stephan Lorenz, MPI-M, 2011-01 / 2012-03
+# Stephan Lorenz, MPI-M, 2011-01 / 2013-07
 #
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -89,17 +90,19 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=240      # ocean model output interval hours [hours]
+nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=3655   # stop model for restart [days]
+ndays_restart=1      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-dt_data=`expr ${nhours_data} \* 3600`
-dt_file=`expr ${ndays_file} \* 86400`
-dt_checkpoint=`expr ${ndays_checkp} \* 86400`
-dt_restart=`expr ${ndays_restart} \* 86400`
+(( dt_data       = nhours_data   * 3600 ))
+(( dt_file       = ndays_file    * 86400 ))
+(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_restart    = ndays_restart * 86400 ))
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -131,12 +134,30 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 3600         ! model timestep in seconds
- output      = 'vlist'      ! We are still using the old output mechanism
+ output      = 'nml'      ! We are still using the old output mechanism
  activate_sync_timers = .TRUE.
- write_timer_files  = .TRUE.
+ write_timer_files    = .FALSE.
+ msg_timestamp        = .TRUE.
+/
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist       =  'group:oce_default','hi','conc'
+!/
+! no complete sea ice
+!&output_nml
+!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+!  steps_per_file   = ${steps_per_file}
+!  include_last     = .TRUE.
+!  output_grid      = .TRUE.
+!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
+!  ml_varlist       = 'wet_c','group:ice_default'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -156,15 +177,15 @@ cat > ${ocean_namelist} << EOF
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
-  l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  l_partial_cells = .TRUE.       ! partial bottom cells=true: local varying bottom depth
+  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
-  use_absolute_solver_tolerance = .true.  !  new gmres_oce needs absoulute solver tolerance
-  solver_tolerance = 1.0E-12              !  absolute (new) or relative (gmres_oce_old)
-  solver_max_iter_per_restart = 20        !  outer solver loop with syncing
-  solver_max_restart_iterations = 50      !  inner solver loop without syncing
+  use_absolute_solver_tolerance = .true.  !  gmres_oce_new needs l_fast_sum=T, p_test_run=F - else gmres_oce_old
+  solver_tolerance = 1.0E-11              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart = 30        !  outer solver loop with syncing
+  solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
   ! solver_start_tolerance = 1.0E-08
   ! solver_tolerance_decrease_ratio = 0.1
 /
@@ -174,13 +195,13 @@ cat > ${ocean_namelist} << EOF
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  richardson_factor_veloc  = 2.0e-3 ! factor for vertical viscosity coefficient in PP scheme
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
-  richardson_factor_tracer = 2.0e-3 ! factor for vertical diffusion coefficient in PP scheme
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
@@ -199,6 +220,14 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
+&ocean_diagnostics_nml
+! vertex list for R2B04 only
+   gibraltar(1:10)              = 2371,2374
+   denmark_strait(1:10)         = 2436,2471
+   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+   indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+   scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+/
 &io_nml
   out_expname   = '${EXPNAME}'
   dt_data       = ${dt_data}
@@ -207,4 +236,3 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.         ! sync after each timestep
 /
 EOF
-

@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.1rc2
+! Fortran interface for CDI library version 1.6.1
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   April 2013
+! Uwe Schulzweida, MPI-MET, Hamburg,   June 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -266,8 +266,10 @@
       PARAMETER (ZAXIS_CLOUD_TOP        = 17)
       INTEGER    ZAXIS_ISOTHERM_ZERO   
       PARAMETER (ZAXIS_ISOTHERM_ZERO    = 18)
+      INTEGER    ZAXIS_SNOW            
+      PARAMETER (ZAXIS_SNOW             = 19)
       INTEGER    ZAXIS_REFERENCE       
-      PARAMETER (ZAXIS_REFERENCE        = 19)
+      PARAMETER (ZAXIS_REFERENCE        = 20)
 !
 !  TIME types
 !
@@ -423,6 +425,10 @@
 
 !                     cdiPrintVersion
       EXTERNAL        cdiPrintVersion
+
+      INTEGER         cdiHaveFiletype
+!                                    (INTEGER         filetype)
+      EXTERNAL        cdiHaveFiletype
 
 !                     cdiDefMissval
 !                                    (DOUBLEPRECISION missval)
@@ -1200,7 +1206,7 @@
 !                                    ()
       EXTERNAL        gribGetAPIVersion
 
-!
+
 !                     cdiDefAdditionalKey
 !                                    (CHARACTER*(*)   string)
       EXTERNAL        cdiDefAdditionalKey
@@ -1218,12 +1224,6 @@
 !                                     CHARACTER*(*)   name,
 !                                     DOUBLEPRECISION value)
       EXTERNAL        vlistDefVarDblKey
-
-      INTEGER vlistHasVarKey
-!                                    (INTEGER         vlistID,
-!                                     INTEGER         varID,
-!                                     CHARACTER*(*)   name)
-      EXTERNAL        vlistHasVarKey
 
       DOUBLEPRECISION vlistInqVarDblKey
 !                                    (INTEGER         vlistID,

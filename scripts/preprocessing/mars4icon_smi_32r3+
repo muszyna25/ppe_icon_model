@@ -39,7 +39,7 @@ set -x
 pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
 step=${2:-0}              # forecast step (in hours)
 res="${3:-255}"           # resolution
-levelist=${4:-1/to/91}    # levels
+levelist=${4:-1/to/137}   # levels (L137 from 2013062512)
 
 # --- data output ---
 
@@ -72,10 +72,15 @@ fi
 
 case ${res} in
     255) grd=128 ;;
+    399) grd=200 ;;
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+if [[ -z $RESULT_GRIB_FILE ]] ; then
+  grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+else
+  grib_file=${RESULT_GRIB_FILE}
+fi
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon

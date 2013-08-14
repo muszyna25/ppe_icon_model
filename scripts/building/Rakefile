@@ -1,5 +1,6 @@
 require 'open3'
 require 'jobqueue'
+require 'facets'
 require 'rake/clean'
 require 'test/unit/assertions'
 include Test::Unit::Assertions
@@ -13,7 +14,7 @@ include Test::Unit::Assertions
 # * synchronization of several remote build locations
 #   rake par remoteDef_sync remoteIntel_sync remoteGccHi_sync
 # * print our the commands before executing:
-#   DEGUB=1 rake remoteGccHi_conf
+#   DEBUG=1 rake remoteGccHi_conf
 # * print the commands without executing them
 #   DRYRUN=1 rake remoteGccHi_conf
 # ============================================================================
@@ -26,10 +27,10 @@ include Test::Unit::Assertions
 REMOTE_USER = 'm300064'
 
 # local master source code directory
-SRCDIR = '/home/ram/src/git/icon'
-
+SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
+WORKDIR     = File.expand_path('.')
 # remote runscripts
-REMOTE_RUN = 'exp.test_oce_default.run'
+DEFAULT_EXP = 'test_oce_default'
 
 # basic host setup
 $hosts = {
@@ -44,11 +45,13 @@ $hosts = {
     :user     => REMOTE_USER,
     :hostname => 'localhost',
     :port     => 40022,
+   #:hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :thunder5 => {
     :user     => REMOTE_USER,
     :hostname => 'localhost',
     :port     => 50022,
+   #:hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :passat => {
     :user     => REMOTE_USER,
@@ -63,19 +66,21 @@ $hosts = {
 # * local builds start with 'local'
 # * remote builds start with 'remote'
 $builds = {
-  :localGcc          => {:host => :thingol ,:subdir => 'gcc'},
-  :localGccHi        => {:host => :thingol ,:subdir => 'gcc-hiopt', :CC => 'gcc', :FLAGS => 'hiopt'},
-  :localGprof        => {:host => :thingol ,:subdir => 'gprof'},
-  :localOpenMP       => {:host => :thingol ,:subdir => 'openmp',:FLAGS => 'hiopt',:openmp => true},
-  :localNag          => {:host => :thingol ,:subdir => 'nag',  :CC => 'nag'},
-  :localTest         => {:host => :thingol ,:subdir => 'test', :CC => 'nag'},
-  :remoteDef         => {:host => :thunder4,:subdir => 'test'},
-  :remoteGccHi       => {:host => :thunder5,:subdir => 'gcc',  :CC => 'gcc', :FLAGS => 'hiopt'},
-  :remoteGccHiOpenMP => {:host => :thunder5,:subdir => 'gcc-opemp',  :CC => 'gcc', :FLAGS => 'hiopt',:openmp => true},
-  :remoteNag         => {:host => :thunder4,:subdir => 'nag',  :CC => 'nag'},
-  :remoteIntel       => {:host => :thunder5,:subdir => 'intel',:CC => 'intel'},
-  :remoteXlf         => {:host => :passat  ,:subdir => 'default'},
-  :remoteXlfHi       => {:host => :passat  ,:subdir => 'hiopt',:FLAGS => 'hiopt'}
+  :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
+  :localGccHi        => {:host => :thingol , :subdir => 'gcc-hiopt', :CC => 'gcc'      , :FLAGS => 'hiopt'},
+  :localGprof        => {:host => :thingol , :subdir => 'gprof'}   ,
+  :localOpenMP       => {:host => :thingol , :subdir => 'openmp'   ,                     :FLAGS => 'hiopt' , :openmp => true}  ,
+  :localNag          => {:host => :thingol , :subdir => 'nag'      , :CC => 'nag'}     ,
+  :localSun          => {:host => :thingol , :subdir => 'sun'      , :CC => 'sun'      ,:preConf => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH', :preBuild => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH'},
+  :localTest         => {:host => :thingol , :subdir => 'test'     , :CC => 'nag'}     ,
+  :remoteSerial      => {:host => :thunder4, :subdir => 'serial'   ,                    :confOpts => '--without-mpi'}    ,
+  :remoteGccHi       => {:host => :thunder5, :subdir => 'gcc'      , :CC => 'gcc'      , :FLAGS => 'hiopt'},
+  :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
+  :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
+  :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
+  :remotePgi         => {:host => :thunder5, :subdir => 'pgi'      , :CC => 'pgi'}     ,
+  :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
+  :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
 
@@ -142,20 +147,30 @@ $remoteConnection = lambda {|build|
 # configure for a given build call wrt. to given options
 $configureCall = lambda {|build|
   configureCall = ''
+  configureCall << "#{$builds[build][:preConf]};" unless $builds[build][:preConf].nil?
   configureCall << "COMPILER=#{$builds[build][:CC]} "
   configureCall << './configure'
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
   configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
   configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
+  configureCall << " " << $builds[build][:confOpts] if $builds[build].has_key?(:confOpts)
   configureCall << " ;"
   configureCall
 }
 
+# build call
+$buildCall = lambda {|build|
+  buildCall = ''
+  buildCall << $builds[build][:preBuild]  << ';' unless $builds[build][:preBuild].nil?
+  buildCall << './build_command;'
+}
+
 # exclude files for a build
 $excludeFiles = lambda {|build|
-  list = "--exclude='.git/*'"
+  list =  " --exclude='.git/*'"
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
+  list << " --exclude='.svn/*'" << " --exclude=config/set-up.info" << " --exclude='**/*.ps'" << " --exclude='**/*.pdf'" << " --exclude='**/*.png'"
   list
 }
 
@@ -178,10 +193,10 @@ def connect(build,command)
   hostname = $hostnameOf[build]
   cmd << $remoteConnection[build] + " m300064@#{hostname} " if isRemote?(build)
   cmd << "'" if isRemote?(build)
+  cmd << "source /etc/profile; [[ -f .profile ]] && source .profile; " if isRemote?(build)
   cmd << "cd #{$targetDir[build,false]};"
 
   # add module command - needed by ICONs configure
-  cmd << "source /etc/profile; source .profile; " if isRemote?(build) 
   cmd << command
   cmd << "'" if isRemote?(build)
 
@@ -196,13 +211,78 @@ def doConfig(build)
   call(connect(build,$configureCall[build]))
 end
 def doBuild(build)
-  call(connect(build,"./build_command;"))
+  call(connect(build,$buildCall[build]))
 end
 def doClean(build)
   call(connect(build,"make clean"))
 end
-def doRun(build)
-  call(connect(build,"./make_runscripts test_oce_default ; cd run;./exp.test_oce_default.run;"))
+def doCleanSync(build)
+  call(connect(build,"rm -rf src support build"))
+end
+def doRunExp(build,exp,post=false)
+  runScript = (post) ? 'post' : 'exp'
+  runScript << '.' + exp +'.run'
+  call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc | cut -d ' ' -f 1) && rm #{exp}*.nc"))
+  call(connect(build,<<-EOS
+    ./make_runscripts #{exp}; 
+    cd run;
+    perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
+    ./exp.#{exp}.run;
+    EOS
+  ))
+end
+def doSubmit(build,exp,post=false)
+  runScript = (post) ? 'post' : 'exp'
+  runScript << '.' + exp +'.run'
+  call(connect(build,<<-EOS
+    cd run;
+    perl -pi.bak -e 's/partition=mpi-compute/partition=mpi-develop/' #{runScript} ;
+    sbatch ./#{runScript}
+    EOS
+  ))
+end
+def doSubmitExp(build,exp)
+  doSubmit(build,exp)
+end
+def doSubmitPost(build,exp)
+  doSubmit(build,exp,true)
+end
+def doRunPost(build,exp)
+  call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
+end
+def doCheckExp(build,exp)
+  call(connect(build,<<-EOS
+    cd experiments/#{exp};
+    for file in #{exp}*001.nc #{exp}*001_TEST.nc; do
+      echo '#===========================================================================';
+      echo " $file";echo
+      cdo diffv -selname,t $file -selname,t_acc $file;
+    done
+    EOS
+  ))
+  diagFile    = 'oce_diagnostics.txt'
+  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
+  call(connect(build,<<-EOS
+    cd experiments/#{exp};
+    if test -f #{diagFile}; then
+      LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
+    else echo 'No diagnostics avialable!';
+    fi
+    EOS
+  )) unless ENV['SHOW'].nil?
+end
+def doCheckPost(build,exp,ext)
+  pattern = "*_#{exp}_*.#{ext}"
+  displayWith = 'eps' == ext ? 'evince' : 'display'
+  call(connect(build,<<-EOS
+    cd experiments/#{exp}/plots;
+    if test -f $(ls -1 #{pattern} | head -1) ; then
+      #{displayWith} #{pattern};
+    else
+      echo 'No postprocessing avialable!';
+    fi
+    EOS
+  ))
 end
 
 $builds.each_key {|build|
@@ -224,71 +304,149 @@ $builds.each_key {|build|
     doClean(build)
   end
   desc "Run for build #{build.to_s}"
-  task "#{build.to_s}_run".to_sym => ["#{build.to_s}_build".to_sym] do
-    doRun(build)
+  task "#{build.to_s}_run".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
+    doRunExp(build,args.exp || DEFAULT_EXP)
+  end
+
+  #special thunder submits
+  if /thunder/.match($builds[build][:host].to_s) then
+    desc "Submit experiment on thunder for build #{build.to_s} (incl. preq.)"
+    task "#{build.to_s}_submit".to_sym , [:exp] => ["#{build.to_s}_build".to_sym] do |t, args|
+      doSubmitExp(build,args.exp || DEFAULT_EXP)
+    end
+    desc "Submit experiment on thunder for build #{build.to_s}"
+    task "#{build.to_s}_submitOnly".to_sym , :exp, :post do |t, args|
+      performPostproc = args.post.to_s.to_b || false
+      if performPostproc then
+        doSubmitPost(build,args.exp || DEFAULT_EXP)
+      else
+        doSubmitExp(build,args.exp || DEFAULT_EXP)
+      end
+    end
+  end
+  desc "Check output files"
+  task "#{build.to_s}_check".to_sym , [:exp] => ["#{build.to_s}_run".to_sym] do |t, args|
+    doCheckExp(build,args.exp || DEFAULT_EXP)
+  end
+  # post processing
+  desc "Run post-processing on given exp (build:#{build.to_s})"
+  task "#{build.to_s}_post".to_sym, [:exp]  do |t, args|
+    doRunPost(build,args.exp || DEFAULT_EXP)
+  end
+  # check post processing
+  desc "Display post-processing output for given exp (build:#{build.to_s})"
+  task "#{build.to_s}_checkPost".to_sym, :exp, :ext  do |t, args|
+    doCheckPost(build,
+                args.exp || DEFAULT_EXP,
+                args.ext || 'eps')
   end
   # }
-  # tasks for inly do one single thing {
+  # TASKS FOR ONLY DO ONE SINGLE THING {
   desc "Configure for build #{build.to_s}"
   task "#{build.to_s}_confOnly".to_sym do
     doConfig(build)
   end
   desc "Build for build #{build.to_s}"
-  task "#{build.to_s}_buildOnly".to_sym do
+  task "#{build.to_s}_buildOnly".to_sym => ["#{build.to_s}_sync".to_sym] do
     doBuild(build)
   end
   desc "Run for build #{build.to_s}"
-  task "#{build.to_s}_runOnly".to_sym do
-    doRun(build)
+  task "#{build.to_s}_runOnly".to_sym, [:exp] => ["#{build.to_s}_sync".to_sym] do |t,args|
+    doRunExp(build,args.exp || DEFAULT_EXP)
+  end
+  desc "Check output files"
+  task "#{build.to_s}_checkOnly".to_sym , [:exp] => ["#{build.to_s}_sync".to_sym] do |t, args|
+    doCheckExp(build,args.exp || DEFAULT_EXP)
   end
   # }
 
+  desc "remove old source trees and sync"
+  task "#{build.to_s}_cleanSync".to_sym do
+    doCleanSync(build)
+    doSync(build)
+  end
+}
+desc "Sync source codes for all builds"
+task :allSync do
+  q = JobQueue.new
+  $builds.each_key {|build| q.push { doSync(build) } }
+  q.run
+end
+desc "Remove and Sync source codes for all builds"
+task :allCleanSync do
+  q = JobQueue.new
+  $builds.each_key {|build| q.push { doCleanSync(build) } }
+  q.run
+end
+
+# tasks for parallel run of other tasks in an Xtra terminal
+[
+  :par,      # execute everything in the calling terminal
+  :parX,     # shut the terminal when finished
+  :parXWait  # keep the terminal open when finished (shut with ENTER)
+].each {|parTaskName|
+  terminalEmulators = ['gnome-terminal','xterm']
+  help = case parTaskName
+         when :par then
+           "execute all tasks in parallel"
+         when :parX then
+           "parallel run of other tasks in an Xtra terminal - shut when finished"
+         when :parXWait then
+           "parallel run of other tasks in an Xtra terminal - keep open when finished"
+         else
+           warn "Unknown task"
+           exit 1
+         end
+  desc help
+  task parTaskName do
+    dbg(Rake.application.top_level_tasks)
+
+    # remote the task from the internal task list because they will be started in a sub-thread
+    Rake.application.top_level_tasks.clear
+
+    # create a task list from the command line
+    ARGV.shift
+    taskList = ARGV
+    dbg(taskList)
+
+    # parallel execution queue
+    q = JobQueue.new
+
+    # execute everything from the cmldline, which has a corresponding task
+    taskList.each {|taskName|
+      dbg(taskName)
+
+      case parTaskName
+      when :par then
+        task = Rake::Task.tasks.find {|t| taskName == t.name }
+        if task.nil? then
+          warn "Unkown task: #{taskName}"
+          exit 2
+        else
+          q.push { task.invoke }
+        end
+
+      when :parX,:parXWait
+        cmd     = "#{terminalEmulators[1]} -T 'rake #{taskName}' -e 'rake #{taskName};'"
+        cmd[-1] = "read'" if :parXWait == parTaskName
+        q.push { call(cmd) }
+
+      end
+    }
+    q.run
+  end
 }
 
-# tasks for parallel run of other tasks
-parTaskName = :par
-desc "tasks for parallel run of other tasks"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = JobQueue.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|task|
-    q.push { task.invoke }
+desc "Check variables an user input"
+task :check do
+  {
+    'SRCDIR' => SRCDIR,
+    'REMOTE_USER' => REMOTE_USER,
+    'WORKDIR' => WORKDIR,
+    'RAKEFILE' => __FILE__,
+  }.each {|k,v|
+    puts [k.rjust(16,' '),v.ljust(20,' ')].join(': ')
   }
-  q.run
-end
-# tasks for parallel run of other tasks in an Xtra terminal and shut them when finished
-parTaskName       = :parX
-terminalEmulators = ['gnome-terminal','xterm']
-desc "parallel run of other tasks in an Xtra terminal and shut them when finished"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = SystemJobs.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
-    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};'"
-    dbg(cmd)
-    q.push(cmd)
-  }
-  q.run
-end
-# tasks for parallel run of other tasks in an Xtra terminal and keep them open
-parTaskName       = :parXWait
-terminalEmulators = ['gnome-terminal','xterm']
-desc "parallel run of other tasks in an Xtra terminal and keep them open"
-task parTaskName do
-  dbg(Rake.application.top_level_tasks)
-  Rake.application.top_level_tasks.clear
-  dbg(Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)})
-  q = SystemJobs.new
-  (Rake::Task.tasks.find_all {|t| (ARGV - [parTaskName.to_s]).include?(t.name)}).each {|t|
-    cmd = "#{terminalEmulators[1]} -T 'rake #{t.name}' -e 'rake #{t.name};read'"
-    dbg(cmd)
-    q.push(cmd)
-  }
-  q.run
 end
 
 # vim:ft=ruby

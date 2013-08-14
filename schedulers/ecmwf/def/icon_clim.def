@@ -37,8 +37,8 @@ set LAST_SSTICE_YEAR  2002             #  and CI external files
 set MONTHS        200010               #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia
-set RES           "R2B05"              #---ICON resolution dynamics
-set RESRAD        "R2B04"              #---ICON resolution radiation (requires namelist)
+set RES           "R02B05"              #---ICON resolution dynamics
+set RESRAD        "R02B04"              #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
 #set NSTEPS       12000  # R2B6 10d

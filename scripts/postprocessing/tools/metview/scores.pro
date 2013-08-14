@@ -66,6 +66,9 @@ nvar3pl= n_elements(var3pl)
 var3zl = ['T', 'U', 'V', 'P', 'QC', 'QI']   ;, 'Z'
 nvar3zl= n_elements(var3zl)
 
+pres_l = ['1', '2', '3', '5', '7', '10', '20', '30', '50', '70', '100', '150', '200', '250', '300', '400', '500', $
+          '600', '700', '800', '850', '900', '925', '950', '1000']
+
 paperopenl
 loadct,13
 
@@ -85,7 +88,7 @@ CASE levtype OF
     ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
     ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -144,7 +147,7 @@ CASE levtype OF
     ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
     ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -182,7 +185,7 @@ CASE levtype OF
     xr= [-0.01,0.01]             * amp_pl_rms * 0.01*0.5 + xxx + xoff
     plots,    xr(0:1)+0.04, yr(0:1)-nk*vert+0.005, /normal                   ;reference 1%
 
-    xyouts,   xr(0)       , yr(0)-nk*vert, strcompress(string(nk)), /normal, charsize=0.5
+    xyouts,   xr(0)       , yr(0)-nk*vert, pres_l(nk-1), /normal, charsize=0.5
     xyouts,   xr(0)+0.07  , yr(0)-nk*vert, err1,  /normal, charsize=0.4
    end
   end
@@ -203,7 +206,7 @@ CASE levtype OF
     ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
     ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
     ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))
@@ -261,7 +264,7 @@ CASE levtype OF
     ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor)
     ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor)
     ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
     mean1= float(var1(16-1,ind1))
     mean2= float(var2(16-1,ind2))

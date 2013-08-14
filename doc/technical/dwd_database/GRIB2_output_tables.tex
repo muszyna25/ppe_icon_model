@@ -28,25 +28,37 @@ With the launch of ICON, the following former GME output fields will no longer b
  \item \textbf{W\_G1}, \textbf{W\_G2}  [mm H2O]: Soil water content in upper layer ($0$ to $10\,\mathrm{cm}$) and middle layer ($10$ to $100\,\mathrm{cm}$), respectively. 
                                                  If needed, these fields can be derived from \textbf{W\_SO}.
  \item \textbf{FIS} [$\mathrm{m^{2}\,s^{-1}}$]: Surface Geopotential. Instead, \textbf{HSURF} $[\mathrm{m}]$ should be used (see Section \ref{sec_newout}).
+ \item \textbf{O3} [$\mathrm{kg/kg}$], \textbf{TO3} [$\mathrm{Dobson}$]: Ozone mixing ratio and corresponding total ozone concentration. No longer available; no substitution
 \end{itemize}
 
 
 
 \section{New output fields}\label{sec_newout}
-New output fields that will become available with the launch of ICON are:
-\begin{itemize}
- \item \textbf{W} $[m/s]$: vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)
- \item \textbf{DEN} $[kg/m^{3}]$: density of moist air (3D field)
- \item \textbf{HSURF} $[\mathrm{m}]$: Geometric Height of the earths surface above sea level (2D field)
- \item \textbf{HHL} $[\mathrm{m}]$: Geometric Height of model half levels above sea level (3D field)
- \item \textbf{CLON,CLAT} $[\mathrm{deg}]$: Geographical longitude/latitude of native grid triangle cell center
- \item \textbf{ELON,ELAT} $[\mathrm{deg}]$: Geographical longitude/latitude of native grid triangle edge midpoint 
- \item \textbf{VLON,VLAT} $[\mathrm{deg}]$: Geographical longitude/latitude of native grid triangle vertex
-\end{itemize}
+Table \ref{table_newout} contains a list of new output fields that will become available with the launch of ICON (compared to GME). A more thorough description of these 
+fields is provided in Section \ref{sec_outfields}.
+\begin{table}[H]
+\centering
+\caption{Newly available output fields}\label{table_newout}
+ \begin{tabular}{p{2.5cm}p{1.8cm}p{10.0cm}}
+  \toprule
+\multicolumn{1}{c}{\textbf{ShortName}}  &  \bf{Unit}                  & \multicolumn{1}{c}{\textbf{Description}}\\
+\midrule
+\textbf{W}                              &  $\mathrm{m/s}$             &  vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
+\textbf{DEN}                            &  $\mathrm{kg/m^{3}}$        &  density of moist air (3D field) \\
+\textbf{TKE}                            &  $\mathrm{m^{2}/s^{2}}$     &  Turbulent kinetic energy (3D field) \\
+\textbf{HSURF}                          &  $\mathrm{m}$               &  Geometric Height of the earths surface above sea level (2D field) \\
+\textbf{HHL}                            &  $\mathrm{m}$               &  Geometric Height of model half levels above sea level (3D field) \\
+\textbf{CLON,CLAT}                      &  $\mathrm{deg}$             &  Geographical longitude/latitude of native grid triangle cell center \\
+\textbf{ELON,ELAT}                      &  $\mathrm{deg}$             &  Geographical longitude/latitude of native grid triangle edge midpoint \\
+\textbf{VLON,VLAT}                      &  $\mathrm{deg}$             &  Geographical longitude/latitude of native grid triangle vertex \\
+  \bottomrule
+ \end{tabular}
+\end{table}
 
 
 
-\section{Available output fields listed in tabular form}
+
+\section{Available output fields listed in tabular form}\label{sec_outfields}
 
 \subsection{Time-constant (external parameter) fields}
 
@@ -76,6 +88,7 @@ SSO\_THETA                    &  Angle of sub-gridscale orography               
 SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
 PLCOV\_MX                     &  Plant covering degree in the vegetation phase                                          &               2                                   &                       0                     &                    4                       &                 1/--                            &                      max                    &        $1$ \\
 T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (used as lower bc.\ for soil model)         &               0                                   &                       0                     &                    0                       &               103/--                            &                      inst                   &        $\mathrm{K}$ \\
+NDVI\_MRAT                    &  ratio of monthly mean NDVI (normalized differential vegetation index) to annual max    &               0                                   &                       0                     &                   192                      &                 1/--                            &                      avg                    &        $\mathrm{1}$ \\
   \bottomrule
  \end{tabular}
 \end{table}
@@ -88,26 +101,24 @@ T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (use
 \caption{Hybrid multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products}
  \begin{tabular}{p{2.0cm}p{5.0cm}p{0.7cm}p{0.7cm}p{0.7cm}p{1.4cm}p{1cm}p{1cm}}
   \toprule
-\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2\footnotemark[1] }\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
-U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 105/105                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 105/105                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 105/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 105/105                         &                      inst                   &        $\mathrm{K}$          \\
-DEN                        &  Density of moist air                                                                      &               0                                   &                     3                       &                    10                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,m^{-3}}$ \\
-QV                         &  Specific humidity                                                                         &               0                                   &                     1                       &                    0                       &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
-QC                         &  \textcolor{red}{Cloud mixing ratio}\footnotemark[2]                                       &               0                                   &                     1                       &                    22                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
-QI                         &  \textcolor{red}{Cloud ice mixing ratio}\footnotemark[2]                                   &               0                                   &                     1                       &                    82                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
-QR                         &  \textcolor{red}{Rain mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    24                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
-QS                         &  \textcolor{red}{Snow mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    25                      &                 105/105                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
-CLC                        &  Cloud cover                                                                               &               0                                   &                     6                       &                    22                      &                 105/105                         &                      inst                   &        $\mathrm{\%}$ \\
-\textcolor{gray}{O3}       &  \textcolor{gray}{Ozone mixing ratio}\footnotemark[3]                                      &               \textcolor{gray}{0}                 &        \textcolor{gray}{14}                 &      \textcolor{gray}{1}                   &     \textcolor{gray}{105/105}                   &     \textcolor{gray}{inst}                  &        \textcolor{gray}{$\mathrm{kg\,kg^{-1}}$} \\                                             
+U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 150/150                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 150/150                         &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 150/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 150/150                         &                      inst                   &        $\mathrm{K}$          \\
+DEN                        &  Density of moist air                                                                      &               0                                   &                     3                       &                    10                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,m^{-3}}$ \\
+QV                         &  Specific humidity                                                                         &               0                                   &                     1                       &                    0                       &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QC                         &  \textcolor{red}{Cloud mixing ratio}\footnotemark[2]                                       &               0                                   &                     1                       &                    22                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QI                         &  \textcolor{red}{Cloud ice mixing ratio}\footnotemark[2]                                   &               0                                   &                     1                       &                    82                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QR                         &  \textcolor{red}{Rain mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    24                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+QS                         &  \textcolor{red}{Snow mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    25                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
+CLC                        &  Cloud cover                                                                               &               0                                   &                     6                       &                    22                      &                 150/150                         &                      inst                   &        $\mathrm{\%}$ \\
+TKE                        &  Turbulent kinetic energy                                                                  &               0                                   &                     19                      &                    11                      &                 150/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$ \\                                             
   \bottomrule
  \end{tabular}
 \end{table}
-\footnotetext[1]{\textcolor{red}{Levekl type $105$ (Hybrid level) will be replaced by $150$ (Generalized vertical height coordinate), once the GRIB\_API is able to cope with it}}. 
 \footnotetext[2]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
-\footnotetext[3]{not clear yet, whether ozone will be provided as output field}
 
 
 
@@ -175,9 +186,9 @@ TD\_2M                         &  Dew point temperature at 2m above ground      
 VMAX\_10M                      &  Maximum wind at $10\,\mathrm{m}$ above ground                                         &               0                                   &                     2                       &                    22                      &               103/--                            &                      max                    &        $\mathrm{m\,s^{-1}}$   \\
 Z0                             &  Surface roughness (above land and water)                                              &               2                                   &                     0                       &                     1                      &                 1/--                            &                      inst                   &        $\mathrm{m}$          \\
 CLCT                           &  Total cloud cover                                                                     &               0                                   &                     6                       &                     1                      &                 1/--                            &                      inst                   &        $\mathrm{\%}$          \\
-\textcolor{gray}{CLCH}         &  \textcolor{gray}{High level clouds}\footnotemark[3]                                   &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{22}    &                 \textcolor{gray}{100/100}       &                      inst                   &        $\mathrm{\%}$          \\
-\textcolor{gray}{CLCM}         &  \textcolor{gray}{Mid level clouds}\footnotemark[3]                                    &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{22}    &                 \textcolor{gray}{100/100}       &                      inst                   &        $\mathrm{\%}$          \\
-\textcolor{gray}{CLCL}         &  \textcolor{gray}{Low level clouds}\footnotemark[3]                                    &               \textcolor{gray}{0}                 &                     \textcolor{gray}{6}     &                    \textcolor{gray}{22}    &                 \textcolor{gray}{100/1}         &                      inst                   &        $\mathrm{\%}$          \\
+CLCH                           &  High level clouds                                                                     &               0                                   &                     6                       &                    22                      &                 100/100                         &                      inst                   &        $\mathrm{\%}$          \\
+CLCM                           &  Mid level clouds                                                                      &               0                                   &                     6                       &                    22                      &                 100/100                         &                      inst                   &        $\mathrm{\%}$          \\
+CLCL                           &  Low level clouds                                                                      &               0                                   &                     6                       &                    22                      &                 100/1                           &                      inst                   &        $\mathrm{\%}$          \\
 TQV                            &  Total column integrated water vapour                                                  &               0                                   &                     1                       &                    64                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
 TQC                            &  Total column integrated cloud water                                                   &               0                                   &                     1                       &                    69                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
 TQI                            &  Total column integrated cloud ice                                                     &               0                                   &                     1                       &                    70                      &                 1/--                            &                      inst                   &        $\mathrm{kg\,m^{-2}}$  \\
@@ -186,6 +197,8 @@ TQS                            &  Total column integrated snow                  
 HBAS\_CON                      &  Height of convective cloud base above msl                                             &               0                                   &                     6                       &                    26                      &                 2/101                           &                      inst                   &        $\mathrm{m}$  \\
 HTOP\_CON                      &  Height of convective cloud top above msl                                              &               0                                   &                     6                       &                    27                      &                 3/101                           &                      inst                   &        $\mathrm{m}$  \\
 HZEROCL                        &  Height of 0 degree Celsius isotherm above msl                                         &               0                                   &                     3                       &                     6                      &                 4/101                           &                      inst                   &        $\mathrm{m}$  \\
+AUMFL\_S                       &  U-momentum flux at surface $\overline{u^{\prime}w^{\prime}}^{1/2}$ (average since model start)&     0                                   &                     2                       &                    17                      &                 1/--                            &                      avg                    &        $\mathrm{m}$  \\
+AVMFL\_S                       &  V-momentum flux at surface $\overline{v^{\prime}w^{\prime}}^{1/2}$ (average since model start)&     0                                   &                     2                       &                    18                      &                 1/--                            &                      avg                    &        $\mathrm{m}$  \\
 ASHFL\_S                       &  Sensible heat net flux at surface (average since model start)                         &               0                                   &                     0                       &                    11                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
 ALHFL\_S                       &  Latent heat net flux at surface (average since model start)                           &               0                                   &                     0                       &                    10                      &                 1/--                            &                      avg                    &        $\mathrm{W\,m^{-2}}$  \\
 FR\_ICE                        &  Sea ice cover  (possible range: $[0,1]$)                                              &              10                                   &                     2                       &                     0                      &                 1/--                            &                      inst                   &        $1$  \\
@@ -200,7 +213,7 @@ NDVIRATIO                      &  ratio of current NDVI (normalized differential
   \bottomrule
 \end{longtable}
 
-\footnotetext[3]{Output fields not yet available, but planned.}
+\footnotetext[3]{available as soon as shortName.def for GRIB2 has been updated accordingly}
 
 
 

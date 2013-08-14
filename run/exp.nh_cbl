@@ -95,6 +95,7 @@ cat > ${atmo_namelist} << EOF
  timers_level = 100         !
  msg_level   = 12          ! detailed report during integration
  output      = 'nml','totint'      
+ write_timer_files = .TRUE
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
@@ -110,11 +111,8 @@ cat > ${atmo_namelist} << EOF
 /
 &les_nml
  is_dry_cbl        = .TRUE. 
- ugeo              =  0.0, 0.0  !ugeo(1) = constant, ugeo(2)=gradient
- vgeo              =  0.0, 0.0
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
- set_geowind       = .FALSE.
  smag_constant     = 0.23
  isrfc_type        = 2     !2=Fixed flux, 1=fixed SST
  ufric             = 0.45
@@ -169,7 +167,7 @@ const_z0  = 0.0003
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho','gz0','shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','qv_s','pres_sfc'
 /
 EOF
 #-----------------------------------------------------------------------------

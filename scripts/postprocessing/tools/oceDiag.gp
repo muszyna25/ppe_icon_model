@@ -1,8 +1,10 @@
 #==============================================================================
 # usage for interactve plot
-#   SHOW=1 oceDiag.gp
+#   SHOW=1 gnuplot oceDiag.gp
 # user defined intut file
-#   FILE=<ifile.txt> oceDiag.gp
+#   FILE=<ifile.txt> gnuplot oceDiag.gp
+#
+# requirements: gnuplot 4.6 or later
 #==============================================================================
 #
 # display the plot interactively, if SHOW is given on the command line
@@ -26,34 +28,41 @@ set grid
 set xdata time
 set timefmt '%Y-%m-%d %H:%M:%S'
 set format x "%d.%m"
-set multiplot layout 4,2 title "ICON OCEAN diagnostic (".file.")"
-plot file using 2:"pot_energy" w l
+set multiplot layout 5,2 title "ICON OCEAN diagnostic (".file.")"
+plot file using 2:"kin_energy" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"kin_energy" w l axes x1y2
+plot file using 2:"indonesian_throughflow" w l axes x1y2
 set ytics in
 unset y2tics
 plot file using 2:"absolute_vertical_velocity" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"total_salinity" w l
-set logscale y
+plot file using 2:"drake_passage" w l  axes x1y2
+#set logscale y
 set ytics in
 unset y2tics
-plot file using 2:"absolute_vertical_velocity" w l
+plot file using 2:"scotland_iceland" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"total_temperature" w l axes x1y2
+plot file using 2:"denmark_strait" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"ice_volume" w l
+plot file using 2:"total_energy" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"ice_extent" w l axes x1y2
+plot file using 2:"gibraltar" w l axes x1y2
+set ytics in
+unset y2tics
+plot file using 2:"ice_volume_nh" w l
+set y2tics in
+unset ytics
+set grid y2tics
+plot file using 2:"ice_extent_nh" w l axes x1y2
 unset multiplot
 
 # vim:ft=gnuplot

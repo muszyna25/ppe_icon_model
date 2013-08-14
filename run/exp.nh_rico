@@ -1,0 +1,176 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson steady-state test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+end_date="2008-09-02T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=0.15
+dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=100           # nlev = number of full levels
+iforcing=3         # 3 for inwp forcing; 0 for no forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='torus_grid_r100s200.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ l_fast_sum     = .FALSE. 
+/
+&grid_nml
+ is_plane_torus = .TRUE.
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ corio_lat = 18.0         !in degrees
+/ 
+&run_nml
+ num_lev      = ${nlev},     ! number of full levels of vertical grid
+ dtime        = ${dtime}     ! [s] timestep in seconds
+ ltestcase    = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics    = .TRUE.       ! dynamics
+ ltransport   = .TRUE.       ! transport
+ iforcing     = ${iforcing}  !
+ ntracer      =  3           ! number of tracers - default 0
+ ltimer       = .true.       ! 
+ timers_level = 100          !
+ msg_level    = 15           ! detailed report during integration
+ output       = 'nml','totint'      
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .TRUE.
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&nh_testcase_nml
+ nh_test_name      = 'RICO'     !test case identifier
+ u_cbl             =  -9.9, 2e-3
+ v_cbl             =  -3.8, 0.0
+/
+&les_nml
+ is_dry_cbl        = .FALSE. 
+ smag_constant     = 0.23
+ isrfc_type        = 4      !2=Fixed flux, 1=fixed SST, 3=fixed bflux, 4=rico case-fixed SST
+ sst		   = 299.8
+/
+&ls_forcing_nml
+ is_subsidence_moment  = .FALSE.
+ is_subsidence_heat    = .TRUE.
+ is_advection   = .TRUE.
+ is_geowind     = .TRUE.
+ is_rad_forcing = .TRUE.
+ is_theta       = .TRUE.
+/
+&diffusion_nml
+ lhdiff_temp  = .TRUE.
+ lhdiff_vn    = .FALSE.
+ lhdiff_w     = .FALSE
+/
+&nwp_phy_nml
+inwp_gscp       = 1
+inwp_convection = 0
+inwp_radiation  = 0
+inwp_cldcover   = 0
+inwp_turb       = 5
+inwp_satad      = 1
+inwp_surface    = 0
+/
+&turbdiff_nml
+lconst_z0 = .TRUE.
+/
+&transport_nml
+ ihadv_tracer = 1,1,1,0,0,0,0
+ ivadv_tracer = 1,1,1,0,0,0,0
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ igradp_method = 2  !new default
+ ivctype       = 2  !1=Gal-Chen; 2=SLEVE
+ rayleigh_type   = 1 
+ rayleigh_coeff  = 0.10      ! Rayleigh coefficient for damping in upper levels
+ vwind_offctr    = 0.4       ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
+ damp_height     = 3200      ! damping height, keep top 5-10 levels for damping
+/
+&sleve_nml                   ! vertical grid standard output for message level >= 15
+ min_lay_thckn   = 0         ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 4000
+ stretch_fac     = 0.9       ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+/
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lkeep_in_sync    = .TRUE.
+/
+&output_nml
+ filetype         = 4
+ dom              = -1
+ output_time_unit = 2
+ output_bounds    = 0.,1440.,30.   !start, end, increment
+ steps_per_file   = 10
+ include_last     = .TRUE.
+ remap            = 0   ! triangular grid
+ output_filename  = '${EXPNAME}_tri'
+ output_grid      = .TRUE.
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 'qr'
+/
+EOF
+#-----------------------------------------------------------------------------

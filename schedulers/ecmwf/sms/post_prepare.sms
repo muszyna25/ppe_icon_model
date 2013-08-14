@@ -28,7 +28,7 @@ module load python
 ## module load netcdf
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
-module load cdo
+module load cdo/1.6.0
 module unload grib_api
 module load grib_api/1.10.4
 
@@ -38,6 +38,9 @@ case %SIMMODE% in
      ldeldata=1  ;;
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  ;;
+  3) lsplitdata=0 
+     lcpdata=1       
+     ldeldata=1  ;;
 esac
 
 ###
@@ -50,7 +53,7 @@ esac
 
 outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-rsh ecgate mkdir -p ${gatedir}
+ssh ecgb mkdir -p ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
 emkdir -p $ecfsdir
@@ -62,8 +65,7 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 #-----------------------------------------------------------------------------
 # namelist and icon_rev.txt: copy to ecfs
 
-#rcp   NAMELIST_${basename} ecgate:${gatedir}
-if [ %NENS% -gt 0 ] ; then
+if [[ %NENS% -gt 0 ]] ; then
   for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
     ecp -o     ${nmem}/NAMELIST_${basename}_${nmem} \
       $ecfsdir/${nmem}/NAMELIST_${basename}_${nmem}
@@ -78,7 +80,7 @@ ecp -o ${bindir}/icon_rev.txt $ecfsdir
 #-----------------------------------------------------------------------------
 # ensemble mean for EPS run
 
-if [ %NENS% -gt 0 ] ; then
+if [[ %NENS% -gt 0 ]] ; then
   for levtype in ML PL HL ; do
     \rm -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb
     cdo ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
@@ -114,13 +116,13 @@ fi
 outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
 outfile_mtg2=${outdir}/${basename}_meteogram.nc
 mv  $outfile_mtg1 $outfile_mtg2 || true
-if [ -f  $outfile_mtg2 ] ; then
+if [[ -f $outfile_mtg2 ]] ; then
   ecp -o $outfile_mtg2 $ecfsdir
 else
   ecp $ecfsdir/$outfile_mtg2 .
 fi
 if [[ $lcpdata = 1 ]] ; then
-  rcp $outfile_mtg2 ecgate:${gatedir}
+  scp $outfile_mtg2 ecgb:${gatedir}
 fi
 smsevent meteogram_data
 
@@ -128,14 +130,30 @@ smsevent meteogram_data
 #-----------------------------------------------------------------------------
 # GRIB: copy to ecfs
 
+if [[ %SIMMODE% != 3 ]] ; then
 for levtype in ML PL HL ; do
-  if [ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ] ; then
+  if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
     ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
   else
     ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
   fi
 done
+fi
+if [[ %SIMMODE% = 3 ]] ; then
 
+for levtype in ML PL HL ; do
+  if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.nc ]] ; then
+    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.nc $ecfsdir
+  else
+    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.nc ${outdir}
+  fi
+done
+ for str in so1 so2 ; do
+  if [] -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
+    ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
+  fi
+ done
+fi
 
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
@@ -175,18 +193,19 @@ fi
 
 #-----------------------------------------------------------------------------
 # move data to ecgate
+if [[ $lsplitdata = 1 ]] ; then
 
-if [[ $lcpdata = 1 ]] ; then
-  rsh ecgate mkdir ${gatedir}/grb_data
-  rcp grb_data/* ecgate:${gatedir}/grb_data
-  if [[ %SIMMODE% = 1 ]] ; then
-    VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
-    gatedir_1=%ECTEMP%/%SUITE%/%EXPNUM%/${VERDATEHOUR}
-    rsh ecgate \cp -f ${gatedir}/grb_data/*.grb ${gatedir_1}/grb_data
+  if [[ $lcpdata = 1 ]] ; then
+    ssh ecgb mkdir -p ${gatedir}/grb_data
+    scp grb_data/* ecgb:${gatedir}/grb_data
+    if [[ %SIMMODE% = 1 ]] ; then
+      VERDATEHOUR=`python %ECBASEDIR%/gen/date_calc.py -a printdate -d %YMD%%INIHOUR% -s +1`
+      gatedir_1=%ECTEMP%/%SUITE%/%EXPNUM%/${VERDATEHOUR}
+      ssh ecgb \cp -f ${gatedir}/grb_data/*.grb ${gatedir_1}/grb_data
+    fi
   fi
+
 fi
-
-
 #-----------------------------------------------------------------------------
 # delete data
 

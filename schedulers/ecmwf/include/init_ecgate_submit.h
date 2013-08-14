@@ -1,13 +1,20 @@
+#!/bin/ksh                                        #@ shell = /usr/bin/ksh
 #==========================================================================
-#  Loadleveler Directives
+#  SLURM Directives:
+#    qos        quite: normal or large
+#    time       time limit h:m:s
+#    job-name   job_name
+#    output     output
+#    error      error
+#    mail-type  notification 
 #==========================================================================
-#@ job_name         = ICON_%TASK%
-#@ output           = %SMSJOBOUT%
-#@ error            = %SMSJOBOUT%
-#@ notification     = error
-#@ shell            = /usr/bin/ksh
-#@ class            = normal
-#@ queue
+
+#SBATCH --qos=normal
+#SBATCH --time=06:00:00
+#SBATCH --job-nam=ICON_%TASK%
+#SBATCH --output=%SMSJOBOUT%
+#SBATCH --error=%SMSJOBOUT%
+#SBATCH --mail-type=FAIL
 
 
 #==========================================================================

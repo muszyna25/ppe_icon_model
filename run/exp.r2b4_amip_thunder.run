@@ -1,14 +1,22 @@
 #!/bin/bash
+#
+# This script starts a spin-up run for the AMIP experiment from an analytically initialized, zonally 
+# symmetric atmospheric state over a flat Earth surface. Over the first day mountains are grown to
+# their realistic size.
+#
+# The length of the spin-up run is 1 year from 1978-01-01T00:00:00Z to 1979-01-01T00:00:00Z.
+#
 #__________________________________________________________________________________________________
 # SLURM destructs $0!
+# +++ For automatic restarts to work, it is important to specify the actual run script here!!! ++++
 job_name=exp.r2b4_amip_thunder.run
 #
 #__________________________________________________________________________________________________
 # thunder batch job parameters
 #
 #SBATCH --job-name=exp.r2b4_amip_thunder.run
-#SBATCH --output=LOG.exp.r2b4_amip.run.%j.out
-#SBATCH --error=LOG.exp.r2b4_amip.run.%j.out
+#SBATCH --output=LOG.exp.r2b4_amip_thunder.run.%j.out
+#SBATCH --error=LOG.exp.r2b4_amip_thunder.run.%j.out
 #SBATCH --partition=mpi-compute
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=16
@@ -135,9 +143,10 @@ case $user in
 	basedir=/scratch/mpi/mh0287/users/m214017/svn/icon/trunk/icon-dev
 	;;
     Sebastian)
-	basedir=""
-	redln "Add the base directory of ICON here ..."
-	exit 1
+	basedir=XX_TEST_MODEL_DIR
+#	basedir="/scratch/local2/m218036/icon/icon_rev12975/icon-dev/"
+#	redln "Add the base directory of ICON here ..."
+#	exit 1
 	;;
     Reiner)
 	case $(hostname) in
@@ -185,7 +194,7 @@ then
     submit=sbatch
 else
     greenln "Run interactively"
-    submit=""
+    submit="/bin/bash"
 fi
 
 nproma=32
@@ -216,18 +225,23 @@ case $user in
 	esac
 
 	;;
-    Monika|Marco|Thorsten|Thomas|Reiner)
+    Monika|Marco|Thorsten|Thomas)
 	mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.2-static-gcc46
 	mpiexec_cmd="mpiexec" 
 	mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
 	;;
+    Reiner)
+        mpi_root=/sw/squeeze-x64/mpi/openmpi_ib-1.6.4-static-intel13
+        mpiexec_cmd="mpiexec"
+        mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
+        ;;
     Sebastian)
-	mpi_root=""
-	mpiexec_cmd=""
+	mpi_root=/sw/squeeze-x64/mpi/mpich2-1.3.1-static-gcc45
+	mpiexec_cmd=mpirun
         mpiexec_options=""
-	redln "Add mpi_root directory here ..."
-	redln "Add mpiexec cmd here ..."
-	exit 1
+#	redln "Add mpi_root directory here ..."
+#	redln "Add mpiexec cmd here ..."
+#	exit 1
 	;;
 esac
  
@@ -291,8 +305,8 @@ minute=60                                # [s] 1 minute
 hour=3600                                # [s] 1 hour
 day=86400                                # [s] 1 day
 #
-start_date="1979-01-01T00:00:00Z"        # start and end date
-  end_date="1980-01-01T00:00:00Z"        # of the experiment
+start_date="1978-01-01T00:00:00Z"        # start and end date
+  end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
 (( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
 (( dt_checkpoint   =  1 * day         )) # [s] time between additional restart file writing
@@ -321,15 +335,15 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 
 # define variable names
 #
-dict_file='dict.r2b4_amip__cmor'
+dict_file='dict.cmor'
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
 
-atmo_namelist=NAMELIST_${EXPNAME}_atmo
-land_namelist=NAMELIST_${EXPNAME}_land
+atm_namelist=NAMELIST_${EXPNAME}_atm
+lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
-cat > ${atmo_namelist} << EOF
+cat > ${atm_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
@@ -367,6 +381,7 @@ cat > ${atmo_namelist} << EOF
  ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
+ lamip            = .TRUE.
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
@@ -381,7 +396,7 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 2            ! constant co2 vmr
  irad_ch4         = 0            ! switch off ch4
  irad_n2o         = 0            ! switch off n2o
- irad_o3          = 8            ! ozone for AMIP experiment
+ irad_o3          = 8            ! ozone for AMIP experiment ! eventually 1...7 if 8 does not work
  irad_o2          = 0            ! switch off o2
  irad_cfc11       = 0            ! switch off cfc11
  irad_cfc12       = 0            ! switch off cfc12
@@ -443,7 +458,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
 /
 EOF
 
-cat > ${land_namelist} <<EOF
+cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
   usecase         = 'jsbach_lite'
 /
@@ -548,29 +563,42 @@ do
 done
 
 # - sst and sic
-cp -f $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc       ./bc_sic.nc
-cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc       ./bc_sst.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
+cp -f $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
+
+# - ssi and tsi
+cp -f $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_ssi.nc
 
 # - land parameters
-cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                 ./
-cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                  ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_frac.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_phys.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_soil.nc                      ./
+cp -f $INDATA/r2b4_amip/lnd/bc_land_sso.nc                       ./
 
 #__________________________________________________________________________________________________
 # copy dictionary file for variable names
 
-cp -f ${basedir}/run/${dict_file}                           ./
+cp -f ${basedir}/run/${dict_file}                                ./
 
 #__________________________________________________________________________________________________
 # copy restart files eventually
 
-if [[ "x${restart_atmo_from:-}" != "x" ]]
+# The restart file provided from restart_from_folder/restart_atmo_from is only used if the link
+# restart_atm.nc doesn't already exist in the current work directory (usually for a new experiment).
+if [[ "x${restart_atmo_from:-}" != "x" ]] && [[ ! -f restart_atm.nc ]]
 then
-    rm -f restart_atm.nc
-    cp ${basedir}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+    #rm -f restart_atm.nc
+    if [[ "${restart_from_folder}" =~ ^/ ]]; then
+      cp ${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+      #cp ${restart_from_folder}/restart.info .
+    else
+      cp ${basedir}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+      #cp ${basedir}/experiments/${restart_from_folder}/restart.info .
+    fi
     ln -s cp_restart_atm.nc restart_atm.nc
-    cp ${basedir}/experiments/${restart_from_folder}/restart.info .
+    cat > restart.info <<EOF
+gridspec: grid_D01_atm.nc ! here should be the physical filename including path
+EOF
     restart=".true."
 fi
 
@@ -591,7 +619,7 @@ cat > $master_namelist << EOF
  /
 &master_model_nml
   model_name="atmo"
-  model_namelist_filename="NAMELIST_r2b4_amip_atmo"
+  model_namelist_filename="${atm_namelist}"
   model_restart_info_filename=""
   model_type=1
   model_min_rank=0
@@ -610,7 +638,7 @@ cat > $jsbach_master_namelist << EOF
  model_name = 'JSBACHlite'
  model_shortname = 'lite'
  model_description = 'JSBACH-lite model'
- model_namelist_filename = "${land_namelist}"
+ model_namelist_filename = "${lnd_namelist}"
 /
 EOF
 
@@ -625,7 +653,7 @@ check_error $? "$LINENO: ${MODEL} does not exist?"
 
 # start experiment
 #
-if [[ "$(os)" = "Linux" ]]
+if [[ "$(os)" = "Linux" ]] && [[ "$(hostname)" == ctc* ]]
 then
     ulimit -s unlimited
 fi

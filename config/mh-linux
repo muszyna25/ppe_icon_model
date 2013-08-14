@@ -96,7 +96,7 @@ case "$fortran_compiler" in
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
 	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
-        FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" 
+        FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
         OMPFLAG     = 
@@ -110,7 +110,7 @@ case "$fortran_compiler" in
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = pgf95 #pgfortran 
        # FC          = pgfortran
-        FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk -Mallocatable=03
+        FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O "$GEN_FLAGS" "$FDEBUG" -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
         FFLAGS      = -O -C "$FDEBUG" -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE
         F77         = "$FC"
@@ -122,21 +122,21 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         ;;
     cray)
-        config_compiler=pgi
-        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 
+        config_compiler=cray
 	CC          = cc
-	F77         = ftn -rm
-        FC          = ftn -rm
+        FC          = ftn
+        F77         = "$FC"
+        FFLAGS      = -v -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am
+        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 
+        F77FLAGS    = "$FFLAGS"
+        FCLIBS      = "-v"
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        FFLAGS      = -v -O3 -D__LOOP_EXCHANGE -Df2cFortran -e Z -e m -e a
-        F77         = "$FC"
-        F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -mp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -J 
+        MODDIR      = 
         ;;
     intel)
         config_compiler=intel
@@ -222,59 +222,12 @@ esac
 #
 # Define site dependent library paths
 #
-
 case "$ac_sitename" in
 
 #===============================================
-    cscs.ch)
-        case "$HOST" in
-            *palu*)         #                 
-                config_target=palu
-                make_command="make" "-j" "8"
-#                use_shell="/bin/sh"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-               CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
-                    ;;
-                esac
-		;;
-            *dole*)
-		echo "Chose target DOLE"
-                config_target=dole
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="qsub"
-                sync_submit=qsub -sync y
-
-		case "$fortran_compiler" in
-                    cray)
-                      load_modules="PrgEnv-cray" "netcdf" "xt-mpt/5.2.1" "${load_modules}"
-                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-cce
-		      MPI_LIB  = -lfmpich -lmpich -lmpichf90 -lmpich -lmpl -lpthread -lrt -lpmi -lalpslli -lalpsutil
-                      MPIROOT=/opt/cray/mpt/5.2.1/xt/seastar/mpich2-cray
-                      MPI_INCLUDE=${MPIROOT}/include
-                    ;;
-                esac
-		case "$mh_setup" in
-		    debug)
-		      FFLAGS = $FFLAGS $FDEBUG
-                    ;;
-                esac
-
-		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
-        esac
-        ;;
-#===============================================
-
-
+    cray)
+                NETCDFROOT=${NETCDF_DIR}
+    ;;
 #===============================================
     dwd.de)
         case "$(hostname)" in
@@ -300,15 +253,47 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
+    dkrz.de)
+        case "$(hostname)" in
+            wizard*)
+                load_profile  = "." "/client/etc/profile.wizard"
+                software_tree = /sw/centos58-x64
+                config_target = wizard
+                make_command  = make -j4
+                submit        = sbatch
 
+                case "$fortran_compiler" in
+                    intel*)
+                      load_modules    = "intel/12.9.293" "mpich2/1.3.1-static-intel12" "${load_modules}"
+                      config_compiler = intel
+                      CC     = icc
+                      CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+                      F77    = ifort
+                      FC     = ifort
 
+                      DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -g -traceback
+                      STD_FLAGS   = -O2 -msse2 -fltconsistency $DEBUG_FLAGS
+                      HIOPT_FLAGS = -O3 -mkl -no-prec-div -static -reentrancy threaded -xHost -vec-report1
+                      FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
+
+                      NETCDFROOT  = $software_tree/netcdf-latest-static-intel12
+                      HDF5ROOT    = $software_tree/hdf5-1.8.7-static
+                      SZIPROOT    = $software_tree/szip-2.1-static
+                      MPIROOT     = $software_tree/mpi/mpich2-1.3.1-static-intel12
+                      MPI_LIB     = -lmpich -lmpichf90 -lmpl
+                      LIBS        = ${LIBS} -lz
+                      ;;
+                esac
+                ;;
+        esac
+        ;;
 #===============================================
     zmaw.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
         software_tree = /sw/$dist_codename-x64
         case $ac_hostname in
             thunder*)
-                config_target=thunder                
+                config_target=thunder
                 HDF5ROOT    = $software_tree/hdf5-1.8.8-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
@@ -319,7 +304,7 @@ case "$ac_sitename" in
                 use_shell=/bin/bash
                 load_profile="source" "/sw/share/Modules/init/bash"
                 load_modules="ncl/6.0.0-gccsys" "cdo/default" "jdk" "${load_modules}"
-                make_command="make" "-j" "4"
+                make_command="make" "-j" "8"
                 submit="sbatch"
                 sync_submit=srunjob --account=mpi
                 case "$fortran_compiler" in
@@ -413,7 +398,7 @@ case "$ac_sitename" in
                       *)
                           echo
                           echo WARNING:
-                          echo No default setup for you Linux distribution , codename: $dist_codename
+                          echo No default setup for your Linux distribution , codename: $dist_codename
                           echo
                           echo
                           ;;
@@ -422,19 +407,9 @@ case "$ac_sitename" in
                   ZLIBROOT = /usr
                   load_modules = "ncl/6.0.0-gccsys" "cdo/1.5.6.1" "python/2.7-ve0" "${load_modules}"
                   load_profile = "." "/client/etc/profile.zmaw"
-                  case "$(hostname)" in
-                      squall?)
-                          config_target=squall
-                          make_command="make" "-j" "8"
-                          submit="qsub"
-                          sync_submit=qsub -sync y
-                          ;;
-                      *)
-                          config_target=mpipc
-                          make_command="make" "-j" "2"
-                          submit=""
-                          ;;
-                  esac
+                  config_target=mpipc
+                  make_command="make" "-j" "2"
+                  submit=""
 
                   case "$fortran_compiler" in
                       default|gcc)

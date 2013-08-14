@@ -116,6 +116,18 @@ exec_and_check "make clean"
 # ... and make executables
 #exec_and_check "$make_command"
 #compilation on blizzard is too slow when called through exec_and_check
+
+# if we run on the sx9 include the following
+case ${target} in
+  sx9*)   # if we run on the sx9 include special path
+    mv build_command build_command.bac
+    echo '# for sxas/sxar'                 > build_command
+    echo 'export PATH=$PATH:/SX/usr/bin'  >> build_command
+    cat build_command.bac                 >> build_command
+    rm build_command.bac
+  ;;
+esac
+
 # include the build_command
 . ./build_command
 #------------------------------------------------------------------------------

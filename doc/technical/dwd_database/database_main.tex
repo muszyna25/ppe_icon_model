@@ -12,17 +12,23 @@
 % \usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
 % \begin{psinputs}
 \usepackage{pstricks}      %--- for drawing arrows, frames etc in Latex
+
+\usepackage{pgfplots,pgfplotstable}
+\usepackage{colortbl}
+
+
 % \end{psinputs}
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
-\usepackage[numbers,round,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
+\usepackage[square,sort,comma,numbers]{natbib} %--- creates bibliography; author-year with curly brackets within the text
 % \usepackage[  %--- no numbering of positions 
 % toc,           %--- let it appear in the document's table of contents
 % style=mylong3colheader %--- see glossaries Documentation for a list of available styles
 % ]{glossaries}  %--- use the glossary package
 \geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
 \usepackage{epsfig}
-% \usepackage{subfigure}  %--- simplifies putting pictures side by side
+\usepackage{caption}
+\usepackage{subcaption}  %--- simplifies putting pictures side by side
 \usepackage{layout}      %--- overview about boundaries and widths
                          % usage: write \layout somewhere in the document
 \usepackage{longtable, lscape}
@@ -35,6 +41,7 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
+\usepackage{vhistory}
 
 
 
@@ -108,6 +115,8 @@
 
 
 \includeonly{./title_toc,
+             ./versionhistory,
+             ./grid_geometry,
              ./GRIB2_output_tables}
 
 
@@ -143,7 +152,7 @@
 % --- Auswahl der Formatierung des Literaturverzeichnisses (deutsche Version), erstellt mit custom-bib package
 % \bibliographystyle{plain}
 % \bibliographystyle{diss_bibstyle.bst}
-% \bibliographystyle{jas99}
+\bibliographystyle{jas99}
 
 % --- search path for figures
 \graphicspath{{./pics/}}
@@ -156,6 +165,9 @@
   \include{./title_toc}
 \end{titlepage}
 % ----------------------------------------------------------------%
+
+%---- generate version history page -----------------%
+\include{./versionhistory}
 
 \tableofcontents              %--- generate table of contents
 
@@ -177,6 +189,7 @@
 
 
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
+\include{./grid_geometry}
 \include{./GRIB2_output_tables}
 % ----------------------------------------------------------------%
 
@@ -188,7 +201,7 @@
 % \glsaddall
 % \printglossary[type=symbolslist]  %--- Erstellung des Symbolverzeichnisses
 
-% \backmatter
+\backmatter
 % \bibliography{/home/dreinert/Documents/bibliography/litera.bib,/home/dreinert/Documents/bibliography/litera_notprinted.bib} %--- Erstellen der Liste aller Referenzen
 \bibliography{litera.bib} %--- Create list of references
 

@@ -35,11 +35,11 @@ module load python
 INITIME=%YMD%%INIHOUR%
 INITIME_FMT=`python %SCBASEDIR%/gen/date_calc.py -a printfmt -d %YMD%%INIHOUR%`
 
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''
 fi
-if [ %NENS% -gt 0 ]
+if [[ %NENS% -gt 0 ]]
   then TXTENS=_%NMEM%
   else TXTENS=''
 fi
@@ -84,20 +84,20 @@ module load netcdf4/4.1.2
 
 # -------------------------------------------------
 
-if [ %ENABLE_DUMPSTATE% = 0 ] ; then
+if [[ %ENABLE_DUMPSTATE% = 0 ]] ; then
   stage="total"
 fi
 
 # set the dump/restore flags according to the different phases.
-if [ "${stage}" = "dump" ] ; then
+if [[ "${stage}" = "dump" ]] ; then
     ldump_states=.TRUE.
     lrestore_states=.FALSE.
 fi
-if [ "${stage}" = "run" ] ; then
+if [[ "${stage}" = "run" ]] ; then
     ldump_states=.FALSE.
     lrestore_states=.TRUE.
 fi
-if [ "${stage}" = "total" ] ; then
+if [[ "${stage}" = "total" ]] ; then
     ldump_states=.FALSE.
     lrestore_states=.FALSE.
 fi
@@ -120,7 +120,7 @@ date
 export USE_SIGNAL_HANDLING=yes
 
 debug=0
-if [ ${debug} = 1 ] ; then                    # optional totalview debugging (max tasks: 256! better 64)
+if [[ ${debug} = 1 ]] ; then                  # optional totalview debugging (max tasks: 256! better 64)
   export DISPLAY=ecaccess.ecmwf.int:1631.0    # open nxclient on c2a and get DISPLAY
   totalview -searchpath='/perm/ms/de/dei2/icon-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-dev/src/atm_phy_nwp/' \
     poe -a ./icon.exe

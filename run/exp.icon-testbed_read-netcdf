@@ -39,7 +39,7 @@ start_date=${start_date:="2008-09-01T00:00:00Z"}
 end_date=${end_date:="2008-09-11T00:00:00Z"}
 #-----------------------------------------------------------------------------
 atmo_model_equations=1   # equation system
-nlev=31
+nlevels=40
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -54,7 +54,8 @@ cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 6  ! test_netcdf_read_model
 !  testfile_3D_time   = "/pool/data/ICON/import/initial/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_1970.nc", "O3"
-  testfile_3D_time    = "../../grids/bc_ozone_cmip5_1970.nc", "O3"
+!  testfile_3D_time    = "../../grids/bc_ozone_cmip5_1970.nc", "O3"
+  testfile_3D_time    = "../../grids/bc_aeropt_kinne_sw_b14_fin_2000.nc"
 !  testfile_2D_time   = "/pool/data/ICON/import/initial/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc"
   testfile_2D_time    = "../../grids/bc_sst_pcmdi_1870-2010.nc", "sst"
 /

@@ -26,16 +26,16 @@ case ${target} in
     # Blizzard
     # --------
     blizz_nMnO)
-        configureoption="--with-mpi=no  --with-openmp=no --with-flags=hiopt"
+        configureoption="--with-mpi=no --with-openmp=no"
         ;;
     blizz_nMyO)
-        configureoption="--with-mpi=no  --with-openmp=yes --with-flags=hiopt"
+        configureoption="--with-mpi=no --with-openmp=yes"
         ;;
     blizz_yMnO)
-        configureoption="--with-openmp=no --with-flags=hiopt"
+        configureoption="--with-openmp=no"
         ;;
     blizz_yMyO)
-        configureoption="--with-openmp=yes --with-flags=hiopt"
+        configureoption="--with-openmp=yes"
         ;;
 
     # MPIPC
@@ -54,24 +54,6 @@ case ${target} in
         ;;
     mpipc_sun)
         configureoption="--with-fortran=sun"
-        ;;
-
-    # Squall
-    # ------
-    squall | squall_gcc)
-        configureoption="--with-fortran=gcc"
-        ;;
-    squall_nag)
-        configureoption="--with-fortran=nag"
-        ;;
-    squall_intel)
-        configureoption="--with-fortran=intel"
-        ;;
-    squall_pgi)
-        configureoption="--with-fortran=pgi"
-        ;;
-    squall_sun)
-       configureoption="--with-fortran=sun"
         ;;
 
     # Thunder

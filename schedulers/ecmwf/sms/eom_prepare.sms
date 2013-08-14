@@ -28,7 +28,7 @@ echo "EOM_PREPARE.SMS"
 ## module load netcdf
 ## module load grib_api
 ## module load cdo/1.5.4  # to get specific version
-module load cdo
+module load cdo/1.6.0
 module unload grib_api
 module load grib_api/1.10.4
 
@@ -43,7 +43,7 @@ lcatdata=1
 lcpdata=1
 ldeldata=1
 
-if [ `echo %YMD% | cut -c 7-8` -eq "12" ] ; then
+if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]] ; then
   ldeldata=0           # do some test plots on the 12th of the month, but no delete
 fi                     # (see also testday.sms)
 ####
@@ -78,7 +78,7 @@ for levtype1 in PL HL ML ; do
     outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/
     gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${ymdh}
     mkdir -p ${outdir}
-    rsh ecgate mkdir -p ${gatedir}
+    ssh ecgb mkdir -p ${gatedir}
     cd ${outdir}
 
     # base name for output and namelist files
@@ -119,11 +119,11 @@ for levtype1 in PL HL ML ; do
       fi
 
 # fixes
-      for levtype2 in sfc ml pl zl ; do
+      for levtype2 in sfc ml pl zl 114 ; do    # 114: multi-level snow variables
         for bad in unknown '~' ; do
           grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
                     grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
-          \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
+          \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb        
         done
       done
       
@@ -172,8 +172,9 @@ if [[ $lcatdata = 1 ]] ; then
       sed "s/.grb//"`
 
 #delete variables that give problems (e.g. Param=18.3.2 level=2 not defined at timestep 1)
-  varlist=`echo $varlist | sed "s/2.3.18_sfc//"`
+ #varlist=`echo $varlist | sed "s/2.3.18_sfc//"`
  #varlist=`echo $varlist | sed "s/t_zl//"`
+varlist=`echo $varlist | sed "s/h_ml//"`
   echo $varlist
 
   for var in $varlist ; do
@@ -184,7 +185,7 @@ if [[ $lcatdata = 1 ]] ; then
       echo "processing variable: "$var
       outdir="%SCTEMP%/%SUITE%/%EXPNUM%/output/${ymdh}/"
       cd $outdir
-      if [ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ] ; then
+      if [[ ! -f  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb ]] ; then
         continue 2
       fi 
       grib_copy  grb_data/${base}_${ymdh}_DOM01_0001_${var}.grb \
@@ -255,8 +256,8 @@ fi
 if [[ $lcpdata = 1 ]] ; then
   gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/${YYYYMM}
   cd $mondir
-  rsh ecgate mkdir -p ${gatedir}/grb_data
-  rcp *.grb    ecgate:${gatedir}/grb_data
+  ssh ecgb mkdir -p ${gatedir}/grb_data
+  scp *.grb    ecgb:${gatedir}/grb_data
   emkdir -p ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   ecp "*.grb" ec:icon/experiments/%SUITE%/%EXPNUM%/${YYYYMM}
   smsevent cpdata
@@ -270,6 +271,7 @@ if [[ $ldeldata = 1 ]] ; then
   cd $mondir
   \rm -rf grb_data 
 fi
+
 
 # -------------------------------------------------
 # include the "tail" file for remote jobs

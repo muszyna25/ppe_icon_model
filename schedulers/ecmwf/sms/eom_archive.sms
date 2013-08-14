@@ -36,19 +36,18 @@ DD=`echo %YMD% | cut -c 7-8`
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/$YYYYMM
-ECFSPATH=/usr/local/ecfs/new
-${ECFSPATH}/emkdir.p -p $ecfsdir
+emkdir -p $ecfsdir
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
 
 
 #-----------------------------------------------------------------------------
 # scores: plot comparison between this experiment and a reference experiment
 
-cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro   ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
-idl=/usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl
-$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+module load idl
+cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
+idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 24 ${DD}
-$idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 240 ${DD}
 
 # help: offline
@@ -56,18 +55,14 @@ $idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUI
 # cp scores.pro paperopenl.pro paperclose.pro batch_scores.pro ${SCRATCH}/temp/scores
 # cd ${SCRATCH}/temp/scores
 # batch_scores.pro: modify plotfile1
-# /usr/local/share/apps/rsi/idl_6.4/idl64/bin/idl batch_scores -args /scratch/ms/de/deia/icon_data/dei2/042/201201/metplots /scratch/ms/de/deia/icon_data/dei2/033/201201/metplots dei2_042 dei2_033 20120101 24 31
+# module load idl
+# idl batch_scores -args /scratch/ms/de/deia/icon/dei2/042/201201/metplots /scratch/ms/de/deia/icon/dei2/033/201201/metplots dei2_042 dei2_033 20120101 24 31
 
 
 #-----------------------------------------------------------------------------
-# convert metview plots from ps to png 
+# convert scores plot from ps to png
 
-cd metplots
-for metfile in `ls map*.ps zon*.ps` ; do
-  metfile2=`echo $metfile | sed 's/\.ps//'`
- #convert -rotate 90                           ${metfile2}.ps ${metfile2}.png || true
-  rm -f ${metfile2}.ps
-done 
+cd ${gatedir}/metplots
 for metfile in `ls scores*.ps` ; do
   metfile2=`echo $metfile | sed 's/\.ps//'`
 %nopp
@@ -75,22 +70,40 @@ for metfile in `ls scores*.ps` ; do
 %end
   rm -f ${metfile2}.ps
 done 
-cd -
+
+
+#-----------------------------------------------------------------------------
+# change metview plot names from *.1.png to *.png
+
+cd ${gatedir}
+chmod a+rx metplots
+chmod a+r  metplots/*
+cd metplots
+for metfile in `ls map*.1.png zon*.1.png` ; do
+  metfile2=`echo $metfile | sed 's/\.1\.png/\.png/'`
+  mv ${metfile} ${metfile2}
+done 
 
 
 #-----------------------------------------------------------------------------
 # ectrans plots to mkoehler@DWD
 
-/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots/%SUITE%_%EXPNUM%/${YYYYMM}/metplots metplots/*png 
+cd %ECTEMP%/%SUITE%
+ln -s %EXPNUM% %SUITE%_%EXPNUM%
+tarfile=%SUITE%_%EXPNUM%_${YYYYMM}_UNTAR.tar
+tar cvf ${tarfile} %SUITE%_%EXPNUM%/${YYYYMM}/metplots
+/home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots ${tarfile}
+rm -f ${tarfile} %SUITE%_%EXPNUM%
 
 
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
-gzip -f               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
-${ECFSPATH}/ecp.p  -o metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
-\rm -rf               metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
+cd ${gatedir}
+tar cvf  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar metplots
+gzip -f  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar
+ecp -o   metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz $ecfsdir
+\rm -rf  metplots_%SUITE%_%EXPNUM%_$YYYYMM.tar.gz
 
 
 #-----------------------------------------------------------------------------

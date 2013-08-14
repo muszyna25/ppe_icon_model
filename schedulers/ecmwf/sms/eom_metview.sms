@@ -38,7 +38,6 @@ lmetview=1
 YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM
 METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
-export ARCH="rs6000"
 cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_$YYYYMM
@@ -54,7 +53,7 @@ export nstart
 
 if [[ $lmetview = 1 ]] ; then
 
-  cp ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
+  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error . || true
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
   export LMONTH=1
@@ -64,7 +63,7 @@ if [[ $lmetview = 1 ]] ; then
   DAYS_MONTH=`echo %YMD% | cut -c 7-8`
  #DAYS_MONTH=30
 
-  if [ `echo %YMD% | cut -c 7-8` -eq "12" ] ; then
+  if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]] ; then
     DAYS_FC_MANY='1'                                # quickplots
   else
     DAYS_FC_MANY='1 10'
@@ -90,11 +89,6 @@ if [[ $lmetview = 1 ]] ; then
     cat met.job.${nstart}
     chmod u+x ./met.job.${nstart}
     ./met.job.${nstart}
-
-   #echo "/usr/local/apps/Metview/metview4_expt -b ./map.error dei2_013 T ml diff 20120701 00 20120702 00 1 r2B06" > met.job.test
-   #chmod u+x ./met.job.test
-   #./met.job.test
-
     \rm -rf met.job.all.${nstart} met.job.${nstart}
   done
 
