@@ -59,8 +59,119 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  !!
+  !! Test reading amip aerosol
+  !! tesetd with /pool/data/ICON/import/incoming/bc_aeropt_kinne/bc_aeropt_kinne_sw_b14_fin_2000.nc
   SUBROUTINE test_netcdf_read(namelist_filename,shr_namelist_filename)
+
+    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    TYPE(t_patch), POINTER   :: patch
+    REAL(wp), POINTER :: lnwl_array(:), levels_array(:), times_array(:)
+    REAL(wp), POINTER :: aod(:,:,:,:), asy(:,:,:,:)   ! is (nproma, lnwl, blocks, time (months) )
+    REAL(wp), POINTER :: z_aer_fine_mo(:,:,:,:), return_pointer(:,:,:,:)
+    INTEGER :: levels, lnwl_size, return_status, stream_id
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_test_netcdf_read:test_netcdf_read"
+
+    !---------------------------------------------------------------------
+    ltimer = .false.
+    timers_level = 0
+    activate_sync_timers = .false.
+    CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
+    CALL construct_atmo_hydrostatic()
+    patch => p_patch(1)
+    levels  = patch%nlev
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! test sst
+    CALL message(method_name,   testfile_3D_time(1))
+    stream_id = netcdf_open_input(filename = testfile_3D_time(1))
+
+    !---------------------------------------------------------------------
+    lnwl_array => netcdf_read_1D(     &
+      & file_id       = stream_id,    &
+      & variable_name = "lnwl")
+
+    levels_array => netcdf_read_1D(     &
+      & file_id       = stream_id,    &
+      & variable_name = "lev")
+
+    times_array => netcdf_read_1D(     &
+      & file_id       = stream_id,    &
+      & variable_name = "time")
+
+    !-----------------------------------------------------
+    ! example with non-allocated arrays
+    ! mote that allocation time dim will be 1:12, as in the file
+    aod => netcdf_read_oncells_3D_time( &
+      & file_id       = stream_id,      &
+      & variable_name = "aod",          &
+      & levelsdim_name = "lnwl",        & ! optional, just for checking
+      & patch         = patch)
+
+    !-----------------------------------------------------
+    ! example with allocated arrays, time dim is 0:13
+    lnwl_size = SIZE(lnwl_array, 1)
+    ALLOCATE(asy(nproma, lnwl_size, patch%nblks_c, 0:13 ))
+    ! read previous month, should be filled form the previous read though
+    return_pointer => netcdf_read_oncells_3D_time( &
+      & filename       = testfile_3D_time(1),      &
+      & variable_name  = "asy",                    &
+      & fill_array     = asy(:,:,:,0:0),           &
+      & patch          = patch,                    &
+      & levelsdim_name = "lnwl",                   & ! optional, just for checking
+      & start_timestep = 12,                       &
+      & end_timestep   = 12)
+    ! read current year
+    return_pointer => netcdf_read_oncells_3D_time( &
+      & file_id        = stream_id,                &
+      & variable_name  = "asy",                    &
+      & fill_array     = asy(:,:,:,1:12),          &
+      & patch          = patch,                    &
+      & levelsdim_name = "lnwl")                    ! optional, just for checking
+    ! read next month
+    return_pointer => netcdf_read_oncells_3D_time( &
+      & filename       = testfile_3D_time(1),      &
+      & variable_name  = "asy",                    &
+      & fill_array     = asy(:,:,:,13:13),         &
+      & patch          = patch,                    &
+      & start_timestep = 1,                        &
+      & end_timestep   = 1)
+
+    !-----------------------------------------------------
+    ! check Z-axis vertical levels
+    IF (SIZE(levels_array, 1) /= levels) THEN
+      write(0,*) "patch levels=", levels, " SIZE(levels_array)=", SIZE(levels_array, 1)
+      CALL finish(method_name, "SIZE(levels_array, 1) /= levels")
+    ENDIF
+    ALLOCATE(z_aer_fine_mo(nproma, levels, patch%nblks_c, 0:13 ))
+    ! read previous month, should be filled form the previous read though
+    ! read current year
+    return_pointer => netcdf_read_oncells_3D_time(  &
+      & file_id        = stream_id,                 &
+      & variable_name  = "z_aer_fine_mo",           &
+      & fill_array     = z_aer_fine_mo(:,:,:,1:12), &
+      & patch          = patch,                     &
+      & levelsdim_name = "lev")                    ! optional, just for checking
+
+    !---------------------------------------------------------------------
+    DEALLOCATE(lnwl_array, levels_array, times_array, aod, asy, z_aer_fine_mo)
+
+    !---------------------------------------------------------------------
+    ! Carry out the shared clean-up processes
+    CALL destruct_atmo_hydrostatic()
+    CALL destruct_atmo_model()
+
+
+  END SUBROUTINE test_netcdf_read
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_netcdf_read_demo_1(namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
@@ -156,7 +267,7 @@ CONTAINS
     CALL destruct_atmo_model()
      
 
-  END SUBROUTINE test_netcdf_read
+  END SUBROUTINE test_netcdf_read_demo_1
   !-------------------------------------------------------------------------
         
 

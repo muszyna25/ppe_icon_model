@@ -660,7 +660,7 @@ CONTAINS
   SUBROUTINE timer_report_full(itimer)
     INTEGER, INTENT(in) :: itimer
 
-    INTEGER :: it
+    INTEGER :: it,status
     INTEGER :: timer_file_id
     LOGICAL :: unit_is_occupied
 
@@ -698,7 +698,7 @@ CONTAINS
       ENDIF
   !     write(0,*) "timer filename=", TRIM(message_text)
 
-      OPEN (timer_file_id, FILE=TRIM(message_text))
+      OPEN (UNIT=timer_file_id, FILE=TRIM(message_text), FORM='FORMATTED',IOSTAT=status)
     ENDIF
 
     !
@@ -713,14 +713,14 @@ CONTAINS
       WRITE (message_text,'(a)'   ) 'Timer report'
     ENDIF
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id,*) TRIM(message_text)
+    IF (write_timer_files) WRITE(timer_file_id, '(a)' ) TRIM(message_text)
 
     ! the right-aligned column heads
     WRITE (message_text, &
         '(a,  t4,a  , t32,a    , t46,a  , t54,a      , t70,a  , t86,a)') &
         'th', 'name', '# calls', 't_min', 't_average', 't_max', 't_total'
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id,*) TRIM(message_text)
+    IF (write_timer_files) WRITE(timer_file_id, '(a)') TRIM(message_text)
 
     CALL message ('',separator,all_print=.TRUE.)
 
@@ -860,7 +860,7 @@ CONTAINS
         REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text, &
         rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id,*) TRIM(message_text)
+    IF (write_timer_files) WRITE(timer_file_id, '(a)') TRIM(message_text)
 
 
   END SUBROUTINE print_reportline
@@ -978,7 +978,7 @@ CONTAINS
     ELSEIF (ts >= 1.0_dp) THEN
       WRITE(x,'(f7.4,a)') ts, 's'
     ELSE
-      WRITE(x,'(f7.6,a)') ts, 's'
+      WRITE(x,'(f8.5,a)') ts, 's'
     ENDIF
     time_str = ADJUSTR(x)
 

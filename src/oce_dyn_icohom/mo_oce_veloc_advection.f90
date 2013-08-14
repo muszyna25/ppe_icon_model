@@ -101,7 +101,7 @@ CONTAINS
     REAL(wp), INTENT(inout)          :: vn_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(inout)          :: vn_new(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
-    REAL(wp), INTENT(out)            :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(inout)          :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) ! out
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
 
 
@@ -172,8 +172,9 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!  mpi parallelized LL
   !!
+  !! veloc_adv_horz_e is on edges%in_domain
+  !! p_diag%vort is on all vertices
   SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch_3D,     &
     & vn_old,          &
     & vn_new,          &
@@ -193,12 +194,11 @@ CONTAINS
     TYPE(t_hydro_ocean_diag) :: p_diag
 
     ! variable in which horizontally advected velocity is stored
-    REAL(wp), INTENT(out) :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(inout) :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) ! out
     !
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     !Interpolation necessary just for testing
     !TYPE(t_int_state),TARGET,INTENT(in), OPTIONAL :: p_int
-
 
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jk, jb, je
@@ -208,11 +208,11 @@ CONTAINS
     REAL(wp) :: z_vort_e       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_vort_flx_rbf (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     LOGICAL, PARAMETER :: l_debug = .FALSE.
-    TYPE(t_subset_range), POINTER :: all_edges!, all_cells
+    TYPE(t_subset_range), POINTER :: edges_in_domain!, all_cells
     TYPE(t_patch), POINTER         :: p_patch 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
-    all_edges => p_patch%edges%all
+    edges_in_domain => p_patch%edges%in_domain
     !all_cells => p_patch%cells%all
     !-----------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ CONTAINS
     elev = n_zlev
 
     !calculate vorticity flux across dual edge
-    !   LL: nonlinear_coriolis_3d is mpi parallized. p_diag%vort must have been synced
+    ! p_diag%p_vn_dual and vn_old must have been synced
     CALL nonlinear_coriolis_3d( p_patch_3D, &
       & vn_old,          &
       & p_diag%p_vn_dual,&
@@ -232,6 +232,8 @@ CONTAINS
       & p_diag%vort,     &
       & p_op_coeff,      &
       & z_vort_flx)
+    ! p_diag%vort is on all vertices
+    ! z_vort_flx is on in_domain_edges
 
     !-------------------------------------------------------------------------------
     ! IF(L_ENSTROPHY_DISSIPATION)THEN
@@ -248,8 +250,10 @@ CONTAINS
       & p_patch_3D,           &
       & p_op_coeff%grad_coeff,&
       & p_diag%grad)
+    ! the result is on edges_in_domain
 
-    CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))    
+    ! This is not needed at this point
+    ! CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -273,8 +277,8 @@ CONTAINS
 
 
     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
          !IF(v_base%lsm_e(je,jk,jb)<= boundary)THEN
@@ -306,7 +310,7 @@ CONTAINS
     REAL(wp), INTENT(inout)          :: vn(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) ! dim: (nproma,n_zlev,nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
     TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
-    REAL(wp), INTENT(out)            :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp), INTENT(inout)          :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) ! out
     !
     !Local variables
     !

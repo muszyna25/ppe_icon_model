@@ -201,7 +201,9 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  !! mpi parallelized by LL, openmp corrected
+  !! Note: vn must habve been synced before this routine
+  !! the resulting vort_v is synced,
+  !! vort_flux id calculated on edges in_domain
   SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual,h_e, vort_v, &
     & p_op_coeff, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: p_patch_3D
@@ -221,11 +223,11 @@ CONTAINS
     INTEGER :: ictr, neighbor, vertex_edge
     INTEGER :: il_v, ib_v
     REAL(wp) :: vort_global
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
-    all_edges => p_patch%edges%all
+    edges_in_domain => p_patch%edges%in_domain
     !-----------------------------------------------------------------------
     slev    = 1
     elev    = n_zlev
@@ -236,8 +238,8 @@ CONTAINS
 
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e)
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 
       level_loop: DO jk = slev, elev
 
@@ -275,7 +277,7 @@ CONTAINS
     END DO ! jb = all_edges%start_block, all_edges%end_block
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
-  ! LL: no sync required
+
 
   END SUBROUTINE nonlinear_coriolis_3d
   !-------------------------------------------------------------------------

@@ -55,7 +55,8 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
-    &                              RAYLEIGH_CLASSIC, MODE_REMAP
+    &                              RAYLEIGH_CLASSIC, MODE_REMAP, iedmf,       &
+    &                              icosmo
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -69,6 +70,7 @@ MODULE mo_nml_crosscheck
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
+    &                              iqni, iqni_nuc, iqg,                       & !CK<
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -89,6 +91,7 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
+  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
@@ -104,13 +107,12 @@ MODULE mo_nml_crosscheck
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
   USE mo_art_config,         ONLY: art_config
-  USE mo_prepicon_config,    ONLY: i_oper_mode
 
   IMPLICIT NONE
 
 !  PRIVATE
 
-  PUBLIC :: atm_crosscheck, oce_crosscheck
+  PUBLIC :: atm_crosscheck
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -128,11 +130,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Hui Wan, MPI (2011-07)
   !!
-  SUBROUTINE resize_simulation_length()
+  SUBROUTINE resize_atmo_simulation_length()
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     INTEGER :: jg
-    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_simulation_length'
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_atmo_simulation_length'
 
     !----------------------------
     ! rescale timestep
@@ -155,51 +157,48 @@ CONTAINS
           atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
       ENDDO
     ENDIF
-    !--------------------------------------------------------------------
-    ! Check length of this integration (skip for prep_icon remapping)
-    !--------------------------------------------------------------------
-    IF (i_oper_mode /= MODE_REMAP) THEN
+    !---------------------------------
+    ! Check length of this integration
+    !---------------------------------
+
+    IF (nsteps/=0) THEN   ! User specified a value
+
+      length_sec = REAL(nsteps,wp)*dtime
+      time_config%end_datetime = time_config%cur_datetime
+      CALL add_time(length_sec,0,0,0,time_config%end_datetime)
+
+      !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
+      !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+      !  IF (run_day    < 0    ) CALL finish(method_name,'"run_day" must not be negative')
+      !  IF (run_hour   < 0    ) CALL finish(method_name,'"run_hour" must not be negative')
+      !  IF (run_minute < 0    ) CALL finish(method_name,'"run_minute" must not be negative')
+      !  IF (run_second < 0._wp) CALL finish(method_name,'"run_second" must not be negative')
+      !  !
+      !  end_datetime = cur_datetime
+      !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
+      !  !
+      !  cur_datetime_calsec = (REAL(cur_datetime%calday,wp)+cur_datetime%caltime) &
+      !    &                   *REAL(cur_datetime%daylen,wp)
+      !  end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+      !    &                   *REAL(end_datetime%daylen,wp)
+      !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+      !-------------------------
+
+    ELSE
+      ! Compute nsteps from cur_datetime, end_datetime and dtime
       !
-      IF (nsteps/=0) THEN   ! User specified a value
+      cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
+        +time_config%cur_datetime%caltime   ) &
+        * REAL(time_config%cur_datetime%daylen,wp)
+      end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
+        +time_config%end_datetime%caltime   ) &
+        * REAL(time_config%end_datetime%daylen,wp)
 
-        length_sec = REAL(nsteps,wp)*dtime
-        time_config%end_datetime = time_config%cur_datetime
-        CALL add_time(length_sec,0,0,0,time_config%end_datetime)
+      IF (end_datetime_calsec < cur_datetime_calsec) &
+        & CALL finish(TRIM(method_name),'The end date and time must not be '// &
+        &            'before the current date and time')
 
-        !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
-        !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-        !  IF (run_day    < 0    ) CALL finish(method_name,'"run_day" must not be negative')
-        !  IF (run_hour   < 0    ) CALL finish(method_name,'"run_hour" must not be negative')
-        !  IF (run_minute < 0    ) CALL finish(method_name,'"run_minute" must not be negative')
-        !  IF (run_second < 0._wp) CALL finish(method_name,'"run_second" must not be negative')
-        !  !
-        !  end_datetime = cur_datetime
-        !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
-        !  !
-        !  cur_datetime_calsec = (REAL(cur_datetime%calday,wp)+cur_datetime%caltime) &
-        !    &                   *REAL(cur_datetime%daylen,wp)
-        !  end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-        !    &                   *REAL(end_datetime%daylen,wp)
-        !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-        !-------------------------
-
-      ELSE
-        ! Compute nsteps from cur_datetime, end_datetime and dtime
-        !
-        cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
-          +time_config%cur_datetime%caltime   ) &
-          * REAL(time_config%cur_datetime%daylen,wp)
-        end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
-          +time_config%end_datetime%caltime   ) &
-          * REAL(time_config%end_datetime%daylen,wp)
-
-        IF (end_datetime_calsec < cur_datetime_calsec) &
-          & CALL finish(TRIM(method_name),'The end date and time must not be '// &
-          &            'before the current date and time')
-
-        nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-
-      END IF
+      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
 
     END IF
 
@@ -274,14 +273,7 @@ CONTAINS
          & dt_checkpoint/86400._wp, ' days'
     CALL message(method_name,message_text)
 
-  END SUBROUTINE resize_simulation_length
-
-
-  SUBROUTINE oce_crosscheck()
-    CALL check_parallel_configuration()
-    CALL resize_simulation_length()
-    CALL init_grid_configuration
-  END SUBROUTINE oce_crosscheck
+  END SUBROUTINE resize_atmo_simulation_length
 
 
   SUBROUTINE atm_crosscheck
@@ -298,7 +290,7 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL check_parallel_configuration()
 
-    CALL resize_simulation_length()
+    CALL resize_atmo_simulation_length()
 
     ! Special treatment for the hydro atm model
 
@@ -335,11 +327,9 @@ CONTAINS
     ! Grid and dynamics
     !--------------------------------------------------------------------
 
-    ! check the configuration (skip for prep_icon remapping)
-    IF (i_oper_mode /= MODE_REMAP) THEN
-      CALL init_grid_configuration()
-    END IF
-
+    ! check the configuration
+    CALL init_grid_configuration()
+    
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(method_name),&
       'Currently only the hexagon model can run on a plane')
 
@@ -419,7 +409,7 @@ CONTAINS
 
     IF ( ( TRIM(nh_test_name)=='APE_nh'.OR. TRIM(nh_test_name)=='dcmip_tc_52' ) .AND.  &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) ) .AND.                       &
-      &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= 3 ) ) ) THEN
+      &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= iedmf ) ) ) THEN
       CALL finish(TRIM(method_name), &
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
@@ -481,8 +471,8 @@ CONTAINS
                     'only turbulence selected!')
 
 
-        IF( (atm_phy_nwp_config(jg)%inwp_turb == 1) .AND.                &
-          & (turbdiff_config(jg)%lconst_z0) )               THEN
+        IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+          & (turbdiff_config(jg)%lconst_z0) ) THEN
           CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
                       'length z0 selected!')
@@ -524,6 +514,11 @@ CONTAINS
           CALL finish(TRIM(method_name),'mu_snow requires: 0 < mu_snow < 5')
         END IF ! microphysics
 
+        IF (atm_phy_nwp_config(jg)%inwp_surface == 0 .AND. ntiles_lnd > 1) THEN
+          ntiles_lnd = 1
+          CALL message(TRIM(method_name),'Warning: ntiles reset to 1 because the surface scheme is turned off')
+        ENDIF
+
       ENDDO
     END IF
 
@@ -550,51 +545,139 @@ CONTAINS
       iqt    = 4     !! starting index of non-water species
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
-
     CASE (INWP)
+    
+!CK>  
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+        
+      CASE(0) !Moist turbulence without microphysics
+              !Ideally it should have clear difference between dry and moist physics. 
+              !However, implementing that will require further changes in variable
+              !declaration part. For now keep it like this.
 
-      ! If iforcing=INWP is chosen, ntracer will automatically be set to 5,
-      ! except for the case of ICON-ART. If ICON-ART: then ntracer is adapted from the namelist.
-      !
-      do jg=1,n_dom
-        IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart) ) THEN
-          ntracer = 5
-          WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
-                                       'ntracer is set to',ntracer
-          CALL message(TRIM(method_name),message_text)
-        ENDIF
-        IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == 3) &
-        & .AND. (.NOT. art_config(jg)%lart) ) THEN
-          ntracer = 6
-          WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
-                                       'ntracer is set to',ntracer
-          CALL message(TRIM(method_name),message_text)
-        ENDIF
-      enddo
+       !If iforcing=INWP is chosen, ntracer will automatically be set to 5
+       !Not putting the conditions for lart and edmf as they will always
+       !be run with inwp_gscp>0
+       ntracer = 5
+       WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                    'ntracer is set to',ntracer
+       CALL message(TRIM(method_name),message_text)
 
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqr    = 4     !! rain water
-      iqs    = 5     !! snow
-      iqtvar = 6     !! qt variance
+       iqv    = 1     !> water vapour
+       iqc    = 2     !! cloud water
+       iqi    = 3     !! ice 
+       iqr    = 4     !! rain water
+       iqs    = 5     !! snow
 
-      ! Note: Indices for additional tracers are assigned automatically
-      ! via add_tracer_ref in mo_nonhydro_state.
+      !AD: preliminary fix following the changes made for COSMO_EU scheme in r12908
+      iqni     = ntracer+1    !! cloud ice number
+      iqni_nuc = ntracer+1    !! activated ice nuclei  
+      iqg      = ntracer+1    !! graupel
 
-      iqt    = 6     !! start index of other tracers than hydrometeors
-      nqtendphy = 3  !! number of water species for which convective and turbulent
-                     !! tendencies are stored
+       iqt    = 5     !! start index of other tracers than hydrometeors
+       nqtendphy = 3  !! number of water species for which convective and turbulent
+                        !! tendencies are stored
 
-    CASE default
+      CASE(1,10) ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
+         
+       ! If iforcing=INWP is chosen, ntracer will automatically be set to 5,
+       ! except for the case of ICON-ART. If ICON-ART: then ntracer is adapted from the namelist.
+       !
+       do jg=1,n_dom
+         IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart) ) THEN
+           ntracer = 5
+           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                        'ntracer is set to',ntracer
+           CALL message(TRIM(method_name),message_text)
+         ENDIF
+         IF ( (ntracer /= 6) .AND. (atm_phy_nwp_config(jg)%inwp_turb == iedmf) &
+         & .AND. (.NOT. art_config(jg)%lart) ) THEN
+           ntracer = 6
+           WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                        'ntracer is set to',ntracer
+           CALL message(TRIM(method_name),message_text)
+         ENDIF
+       enddo
 
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      ico2   = 5     !! CO2
-      iqt    = 4     !! starting index of non-water species
-      nqtendphy = 0  !! number of water species for which convective and turbulent
-                     !! tendencies are stored
+       iqv    = 1     !> water vapour
+       iqc    = 2     !! cloud water
+       iqi    = 3     !! ice
+       iqr    = 4     !! rain water
+       iqs    = 5     !! snow
+       iqtvar = 6     !! qt variance
+      ! preliminary fix - needs to be revised before implementing graupel scheme
+      iqni     = ntracer+1    !! cloud ice number
+      iqni_nuc = ntracer+1    !! activated ice nuclei  
+      iqg      = ntracer+1    !! graupel
+
+       ! Note: Indices for additional tracers are assigned automatically
+       ! via add_tracer_ref in mo_nonhydro_state.
+
+       iqt    = 6     !! start index of other tracers than hydrometeors
+       nqtendphy = 3  !! number of water species for which convective and turbulent
+                      !! tendencies are stored
+
+      CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+
+        CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
+        
+!        ntracer = 6
+!        iqv     = 1     !> water vapour
+!        iqc     = 2     !! cloud water
+!        iqi     = 3     !! ice
+!        iqr     = 4     !! rain water
+!        iqs     = 5     !! snow
+!        iqg     = 6     !! graupel
+!        iqtvar  = 7     !! qt variance
+!        iqt     = 7     !! start index of other tracers than hydrometeors
+!        nqtendphy = 4   !! number of water species for which convective and turbulent 
+!                        !! tendencies are stored
+! 
+      CASE(3)  ! improved ice nucleation scheme C. Koehler
+
+        ntracer  = 7
+        iqv      = 1     !> water vapour
+        iqc      = 2     !! cloud water
+        iqi      = 3     !! ice
+        iqr      = 4     !! rain water
+        iqs      = 5     !! snow
+        iqni     = 6     !! cloud ice number
+        iqni_nuc = 7    !! activated ice nuclei  
+        iqtvar   = 8     !! qt variance
+        iqt      = 8     !! start index of other tracers than hydrometeors
+        nqtendphy = 3   !! number of water species for which convective and turbulent 
+                        !! tendencies are stored
+        
+        ! preliminary fix - needs to be revised before implementing graupel scheme
+        iqg      = ntracer+1    !! graupel
+
+      CASE(4)  ! two-moment scheme 
+
+        CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
+
+
+!      CASE(9)  ! Kessler scheme (warm rain scheme)  
+!        ntracer = 3
+!        iqv     = 1     !> water vapour
+!        iqc     = 2     !! cloud water
+!        iqr     = 3     !! rain water
+!        iqtvar  = 4     !! qt variance
+!        iqt     = 4     !! start index of other tracers than hydrometeors
+!        nqtendphy = 1   !! number of water species for which convective and turbulent 
+!                        !! tendencies are stored
+
+      END SELECT
+!CK<  
+ 
+    CASE default !
+
+        iqv    = 1     !> water vapour
+        iqc    = 2     !! cloud water
+        iqi    = 3     !! ice
+        ico2   = 5     !! CO2
+        iqt    = 4     !! starting index of non-water species
+        nqtendphy = 0  !! number of water species for which convective and turbulent
+                       !! tendencies are stored
 
     END SELECT
 

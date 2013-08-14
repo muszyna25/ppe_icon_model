@@ -59,7 +59,7 @@ MODULE mo_ext_decompose_patches
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -83,10 +83,10 @@ MODULE mo_ext_decompose_patches
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
-  USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
-  USE mo_math_utilities,       ONLY: geographical_to_cartesian
+  USE mo_math_utilities,      ONLY: geographical_to_cartesian
+  USE mo_ocean_config,        ONLY: ignore_land_points
 
   IMPLICIT NONE
 
@@ -100,44 +100,24 @@ MODULE mo_ext_decompose_patches
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
-  TYPE(t_patch), POINTER :: wrk_divide_patch
-
-  !-------------------------------------------------------------------------
-  ! Definition of local parent patches
-  ! For any given patch patch_2D(jg) and jgp = patch_2D(jg)%parent_id,
-  ! p_patch_local_parent(jg) has the same resolution as patch_2D(jgp)
-  ! but it covers only the area of patch_2D(jgp) which is covered by its child patch_2D(jg)
-  ! and it is divided in the same manner as patch_2D(jg).
-  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
-
-  ! Please note: The definitions of the local parents are now at the same locations
-  ! as the definitions of the respective patch or state
-  !-------------------------------------------------------------------------
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
-
-  ! number of grid points of different categories:
-  ! lateral points, interior points, nested points, halo points
-  INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
 
 CONTAINS
 
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
+  !!
+  !!  @note This implementation uses an ext decomposition library driver.
+  !!
   SUBROUTINE ext_decompose_patches( patch_2D, p_patch_global )
 
     TYPE(t_patch), INTENT(INOUT), TARGET :: patch_2D(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:ext_decompose_patches")
-
-    CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
-      & (/ "lateral grid points " , &
-      &    "interior grid points", &
-      &    "nested grid points  ",   &
-      &    "halo grid points    " /)
 
     ! Local variables:
     INTEGER :: jg, jgp, jc, jgc, n, &
@@ -148,7 +128,7 @@ CONTAINS
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
-    LOGICAL :: l_detailed_summary
+    LOGICAL :: is_compute_grid
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
 
     CALL message(routine, 'start of ext domain decomposition')
@@ -257,10 +237,6 @@ CONTAINS
 #endif
     patch_2D(:)%rank = -1
 
-
-      ! patch_2D is already allocated, p_patch_local_parent needs allocation
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-
     ! Divide patches
 
     DO jg = n_dom_start, n_dom
@@ -288,12 +264,12 @@ CONTAINS
 
       DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
-      IF(jg > n_dom_start) THEN
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent:
-        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
-        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
-      ENDIF
+!      IF(jg > n_dom_start) THEN
+!        ! Assign the cell owners of the current patch to the parent cells
+!        ! for the construction of the local parent:
+!        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+!        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
+!      ENDIF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
@@ -301,12 +277,16 @@ CONTAINS
       ! if this is not the case, the ghost rows can be dropped again.
 
         wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        is_compute_grid = .true.
+!        IF (ignore_land_points) &
+!          is_compute_grid = .false.
 
-        IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
-          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
-        ENDIF
+        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, is_compute_grid, p_pe_work)
+
+!        IF(jg > n_dom_start) THEN
+!          wrk_p_patch_g => p_patch_global(jgp)
+!          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
+!        ENDIF
 
       DEALLOCATE(cell_owner)
       IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
@@ -318,61 +298,6 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL deallocate_basic_patch( p_patch_global(jg) )
     ENDDO
-
-    ! (Optional:)
-    ! Print a detailed summary on model grid points
-    l_detailed_summary = (msg_level >= 16)
-
-    IF (l_detailed_summary) THEN
-      WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
-        &                    "Detailed grid summary (cells)"
-      CALL message(routine, TRIM(message_text))
-
-      DO jg = n_dom_start, n_dom
-        ! count grid points for this PE:
-        i_nchdom     = MAX(1,patch_2D(jg)%n_childdom)
-        ! local, lateral grid points
-        npts_local(jg,1)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(1,1),         &
-          &                   patch_2D(jg)%cells%start_idx(1,1),         &
-          &                   patch_2D(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   patch_2D(jg)%cells%end_idx(max_rlcell,1) )
-        ! local, interior grid points
-        npts_local(jg,2)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(0,1), &
-          &                   patch_2D(jg)%cells%start_idx(0,1), &
-          &                   patch_2D(jg)%cells%end_blk(0,1),   &
-          &                   patch_2D(jg)%cells%end_idx(0,1) )
-        ! local, nested grid points:
-        npts_local(jg,3)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(-1,1), &
-          &                   patch_2D(jg)%cells%start_idx(-1,1), &
-          &                   patch_2D(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   patch_2D(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
-        ! local, halo grid points:
-        npts_local(jg,4)    = count_entries(  &
-          &                   patch_2D(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   patch_2D(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   patch_2D(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   patch_2D(jg)%cells%end_idx(min_rlcell,i_nchdom) )
-        ! sum up over all PEs (collective operation):
-        npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
-
-        WRITE (message_text,'(A8,i4)') "patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(jg,l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-        WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_global(l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-
-      END DO
-    END IF
 
   END SUBROUTINE ext_decompose_patches
 
@@ -532,93 +457,6 @@ CONTAINS
 
     ENDIF
 
-!     ELSE    
-!       ! Built in subdivison methods
-! 
-!       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
-! 
-!         ! Cells with the same parent must not go to different PEs.
-!         ! Thus we have to divide in reality the subset of the parent cells
-!         ! which cover the actual patch and then assign the ownership
-!         ! of the cells of the actual patch according to the parent cells
-! 
-!         ! Determine the subset of the parent patch covering the actual patch
-!         ! by flagging the according cells
-! 
-!         ALLOCATE(flag_c(wrk_p_parent_patch_g%n_patch_cells))
-!         flag_c(:) = 0
-! 
-!         DO j = 1, wrk_p_patch_g%n_patch_cells
-! 
-!           jb = blk_no(j) ! block index
-!           jl = idx_no(j) ! line index
-!           jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-!           jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
-! 
-!           flag_c(idx_1d(jl_p, jb_p)) = MAX(1,wrk_p_patch_g%cells%phys_id(jl,jb))
-!         ENDDO
-! 
-!         ! Divide subset of patch
-!         ! Receives the PE  numbers for every cell
-!         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
-! 
-!         IF(division_method(patch_no) == div_geometric) THEN
-!           wrk_divide_patch => wrk_p_parent_patch_g
-!           CALL divide_subset_geometric( flag_c, n_proc, tmp)
-! #ifdef HAVE_METIS
-!         ELSE IF(division_method==div_metis) THEN
-!           wrk_divide_patch => wrk_p_parent_patch_g
-!           CALL divide_subset_metis( flag_c, n_proc, tmp)
-! #endif
-!         ELSE
-!           CALL finish('divide_patch','Illegal division_method setting')
-!         ENDIF
-! 
-!         ! Owners of the cells of the parent patch are now in tmp.
-!         ! Set owners in current patch from this
-! 
-!         DO j = 1, wrk_p_patch_g%n_patch_cells
-! 
-!           jb = blk_no(j) ! block index
-!           jl = idx_no(j) ! line index
-!           jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-!           jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
-! 
-!           cell_owner(j) = tmp(idx_1d(jl_p,jb_p))
-! 
-!         ENDDO
-! 
-!         DEALLOCATE(flag_c, tmp)
-! 
-!       ELSE
-! 
-!         ! No parent patch, simply divide current patch
-! 
-!         ! Set subset flags where the "subset" is the whole patch
-! 
-!         ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
-!         flag_c(:) = 1
-! 
-!         ! Divide complete patch
-! 
-!         IF(division_method(patch_no) == div_geometric) THEN
-!           wrk_divide_patch => wrk_p_patch_g
-!           CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
-! #ifdef HAVE_METIS
-!         ELSE IF(division_method==div_metis) THEN
-!           wrk_divide_patch => wrk_p_patch_g
-!           CALL divide_subset_metis(flag_c, n_proc, cell_owner)
-! #endif
-!         ELSE
-!           CALL finish('divide_patch','Illegal division_method setting')
-!         ENDIF
-! 
-!         DEALLOCATE(flag_c)
-! 
-!       ENDIF
-! 
-!     ENDIF
-
     ! Set processor offset
     cell_owner(:) = cell_owner(:) + proc0
 
@@ -772,6 +610,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
+    LOGICAL :: lcount_flag
 
     !-----------------------------------------------------------------------------------------------
     ! Find inner cells/edges/verts and ghost rows for our patch:
@@ -1122,7 +961,9 @@ CONTAINS
 
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+!    lcount_flag = (.NOT. l_compute_grid) .OR. ignore_land_points
+    lcount_flag = (.NOT. l_compute_grid)
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_cells
         IF (flag2_c(j)==0) THEN
           n = n + 1
@@ -1289,7 +1130,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_edges
         IF (flag2_e(j)==0) THEN
           n = n + 1
@@ -1453,7 +1294,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_verts
         IF (flag2_v(j)==0 ) THEN
           n = n + 1
@@ -1852,10 +1693,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
+                                     owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), POINTER :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
@@ -2387,10 +2230,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_metis(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_divide_patch, &
+                                 owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), POINTER :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 

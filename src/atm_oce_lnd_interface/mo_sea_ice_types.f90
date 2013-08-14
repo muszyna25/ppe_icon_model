@@ -4,8 +4,8 @@
 !! Provide an implementation of the parameters of the surface module (sea ice)
 !! used between the atmopshere and the hydrostatic ocean model.
 !!
-!! @author 
-!! 
+!! @author
+!!
 !! @par Revision History
 !!
 !! @par Copyright
@@ -49,9 +49,13 @@ MODULE mo_sea_ice_types
   PUBLIC  :: t_sfc_flx
   PUBLIC  :: t_atmos_fluxes
   PUBLIC  :: t_atmos_for_ocean
+  PUBLIC  :: t_ptr2d
 
 
 
+  TYPE t_ptr2d
+    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr2d
   !------  Definition of surface flux type---------------------
   TYPE t_sfc_flx
 
@@ -72,13 +76,32 @@ MODULE mo_sea_ice_types
       &  forc_fwfx        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
       &  forc_hflx        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
-      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax(:,:,:)      ! tracer relaxation: contains data to which is relaxated. 
-                                       !   3rd index refers to tracer id
+      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
+      &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
+      !                                  is relaxated, 3rd index refers to tracer id
+      !
+      !  accumulations variables
+      &  forc_wind_u_acc      (:,:),     & ! forcing of zonal component of velocity equation,
+      &  forc_wind_v_acc      (:,:),     & ! forcing of meridional component of velocity equation,
+      &  forc_swflx_acc       (:,:),     & ! surface short wave heat flux                              [W/m2]
+      &  forc_lwflx_acc       (:,:),     & ! surface long wave heat flux                               [W/m2]
+      &  forc_ssflx_acc       (:,:),     & ! surface sensible heat flux                                [W/m2]
+      &  forc_slflx_acc       (:,:),     & ! surface latent heat flux                                  [W/m2]
+      &  forc_precip_acc      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  forc_evap_acc        (:,:),     & ! evaporation flux                                          [m/s]
+      &  forc_runoff_acc      (:,:),     & ! river runoff flux                                         [m/s]
+      &  forc_fwbc_acc        (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
+      &  forc_fwrelax_acc     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
+      &  forc_fwfx_acc        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/s]
+      &  forc_hfrelax_acc     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
+      &  forc_hflx_acc        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
+      &  forc_tracer_acc      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
+      &  forc_tracer_relax_acc(:,:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:) 
+      & ALLOCATABLE :: forc_wind_cc(:,:)
 
+    TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_sfc_flx
 
   ! global type variables
@@ -88,8 +111,9 @@ MODULE mo_sea_ice_types
   !
   !representation of atmosphere in ocean model. Data are coming either from
   !atmosphere model or from file. These fields are transformed via bulk fomulas
-  !into atmospheric fluxes, the fluxes are then used to set the oceans surface 
+  !into atmospheric fluxes, the fluxes are then used to set the oceans surface
   !boundary conditions
+  ! On cells
   TYPE t_atmos_for_ocean
 
     REAL(wp), ALLOCATABLE :: &
@@ -122,8 +146,8 @@ MODULE mo_sea_ice_types
       & dsensdT (:,:,:),           & ! d sensible Flux / d T_surf                  [W/m2/K]
       & dlatdT  (:,:,:),           & ! d latent Flux / d T_surf                    [W/m2/K]
       & dLWdT   (:,:,:)              ! d radiation Flux / d T_surf                 [W/m2/K]
-                                                                              
-    REAL(wp), ALLOCATABLE ::   &                                              
+
+    REAL(wp), ALLOCATABLE ::   &
       & rprecw (:,:),             & ! liquid precipitation rate                   [m/s]
       & rpreci (:,:),             & ! solid  precipitation rate                   [m/s]
       & sensw  (:,:),             & ! Sensible heat flux over water               [W/m2]
@@ -134,7 +158,7 @@ MODULE mo_sea_ice_types
       & LWin   (:,:)                ! incoming LW radiation flux                  [W/m2]
 
 ! Albedos
-    REAL(wp), ALLOCATABLE::     &
+    REAL(wp), POINTER ::     &
       & albvisdir (:,:,:),      & ! VIS direct/paralell (ice)
       & albvisdif (:,:,:),      & ! VIS diffuse (ice)
       & albnirdir (:,:,:),      & ! NIR direct/paralell (ice)
@@ -143,8 +167,8 @@ MODULE mo_sea_ice_types
       & albvisdifw(:,:),        & ! VIS diffuse (ocean)
       & albnirdirw(:,:),        & ! NIR direct/paralell (ocean)
       & albnirdifw(:,:)           ! NIR diffuse (ocean)
-                                                                            
-    INTEGER ::     counter                                                  
+
+    INTEGER ::     counter
 
     REAL(wp), ALLOCATABLE ::   &
       &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation,
@@ -159,7 +183,7 @@ MODULE mo_sea_ice_types
   !   &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
   !   &  forc_fwfx        (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:) 
+      & ALLOCATABLE :: forc_wind_cc(:,:)
 
   END TYPE t_atmos_fluxes
 
@@ -198,7 +222,7 @@ MODULE mo_sea_ice_types
 
      INTEGER ::  kice           ! Number of ice-thickness classes
 
-    REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits 
+    REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
   END TYPE t_sea_ice
 

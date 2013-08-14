@@ -121,7 +121,15 @@ MODULE mo_gribout_config
                                           ! .TRUE. : activated
                                           ! .FALSE.: deactivated (use dummy date/time) 
 
+    ! Local definiton for ensemble products
+    INTEGER :: productDefinitionTemplateNumber
 
+    INTEGER :: typeOfEnsembleForecast,        &
+      &        localTypeOfEnsembleForecast,   &
+      &        numberOfForecastsInEnsemble,   &
+      &        perturbationNumber
+
+   
     ! derived variables
  
   END TYPE t_gribout_config

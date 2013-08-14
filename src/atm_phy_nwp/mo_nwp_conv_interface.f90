@@ -43,7 +43,8 @@ MODULE mo_nwp_conv_interface
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, &
+                                     iedmf, ivdiff
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
@@ -133,7 +134,7 @@ CONTAINS
 
 
    ! for EDMF DUALM: turn off Tiedtke shallow convection 
-   !IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+   !IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
    !  lmfscv = .FALSE.       ! shallow convection off
    !ENDIF
 
@@ -180,14 +181,14 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux kg/m2/s
           z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
-        CASE (1,2,3)
+        CASE (icosmo,igme,iedmf,10,11,12)
 
           ! In turb1,turb2 and turb3, the flux is positive downwards / negative upwards
 
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
-        CASE (4)
+        CASE (ivdiff)
 
           ! In turb2, the flux is negative upwards.
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
@@ -245,9 +246,9 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
-        IF ( atm_phy_nwp_config(jg)%inwp_turb /= 3 ) THEN ! DUALM is allow to turn of shallow convection
+        IF ( atm_phy_nwp_config(jg)%inwp_turb /= iedmf ) THEN ! DUALM is allow to turn of shallow convection
           DO jc = i_startidx,i_endidx
-            prm_diag%ldshcv(jc,jb) = .true.
+            prm_diag%ldshcv(jc,jb) = .TRUE.
           ENDDO
         ENDIF
 

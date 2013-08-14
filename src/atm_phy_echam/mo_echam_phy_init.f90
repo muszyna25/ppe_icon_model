@@ -47,7 +47,7 @@ MODULE mo_echam_phy_init
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
-  USE mo_netcdf_read,          ONLY: netcdf_read_oncells_2D
+  USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close, netcdf_read_oncells_2D
 
   ! model configuration
   USE mo_dynamics_config,      ONLY: nnow
@@ -113,6 +113,7 @@ MODULE mo_echam_phy_init
   ! for AMIP boundary conditions
   USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
   USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
+  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_weights, ssi_time_interpolation
 
   IMPLICIT NONE
 
@@ -146,7 +147,7 @@ CONTAINS
     REAL(wp), POINTER     :: return_pointer(:,:)
 
     INTEGER :: khydromet, ktrac
-    INTEGER :: jg, ndomain
+    INTEGER :: jg, ndomain, stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
@@ -165,11 +166,12 @@ CONTAINS
     ! For radiation:
 
     IF (phy_config%lrad) THEN
+      ! TSI, SSI are getting overwritten in case of an AMIP simulation by time varying once (see below)
       ssi(:) = ssi_amip(:)
       tsi    = SUM(ssi(:))
       CALL setup_srtm
-      CALL lrtm_setup
-      CALL setup_newcld_optics
+      CALL lrtm_setup('rrtmg_lw.nc')
+      CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
     END IF
 
     ! For cumulus convection:
@@ -244,74 +246,78 @@ CONTAINS
     ENDDO
 
     IF (phy_config%lamip) THEN
-!!!OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-      DO jg= 1,ndomain
+!      DO jg= 1,ndomain ! only one file is defined, ie only for domain 1
+      jg = 1
            ! by default it will create an error if it cannot open/read the file
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='land',              &
-             & fill_array    = prm_field(jg)% lsmask(:,:),      &
+           stream_id = netcdf_open_input(filename = land_frac_fn)
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='land',                      &
+             & fill_array    = prm_field(jg)% lsmask(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='glac',              &
-             & fill_array    = prm_field(jg)% glac(:,:),        &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='glac',                      &
+             & fill_array    = prm_field(jg)% glac(:,:),   &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_frac_fn,        &
-             & variable_name ='lake',              &
-             & fill_array    = prm_field(jg)% alake(:,:),       &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id        = stream_id,                 &
+             & variable_name ='lake',                      &
+             & fill_array    = prm_field(jg)% alake(:,:),  &
              & patch         = p_patch(jg))
+           stream_id = netcdf_close(stream_id)
+
      ! roughness length and background albedo
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='z0',                &
-             & fill_array    = prm_field(jg)% z0m(:,:),         &
+           return_pointer => netcdf_read_oncells_2D(    &
+             & filename      =land_phys_fn,             &
+             & variable_name ='z0',                     &
+             & fill_array    = prm_field(jg)% z0m(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_phys_fn,        &
-             & variable_name ='albedo',            &
-             & fill_array    = prm_field(jg)% alb(:,:),         &
+           return_pointer => netcdf_read_oncells_2D(    &
+             & filename      =land_phys_fn,             &
+             & variable_name ='albedo',                 &
+             & fill_array    = prm_field(jg)% alb(:,:), &
              & patch         = p_patch(jg))
 
      ! orography
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='oromea',            &
-             & fill_array    = prm_field(jg)% oromea(:,:),      &
+           stream_id = netcdf_open_input(filename = land_sso_fn)
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='oromea',                    &
+             & fill_array    = prm_field(jg)% oromea(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orostd',            &
-             & fill_array    = prm_field(jg)% orostd(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='orostd',                    &
+             & fill_array    = prm_field(jg)% orostd(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orosig',            &
-             & fill_array    = prm_field(jg)% orosig(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='orosig',                    &
+             & fill_array    = prm_field(jg)% orosig(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orogam',            &
-             & fill_array    = prm_field(jg)% orogam(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='orogam',                    &
+             & fill_array    = prm_field(jg)% orogam(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='orothe',            &
-             & fill_array    = prm_field(jg)% orothe(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='orothe',                    &
+             & fill_array    = prm_field(jg)% orothe(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='oropic',            &
-             & fill_array    = prm_field(jg)% oropic(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='oropic',                    &
+             & fill_array    = prm_field(jg)% oropic(:,:), &
              & patch         = p_patch(jg))
-           return_pointer => netcdf_read_oncells_2D( &
-             & filename      =land_sso_fn,         &
-             & variable_name ='oroval',            &
-             & fill_array    = prm_field(jg)% oroval(:,:),      &
+           return_pointer => netcdf_read_oncells_2D(       &
+             & file_id       = stream_id,                  &
+             & variable_name ='oroval',                    &
+             & fill_array    = prm_field(jg)% oroval(:,:), &
              & patch         = p_patch(jg))
-         ENDDO
-!!!OMP END PARALLEL DO
+           stream_id = netcdf_close(stream_id)
+        ! ENDDO
 
     ! add lake mask to land sea mask to remove lakes again
       DO jg= 1,ndomain
@@ -324,6 +330,10 @@ CONTAINS
         IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
         CALL ghg_time_interpolation(current_date)
       ENDIF
+      ! overwrite defined static TSI, SSI by time varying once
+      CALL read_ssi_bc(current_date%year)
+      CALL ssi_time_weights(current_date)
+      CALL ssi_time_interpolation(tsi, ssi)
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain
@@ -345,6 +355,12 @@ CONTAINS
         prm_field(jg)% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation 
         prm_field(jg)% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
         prm_field(jg)% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% Tsurf(:,:,:) = Tf
+        prm_field(jg)% T1   (:,:,:) = Tf
+        prm_field(jg)% T2   (:,:,:) = Tf
+        prm_field(jg)% hs   (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,:,:) = 0._wp
+        prm_field(jg)% conc (:,:,:) = 0._wp
       ENDDO
 
     ENDIF    ! phy_config%lamip
@@ -796,20 +812,11 @@ CONTAINS
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
-      field% swflxsfc_avg(:,:) = 0._wp
-      field% lwflxsfc_avg(:,:) = 0._wp
-      field% swflxtoa_avg(:,:) = 0._wp
-      field% lwflxtoa_avg(:,:) = 0._wp
-      field% dlwflxsfc_dT_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
-      field% aclcac(:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
       field% xivi  (:,  :) = 0._wp
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
       field% rsfl  (:,  :) = 0._wp
       field% ssfl  (:,  :) = 0._wp
       field% rsfc  (:,  :) = 0._wp
@@ -817,14 +824,13 @@ CONTAINS
       field% omega (:,:,:) = 0._wp
 
       field%totprec_avg(:,:) = 0._wp
-      field%  evap_avg(:,  :) = 0._wp
-      field% lhflx_avg(:,  :) = 0._wp
-      field% shflx_avg(:,  :) = 0._wp
+      field%  evap (:,  :) = 0._wp
+      field% lhflx (:,  :) = 0._wp
+      field% shflx (:,  :) = 0._wp
       field%dshflx_dT_tile    (:,:,:)= 0._wp
-      field%dshflx_dT_avg_tile(:,:,:)= 0._wp
 
-      field% u_stress_avg(:,  :) = 0._wp
-      field% v_stress_avg(:,  :) = 0._wp
+      field% u_stress(:,  :) = 0._wp
+      field% v_stress(:,  :) = 0._wp
 
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
@@ -1032,29 +1038,7 @@ CONTAINS
       ! Reset accumulated variables
       !----------------------------------------
 
-      field% aclcac     (:,:,:) = 0._wp
-      field% aclcov     (:,  :) = 0._wp
       field%totprec_avg(:,:)   = 0._wp
-
-      field% qvi   (:,  :) = 0._wp
-      field% xlvi  (:,  :) = 0._wp
-      field% xivi  (:,  :) = 0._wp
-
-      field% aprl  (:,  :) = 0._wp
-      field% aprc  (:,  :) = 0._wp
-      field% aprs  (:,  :) = 0._wp
-
-      field%  evap_avg(:,:) = 0._wp
-      field% lhflx_avg(:,:) = 0._wp
-      field% shflx_avg(:,:) = 0._wp
-
-      field% u_stress_avg(:,:) = 0._wp
-      field% v_stress_avg(:,:) = 0._wp
-
-     field% swflxsfc_avg(:,:) = 0._wp
-     field% lwflxsfc_avg(:,:) = 0._wp
-     field% swflxtoa_avg(:,:) = 0._wp
-     field% lwflxtoa_avg(:,:) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

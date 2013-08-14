@@ -107,10 +107,6 @@ MODULE mo_ext_data_types
       &  fr_glac(:,:)          ! 1.0 indicates 100% glacier
                                ! index1=1,nproma, index2=1,nblks_c    
 
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice(:,:)           ! 1.0 indicates 100% ice
-                               ! index1=1,nproma, index2=1,nblks_c 
-   
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land_smt(:,:)      !  = smoothed fr_land
 
@@ -133,6 +129,22 @@ MODULE mo_ext_data_types
 
     REAL(wp), POINTER ::   &   !< lake depth                              [m]
       &  depth_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< wind fetch over lake                    [m]
+      &  fetch_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< depth of the thermally active layer of  [m]
+      &  dp_bs_lk(:,:)         !< bottom sediments
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< climatological temperature at the       [K]
+      &  t_bs_lk(:,:)          !< bottom of the thermally active layer of sediments
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< attenuation coefficient of the lake     [m^-1]
+      &  gamso_lk(:,:)         !< water with respect to solar radiation
+                               ! index1=1,nproma, index2=1,nblks_c
+
 
 
     !
@@ -217,10 +229,10 @@ MODULE mo_ext_data_types
       &  soiltyp_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
 
 
-
     REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
       &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
                                ! index1=1,nproma, index2=1,nblks_c
+
 
     ! *** radiation parameters ***
     REAL(wp), POINTER ::   &   !< ozone mixing ratio                        [ kg kg^-1 ]
@@ -228,6 +240,20 @@ MODULE mo_ext_data_types
 
     REAL(wp), POINTER ::   &   !< longwave surface emissivity             [ ]
       &  emis_rad(:,:)         ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< shortwave broadband albedo for diffuse radiation  [1]
+      &  alb_dif(:,:)          !< (0.3 - 5.0 µm)
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< UV visible broadband albedo for diffuse radiation [1]
+      &  albuv_dif(:,:)        !< (0.3 - 0.7 µm)
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< Near IR broadband albedo for diffuse radiation    [1]
+      &  albni_dif(:,:)        !< (0.7 - 5.0 µm)
+                               ! index1=1,nproma, index2=1,nblks_c
+
+
 
     ! *** flow control parameters for tile approach ***
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
@@ -353,11 +379,17 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of seasalt aerosol [ ]
       &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
-    REAL(wp), POINTER ::   &   !< UV visible albedo for diffuse radiation      [%]
-      &  alb_vis_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< shortwave broadband albedo for diffuse radiation  [1]
+      &  alb_dif(:,:,:)        !< (0.3 - 5.0 µm)
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
-    REAL(wp), POINTER ::   &   !< Near IR albedo for diffuse radiation         [%]
-      &  alb_nir_dif(:,:,:)    ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< UV visible broadband albedo for diffuse radiation [1]
+      &  albuv_dif(:,:,:)      !< (0.3 - 0.7 µm)
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< Near IR broadband albedo for diffuse radiation    [1]
+      &  albni_dif(:,:,:)      !< (0.7 - 5.0 µm)
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
 
     !

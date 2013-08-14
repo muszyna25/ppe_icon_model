@@ -48,6 +48,7 @@
 MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: ippm_v
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
@@ -83,13 +84,16 @@ CONTAINS
   !! First version by Daniel Reinert, DWD (2010-04-14)
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !! - adaption to reduced calling frequency
+  !! Modification by Daniel Reinert, DWD (2013-05-06)
+  !! - removed rho_ic which became obsolete after removing the second order 
+  !!   MUSCL scheme for vertical transport
   !!
   SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,  &!in
     &                        iadv_rcf, lstep_advphy, lclean_mflx,      &!in
     &                        p_nh_diag,                                &!inout
     &                        p_vn_traj, p_mass_flx_me,                 &!inout
     &                        p_w_traj, p_mass_flx_ic,                  &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new, p_rho_ic, &!inout
+    &                        p_rhodz_mc_now, p_rhodz_mc_new,           &!inout
     &                        p_topflx_tra                              )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -111,7 +115,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT)         :: p_rho_ic(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
@@ -181,6 +184,7 @@ CONTAINS
       ENDIF
 
       DO jk = 1,nlev
+!DIR$ IVDEP
         DO je = i_startidx, i_endidx
 
           ! trajectory-velocity
@@ -226,13 +230,11 @@ CONTAINS
       IF (lclean_mflx) THEN
         p_mass_flx_ic(:,:,jb) = 0._wp
         p_w_traj     (:,:,jb) = 0._wp
-        p_rho_ic     (:,:,jb) = 0._wp
       ENDIF
 
       DO jk = 1, nlevp1
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-
-          p_rho_ic(jc,jk,jb) = p_rho_ic(jc,jk,jb) + p_nh_diag%rho_ic(jc,jk,jb)
 
 ! Note(DR): This is somewhat inconsistent since for horizontal trajectories
 ! v_n at n+1/2 is used.
@@ -255,7 +257,6 @@ CONTAINS
 !$OMP WORKSHARE
         p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
         p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
-        p_rho_ic     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
 !$OMP END WORKSHARE
     ENDIF
 
@@ -272,6 +273,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_rhodz_mc_now(jc,jk,jb) =                                          &
@@ -292,6 +294,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_rhodz_mc_new(jc,jk,jb) =                                          &
@@ -378,10 +381,8 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             p_mass_flx_ic(jc,jk,jb) = r_iadv_rcf * p_mass_flx_ic(jc,jk,jb)
-
             p_w_traj(jc,jk,jb)      = r_iadv_rcf * p_w_traj(jc,jk,jb)
 
-            p_rho_ic(jc,jk,jb)      = r_iadv_rcf * p_rho_ic(jc,jk,jb)
           ENDDO
         ENDDO
 
@@ -446,6 +447,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
         DO jt = 1, ntracer
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
               &                    * p_mass_flx_ic(jc,1,jb)
@@ -483,7 +485,14 @@ CONTAINS
 
     ENDIF
 
-   IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
+
+    ! This synchronization is only needed, if the non-standard vertical PPM-scheme
+    ! ippm_v is used. p_w_traj is not used by p_w_traj
+    IF ( ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
+      CALL sync_patch_array(SYNC_C,p_patch,p_w_traj)
+    ENDIF
+
+    IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
 

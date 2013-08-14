@@ -42,6 +42,7 @@ MODULE mo_echam_conv_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -89,7 +90,7 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: &
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
 
-    INTEGER  :: ist, funit
+    INTEGER  :: ist, funit, istat
 
     !------------------------------------------------------------
     ! Set default values
@@ -125,9 +126,11 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('echam_conv_nml',STATUS=ist)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_conv_nml)    ! write defaults to temporary text file
     SELECT CASE (ist)
     CASE (POSITIONED)
-      READ (nnml, echam_conv_nml)
+      READ (nnml, echam_conv_nml, iostat=istat)                            ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), echam_conv_nml)    ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

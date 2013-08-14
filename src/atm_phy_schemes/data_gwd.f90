@@ -133,7 +133,7 @@ CONTAINS
     !*  --------------------------------
     
     zlaunchp=45000.0_JPRB   !launch height (Pa)
-    gfluxlaun=3.75E-3_JPRB  !total launch momentum flux in each azimuth (rho_o x F_o)
+    gfluxlaun=2.50E-3_JPRB  !total launch momentum flux in each azimuth (rho_o x F_o)
     nslope=1                !s (1,0,-1 are valid values) s is the slope at small-m
     !end of the launch spectrum
     gptwo=2.0_JPRB          !2*p (3 or 2 are valid values) p is the exponent of omega

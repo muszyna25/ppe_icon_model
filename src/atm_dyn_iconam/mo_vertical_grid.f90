@@ -242,12 +242,16 @@ MODULE mo_vertical_grid
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
         IF (p_patch(jg)%cell_type==3) THEN
-          ! layer distance between jk+1 and jk-1
-          p_nh(jg)%metrics%inv_ddqz_z_half2(:,1,jb) = 0._wp
+          ! coefficients for second-order acurate dw/dz term
+          p_nh(jg)%metrics%coeff1_dwdz(:,1,jb) = 0._wp
+          p_nh(jg)%metrics%coeff2_dwdz(:,1,jb) = 0._wp
           DO jk = 2, nlev
-            p_nh(jg)%metrics%inv_ddqz_z_half2(1:nlen,jk,jb) = 1._wp / &
-              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) -              &
-                p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff1_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff2_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
           ENDDO
         ENDIF
 
@@ -479,8 +483,9 @@ MODULE mo_vertical_grid
       ENDIF
 
       ! offcentering in vertical mass flux 
-      p_nh(jg)%metrics%vwind_expl_wgt(:,:) = 0.5_wp - vwind_offctr
-      p_nh(jg)%metrics%vwind_impl_wgt(:,:) = 0.5_wp + vwind_offctr
+      p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 0.5_wp - vwind_offctr
+      p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
+      p_nh(jg)%metrics%vwind_impl_wgt_sv(:,:) = p_nh(jg)%metrics%vwind_impl_wgt(:,:)
 
       ! Rayleigh damping properties
 
@@ -580,7 +585,7 @@ MODULE mo_vertical_grid
         z_maxhgtd(:,:,:) = 0._wp
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, z_maxslope, z_offctr) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_c
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -631,10 +636,27 @@ MODULE mo_vertical_grid
             z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp)
             z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
 
-            p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 0.5_wp - z_offctr
-            p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = 0.5_wp + z_offctr
+            p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
+            p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = 0.5_wp + z_offctr
+            p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
 
           ENDDO
+
+          ! Search for grid points with particularly strong squeezing of the low-level coordinate levels over
+          ! local peaks - these may also need increased offcentering in order to avoid sound-wave instabilities
+          DO jk = MAX(10,nlev-8),nlev
+            jk1 = jk + p_patch(jg)%nshift_total
+            DO jc = i_startidx, i_endidx
+              ! squeezing ratio with respect to nominal layer thickness
+              z_diff = (p_nh(jg)%metrics%z_ifc(jc,jk,jb)-p_nh(jg)%metrics%z_ifc(jc,jk+1,jb))/(vct_a(jk1)-vct_a(jk1+1))
+              IF (z_diff < 0.6_wp) THEN
+                p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
+                p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+                p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+              ENDIF
+            ENDDO
+          ENDDO
+
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1408,8 +1430,8 @@ MODULE mo_vertical_grid
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, &
-!$OMP z_aux2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2, &
+!$OMP z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_e
 
           CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -1667,7 +1689,7 @@ MODULE mo_vertical_grid
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
-      IF(atm_phy_nwp_config(jg)%inwp_turb == 5)  &
+      IF(atm_phy_nwp_config(jg)%is_les_phy)  &
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
     END DO
 
@@ -1999,10 +2021,10 @@ MODULE mo_vertical_grid
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
-    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter
 
-    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, npromz_c, npromz_e
-    INTEGER :: nlev, nlevp1, les_filter
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
+    INTEGER :: nlev, nlevp1, i_startblk
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
@@ -2020,16 +2042,16 @@ MODULE mo_vertical_grid
     CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
+    i_startblk = p_patch%edges%start_blk(2,1)
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,nlen,les_filter) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1,nblks_e
-      IF (jb /= nblks_e) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_e
-      ENDIF     
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx,les_filter) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk,nblks_e
+
+      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
+    
       DO jk = 1 , nlev 
-       DO je = 1 , nlen
+       DO je = i_startidx, i_endidx
          p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
 
@@ -2071,17 +2093,17 @@ MODULE mo_vertical_grid
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
                            p_nh%metrics%inv_ddqz_z_half_v, opt_rlend=min_rlvert_int)
 
-   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%inv_ddqz_z_half_v)
+   CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
+                           p_nh%metrics%wgtfac_v, opt_rlend=min_rlvert_int)
+
+   CALL sync_patch_array_mult(SYNC_V,p_patch,2,p_nh%metrics%wgtfac_v,       &
+                                 p_nh%metrics%inv_ddqz_z_half_v)
 
    CALL cells2edges_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%c_lin_e, &
                            p_nh%metrics%inv_ddqz_z_half_e, opt_rlend=min_rledge_int)
 
    CALL sync_patch_array(SYNC_E, p_patch, p_nh%metrics%inv_ddqz_z_half_e)
 
-   CALL cells2verts_scalar(p_nh%metrics%wgtfac_c, p_patch, p_int%cells_aw_verts, &
-                           p_nh%metrics%wgtfac_v, opt_rlend=min_rlvert_int)
-
-   CALL sync_patch_array(SYNC_V, p_patch, p_nh%metrics%wgtfac_v)
 
   END SUBROUTINE prepare_les_model
   !----------------------------------------------------------------------------

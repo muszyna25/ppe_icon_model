@@ -116,7 +116,7 @@ INCLUDE 'netcdf.inc'
                                        ! 1=redistribute for radiaiton reading from file
 
   LOGICAL  :: lplane                   ! f-plane option
-  LOGICAL  :: is_plane_torus = .false. ! f-plane with doubly periodic boundary==> like a plane torus
+  LOGICAL  :: is_plane_torus           ! f-plane with doubly periodic boundary==> like a plane torus
   REAL(wp) :: corio_lat                ! Latitude, where the f-plane is located if 
                                        ! lplane or is_plane_torus=.true.
 

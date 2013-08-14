@@ -52,7 +52,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, iedmf, ivdiff
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
@@ -74,7 +74,8 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nh_testcases,         ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                   & lmulti_snow, isub_water, isub_lake, isub_seaice
+                                   & lmulti_snow, isub_water, isub_lake, isub_seaice,  &
+                                   & itype_interception
   USE mo_run_config,           ONLY: ntracer
   USE mo_edmf_param,           ONLY: ntiles_edmf
 
@@ -170,7 +171,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
   INTEGER  :: icnt
   INTEGER, PARAMETER :: itrac_vdf = 0
   INTEGER  :: KTVL(nproma)         , KTVH(nproma)         , zsoty(nproma)        , &
-    &         kpbltype(nproma), idummy_vdf_0e(nproma), idummy_vdf_0f(nproma)
+    &         khpbln(nproma)       , kvartop(nproma)      , kpbltype(nproma)
   LOGICAL  :: ldummy_vdf_a(nproma)
   REAL(wp) :: zdummy_vdf_1a(nproma), zdummy_vdf_1b(nproma), zdummy_vdf_1c(nproma), &
     &         zdummy_vdf_1d(nproma), zdummy_vdf_1e(nproma), zdummy_vdf_1f(nproma), &
@@ -207,7 +208,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         vstr_s_t(nproma,ntiles_total+ntiles_water)                      , &
     &         tch_ex  (nproma,ntiles_total+ntiles_water)                      , &
     &         tcm_ex  (nproma,ntiles_total+ntiles_water)                      , &
-    &         tfv_ex  (nproma,ntiles_total+ntiles_water)
+    &         tfv_ex  (nproma,ntiles_total+ntiles_water)                      , &
+    &         w_p_t_new(nproma,p_patch%nblks_c,ntiles_total)                  , &
+    &         w_s_t_new(nproma,p_patch%nblks_c,ntiles_total)
 
   INTEGER, SAVE :: nstep_turb = 0
 
@@ -286,7 +289,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,icnt, &
 ! !$OMP KTVL, KTVH, zsoty, &
-! !$OMP kpbltype, idummy_vdf_0e, idummy_vdf_0f, &
+! !$OMP khpbln, kvartop, kpbltype, &
 ! !$OMP ldummy_vdf_a , &
 ! !$OMP zdummy_vdf_1a, zdummy_vdf_1b, zdummy_vdf_1c, &
 ! !$OMP zdummy_vdf_1d, zdummy_vdf_1e, zdummy_vdf_1f, &
@@ -331,7 +334,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+      ELSE IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
          DO jc = i_startidx, i_endidx
           lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
@@ -355,7 +358,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     ENDIF
 
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 4 ) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == ivdiff ) THEN
 
 !-------------------------------------------------------------------------
 !> ECHAM version
@@ -509,7 +512,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ENDIF
 
 
-    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
 
 
 !-------------------------------------------------------------------------
@@ -541,6 +544,13 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)
           lnd_prog_new%rho_snow_t(jc,jb,jt) = lnd_prog_now%rho_snow_t(jc,jb,jt)
           lnd_prog_new%w_i_t     (jc,jb,jt) = lnd_prog_now%w_i_t     (jc,jb,jt)
+          IF (itype_interception == 1) THEN
+            w_p_t_new     (jc,jb,jt) = 0._wp
+            w_s_t_new     (jc,jb,jt) = 0._wp
+          ELSE IF (itype_interception == 2) THEN
+            w_p_t_new     (jc,jb,jt) = lnd_prog_now%w_p_t     (jc,jb,jt)
+            w_s_t_new     (jc,jb,jt) = lnd_prog_now%w_s_t     (jc,jb,jt)
+          END IF
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,jt) = lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,jt)
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,jt) &
@@ -614,8 +624,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           evap_s_t(jc,jt) = prm_diag%lhfl_s_t (jc,jb,jt) / alv ! evaporation [kg/(m2 s)]  -"-
          !tskin_t (jc,jt) = lnd_prog_now%t_g_t(jc,jb,jt) ! should be tile specific, and prognostic !!!
           tskin_t (jc,jt) = 0.0_wp                       ! not needed as TSK is transferren in t_g_ex
-          ustr_s_t(jc,jt) = prm_diag%ustr_s_t (jc,jb,jt) ! prognostic surface stress U  !!!
-          vstr_s_t(jc,jt) = prm_diag%vstr_s_t (jc,jb,jt) ! prognostic surface stress V  !!!
+          ustr_s_t(jc,jt) = prm_diag%umfl_s_t (jc,jb,jt) ! prognostic surface stress U (sfc momentum flux)  !!!
+          vstr_s_t(jc,jt) = prm_diag%vmfl_s_t (jc,jb,jt) ! prognostic surface stress V (sfc momentum flux) !!!
         ENDDO
       ENDDO
 
@@ -782,14 +792,14 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  "-"
         & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
-        & KHPBLN  = kpbltype                                   ,&! (OUT) optional out: PBL top level 
-        & KVARTOP = idummy_vdf_0e                              ,&! (OUT) optional out: top level of predictied qt,var
+        & KHPBLN  = khpbln                                     ,&! (OUT) optional out: PBL top level 
+        & KVARTOP = kvartop                                    ,&! (OUT) optional out: top level of predictied qt,var
         & PSSRFLTI= PSSRFLTI                                   ,&! (OUT) net SW sfc flux for each tile (use tile ablbedo)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
         & PGUST   = zdummy_vdf_1p                              ,&! (OUT) optional out: 10m gust
         & PWUAVG  = zdummy_vdf_1q                              ,&! (OUT) optional out: w,up averaged
         & LDNODECP= ldummy_vdf_a                               ,&! (OUT) optional out: no decoupling allowed
-        & KPBLTYPE= idummy_vdf_0f                              ,&! (OUT) optional out: PBL type
+        & KPBLTYPE= kpbltype                                   ,&! (OUT) optional out: PBL type
         & PLDIFF  = zdummy_vdf_2b                              ,&! (OUT) optional out: contrib to PBL cond. by passive clouds
         & PFPLVL  = zdummy_vdf_3a                              ,&! (OUT) optional out: PBL rain flux
         & PFPLVN  = zdummy_vdf_3b                              ,&! (OUT) optional out: PBL snow flux
@@ -845,6 +855,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , rho_snow_mult_ex= lnd_prog_new%rho_snow_mult_t(:,:,jb,:) & ! -
         & , h_snow_ex       = lnd_diag%h_snow_t        (:,jb,:)   & ! -
         & , w_i_ex          = lnd_prog_new%w_i_t       (:,jb,:)   & ! -
+        & , w_p_ex          = w_p_t_new                (:,jb,:)   & ! -
+        & , w_s_ex          = w_s_t_new                (:,jb,:)   & ! -
         & , t_so_ex         = lnd_prog_new%t_so_t      (:,:,jb,:) & ! -
         & , w_so_ex         = lnd_prog_new%w_so_t      (:,:,jb,:) & ! -
         & , w_so_ice_ex     = lnd_prog_new%w_so_ice_t  (:,:,jb,:) & ! -
@@ -941,17 +953,26 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
           prm_diag%tch  (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tcm  (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)           
           prm_diag%tch_t(jc,jb,jt) = tch_ex(jc,jt)
           prm_diag%tcm_t(jc,jb,jt) = tcm_ex(jc,jt)
           prm_diag%tfv_t(jc,jb,jt) = tfv_ex(jc,jt)
 !attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
           prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
           prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
-          prm_diag%ustr_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U
-          prm_diag%vstr_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V
+          prm_diag%umfl_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U (sfc momentum flux)
+          prm_diag%vmfl_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V (sfc momentum flux)
         ENDDO           
       ENDDO
+
+      IF (itype_interception == 2) THEN
+       DO jt = 1, ntiles_total
+        DO jc = i_startidx, i_endidx
+            lnd_prog_new%w_p_t     (jc,jb,jt) = w_p_t_new     (jc,jb,jt)             
+            lnd_prog_new%w_s_t     (jc,jb,jt) = w_s_t_new     (jc,jb,jt)     
+          ENDDO           
+        ENDDO
+      END IF
 
     ENDIF !inwp_turb
 

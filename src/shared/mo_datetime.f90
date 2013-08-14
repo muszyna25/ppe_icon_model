@@ -102,6 +102,7 @@ MODULE mo_datetime
     &   cly360              ,& ! constant 30 dy/mo and 360 dy/yr calendar
     &   idaylen, rdaylen    ,& ! length of day in seconds, as integer and real
     ! subroutines
+    &   aux_datetime        ,& ! compute auxiliary date and time information
     &   check_date          ,& ! check if (yr,mo,dy,hr,mn,s) is valid
     &   date_to_time        ,& ! convert (yr,mo,dy,hr,mn,s) to time and compute auxiliary info
     &   time_to_date        ,& ! convert time to (yr,mo,dy,hr,mn,s) and compute auxiliary info
@@ -1064,7 +1065,7 @@ CONTAINS
     INTEGER           :: length
     INTEGER           :: year_format
 
-    INTEGER           :: second
+    INTEGER           :: second = 0
 
     ! Build the format
     ! -------------------------------------
@@ -1096,7 +1097,7 @@ CONTAINS
     ENDIF
 
    !WRITE (datetime_format,'(A1,A2,A11)') '(',year_fmt_str,',5(X,I2),X)'
-    WRITE (datetime_format,'(A1,A2,A13)') '(',year_fmt_str,',5(1X,I2),1X)'
+    WRITE (datetime_format,'(A1,A2,A13)') '(',year_fmt_str,',5(1X,I2),I2)'
 
     ! Read from string
     ! --------------------------------------

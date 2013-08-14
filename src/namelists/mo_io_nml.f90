@@ -44,13 +44,14 @@ MODULE mo_io_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom, &
-    &                              PRES_MSL_METHOD_GME
+    &                              PRES_MSL_METHOD_GME, RH_METHOD_WMO
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_config,          ONLY: config_out_expname             => out_expname            , &
                                  & config_out_filetype            => out_filetype           , &
                                  & config_lkeep_in_sync           => lkeep_in_sync          , &
@@ -80,7 +81,9 @@ MODULE mo_io_nml
                                  & config_lwrite_decomposition    => lwrite_decomposition   , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
-                                 & config_netcdf_dict             => netcdf_dict
+                                 & config_netcdf_dict             => netcdf_dict            , &
+                                 & config_lzaxis_reference        => lzaxis_reference       , &
+                                 & config_itype_rh                => itype_rh
 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
@@ -128,6 +131,12 @@ MODULE mo_io_nml
                                         !  from the beginning of the run, except of 
                                         !  TOT_PREC that would be accumulated
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
+  INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
+                                        ! 1: WMO: water only (e_s=e_s_water)
+                                        ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice) 
+
+  LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric 
+                                        ! output fields
 
   CHARACTER(LEN=filename_max) :: &
     &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
@@ -142,7 +151,8 @@ MODULE mo_io_nml
     &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
     &              lwrite_extra, inextra_2d, inextra_3d,                 &
     &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl,   &
-    &              output_nml_dict, netcdf_dict
+    &              itype_rh, output_nml_dict, netcdf_dict,               &
+    &              lzaxis_reference 
   
 CONTAINS
   !>
@@ -199,8 +209,12 @@ CONTAINS
     lflux_avg               = .TRUE.
     lwrite_oce_timestepping = .FALSE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
+    itype_rh                = RH_METHOD_WMO       ! WMO: water only
     output_nml_dict         = ' '
     netcdf_dict             = ' '
+
+    lzaxis_reference        = .FALSE. ! use ZAXIS_HYBRID
+
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -217,9 +231,11 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('io_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), io_nml)   ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, io_nml)
+      READ (nnml, io_nml, iostat=istat)                           ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), io_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -255,8 +271,10 @@ CONTAINS
     config_lwrite_decomposition    = lwrite_decomposition
     config_lwrite_oce_timestepping = lwrite_oce_timestepping
     config_itype_pres_msl          = itype_pres_msl
+    config_itype_rh                = itype_rh
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
+    config_lzaxis_reference        = lzaxis_reference
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

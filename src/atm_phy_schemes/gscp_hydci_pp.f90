@@ -1863,14 +1863,6 @@ CALL satad_v_3d (                             &
           ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
           ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
 
-          ! restore input values
-          t (iv,k) = t_in (iv,k)
-          qv(iv,k) = qv_in(iv,k)
-          qc(iv,k) = qc_in(iv,k)
-          qi(iv,k) = qi_in(iv,k)
-          qr(iv,k) = qr_in(iv,k)
-          qs(iv,k) = qs_in(iv,k)
-
       END DO
     END DO
 

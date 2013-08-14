@@ -53,9 +53,12 @@ MODULE mo_ocean_nml
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_mpi,                ONLY: my_process_is_stdio
-
+  USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
+#ifndef __ICON_OCEAN_ONLY__
+  USE mo_coupling_config,    ONLY: is_coupled_run
+#endif
   IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -170,7 +173,7 @@ MODULE mo_ocean_nml
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
   INTEGER            :: idisc_scheme    =   1  ! discretization scheme: 1 for mimetic, 
                                                ! 2 for RBF-type of discretization
- 
+
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
   ! are set according to Marshall et al paper
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
@@ -183,14 +186,19 @@ MODULE mo_ocean_nml
   INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
   REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
   LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: dhdtw_abort           = 3.2e-11_wp ! abort criterion for gmres solution (~1mm/year)
-                                                
+  ! physical parameters for  aborting the ocean model
+  REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
+  REAL(wp) :: threshold_min_T       = -4.0_wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_max_T       = 100._wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_min_S       =  0.0_wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
+
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
   INTEGER  :: density_computation   = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental,
                                                  ! 3 = calc_density_MPIOM_elemental_wrap
   INTEGER  :: no_tracer             = 2          ! number of tracers 
-                                                
+
   ! more ocean parameters, not yet well placed
   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! 0=explicit, 1 = implicit
@@ -211,23 +219,23 @@ MODULE mo_ocean_nml
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                                     !has to be adjusted for each resolution, the bigger this number 
-                                                     !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                                     !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                                     !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+                                      !has to be adjusted for each resolution, the bigger this number 
+                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
-  REAL(wp) :: richardson_factor_veloc  = 0.5E-2_wp ! Factor with which the richarseon related part of the vertical 
-                                                   ! diffusion is multiplied before it is added to the background 
-                                                   ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                   ! mo_oce_physics.f90, update_ho_params, variable z_av0
-  REAL(wp) :: richardson_factor_tracer = 0.5E-2_wp ! see above, valid for tracer instead velocity, see variable z_dv0 
-                                                   ! in update_ho_params
-  LOGICAL  :: l_constant_mixing     = .FALSE.    ! if set to .TRUE. the vertical mixing coefficients for velocity and tracer
-                                                 ! keep constant over time and are set to the background values
-                                                
-  REAL(wp) :: t_ref                 = 15.0_wp    ! reference temperature for initialization
-  REAL(wp) :: s_ref                 = 35.0_wp    ! reference salinity for initialization
+  REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical 
+                                                 ! diffusion is multiplied before it is added to the background 
+                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
+                                                 ! mo_oce_physics.f90, update_ho_params, variable z_av0
+  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
+  LOGICAL  :: l_constant_mixing     = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
+                                                 ! keep constant over time and are set to the background values; no convection
+  LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
+
+  REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
+  REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
@@ -244,7 +252,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
-                                                
+
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
                                                  ! 2=beta-plane (linear) approximation to Coriolis
@@ -257,8 +265,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: basin_height_deg      = 60.0_wp    ! basin extension in meridional direction
   REAL(wp) :: CWA                   = 5.0E-4_wp  ! Tuning parameters for vertical mixing
   REAL(wp) :: CWT                   = 5.0E-4_wp  !   of tracer and velocity
-                                                
-                                                 
+
   LOGICAL  :: lviscous              = .TRUE.    
   LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
@@ -274,13 +281,24 @@ MODULE mo_ocean_nml
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
 
+  LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
+
+  ! special diagnostics configuration
+  !
+  ! vertex list of throughflows
+  INTEGER :: denmark_strait(100)         = -1
+  INTEGER :: gibraltar(100)              = -1
+  INTEGER :: drake_passage(100)          = -1
+  INTEGER :: indonesian_throughflow(100) = -1
+  INTEGER :: scotland_iceland(100)       = -1
+
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
     &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
-    &                 l_partial_cells,                                     &
+    &                 l_partial_cells, l_skip_tracer,                      &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
@@ -288,11 +306,12 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
     &                 dhdtw_abort,                                         &
+    &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
     &                 use_absolute_solver_tolerance, solver_start_tolerance, &
     &                 solver_tolerance_decrease_ratio,                     &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart
- 
+
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
@@ -304,7 +323,8 @@ MODULE mo_ocean_nml
     &                 i_sea_ice,                                           &
     &                 biharmonic_diffusion_factor,                         &
     &                 l_smooth_veloc_diffusion,                            &
-    &                 richardson_factor_veloc, richardson_factor_tracer
+    &                 richardson_veloc, richardson_tracer,                 &
+    &                 l_constant_mixing, l_wind_mixing
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
@@ -313,8 +333,11 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 l_forc_freshw, limit_elevation, seaice_limit 
+    &                 l_forc_freshw, limit_elevation, seaice_limit,        &
+    &                 oce_t_ref, oce_s_ref
 
+  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
+    &                 indonesian_throughflow, scotland_iceland
 
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
@@ -358,13 +381,17 @@ MODULE mo_ocean_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
-     INTEGER :: i_status
+    LOGICAL  :: ignore_land_points = .false.
 
-     CHARACTER(len=max_char_length), PARAMETER :: &
+    NAMELIST/ocean_run_nml/ ignore_land_points
+
+    INTEGER :: i_status, istat
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
             routine = 'mo_ocean_nml/setup_ocean_nml:'
 
-     CALL message(TRIM(routine),'running the hydrostatic ocean model')
-     
+    CALL message(TRIM(routine),'running the hydrostatic ocean model')
+
      !------------------------------------------------------------
      ! 4.0 set up the default values for ocean_nml
      !------------------------------------------------------------
@@ -389,24 +416,49 @@ MODULE mo_ocean_nml
      ! (done so far by all MPI processes)
 
      CALL open_nml(TRIM(filename))
-     CALL position_nml ('ocean_dynamics_nml', status=i_status)
+
+     ! setup for the ocean_run_nml
+     ignore_land_points = config_ignore_land_points
+     CALL position_nml ('ocean_run_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_run_nml)   ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_dynamics_nml)
+       READ (nnml, ocean_run_nml, iostat=istat)                           ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_run_nml)   ! write settings to temporary text file
+     END SELECT
+     config_ignore_land_points = ignore_land_points
+
+     CALL position_nml ('ocean_dynamics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_dynamics_nml) ! write defaults to temporary text file
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_dynamics_nml, iostat=istat)                         ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_dynamics_nml) ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_physics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_physics_nml)    ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_physics_nml)
+       READ (nnml, ocean_physics_nml, iostat=istat)                            ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_physics_nml)    ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_forcing_and_init_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_forcing_and_init_nml)  ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_forcing_and_init_nml)
+       READ (nnml, ocean_forcing_and_init_nml, iostat=istat)                          ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_forcing_and_init_nml)  ! write settings to temporary text file
      END SELECT
 
+     CALL position_nml ('ocean_diagnostics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_diagnostics_nml)   ! write defaults to temporary text file
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_diagnostics_nml, iostat=istat)                           ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_diagnostics_nml)   ! write settings to temporary text file
+     END SELECT
 
      !------------------------------------------------------------
      ! 6.0 check the consistency of the parameters
@@ -424,8 +476,8 @@ MODULE mo_ocean_nml
      ELSE
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
      ENDIF
-    
-    
+
+
      IF(i_bc_veloc_lateral/= 0) THEN
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
@@ -438,11 +490,7 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
      ENDIF
-     
-     IF ( is_coupled_run() ) THEN
-       iforc_oce = FORCING_FROM_COUPLED_FLUX
-       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
-     END IF
+
 
      IF (solver_start_tolerance <= 0.0_wp) THEN
        solver_start_tolerance = solver_tolerance
@@ -454,17 +502,22 @@ MODULE mo_ocean_nml
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
      END IF
 
+#ifndef __ICON_OCEAN_ONLY__
      IF ( is_coupled_run() ) THEN
+       iforc_oce = FORCING_FROM_COUPLED_FLUX
+       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
        limit_elevation = .FALSE.
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
        seaice_limit = 1.0_wp
        CALL message(TRIM(routine),'WARNING, seaice_limit set to 1.0 - no limit for coupled experiment')
      END IF
- 
+#endif
+
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_physics_nml)
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_forcing_and_init_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_diagnostics_nml)
      !------------------------------------------------------------
      ! 6.0 Read octst_nml namelist
      !------------------------------------------------------------

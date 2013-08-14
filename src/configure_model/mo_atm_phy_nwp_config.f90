@@ -43,15 +43,19 @@
 MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
+  USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
-    &                               iphysproc, iphysproc_short
+    &                               iphysproc, iphysproc_short, ismag, iedmf,  &
+    &                               ivdiff            
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_exception,           ONLY: message, message_text !, finish
+  USE mo_exception,           ONLY: message, message_text, finish
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
   USE mo_les_config,          ONLY: configure_les
+  USE mo_limarea_config,      ONLY: configure_latbc
 
   IMPLICIT NONE
 
@@ -59,6 +63,8 @@ MODULE mo_atm_phy_nwp_config
 
   PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, dt_phy
   PUBLIC :: configure_atm_phy_nwp
+  PUBLIC :: lrtm_filename
+  PUBLIC :: cldopt_filename
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -103,12 +109,17 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
 
-
     ! Derived variables
     !
     LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
                                    !! corresponding physical process
                                     !! ON: TRUE; OFF: FALSE
+    
+    LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
+                                   !>FALSE otherwise
+
+    INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
+                                   ! chosen grid scale microphysics
 
   END TYPE t_atm_phy_nwp_config
 
@@ -116,6 +127,12 @@ MODULE mo_atm_phy_nwp_config
   !!
   TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
+  !> NetCDF file containing longwave absorption coefficients and other data
+  !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
+  CHARACTER(LEN=filename_max) :: lrtm_filename
+
+  !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
+  CHARACTER(LEN=filename_max) :: cldopt_filename
 
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
     &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process
@@ -150,9 +167,45 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
     DO jg = 1,n_dom
  
-     atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(pat_level(jg) &
+      atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(pat_level(jg) &
           &                            -  pat_level(1)))                  !seconds
+
+
+      ! determine number of hydrometeor classes for chosen microphysics scheme
+      !
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+        CASE (1)  ! standard COSMO-EU scheme
+          !
+          ! specific humidity, cloud water, rain water, ice, snow
+          atm_phy_nwp_config(jg)%nclass_gscp = 5 
+        CASE (2)  ! non-standard COSMO-EU scheme including graupel
+          !
+          ! specific humidity, cloud water, rain water, ice, snow, graupel
+          atm_phy_nwp_config(jg)%nclass_gscp = 6 
+        CASE (3)  ! standard COSMO-EU scheme with improved ice nucleation
+          !
+          ! specific humidity, cloud water, rain water, ice, snow
+          atm_phy_nwp_config(jg)%nclass_gscp = 5
+        CASE (4)  ! two-moment scheme
+          !
+          ! specific humidity, cloud water, rain water, ice, snow
+          atm_phy_nwp_config(jg)%nclass_gscp = 5 
+        CASE (9)  ! Kessler scheme
+          !
+          ! specific humidity, cloud water, rain water
+          atm_phy_nwp_config(jg)%nclass_gscp = 3 
+        CASE (10)  ! outdated COSMO-EU scheme (fallback)
+          !
+          ! specific humidity, cloud water, rain water, ice, snow
+          atm_phy_nwp_config(jg)%nclass_gscp = 5 
+        CASE DEFAULT
+          !
+          atm_phy_nwp_config(jg)%nclass_gscp = 0 
+      END SELECT
+
     ENDDO
+
+
 
     dt_phy(:,:) = 0._wp
 
@@ -226,7 +279,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       ENDIF
 
       ! For EDMF DUALM cloud cover is called every turbulence time step
-      IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN
+      IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
         dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
@@ -238,7 +291,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
 
 
-    IF( atm_phy_nwp_config(1)%inwp_turb == 4) THEN
+    IF( atm_phy_nwp_config(1)%inwp_turb == ivdiff) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF
@@ -263,11 +316,36 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
  
 
    !Configure LES
-   IF(atm_phy_nwp_config(1)%inwp_turb==5)THEN
-     DO jg = 1 , n_dom
+   DO jg = 1 , n_dom
+
+     atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
+
+     IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
        CALL configure_les(jg)
-     END DO
-   END IF
+       atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
+     END IF 
+
+     !convection should be turned off for LES
+     IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
+        atm_phy_nwp_config(jg)%is_les_phy)THEN
+       CALL finish(TRIM(routine),'Convection can not be used for LES!')
+     END IF
+
+     !inwp_cldcover should be 5 = grid scale cloud cover
+     IF(atm_phy_nwp_config(jg)%inwp_cldcover>0 .AND. &
+        atm_phy_nwp_config(jg)%is_les_phy)THEN
+
+       IF(atm_phy_nwp_config(jg)%inwp_cldcover/=5) &
+         CALL finish(TRIM(routine),'Check the cloud cover scheme for LES!')
+
+     END IF
+
+   END DO
+
+   !Configure lateral boundary condition for limited area model
+   IF(l_limited_area) THEN
+     CALL configure_latbc()
+   END IF    
 
 END SUBROUTINE configure_atm_phy_nwp
 

@@ -23,11 +23,15 @@ MODULE mo_io_restart
   USE mo_gather_scatter,        ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
+  
+#ifndef  __ICON_OCEAN_ONLY__ 
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
   USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config 
+#endif
+
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
@@ -61,7 +65,7 @@ MODULE mo_io_restart
     CHARACTER(len=64) :: linkname
   END type t_restart_files
   INTEGER, PARAMETER :: max_restart_files = 257
-  INTEGER, PARAMETER :: max_vertical_axes = 16
+  INTEGER, PARAMETER :: max_vertical_axes = 18
   INTEGER, SAVE :: nrestart_files = 0 
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
   !
@@ -373,15 +377,16 @@ CONTAINS
     CALL set_vertical_grid(ZA_HYBRID_HALF         , nlev+1     )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_LAND    , nlev_soil  )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_LAND_P1 , nlev_soil+1)
-    CALL set_vertical_grid(ZA_GENERIC_SNOW        , nlev_snow  )
-    CALL set_vertical_grid(ZA_GENERIC_SNOW_P1     , nlev_snow+1)
+    CALL set_vertical_grid(ZA_SNOW                , nlev_snow  )
+    CALL set_vertical_grid(ZA_SNOW_HALF           , nlev_snow+1)
     CALL set_vertical_grid(ZA_HEIGHT_2M           , 1          )
     CALL set_vertical_grid(ZA_HEIGHT_10M          , 1          )
     CALL set_vertical_grid(ZA_TOA                 , 1          )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA     , ndepth     )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA_HALF, ndepth+1   )
     CALL set_vertical_grid(ZA_GENERIC_ICE         , nice_class )
-
+    CALL set_vertical_grid(ZA_DEPTH_RUNOFF_S      , 1          )
+    CALL set_vertical_grid(ZA_DEPTH_RUNOFF_G      , 1          )
     !
     ! define time axis
     !
@@ -395,15 +400,23 @@ CONTAINS
     private_ne  = ne
     private_nev = nev
     !
-    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
-      & .OR. ldepth_lnd_initialised )) THEN
-      CALL finish('init_restart','none of the vertical grids is initialised')
-      ! more consistency checks need to follow
-    ENDIF
+
+!AD(9July-2013): The following condition seemed unnecessary. So after 
+!  discussing with DR we decided to get rid of it for time being
+
+!    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
+!      & .OR. ldepth_lnd_initialised )) THEN
+!      CALL finish('init_restart','none of the vertical grids is initialised')
+!      ! more consistency checks need to follow
+!    ENDIF
+
     !
     lrestart_initialised = .TRUE.
     !
   END SUBROUTINE init_restart
+  !------------------------------------------------------------------------------------------------
+
+
   !------------------------------------------------------------------------------------------------
   !
   ! Loop over all the output streams and open the associated files. Set
@@ -654,14 +667,28 @@ CONTAINS
             CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
                  &              private_depth_lnd_half)
 
-          CASE (ZA_GENERIC_SNOW)
+          CASE (ZA_DEPTH_RUNOFF_S)
+            var_lists(i)%p%cdiDepthRunoff_sZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 1.0_wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthRunoff_sZaxisID, levels)
+            DEALLOCATE(levels)
+
+          CASE (ZA_DEPTH_RUNOFF_G)
+            var_lists(i)%p%cdiDepthRunoff_gZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 1.0_wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthRunoff_gZaxisID, levels)
+            DEALLOCATE(levels)
+
+          CASE (ZA_SNOW)
             IF (.NOT. lheight_snow_initialised) CYCLE
             var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                            vgrid_def(ivg)%nlevels)
             CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
               &              private_height_snow_full)
 
-          CASE (ZA_GENERIC_SNOW_P1)
+          CASE (ZA_SNOW_HALF)
             IF (.NOT. lheight_snow_initialised) CYCLE
             var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                            vgrid_def(ivg)%nlevels)
@@ -688,6 +715,9 @@ CONTAINS
             levels(1) = 10.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiH10mZaxisID, levels)
             DEALLOCATE(levels)
+
+
+
           !
           ! Ocean
           !
@@ -760,24 +790,26 @@ CONTAINS
           !
           ! set file IDs of all associated restart files
           !
-          var_lists(j)%p%cdiFileID_restart     = var_lists(i)%p%cdiFileID_restart
-          var_lists(j)%p%cdiVlistID            = var_lists(i)%p%cdiVlistID
-          var_lists(j)%p%cdiCellGridID         = var_lists(i)%p%cdiCellGridID
-          var_lists(j)%p%cdiVertGridID         = var_lists(i)%p%cdiVertGridID
-          var_lists(j)%p%cdiEdgeGridID         = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID        = var_lists(i)%p%cdiSurfZaxisID
-          var_lists(j)%p%cdiGenericZaxisID     = var_lists(i)%p%cdiGenericZaxisID
-          var_lists(j)%p%cdiFullZaxisID        = var_lists(i)%p%cdiFullZaxisID
-          var_lists(j)%p%cdiHalfZaxisID        = var_lists(i)%p%cdiHalfZaxisID
-          var_lists(j)%p%cdiDepthFullZaxisID   = var_lists(i)%p%cdiDepthFullZaxisID
-          var_lists(j)%p%cdiDepthHalfZaxisID   = var_lists(i)%p%cdiDepthHalfZaxisID
-          var_lists(j)%p%cdiIceGenericZaxisID  = var_lists(i)%p%cdiIceGenericZaxisID
-          var_lists(j)%p%cdiSnowGenericZaxisID = var_lists(i)%p%cdiSnowGenericZaxisID
+          var_lists(j)%p%cdiFileID_restart       = var_lists(i)%p%cdiFileID_restart
+          var_lists(j)%p%cdiVlistID              = var_lists(i)%p%cdiVlistID
+          var_lists(j)%p%cdiCellGridID           = var_lists(i)%p%cdiCellGridID
+          var_lists(j)%p%cdiVertGridID           = var_lists(i)%p%cdiVertGridID
+          var_lists(j)%p%cdiEdgeGridID           = var_lists(i)%p%cdiEdgeGridID
+          var_lists(j)%p%cdiSurfZaxisID          = var_lists(i)%p%cdiSurfZaxisID
+          var_lists(j)%p%cdiGenericZaxisID       = var_lists(i)%p%cdiGenericZaxisID
+          var_lists(j)%p%cdiFullZaxisID          = var_lists(i)%p%cdiFullZaxisID
+          var_lists(j)%p%cdiHalfZaxisID          = var_lists(i)%p%cdiHalfZaxisID
+          var_lists(j)%p%cdiDepthFullZaxisID     = var_lists(i)%p%cdiDepthFullZaxisID
+          var_lists(j)%p%cdiDepthHalfZaxisID     = var_lists(i)%p%cdiDepthHalfZaxisID
+          var_lists(j)%p%cdiDepthRunoff_sZaxisID = var_lists(i)%p%cdiDepthRunoff_sZaxisID
+          var_lists(j)%p%cdiDepthRunoff_gZaxisID = var_lists(i)%p%cdiDepthRunoff_gZaxisID
+          var_lists(j)%p%cdiIceGenericZaxisID    = var_lists(i)%p%cdiIceGenericZaxisID
+          var_lists(j)%p%cdiSnowGenericZaxisID   = var_lists(i)%p%cdiSnowGenericZaxisID
           var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
-          var_lists(j)%p%cdiToaZaxisID         = var_lists(i)%p%cdiToaZaxisID
-          var_lists(j)%p%cdiH2mZaxisID         = var_lists(i)%p%cdiH2mZaxisID
-          var_lists(j)%p%cdiH10mZaxisID        = var_lists(i)%p%cdiH10mZaxisID
-          var_lists(j)%p%cdiTaxisID            = var_lists(i)%p%cdiTaxisID
+          var_lists(j)%p%cdiToaZaxisID           = var_lists(i)%p%cdiToaZaxisID
+          var_lists(j)%p%cdiH2mZaxisID           = var_lists(i)%p%cdiH2mZaxisID
+          var_lists(j)%p%cdiH10mZaxisID          = var_lists(i)%p%cdiH10mZaxisID
+          var_lists(j)%p%cdiTaxisID              = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
           !
@@ -844,6 +876,8 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
+#ifndef  __ICON_OCEAN_ONLY__
+! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
@@ -864,6 +898,10 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
+!  #else
+      ! this is not clear if needed
+      IF ( time_level == tlev_skip ) CYCLE   ! skip field
+#endif
 
       !
       ! set grid ID
@@ -891,9 +929,13 @@ CONTAINS
         info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
       CASE (ZA_DEPTH_BELOW_LAND_P1)
         info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
-      CASE (ZA_GENERIC_SNOW)
+      CASE (ZA_DEPTH_RUNOFF_S)
+        info%cdiZaxisID =  this_list%p%cdiDepthRunoff_sZaxisID
+      CASE (ZA_DEPTH_RUNOFF_G)
+        info%cdiZaxisID =  this_list%p%cdiDepthRunoff_gZaxisID
+      CASE (ZA_SNOW)
         info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-      CASE (ZA_GENERIC_SNOW_P1)
+      CASE (ZA_SNOW_HALF)
         info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
       CASE (ZA_TOA)
         info%cdiZaxisID =  this_list%p%cdiToaZaxisID
@@ -1184,6 +1226,8 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
+#ifndef  __ICON_OCEAN_ONLY__
+! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
@@ -1203,7 +1247,9 @@ CONTAINS
       CASE default
         IF ( time_level == tlev_skip ) CYCLE   ! skip field
       END SELECT
-
+! #else
+     IF ( time_level == tlev_skip ) CYCLE   ! skip field
+#endif
 
       !
       IF (info%lcontained) THEN 
@@ -1331,6 +1377,10 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthFullZaxisID)
         IF (var_lists(i)%p%cdiDepthHalfZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthHalfZaxisID)
+        IF (var_lists(i)%p%cdiDepthRunoff_sZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_sZaxisID)
+        IF (var_lists(i)%p%cdiDepthRunoff_gZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_gZaxisID)
         IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
         IF (var_lists(i)%p%cdiH2mZaxisID /= CDI_UNDEFID) &
@@ -1343,24 +1393,26 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiSnowHalfGenericZaxisID)
         IF (var_lists(i)%p%cdiToaZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiToaZaxisID)
-        var_lists(i)%p%cdiFileId_restart     = CDI_UNDEFID
-        var_lists(i)%p%cdiVlistId            = CDI_UNDEFID
-        var_lists(i)%p%cdiCellGridID         = CDI_UNDEFID
-        var_lists(i)%p%cdiVertGridID         = CDI_UNDEFID
-        var_lists(i)%p%cdiEdgeGridID         = CDI_UNDEFID
-        var_lists(i)%p%cdiSurfZaxisID        = CDI_UNDEFID
-        var_lists(i)%p%cdiGenericZaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiHalfZaxisID        = CDI_UNDEFID
-        var_lists(i)%p%cdiFullZaxisID        = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthHalfZaxisID   = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthFullZaxisID   = CDI_UNDEFID
-        var_lists(i)%p%cdiIceGenericZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiH2mZaxisID         = CDI_UNDEFID
-        var_lists(i)%p%cdiH10mZaxisID        = CDI_UNDEFID
-        var_lists(i)%p%cdiToaZaxisID         = CDI_UNDEFID
-        var_lists(i)%p%cdiTaxisID            = CDI_UNDEFID
-        var_lists(i)%p%cdiTimeIndex          = CDI_UNDEFID
-        var_lists(i)%p%cdiSnowGenericZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiFileId_restart       = CDI_UNDEFID
+        var_lists(i)%p%cdiVlistId              = CDI_UNDEFID
+        var_lists(i)%p%cdiCellGridID           = CDI_UNDEFID
+        var_lists(i)%p%cdiVertGridID           = CDI_UNDEFID
+        var_lists(i)%p%cdiEdgeGridID           = CDI_UNDEFID
+        var_lists(i)%p%cdiSurfZaxisID          = CDI_UNDEFID
+        var_lists(i)%p%cdiGenericZaxisID       = CDI_UNDEFID
+        var_lists(i)%p%cdiHalfZaxisID          = CDI_UNDEFID
+        var_lists(i)%p%cdiFullZaxisID          = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthHalfZaxisID     = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthFullZaxisID     = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthRunoff_sZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthRunoff_gZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiIceGenericZaxisID    = CDI_UNDEFID
+        var_lists(i)%p%cdiH2mZaxisID           = CDI_UNDEFID
+        var_lists(i)%p%cdiH10mZaxisID          = CDI_UNDEFID
+        var_lists(i)%p%cdiToaZaxisID           = CDI_UNDEFID
+        var_lists(i)%p%cdiTaxisID              = CDI_UNDEFID
+        var_lists(i)%p%cdiTimeIndex            = CDI_UNDEFID
+        var_lists(i)%p%cdiSnowGenericZaxisID   = CDI_UNDEFID
         var_lists(i)%p%cdiSnowHalfGenericZaxisID = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists

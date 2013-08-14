@@ -35,7 +35,6 @@
 MODULE mo_icon_testbed
 
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: global_mpi_barrier
   USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &

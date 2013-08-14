@@ -665,7 +665,8 @@ CONTAINS
             cur_datetime = time_config%cur_datetime
             ini_datetime = time_config%ini_datetime
             factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &
-              - ini_datetime%calday - ini_datetime%caltime) / 1000._wp)
+              - ini_datetime%calday - ini_datetime%caltime) / 1._wp)
+            !IF (jb==jbs) WRITE(*,*) 'Growing topography by factor ', factor_topo
             p_ext_data%atm%topography_c(is:ie,jb) = &
               p_ext_data%atm%elevation_c(is:ie,jb) * factor_topo
             z_gzs(is:ie) = grav*p_ext_data%atm%topography_c(is:ie,jb)

@@ -79,15 +79,16 @@ CONTAINS
  
   
   SUBROUTINE oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
-    TYPE(t_hydro_ocean_state), INTENT(IN) :: p_os
-    TYPE(t_sea_ice),           INTENT(IN) :: ice
-    REAL(wp),                  INTENT(IN):: Tfw(:,:,:) ! freezing temperature
-    REAL(wp),                  INTENT(OUT):: zHeatOceI(:,:,:)
+    TYPE(t_hydro_ocean_state), INTENT(IN)  :: p_os
+    TYPE(t_sea_ice)          , INTENT(IN)  :: ice
+    REAL(wp)                 , INTENT(IN)  :: Tfw(:,:,:)      ! freezing temperature
+    REAL(wp)                 , INTENT(OUT) :: zHeatOceI(:,:,:)
 
     ! Local
     INTEGER :: k ! counter for ice thickness categories
 
     
+    zHeatOceI = 0.0_wp
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
     DO k=1,ice%kice
       WHERE (ice%hi(:,k,:) > 0._wp) 

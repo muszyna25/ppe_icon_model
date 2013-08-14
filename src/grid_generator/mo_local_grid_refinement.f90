@@ -57,8 +57,10 @@ MODULE mo_local_grid_refinement
   USE mo_local_grid_geometry,ONLY: compute_sphere_grid_geometry, get_common_edge_vertex
 !   USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
   USE mo_local_grid_optimization, ONLY: read_grid_optimization_param, optimize_grid
+  USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy, set_bdy_indexing_depth
 
   USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
+  USE mo_util_string
 
   IMPLICIT NONE
 
@@ -79,7 +81,7 @@ MODULE mo_local_grid_refinement
   !-------------------------------------------------------------------------
   ! namelist parameters
   CHARACTER(LEN=filename_max) :: input_file, output_file
-  INTEGER :: refine_depth, optimize_depth
+  INTEGER :: refine_depth, optimize_depth, bdy_indexing_depth
   LOGICAL :: create_hierarchy
   !-------------------------------------------------------------------------
 
@@ -97,12 +99,13 @@ CONTAINS
     INTEGER :: i_status
 
     NAMELIST /local_grid_refine/ input_file, output_file, &
-      & refine_depth, optimize_depth, create_hierarchy
+      & refine_depth, optimize_depth, create_hierarchy, bdy_indexing_depth
 
     ! default values
     refine_depth=1
     optimize_depth=1
     create_hierarchy=.false.
+    bdy_indexing_depth=12
     
     ! read namelist
     CALL open_nml(param_file_name)
@@ -129,6 +132,8 @@ CONTAINS
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,L2)') "create_hierarchy=", create_hierarchy
     CALL message ('', TRIM(message_text))
+    WRITE(message_text,'(a,i2.2)') "bdy_indexing_depth=", bdy_indexing_depth
+    CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a)') "===================================="
     CALL message ('', TRIM(message_text))
 
@@ -147,9 +152,11 @@ CONTAINS
     INTEGER :: refine_iteration
     INTEGER :: timer_total_grid_refine
     CHARACTER(LEN=filename_max) :: file_name
+    TYPE (t_keyword_list), POINTER :: keywords
 
     CALL read_param(param_file_name)
     CALL read_grid_optimization_param(param_file_name)
+
 
     in_grid_id = read_new_netcdf_grid(input_file)
 
@@ -163,26 +170,25 @@ CONTAINS
       CALL delete_grid(in_grid_id)
     ENDIF
 
-!     CALL message ('grid_refine', 'refine_grid_edgebisection...')
+    IF (create_hierarchy)  CALL set_bdy_indexing_depth(bdy_indexing_depth)
 
+!     CALL message ('grid_refine', 'refine_grid_edgebisection...')
     DO refine_iteration = 1,  refine_depth
 
       out_grid_id = refine_grid_edgebisection(cutoff_grid_id)
       CALL delete_grid(cutoff_grid_id)
-  !     CALL create_grid_hierarchy(out_grid_id)
 
-      IF (refine_iteration <= optimize_depth) CALL optimize_grid(out_grid_id)
-      CALL compute_sphere_grid_geometry(out_grid_id)
-
-      IF (refine_depth < 2) THEN
-        WRITE(file_name,'(a)')  TRIM(output_file)
-      ELSE
-        WRITE(file_name,'(a,a,a)')    &
-          & TRIM(output_file),                         &
-          & TRIM(get_resolution_string(out_grid_id)),  &
-          & ".nc"
-        ! WRITE(file_name,'(a,i2.2,a)')  TRIM(output_file), refine_iteration,  '.nc'
+      IF (refine_iteration <= optimize_depth) THEN
+        CALL optimize_grid(out_grid_id)
       ENDIF
+      CALL compute_sphere_grid_geometry(out_grid_id)
+      IF (create_hierarchy)  CALL create_grid_hierarchy(out_grid_id)
+
+      keywords => NULL()
+      CALL associate_keyword("<resolution>", TRIM(get_resolution_string(out_grid_id)), keywords)
+      file_name = TRIM(with_keywords(keywords, output_file))
+      CALL delete_keyword_list(keywords)
+
       CALL write_netcdf_grid(out_grid_id, file_name)
 
       cutoff_grid_id = out_grid_id

@@ -77,7 +77,7 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
-  USE mo_o3,                 ONLY: read_amip_o3
+  USE mo_o3,                 ONLY: read_amip_o3 !, time_weights
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -169,6 +169,12 @@ CONTAINS
     INTEGER:: temp_comm, tracers_comm  ! communicators
     INTEGER:: return_status
     CHARACTER(*), PARAMETER :: method_name = "echam_phy_interface"
+
+!++jsr
+!temporary local variables
+!    INTEGER:: inm1, inm2
+!    REAL(wp):: wgt1, wgt2
+!--jsr
 
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -348,8 +354,9 @@ CONTAINS
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
-    IF (irad_o3 == io3_amip) THEN
+    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
        CALL read_amip_o3(datetime%year, p_patch)
+!       CALL time_weights(datetime_radtran, wgt1, wgt2, inm1, inm2)
     END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
@@ -362,6 +369,9 @@ CONTAINS
            &                       prm_field(jg)%siced(:,:), &
            &                       prm_field(jg)%lsmask(:,:))
       prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
+! The ice model should be able to handle different thickness classes, but for AMIP we only use one
+      prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
+      prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
     ENDIF
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
@@ -393,8 +403,10 @@ CONTAINS
       !   indices jcs and jce;
       ! - a few other (global) constants (nproma, pdtime, psteplen, etc).
 
-      CALL physc( jg,jb,jcs,jce,nproma,pdtime,psteplen,ltrig_rad, &
-                & ztime_radtran,ztime_radheat )
+      CALL physc( jg,jb,jcs,jce,nproma,pdtime,psteplen &
+                &,ltrig_rad,ztime_radtran              &
+!!$                &,ztime_radheat                        &
+                & )
 
     END DO
 !$OMP END DO NOWAIT
@@ -478,6 +490,7 @@ CONTAINS
        !
        ! TAUX
        !
+       buffer(:,:) = 0.0_wp
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info == 2 ) write_coupler_restart = .TRUE.
@@ -490,6 +503,12 @@ CONTAINS
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
        !
+!       write(0,*)  prm_field(jg)%rsfl(:,:)
+!       write(0,*)  prm_field(jg)%rsfc(:,:)
+!       write(0,*)  prm_field(jg)%ssfl(:,:)
+!       write(0,*)  prm_field(jg)%ssfc(:,:)
+!       write(0,*)  prm_field(jg)%evap_tile(:,:,iwtr)
+
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &

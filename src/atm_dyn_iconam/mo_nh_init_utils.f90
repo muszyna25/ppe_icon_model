@@ -60,7 +60,7 @@ MODULE mo_nh_init_utils
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel !,p_pe
   USE mo_communication,         ONLY: exchange_data
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C, SYNC_V
-  USE mo_intp_data_strc,        ONLY: t_int_state, p_int_state_local_parent
+  USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: cells2verts_scalar, edges2cells_scalar
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
@@ -963,12 +963,14 @@ CONTAINS
 
     INTEGER :: jc, jk, jk1, jb, nlen, nlevp1, ierr(nblks), nerr, ktop_thicklimit(nproma)
     REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma), min_lay_spacing, &
-                dvct, dvct1, dvct2, wfac, dz1, dz2, dz3, dzr
+                dvct, dvct1, dvct2, minrat1, minrat2, wfac, dz1, dz2, dz3, dzr
     !-------------------------------------------------------------------------
 
-    nlevp1 = nlev+1
-    dvct1 = 125._wp
-    dvct2 = 500._wp
+    nlevp1  = nlev+1
+    dvct1   = 100._wp
+    minrat1 = 1._wp/3._wp ! minimum relative layer thickness for nominal thicknesses <= dvct1 (in m)
+    dvct2   = 500._wp
+    minrat2 = 0.5_wp  ! minimum relative layer thickness for a nominal thickness of dvct2
     ierr(:) = 0
 
 !$OMP PARALLEL
@@ -1019,13 +1021,13 @@ CONTAINS
        DO jk = nlev, 1, -1
          jk1 = jk + nshift
          dvct = vct_a(jk1) - vct_a(jk1+1)
-         IF (dvct < dvct1) THEN ! limit layer thickness to 2/3 of its nominal value
-           min_lay_spacing = 2._wp/3._wp*dvct
-         ELSE IF (dvct < dvct2) THEN ! limitation factor decreases from 2/3 to 1/2
-           wfac = (dvct2-dvct)/(dvct2-dvct1)
-           min_lay_spacing = (2._wp/3._wp*wfac + 0.5_wp*(1._wp-wfac))*dvct
-         ELSE
-           min_lay_spacing = 0.5_wp*dvct2*(dvct/dvct2)**(1._wp/3._wp)
+         IF (dvct < dvct1) THEN ! limit layer thickness to minrat1 times its nominal value
+           min_lay_spacing = minrat1*dvct
+         ELSE IF (dvct < dvct2) THEN ! limitation factor changes from minrat1 to minrat2
+           wfac = ((dvct2-dvct)/(dvct2-dvct1))**2
+           min_lay_spacing = (minrat1*wfac + minrat2*(1._wp-wfac))*dvct
+         ELSE ! limitation factor decreases again
+           min_lay_spacing = minrat2*dvct2*(dvct/dvct2)**(1._wp/3._wp)
          ENDIF
          min_lay_spacing = MAX(min_lay_spacing,MIN(50._wp,min_lay_thckn))
          DO jc = 1, nlen

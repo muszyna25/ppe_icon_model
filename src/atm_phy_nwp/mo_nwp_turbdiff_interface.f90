@@ -50,9 +50,10 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_intp_data_strc,       ONLY: t_int_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, igme, icosmo
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_physical_constants,   ONLY: lh_v=>alv
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -62,7 +63,8 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, lsflcnd
+  USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbdiff
   USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
   USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
@@ -105,7 +107,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_now    !< prog vars for wtr
-  TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now    !< prog vars for sfc
+  TYPE(t_lnd_prog),            INTENT(in)   :: lnd_prog_now    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
@@ -127,7 +129,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
 
-  INTEGER  :: nlev, nlevp1                          !< number of full and half levels
+  INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
@@ -140,6 +142,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
+  nlevcm = nlevp1
 
   IF (msg_level >= 15) CALL message('mo_nwp_turbdiff:', 'turbulence')
     
@@ -156,29 +159,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
-
- 
-  !For 3D turbulence the whole patch needs to be passed. Therefore, this call
-  !is made outside the block loop next. However, the tendencies it calculates
-  !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == 5 )THEN
-    CALL message('mo_nwp_turbdiff:', '3D turbulence')
-    CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
-                                 p_prog_rcf,   & !in
-                                 p_diag,       & !in
-                                 p_metrics,    & !in
-                                 p_patch,      & !in
-                                 p_int,        & !in
-                                 lnd_prog_now, & !inout
-                                 lnd_diag,     & !inout
-                                 prm_diag,     & !inout
-                                 prm_nwp_tend, & !inout
-                                 tcall_turb_jg & !in
-                                 )
-  END IF
 
 
 !$OMP PARALLEL
@@ -201,7 +184,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
    !!        to have them available for extended diagnostic output
 
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+    IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
 !-------------------------------------------------------------------------
 !< COSMO turbulence scheme by M. Raschendorfer  
@@ -225,37 +208,84 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
-      ! GZ, 2013-02-22: always use concentration lower boundary condition for momentum 
-      ! (corresponding to imode_turb = 2) because the flux condition suffers from stability problems
-      CALL turbdiff(iini=0, lstfnct=.TRUE.,                                             & !in
-         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
-         &  ie=nproma, ke=nlev, ke1=nlevp1,  kcm=nlevp1,                                & !in
-         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,   & !in
-         &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),            & !in
-         &  dp0=p_diag%dpres_mc(:,:,jb),                                                & !in
-         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),   & !in
-         &  h_ice=wtr_prog_now%h_ice (:,jb), ps=p_diag%pres_sfc(:,jb),                  & !in
-         &  t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                       & !in
-         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                 & !in
-         &  T=p_diag%temp(:,:,jb),                                                      & !in
-         &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),         & !in
-         &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb),  & !in
-         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),     & !inout
-         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),     & !inout
-         &  tke=z_tvs (:,:,:),                                                          & !inout
-         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb),       & !inout
-         &  rcld=prm_diag%rcld(:,:,jb),                                                 & !inout
-         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb),                                     & !inout
-         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb),                                     & !inout
-         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb),                                  & !inout
-         &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),                           & !inout
-         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),                           & !inout
-         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                       & !inout
-         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                      & !in
-         &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,                                     & !in
-         &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),                 & !in
-         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                     ) !inout
+      IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+
+        CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
+          &  lturatm=.TRUE., ltursrf=.FALSE., iini=0, &
+          &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
+          &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
+          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, &
+          &  nprv=1, ntur=1, ntim=1, &
+          &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
+          &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
+          &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+          &  dp0=p_diag%dpres_mc(:,:,jb), &
+          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+          &  h_ice=wtr_prog_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
+          &  sai=ext_data%atm%sai(:,jb), &
+          &  t_g=lnd_prog_now%t_g(:,jb), ps=p_diag%pres_sfc(:,jb), &
+          &  qv_s=lnd_diag%qv_s(:,jb), &
+          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), &
+          &  w=p_prog%w(:,:,jb), &
+          &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
+          &  rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
+          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
+!         &  ptr=???, &  ! for the diffusion of additional tracer variables!
+          &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+          &  tke=z_tvs(:,:,:), &
+          &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+          &  rcld=prm_diag%rcld(:,:,jb), &
+          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
+          &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
+          &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), &
+          &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv), &
+          &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), &
+          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
+          &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
+          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+        IF ( .NOT. lsflcnd ) THEN
+          prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
+            &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
+        END IF
+
+      ELSE
+
+        ! GZ, 2013-02-22: always use concentration lower boundary condition for momentum 
+        ! (corresponding to imode_turb = 2) because the flux condition suffers from stability problems
+        CALL turbdiff(iini=0, ltkeinp=.FALSE., lgz0inp=.FALSE. , lstfnct=.TRUE.,          & !in
+           &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,         & !in
+           &  ie=nproma, ke=nlev, ke1=nlevp1,  kcm=nlevp1,                                & !in
+           &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,   & !in
+           &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),            & !in
+           &  dp0=p_diag%dpres_mc(:,:,jb),                                                & !in
+           &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),   & !in
+           &  h_ice=wtr_prog_now%h_ice (:,jb), ps=p_diag%pres_sfc(:,jb),                  & !in
+           &  t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                       & !in
+           &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                 & !in
+           &  T=p_diag%temp(:,:,jb),                                                      & !in
+           &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),         & !in
+           &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb),  & !in
+           &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),     & !inout
+           &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),     & !inout
+           &  tke=z_tvs (:,:,:),                                                          & !inout
+           &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb),       & !inout
+           &  rcld=prm_diag%rcld(:,:,jb),                                                 & !inout
+           &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb),                                     & !inout
+           &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb),                                     & !inout
+           &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb),                                  & !inout
+           &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),                           & !inout
+           &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),                           & !inout
+           &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                       & !inout
+           &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                      & !in
+           &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,                                     & !in
+           &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),                 & !in
+           &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine                     ) !inout
           
+      END IF
+
       IF (ierrstat.NE.0) THEN
         CALL finish(eroutine, errormsg)
       END IF
@@ -266,7 +296,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &                                     * (z_tvs(i_startidx:i_endidx,:,1))**2
 
 
-    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
+    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == igme ) THEN
 
 !-------------------------------------------------------------------------
 !> GME turbulence scheme 

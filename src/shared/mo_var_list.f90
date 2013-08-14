@@ -1,5 +1,13 @@
 MODULE mo_var_list
 
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+  USE, INTRINSIC :: ieee_features
+  USE, INTRINSIC :: ieee_arithmetic
+  USE, INTRINSIC :: ieee_exceptions
+#endif
+#endif
+
   USE mo_kind,             ONLY: wp, i8
   USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
        &                         DATATYPE_INT32,                    &
@@ -29,10 +37,10 @@ MODULE mo_var_list
     &                            HINTP_TYPE_LONLAT_RBF,             &
     &                            max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
-  USE mo_advection_config, ONLY: t_advection_config
   USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
   
-  USE mo_art_config,       ONLY: t_art_config, art_config
+!  USE mo_advection_config, ONLY: t_advection_config
+!  USE mo_art_config,       ONLY: t_art_config, art_config
 
   IMPLICIT NONE
 
@@ -64,6 +72,7 @@ MODULE mo_var_list
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
+  PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: groups                    ! group array constructor
@@ -72,8 +81,6 @@ MODULE mo_var_list
   PUBLIC :: vintp_types               ! vertical interpolation type (array) constructor
   PUBLIC :: collect_group             ! obtain variables in a group
   
-  PUBLIC :: add_tracer_ref            ! add new tracer component
-
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_r5d
     MODULE PROCEDURE add_var_list_element_r4d
@@ -96,11 +103,6 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_reference_r3d
     MODULE PROCEDURE add_var_list_reference_r2d
   END INTERFACE add_ref
-
-
-  INTERFACE add_tracer_ref
-    MODULE PROCEDURE add_var_list_reference_tracer
-  END INTERFACE add_tracer_ref
 
 
   INTERFACE get_var  ! obtain reference to a list entry
@@ -1033,7 +1035,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     ! 
     IF (PRESENT(initval_r)) THEN
@@ -1157,7 +1167,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1282,7 +1300,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1407,7 +1433,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -1532,7 +1566,15 @@ CONTAINS
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
+#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
+#ifdef VARLIST_INITIZIALIZE_WITH_NAN
+      new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+#else
       new_list_element%field%r_ptr = 0.0_wp
+#endif
+#else
+      new_list_element%field%r_ptr = 0.0_wp
+#endif
     END IF
     !
     IF (PRESENT(initval_r)) THEN
@@ -3821,7 +3863,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
-    INTEGER :: i, ivar, grp_id
+    INTEGER :: i, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
@@ -3950,148 +3992,4 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_post_op
   !------------------------------------------------------------------------------------------------
-  !------------------------------------------------------------------------------------------------
-  !
-  ! create (allocate) a new table entry
-  ! reference to an existing pointer to a 3D tracer field
-  ! optionally overwrite some default meta data
-  !
-  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
-    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
-    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
-    &        lis_tracer,tracer_class,                                            &
-    &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,              &
-    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
-    &        rrho_tracer,halflife_tracer,imis_tracer)
-
-    TYPE(t_var_list)    , INTENT(inout)        :: this_list
-    CHARACTER(len=*)    , INTENT(in)           :: target_name
-    CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(inout)        :: tracer_idx     ! index in 4D tracer container
-    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
-    TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
-    TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
-    TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
-    INTEGER             , INTENT(in), OPTIONAL :: jg             ! patch id
-    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
-    LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
-    LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype      ! type of statistical processing
-    INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
-    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
-    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
-    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
-    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer    ! sedimentation (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer    ! dry deposition (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer   ! convection  (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
-    REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
-    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
-    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
-    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer         ! IMIS number
-
-
-    ! Local variables:
-    TYPE(t_list_element), POINTER :: target_element
-    TYPE(t_var_metadata), POINTER :: target_info
-    TYPE(t_tracer_meta)           :: tracer_info    ! tracer meta data
-
-    INTEGER :: zihadv_tracer, zivadv_tracer
-
-    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
-
-  !------------------------------------------------------------------
-
-    ! get pointer to target element (in this case 4D tracer container)
-    target_element => find_list_element (this_list, target_name)
-    ! get tracer field metadata
-    target_info => target_element%field%info
-
-    ! get index of current field in 4D container and set
-    ! tracer index accordingly.
-    ! Note that this will be repeated for each patch. Otherwise it may happen that
-    ! some MPI-processes miss this assignment.
-    !
-    tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
-
-    WRITE (message_text,'(a,i3,a,a)')                                            &
-      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
-    CALL message(TRIM(routine),message_text)
-
-
-
-    ! set default values
-    ! If ihadv_tracer or ivadv_tracer are not present, take respective value from the 
-    ! advection_config state.
-    ! If ihadv_tracer or ivadv_tracer are present, take those values, and overwrite 
-    ! the respective values of the advection_config state. 
-    !
-    IF ( PRESENT( ihadv_tracer )) THEN
-      zihadv_tracer = ihadv_tracer
-      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
-      ! SANITY CHECKED NAMELIST SETTINGS.
-      advconf%ihadv_tracer(tracer_idx) = ihadv_tracer
-    ELSE
-      zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
-    ENDIF
-
-    IF ( PRESENT( ivadv_tracer )) THEN
-      zivadv_tracer = ivadv_tracer
-      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE 
-      ! SANITY CHECKED NAMELIST SETTINGS.
-      advconf%ivadv_tracer(tracer_idx) = ivadv_tracer
-    ELSE
-      zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
-    ENDIF
-
-    ! generate tracer metadata information
-    !
-    tracer_info = create_tracer_metadata(                                     &
-      &                                  lis_tracer       = lis_tracer,       &
-      &                                  tracer_class     = tracer_class,     &
-      &                                  ihadv_tracer     = zihadv_tracer,    &
-      &                                  ivadv_tracer     = zivadv_tracer,    &
-      &                                  lturb_tracer     = lturb_tracer,     &
-      &                                  lsed_tracer      = lsed_tracer,      &
-      &                                  ldep_tracer      = ldep_tracer,      &
-      &                                  lconv_tracer     = lconv_tracer,     &
-      &                                  lwash_tracer     = lwash_tracer,     &
-      &                                  rdiameter_tracer = rdiameter_tracer, &
-      &                                  rrho_tracer      = rrho_tracer,      &
-      &                                  halflife_tracer  = halflife_tracer,        &
-      &                                  imis_tracer      = imis_tracer       )
-
-
-
-    ! create new table entry reference including additional tracer metadata
-    CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
-       &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
-       &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-       &          isteptype=isteptype, tlev_source=tlev_source,                  &
-       &          vert_interp=vert_interp, hor_interp=hor_interp,                &
-       &          tracer_info=tracer_info, in_group=in_group                     )
-
-    ! Get the number of convection tracers  
-
-    IF (art_config(jg)%lart_conv) THEN
-      IF ( PRESENT( lconv_tracer )) THEN
-        IF( lconv_tracer) THEN
-          art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
-        ELSE
-          WRITE (message_text,*) 'WARNING. lart_conv=',&
-          & art_config(jg)%lart_conv,&
-          & 'lconv_tracer=',lconv_tracer
-          CALL message('add_var_list_reference_tracer',message_text)
-        ENDIF
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE add_var_list_reference_tracer
-
-
 END MODULE mo_var_list

@@ -107,7 +107,10 @@ CONTAINS
   !>
   !! @brief sets resolution dependent parameters for cloud optics
   !
-  SUBROUTINE setup_newcld_optics
+  SUBROUTINE setup_newcld_optics(data_filename)
+
+    !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
+    CHARACTER (LEN=*), INTENT(IN) :: data_filename
 
     INTEGER :: nf_file_id     !< id number of netcdf file
     INTEGER :: nf_var_id      !< id number of variable in netcdf file
@@ -117,12 +120,11 @@ CONTAINS
     zinhomi = 0.80_wp
 
     l_variable_inhoml = .FALSE.
-
-    nf_status = p_nf_open ('ECHAM6_CldOptProps.nc', nf_read, nf_file_id)
+    nf_status = p_nf_open (TRIM(data_filename), nf_read, nf_file_id)
     !
     IF (nf_status /= nf_noerr) THEN
       CALL finish('mo_newcld_optics/setup_newcld_optics',      &
-        &         'File ECHAM6_CldOptProps.nc cannot be opened')
+        &         'File '//TRIM(data_filename)//' cannot be opened')
     END IF
 
     nf_status = p_nf_inq_varid      (nf_file_id, 'wavenumber', nf_var_id)

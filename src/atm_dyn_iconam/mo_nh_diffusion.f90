@@ -73,6 +73,7 @@ MODULE mo_nh_diffusion
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -114,6 +115,7 @@ MODULE mo_nh_diffusion
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
+    INTEGER :: nlev              !< number of full levels
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -130,7 +132,10 @@ MODULE mo_nh_diffusion
                 nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, vn_cell1, vn_cell2
     REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
-    INTEGER  :: nlev              !< number of full levels
+
+    ! Variables for provisional fix against runaway cooling in local topography depressions
+    INTEGER  :: icount(p_patch%nblks_c), iclist(2*nproma,p_patch%nblks_c), iklist(2*nproma,p_patch%nblks_c)
+    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -167,6 +172,10 @@ MODULE mo_nh_diffusion
     ! scaling factor for enhanced near-boundary diffusion for 
     ! two-way nesting (used with Smagorinsky diffusion only; not needed otherwise)
     bdy_diff = 0.015_wp/(nudge_max_coeff + dbl_eps)
+
+    ! threshold temperature deviation from neighboring grid points 
+    ! that activates extra diffusion against runaway cooling
+    thresh_tdiff = - 5._wp
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
@@ -304,6 +313,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -418,6 +428,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -598,6 +609,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                    &
                 p_patch%edges%area_edge(je,jb) *                                    &
@@ -616,6 +628,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
@@ -634,6 +647,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                   &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*             &
@@ -653,6 +667,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                &
                 p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *         &
@@ -670,6 +685,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                        &
                 p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb)* z_nabla2_e(je,jk,jb)
@@ -686,6 +702,7 @@ MODULE mo_nh_diffusion
                            i_startidx, i_endidx, rl_start, rl_end)
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO je = i_startidx, i_endidx
             p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  -    &
               diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *        &
@@ -766,6 +783,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -782,6 +800,7 @@ MODULE mo_nh_diffusion
 
         ! Add nabla2 diffusion in upper damping layer (if present)
         DO jk = 2, nrdmax(jg)
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) +                         &
               diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
@@ -825,6 +844,71 @@ MODULE mo_nh_diffusion
       ENDIF
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+      ! Enhance Smagorinsky diffusion coefficient in the presence of excessive grid-point cold pools
+      ! This is restricted to the two lowest model levels
+      !
+      rl_start = grf_bdywidth_c
+      rl_end   = min_rlcell_int-1
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        ic = 0
+
+        DO jk = nlev-1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            ! Perturbation potential temperature difference between local point and average of the three neighbors
+            tdiff = p_nh_prog%theta_v(jc,jk,jb) -                          &
+              (p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
+               p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
+               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp 
+            trefdiff = p_nh_metrics%theta_ref_mc(jc,jk,jb) -                       &
+              (p_nh_metrics%theta_ref_mc(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
+               p_nh_metrics%theta_ref_mc(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
+               p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
+
+            IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
+              ic = ic+1
+              iclist(ic,jb) = jc
+              iklist(ic,jb) = jk
+              tdlist(ic,jb) = thresh_tdiff - tdiff
+            ENDIF
+
+          ENDDO
+        ENDDO
+
+        icount(jb) = ic
+
+      ENDDO
+!$OMP END DO
+
+
+      ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
+      ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
+!$OMP MASTER
+      DO jb = i_startblk,i_endblk
+
+        IF (icount(jb) > 0) THEN
+          DO ic = 1, icount(jb)
+            jc = iclist(ic,jb)
+            jk = iklist(ic,jb)
+            enh_diffu = tdlist(ic,jb)*5.e-4_wp
+            kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)))
+            kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)))
+            kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
+          ENDDO
+        ENDIF
+
+      ENDDO
+!$OMP END MASTER
 
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 
@@ -879,6 +963,7 @@ MODULE mo_nh_diffusion
           ! compute kh_smag_e * grad(theta) (stored in z_nabla2_e for memory efficiency)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
+!DIR$ IVDEP
             DO jk = 1, nlev
 #else
 !CDIR UNROLL=6
@@ -967,6 +1052,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
                 p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
@@ -978,6 +1064,7 @@ MODULE mo_nh_diffusion
 
           IF (iforcing /= inwp .OR. linit) THEN
             DO jk = 1, nlev
+!DIR$ IVDEP
               DO jc = i_startidx, i_endidx
               p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) * &
                 p_nh_prog%rho(jc,jk,jb)
@@ -995,6 +1082,7 @@ MODULE mo_nh_diffusion
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh_diag%ddt_exner(jc,jk,jb) = p_patch%cells%area(jc,jb)* rd_o_cvd / dtime * &
                 p_nh_prog%exner(jc,jk,jb)/p_nh_prog%theta_v(jc,jk,jb)*z_temp(jc,jk,jb)
@@ -1014,6 +1102,12 @@ MODULE mo_nh_diffusion
       ENDIF
 
     ENDIF ! temperature diffusion
+
+    !Sync for these variables are required for LES physics
+    IF (lhdiff_rcf .AND. atm_phy_nwp_config(jg)%is_les_phy .AND. .NOT.linit) THEN
+      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
+      IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
+    ENDIF
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
 
@@ -1412,4 +1506,3 @@ MODULE mo_nh_diffusion
   END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
-

@@ -125,6 +125,7 @@ CONTAINS
     LOGICAL,     OPTIONAL, INTENT(in)    :: lddmode  ! Skip fields not allocated in ldump_dd mode
     
     !local variables
+    CHARACTER(*), PARAMETER :: routine ="mo_alloc_patches:deallocate_patch"
     INTEGER :: ist
     LOGICAL :: l_ddmode
     !-----------------------------------------------------------------------    
@@ -142,311 +143,222 @@ CONTAINS
 !CDIR NOIEXPAND
     CALL deallocate_basic_patch(p_patch)
 
-    DEALLOCATE( p_patch%cells%decomp_domain,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%cells%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell decomp_domain failed')
+      CALL finish  (routine,  'deallocate for patch cell decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%cells%owner_mask,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%cells%owner_mask,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell owner_mask failed')
+      CALL finish  (routine,  'deallocate for patch cell owner_mask failed')
     ENDIF
     DEALLOCATE( p_patch%cells%glb_index,  &
       & p_patch%cells%loc_index,  &
       & p_patch%cells%owner_local,  &
-      & p_patch%cells%owner_g,  &
-      & stat=ist )
+      & p_patch%cells%owner_g,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell data failed')
+      CALL finish  (routine,  'deallocate for patch cell data failed')
     ENDIF
 
-    DEALLOCATE( p_patch%edges%decomp_domain,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge decomp_domain failed')
+      CALL finish  (routine,  'deallocate for patch edge decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%owner_mask,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%owner_mask,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge owner_mask failed')
+      CALL finish  (routine,  'deallocate for patch edge owner_mask failed')
     ENDIF
     DEALLOCATE( p_patch%edges%glb_index,  &
       & p_patch%edges%loc_index,  &
       & p_patch%edges%owner_local,  &
-      & p_patch%edges%owner_g,  &
-      & stat=ist )
+      & p_patch%edges%owner_g,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge data failed')
+      CALL finish  (routine,  'deallocate for patch edge data failed')
     ENDIF
 
-    DEALLOCATE( p_patch%verts%decomp_domain,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert decomp_domain failed')
+      CALL finish  (routine,  'deallocate for patch vert decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%owner_mask,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%owner_mask,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert owner_mask failed')
+      CALL finish  (routine,  'deallocate for patch vert owner_mask failed')
     ENDIF
     DEALLOCATE( p_patch%verts%glb_index,  &
       & p_patch%verts%loc_index,  &
       & p_patch%verts%owner_local,  &
-      & p_patch%verts%owner_g,  &
-      & stat=ist )
+      & p_patch%verts%owner_g,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vert data failed')
+      CALL finish  (routine,  'deallocate for patch vert data failed')
     ENDIF
 
-    DEALLOCATE(p_patch%cells%phys_id,    &
-      & stat=ist )
+    DEALLOCATE(p_patch%cells%phys_id,    stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell physical ID failed')
+      CALL finish  (routine,  'deallocate for patch cell physical ID failed')
     ENDIF
 
     IF (l_ddmode) RETURN
 
-    DEALLOCATE( p_patch%cells%edge_orientation,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%cells%edge_orientation,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell edge_orientation failed')
+      CALL finish  (routine,  'deallocate for patch cell edge_orientation failed')
     ENDIF
-    DEALLOCATE( p_patch%cells%area,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%cells%area,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell area failed')
+      CALL finish  (routine,  'deallocate for patch cell area failed')
     ENDIF
-    DEALLOCATE( p_patch%cells%f_c,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%cells%f_c,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch cell f_c failed')
+      CALL finish  (routine,  'deallocate for patch cell f_c failed')
     ENDIF
     !
     !
-    DEALLOCATE(p_patch%edges%phys_id,    &
-      & stat=ist )
+    DEALLOCATE(p_patch%edges%phys_id,    stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge physical ID failed')
+      CALL finish  (routine,  'deallocate for patch edge physical ID failed')
     ENDIF
     DEALLOCATE( p_patch%edges%cell_idx,  &
-      & p_patch%edges%cell_blk,  &
-      & stat=ist )
+      & p_patch%edges%cell_blk,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge cell index failed')
+      CALL finish  (routine,  'deallocate for patch edge cell index failed')
     ENDIF
     DEALLOCATE( p_patch%edges%vertex_idx,  &
-      & p_patch%edges%vertex_blk,  &
-      & stat=ist )
+      & p_patch%edges%vertex_blk,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge vertex index failed')
+      CALL finish  (routine,  'deallocate for patch edge vertex index failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%system_orientation,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%system_orientation,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge system orientation failed')
+      CALL finish  (routine,  'deallocate for patch edge system orientation failed')
     ENDIF
     DEALLOCATE( p_patch%edges%quad_idx,  &
-      & p_patch%edges%quad_blk,  &
-      & stat=ist)
+      & p_patch%edges%quad_blk,  stat=ist)
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge quad index failed')
+      CALL finish  (routine,  'deallocate for patch edge quad index failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%quad_orientation,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%quad_orientation,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge quad orientation failed')
+      CALL finish  (routine,  'deallocate for patch edge quad orientation failed')
     ENDIF
     DEALLOCATE( p_patch%edges%butterfly_idx,  &
-      & p_patch%edges%butterfly_blk,  &
-      & stat=ist)
+      & p_patch%edges%butterfly_blk,  stat=ist)
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge butterfly index failed')
+      CALL finish  (routine,  'deallocate for patch edge butterfly index failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%center,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%center,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge center failed')
+      CALL finish  (routine,  'deallocate for patch edge center failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%primal_normal,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%primal_normal,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge primal_normal failed')
+      CALL finish  (routine,  'deallocate for patch edge primal_normal failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%dual_normal,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%dual_normal,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge dual_normal failed')
+      CALL finish  (routine,  'deallocate for patch edge dual_normal failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%primal_normal_cell,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%primal_normal_cell,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge primal_normal_cell failed')
+      CALL finish  (routine,  'deallocate for patch edge primal_normal_cell failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%dual_normal_cell,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%dual_normal_cell,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge dual_normal_cell failed')
+      CALL finish  (routine,  'deallocate for patch edge dual_normal_cell failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%primal_normal_vert,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%primal_normal_vert,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge primal_normal_vert failed')
+      CALL finish  (routine,  'deallocate for patch edge primal_normal_vert failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%dual_normal_vert,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%dual_normal_vert,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge dual_normal_vert failed')
+      CALL finish  (routine,  'deallocate for patch edge dual_normal_vert failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%primal_edge_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%primal_edge_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge primal edge length failed')
+      CALL finish  (routine,  'deallocate for patch edge primal edge length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%inv_primal_edge_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%inv_primal_edge_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for inverse patch edge primal edge length failed')
+      CALL finish  (routine,  'deallocate for inverse patch edge primal edge length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%dual_edge_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%dual_edge_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge dual edge length failed')
+      CALL finish  (routine,  'deallocate for patch edge dual edge length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%inv_dual_edge_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%inv_dual_edge_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for inverse patch edge dual edge length failed')
+      CALL finish  (routine,  'deallocate for inverse patch edge dual edge length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%edge_vert_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%edge_vert_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for edge_vert_length failed')
+      CALL finish  (routine,  'deallocate for edge_vert_length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%inv_vert_vert_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%inv_vert_vert_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for inverse vert_vert_length failed')
+      CALL finish  (routine,  'deallocate for inverse vert_vert_length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%edge_cell_length,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%edge_cell_length,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for edge_cell_length failed')
+      CALL finish  (routine,  'deallocate for edge_cell_length failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%area_edge,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%area_edge,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge area_edge failed')
+      CALL finish  (routine,  'deallocate for patch edge area_edge failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%quad_area,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%quad_area,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge quad area failed')
+      CALL finish  (routine,  'deallocate for patch edge quad area failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%f_e,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%edges%f_e,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge f_e failed')
+      CALL finish  (routine,  'deallocate for patch edge f_e failed')
     ENDIF
     !
     !
     DEALLOCATE( p_patch%verts%neighbor_idx,  &
       & p_patch%verts%neighbor_blk,  &
-      & p_patch%verts%phys_id,       &
-      & stat=ist )
+      & p_patch%verts%phys_id,       stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex neighbor index failed')
+      CALL finish  (routine,  'deallocate for patch vertex neighbor index failed')
     ENDIF
     DEALLOCATE( p_patch%verts%cell_idx,  &
-      & p_patch%verts%cell_blk,  &
-      & stat=ist )
+      & p_patch%verts%cell_blk,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex cell index failed')
+      CALL finish  (routine,  'deallocate for patch vertex cell index failed')
     ENDIF
     DEALLOCATE( p_patch%verts%edge_idx,  &
-      & p_patch%verts%edge_blk,  &
-      & stat=ist )
+      & p_patch%verts%edge_blk,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge index failed')
+      CALL finish  (routine,  'deallocate for patch vertex edge index failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%edge_orientation,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%edge_orientation,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex edge orientation failed')
+      CALL finish  (routine,  'deallocate for patch vertex edge orientation failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%num_edges,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%num_edges,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex number of edges failed')
+      CALL finish  (routine,  'deallocate for patch vertex number of edges failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%dual_area,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%dual_area,  stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex dual area failed')
+      CALL finish  (routine,  'deallocate for patch vertex dual area failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%f_v,  &
-      & stat=ist )
+    DEALLOCATE( p_patch%verts%f_v, stat=ist )
     IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch vertex f_v failed')
+      CALL finish  (routine,  'deallocate for patch vertex f_v failed')
     ENDIF
 
 
-    CALL deallocate_patch_cartestian( p_patch )
+    CALL deallocate_patch_cartesian( p_patch )
     
   END SUBROUTINE deallocate_patch
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE allocate_patch_cartestian( p_patch )
+  SUBROUTINE allocate_patch_cartesian( p_patch )
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
 
-    INTEGER :: return_status
     CHARACTER(LEN=*), PARAMETER :: &
-      & method_name = 'mo_alloc_patches:allocate_patch_cartestian'
+      & method_name = 'mo_alloc_patches:allocate_patch_cartesian'
 
     ALLOCATE( p_patch%edges%primal_cart_normal(nproma,p_patch%nblks_e) )
     p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
@@ -478,17 +390,17 @@ CONTAINS
     p_patch%verts%cartesian(:,:)%x(2) = 0._wp
     p_patch%verts%cartesian(:,:)%x(3) = 0._wp
   
-  END SUBROUTINE allocate_patch_cartestian
+  END SUBROUTINE allocate_patch_cartesian
   !-------------------------------------------------------------------------
 
   
   !-------------------------------------------------------------------------
-  SUBROUTINE deallocate_patch_cartestian( p_patch )
+  SUBROUTINE deallocate_patch_cartesian( p_patch )
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
 
     INTEGER :: return_status
     CHARACTER(LEN=*), PARAMETER :: &
-      & method_name = 'mo_alloc_patches:deallocate_patch_cartestian'
+      & method_name = 'mo_alloc_patches:deallocate_patch_cartesian'
 
     DEALLOCATE( p_patch%edges%primal_cart_normal, stat=return_status )
     IF ( return_status /= success) THEN
@@ -520,7 +432,7 @@ CONTAINS
       CALL finish  (method_name,"DEALLOCATE( p_patch%verts%cartesian)")
     ENDIF
 
-  END SUBROUTINE deallocate_patch_cartestian
+  END SUBROUTINE deallocate_patch_cartesian
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -533,15 +445,16 @@ CONTAINS
       & routine = 'mo_alloc_patches:destruct_patches'
     
     !local variables
-    INTEGER :: jg
+    INTEGER :: jg, istart, iend
     !-----------------------------------------------------------------------
     
     CALL message (TRIM(routine), 'start')
     
-    grid_level_loop: DO jg = n_dom_start, n_dom
-      
+    istart = LBOUND(p_patch, 1)
+    iend   = UBOUND(p_patch, 1)
+    
+    grid_level_loop: DO jg = istart, iend
       CALL deallocate_patch(p_patch(jg))
-      
     END DO grid_level_loop
     
     CALL message (routine, 'destruct_patches finished')
@@ -980,7 +893,7 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF (iopmode /= 2) CALL allocate_patch_cartestian( p_patch )
+    IF (iopmode /= 2) CALL allocate_patch_cartesian( p_patch )
     
   END SUBROUTINE allocate_remaining_patch
   !-------------------------------------------------------------------------

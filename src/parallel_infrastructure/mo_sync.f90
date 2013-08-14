@@ -303,7 +303,6 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    TYPE(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i
    INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
-   LOGICAL :: l_part4d ! Allows to synchronize only part of a 4D field
 
 !-----------------------------------------------------------------------
 
@@ -616,7 +615,6 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       CALL finish('sync_patch_array','Illegal type parameter')
    ENDIF
 
-
    ! Actually do the check.
    ! The test PE broadcasts its full array, the other check if their section matches.
 
@@ -624,11 +622,24 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    IF(get_my_mpi_all_id() == process_mpi_all_test_id) THEN
 
-      IF(comm_lev==0) THEN
-         CALL p_bcast(arr(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
-      ELSE
-         CALL p_send(arr(:,:,1:nblks_g),comm_proc0(comm_lev)+p_work_pe0,1)
-      ENDIF
+     ! the test PE may also have reordered global indices. create a
+     ! temporary array in the correct order:
+     ALLOCATE(arr_g(nproma,ndim2,nblks_g))
+     DO j=1,ndim
+         jb = blk_no(j) ! Block index in distributed patch
+         jl = idx_no(j) ! Line  index in distributed patch
+
+         jb_g = blk_no(p_glb_index(j)) ! Block index in global patch
+         jl_g = idx_no(p_glb_index(j)) ! Line  index in global patch
+         arr_g(jl_g,1:ndim2,jb_g) = arr(jl,1:ndim2,jb)
+     END DO
+
+     IF(comm_lev==0) THEN
+       CALL p_bcast(arr_g(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
+     ELSE
+       CALL p_send(arr_g(:,:,1:nblks_g),comm_proc0(comm_lev)+p_work_pe0,1)
+     ENDIF
+     DEALLOCATE(arr_g)
 
    ELSE
 
@@ -1620,30 +1631,27 @@ END FUNCTION global_min_1d
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_0d(zfield, proc_id, keyval, iroot) RESULT(global_max)
+FUNCTION global_max_0d(zfield, proc_id, keyval, iroot, icomm) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id
   INTEGER, OPTIONAL, INTENT(inout) :: keyval
-  INTEGER, OPTIONAL, INTENT(in)    :: iroot
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot                !< rank of collecting PE
+  INTEGER, OPTIONAL, INTENT(in)    :: icomm                !< MPI communicator
   REAL(wp) :: global_max
+  INTEGER  :: pcomm
+
+  IF(comm_lev==0) THEN
+    pcomm=p_comm_work
+  ELSE
+    pcomm=glob_comm(comm_lev)
+  END IF
+  IF (PRESENT(icomm)) pcomm = icomm
 
   IF (p_test_run) THEN ! all-to-all communication required
-    IF(comm_lev==0) THEN
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=p_comm_work)
-    ELSE
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=glob_comm(comm_lev))
-    ENDIF
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm)
   ELSE
-    IF(comm_lev==0) THEN
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=p_comm_work, root=iroot)
-    ELSE
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=glob_comm(comm_lev), root=iroot)
-    ENDIF
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm, root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
@@ -1662,30 +1670,27 @@ END FUNCTION global_max_0d
 ! additional data on the maximum value, e.g., the level
 ! index where the maximum occurred.
 !
-FUNCTION global_max_1d(zfield, proc_id, keyval, iroot) RESULT(global_max)
+FUNCTION global_max_1d(zfield, proc_id, keyval, iroot, icomm) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield(:)
   INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
   INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
-  INTEGER, OPTIONAL, INTENT(in)    :: iroot
+  INTEGER, OPTIONAL, INTENT(in)    :: iroot                !< rank of collecting PE
+  INTEGER, OPTIONAL, INTENT(in)    :: icomm                !< MPI communicator
   REAL(wp) :: global_max(SIZE(zfield))
+  INTEGER  :: pcomm
+
+  IF(comm_lev==0) THEN
+    pcomm=p_comm_work
+  ELSE
+    pcomm=glob_comm(comm_lev)
+  END IF
+  IF (PRESENT(icomm)) pcomm = icomm
 
   IF (p_test_run) THEN ! all-to-all communication required
-    IF(comm_lev==0) THEN
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=p_comm_work)
-    ELSE
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=glob_comm(comm_lev))
-    ENDIF
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm)
   ELSE
-    IF(comm_lev==0) THEN
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=p_comm_work, root=iroot)
-    ELSE
-      global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, &
-        &                comm=glob_comm(comm_lev), root=iroot)
-    ENDIF
+    global_max = p_max(zfield, proc_id=proc_id, keyval=keyval, comm=pcomm, root=iroot)
   ENDIF
 
   IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )

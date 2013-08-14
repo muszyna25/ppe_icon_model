@@ -1,12 +1,11 @@
 !>
-!! @author G. Zaengl
+!!        Contains the variables to set up the ocean configuration
 !!
 !! @par Revision History
-!! Moved configure state from namelists/mo_prepicon_nml:
-!! F. Prill, DWD (2012-01-31)
+!!  Leonidas Linardakis, MPI-M, 2011/7/7
 !!
 !! @par Copyright
-!! 2002-2011 by DWD and MPI-M
+!! 2002-2006 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -32,22 +31,29 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_prepicon_config
-
+MODULE mo_ocean_config
+!-------------------------------------------------------------------------
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message_text, finish
 
   IMPLICIT NONE
 
-  PUBLIC :: i_oper_mode
+  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+
+  PRIVATE
+
+  PUBLIC :: ignore_land_points
+  
+  !------------------------------------------------------------------------
+  LOGICAL  :: ignore_land_points = .false.
+
+CONTAINS
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_ocean_configuration
+
+  END SUBROUTINE init_ocean_configuration
+  !-------------------------------------------------------------------------
 
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: &
-    &  version = '$Id$'
-
-  ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the prep_icon preprocessing program
-  ! ----------------------------------------------------------------------------
-  !
-  INTEGER  :: i_oper_mode   ! operation mode
-
-
-END MODULE mo_prepicon_config
+END MODULE mo_ocean_config

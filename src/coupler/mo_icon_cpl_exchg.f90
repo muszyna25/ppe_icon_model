@@ -880,7 +880,8 @@ CONTAINS
        IF ( events(fptr%event_id)%elapsed_time > &
      &      events(fptr%event_id)%lag * events(fptr%event_id)%time_step ) THEN 
           IF ( debug_coupler_level > 1 ) &
-          WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
+            WRITE ( cplout , * ) 'Accumulation for ', TRIM(cpl_fields(field_id)%field_name)
+
           fptr%accumulation_count  = fptr%accumulation_count + 1
           fptr%send_field_acc(:,:) = fptr%send_field_acc(:,:) + send_field(:,:)
 

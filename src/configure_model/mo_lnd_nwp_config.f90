@@ -57,7 +57,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: nlev_soil, nlev_snow, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
-  PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
+  PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
              itype_hydbound, idiag_snowfrac
   PUBLIC :: lstomata,   l2tls, lana_rho_snow 
@@ -84,10 +84,9 @@ MODULE mo_lnd_nwp_config
                                  !< tile for a grid point
   REAL(wp)::  frlake_thrhld      !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld       !< fraction threshold for creating a sea grid point
-  INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg         !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl         !< type of parameterization of bare soil evaporation
-  INTEGER ::  itype_tran         !< type of surface to atmospher transfer
+  INTEGER ::  itype_lndtbl       !< choice of table for associating surface parameters to land-cover classes
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
@@ -140,8 +139,6 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)  :: p_patch(:) 
     INTEGER      , INTENT(IN)  :: n_dom      !< number of model domains
     INTEGER      , INTENT(IN)  :: nproma
-    INTEGER                    :: jg, isubs  !< loop index 
-    INTEGER                    :: ist        !< status
 
     CHARACTER(len=*), PARAMETER::  &
       &  routine = 'mo_lnd_nwp_config: configure_lnd_nwp'

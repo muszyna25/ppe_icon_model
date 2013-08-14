@@ -48,14 +48,16 @@ MODULE mo_turbdiff_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
   USE mo_data_turbdiff,       ONLY: &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
-    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
   PRIVATE
@@ -77,10 +79,10 @@ MODULE mo_turbdiff_nml
 
   NAMELIST/turbdiff_nml/ &
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
-    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot,  &
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t, &
 !   additional namelist parameters:
     & lconst_z0, const_z0
 
@@ -109,8 +111,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-    INTEGER :: jt          !< tracer loop index
-    INTEGER :: z_nogo(2)   !< for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_turbdiff_nml: read_turbdiff_nml'
@@ -128,6 +128,19 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
+    !-----------------------
+    ! 1.b temorarily overwrite default settings of namelist variables:
+    !-----------------------
+
+    IF ( ANY( (/10,11/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
+      imode_tran = 0       ! mode of surface-atmosphere transfer
+      icldm_tran = 2       ! mode of cloud representation in transfer parametr.
+    END IF
+  
+    IF ( ANY( (/10,12/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
+      imode_turb = 1       ! mode of turbulent diffusion parametrization
+    END IF
+  
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -143,9 +156,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('turbdiff_nml', STATUS=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), turbdiff_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml,turbdiff_nml)
+      READ (nnml, turbdiff_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), turbdiff_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -177,6 +192,7 @@ CONTAINS
       turbdiff_config(jg)%lprfcor      = lprfcor
       turbdiff_config(jg)%lnonloc      = lnonloc
       turbdiff_config(jg)%lcpfluc      = lcpfluc
+      turbdiff_config(jg)%lsflcnd      = lsflcnd
       turbdiff_config(jg)%limpltkediff = limpltkediff
       turbdiff_config(jg)%itype_wcld   = itype_wcld
       turbdiff_config(jg)%itype_synd   = itype_synd
@@ -190,6 +206,8 @@ CONTAINS
       turbdiff_config(jg)%rlam_mom     = rlam_mom
       turbdiff_config(jg)%rat_sea      = rat_sea
       turbdiff_config(jg)%tkesmot      = tkesmot
+      turbdiff_config(jg)%impl_s       = impl_s
+      turbdiff_config(jg)%impl_t       = impl_t
 
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0

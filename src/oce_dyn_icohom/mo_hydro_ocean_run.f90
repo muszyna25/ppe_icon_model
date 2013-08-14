@@ -48,13 +48,14 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_model_domain,           ONLY: t_patch, t_patch_3D
+USE mo_model_domain,           ONLY: t_patch, t_patch_3D, t_subset_range
 USE mo_grid_config,            ONLY: n_dom
+USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
-  &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep
-USE mo_dynamics_config,        ONLY: nold!, nnew
+  &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
+USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
@@ -63,20 +64,22 @@ USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
   &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-  &                                  timer_upd_phys, timer_upd_flx  !,timer_oce_init
+  &                                  timer_upd_phys, timer_upd_flx
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity,       &
   &                                  update_time_indices
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
-USE mo_util_dbg_prnt,          ONLY: init_dbg_index !,dbg_print
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, &
+USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
-  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D
+  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
+  &                                  setup_ocean_namelists, check_ocean_subsets, &
+  &                                  ocean_default_list, ocean_restart_list
 USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
@@ -99,15 +102,21 @@ USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_E
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
 USE mo_output,                 ONLY: init_output_files, &
   &                                  create_restart_file, write_output_oce! , write_output
-!USE mo_name_list_output_config,ONLY: is_any_output_file_active, use_async_name_list_io
-USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output!, &
-!  &                                  output_file
+USE mo_fortran_tools,          ONLY: assign_if_present
+USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-!USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
+USE mo_linked_list,            ONLY: t_list_element, find_list_element
+USE mo_var_list,               ONLY: print_var_list
+  USE mo_mpi,                               ONLY: my_process_is_stdio
+  USE mo_time_config,          ONLY: time_config
+  USE mo_master_control,       ONLY: is_restart_run
+  USE mo_statistics
+
+
 
 
 IMPLICIT NONE
@@ -126,6 +135,10 @@ PUBLIC :: prepare_ho_integration
 PUBLIC :: finalise_ho_integration
 PRIVATE:: update_intermediate_tracer_vars
 !
+INTERFACE add_fields
+  MODULE PROCEDURE add_fields_3d
+  MODULE PROCEDURE add_fields_2d
+END INTERFACE add_fields
 !
 !-------------------------------------------------------------------------
 
@@ -162,8 +175,9 @@ CONTAINS
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
   ! local variables
-  REAL(wp)                        :: sim_time(n_dom)
-  INTEGER                         :: jstep, jg
+  INTEGER                         :: jstep, jg, jtrc
+  INTEGER                         :: nsteps_since_last_output
+  INTEGER                         :: ocean_statistics
   !LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -173,6 +187,8 @@ CONTAINS
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------
+
+  nsteps_since_last_output = 1
 
   !------------------------------------------------------------------
   ! no grid refinement allowed here so far
@@ -192,8 +208,21 @@ CONTAINS
   ! IF (ltimer) CALL timer_start(timer_total)
   CALL timer_start(timer_total)
 
-  sim_time(:) = 0.0_wp
+  time_config%sim_time(:) = 0.0_wp
 
+  !------------------------------------------------------------------
+  ocean_statistics = new_statistic()
+
+  !------------------------------------------------------------------
+  ! write initial
+  !------------------------------------------------------------------
+  IF (output_mode%l_nml) THEN
+    ! in general nml output is writen based on the nnew status of the
+    ! prognostics variables. Unfortunately, the initialization has to be written
+    ! to the nold state. That's why the following manual copying is nec.
+    IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
+    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
+  ENDIF
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
@@ -289,49 +318,62 @@ CONTAINS
 
     ENDIF  ! testcase 28
 
-   ! Actually diagnostics for 3D not implemented, PK March 2011
-
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
+
     ! Not nice, but the name list output requires this
-    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp) 
-    IF (is_output_time(jstep) .OR. istime4name_list_output(sim_time(1)+dtime)) THEN 
-!TODO    IF ( l_outputtime .OR. istime4name_list_output(sim_time(1)) ) THEN
+    time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
+    ! perform accumulation for special variables
+    CALL calc_potential_density( p_patch_3D,                     &
+      &                          p_os(jg)%p_prog(nold(1))%tracer,&
+      &                          p_os(jg)%p_diag%rhopot )
+
+    ! update accumulated vars
+    CALL update_ocean_statistics(p_os(1),p_sfc_flx,p_patch_3D%p_patch_2D(1)%cells%owned)
+
+    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( p_patch_3D,    &
-                                     & p_os(jg),      &
-                                     & p_sfc_flx,     &
-                                     & p_ice,         &
-                                     & p_phys_param,  &
-                                     & jstep,         &
-                                     & datetime,      &
-                                     & oce_ts)
+          &                             p_os(jg),      &
+          &                             p_sfc_flx,     &
+          &                             p_ice,         &
+          &                             p_phys_param,  &
+          &                             jstep,         &
+          &                             datetime,      &
+          &                             oce_ts)
 
         CALL calc_moc (p_patch,p_patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
         CALL calc_psi (p_patch,p_patch_3D, p_os(jg)%p_diag%u(:,:,:), &
           &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
           &                        p_os(jg)%p_diag%u_vint, datetime)
-        CALL calc_potential_density( p_patch_3D,                                    &
-          &                          p_os(jg)%p_prog(nold(1))%tracer,&
-          &                          p_os(jg)%p_diag%rhopot )
+
       ENDIF
+      ! compute mean values for output interval
+      CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+
+      ! set the output variable pointer to the correct timelevel
+!TODO (ram)      CALL set_output_pointers
 
       IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN
-          CALL write_output_oce( datetime, sim_time(1),p_patch_3D, p_os)
+          CALL write_output_oce( datetime, time_config%sim_time(1),p_patch_3D, p_os)
       ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
 
+      ! reset accumulation vars
+      CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+
     END IF
 
     ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps) THEN
+    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps  .AND. output_mode%l_vlist ) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=p_patch_3D%p_patch_2D)
     ENDIF
@@ -352,18 +394,19 @@ CONTAINS
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
       CALL create_restart_file( p_patch, datetime,                 &
                               & jfile, l_have_output,opt_depth=n_zlev,&
+                              & opt_sim_time=time_config%sim_time(1), &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
       CALL write_restart_info_file
     END IF
 
-
+    nsteps_since_last_output = nsteps_since_last_output + 1
   ENDDO TIME_LOOP
 
   IF (idiag_oce==1) CALL destruct_oce_diagnostics(oce_ts)
+  CALL delete_statistic(ocean_statistics)
 
-!  IF (ltimer) CALL timer_stop(timer_total)
   CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping
@@ -383,15 +426,15 @@ CONTAINS
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
-    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: p_os(n_dom)
-    TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
-    TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
-    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param
-    TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
-    TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
-    TYPE(t_operator_coeff),       INTENT(INOUT)  :: p_op_coeff
+    TYPE(t_patch_3D ),TARGET,   INTENT(INOUT)  :: p_patch_3D
+    TYPE(t_hydro_ocean_state),  INTENT(INOUT)  :: p_os(n_dom)
+    TYPE(t_external_data),      INTENT(INOUT)  :: p_ext_data(n_dom)
+    TYPE(t_sfc_flx),            INTENT(INOUT)  :: p_sfc_flx
+    TYPE(t_ho_params),          INTENT(INOUT)  :: p_phys_param
+    TYPE(t_atmos_for_ocean ),   INTENT(INOUT)  :: p_as
+    TYPE(t_atmos_fluxes ),      INTENT(INOUT)  :: p_atm_f
+    TYPE(t_sea_ice),            INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),     INTENT(INOUT)  :: p_op_coeff
 
     ! local variables
     INTEGER :: jg
@@ -402,8 +445,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
-
- !  IF (ltimer) CALL timer_start(timer_oce_init)
 
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
@@ -428,6 +469,7 @@ CONTAINS
     CALL init_coriolis_oce(p_patch_3D%p_patch_2D(jg) )
     CALL init_patch_3D    (p_patch_3D,                p_ext_data(jg), v_base)
     !CALL init_patch_3D(p_patch_3D, v_base)
+    CALL check_ocean_subsets(p_patch_3D)
 
     !------------------------------------------------------------------
     ! construct ocean state and physics
@@ -446,7 +488,7 @@ CONTAINS
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
 
-    CALL construct_sfcflx(p_patch_3D%p_patch_2D(jg),p_sfc_flx)
+    CALL construct_sfcflx(p_patch_3D%p_patch_2D(jg),p_sfc_flx, ocean_default_list)
     CALL      init_sfcflx(p_patch_3D, p_sfc_flx)
 
     CALL construct_sea_ice(p_patch_3D%p_patch_2D(jg), p_ice, kice)
@@ -473,9 +515,7 @@ CONTAINS
     CALL init_ho_recon_fields   ( p_patch_3D%p_patch_2D(jg),p_patch_3D, p_os(jg), p_op_coeff)
 
     CALL init_ho_lhs_fields_mimetic   ( p_patch_3D )
-    
 
-  ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')
 
   END SUBROUTINE prepare_ho_integration
@@ -520,24 +560,187 @@ CONTAINS
   SUBROUTINE update_intermediate_tracer_vars(p_os)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
 
-    !INTEGER :: it
-
-    ! tracer updates
-!     DO it = 1,no_tracer
-!       !horiz
-!       p_os%p_aux%g_nm1_c_h(:,:,:,it)  = p_os%p_aux%g_n_c_h(:,:,:,it)
-!       p_os%p_aux%g_n_c_h(:,:,:,it)    = 0.0_wp
-!       p_os%p_aux%g_nimd_c_h(:,:,:,it) = 0.0_wp
-! 
-!       !vert
-!       p_os%p_aux%g_nm1_c_v(:,:,:,it)  = p_os%p_aux%g_n_c_v(:,:,:,it)
-!       p_os%p_aux%g_n_c_v(:,:,:,it)    = 0.0_wp
-!       p_os%p_aux%g_nimd_c_v(:,:,:,it) = 0.0_wp
-!     END DO
     ! velocity
     p_os%p_aux%g_nm1 = p_os%p_aux%g_n
     p_os%p_aux%g_n   = 0.0_wp
   END SUBROUTINE update_intermediate_tracer_vars
 
-END MODULE mo_hydro_ocean_run
+  SUBROUTINE update_ocean_statistics(p_os,p_sfc_flx,subset)
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_subset_range),INTENT(IN) :: subset
 
+    INTEGER :: jtrc,i
+
+
+    ! update ocean state accumulated values
+    CALL add_fields(p_os%p_acc%h, p_os%p_prog(nnew(1))%h, subset)
+    CALL add_fields(p_os%p_acc%u, p_os%p_diag%u, subset)
+    CALL add_fields(p_os%p_acc%v, p_os%p_diag%v, subset)
+    CALL add_fields(p_os%p_acc%rhopot,p_os%p_diag%rhopot,subset)
+    DO jtrc=1,no_tracer
+    CALL add_fields(p_os%p_acc%tracer(:,:,:,jtrc), &
+      &                  p_os%p_prog(nnew(1))%tracer(:,:,:,jtrc), &
+      &                  subset)
+    END DO
+    CALL add_fields(p_os%p_acc%u_vint        , p_os%p_diag%u_vint        , subset)
+    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , subset,n_zlev+1)
+    CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, subset)
+
+    ! update forcing accumulated values
+    CALL add_fields(p_sfc_flx%forc_wind_u_acc  , p_sfc_flx%forc_wind_u  , subset)
+    CALL add_fields(p_sfc_flx%forc_wind_v_acc  , p_sfc_flx%forc_wind_v  , subset)
+    CALL add_fields(p_sfc_flx%forc_swflx_acc   , p_sfc_flx%forc_swflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_lwflx_acc   , p_sfc_flx%forc_lwflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_ssflx_acc   , p_sfc_flx%forc_ssflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_slflx_acc   , p_sfc_flx%forc_slflx   , subset)
+    CALL add_fields(p_sfc_flx%forc_precip_acc  , p_sfc_flx%forc_precip  , subset)
+    CALL add_fields(p_sfc_flx%forc_evap_acc    , p_sfc_flx%forc_evap    , subset)
+    CALL add_fields(p_sfc_flx%forc_runoff_acc  , p_sfc_flx%forc_runoff  , subset)
+    CALL add_fields(p_sfc_flx%forc_fwbc_acc    , p_sfc_flx%forc_fwbc    , subset)
+    CALL add_fields(p_sfc_flx%forc_fwrelax_acc , p_sfc_flx%forc_fwrelax , subset)
+    CALL add_fields(p_sfc_flx%forc_fwfx_acc    , p_sfc_flx%forc_fwfx    , subset)
+    CALL add_fields(p_sfc_flx%forc_hfrelax_acc , p_sfc_flx%forc_hfrelax , subset)
+    CALL add_fields(p_sfc_flx%forc_hflx_acc    , p_sfc_flx%forc_hflx    , subset)
+    DO jtrc=1,no_tracer
+      CALL add_fields(p_sfc_flx%forc_tracer_acc(:,:,jtrc), p_sfc_flx%forc_tracer(:,:,jtrc), subset)
+      CALL add_fields(p_sfc_flx%forc_tracer_relax_acc(:,:,jtrc), p_sfc_flx%forc_tracer_relax(:,:,jtrc), subset)
+    END DO
+  END SUBROUTINE update_ocean_statistics
+
+  SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
+    TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
+    TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
+    INTEGER,INTENT(IN)                     :: nsteps_since_last_output
+
+    p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
+    p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
+    p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
+    p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
+    p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
+    p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_wind_u_acc       = p_sfc_flx%forc_wind_u_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_wind_v_acc       = p_sfc_flx%forc_wind_v_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_swflx_acc        = p_sfc_flx%forc_swflx_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_lwflx_acc        = p_sfc_flx%forc_lwflx_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_ssflx_acc        = p_sfc_flx%forc_ssflx_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_slflx_acc        = p_sfc_flx%forc_slflx_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwbc_acc         = p_sfc_flx%forc_fwbc_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwfx_acc         = p_sfc_flx%forc_fwfx_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_tracer_acc       = p_sfc_flx%forc_tracer_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_tracer_relax_acc = p_sfc_flx%forc_tracer_relax_acc/REAL(nsteps_since_last_output,wp)
+  END SUBROUTINE compute_mean_ocean_statistics
+
+  SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
+    TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
+    TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
+    INTEGER,                 INTENT(INOUT) :: nsteps_since_last_output
+
+    nsteps_since_last_output        = 0
+    p_acc%tracer                    = 0.0_wp
+    p_acc%h                         = 0.0_wp
+    p_acc%u                         = 0.0_wp
+    p_acc%v                         = 0.0_wp
+    p_acc%rhopot                    = 0.0_wp
+    p_acc%u_vint                    = 0.0_wp
+    p_acc%w                         = 0.0_wp
+    p_acc%div_mass_flx_c            = 0.0_wp
+    p_sfc_flx%forc_wind_u_acc       = 0.0_wp
+    p_sfc_flx%forc_wind_v_acc       = 0.0_wp
+    p_sfc_flx%forc_swflx_acc        = 0.0_wp
+    p_sfc_flx%forc_lwflx_acc        = 0.0_wp
+    p_sfc_flx%forc_ssflx_acc        = 0.0_wp
+    p_sfc_flx%forc_slflx_acc        = 0.0_wp
+    p_sfc_flx%forc_precip_acc       = 0.0_wp
+    p_sfc_flx%forc_evap_acc         = 0.0_wp
+    p_sfc_flx%forc_runoff_acc       = 0.0_wp
+    p_sfc_flx%forc_fwbc_acc         = 0.0_wp
+    p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
+    p_sfc_flx%forc_fwfx_acc         = 0.0_wp
+    p_sfc_flx%forc_hfrelax_acc      = 0.0_wp
+    p_sfc_flx%forc_hflx_acc         = 0.0_wp
+    p_sfc_flx%forc_tracer_acc       = 0.0_wp
+    p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
+
+  END SUBROUTINE reset_ocean_statistics
+
+  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
+    INTEGER,INTENT(IN),OPTIONAL     :: levels
+
+    INTEGER :: mylevels
+    INTEGER :: jb,jc,jk,jc_start,jc_end
+
+    mylevels = n_zlev
+    CALL assign_if_present(mylevels,levels)
+
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, jc_start, jc_end)
+      DO jk=1,mylevels
+        DO jc = jc_start, jc_end
+          f_a(jc,jk,jb) = f_a(jc,jk,jb) + f_b(jc,jk,jb)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE add_fields_3d
+
+  SUBROUTINE add_fields_2d(f_a,f_b,subset)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
+
+    INTEGER :: jb,jc,jc_start,jc_end
+
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, jc_start, jc_end)
+      DO jc = jc_start, jc_end
+        f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
+      END DO
+    END DO
+  END SUBROUTINE add_fields_2d
+
+  SUBROUTINE new_ocean_statistics()
+  END SUBROUTINE new_ocean_statistics
+
+  SUBROUTINE set_output_pointers
+
+    TYPE(t_list_element), POINTER :: output_var, prog_var
+    CHARACTER(len=max_char_length) :: timelevel
+   !-------------------------------------------------------------------------
+    WRITE(timelevel,'(a,i2.2)') '_TL',nnew(1)
+
+    !CALL print_var_list(ocean_restart_list)
+    output_var             =  find_list_element(ocean_restart_list,'h')
+    prog_var               =  find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
+    IF (ASSOCIATED (output_var) .AND. ASSOCIATED(prog_var)) THEN
+      output_var%field%r_ptr => prog_var%field%r_ptr
+    ELSE
+      IF (my_process_is_stdio()) THEN
+        CALL finish('set_output_pointers', 'output_var h or h'//TRIM(timelevel)//'not ASSOCIATED')
+      ENDIF
+    ENDIF
+
+    output_var             =  find_list_element(ocean_restart_list,'vn')
+    prog_var               =  find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+
+    output_var             =  find_list_element(ocean_restart_list,'t')
+    prog_var               =  find_list_element(ocean_restart_list,'t'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+
+    output_var             =  find_list_element(ocean_restart_list,'s')
+    prog_var               =  find_list_element(ocean_restart_list,'s'//TRIM(timelevel))
+    output_var%field%r_ptr => prog_var%field%r_ptr
+  END SUBROUTINE set_output_pointers
+
+END MODULE mo_hydro_ocean_run

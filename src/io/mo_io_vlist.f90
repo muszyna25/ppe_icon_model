@@ -107,13 +107,8 @@ MODULE mo_io_vlist
     &                                 modelversion, zml_soil, max_ntracer,        &
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
-    &                                 inwp, iecham,ildf_echam, ihs_ocean
-  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
-    &                                 vwind_offctr, igradp_method, exner_expol,   &
-    &                                 ltheta_up_hori, ltheta_up_vert,             &
-    &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
-    &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
-    &                                 itime_scheme_nh_atm => itime_scheme
+    &                                 inwp, iecham,ildf_echam, ihs_ocean,         &
+    &                                 icosmo, igme, ismag, ivdiff
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S, l_forc_freshw
@@ -121,8 +116,6 @@ MODULE mo_io_vlist
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, nnow_rcf, lcoriolis
-  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
-  USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_io_config,             ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                                 lwrite_vorticity, lwrite_divergence,        &
     &                                 lwrite_tend_phy, lwrite_radiation,          &
@@ -138,7 +131,6 @@ MODULE mo_io_vlist
     &                                 t_outvar_desc, GATHER_C, GATHER_E, GATHER_V,&
     &                                 max_outvars, max_gridlevs,   &
     &                                 t_collected_var_ptr, num_output_vars
-  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_parallel_config,       ONLY: nproma
   USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
@@ -147,29 +139,31 @@ MODULE mo_io_vlist
     &                                 lvert_nest, msg_level, iqv, iqc, iqi,       &
     &                                 nqtendphy
   USE mo_grid_config,           ONLY: global_cell_type
-  USE mo_echam_phy_config
-  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_advection_config,      ONLY: advection_config
-  USE mo_echam_conv_config,     ONLY: echam_conv_config
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, nlev_snow
-! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
     &                                 n_dom_start
-  USE mo_model_domain,          ONLY: t_patch, p_patch, t_patch_3D
+  USE mo_model_domain,          ONLY: t_patch, t_patch_3D
   USE mo_physical_constants,    ONLY: grav
   USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
     &                                 num_work_procs, get_my_mpi_all_id
-  USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
-  USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
+  USE mo_math_constants,        ONLY: pi
+  USE mo_impl_constants,        ONLY: SUCCESS
+  USE mo_intp,                  ONLY: verts2cells_scalar
+  USE mo_mpi,                   ONLY: p_pe
+  USE mo_util_string,           ONLY: string_contains_word, toupper
+  USE mo_oce_physics,           ONLY: t_ho_params, v_params
+  USE mo_linked_list,           ONLY: t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
        &                              t_hydro_ocean_diag, &!t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &
        &                              set_zlev!, v_ocean_state!, v_base
-!  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   ! #
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
+
+#ifndef __ICON_OCEAN_ONLY__
+  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
@@ -202,15 +196,25 @@ MODULE mo_io_vlist
     &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
     &                                 bruntvais_u_mwbr_const     
     !&                                mount_half_width
-  USE mo_math_constants,        ONLY: pi
-  USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_intp,                  ONLY: verts2cells_scalar
   USE mo_intp_data_strc,        ONLY: p_int_state
-  USE mo_mpi,                   ONLY: p_pe
-  USE mo_util_string,           ONLY: string_contains_word, toupper
-  USE mo_oce_physics,           ONLY: t_ho_params, v_params
-  USE mo_linked_list,           ONLY: t_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists
+  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
+    &                                 vwind_offctr, igradp_method, exner_expol,   &
+    &                                 ltheta_up_hori, ltheta_up_vert,             &
+    &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
+    &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
+    &                                 itime_scheme_nh_atm => itime_scheme
+  USE mo_echam_phy_config
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_advection_config,      ONLY: advection_config
+  USE mo_echam_conv_config,     ONLY: echam_conv_config
+  USE mo_lnd_nwp_config,        ONLY: ntiles_total, nlev_snow
+  USE mo_model_domain,          ONLY: p_patch_from_model => p_patch
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
+  USE mo_diffusion_config,      ONLY: diffusion_config
+  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
+  USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
+! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -227,11 +231,14 @@ MODULE mo_io_vlist
 
   PUBLIC :: setup_vlist, destruct_vlist,                            &
     &       open_output_vlist, close_output_vlist,                  &
-    &       write_vlist, get_outvar_ptr_ha, get_outvar_ptr_nh,      &
-    &       get_outvar_ptr_oce,                                     &
-    &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
+    &       write_vlist
+#ifndef __ICON_OCEAN_ONLY__
+  PUBLIC :: get_outvar_ptr_ha, get_outvar_ptr_nh, addAtmAtts
+#endif
+  PUBLIC :: get_outvar_ptr_oce
+  PUBLIC :: vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
-    &       addGlobAtts, addAtmAtts, addOceAtts, translate_vars
+    &       addGlobAtts, addOceAtts, translate_vars
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
   ! I/O stream handler
@@ -270,7 +277,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: grid_filename
     INTEGER, INTENT(in) :: k_jg
     LOGICAL, INTENT(in) :: l_do_io
-    TYPE(t_patch),OPTIONAL :: mypatch(:)
+    TYPE(t_patch), TARGET, OPTIONAL :: mypatch(:)
+
+    TYPE(t_patch), POINTER :: p_patch(:)
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -363,14 +372,15 @@ CONTAINS
       CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     ELSE
      IF (PRESENT(mypatch)) THEN
-       i_nc = mypatch(k_jg)%n_patch_cells_g
-       i_ne = mypatch(k_jg)%n_patch_edges_g
-       i_nv = mypatch(k_jg)%n_patch_verts_g
+       p_patch => mypatch
+#ifndef __ICON_OCEAN_ONLY__
      ELSE
-        i_nc = p_patch(k_jg)%n_patch_cells_g
-        i_ne = p_patch(k_jg)%n_patch_edges_g
-        i_nv = p_patch(k_jg)%n_patch_verts_g
+       p_patch => p_patch_from_model
+#endif
      ENDIF
+      i_nc = p_patch(k_jg)%n_patch_cells_g
+      i_ne = p_patch(k_jg)%n_patch_edges_g
+      i_nv = p_patch(k_jg)%n_patch_verts_g
     ENDIF
 
     !
@@ -608,6 +618,7 @@ CONTAINS
     DEALLOCATE(levels)
     ! atm (pressure) height, ocean depth
     IF (iequations/=ihs_ocean) THEN ! atm 
+#ifndef __ICON_OCEAN_ONLY__
 
       nlev   = num_lev(k_jg)
       nlevp1 = num_levp1(k_jg)
@@ -666,6 +677,7 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
       DEALLOCATE(levels)
 
+#endif
     ELSE ! oce
       zaxisIDdepth_m(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
@@ -701,11 +713,15 @@ CONTAINS
     ! global attributes
     !
     CALL addGlobAtts(vlistID(k_jg),k_jg,astatus)
+#ifndef __ICON_OCEAN_ONLY__
     IF (iequations/=ihs_ocean) THEN
       CALL addAtmAtts(vlistID(k_jg),k_jg,astatus)
     ELSE
+#endif
       CALL addOceAtts(vlistID(k_jg),astatus)
+#ifndef __ICON_OCEAN_ONLY__
     END IF
+#endif
 
     !-------------------------------------------------------------------------
     ! register variables
@@ -714,6 +730,7 @@ CONTAINS
     num_varids(k_jg) = 0
     ! atm
     IF (iequations/=ihs_ocean) THEN
+#ifndef __ICON_OCEAN_ONLY__
 
       ! get ctracer_list
       ctracer_list = advection_config(k_jg)%ctracer_list
@@ -943,21 +960,12 @@ CONTAINS
               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
               &           k_jg)
 
-            !KF this variable should only go into the output as an averaged one 
-            WRITE(name,'(A14)') "dlwfsfc_dT_avg"
-            WRITE(long_name,'(A8,A27)') "averaged", " longwave surface net flux T-tend"
-            CALL addVar(TimeVar(TRIM(name),&
-              &                   TRIM(long_name),&
-              &                   'W/m**2/K', 112, 128,&
-              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-
-
             IF (lflux_avg ) THEN
               sufix = "_avg"
               meaning = "averaged"
             ELSE 
               sufix = ""
-              meaning = "instantan"     
+              meaning = "instant."     
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
@@ -1123,27 +1131,6 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
         CASE (iecham,ildf_echam)
-          !--- aprl ---
-          CALL addVar(TimeVar('APRL',&
-          &           'large-scale precip amount (rain + snow) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 142, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
-          !--- aprc ---
-          CALL addVar(TimeVar('APRC',&
-          &           'convective precip amount (rain + snow) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 143, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
-          !--- aprs ---
-          CALL addVar(TimeVar('APRS',&
-          &           'snowfall amount (large scale + convective) '//&
-          &           'accumulated over output interval',&
-          &           'kg m-2', 144, 128,&
-          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
           !--- rsfl ---
           CALL addVar(TimeVar('RSFL',&
           &                   'surface rain flux due to large scale condensation',&
@@ -1364,7 +1351,7 @@ CONTAINS
 
           !--- aclcov ---
         CALL addVar(TimeVar('ACLCOV',&
-          &                 'total cloud cover accumulated over output interval',&
+          &                 'total cloud cover (instantaneous)',&
           &                 's', 164, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- aclc ---
@@ -1372,24 +1359,19 @@ CONTAINS
           &                 'cloud area fraction (instantaneous)',&
           &                 '(0-1)', 162, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
-          !--- aclcac ---
-        CALL addVar(TimeVar('ACLCAC',&
-          &                 'cloud area fraction accumulated over output interval',&
-          &                 's', 223, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
           !--- qvi ---
         CALL addVar(TimeVar('qvi',&
-          &                 'temporally and vertically integrated water vapor content',&
+          &                 'vertically integrated water vapor content',&
           &                 's kg/m**2', 230, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- xlvi ---
         CALL addVar(TimeVar('xlvi',&
-          &                 'temporally and vertically integrated cloud water content',&
+          &                 'vertically integrated cloud water content',&
           &                 's kg/m**2', 231, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- xivi ---
         CALL addVar(TimeVar('xivi',&
-          &                 'temporally and vertically integrated cloud ice content',&
+          &                 'vertically integrated cloud ice content',&
           &                 's kg/m**2', 232, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
        !  !--- omega (for debugging) ---
@@ -1750,28 +1732,28 @@ CONTAINS
           &                   'average over output total preipitation flux',&
           &                   'kg/m**2/s', 110, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-          CALL addVar(TimeVar('evap_avg',                                         &
-          &           'evaporation accumulated over output interval',            &
+          CALL addVar(TimeVar('evap',                                            &
+          &           'evaporation',                                             &
           &           'kg m-2', 182, 128,                                        &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('lhflx_avg',                                        &
-          &           'latent heat flux accumulated over output interval',       &
+          CALL addVar(TimeVar('lhflx',                                           &
+          &           'latent heat flux',                                        &
           &           'W m-2 s', 147, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('shflx_avg',                                        &
-          &           'sensible heat flux accumulated over output interval',     &
+          CALL addVar(TimeVar('shflx',                                           &
+          &           'sensible heat flux',                                      &
           &           'W m-2 s', 146, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('u_stress_avg',                                     &
-          &           'surface wind stress accumulated over output interval',    &
+          CALL addVar(TimeVar('u_stress',                                        &
+          &           'surface wind stress',                                     &
           &           'N m-2 s', 180, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('v_stress_avg',                                     &
-          &           'surface wind stress accumulated over output interval',    &
+          CALL addVar(TimeVar('v_stress',                                        &
+          &           'surface wind stress',                                     &
           &           'N m-2 s', 181, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
@@ -1789,11 +1771,6 @@ CONTAINS
             WRITE(name,'(a,i1)') "shflx_tile_",jt
             CALL addVar(TimeVar(TRIM(name), TRIM(name),'W m-2',146,128,            &
             &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-
-            WRITE(name,'(a,i1)') "dshflx_dT_avg_tile",jt
-            CALL addVar(TimeVar(TRIM(name), TRIM(name),'W m-2 K-1',255,255,        &
-            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-
 
             WRITE(name,'(a,i1)') "u_stress_tile_",jt
             CALL addVar(TimeVar(TRIM(name), TRIM(name),'N m-2',180,128,            &
@@ -2081,6 +2058,7 @@ CONTAINS
 
       ENDIF
 
+#endif
     ELSE 
       ! ocean
       ! 3-dim lsm-masks
@@ -2098,20 +2076,21 @@ CONTAINS
       &                     gridEdgeID(k_jg), &
       &                     zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-      CALL addVar(ConstVar('rbasin_c',&
-      &                    '2d basin ID on cells',&
-      &                    '', 1, 128,&
-      &                     vlistID(k_jg),&
-      &                     gridCellID(k_jg), &
-      &                     zaxisID_surface(k_jg)),&
-      &           k_jg)
-      CALL addVar(ConstVar('rregio_c',&
-      &                    '2d region ID on cells',&
-      &                    '', 1, 128,&
-      &                     vlistID(k_jg),&
-      &                     gridCellID(k_jg), &
-      &                     zaxisID_surface(k_jg)),&
-      &           k_jg)
+     ! removed from the patch_3D, available as interger files with nml output
+     !CALL addVar(ConstVar('rbasin_c',&
+     !&                    '2d basin ID on cells',&
+     !&                    '', 1, 128,&
+     !&                     vlistID(k_jg),&
+     !&                     gridCellID(k_jg), &
+     !&                     zaxisID_surface(k_jg)),&
+     !&           k_jg)
+     !CALL addVar(ConstVar('rregio_c',&
+     !&                    '2d region ID on cells',&
+     !&                    '', 1, 128,&
+     !&                     vlistID(k_jg),&
+     !&                     gridCellID(k_jg), &
+     !&                     zaxisID_surface(k_jg)),&
+     !&           k_jg)
       CALL addVar(ConstVar('bottom_thick_c',&
       &                    'individual bottom thickness on cells',&
       &                    '', 1, 128,&
@@ -2722,7 +2701,6 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
-    INTEGER            :: n_tot
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 
@@ -2762,6 +2740,7 @@ CONTAINS
   !! If delete is set after I/O, the pointer has to be deallocated
   !! (because it is not pointing to another variable but has been allocated here).
 
+#ifndef __ICON_OCEAN_ONLY__
   SUBROUTINE get_outvar_ptr_ha(varname, jg, ptr2, ptr3, reset, delete)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
@@ -2812,19 +2791,15 @@ CONTAINS
       CASE ('PHIS');            ptr2 => p_diag%geo_ic(:,nlevp1,:)
       CASE ('cosmu0');          ptr2 => prm_field(jg)%cosmu0
       CASE ('flxdwswtoa');      ptr2 => prm_field(jg)%flxdwswtoa
-      CASE ('APRL');            ptr2 => prm_field(jg)%aprl(:,:);   reset = .TRUE.
-      CASE ('APRC');            ptr2 => prm_field(jg)%aprc(:,:);   reset = .TRUE.
-      CASE ('APRS');            ptr2 => prm_field(jg)%aprs(:,:);   reset = .TRUE.
       CASE ('RSFL');            ptr2 => prm_field(jg)%rsfl(:,:)
       CASE ('RSFC');            ptr2 => prm_field(jg)%rsfc(:,:)
       CASE ('SSFL');            ptr2 => prm_field(jg)%ssfl(:,:)
       CASE ('SSFC');            ptr2 => prm_field(jg)%ssfc(:,:)
       CASE ('ACLC');            ptr3 => prm_field(jg)%aclc
-      CASE ('ACLCAC');          ptr3 => prm_field(jg)%aclcac;      reset = .TRUE.
-      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:); reset = .TRUE.
-      CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
-      CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
-      CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
+      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:)
+      CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:)
+      CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:)
+      CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:)
       CASE ('tsurfw');          ptr2 => prm_field(jg)%tsurfw(:,:)
       CASE ('tsurfi');          ptr2 => prm_field(jg)%tsurfi(:,:)
       CASE ('tsurfl');          ptr2 => prm_field(jg)%tsurfl(:,:)
@@ -2851,46 +2826,23 @@ CONTAINS
       CASE ('albnirdif');   ptr2 => prm_field(jg)%albnirdif
 
         !KF  the reset command can only be used for 'plain' fields
-      CASE ('swflxsfc_avg')
-                                ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
-                                             prm_field(jg)% swflxsfc_avg(:,:)=0.0_wp
-      CASE ('lwflxsfc_avg') 
-                               ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data)
-                                             prm_field(jg)% lwflxsfc_avg(:,:)=0.0_wp
-      CASE ('dlwfsfc_dT_avg') 
-                               ptr2 => dup2(prm_field(jg)%dlwflxsfc_dT_avg(:,:)/dt_data)
-                                             prm_field(jg)%dlwflxsfc_dT_avg(:,:)=0.0_wp
-      CASE ('swflxtoa_avg')
-                               ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data)
-                                            prm_field(jg)% swflxtoa_avg(:,:) = 0.0_wp
-      CASE ('lwflxtoa_avg')
-                               ptr2 => dup2(prm_field(jg)% lwflxtoa_avg(:,:)/dt_data)
-                                            prm_field(jg)% lwflxtoa_avg(:,:) = 0.0_wp
       CASE ('TOTPREC_AVG')
-                               ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data)
-                                       prm_field(jg)% totprec_avg(:,:) = 0.0_wp
-      CASE ('evap_avg')
-                               ptr2 => dup2(prm_field(jg)%    evap_avg(:,:)/dt_data)
-                               prm_field(jg)%    evap_avg(:,:) = 0.0_wp
-      CASE ('lhflx_avg')
-                               ptr2 => dup2(prm_field(jg)%   lhflx_avg(:,:)/dt_data)
-                                            prm_field(jg)%   lhflx_avg(:,:) = 0.0_wp
-      CASE ('shflx_avg')
-                              ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data)
-                                           prm_field(jg)%   shflx_avg(:,:) = 0.0_wp
-      CASE ('u_stress_avg') 
-                               ptr2 => dup2(prm_field(jg)%u_stress_avg(:,:)/dt_data)
-                                            prm_field(jg)%u_stress_avg(:,:) = 0.0_wp
-      CASE ('v_stress_avg')  
-                               ptr2 => dup2(prm_field(jg)%v_stress_avg(:,:)/dt_data)
-                               prm_field(jg)%v_stress_avg(:,:) = 0.0_wp
+                                ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data)
+                                        prm_field(jg)% totprec_avg(:,:) = 0.0_wp
 
-      CASE ('swflxsfc');    ptr2 => prm_field(jg)% swflxsfc(:,:)
-      CASE ('lwflxsfc');    ptr2 => prm_field(jg)% lwflxsfc(:,:)
-      CASE ('swflxtoa');    ptr2 => prm_field(jg)% swflxtoa(:,:)
-      CASE ('lwflxtoa');    ptr2 => prm_field(jg)% lwflxtoa(:,:)
+      CASE ('evap');            ptr2 => prm_field(jg)%    evap
+      CASE ('lhflx');           ptr2 => prm_field(jg)%   lhflx
+      CASE ('shflx');           ptr2 => prm_field(jg)%   shflx
+      CASE ('u_stress');        ptr2 => prm_field(jg)%u_stress
+      CASE ('v_stress');        ptr2 => prm_field(jg)%v_stress
+
+      CASE ('swflxsfc');        ptr2 => prm_field(jg)% swflxsfc
+      CASE ('lwflxsfc');        ptr2 => prm_field(jg)% lwflxsfc
+      CASE ('swflxtoa');        ptr2 => prm_field(jg)% swflxtoa
+      CASE ('lwflxtoa');        ptr2 => prm_field(jg)% lwflxtoa
 
       CASE ('OMEGA_PHY');       ptr3 => prm_field(jg)%omega
+
       CASE ('tend_temp_radsw'); ptr3 => prm_tend(jg)%temp_radsw
       CASE ('tend_temp_radlw'); ptr3 => prm_tend(jg)%temp_radlw
       CASE ('tend_temp_cld');   ptr3 => prm_tend(jg)%temp_cld
@@ -2977,12 +2929,6 @@ CONTAINS
 
         IF(varname == 'shflx_tile_'//ctile) THEN
           ptr2 => prm_field(jg)%shflx_tile(:,:,jt)
-          RETURN
-        ENDIF
-
-        IF(varname == 'dshflx_dT_avg_tile'//ctile) THEN
-          ptr2 => dup2(prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)/dt_data)
-          prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)= 0.0_wp
           RETURN
         ENDIF
 
@@ -3096,7 +3042,7 @@ CONTAINS
       CASE ('TOT_PREC_RATE_avg'); ptr2 => prm_diag(jg)%tot_prec_rate_avg(:,:)
       CASE ('CON_PREC_RATE_avg'); ptr2 => prm_diag(jg)%con_prec_rate_avg(:,:)
       CASE ('GSP_PREC_RATE_avg'); ptr2 => prm_diag(jg)%gsp_prec_rate_avg(:,:)
-      CASE ('ALB_RAD');         ptr2 => prm_diag(jg)%albvisdif(:,:)
+      CASE ('ALB_RAD');         ptr2 => prm_diag(jg)%albdif(:,:)
       CASE ('cosmu0');          ptr2 => prm_diag(jg)%cosmu0(:,:)
       CASE ('flxdwswtoa');      ptr2 => prm_diag(jg)%flxdwswtoa(:,:)
       CASE ('SOB_S');           ptr2 => prm_diag(jg)%swflxsfc(:,:)
@@ -3118,17 +3064,17 @@ CONTAINS
       CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%ashfl_s 
       CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%alhfl_s
       CASE ('SHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%shfl_s
        ELSE
          ptr2 => prm_diag(jg)%shfl_s
        ENDIF
       CASE ('LHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 =>  dup2(-1.*prm_diag(jg)%lhfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%lhfl_s
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
@@ -3147,9 +3093,9 @@ CONTAINS
       CASE ('TKVH');            ptr3 => prm_diag(jg)%tkvh      
       !AD> 
       CASE ('Z0')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.5 ) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.igme .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.ismag ) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)
@@ -3353,6 +3299,7 @@ CONTAINS
 
   END SUBROUTINE get_outvar_ptr_nh
 
+#endif
 
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete,p_patch_3D, p_os)
@@ -3396,8 +3343,8 @@ CONTAINS
     SELECT CASE(varname)
       CASE ('wet_c');          ptr3d => p_patch_3D%wet_c
       CASE ('wet_e');          ptr3d => p_patch_3D%wet_e
-      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
-      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
+!      CASE ('rbasin_c');       ptr2d => p_patch_3D%rbasin_c(:,:)
+!      CASE ('rregio_c');       ptr2d => p_patch_3D%rregio_c(:,:)
       CASE ('bottom_thick_c'); ptr2d => p_patch_3D%bottom_thick_c(:,:)
       CASE ('column_thick_c'); ptr2d => p_patch_3D%column_thick_c(:,:)
       CASE ('bottom_thick_e'); ptr2d => p_patch_3D%bottom_thick_e(:,:)
@@ -3556,6 +3503,8 @@ CONTAINS
     REAL(wp), POINTER :: ptr3(:,:,:)
     LOGICAL :: reset, delete
 
+    TYPE(t_patch), POINTER :: p_patch(:)
+
     REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
     ! complete 3d field (nproma,nlev,nblks)
     TYPE(t_collected_var_ptr) :: collected_var_3d
@@ -3566,6 +3515,16 @@ CONTAINS
     itime   = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
 
     ! Make streamvar1/streamvar2 defined everywhere
+
+#ifndef __ICON_OCEAN_ONLY__
+    IF (.NOT.PRESENT(p_patch_3D)) THEN
+      p_patch => p_patch_from_model
+    ELSE
+#endif
+      p_patch => p_patch_3D%p_patch_2D
+#ifndef __ICON_OCEAN_ONLY__
+    ENDIF
+#endif
 
     IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
 
@@ -3588,11 +3547,13 @@ CONTAINS
 
         ! Get a pointer to the variable
         SELECT CASE (iequations)
+#ifndef __ICON_OCEAN_ONLY__
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
             CALL get_outvar_ptr_nh &
               & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
+#endif
           CASE (ihs_ocean)
             CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete,&
                                   & p_patch_3D, p_state_oce)
@@ -3611,6 +3572,7 @@ CONTAINS
             CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
           END SELECT
+#ifndef __ICON_OCEAN_ONLY__
         ELSEIF(.NOT.present(p_patch_3D))THEN
           SELECT CASE(outvar_desc(ivar, jg)%type)
             CASE (GATHER_C)
@@ -3622,6 +3584,7 @@ CONTAINS
             CASE DEFAULT
             CALL finish('write_vlist', 'Illegal type in outvar_desc')
           END SELECT
+#endif
         ENDIF
         klev = outvar_desc(ivar, jg)%nlev
 
@@ -3909,6 +3872,7 @@ CONTAINS
   SUBROUTINE translate_vars(k_jg)
     INTEGER, INTENT(IN)           :: k_jg
     ! local variables
+#ifndef __ICON_OCEAN_ONLY__
     TYPE(t_list_element), POINTER :: list_element
     INTEGER                       :: i, nindex, idx, ivar
     REAL(wp),             POINTER :: ptr2(:,:)
@@ -3946,7 +3910,7 @@ CONTAINS
         END DO ! while
       END DO !i
     END DO ! ivar
-
+#endif
   END SUBROUTINE translate_vars
 
 
@@ -4117,7 +4081,7 @@ CONTAINS
 
   END SUBROUTINE addGlobAtts
 
-
+#ifndef __ICON_OCEAN_ONLY__
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE addAtmAtts(vlist,k_jg,astatus)
     INTEGER, INTENT(IN) :: vlist,k_jg
@@ -4487,11 +4451,13 @@ CONTAINS
      END IF
   END SUBROUTINE addAtmAtts
 
+#endif
 
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE addOceAtts(vlist,istatus)
     INTEGER, INTENT(IN) :: vlist
     INTEGER             :: istatus
   END SUBROUTINE addOceAtts
+
 
 END MODULE mo_io_vlist

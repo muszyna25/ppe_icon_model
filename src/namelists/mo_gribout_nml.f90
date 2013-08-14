@@ -50,6 +50,7 @@ MODULE mo_gribout_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config 
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   
   IMPLICIT NONE
@@ -121,6 +122,14 @@ MODULE mo_gribout_nml
                                         ! .TRUE. : activated
                                         ! .FALSE.: deactivated (use dummy date/time) 
 
+  ! Local definiton for ensemble products
+  INTEGER :: productDefinitionTemplateNumber
+
+  INTEGER :: typeOfEnsembleForecast,        &
+    &        localTypeOfEnsembleForecast,   &
+    &        numberOfForecastsInEnsemble,   &
+    &        perturbationNumber
+
 
   NAMELIST/gribout_nml/  significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
@@ -132,7 +141,12 @@ MODULE mo_gribout_nml
     &                    localNumberOfExperiment,         &
     &                    generatingCenter,                &
     &                    generatingSubcenter,             &
-    &                    ldate_grib_act
+    &                    ldate_grib_act,                  &
+    &                    productDefinitionTemplateNumber, &
+    &                    typeOfEnsembleForecast,          &
+    &                    localTypeOfEnsembleForecast,     &
+    &                    numberOfForecastsInEnsemble,     &
+    &                    perturbationNumber
 
 
 CONTAINS
@@ -168,17 +182,22 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    significanceOfReferenceTime     = 1   ! 1: Start of forecast
-    productionStatusOfProcessedData = 1   ! 1: Oper. test products
-    typeOfProcessedData             = 1   ! 1: Forecast products
-    typeOfGeneratingProcess         = 2   ! 2: Forecast
-    backgroundProcess               = 0   ! 0: main run
-    generatingProcessIdentifier(:)  = 1   ! 1: icogl
-    localDefinitionNumber           = 254 ! 254: Deterministic system
-    localNumberOfExperiment         = 1
-    generatingCenter                = -1  ! output generating center
-    generatingSubcenter             = -1  ! output generating subcenter 
-    ldate_grib_act                  = .TRUE.
+    significanceOfReferenceTime          = 1   ! 1: Start of forecast
+    productionStatusOfProcessedData      = 1   ! 1: Oper. test products
+    typeOfProcessedData                  = 1   ! 1: Forecast products
+    typeOfGeneratingProcess              = 2   ! 2: Forecast
+    backgroundProcess                    = 0   ! 0: main run
+    generatingProcessIdentifier(:)       = 1   ! 1: icogl
+    localDefinitionNumber                = 254 ! 254: Deterministic system
+    localNumberOfExperiment              = 1
+    generatingCenter                     = -1  ! output generating center
+    generatingSubcenter                  = -1  ! output generating subcenter 
+    ldate_grib_act                       = .TRUE.
+    productDefinitionTemplateNumber      = -1  ! (undefined, will not be set if unchanged)
+    typeOfEnsembleForecast               = -1  ! (undefined, will not be set if unchanged)
+    localTypeOfEnsembleForecast          = -1  ! (undefined, will not be set if unchanged)
+    numberOfForecastsInEnsemble          = -1  ! (undefined, will not be set if unchanged)
+    perturbationNumber                   = -1  ! (undefined, will not be set if unchanged)
 
 
 
@@ -197,9 +216,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('gribout_nml', STATUS=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), gribout_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, gribout_nml)
+      READ (nnml, gribout_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), gribout_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -217,28 +238,38 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      gribout_config(jg)%significanceOfReferenceTime     = &
-        &                significanceOfReferenceTime
-      gribout_config(jg)%productionStatusOfProcessedData = &
-        &                productionStatusOfProcessedData
-      gribout_config(jg)%typeOfProcessedData             = &
-        &                typeOfProcessedData
-      gribout_config(jg)%typeOfGeneratingProcess         = &
-        &                typeOfGeneratingProcess
-      gribout_config(jg)%backgroundProcess               = &
-        &                backgroundProcess
-      gribout_config(jg)%generatingProcessIdentifier     = &
-        &                generatingProcessIdentifier(jg)
-      gribout_config(jg)%localDefinitionNumber           = &
-        &                localDefinitionNumber
-      gribout_config(jg)%localNumberOfExperiment         = &
-        &                localNumberOfExperiment
-      gribout_config(jg)%generatingCenter                = &
-        &                generatingCenter
-      gribout_config(jg)%generatingSubcenter             = &
-        &                generatingSubcenter
-      gribout_config(jg)%ldate_grib_act                  = &
-        &                ldate_grib_act
+      gribout_config(jg)%significanceOfReferenceTime       = &
+        &                significanceOfReferenceTime       
+      gribout_config(jg)%productionStatusOfProcessedData   = &
+        &                productionStatusOfProcessedData   
+      gribout_config(jg)%typeOfProcessedData               = &
+        &                typeOfProcessedData               
+      gribout_config(jg)%typeOfGeneratingProcess           = &
+        &                typeOfGeneratingProcess           
+      gribout_config(jg)%backgroundProcess                 = &
+        &                backgroundProcess                 
+      gribout_config(jg)%generatingProcessIdentifier       = &
+        &                generatingProcessIdentifier(jg)   
+      gribout_config(jg)%localDefinitionNumber             = &
+        &                localDefinitionNumber             
+      gribout_config(jg)%localNumberOfExperiment           = &
+        &                localNumberOfExperiment           
+      gribout_config(jg)%generatingCenter                  = &
+        &                generatingCenter                  
+      gribout_config(jg)%generatingSubcenter               = &
+        &                generatingSubcenter               
+      gribout_config(jg)%ldate_grib_act                    = &
+        &                ldate_grib_act                    
+      gribout_config(jg)%productDefinitionTemplateNumber   = &
+        &                productDefinitionTemplateNumber       
+      gribout_config(jg)%typeOfEnsembleForecast            = &
+        &                typeOfEnsembleForecast       
+      gribout_config(jg)%localTypeOfEnsembleForecast       = &
+        &                localTypeOfEnsembleForecast
+      gribout_config(jg)%numberOfForecastsInEnsemble       = &
+        &                numberOfForecastsInEnsemble
+      gribout_config(jg)%perturbationNumber                = &
+        &                perturbationNumber
     ENDDO
 
 

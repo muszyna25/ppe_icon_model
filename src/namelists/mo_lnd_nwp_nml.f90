@@ -48,6 +48,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   USE mo_lnd_nwp_config,      ONLY: config_nlev_snow   => nlev_snow     , &
     &                               config_ntiles      => ntiles_lnd    , &
@@ -62,10 +63,9 @@ MODULE mo_lnd_nwp_nml
     &                               config_lmulti_snow => lmulti_snow   , &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
-    &                               config_itype_gscp  => itype_gscp    , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
-    &                               config_itype_tran  => itype_tran    , &
+    &                              config_itype_lndtbl => itype_lndtbl  , &
     &                               config_itype_root  => itype_root    , &
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
@@ -93,10 +93,9 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  frlake_thrhld     !< fraction threshold for creating a lake grid point
   REAL(wp)::  frsea_thrhld      !< fraction threshold for creating a sea grid point
   REAL(wp)::  max_toplaydepth   !< maximum depth of uppermost snow layer for multi-layer snow scheme
-  INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
-  INTEGER ::  itype_tran        !< type of surface to atmospher transfer
+  INTEGER ::  itype_lndtbl      !< choice of table for associating surface parameters to land-cover classes
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_interception!< type of plant interception
@@ -108,7 +107,7 @@ MODULE mo_lnd_nwp_nml
 
   LOGICAL ::       &
        lseaice,    & !> forecast with sea ice model
-       llake,      & !! forecst with lake model FLake
+       llake,      & !! forecast with lake model FLake
        lmelt     , & !! soil model with melting process
        lmelt_var , & !! freezing temperature dependent on water content
        lmulti_snow,& !! run the multi-layer snow model
@@ -122,11 +121,11 @@ MODULE mo_lnd_nwp_nml
 
   NAMELIST/lnd_nml/ nlev_snow, ntiles                         , &
     &               frlnd_thrhld, lseaice, llake, lmelt       , &
-    &               frlndtile_thrhld, frlake_thrhld, frsea_thrhld, &
-    &               lmelt_var, lmulti_snow, itype_gscp        , & 
+    &               frlndtile_thrhld, frlake_thrhld           , &
+    &               frsea_thrhld, lmelt_var, lmulti_snow      , & 
     &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
     &               itype_evsl                                , & 
-    &               itype_tran                                , & 
+    &               itype_lndtbl                              , & 
     &               itype_root                                , & 
     &               itype_heatcond                            , & 
     &               itype_interception                        , & 
@@ -187,7 +186,14 @@ MODULE mo_lnd_nwp_nml
     nlev_snow      = 2       ! 2 = default value for number of snow layers
     ntiles         = 1       ! 1 = default value for number of static surface types
     frlnd_thrhld   = 0.05_wp ! fraction threshold for creating a land grid point
-    frlake_thrhld  = 0.05_wp ! fraction threshold for creating a lake grid point
+
+    ! For the time being, we need to stick to a fr_lake threshold of 0.5, since the external 
+    ! parameter field depth_lk is only filled with meaningful values for fr_lake>0.5. 
+    ! For fr_lake<0.5 depth_lk is currently set to -1. As soon as this is 'fixed' in extpar, 
+    ! the lake threshold value can be set to lower values, again. 
+!DR    frlake_thrhld  = 0.05_wp ! fraction threshold for creating a lake grid point
+    frlake_thrhld  = 0.5_wp  ! fraction threshold for creating a lake grid point
+
     frsea_thrhld   = 0.05_wp ! fraction threshold for creating a sea grid point
     frlndtile_thrhld = 0.05_wp ! fraction threshold for retaining the respective 
                              ! tile for a grid point
@@ -198,10 +204,9 @@ MODULE mo_lnd_nwp_nml
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
-    itype_gscp     = 3       ! type of grid-scale precipitation physics
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
-    itype_tran     = 2       ! type of surface to atmosphere transfer
+    itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 1       ! type of root density distribution
     itype_heatcond = 1       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
@@ -212,7 +217,7 @@ MODULE mo_lnd_nwp_nml
 
 
     lseaice    = .TRUE.
-    llake      = .FALSE.     ! to be implemented
+    llake      = .FALSE.     ! if .TRUE., lake model ist used
     
 
 
@@ -231,9 +236,11 @@ MODULE mo_lnd_nwp_nml
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('lnd_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), lnd_nml)   ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, lnd_nml)
+      READ (nnml, lnd_nml, iostat=istat)                           ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), lnd_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -269,10 +276,9 @@ MODULE mo_lnd_nwp_nml
       config_lmulti_snow = lmulti_snow
       config_max_toplaydepth = max_toplaydepth
       config_idiag_snowfrac = idiag_snowfrac
-      config_itype_gscp  = itype_gscp
       config_itype_trvg  = itype_trvg
       config_itype_evsl  = itype_evsl
-      config_itype_tran  = itype_tran
+      config_itype_lndtbl= itype_lndtbl
       config_itype_root  = itype_root
       config_lstomata    = lstomata
       config_l2tls       = l2tls

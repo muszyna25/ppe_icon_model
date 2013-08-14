@@ -49,6 +49,7 @@ MODULE mo_extpar_nml
                                   & config_l_emiss            => l_emiss,            &
                                   & config_heightdiff_threshold => heightdiff_threshold, &
                                   & config_extpar_filename    => extpar_filename
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -105,9 +106,11 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('extpar_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), extpar_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, extpar_nml)
+      READ (nnml, extpar_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), extpar_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

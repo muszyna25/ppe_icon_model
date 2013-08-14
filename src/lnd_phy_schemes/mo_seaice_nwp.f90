@@ -60,6 +60,8 @@
 !!
 !! Modification by Daniel Reinert, DWD (2012-11-07)
 !! - moved tf_salt to mo_physical_constant, since it is also needed elsewhere
+!! Modification by Daniel Reinert, DWD (2013-07-09)
+!! - added subroutine for coldstart initialization
 !!
 !!
 !! @par Copyright
@@ -181,6 +183,7 @@ MODULE mo_seaice_nwp
          &  hice_min            , & ! parameter 
          &  hice_ini            , & ! parameter
          &  seaice_init_nwp     , & ! procedure     
+         &  seaice_coldinit_nwp , & ! procedure   
          &  seaice_timestep_nwp     ! procedure  
 
 
@@ -381,7 +384,7 @@ CONTAINS
 
   SUBROUTINE seaice_timestep_nwp (                                      &
                               &  dtime,                                 &
-                              &  nproma, nsigb,                         &
+                              &  nsigb,                                 &
                               &  qsen, qlat, qlwrnet, qsolnet,          &
                               &  tice_p, hice_p, tsnow_p, hsnow_p,      &
                               &  tice_n, hice_n, tsnow_n, hsnow_n,      &
@@ -396,11 +399,8 @@ CONTAINS
                          &  dtime  !< model time step [s]
 
     INTEGER, INTENT(IN) ::        &
-                        &  nproma !< Array (vector) dimension
-
-    INTEGER, INTENT(IN) ::        &
                         &  nsigb  !< number of grid boxes within a block 
-                                  !< where the sea ice is present 
+                                  !< where the sea ice is present (<=nproma)
 
     REAL(wp), DIMENSION(:), INTENT(IN) ::           & 
                                            &  qsen    , &  !< sensible heat flux at the surface [W/m^2]
@@ -437,7 +437,7 @@ CONTAINS
                          &  ci_o_alf     = ci/alf        
 
     ! Local variables 
-    REAL(wp), DIMENSION(nproma) :: &
+    REAL(wp), DIMENSION(nsigb) :: &
                                 &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
                                 &  dhicedt , &  !< time tendency of ice thickness [m/s] 
                                 &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
@@ -588,16 +588,28 @@ CONTAINS
 
     ! Store time tendencies (optional)
     IF (PRESENT(opt_dticedt)) THEN
-      opt_dticedt(:) = dticedt(:)
+      opt_dticedt(1:nsigb)  = dticedt(1:nsigb)
+      IF (nsigb < SIZE(opt_dticedt)) THEN
+        opt_dticedt(nsigb+1:) = 0._wp 
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dhicedt)) THEN
-      opt_dhicedt(:) = dhicedt(:)
+      opt_dhicedt(1:nsigb)  = dhicedt(1:nsigb)
+      IF (nsigb < SIZE(opt_dhicedt)) THEN
+        opt_dhicedt(nsigb+1:) = 0._wp
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dtsnowdt)) THEN
-      opt_dtsnowdt(:) = dtsnowdt(:)
+      opt_dtsnowdt(1:nsigb) = dtsnowdt(1:nsigb)
+      IF (nsigb < SIZE(opt_dtsnowdt)) THEN
+        opt_dtsnowdt(nsigb+1:)= 0._wp
+      ENDIF
     ENDIF
     IF (PRESENT(opt_dhsnowdt)) THEN
-      opt_dhsnowdt(:) = dhsnowdt(:)
+      opt_dhsnowdt(1:nsigb) = dhsnowdt(1:nsigb)
+      IF (nsigb < SIZE(opt_dhsnowdt)) THEN
+        opt_dhsnowdt(nsigb+1:)= 0._wp
+      ENDIF
     ENDIF
  
     !-----------------------------------------------------------------------------------------------
@@ -605,5 +617,95 @@ CONTAINS
     !===============================================================================================
 
   END SUBROUTINE seaice_timestep_nwp
+
+
+
+
+  !>
+  !! Coldstart for sea-ice parameterization scheme. 
+  !!
+  !! Coldstart for sea-ice parameterization scheme. Sea-ice surface temperature and sea-ice 
+  !! thickness are initialized with meaningful values.
+  !! Note that an estimate of the sea-ice temperature is required for the cold start and is 
+  !! assumed to be available. The only option at the time being is to use the IFS skin 
+  !! tempperature for the cold start initialization of t_ice. Since an estimate of the 
+  !! ice thickness h_ice is generally not available, h_ice is initialized with a 
+  !! meaningful constant value (1m). 
+  !! 
+  !! 
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2013-07-09)
+  !!
+  !! Modification by <name>, <institution> (<yyyy>-<mm>-<dd>)
+  !!
+
+  SUBROUTINE seaice_coldinit_nwp (                              & 
+                          &  nproma,                            &
+                          &  frice_thrhld,                      &
+                          &  frsi,                              &
+                          &  temp_in,                           &
+                          &  tice_p, hice_p, tsnow_p, hsnow_p,  &
+                          &  tice_n, hice_n, tsnow_n, hsnow_n   &
+                          &  )
+
+    IMPLICIT NONE
+
+    ! Procedure arguments 
+
+    INTEGER, INTENT(IN)  ::                &
+                         &  nproma           !< Array (vector) dimension 
+
+    REAL(wp), INTENT(IN) :: frice_thrhld     !< fraction threshold for creating a sea grid point
+
+    REAL(wp), DIMENSION(:), INTENT(IN)    ::           &
+                                          &  frsi    , &  !< sea-ice fraction [-]
+                                          &  temp_in      !< meaningfull guess of ice surface temperature [K] 
+                                                          !  e.g. tskin from IFS 
+
+
+    REAL(wp), DIMENSION(:), INTENT(INOUT) ::           &
+                                          &  tice_p  , &  !< temperature of ice upper surface at previous time level [K] 
+                                          &  hice_p  , &  !< ice thickness at previous time level [m] 
+                                          &  tsnow_p , &  !< temperature of snow upper surface at previous time level [K] 
+                                          &  hsnow_p , &  !< snow thickness at previous time level [m] 
+                                          &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
+                                          &  hice_n  , &  !< ice thickness at new time level [m] 
+                                          &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
+                                          &  hsnow_n      !< snow thickness at new time level [m] 
+
+    ! Local variables 
+
+    INTEGER ::      &
+            &  isi  !< DO loop index
+
+
+    REAL(wp), PARAMETER :: h_ice_coldstart = 1.0_wp   ! sea-ice thickness for cold start [m]
+
+    !===============================================================================================
+    !  Start calculations
+    !-----------------------------------------------------------------------------------------------
+
+
+    ! Loop over all grid boxes
+    DO isi=1, nproma
+
+      IF ( frsi(isi) > frice_thrhld ) THEN  ! ice point
+
+        hice_p(isi)  = h_ice_coldstart ! constant ice thickness of 1m 
+        tice_p(isi)  = temp_in(isi)    ! some proper estimate (here: tskin from IFS)
+        tsnow_p(isi) = temp_in(isi) 
+        hsnow_p(isi) = 0._wp           ! snow over ice is not treated explicitly 
+
+        ! Set variables at new time level
+        tice_n(isi)  = tice_p(isi)     
+        hice_n(isi)  = hice_p(isi)     
+        tsnow_n(isi) = tsnow_p(isi)    
+        hsnow_n(isi) = hsnow_p(isi)
+      ENDIF
+
+    END DO ! isi  
+
+  END SUBROUTINE seaice_coldinit_nwp
+
 
 END MODULE mo_seaice_nwp

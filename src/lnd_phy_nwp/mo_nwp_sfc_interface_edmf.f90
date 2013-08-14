@@ -108,6 +108,8 @@ CONTAINS
                   rho_snow_mult_ex , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height                                   (  m  )
                   w_i_ex           , & ! water content of interception water           (m H2O)
+                  w_p_ex           , & ! water content of pond interception water      (m H2O)
+                  w_s_ex           , & ! water content of interception snow            (m H2O)
                   t_so_ex          , & ! soil temperature (main level)                 (  K  )
                   w_so_ex          , & ! total water conent (ice + liquid water)       (m H20)
                   w_so_ice_ex      , & ! ice content                                   (m H20)
@@ -184,8 +186,7 @@ CONTAINS
                   w_snow_eff_ex    , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height  
-                  w_i_ex               ! water content of interception water           (m H2O)
-  REAL(wp), DIMENSION(nproma,ntiles_total ):: &
+                  w_i_ex           , & ! water content of interception water           (m H2O)
                   w_p_ex           , & ! water content of interception water           (m H2O)
                   w_s_ex               ! water content of interception water           (m H2O)
 
@@ -570,7 +571,8 @@ IF ( .true. ) THEN
         &  nsubs0=jb,         nsubs1=isubs                   , & ! unused except for optional debug output
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & ! without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
-        &  inwp_turb=atm_phy_nwp_config(jg)%inwp_turb        , &
+        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , &
+        &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes
         &  dt=tcall_sfc_jg                                   , &
         &  soiltyp_subs = soiltyp_t(:,isubs)                 , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,isubs)                   , & ! fraction of plant cover             --
@@ -1152,7 +1154,6 @@ endif
       !
       CALL seaice_timestep_nwp (       &
         &   dtime   = dtime,           &
-        &   nproma  = nproma,          & !in
         &   nsigb   = i_count,         & !in
         &   qsen    = shfl_s   (:),    & !in 
         &   qlat    = lhfl_s   (:),    & !in

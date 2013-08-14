@@ -51,15 +51,17 @@ MODULE mo_sea_ice
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_exception,           ONLY: finish, message
-  USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary 
+  USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, &
     &                               FORCING_FROM_FILE_FLUX
   USE mo_sea_ice_nml,         ONLY: i_ice_therm
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_restart_list
-  USE mo_var_list,            ONLY: add_var
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, &
+    &                               ocean_default_list, ocean_restart_list, set_oce_tracer_info
+  USE mo_var_list,            ONLY: add_var, add_ref, groups
+  USE mo_linked_list,         ONLY: t_var_list
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
   USE mo_grib2
@@ -70,7 +72,7 @@ MODULE mo_sea_ice
     &                               t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
@@ -84,7 +86,7 @@ MODULE mo_sea_ice
   ! contained in mo_sea_ice_types
 
   ! public subroutines
-  PUBLIC :: construct_sea_ice 
+  PUBLIC :: construct_sea_ice
   PUBLIC :: destruct_sea_ice
   PUBLIC :: construct_sfcflx
   PUBLIC :: construct_atmos_for_ocean
@@ -117,7 +119,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Constructor of sea-ice model, allocates all components and assigns zero. 
+  !> Constructor of sea-ice model, allocates all components and assigns zero.
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
@@ -145,67 +147,67 @@ CONTAINS
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Tsurf', p_ice%Tsurf ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('Tsurf', '', 'surface temperature', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T1', p_ice%T1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T2', p_ice%T2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E1', p_ice%E1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E2', p_ice%E2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'vol', p_ice%vol ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('vol', 'm^3', 'ice volume', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hi', p_ice%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hs', p_ice%hs ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hiold', p_ice%hiold ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hiold', 'm', 'ice thickness (last timstep)', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hsold', p_ice%hsold ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hsold', 'm', 'snow thickness (last timstep)', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'Qtop', p_ice%Qtop ,&
@@ -213,13 +215,13 @@ CONTAINS
       &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Qbot', p_ice%Qbot ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'heatocei', p_ice%heatocei ,&
@@ -227,14 +229,14 @@ CONTAINS
       &          t_cf_var('heatocei', 'J', 'Energy to ocean when all ice is melted', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'surfmelt', p_ice%surfmelt ,&
@@ -242,57 +244,56 @@ CONTAINS
       &          t_cf_var('surfmelt', 'm', 'surface melt water running into ocean', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'surfmeltT', p_ice%surfmeltT ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('surfmeltT', 'C', 'Mean temperature of surface melt water', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
-
 
     CALL add_var(ocean_restart_list, 'evapwi', p_ice%evapwi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('evapwi', 'kg/m^2', 'amount of evaporated water if no ice left', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'conc', p_ice%conc ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'ice_u', p_ice%u ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_u', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'ice_v', p_ice%v ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_v', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
-      
+
     CALL add_var(ocean_restart_list, 'concSum', p_ice%concSum ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('concSum', '', 'total ice concentration', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'newice', p_ice%newice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('newice', 'm', 'new ice groth in open water', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
@@ -300,7 +301,7 @@ CONTAINS
       &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     ALLOCATE(p_ice%hi_lim(i_no_ice_thick_class), STAT=ist)
@@ -320,7 +321,7 @@ CONTAINS
   END SUBROUTINE construct_sea_ice
   !-------------------------------------------------------------------------
   !
-  !> Destructor of sea-ice model, deallocates all components. 
+  !> Destructor of sea-ice model, deallocates all components.
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
@@ -340,7 +341,7 @@ CONTAINS
     END IF
 
     CALL message(TRIM(routine), 'end' )
-   
+
   END SUBROUTINE destruct_sea_ice
   !-------------------------------------------------------------------------
   !
@@ -350,13 +351,18 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE construct_sfcflx(p_patch, p_sfc_flx)
+  SUBROUTINE construct_sfcflx(p_patch, p_sfc_flx, var_list)
     !
     TYPE(t_patch),   INTENT(IN)    :: p_patch
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_var_list),INTENT(INOUT) :: var_list
 
     ! Local variables
-    INTEGER :: nblks_c, ist
+    INTEGER                        :: nblks_c, ist, jtrc, i
+    CHARACTER(len=max_char_length) :: oce_tracer_names(no_tracer),&
+    &                                 oce_tracer_units(no_tracer),&
+    &                                 oce_tracer_longnames(no_tracer)
+    INTEGER                        :: oce_tracer_codes(no_tracer)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_sfcflx'
 
@@ -365,103 +371,240 @@ CONTAINS
 
     nblks_c = p_patch%nblks_c
 
-    ALLOCATE(p_sfc_flx%forc_wind_u(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind u failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_wind_v(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind v failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_hflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwfx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing freshwater flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_swflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for short wave flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_lwflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for long wave flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_ssflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surface sensible heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_slflx(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surface latent heat flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_precip(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for precipitation flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_evap(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for evaporation flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_runoff(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for river runoff flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwbc(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for sum of BC freshwater flux failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_hfrelax(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for heat flux due to relaxation failed')
-    END IF
-    ALLOCATE(p_sfc_flx%forc_fwrelax(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for freshwater flux due to relaxation failed')
-    END IF
-    IF(no_tracer>=1)THEN
-      ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'allocation for tracer forcing failed')
-      END IF
+    CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_u', 'm/s', 'forc_wind_u', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_v', 'm/s', 'forc_wind_v', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hflx', 'm/s', 'forc_hflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwfx', p_sfc_flx%forc_fwfx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwfx', 'm/s', 'forc_fwfx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_swflx', 'm/s', 'forc_swflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_lwflx', p_sfc_flx%forc_lwflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_lwflx', 'm/s', 'forc_lwflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_ssflx', p_sfc_flx%forc_ssflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_ssflx', 'm/s', 'forc_ssflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_slflx', p_sfc_flx%forc_slflx , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_slflx', 'm/s', 'forc_slflx', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_runoff', p_sfc_flx%forc_runoff , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwbc', p_sfc_flx%forc_fwbc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwbc', 'm/s', 'forc_fwbc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hfrelax', 'm/s', 'forc_hfrelax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    CALL add_var(var_list, 'forc_fwrelax', p_sfc_flx%forc_fwrelax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/))
+    IF(no_tracer>=1) THEN
+      ! there are four tracer related fields: tracer focing, tracer relaxation
+      ! and both accumulated
+      CALL add_var(var_list, 'forc_tracer', p_sfc_flx%forc_tracer , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'forc_tracer_relax', p_sfc_flx%forc_tracer_relax , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'forc_tracer_acc', p_sfc_flx%forc_tracer_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_acc', 'm/s', 'forc_tracer_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'forc_tracer_relax_acc', p_sfc_flx%forc_tracer_relax_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('forc_tracer_relax_acc', 'm/s', 'forc_tracer_relax_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-      ALLOCATE(p_sfc_flx%forc_tracer_relax(nproma,nblks_c, no_tracer), STAT=ist)
-      IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'allocation for tracer relaxation forcing failed')
-      END IF
+      ALLOCATE(p_sfc_flx%tracer_ptr(no_tracer*4))
+
+      CALL set_oce_tracer_info(no_tracer           , &
+        &                      oce_tracer_names    , &
+        &                      oce_tracer_longnames, &
+        &                      oce_tracer_codes    , &
+        &                      oce_tracer_units)
+      DO jtrc = 1,no_tracer
+        CALL add_ref( var_list, 'forc_tracer', &
+          &           'forc_tracer_'//TRIM(oce_tracer_names(jtrc)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer'//TRIM(oce_tracer_names(jtrc)), &
+          &                    oce_tracer_units(jtrc), &
+          &                    'forcing: '//TRIM(oce_tracer_longnames(jtrc)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
+      DO jtrc = no_tracer+1,2*no_tracer
+        i = jtrc - no_tracer
+        CALL add_ref( var_list, 'forc_tracer_relax', &
+          &           'forc_tracer_relax_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_relax'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/))
+      END DO
+      DO jtrc = (2*no_tracer)+1,3*no_tracer
+        i = jtrc - 2*no_tracer
+        CALL add_ref( var_list, 'forc_tracer_acc', &
+          &           'forc_tracer_acc_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_acc'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+      END DO
+      DO jtrc = (3*no_tracer)+1,4*no_tracer
+        i = jtrc - 3*no_tracer
+        CALL add_ref( var_list, 'forc_tracer_relax_acc', &
+          &           'forc_tracer_relax_acc_'//TRIM(oce_tracer_names(i)),          &
+          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+          &           t_cf_var('forc_tracer_relax_acc'//TRIM(oce_tracer_names(i)), &
+          &                    oce_tracer_units(i), &
+          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+          &           ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+      END DO
     ENDIF
+    CALL add_var(var_list, 'forc_wind_u_acc', p_sfc_flx%forc_wind_u_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_u_acc', 'm/s', 'forc_wind_u_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_wind_v_acc', p_sfc_flx%forc_wind_v_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_wind_v_acc', 'm/s', 'forc_wind_v_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_hflx_acc', p_sfc_flx%forc_hflx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hflx_acc', 'm/s', 'forc_hflx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_fwfx_acc', p_sfc_flx%forc_fwfx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwfx_acc', 'm/s', 'forc_fwfx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_swflx_acc', p_sfc_flx%forc_swflx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_swflx_acc', 'm/s', 'forc_swflx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_lwflx_acc', p_sfc_flx%forc_lwflx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_lwflx_acc', 'm/s', 'forc_lwflx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_ssflx_acc', p_sfc_flx%forc_ssflx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_ssflx_acc', 'm/s', 'forc_ssflx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_slflx_acc', p_sfc_flx%forc_slflx_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_slflx_acc', 'm/s', 'forc_slflx_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_precip_acc', 'm/s', 'forc_precip_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_evap_acc', p_sfc_flx%forc_evap_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_evap_acc', 'm/s', 'forc_evap_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_runoff_acc', p_sfc_flx%forc_runoff_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_runoff_acc', 'm/s', 'forc_runoff_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_fwbc_acc', p_sfc_flx%forc_fwbc_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwbc_acc', 'm/s', 'forc_fwbc_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_hfrelax_acc', 'm/s', 'forc_hfrelax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'forc_fwrelax_acc', p_sfc_flx%forc_fwrelax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
 
+    ! cartesians
     ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
     END IF
 
-    p_sfc_flx%forc_wind_u(:,:)       = 0.0_wp
-    p_sfc_flx%forc_wind_v(:,:)       = 0.0_wp
-    
     ! init of cartesian coordinates:
     p_sfc_flx%forc_wind_cc(:,:)%x(1) = 0.0_wp
     p_sfc_flx%forc_wind_cc(:,:)%x(2) = 0.0_wp
     p_sfc_flx%forc_wind_cc(:,:)%x(3) = 0.0_wp
-
-    IF(no_tracer>=1)THEN
-      p_sfc_flx%forc_hflx        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwfx        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_swflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_lwflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_ssflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_slflx       (:,:)    = 0.0_wp
-      p_sfc_flx%forc_precip      (:,:)    = 0.0_wp
-      p_sfc_flx%forc_evap        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_runoff      (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwbc        (:,:)    = 0.0_wp
-      p_sfc_flx%forc_hfrelax     (:,:)    = 0.0_wp
-      p_sfc_flx%forc_fwrelax     (:,:)    = 0.0_wp
-      p_sfc_flx%forc_tracer      (:,:,:)  = 0.0_wp
-      p_sfc_flx%forc_tracer_relax(:,:,:)  = 0.0_wp
-    ENDIF
 
     CALL message(TRIM(routine), 'end' )
 
@@ -484,70 +627,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    DEALLOCATE(p_sfc_flx%forc_wind_u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind u failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_wind_v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind v failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_hflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwfx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing freshwater flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_swflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_lwflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_ssflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_slflx, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_precip, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for precip flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_evap, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for evap flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_runoff, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for runoff flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwbc, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for sum of BC freshwater flux failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_hfrelax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heat flux due to relaxation failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_fwrelax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for freshwater flux due to relaxation failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for tracer forcing failed')
-    END IF
-    DEALLOCATE(p_sfc_flx%forc_tracer_relax, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for tracer relaxation failed')
-    END IF
+    ! forcing fields are handled by the ocean_default_list
+
     DEALLOCATE(p_sfc_flx%forc_wind_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for forcing wind cc failed')
@@ -576,7 +657,7 @@ CONTAINS
     CALL message(TRIM(routine), 'start' )
 
     nblks_c = p_patch%nblks_c
-   
+
     ALLOCATE(p_as%tafo(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for tafo failed')
@@ -664,7 +745,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-   
+
     DEALLOCATE(p_as%tafo, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for tafo failed')
@@ -732,6 +813,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ), INTENT(INOUT) :: p_atm_f
     INTEGER,               INTENT(IN)    :: i_no_ice_thick_class
     ! Local variables
+    INTEGER :: ibits = DATATYPE_PACK16
     INTEGER :: nblks_c, ist
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_fluxes'
@@ -740,7 +822,7 @@ CONTAINS
     CALL message(TRIM(routine), 'start' )
 
     nblks_c = p_patch%nblks_c
-   
+
     ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
@@ -827,46 +909,62 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for LWin failed')
      END IF
 
+    !albedos need to go into the restart
+    CALL add_var(ocean_restart_list, 'albvisdirw', p_atm_f%albvisdirw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albvisdirw', '', 'albvisdirw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdirw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdirw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdifw', p_atm_f%albvisdifw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albvisdifw', '', 'albvisdifw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdifw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdifw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdirw', p_atm_f%albnirdirw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albnirdirw', '', 'albnirdirw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdirw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdirw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdifw', p_atm_f%albnirdifw ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('albnirdifw', '', 'albnirdifw', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdifw(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdifw failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdir', p_atm_f%albvisdir ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albvisdir', '', 'albvisdir', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdir failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albvisdif', p_atm_f%albvisdif ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albvisdif', '', 'albvisdif', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albvisdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albvisdif failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdir', p_atm_f%albnirdir ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albnirdir', '', 'albnirdir', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
-    ALLOCATE(p_atm_f%albnirdir(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdir failed')
-    END IF
-
-    ALLOCATE(p_atm_f%albnirdif(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for albnirdif failed')
-    END IF
+    CALL add_var(ocean_restart_list, 'albnirdif', p_atm_f%albnirdif ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('albnirdif', '', 'albnirdif', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          lrestart_cont=.TRUE.)
 
 
     ! Initialise everything with zero
@@ -918,7 +1016,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-   
+
     DEALLOCATE(p_atm_f%sens, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for sens failed')
@@ -1005,47 +1103,6 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocation for LWin failed')
     END IF
 
-
-    DEALLOCATE(p_atm_f%albvisdirw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdirw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdifw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdifw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdirw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdirw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdifw, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdifw failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdir, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdir failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albvisdif, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albvisdif failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdir, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdir failed')
-    END IF
-
-    DEALLOCATE(p_atm_f%albnirdif, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for albnirdif failed')
-    END IF
-
     CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE destruct_atmos_fluxes
@@ -1059,7 +1116,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE ice_init( p_patch, p_os, ice) !, Qatm, QatmAve)
-    TYPE(t_patch), INTENT(in)             :: p_patch 
+    TYPE(t_patch), INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
@@ -1081,7 +1138,7 @@ CONTAINS
     !   CALL alloc_mem_commo_ice (ice, Qatm, QatmAve)
     !   CALL ice_zero            (ice, Qatm, QatmAve)
 
-    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice) 
+    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice)
     !    ice% hi    (i,j,k) = sictho (i,j)
     !    ice% hs    (i,j,k) = sicsno (i,j)
     ! END FORALL
@@ -1093,7 +1150,7 @@ CONTAINS
     ELSE
       Tfw(:,:,:) = Tf
     ENDIF
-      
+
     ice% Tsurf(:,:,:)  = Tf
     ice% T1   (:,:,:)  = Tf
     ice% T2   (:,:,:)  = Tf
@@ -1125,7 +1182,7 @@ CONTAINS
       ice% T2    (:,:,:) = Tfw(:,:,:) + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw(:,:,:))
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
-    
+
     !ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
     !  &                     - sum(draft(:,:,:) * ice%conc(:,:,:),2)
     ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
@@ -1134,9 +1191,9 @@ CONTAINS
     CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE ice_init
-  !-------------------------------------------------------------------------  
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !  ice_fast: Ice routines for atmospheric time step. Sets air-ice fluxes and
   !!    calculates the development of the ice temperature field
@@ -1150,8 +1207,8 @@ CONTAINS
             &   T2,             & ! Temperature of lower layer [degC]
             &   hi,             & ! Ice thickness
             &   hs,             & ! Snow thickness
-            &   Qtop,           & ! Energy flux available for surface melting [W/m2] 
-            &   Qbot,           & ! Energy flux available for bottom melting [W/m2] 
+            &   Qtop,           & ! Energy flux available for surface melting [W/m2]
+            &   Qbot,           & ! Energy flux available for bottom melting [W/m2]
             &   SWnet,          & ! Net shortwave flux [W/m^2]
             &   nonsolar,       & ! Latent and sensible heat flux and longwave radiation [W/m^2]
             &   dnonsolardT,    & ! Derivative of non-solar fluxes w.r.t. temperature [W/m^2/K]
@@ -1182,32 +1239,32 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
-    !------------------------------------------------------------------------- 
-    
+    !-------------------------------------------------------------------------
+
     ! #achim
     IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
       CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
-            &   Tsurf,          & 
-            &   hi,             & 
-            &   hs,             & 
-            &   Qtop,           & 
-            &   Qbot,           & 
-            &   SWnet,          & 
-            &   nonsolar,       & 
+            &   Tsurf,          &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw,            &
             &   doy)
     ELSE IF ( i_ice_therm == 2 ) THEN
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
-            &   Tsurf,          & 
-            &   T1,             & 
-            &   T2,             & 
-            &   hi,             & 
-            &   hs,             & 
-            &   Qtop,           & 
-            &   Qbot,           & 
-            &   SWnet,          & 
-            &   nonsolar,       & 
+            &   Tsurf,          &
+            &   T1,             &
+            &   T2,             &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw)
     ELSE IF ( i_ice_therm == 4 )  THEN
@@ -1235,43 +1292,43 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)  
-    TYPE(t_patch),            INTENT(IN)     :: p_patch 
-    TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-    !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
-    TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
+  SUBROUTINE ice_slow(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+    TYPE (t_patch)            , INTENT(IN)     :: p_patch
+    TYPE (t_hydro_ocean_state), INTENT(INOUT)  :: p_os
+    TYPE (t_sea_ice)          , INTENT (INOUT) :: ice
+    TYPE (t_atmos_fluxes)     , INTENT (INOUT) :: QatmAve
+    TYPE (t_sfc_flx)          , INTENT (INOUT) :: p_sfc_flx
 
     REAL(wp),PARAMETER :: C_iw = 5.5e-3_wp ! Drag coefficient for ice/ocean drag
     INTEGER :: k
-    
+
     !-------------------------------------------------------------------------------
 
     !CALL ave_fluxes     (ice, QatmAve)
     CALL ice_zero       (ice)
     !CALL ice_dynamics   (ice, QatmAve)
-    !! At the moment we just pretend the ice movement is zero and modify the oceanic stress
-    !! accordingly
-    ! This does not appear to work well. Keeping the ice steady produces instabilities in the
-    ! ocean. For the moment we then just multiply the applied stress with 1-concentration.
-    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) ) 
-!      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
-!      &         *p_os%p_diag%u(:,1,:)
-    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) ) 
-!      & + ice%concSum(:,:)*( rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2) ) &
-!      &         *p_os%p_diag%v(:,1,:)
+    ! At the moment we just pretend the ice movement is zero and modify the oceanic stress
+    ! accordingly
+    p_sfc_flx%forc_wind_u(:,:) = p_sfc_flx%forc_wind_u(:,:)*( 1._wp - ice%concSum(:,:) )!         &
+!     & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
+!     &         *p_os%p_diag%u(:,1,:)
+    p_sfc_flx%forc_wind_v(:,:) = p_sfc_flx%forc_wind_v(:,:)*( 1._wp - ice%concSum(:,:) )!         &
+!     & + ice%concSum(:,:)*rhoi/rho_ref*C_iw*sqrt(p_os%p_diag%u(:,1,:)**2+p_os%p_diag%v(:,1,:)**2)&
+!     &         *p_os%p_diag%v(:,1,:)
 
-    
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
+    CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
     ! #achim
-    IF      ( i_ice_therm == 1 ) THEN
-      CALL ice_growth_winton    (p_patch,p_os,ice, QatmAve%rpreci)!, QatmAve%lat)
-    ELSE IF ( i_ice_therm == 2 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
-      CALL ice_growth_zerolayer (p_patch,p_os,ice, QatmAve%rpreci)
+    IF      ( i_ice_therm == 2 ) THEN
+      CALL ice_growth_winton    (p_patch, p_os, ice, QatmAve%rpreci)!, QatmAve%lat)
+    ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
+      CALL ice_growth_zerolayer (p_patch, p_os, ice, QatmAve%rpreci)
     END IF
+
+    CALL dbg_print('IceSlow: hi after growth'       ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. after growth'    ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSum. after growth' ,ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
 
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
@@ -1281,11 +1338,14 @@ CONTAINS
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
+    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_slow
-  !-------------------------------------------------------------------------  
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !  get_atmos_fluxes: Sets the atmospheric fluxes for the update of the ice
   ! !                 temperature
@@ -1294,18 +1354,18 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
-    TYPE(t_patch),            INTENT(IN)    :: p_patch 
+    TYPE(t_patch),            INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE (t_sea_ice),         INTENT(INOUT) :: ice
     TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
 
 !#ifdef coupled
-    !Qatm% SWin   = 
+    !Qatm% SWin   =
     !Qatm% LWin   =
-    !Qatm% sens   = 
+    !Qatm% sens   =
     !Qatm% lat    =
-    !Qatm% dsensdT = 
+    !Qatm% dsensdT =
     !Qatm% dlatdT  =
     !Qatm% dLWdT   =
 !#elif defined CORE
@@ -1315,10 +1375,10 @@ CONTAINS
     CALL calc_bulk_flux_ice(p_patch, p_as, ice , Qatm)
 !#endif
 
-  END SUBROUTINE get_atmos_fluxes 
-  !-------------------------------------------------------------------------  
+  END SUBROUTINE get_atmos_fluxes
+  !-------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !   sum_fluxes: adds atmospheric fluxes for ocean time stepping. Necessary for
   !!      diagnosis, not for the ice model itself.
@@ -1331,26 +1391,26 @@ CONTAINS
     TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     QatmAve % sens   (:,:,:) = QatmAve % sens   (:,:,:) + Qatm % sens   (:,:,:)
-    QatmAve % sensw  (:,:)   = QatmAve % sensw  (:,:)   + Qatm % sensw  (:,:)  
+    QatmAve % sensw  (:,:)   = QatmAve % sensw  (:,:)   + Qatm % sensw  (:,:)
     QatmAve % lat    (:,:,:) = QatmAve % lat    (:,:,:) + Qatm % lat    (:,:,:)
-    QatmAve % latw   (:,:)   = QatmAve % latw   (:,:)   + Qatm % latw   (:,:)  
+    QatmAve % latw   (:,:)   = QatmAve % latw   (:,:)   + Qatm % latw   (:,:)
     QatmAve % LWout  (:,:,:) = QatmAve % LWout  (:,:,:) + Qatm % LWout  (:,:,:)
-    QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)  
+    QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)
     QatmAve % LWnet  (:,:,:) = QatmAve % LWnet  (:,:,:) + Qatm % LWnet  (:,:,:)
-    QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)  
+    QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)
     QatmAve % SWnet  (:,:,:) = QatmAve % SWnet  (:,:,:) + Qatm % SWnet  (:,:,:)
-    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)  
-    QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)  
-    QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)  
-    QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)  
-    QatmAve % counter        = QatmAve % counter + 1 
+    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)
+    QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)
+    QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)
+    QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)
+    QatmAve % counter        = QatmAve % counter + 1
 
-  END SUBROUTINE sum_fluxes  
+  END SUBROUTINE sum_fluxes
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ave_fluxes: calculates the average of the atmospheric fluxes for ocean time  
+  !! ! ave_fluxes: calculates the average of the atmospheric fluxes for ocean time
   !!   sum_fluxes: adds atmospheric fluxes for ocean time stepping. Necessary for
   !!   diagnosis, not for the ice model itself.
   !! @par Revision History
@@ -1386,7 +1446,7 @@ CONTAINS
   END SUBROUTINE ave_fluxes
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! ! ice_zero: set the avereged fluxes to zero
   !! @par Revision History
@@ -1410,7 +1470,7 @@ CONTAINS
     !Qatm    % LWin        (:,:)   = 0._wp
     !Qatm    % rprecw      (:,:)   = 0._wp
     !Qatm    % rpreci      (:,:)   = 0._wp
-                          
+
 !    QatmAve % sens        (:,:,:) = 0._wp
 !    QatmAve % sensw       (:,:)   = 0._wp
 !    QatmAve % lat         (:,:,:) = 0._wp
@@ -1423,7 +1483,7 @@ CONTAINS
 !    QatmAve % LWin        (:,:)   = 0._wp
 !    QatmAve % rprecw      (:,:)   = 0._wp
 !    QatmAve % rpreci      (:,:)   = 0._wp
-!    QatmAve % counter             = 0 
+!    QatmAve % counter             = 0
 
 !    ice     % Qbot        (:,:,:) = 0._wp
 !    ice     % Qtop        (:,:,:) = 0._wp
@@ -1439,14 +1499,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ice_albedo: set ice albedo 
+  !! ! ice_albedo: set ice albedo
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
-  !! ! ice_albedo: set ice albedo 
+  !! ! ice_albedo: set ice albedo
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
@@ -1461,8 +1521,8 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: albvisdif  (nbdim,kice)
     REAL(wp),INTENT(OUT) :: albnirdir  (nbdim,kice)
     REAL(wp),INTENT(OUT) :: albnirdif  (nbdim,kice)
-    
-    
+
+
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
     REAL(wp)            :: albflag(nbdim,kice)
@@ -1474,7 +1534,7 @@ CONTAINS
       DO jc = i_startidx_c,i_endidx_c
 
         albflag (jc,k) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
-    
+
         IF ( hi(jc,k) > 0._wp ) THEN
           IF ( hs(jc,k) > 1.e-2_wp ) THEN
             albvisdir(jc,k) =  albflag(jc,k) * albsm + (1.0_wp-albflag(jc,k)) * albs
@@ -1494,12 +1554,12 @@ CONTAINS
     albnirdif = albvisdir
 
   END SUBROUTINE set_ice_albedo
-  
 
-  
+
+
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! ! upper_ocean_TS: Adjusts the temperature and salinity of the upper ocean grid
   !!                 cell according to atmospheric heat and fresh-water fluxes,
@@ -1512,7 +1572,7 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
-    TYPE(t_patch),             INTENT(IN)    :: p_patch 
+    TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
@@ -1520,10 +1580,10 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     !Local Variables
-    ! position of ice-ocean interface below sea level                       [m] 
+    ! position of ice-ocean interface below sea level                       [m]
     REAL(wp) :: draft(nproma,ice%kice, p_patch%nblks_c)
-    
-    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   & 
+
+    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   &
       & draftAve,      &! average draft of sea ice within a grid cell             [m]
       & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
@@ -1535,7 +1595,7 @@ CONTAINS
       & precw           ! liquid precipitation                                    [m]
 
     ! Needs work with FB_BGC_OCE etc.
-    !REAL(wp)         :: swsum 
+    !REAL(wp)         :: swsum
     !REAL(wp),POINTER :: sao_top(:,:)
     !-------------------------------------------------------------------------------
 
@@ -1560,13 +1620,13 @@ CONTAINS
     zUnderIceOld    (:,:)   = ice%zUnderIce(:,:)
     draft           (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
-    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
-   
-    ! Calculate average change in ice thickness and the snow-to-ice conversion 
+    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:)
+
+    ! Calculate average change in ice thickness and the snow-to-ice conversion
     Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
       &                       ice%conc(:,:,:),2)
     snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),2)
-   
+
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
@@ -1595,7 +1655,7 @@ CONTAINS
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1) &
     !  &                      *zUnderIceOld                                       &
     !  &                      + precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-    !  &                        sum(ice%surfmeltT(:,:,:) * ice%surfmelt * ice%conc(:,:,:),2)) / & 
+    !  &                        sum(ice%surfmeltT(:,:,:) * ice%surfmelt * ice%conc(:,:,:),2)) / &
     !  &                        (zUnderIceOld + sum(ice%surfmelt*ice%conc(:,:,:),2) +    &
     !  &                        precw + preci)
     !
@@ -1619,7 +1679,7 @@ CONTAINS
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
-  !  
+  !
   !>
   !! !! ice_conc_change: Calculates the changes in concentration as well as the grid-cell average
   !                     thickness of new ice forming in open-water areas
@@ -1633,8 +1693,8 @@ CONTAINS
 
     USE mo_sea_ice_nml,         ONLY: hnull, hmin
 
-    TYPE(t_patch),             INTENT(IN)    :: p_patch 
-    TYPE (t_sea_ice),          INTENT(INOUT) :: ice  
+    TYPE(t_patch),             INTENT(IN)    :: p_patch
+    TYPE (t_sea_ice),          INTENT(INOUT) :: ice
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
@@ -1655,7 +1715,7 @@ CONTAINS
     DO k=1,ice%kice
       ice%vol(:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
     ENDDO
-    
+
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
@@ -1669,9 +1729,9 @@ CONTAINS
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
 
       old_conc (:,:)   = ice%conc(:,1,:)
-      ice%conc (:,1,:) = min( 1._wp, & 
+      ice%conc (:,1,:) = min( 1._wp, &
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
-      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc 
+      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc
       !  => hi <- newice/conc + hi*old_conc/conc
       ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
       ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
@@ -1686,7 +1746,7 @@ CONTAINS
     ENDWHERE
 
     ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
-    WHERE (ice%hiold(:,1,:) > ice%hi(:,1,:))
+    WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
       ice%conc(:,1,:) = max( 0._wp, ice%conc(:,1,:) - &
         &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
       ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
@@ -1699,7 +1759,7 @@ CONTAINS
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 
-    ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
+    ice%concSum(:,:)  = SUM(ice%conc(:,:,:),2)
 
     WHERE (ice%hi(:,1,:) <= 0._wp)
       ice%Tsurf(:,1,:) = Tfw(:,:)
@@ -1717,7 +1777,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
-  !! Sets the atmospheric fluxes for the update of the ice 
+  !! Sets the atmospheric fluxes for the update of the ice
   !! temperature and ice growth rates for OMIP forcing
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
@@ -1739,12 +1799,12 @@ CONTAINS
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & esti,           &  ! water vapor pressure at ice surface             [Pa]
-      & sphumida,       &  ! Specific humididty at 2 m height 
+      & sphumida,       &  ! Specific humididty at 2 m height
       & sphumidi,       &  ! Specific humididty at ice surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
-      & dragl0,         &  ! part of dragl                                   
-      & dragl1,         &  ! part of dragl                                   
+      & dragl0,         &  ! part of dragl
+      & dragl1,         &  ! part of dragl
       & dragl,          &  ! Drag coefficient for latent   heat flux
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
@@ -1753,7 +1813,7 @@ CONTAINS
       & dsphumididesti, &  ! Derivative of sphumidi w.r.t. esti
       & destidT,        &  ! Derivative of esti w.r.t. T
       & dfdT               ! Derivative of f w.r.t. T
-    
+
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
@@ -1768,14 +1828,14 @@ CONTAINS
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
     ! subset range pointer
-    all_cells => p_patch%cells%all 
+    all_cells => p_patch%cells%all
 
     !-----------------------------------------------------------------------
-    ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+    ! Compute water vapor pressure and specific humididty in 2m height (esta)
     ! and at water surface (estw) according to "Buck Research Manual (1996)
-    ! (see manuals for instruments at http://www.buck-research.com/); 
-    ! updated from Buck, A. L., New equations for computing vapor pressure and 
-    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+    ! (see manuals for instruments at http://www.buck-research.com/);
+    ! updated from Buck, A. L., New equations for computing vapor pressure and
+    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
 
     aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
@@ -1788,10 +1848,10 @@ CONTAINS
 
     fa   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*ftdewC**2)
     esta = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
-   
+
     sphumida  = alpha * esta/(p_as%pao-beta*esta)
     !-----------------------------------------------------------------------
-    !  Compute longwave radiation according to 
+    !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
     !         long-wave radiation of the Earth with consideration of the effect
     !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
@@ -1812,20 +1872,20 @@ CONTAINS
     Qatm%LWout(:,:,:) = 0._wp
 
     !-----------------------------------------------------------------------
-    !  Calculate bulk equations according to 
-    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+    !  Calculate bulk equations according to
+    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-    !-----------------------------------------------------------------------  
-    
+    !-----------------------------------------------------------------------
+
     rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
-        
+
         rhoair(jc,jb) = p_as%pao(jc,jb)                &
           &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
-        
+
       END DO
     END DO
 
@@ -1924,18 +1984,18 @@ CONTAINS
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
       & esta,           &  ! water vapor pressure at 2 m height              [Pa]
       & estw,           &  ! water vapor pressure at water surface           [Pa]
-      & sphumida,       &  ! Specific humididty at 2 m height 
+      & sphumida,       &  ! Specific humididty at 2 m height
       & sphumidw,       &  ! Specific humididty at water surface
       & ftdewC,         &  ! Dew point temperature in Celsius                [C]
       & rhoair,         &  ! air density                                     [kg/m^3]
-      & dragl0,         &  ! part of dragl                                   
-      & dragl1,         &  ! part of dragl                                   
+      & dragl0,         &  ! part of dragl
+      & dragl1,         &  ! part of dragl
       & dragl,          &  ! Drag coefficient for latent   heat flux
       & drags,          &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
       & fakts,          &  ! Effect of cloudiness on LW radiation
       & humi,           &  ! Effect of air humidity on LW radiation
       & fa, fw             ! Enhancment factor for vapor pressure
-    
+
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
@@ -1951,16 +2011,16 @@ CONTAINS
     ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
 
     ! subset range pointer
-    all_cells => p_patch%cells%all 
+    all_cells => p_patch%cells%all
 
 
 
     !-----------------------------------------------------------------------
-    ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+    ! Compute water vapor pressure and specific humididty in 2m height (esta)
     ! and at water surface (estw) according to "Buck Research Manual (1996)
-    ! (see manuals for instruments at http://www.buck-research.com/); 
-    ! updated from Buck, A. L., New equations for computing vapor pressure and 
-    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+    ! (see manuals for instruments at http://www.buck-research.com/);
+    ! updated from Buck, A. L., New equations for computing vapor pressure and
+    ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
 
     aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
@@ -1972,12 +2032,12 @@ CONTAINS
     fw(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*Tsurf(:,:) **2)
     estw(:,:) = fw(:,:) *aw*EXP((bw-Tsurf(:,:) /dw)*Tsurf(:,:) /(Tsurf(:,:) +cw))
     ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
-   
+
     sphumida(:,:)  = alpha * esta(:,:)/(p_as%pao(:,:)-beta*esta(:,:))
     sphumidw(:,:)  = alpha * estw(:,:)/(p_as%pao(:,:)-beta*estw(:,:))
 
     !-----------------------------------------------------------------------
-    !  Compute longwave radiation according to 
+    !  Compute longwave radiation according to
     !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
     !         long-wave radiation of the Earth with consideration of the effect
     !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
@@ -2016,20 +2076,20 @@ CONTAINS
       &                ( 1._wp-Qatm%albnirdifw(:,:) )*fnirdif*p_as%fswr(:,:)
 
     !-----------------------------------------------------------------------
-    !  Calculate bulk equations according to 
-    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+    !  Calculate bulk equations according to
+    !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-    !-----------------------------------------------------------------------  
-    
+    !-----------------------------------------------------------------------
+
     rhoair(:,:) = 0._wp
     DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
-        
+
         rhoair(jc,jb) = p_as%pao(jc,jb)                &
           &            /(rd*tafoK(jc,jb)*(1.0_wp+0.61_wp*sphumida(jc,jb)) )
-        
+
       END DO
     END DO
 
@@ -2061,5 +2121,4 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce
- 
 END MODULE mo_sea_ice

@@ -39,8 +39,7 @@ USE mo_mpi,                  ONLY: my_process_is_stdio
 USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
   &                                timer_stop, timer_model_init
 USE mo_master_control,       ONLY: is_restart_run
-USE mo_output,               ONLY: init_output_files, close_output_files,&
-  &                                write_output
+USE mo_output,               ONLY: init_output_files, close_output_files
 USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
@@ -58,11 +57,11 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
-  &                                iqc, iqi, iqr, iqs
+  &                                iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time
+USE mo_grid_config,          ONLY: n_dom, start_time, is_plane_torus
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -89,10 +88,10 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_any_output_nml_active
-USE mo_name_list_output,    ONLY: init_name_list_output,  &
-  &                               close_name_list_output, &
-  &                               parse_variable_groups,  &
-  &                               output_file
+USE mo_name_list_output_init, ONLY: init_name_list_output, &
+  &                               parse_variable_groups
+USE mo_name_list_output,    ONLY: close_name_list_output
+USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
@@ -237,9 +236,9 @@ CONTAINS
     ! Unfortunatley this conflicts with our trying to call the config-routines 
     ! as early as possible. 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,                        &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
+       &                      kstart_moist(jg), kend_qvsubstep(jg),                          &
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 
@@ -282,8 +281,10 @@ CONTAINS
     IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
       DO jg =1,n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
-          IF (ltestcase) THEN
-            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+          ! For dry test cases: do not sample moist variables
+          ! (but allow for TORUS moist runs; see also mo_mtgrm_output.F90)
+          IF (ltestcase .and. .not. is_plane_torus) THEN
+             CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
               &                ext_data(jg), p_nh_state(jg),                  &
               &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
           ELSE
@@ -305,7 +306,7 @@ CONTAINS
     !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-      CALL init_icon (p_patch(1:), p_nh_state(1:), p_lnd_state(1:), &
+      CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
         &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
 
     ENDIF

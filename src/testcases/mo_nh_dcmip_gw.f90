@@ -442,10 +442,6 @@ CONTAINS
 
     REAL(wp) :: z_lat, z_lon          !< geographical latitude and longitude
 
-    REAL(wp) ::           &           !< zonal and meridional velocity
-      & zu(nproma), zv(nproma)
-
-
     REAL(wp) :: delta
     REAL(wp) :: rhos                  !< surface density                  [kg/m**3]
     REAL(wp) :: shape_func            !< shape function

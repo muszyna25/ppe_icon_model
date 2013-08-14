@@ -70,6 +70,9 @@ MODULE mo_nonhydrostatic_config
                                         !      time step.
                                         !if 4: called every 4th time step ...
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
+    LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
+                                        ! to the CFL stability limit for vertical advection
+    LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
     REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping (if lhdiff_rcf = true)
     INTEGER :: divdamp_order            ! Order of divergence damping
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
@@ -172,9 +175,9 @@ CONTAINS
 
     ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
     kend_qvsubstep(jg) = 0
-    DO jk = nlev, 2, -1
+    DO jk = nlev, 1, -1
       jk1 = jk + nshift_total
-      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1-1)) > hbot_qvsubstep) THEN
+      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) > hbot_qvsubstep) THEN
         kend_qvsubstep(jg) = jk
         EXIT
       ENDIF

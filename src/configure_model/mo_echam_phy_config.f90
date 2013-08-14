@@ -103,7 +103,12 @@ CONTAINS
 
         echam_phy_config% llandsurf = .FALSE.
         echam_phy_config% lssodrag  = .FALSE.
-        echam_phy_config% lice      = .FALSE.
+        SELECT CASE (TRIM(ctest_name))
+        CASE('APEi','APEc')
+          echam_phy_config% lice      = .TRUE.
+        CASE DEFAULT
+          echam_phy_config% lice      = .FALSE.
+        END SELECT
         echam_phy_config% lmeltpond = .FALSE.
         echam_phy_config% lamip     = .FALSE.
         echam_phy_config% lmlo      = .FALSE.
@@ -130,7 +135,7 @@ CONTAINS
 #endif
         echam_phy_config% llandsurf = .FALSE.
         echam_phy_config% lssodrag  = .TRUE.
-        echam_phy_config% lice      = .FALSE.
+        echam_phy_config% lice      = .TRUE.
         echam_phy_config% lmeltpond = .FALSE.
         echam_phy_config% lamip     = .TRUE.
         echam_phy_config% lmlo      = .FALSE.

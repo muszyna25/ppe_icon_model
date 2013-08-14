@@ -263,6 +263,10 @@ TYPE t_int_state
                                             ! from vertices onto edges by 1/2
                                             ! weighting (nproma,2,nblks_e),
 
+  REAL(wp), ALLOCATABLE :: cells_plwa_verts(:,:,:)! coefficient for interpolation
+                                            ! from cells to verts by pseudo-Laplacian
+                                            ! weighted averaging (PLWA)
+
   ! b) weights which are consistent with the Hamiltonian viewpoint
   !---------------------------------------------------------------
   ! The following weights are needed for the mass and theta brackets

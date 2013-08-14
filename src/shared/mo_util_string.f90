@@ -62,6 +62,7 @@ MODULE mo_util_string
   PUBLIC :: difference
   PUBLIC :: one_of
   PUBLIC :: insert_group
+  PUBLIC :: delete_keyword_list
 
   !
   PUBLIC :: normal, bold
@@ -110,7 +111,7 @@ MODULE mo_util_string
   ! Linked list used for keyword substitution in strings
   TYPE t_keyword_list
     CHARACTER(len=MAX_KEYWORD_LEN) :: keyword    !< keyword string ...
-    CHARACTER(len=MAX_KEYWORD_LEN) :: subst      !< ... will be substituted by "subst"
+    CHARACTER(len=MAX_STRING_LEN)  :: subst      !< ... will be substituted by "subst"
     TYPE(t_keyword_list), POINTER  :: next
   END TYPE t_keyword_list
 
@@ -179,7 +180,9 @@ CONTAINS
       LOOKAHEAD : DO
         char = string((i+offset):(i+offset))
         SELECT CASE(IACHAR(char))
-        CASE (9,32)     ! SPACE and TAB
+      ! To eliminate LF and CR generates error reading namelists in restart file by gfortran and NAG!
+      ! CASE (9,32,10,13)     ! SPACE and TAB, LF and CR
+        CASE (9,32)           ! SPACE and TAB
           offset  = offset + 1
           IF ((i+offset) > i_max) EXIT LOOP
           lspaces = (i>1)
@@ -400,7 +403,8 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE keyword_list_pop(list_head, keyword, subst)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword, subst
+    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword
+    CHARACTER(len=MAX_STRING_LEN),   INTENT(OUT) :: subst
     TYPE(t_keyword_list),            POINTER     :: list_head
     ! Local parameters
     TYPE (t_keyword_list),   POINTER    :: tmp
@@ -429,12 +433,12 @@ CONTAINS
   !------------------------------------------------------------------------------
   FUNCTION str_replace(in_str, keyword, subst) RESULT(out_str)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN), INTENT(IN) :: keyword, subst
-    CHARACTER(len=*),               INTENT(IN) :: in_str
-    CHARACTER(len=MAX_STRING_LEN)              :: out_str
+    CHARACTER(len=*), INTENT(IN)           :: keyword, subst
+    CHARACTER(len=*), INTENT(IN)           :: in_str
+    CHARACTER(len=MAX_STRING_LEN)          :: out_str
     ! Local parameters
     INTEGER :: kw_len, in_len, subs_len, pos, out_pos, upper
-    
+
     out_str = ""
     kw_len   = LEN_TRIM(keyword)
     subs_len = LEN_TRIM(subst)
@@ -447,19 +451,21 @@ CONTAINS
       IF (in_str(pos:upper) == keyword) THEN
         pos     = pos + kw_len
         ! note: we don't call "finish" to avoid circular dep
-        IF ((out_pos + subs_len) > MAX_STRING_LEN) &
-          & WRITE (0,*) "ERROR: str_replace: string too long"
+        IF ((out_pos+subs_len+in_len-pos-kw_len) > MAX_STRING_LEN) THEN
+          WRITE (0,*) "ERROR: str_replace: string too long"
+        END IF
         out_str(out_pos:(out_pos+subs_len-1)) = subst(1:subs_len)
         out_pos = out_pos + subs_len
       ELSE
-        IF (out_pos > MAX_STRING_LEN) &
-          & WRITE (0,*) "ERROR: str_replace: string too long"
+        IF ((out_pos+in_len-pos) > MAX_STRING_LEN) THEN
+          WRITE (0,*) "ERROR: str_replace: string too long"
+        END IF
         out_str(out_pos:out_pos) = in_str(pos:pos)
         pos     = pos + 1
         out_pos = out_pos + 1
       END IF
-    END DO
-    
+    END DO  
+
   END FUNCTION str_replace
 
 
@@ -569,8 +575,8 @@ CONTAINS
   FUNCTION with_keywords(keyword_list, in_str) RESULT(result_str)
     TYPE(t_keyword_list), POINTER  :: keyword_list
     CHARACTER(len=*), INTENT(IN)   :: in_str
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
-    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword, subst
+    CHARACTER(len=MAX_STRING_LEN)  :: result_str, subst
+    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword
     
     ! note: we don't call "finish" to avoid circular dep
     IF (LEN_TRIM(in_str) > MAX_STRING_LEN) &
@@ -628,6 +634,19 @@ CONTAINS
     END DO
 
   END SUBROUTINE insert_group
+
+  !==============================================================================
+  RECURSIVE SUBROUTINE delete_keyword_list(list_head)
+    ! Parameters
+    TYPE(t_keyword_list),    POINTER    :: list_head
+
+    IF (ASSOCIATED(list_head)) THEN
+      CALL delete_keyword_list(list_head%next)
+      DEALLOCATE(list_head)
+    ENDIF
+
+  END SUBROUTINE delete_keyword_list
+  !==============================================================================
 
   
 END MODULE mo_util_string

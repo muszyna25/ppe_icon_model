@@ -51,6 +51,7 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
        &  p_test_run, l_test_openmp, exch_msgsize,                  &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
+       &  num_restart_procs,                                        &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
@@ -60,7 +61,7 @@ MODULE mo_parallel_config
   PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
        & ext_div_medial_redrad_cluster, ext_div_from_file
        
-  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
+  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output
   
   ! computing setup
   ! ---------------
@@ -131,11 +132,16 @@ MODULE mo_parallel_config
   
   LOGICAL :: icon_comm_openmp = .false.
   
+  ! Flag whether async restart output is used, it is set in the main program:
+  LOGICAL :: use_async_restart_output = .FALSE.
   
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
   
   INTEGER :: num_io_procs = 0
+
+  ! The number of PEs used for writing restart files (0 means, the worker PE0 writes)
+  INTEGER :: num_restart_procs = 0
 
   ! Type of (halo) communication: 
   ! 1 = synchronous communication with local memory for exchange buffers
@@ -211,6 +217,13 @@ CONTAINS
        & '--> num_io_procs set to 0')
       num_io_procs = 0
     END IF
+    IF (num_restart_procs /= 0) THEN
+      CALL message(method_name, &
+       & 'num_restart_procs has no effect if the model is compiled with the NOMPI compiler directive')
+      CALL message(method_name, &
+       & '--> num_restart_procs set to 0')
+      num_restart_procs = 0
+    END IF
 
 #else
 
@@ -239,6 +252,7 @@ CONTAINS
 !     END SELECT
     ! for safety only
     IF(num_io_procs < 0) num_io_procs = 0
+    IF(num_restart_procs < 0) num_restart_procs = 0
   
 #endif
 

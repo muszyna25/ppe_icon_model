@@ -60,7 +60,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, min_rlcell_int,  LAND,                 &
-    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB
+    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, &
+    &                              MODIS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -68,7 +69,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
+                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
+                                   llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
@@ -93,7 +95,8 @@ MODULE mo_ext_data_state
     &                              new_var_list,                &
     &                              delete_var_list,             &
     &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata, post_op
+    &                              create_hor_interp_metadata, post_op, &
+    &                              groups
   USE mo_var_metadata,       ONLY: POST_OP_SCALE
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -144,7 +147,6 @@ MODULE mo_ext_data_state
   PUBLIC :: nlev_o3
 
   PUBLIC :: init_ext_data  
-  PUBLIC :: init_ext_data_oce
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
   PUBLIC :: interpol_monthly_mean
@@ -160,9 +162,8 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Init external data for atmosphere and ocean
+  !! Init external data for atmosphere
   !!
-  !! Init external data for atmosphere and ocean.
   !! 1. Build data structure, including field lists and 
   !!    memory allocation.
   !! 2. External data are read in from netCDF file or set analytically
@@ -179,7 +180,7 @@ CONTAINS
 
     INTEGER :: jg
 
-    TYPE(t_datetime) :: datetime_ndvi
+    TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_ext_data'
 
@@ -220,8 +221,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Now for atmosphere only:
     !-------------------------------------------------------------------------
-
-    IF (iequations/=ihs_ocean ) THEN
 
 !!$    !-------------------------------------------------------------------------
 !!$    !Ozone and aerosols
@@ -293,46 +292,46 @@ CONTAINS
 
       CALL message( TRIM(routine),'Finished reading external data' )
 
-      ! Get interpolated ndviratio. Interpolation is done in time, based 
-      ! on ini_datetime. For NWP applications it is assumed, that 
-      ! ndviratio is constant in time.
+      ! Get interpolated ndviratio, alb_dif, albuv_dif and albni_dif. Interpolation 
+      ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
+      ! daily basis.
       !
       SELECT CASE ( iforcing )
       CASE ( inwp )
+
+        ! When initializing the model we set the target hour to 0 (midnight) as well. 
+        ! When restarting, the target interpolation time must be set to cur_datetime 
+        ! midnight. 
+        ! 
         IF (.NOT. is_restart_run()) THEN
-
-          DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-              &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
-              &                        ext_data(jg)%atm%ndviratio             )! out
-          ENDDO
-
+          datetime     = time_config%ini_datetime
         ELSE
-          datetime_ndvi=time_config%cur_datetime
-          datetime_ndvi%hour=0
-
-         DO jg = 1, n_dom
-           CALL interpol_monthly_mean(p_patch(jg), datetime_ndvi,            &! in
-             &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
-             &                        ext_data(jg)%atm%ndviratio             )! out
-         ENDDO
-
+          datetime     = time_config%cur_datetime
         END IF  ! is_restart_run
-
-        !!!!!DR note that this part must be moved inside aboves IF-Statement, 
-        !!!!! if we decide to have a daily update of the albedo
         !
-!!$        IF ( albedo_type == 2)  ! interpolate MODIS albedo in time
-!!$          DO jg = 1, n_dom
-!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-!!$              &                        ext_data(jg)%atm_td%alb_vis_dif,       &! in
-!!$              &                        ext_data(jg)%atm%alb_vis_dif           )! out
-!!$
-!!$            CALL interpol_monthly_mean(p_patch(jg), time_config%ini_datetime, &! in
-!!$              &                        ext_data(jg)%atm_td%alb_nir_dif,       &! in
-!!$              &                        ext_data(jg)%atm%alb_nir_dif           )! out
-!!$          ENDDO
-!!$        ENDIF  ! albedo_type
+        datetime%hour= 0   ! always assume midnight
+
+        DO jg = 1, n_dom
+          CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
+            &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
+            &                        ext_data(jg)%atm%ndviratio          )! out
+        ENDDO
+
+        IF ( albedo_type == MODIS) THEN
+          DO jg = 1, n_dom
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%alb_dif,      &! in
+              &                        ext_data(jg)%atm%alb_dif          )! out
+
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%albuv_dif,    &! in
+              &                        ext_data(jg)%atm%albuv_dif        )! out
+
+            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+              &                        ext_data(jg)%atm_td%albni_dif,    &! in
+              &                        ext_data(jg)%atm%albni_dif        )! out
+          ENDDO
+        ENDIF  ! albedo_type
 
       END SELECT
 
@@ -342,74 +341,8 @@ CONTAINS
 
     END SELECT
 
-    ! read external ocean data from ocean gridfile (no itopo needed)
-    ELSE
-      CALL read_ext_data_oce (p_patch, ext_data)
-    END IF
-
-
   END SUBROUTINE init_ext_data
 
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Init external data for atmosphere and ocean
-  !!
-  !! Init external data for atmosphere and ocean.
-  !! 1. Build data structure, including field lists and 
-  !!    memory allocation.
-  !! 2. External data are read in from netCDF file or set analytically
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-16)
-  !!
-  SUBROUTINE init_ext_data_oce (p_patch, ext_data)
-
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-
-
-    INTEGER :: jg
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:init_ext_data'
-
-    !-------------------------------------------------------------------------
-    CALL message (TRIM(routine), 'Start')
-
-    !-------------------------------------------------------------------------
-    !  1.  inquire external files for their data structure
-    !-------------------------------------------------------------------------
-
-    ALLOCATE(nclass_lu(n_dom))
-    ! Set default value for nclass_lu. Will be overwritten, if external data 
-    ! are read from file
-    nclass_lu(1:n_dom) = 1
-
-    ALLOCATE(nmonths_ext(n_dom))
-    ! Set default value for nmonths_ext. Will be overwritten, if external data 
-    ! are read from file
-    nmonths_ext(1:n_dom) = 1
-
-    CALL inquire_external_files(p_patch)
-
-    !------------------------------------------------------------------
-    !  2.  construct external fields for the model
-    !------------------------------------------------------------------
-
-    ! top-level procedure for building data structures for 
-    ! external data.
-    CALL construct_ext_data(p_patch, ext_data)
-
-    !-------------------------------------------------------------------------
-    !  3.  read the data into the fields
-    !-------------------------------------------------------------------------
-
-    ! Check, whether external data should be read from file
-    ! 
-
-      CALL read_ext_data_oce (p_patch, ext_data)
-  END SUBROUTINE init_ext_data_oce
 
   !-------------------------------------------------------------------------
   !>
@@ -675,7 +608,8 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-      &           isteptype=TSTEP_CONSTANT )
+      &           isteptype=TSTEP_CONSTANT,                       &
+      &           in_group=groups("dwd_fg_sfc_vars") )
 
 
     ! glacier fraction
@@ -685,21 +619,11 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
 
-    ! maybe the next two (ice, fr_land_smt)
+    ! maybe the next one (fr_land_smt)
     ! should be moved into corresponding if block
-
-    ! sea Ice fraction
-    !
-    ! fr_ice       p_ext_atm%fr_ice(nproma,nblks_c)
-    cf_desc    = t_cf_var('Sea_ice_fraction', '-', 'Sea ice fraction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_ice', p_ext_atm%fr_ice,     &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
 
     ! land fraction (smoothed)
     !
@@ -749,6 +673,9 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      !
+      ! fr_lake and lake depth are needed, even if the lake model is switched off
+      !
 
       ! fraction lake
       !
@@ -757,20 +684,63 @@ CONTAINS
       grib2_desc = t_grib2_var( 1, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
         &           isteptype=TSTEP_CONSTANT )
 
 
       ! lake depth
       !
       ! depth_lk     p_ext_atm%depth_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake_depth', '-', 'lake depth', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('lake_depth', 'm', 'lake depth', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 1, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      IF (llake) THEN
+
+        ! fetch_lk     p_ext_atm%fetch_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('fetch_lk', 'm', 'wind fetch over lake', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 2, 33, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'fetch_lk', p_ext_atm%fetch_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! dp_bs_lk     p_ext_atm%dp_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('dp_bs_lk', 'm', &
+          &          'depth of thermally active layer of bot. sediments.', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'dp_bs_lk', p_ext_atm%dp_bs_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! t_bs_lk     p_ext_atm%t_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('t_bs_lk', 'm', &
+          &          'clim. temp. at bottom of thermally active layer of sediments', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 4, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't_bs_lk', p_ext_atm%t_bs_lk,   &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! gamso_lk     p_ext_atm%gamso_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('gamso_lk', 'm', &
+          &          'attenuation coefficient of lake water with respect to sol. rad.', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'gamso_lk', p_ext_atm%gamso_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+      ENDIF
 
 
 
@@ -1242,6 +1212,46 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape3d_sfc, loutput=.FALSE. )
 
+
+      !--------------------------------
+      ! If MODIS albedo is used
+      !--------------------------------
+      IF ( albedo_type == MODIS) THEN
+
+        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 �m), snow-free
+        !
+        ! alb_dif    p_ext_atm%alb_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
+          &                   'Shortwave albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape2d_c, loutput=.TRUE.                            )
+
+        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
+        !
+        ! albuv_dif    p_ext_atm%albuv_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+          &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
+
+        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
+        !
+        ! albni_dif    p_ext_atm%albni_dif(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
+          &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
+
+      ENDIF  ! albedo_type
+
+
+
     CASE ( iecham, ildf_echam )
 
       ! longwave surface emissivity
@@ -1408,7 +1418,7 @@ CONTAINS
 
     ! Black carbon aerosol
     !
-    ! aer_bc       p_ext_atm%aer_bc(nproma,nblks_c,ntimes)
+    ! aer_bc       p_ext_atm_td%aer_bc(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
       &                   'atmosphere_absorption_optical_thickness_due_to_' //&
       &                   'black_carbon_ambient_aerosol', DATATYPE_FLT32)
@@ -1420,7 +1430,7 @@ CONTAINS
 
     ! Dust aerosol
     !
-    ! aer_dust     p_ext_atm%aer_dust(nproma,nblks_c,ntimes)
+    ! aer_dust     p_ext_atm_td%aer_dust(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_dust', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to dust ambient aerosol', DATATYPE_FLT32)
@@ -1432,7 +1442,7 @@ CONTAINS
 
     ! Organic aerosol
     !
-    ! aer_org      p_ext_atm%aer_org(nproma,nblks_c,ntimes)
+    ! aer_org      p_ext_atm_td%aer_org(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_org', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to particulate organic matter ambient aerosol', DATATYPE_FLT32)
@@ -1444,7 +1454,7 @@ CONTAINS
 
     ! Sulfate aerosol
     !
-    ! aer_so4      p_ext_atm%aer_so4(nproma,nblks_c,ntimes)
+    ! aer_so4      p_ext_atm_td%aer_so4(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_so4', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to sulfate_ambient_aerosol', DATATYPE_FLT32)
@@ -1456,7 +1466,7 @@ CONTAINS
 
     ! Seasalt aerosol
     !
-    ! aer_ss       p_ext_atm%aer_ss(nproma,nblks_c,ntimes)
+    ! aer_ss       p_ext_atm_td%aer_ss(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('aot_ss', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to seasalt_ambient_aerosol', DATATYPE_FLT32)
@@ -1472,7 +1482,7 @@ CONTAINS
 
     ! (monthly) proportion of actual value/maximum NDVI
     !
-    ! ndvi_mrat     p_ext_atm%ndvi_mrat(nproma,nblks_c,ntimes)
+    ! ndvi_mrat     p_ext_atm_td%ndvi_mrat(nproma,nblks_c,ntimes)
     cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
       &                   '(monthly) proportion of actual value/maximum ' // &
       &                   'normalized differential vegetation index', DATATYPE_FLT32)
@@ -1487,26 +1497,37 @@ CONTAINS
     !--------------------------------
     ! If MODIS albedo is used
     !--------------------------------
-    IF ( albedo_type == 2) THEN
+    IF ( albedo_type == MODIS) THEN
 
-      ! (monthly)  UV visible albedo for diffuse radiation
+      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 �m), snow-free
       !
-      ! alb_vis_dif    p_ext_atm%alb_vis_dif(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
-        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'alb_vis_dif', p_ext_atm_td%alb_vis_dif, &
+      ! alb_dif    p_ext_atm_td%alb_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
+        &                   'Shortwave albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'alb_dif', p_ext_atm_td%alb_dif,         &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  Near IR albedo for diffuse radiation
+      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
       !
-      ! alb_nir_dif    p_ext_atm%alb_nir_dif(nproma,nblks_c,ntimes)
+      ! albuv_dif    p_ext_atm_td%albuv_dif(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
+        &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'albuv_dif', p_ext_atm_td%albuv_dif,     &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE.,                           &
+        &           isteptype=TSTEP_AVG )
+
+      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
+      !
+      ! albni_dif    p_ext_atm_td%albni_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
         &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'alb_nir_dif', p_ext_atm_td%alb_nir_dif, &
+      CALL add_var( p_ext_atm_td_list, 'albni_dif', p_ext_atm_td%albni_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
@@ -1598,6 +1619,7 @@ CONTAINS
 
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
     ! for type of forcing see mo_oce_bulk
+    idim_omip = 0
     IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
     IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
     IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
@@ -1684,30 +1706,16 @@ CONTAINS
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data started')
 
-    IF (iequations/=ihs_ocean) THEN  ! atmosphere model ------------------
+    DO jg = 1,n_dom
+      ! Delete list of constant in time atmospheric elements
+      CALL delete_var_list( ext_data(jg)%atm_list )
+    ENDDO
 
-      DO jg = 1,n_dom
-        ! Delete list of constant in time atmospheric elements
-        CALL delete_var_list( ext_data(jg)%atm_list )
-      ENDDO
-
-      IF (iforcing > 1 ) THEN
-      DO jg = 1,n_dom
-        ! Delete list of time-dependent atmospheric elements
-        CALL delete_var_list( ext_data(jg)%atm_td_list )
-      ENDDO
-      END IF
-
-    ELSE ! iequations==ihs_ocean ------------------------------------------
-
-      DO jg = 1,n_dom
-        ! Delete list of constant in time oceanic elements
-        CALL delete_var_list( ext_data(jg)%oce_list )
-      ENDDO
-
-        ! Delete list of time-dependent oceanic elements
-        ! ### to be added if necessary ###
-
+    IF (iforcing > 1 ) THEN
+    DO jg = 1,n_dom
+      ! Delete list of time-dependent atmospheric elements
+      CALL delete_var_list( ext_data(jg)%atm_td_list )
+    ENDDO
     END IF
 
     DEALLOCATE(nclass_lu, STAT=errstat)
@@ -1849,7 +1857,7 @@ CONTAINS
       nlev_o3 = 1
       nmonths   = 1
 
-      O3 : IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
+      O3 : IF ((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test
@@ -2014,6 +2022,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v2 ! < modified lookup table landuse class GlobCover2009
 
     LOGICAL :: l_exist
 
@@ -2068,29 +2077,29 @@ CONTAINS
                  &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
 
 ! Tuned version of gcv2009 based on IFS values (Juergen Helmert und Martin Koehler)
-! DATA lu_gcv2009 /   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
-!                 &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
-!                 &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
-!                 &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
-!                 &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
-!                 &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
-!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
-!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
-!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
-!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
-!                 &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
-!                 &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
-!                 &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
-!                 &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
-!                 &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
-!                 &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
-!                 &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
-!                 &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
-!                 &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
+ DATA lu_gcv2009_v2 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
+                   &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
+                   &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
+                   &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
+                   &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+                   &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
+                   &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
+                   &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
 
 
@@ -2163,6 +2172,15 @@ CONTAINS
             CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
           ENDIF
 
+          ! Check whether external parameter file contains MODIS albedo-data
+          IF ( albedo_type == MODIS ) THEN
+            IF ( (nf_inq_varid(ncid, 'ALB',   varid) /= nf_noerr) .OR.    &
+                 (nf_inq_varid(ncid, 'ALNID', varid) /= nf_noerr) .OR.    &
+                 (nf_inq_varid(ncid, 'ALUVD', varid) /= nf_noerr) ) THEN
+              CALL finish(TRIM(ROUTINE),'MODIS albedo fields missing in '//TRIM(extpar_filename))
+            ENDIF
+          ENDIF
+
         ENDIF
 
         ! Broadcast i_lctype from IO-PE to others
@@ -2184,8 +2202,7 @@ CONTAINS
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == 2) THEN
-          i_lctype(jg) = 2
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -2198,6 +2215,20 @@ CONTAINS
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+          ENDDO
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 2) THEN ! 
+          ext_data(jg)%atm%i_lc_snow_ice = 22
+          ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v2(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v2(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v2(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v2(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v2(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v2(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
 
@@ -2261,7 +2292,7 @@ CONTAINS
 
           CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%fr_ice)
+            &                     ext_data(jg)%atm%fr_glac)
 
 
           SELECT CASE ( iforcing )
@@ -2397,18 +2428,34 @@ CONTAINS
             !--------------------------------
             ! If MODIS albedo is used
             !--------------------------------
-            IF ( albedo_type == 2) THEN
+            IF ( albedo_type == MODIS) THEN
+              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALB',     &
+                &                    p_patch(jg)%n_patch_cells_g,      &
+                &                    p_patch(jg)%n_patch_cells,        &
+                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    ext_data(jg)%atm_td%alb_dif)
+
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
                 &                    p_patch(jg)%cells%glb_index,      & 
-                &                    ext_data(jg)%atm_td%alb_vis_dif)
+                &                    ext_data(jg)%atm_td%albuv_dif)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
                 &                    p_patch(jg)%cells%glb_index,      & 
-                &                    ext_data(jg)%atm_td%alb_nir_dif)
+                &                    ext_data(jg)%atm_td%albni_dif)
+
+!$OMP PARALLEL
+!$OMP WORKSHARE
+              ! Scale from [%] to [1]
+              ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
+              ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
+              ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+
             ENDIF
 
           CASE ( iecham, ildf_echam )
@@ -2467,15 +2514,9 @@ CONTAINS
             ! because the start index is missing in RRTM
             DO jc = 1,i_endidx
               ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
-            ENDDO
-
-            ! glacier fraction (still missing): QUICK FIX
-            DO jc = 1,i_endidx
-              IF ( ext_data(jg)%atm%soiltyp(jc,jb) == 1 ) THEN   ! 1: ice
-                ext_data(jg)%atm%fr_glac(jc,jb) = 1._wp
-              ENDIF
               ext_data(jg)%atm%fr_glac_smt(jc,jb) = ext_data(jg)%atm%fr_glac(jc,jb)
             ENDDO
+
           ENDDO
 
 
@@ -2671,383 +2712,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  !-------------------------------------------------------------------------
-  !>
-  !! Read ocean external data
-  !!
-  !! Read ocean external data from netcdf
-  !!
-  !! @par Revision History
-  !! Initial revision by Stephan Lorenz, MPI (2011-06-17)
-  !!
-  SUBROUTINE read_ext_data_oce (p_patch, ext_data)
-
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:read_ext_data_oce'
-
-    CHARACTER(filename_max) :: grid_file   !< file name for reading in
-    CHARACTER(filename_max) :: omip_file   !< file name for reading in
-
-    LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
-    INTEGER :: ncid, dimid
-    INTEGER :: mpi_comm
-
-    !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
-    REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-
-    CALL message (TRIM(routine), 'start')
-
-    !-------------------------------------------------------------------------
-    !  READ OCEAN BATHYMETRY
-    !-------------------------------------------------------------------------
-
-    jg = 1
-
-    i_lev       = p_patch(jg)%level
-    i_cell_type = p_patch(jg)%cell_type
-
-    IF(my_process_is_stdio()) THEN
-      !
-      ! bathymetry and lsm are read from the general ICON grid file
-      ! bathymetry and lsm integrated into grid file by grid generator
-      !WRITE (bathy_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-grid.nc'
-      !write(*,*) 'bathy_file = ',TRIM(bathy_file)
-      !write(*,*) 'dynamics_grid_filename = ', TRIM(dynamics_grid_filename(1))
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-      grid_file = TRIM(with_keywords(keywords, TRIM(dynamics_grid_filename(jg))))
-
-      INQUIRE (FILE=grid_file, EXIST=l_exist)
-      IF (.NOT.l_exist) THEN
-        CALL finish(TRIM(routine),'Grid file for reading bathymetry not found.')
-      ENDIF
-
-      !
-      ! open file
-      !
-      CALL nf(nf_open(TRIM(grid_file), NF_NOWRITE, ncid), routine)
-
-      !
-      ! get number of cells and vertices
-      !
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ENDIF
-
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ENDIF
-
-      !
-      ! check the number of cells and verts
-      !
-      IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-        CALL finish(TRIM(ROUTINE),&
-        & 'Number of patch cells and cells in bathymetry file do not match.')
-      ENDIF
-      IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
-        CALL finish(TRIM(ROUTINE),&
-        & 'Number of patch verts and verts in bathymetry file do not match.')
-      ENDIF
-
-      WRITE(message_text,'(3(a,i6))') 'No of cells =', no_cells, &
-        &                           '  no of edges =', p_patch(jg)%n_patch_edges_g, &
-        &                           '  no of verts =', no_verts
-      CALL message( TRIM(routine),TRIM(message_text))
-    ENDIF
-
-
-    !-------------------------------------------------------
-    !
-    ! Read bathymetry for triangle centers and edges
-    !
-    !-------------------------------------------------------
-    ! These arrays are not included in standard icon-grid, but they are
-    ! created by "create_ocean_grid"
-    ! first initialise everything as land
-    ! we need to do this since dummy entities may exist in the arryas but not in the grid data
-    ext_data(jg)%oce%bathymetry_c(:,:) = 99999999.0_wp
-    ext_data(jg)%oce%bathymetry_e(:,:) = 99999999.0_wp
-    ext_data(jg)%oce%lsm_ctr_c(:,:)    = LAND
-    ext_data(jg)%oce%lsm_ctr_e(:,:)    = LAND
-     
-    CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
-      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-      &                     ext_data(jg)%oce%bathymetry_c)
-
-    CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
-      &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
-      &                     ext_data(jg)%oce%bathymetry_e)
-
-    ! get land-sea-mask on cells, integer marks are:
-    ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-    ! boundary land (1, cells and vertices), inner land (2)
-    CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-      &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-      &                     ext_data(jg)%oce%lsm_ctr_c)
-
-    CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
-        &                    p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index,  &
-        &                    ext_data(jg)%oce%lsm_ctr_e)
-
-    !
-    ! close file
-    !
-    IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-    !ENDDO ! jg
-
-    CALL message( TRIM(routine),'Ocean bathymetry for external data read' )
-
-    !-------------------------------------------------------------------------
-
-    !  READ OMIP FORCING
-
-    !-------------------------------------------------------------------------
-
-    IF (iforc_type .NE. 5 .AND. iforc_oce == 12) THEN
-
-    !DO jg = 1,n_dom
-      jg = 1
-
-      i_lev       = p_patch(jg)%level
-      i_cell_type = p_patch(jg)%cell_type
-
-      IF(my_process_is_stdio()) THEN
-        !
-        WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
-
-        !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
-        !omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B02-monmean.nc'
-        CALL message( TRIM(routine),'Ocean OMIP forcing flux file is: '//TRIM(omip_file) )
-        INQUIRE (FILE=omip_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          write(*,*)'FORCING FILE: ',TRIM(omip_file)
-          CALL finish(TRIM(routine),'OMIP forcing flux file is not found - ABORT')
-        ENDIF
-
-        !
-        ! open file
-        !
-        CALL nf(nf_open(TRIM(omip_file), NF_NOWRITE, ncid), routine)
-        CALL message( TRIM(routine),'Ocean OMIP flux file opened for read' )
-
-        !
-        ! get and check number of cells in OMIP data
-        !
-     !  CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)  !  workaround for r2b2 omip.daily
-        CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in OMIP flux file do not match - ABORT')
-        ENDIF
-
-        !
-        ! get number of timesteps
-        !
-        CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst), routine)
-        !
-        ! check
-        !
-        WRITE(message_text,'(A,I6,A)')  'Ocean OMIP flux file contains',no_tst,' data sets'
-        CALL message( TRIM(routine), TRIM(message_text) )
-        IF(no_tst /= iforc_len ) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of forcing timesteps is not equal iforc_len specified in namelist - ABORT')
-        ENDIF
-      ENDIF
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
-      CALL p_bcast(no_tst, p_io, mpi_comm)
-
-      !-------------------------------------------------------
-      !
-      ! Read complete OMIP data for triangle centers
-      !
-      !-------------------------------------------------------
-
-      ! provide OMIP fluxes for wind stress forcing
-      ! 1:  'stress_x': zonal wind stress       [m/s]
-      ! 2:  'stress_y': meridional wind stress  [m/s]
-      ! 3:  'SST"     : sea surface temperature [K]
-
-      ! zonal wind stress
-      CALL read_netcdf_data (ncid, 'stress_x', p_patch(jg)%n_patch_cells_g,          &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux(:,:,:))
-      ext_data(jg)%oce%flux_forc_mon_c(:,:,:,1) = z_flux(:,:,:)
-
-      ! meridional wind stress
-      CALL read_netcdf_data (ncid, 'stress_y', p_patch(jg)%n_patch_cells_g,          &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
-
-      ! SST
-      CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,           &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
-
-      IF (iforc_type == 2) THEN
-
-      ! Read complete OMIP data sets for focing ocean model
-      !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
-      !  4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      !  5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      !  6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      !  7:  fclou(:,:),  &  ! Fractional cloud cover
-      !  8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      !  9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
-      ! 10:  precip(:,:), &  ! precipitation rate                               [m/s]
-      ! 11:  evap  (:,:), &  ! evaporation   rate                               [m/s]
-      ! 12:  runoff(:,:)     ! river runoff  rate                               [m/s]
-
-        ! 2m-temperature
-        CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! 2m dewpoint temperature
-        CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch(jg)%n_patch_cells_g,       &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
-     
-        ! Scalar wind
-        CALL read_netcdf_data (ncid, 'scalar_wind', p_patch(jg)%n_patch_cells_g,       &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
-     
-        ! cloud cover
-        CALL read_netcdf_data (ncid, 'cloud', p_patch(jg)%n_patch_cells_g,             &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
-     
-        ! sea level pressure
-        CALL read_netcdf_data (ncid, 'pressure', p_patch(jg)%n_patch_cells_g,          &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
-     
-        ! total solar radiation
-        CALL read_netcdf_data (ncid, 'tot_solar', p_patch(jg)%n_patch_cells_g,         &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
-     
-        ! precipitation
-        CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
-     
-        ! evaporation
-        CALL read_netcdf_data (ncid, 'evap', p_patch(jg)%n_patch_cells_g,              &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
-     
-        ! runoff
-        CALL read_netcdf_data (ncid, 'runoff', p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
-
-      END IF
-
-      ! provide heat and freshwater flux for focing ocean model
-      IF (iforc_type == 3) THEN
-
-        ! net surface heat flux
-        CALL read_netcdf_data (ncid, 'net_hflx', p_patch(jg)%n_patch_cells_g,          &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! surface freshwater flux
-        CALL read_netcdf_data (ncid, 'net_fflx', p_patch(jg)%n_patch_cells_g,          &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
-
-      END IF
-
-      ! provide 4 parts of heat and 2 parts of freshwater flux for focing ocean model
-      IF (iforc_type == 4) THEN
-
-        ! surface short wave heat flux
-        CALL read_netcdf_data (ncid, 'swflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! surface long wave heat flux
-        CALL read_netcdf_data (ncid, 'lwflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
-     
-        ! surface sensible heat flux
-        CALL read_netcdf_data (ncid, 'shflx_avg',    p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
-     
-        ! surface latent heat flux
-        CALL read_netcdf_data (ncid, 'lhflx_avg',    p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
-     
-        ! total precipiation
-        CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
-     
-        ! evaporation
-        CALL read_netcdf_data (ncid, 'evap'  , p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
-
-      END IF
-
-      !
-      ! close file
-      !
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
-
-    !ENDDO
-
-      CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
-
-    END IF ! iforc_oce=12 and iforc_type.ne.5
-
-  END SUBROUTINE read_ext_data_oce
-  !-------------------------------------------------------------------------
-
-
 
   SUBROUTINE init_index_lists (p_patch, ext_data)
 
@@ -3110,10 +2774,11 @@ CONTAINS
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
       
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! GZ, 2013-08-07: The OpenMP parallelization of the following loop causes a race condition on the Cray compiler.
+!!                 The reason is not clear to me, thus the directives are commented out for the time being
+!! !$OMP PARALLEL
+!! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
+!! !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -3386,8 +3051,8 @@ CONTAINS
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!! !$OMP END DO NOWAIT
+!! !$OMP END PARALLEL
 
          ! Some useful diagnostics
        npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))

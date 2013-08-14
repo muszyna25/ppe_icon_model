@@ -65,14 +65,16 @@ MODULE mo_output
     &                               set_restart_depth_lnd, &  !DRset_restart_height, &
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_name_list_output,    ONLY: output_file
+  USE mo_name_list_output_init, ONLY: output_file
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, p_patch
   USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
+#endif
 
   USE mo_oce_state,           ONLY: set_zlev, t_hydro_ocean_state
   IMPLICIT NONE
@@ -319,12 +321,14 @@ CONTAINS
         ELSE
           CALL write_vlist(datetime, z_sim_time(1))
         ENDIF
+#ifndef __ICON_OCEAN_ONLY__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
+#endif
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
@@ -336,12 +340,14 @@ CONTAINS
 
           CALL write_vlist(datetime)
         ENDIF
+#ifndef __ICON_OCEAN_ONLY__
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
+#endif
       ELSE
         CALL output_async(datetime)
       ENDIF
@@ -384,26 +390,13 @@ CONTAINS
 
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(.NOT.use_async_vlist_io) THEN
-
-          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os)
-        ! write recent samples of meteogram output
-        DO jg = 1, n_dom
-          IF (meteogram_output_config(jg)%lenabled) THEN
-            CALL meteogram_flush_file(jg)
-          END IF
-        END DO
+        CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os)
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
       IF(.NOT.use_async_vlist_io) THEN       
-          CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os )
-        ! write recent samples of meteogram output
-        DO jg = 1, n_dom
-          IF (meteogram_output_config(jg)%lenabled) THEN
-            CALL meteogram_flush_file(jg)
-          END IF
-        END DO
+        CALL write_vlist(datetime, z_sim_time(1), p_patch_3D,p_os )
       ELSE
         CALL output_async(datetime)
       ENDIF
@@ -528,46 +521,61 @@ CONTAINS
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
-      inlev_soil = opt_depth_lnd
-      ALLOCATE(zlevels_full(inlev_soil))
-      ALLOCATE(zlevels_half(inlev_soil+1))
-      DO i = 1, inlev_soil
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, inlev_soil+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+      !This part is only called if opt_depth_lnd > 0
+      IF (opt_depth_lnd > 0) THEN  
+        inlev_soil = opt_depth_lnd
+        ALLOCATE(zlevels_full(inlev_soil))
+        ALLOCATE(zlevels_half(inlev_soil+1))
+        DO i = 1, inlev_soil
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_soil+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+       inlev_soil = 0
+      END IF
     ELSE
       inlev_soil = 0
     ENDIF
-    IF (PRESENT(opt_nlev_snow) .AND. opt_nlev_snow /= 0) THEN  ! number of snow levels (multi layer snow model)
-      inlev_snow = opt_nlev_snow
-      ALLOCATE(zlevels_full(inlev_snow))
-      ALLOCATE(zlevels_half(inlev_snow+1))
-      DO i = 1, inlev_snow
-        zlevels_full(i) = REAL(i,wp)
-      END DO
-      DO i = 1, inlev_snow+1
-        zlevels_half(i) = REAL(i,wp)
-      END DO
-      CALL set_restart_height_snow(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+    IF (PRESENT(opt_nlev_snow)) THEN  ! number of snow levels (multi layer snow model)
+      !This part is only called if opt_nlev_snow > 0
+      IF (opt_nlev_snow > 0) THEN   
+        inlev_snow = opt_nlev_snow
+        ALLOCATE(zlevels_full(inlev_snow))
+        ALLOCATE(zlevels_half(inlev_snow+1))
+        DO i = 1, inlev_snow
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_snow+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_height_snow(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        inlev_snow = 0
+      ENDIF
     ELSE
       inlev_snow = 0
     ENDIF
 !DR end preliminary fix
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
-      izlev = opt_depth
-      ALLOCATE(zlevels_full(izlev))
-      ALLOCATE(zlevels_half(izlev+1))
-      CALL set_zlev(zlevels_half, zlevels_full)
-      CALL set_restart_depth(zlevels_half, zlevels_full)
-      DEALLOCATE(zlevels_full)
-      DEALLOCATE(zlevels_half)
+      !This part is only called if opt_depth > 0
+      IF(opt_depth>0)THEN
+        izlev = opt_depth
+        ALLOCATE(zlevels_full(izlev))
+        ALLOCATE(zlevels_half(izlev+1))
+        CALL set_zlev(zlevels_half, zlevels_full)
+        CALL set_restart_depth(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        izlev = 0
+      END IF
     ELSE
       izlev = 0
     END IF

@@ -64,7 +64,8 @@ MODULE mo_cover_koe
   USE mo_cloud_diag,         ONLY: cloud_diag
 
   USE mo_cover_cosmo,        ONLY: cover_cosmo
-
+  
+  USE mo_impl_constants,     ONLY: iedmf
 
   IMPLICIT NONE
 
@@ -337,7 +338,7 @@ CASE( 1 )
     ENDDO
   ENDDO
 
-  IF (inwp_turb == 3) THEN
+  IF (inwp_turb == iedmf) THEN
     DO jk = kstart,klev
       DO jl = kidia,kfdia
         IF (sqrt(qtvar(jl,jk)) / (MAX((qv(jl,jk)+qc(jl,jk)+qi(jl,jk)),0.000001_wp)) > 0.01_wp) THEN

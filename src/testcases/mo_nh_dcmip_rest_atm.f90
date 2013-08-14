@@ -145,7 +145,7 @@ MODULE mo_nh_dcmip_rest_atm
        IF (r .LT. rm) THEN
         topo_c(jc,jb) = (h0/2.0_wp) * (1._wp+COS(pi*r/rm)) * (COS(pi*r/zetam)**2)
        ELSE
-        topo_c(jc,jb) = 0
+        topo_c(jc,jb) = 0._wp
        END IF
        fis(jc,jb)    = grav * topo_c(jc,jb)
 
@@ -181,7 +181,7 @@ MODULE mo_nh_dcmip_rest_atm
        IF (r .LT. rm) THEN
        topo_v(jv,jb) = (h0/2.0_wp) * (1._wp+COS(pi*r/rm))  * (COS(pi*r/zetam)**2)
        ELSE
-        topo_v(jv,jb) = 0
+        topo_v(jv,jb) = 0._wp
        END IF
 
      ENDDO  !jv

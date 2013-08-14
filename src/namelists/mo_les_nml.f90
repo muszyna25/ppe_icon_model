@@ -44,6 +44,7 @@ MODULE mo_les_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -56,12 +57,9 @@ MODULE mo_les_nml
   REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
   INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
 
-  REAL(wp) :: ugeo(2)    ! ugeo(1)=constant, ugeo(2)=gradient
-  REAL(wp) :: vgeo(2)    ! vgeo(1)=constant, vgeo(2)=gradient
   REAL(wp) :: ufric      ! friction velocity
  
   LOGICAL  :: is_dry_cbl  !special case for CBL testcase
-  LOGICAL  :: set_geowind !TRUE is geostrophic wind is set
  
   !For isrf_type==3
   REAL(wp) :: bflux      !Buoyancy flux
@@ -69,15 +67,12 @@ MODULE mo_les_nml
 
   !Some parameters
   REAL(wp) :: karman_constant
-  REAL(wp) :: rkarman_constant  !inverse karman constant
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
-  REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
  
-  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ugeo, vgeo, ufric,  &
-                    is_dry_cbl, set_geowind, karman_constant, &
-                    rkarman_constant, smag_constant, turb_prandtl,          &
-                    rturb_prandtl, bflux, tran_coeff
+  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
+                    karman_constant, smag_constant, &
+                    turb_prandtl, bflux, tran_coeff
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -108,22 +103,17 @@ CONTAINS
     ! 1. default settings
     !-----------------------
     sst          = 300._wp
-    ugeo(1:2)    = 0._wp 
-    vgeo(1:2)    = 0._wp 
     shflx        = -999._wp 
     lhflx        = -999._wp 
     isrfc_type   = 1 
     ufric        = -999._wp 
 
     is_dry_cbl   = .FALSE.
-    set_geowind  = .FALSE.
 
     !parameters
     karman_constant  = 0.4_wp
-    rkarman_constant = 2.5_wp
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
-    rturb_prandtl    = 3.0_wp
 
     bflux       = -999._wp
     tran_coeff  = -999._wp
@@ -143,9 +133,11 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('les_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), les_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, les_nml)
+      READ (nnml, les_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), les_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -154,19 +146,16 @@ CONTAINS
     !----------------------------------------------------
     DO jg = 1 , max_dom
       les_config(jg)% sst          =  sst
-      les_config(jg)% ugeo(:)    =  ugeo(:)
-      les_config(jg)% vgeo(:)    =  vgeo(:)
       les_config(jg)% shflx        =  shflx
       les_config(jg)% lhflx        =  lhflx
       les_config(jg)% isrfc_type   =  isrfc_type
       les_config(jg)% ufric        =  ufric
       les_config(jg)% is_dry_cbl   =  is_dry_cbl
-      les_config(jg)% set_geowind  =  set_geowind
       les_config(jg)% karman_constant   =  karman_constant
-      les_config(jg)% rkarman_constant  =  rkarman_constant
+      les_config(jg)% rkarman_constant  =  1._wp/karman_constant
       les_config(jg)% smag_constant     =  smag_constant
       les_config(jg)% turb_prandtl      =  turb_prandtl
-      les_config(jg)% rturb_prandtl     =  rturb_prandtl
+      les_config(jg)% rturb_prandtl     =  1._wp/turb_prandtl
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
      

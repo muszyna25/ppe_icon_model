@@ -63,7 +63,7 @@ USE mo_netcdf_read,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
-USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
   &                               no_tracer, n_zlev, basin_center_lat,                     &
@@ -85,14 +85,17 @@ USE mo_physical_constants,  ONLY: rho_ref, als, alv, zemiss_def, stbo, tmelt, tf
   &                               mu, clw, rho_ref, albedoW
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
+USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,                  &
   &                               ice_slow, ice_fast
+
+#ifndef __ICON_OCEAN_ONLY__
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+#endif
 
 IMPLICIT NONE
 
@@ -164,6 +167,14 @@ CONTAINS
     all_cells => p_patch%cells%all
     cells_in_domain => p_patch%cells%in_domain
 
+    !  calculate day and month
+    jmon  = datetime%month         ! integer current month
+    jdmon = datetime%day           ! integer day in month
+    yday  = datetime%yeaday        ! integer current day in year
+    ylen  = datetime%yealen        ! integer days in year (365 or 366)
+    dsec  = datetime%daysec        ! real seconds since begin of day
+    !ytim  = datetime%yeatim        ! real time since begin of year
+
     SELECT CASE (iforc_oce)
 
     CASE (NO_FORCING)                !  10
@@ -180,14 +191,6 @@ CONTAINS
       !-------------------------------------------------------------------------
       ! Applying annual forcing read from file in mo_ext_data:
       !  - stepping daily in monthly data (preliminary solution)
-
-      !  calculate day and month
-      jmon  = datetime%month         ! integer current month
-      jdmon = datetime%day           ! integer day in month
-      yday  = datetime%yeaday        ! integer current day in year
-      ylen  = datetime%yealen        ! integer days in year (365 or 366)
-      dsec  = datetime%daysec        ! real seconds since begin of day
-      !ytim  = datetime%yeatim        ! real time since begin of year
 
       !jdmon = mod(jdays+1,30)-1     ! no of days in month
 
@@ -367,15 +370,17 @@ CONTAINS
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src, in_subset=p_patch%cells%owned)
 
         IF (l_forc_freshw) THEN
           idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src, &
+            & in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src, &
+            & in_subset=p_patch%cells%owned)
         ENDIF
         !---------------------------------------------------------------------
 
@@ -450,14 +455,14 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! call of sea ice model
@@ -515,17 +520,17 @@ CONTAINS
         CALL message (' ', message_text)
       END IF
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1)
-      CALL dbg_print('UpdSfc: Ext data1-u/mon1'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data1-u/mon1'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
-      CALL dbg_print('UpdSfc: Ext data1-u/mon2'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data1-u/mon2'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2)
-      CALL dbg_print('UpdSfc: Ext data2-v/mon1'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data2-v/mon1'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
-      CALL dbg_print('UpdSfc: Ext data2-v/mon2'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data2-v/mon2'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)
-      CALL dbg_print('UpdSfc: Ext data3-t/mon1'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data3-t/mon1'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
-      CALL dbg_print('UpdSfc: Ext data3-t/mon2'  ,z_c2                     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Ext data3-t/mon2'  ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       IF (i_sea_ice >= 1) THEN
@@ -545,8 +550,10 @@ CONTAINS
             p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
             idt_src=2  ! output print level (1-5, fix)
-            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap     ,str_module,idt_src)
-            CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc     ,str_module,idt_src)
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap  &
+              &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc  &
+              &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
           ENDIF
 
           ! TODO:
@@ -559,6 +566,7 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
+        CALL dbg_print('UpdSfc: ice albedo (bef. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -580,6 +588,7 @@ CONTAINS
             &   Qatm%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
+        CALL dbg_print('UpdSfc: ice albedo (aft. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         ! Ocean albedo model
         Qatm%albvisdirw = albedoW
@@ -599,13 +608,26 @@ CONTAINS
         !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
+        CALL dbg_print('UpdSfc: hi before slow'    ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. before slow' ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
         !   - no energy balance correction
         !   - number of ice classes currently kice=1 - sum of classes must be limited
         !   - only sea ice, no snow is considered
-
         IF (seaice_limit < 0.999999_wp) THEN
           z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
           DO jb = all_cells%start_block, all_cells%end_block
@@ -617,13 +639,11 @@ CONTAINS
         END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src)
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: hi aft. limitter'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. aft. limitter'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum aft. limitter',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 aft. limitter'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 aft. limitter'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
       ELSE   !  no sea ice
@@ -678,12 +698,11 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src)
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Bulk SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     CASE (FORCING_FROM_FILE_FIELD)                                    !  13
@@ -697,6 +716,7 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
+#ifndef __ICON_OCEAN_ONLY__
       IF ( is_coupled_run() ) THEN
         IF (ltimer) CALL timer_start(timer_coupling)
 
@@ -853,14 +873,14 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: CPL: SW-flux'       ,p_sfc_flx%forc_swflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: non-solar flux',p_sfc_flx%forc_lwflx     ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src)
-        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fwbc      ,str_module,idt_src)
+        CALL dbg_print('UpdSfc: CPL: SW-flux'       ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: non-solar flux',p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         DEALLOCATE(buffer)
@@ -881,16 +901,17 @@ CONTAINS
 
           !---------DEBUG DIAGNOSTICS-------------------------------------------
           idt_src=1  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
           idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src)
-          CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src)
+          CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
           !---------------------------------------------------------------------
 
         ENDIF
 
       ENDIF ! is_coupled
+#endif
 
     CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
@@ -932,11 +953,11 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src)
-      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src)
-      CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src)
+      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF
@@ -1702,35 +1723,23 @@ CONTAINS
     REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
 
     TYPE(t_patch), POINTER                  :: p_patch
-    TYPE(t_subset_range), POINTER           :: all_cells, cells_in_domain
+    TYPE(t_subset_range), POINTER           :: all_cells
 
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jb
-    REAL(wp) :: glb_sum, ocean_are, glob_slev, corr_slev
+    REAL(wp) :: ocean_are, glob_slev, corr_slev
 
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
-    cells_in_domain => p_patch%cells%in_domain
  
-    ocean_are = 0.0_wp
-    glob_slev = 0.0_wp
-
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc =  i_startidx_c, i_endidx_c
-        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-          ocean_are = ocean_are + p_patch%cells%area(jc,jb)
-          glob_slev = glob_slev + p_patch%cells%area(jc,jb)*h_old(jc,jb)
-        END IF
-      END DO
-    END DO
-
-    ! parallelize
-    glb_sum   = global_sum_array(ocean_are)
-    ocean_are = glb_sum
-    glb_sum   = global_sum_array(glob_slev)
-    glob_slev = glb_sum
+    ! parallelize correctly
+    ocean_are = p_patch_3D%p_patch_1D(1)%ocean_area(1)
+    glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
     corr_slev = glob_slev/ocean_are
+
+    idt_src=2
+    IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
+      & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)

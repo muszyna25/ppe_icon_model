@@ -41,13 +41,12 @@ MODULE mo_util_dbg_prnt
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, p_comm_work, &
-  &                                  get_my_mpi_work_id, p_bcast
+USE mo_mpi,                    ONLY: my_process_is_stdio, p_pe, get_my_mpi_all_id !, p_comm_work, p_bcast
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma, p_test_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_dbg_prnt, timers_level
-USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max, global_min
+USE mo_sync,                   ONLY: SYNC_C, sync_patch_array, global_max
 USE mo_grid_subset,            ONLY: t_subset_range, get_index_range
 USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_lat_in, &
   &                                  idbg_mxmn, idbg_val, idbg_slev, idbg_elev, &
@@ -55,7 +54,9 @@ USE mo_dbg_nml,                ONLY: str_mod_tst, dim_mod_tst, dbg_lon_in, dbg_l
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text
 USE mo_model_domain,           ONLY: t_patch
-
+USE mo_grid_subset,            ONLY: t_subset_range
+USE mo_statistics,             ONLY: global_minmaxmean
+USE mo_icon_comm_interface,    ONLY: icon_comm_barrier
 
 IMPLICIT NONE
 
@@ -78,7 +79,7 @@ PUBLIC :: init_dbg_index
 PUBLIC :: dbg_print
 
 ! Public variables:
-PUBLIC :: c_i, c_b, nc_i, nc_b, near_proc_id
+PUBLIC :: c_i, c_b, nc_i, nc_b
 !PUBLIC :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
 
 INTERFACE dbg_print
@@ -102,17 +103,17 @@ CONTAINS
   SUBROUTINE init_dbg_index (ppatch)
 
     TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch
-   
+
     INTEGER  :: i
     REAL(wp) :: zlon, zlat, zarea, zlength
-   
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_util_dbg_prnt:init_dbg_index'
-   
+
     CALL message(TRIM(routine), 'Start' )
 
     ! test submit via eclipse workshop / 2013-02-11
-   
+
     ! fill subset for use in dbg_print without passing the patch in every call
 !    v_subdom_cell = ppatch%cells%in_domain
 
@@ -120,7 +121,7 @@ CONTAINS
     loc_nblks_c =ppatch%nblks_c
     loc_nblks_e =ppatch%nblks_e
     loc_nblks_v =ppatch%nblks_v
- 
+
  !  For a correct dicision of cells/edges/verts the number of points on domain would be better
  !    but is not available as local dimension
  !  In order to keep a difference in number of blocks please use a low number for nproma
@@ -128,7 +129,7 @@ CONTAINS
  !  loc_patch_c =ppatch%n_patch_cells
  !  loc_patch_e =ppatch%n_patch_edges
  !  loc_patch_v =ppatch%n_patch_verts
-   
+
     ! module index/block for one cell output
     IF ((idbg_idx /= 0 ) .OR. (idbg_blk /= 0 )) THEN
       c_i = idbg_idx
@@ -138,29 +139,29 @@ CONTAINS
       ! given by namelist dbg_index_nml - not yet parallelized
       CALL find_latlonindex (ppatch, dbg_lat_in, dbg_lon_in, c_i, c_b, near_proc_id)
     END IF
-   
+
     zlat = ppatch%cells%center(c_i,c_b)%lat * 180.0_wp / pi
     zlon = ppatch%cells%center(c_i,c_b)%lon * 180.0_wp / pi
-   
+
     !------------------------------------------------------------------
     ! print test cell
     !------------------------------------------------------------------
-   
+
     ! output format
     99 FORMAT(     2(a,i4),2(a,f9.2),a,f13.2)
     97 FORMAT(a,i1,2(a,i4),2(a,f9.2),a,f13.2)
-   
+
     zarea = ppatch%cells%area(c_i,c_b)*1.0e-6_wp ! in km2
     CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/verts/neighbors:')
     WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,               &
       &                    '  lat=',zlat,'  lon=',zlon,                        &
       &                    '  cell-area  =', zarea
     CALL message (' ', message_text)
-   
+
     !------------------------------------------------------------------
     ! find and print corresponding edges/verts/neighbors of test cell
     !------------------------------------------------------------------
-   
+
     DO i = 1, 3 ! 3 edges of cell C at (ne_i,ne_b)
       ne_b(i) = ppatch%cells%edge_blk(c_i,c_b,i)
       ne_i(i) = ppatch%cells%edge_idx(c_i,c_b,i)
@@ -173,7 +174,7 @@ CONTAINS
         &                    '  edge-length=',zlength
       CALL message (' ', message_text)
     END DO
-   
+
     DO i = 1, 3 ! 3 vertices of cell C at (nv_i,nv_b)
       nv_b(i) = ppatch%cells%vertex_blk(c_i,c_b,i)
       nv_i(i) = ppatch%cells%vertex_idx(c_i,c_b,i)
@@ -184,7 +185,7 @@ CONTAINS
         &                    '  lat=',zlat,'  lon=',zlon
       CALL message (' ', message_text)
     END DO
-   
+
     DO i = 1, 3 ! 3 neighbours of cell C at (nc_i,nc_b)
       nc_b(i)=ppatch%cells%neighbor_blk(c_i,c_b,i)
       nc_i(i)=ppatch%cells%neighbor_idx(c_i,c_b,i)
@@ -210,7 +211,7 @@ CONTAINS
   !>
   !! Search for a cell center at given longitude and latitude
   !! provided in namelist dbg_index_nml
-  !! 
+  !!
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-12)
@@ -227,7 +228,7 @@ CONTAINS
   INTEGER,               INTENT(OUT)    :: iblk          ! block of nearest cell
   INTEGER,               INTENT(OUT)    :: proc_id       ! process where nearest cell is found
 
-  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id
+  INTEGER  :: jb, jc, i_startidx, i_endidx, mproc_id   !, mpi_comm
   REAL(wp) :: zlon, zlat, zdist, zdist_cmp, xctr
   REAL(wp) :: zdst_c(nproma,ppatch%nblks_c)
   TYPE(t_subset_range), POINTER :: owned_cells !,cells_in_domain, all_cells
@@ -242,7 +243,7 @@ CONTAINS
   owned_cells      => ppatch%cells%owned
 
   ! initial distance to compare
-  zdist_cmp = 100000.0_wp
+  zdist_cmp   = 100000.0_wp
   zdst_c(:,:) = 100000.0_wp
 
   !  loop over owned cells
@@ -267,45 +268,57 @@ CONTAINS
 
   CALL sync_patch_array(SYNC_C, ppatch, zdst_c(:,:))
 
-  ! find PE with minimum distance, MPI-broadcast block/index from that PE - not yet
+  ! find PE with minimum distance
   ! disable p_test_run since global_max will be different
 
   p_test_run_bac = p_test_run
   p_test_run = .false.
 
-  ! Bugfix
+  ! comparing zdist_cmp over all domains
+  ! local variable mproc_id must be pre-set to p_pe in all domains
   mproc_id = p_pe
-  !write(20+mproc_id,*) ' before global_max: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  zdist=',zdist
-  xctr = global_max(-zdist, mproc_id)
-  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  mdist=',-xctr, &
-  !  &              '  idx/blk=',iidx,iblk
+  !write(20+p_pe,*) ' 0max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
+  xctr = global_max(-zdist_cmp, mproc_id)
+  !write(20+p_pe,*) ' 1max: mproc_id=',mproc_id,'  p_pe=',p_pe,'  zdst=',zdst_c(iidx,iblk),'  idx/blk=',iidx,iblk,' cmp=',zdist_cmp
 
-  ! set indices of minimum cell to 1 for all other procs
-  IF (p_pe .NE. mproc_id) THEN
-    iblk = 1
-    iidx = 1
-    zdist=1000.0_wp
-  END IF
+  ! broadcast indices and proc_id to global, mainly for output - not the best, better write info directly
+  !mpi_comm = p_comm_work
+  !CALL p_bcast(iidx     , mproc_id, mpi_comm)
+  !CALL p_bcast(iblk     , mproc_id, mpi_comm)
+  !CALL p_bcast(zdist_cmp, mproc_id, mpi_comm)
+  !CALL p_bcast(zlat_min , mproc_id, mpi_comm)  !  must be set accordingly above
+  !CALL p_bcast(zlon_min , mproc_id, mpi_comm)  !  must be set accordingly above
+
   proc_id = mproc_id
-  !write(20+p_pe,*) ' after: mproc_id=',mproc_id,'  p_comm_work= ',p_comm_work,'  p_pe=',p_pe,'  zdist=',zdist, &
-  !  &              '  idx/blk=',iidx,iblk
-
   p_test_run = p_test_run_bac
 
-  zlat    = ppatch%cells%center          (iidx,iblk)%lat * 180.0_wp / pi
-  zlon    = ppatch%cells%center          (iidx,iblk)%lon * 180.0_wp / pi
+  99 FORMAT(3a,i4,a,i4,3(a,f9.3))
+  98 FORMAT(2a,3(a,f9.3))
 
-  99 FORMAT(3a,i4,a,i4,3(a,f9.2))
-  98 FORMAT(2a,3(a,f9.2))
-
-  !IF (my_process_is_stdio()) THEN
+  ! write info directly by mproc_id: needs barrier to avoid merging messages from pe_io and mproc_id
+  ! write(0,*) get_my_mpi_all_id(), "enter icon_comm_barrier:"
+  CALL icon_comm_barrier(for_patch=ppatch)
+  CALL icon_comm_barrier(for_patch=ppatch) ! twice since the pipelining of output is still sometimes out of order
   IF (p_pe .EQ. mproc_id) THEN
-    WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         lat=', plat_in,'  lon=',plon_in
-    WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
-    WRITE(0,'(3a,i3)')         ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id
-    WRITE(0,'(3a,2i3,a,f9.2)') ' ',TRIM(routine),' FOUND: Min dist is at idx/blk=', &
-      &                  MINLOC(zdst_c(:,:)),' distance in deg =',MINVAL(zdst_c(:,:))
+  !IF (my_process_is_stdio()) THEN
+     zlat = ppatch%cells%center(iidx,iblk)%lat * 180.0_wp / pi
+     zlon = ppatch%cells%center(iidx,iblk)%lon * 180.0_wp / pi
+     WRITE(0,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
+     WRITE(0,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
+     WRITE(0,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
+      &                  '; distance in degrees =', zdist_cmp
+  !  WRITE(125,98) ' ',TRIM(routine),' Found  cell nearest to         latitude=', plat_in,'  longitude=',plon_in
+  !  WRITE(125,99) ' ',TRIM(routine),' Found  block=',iblk,'  index=',iidx,'  latitude=',zlat,'  longitude=',zlon
+  !  WRITE(125,'(3a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: proc_id for nearest cell is=',mproc_id, &
+  !    &                  '; distance in degrees =', zdist_cmp
+  ! WRITE(125,'(3a,i3,a,i3,a,f9.3)') ' ',TRIM(routine),' FOUND: at block=',iblk,' index=',iidx, &
+  !   &                  ' distance in degrees =', zdist_cmp
+  ! WRITE(125,'(3a,2i3,a,f9.3)') ' ',TRIM(routine),' FOUND: using MINLOC: at idx/blk=', &
+  !   &                  MINLOC(zdst_c(:,:)),' distance in degrees =',MINVAL(zdst_c(:,:))
   END IF
+  CALL icon_comm_barrier(for_patch=ppatch)
+  CALL icon_comm_barrier(for_patch=ppatch) ! twice since the pipelining of output is still sometimes out of order
+  ! write(0,*) get_my_mpi_all_id(), "leave icon_comm_barrier:"
 
   END SUBROUTINE find_latlonindex
 
@@ -322,48 +335,43 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2012-06)
   !!
   !
-  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src )
+  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:,:) ! 3-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output
+  TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  slev, elev, elev_val, elev_mxmn
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
-  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
-  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  !INTEGER           ::  i_startidx, i_endidx, jb
-  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
+  REAL(wp)          :: minmaxmean(3)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
 
-  !cells_in_domain => ppatch%cells%in_domain
 
 #ifdef __SX__
   ! valid g-format without offset of decimal point
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
   982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
 #else
 
-! ! valid e-format with first digit gt zero
+! ! valid g-format without offset of decimal point
+! 981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
+! 982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
+! 991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+! ! valid e-format with first digit > zero
 ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
 ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
-
-! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
-! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
-
-  ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+! ! g-format with first digit > zero, not valid for SX-compiler
+  981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
+  992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
 #endif
 
   ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
@@ -379,21 +387,21 @@ CONTAINS
     !                           !  index 1:nproma
     nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
     ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
-   
+
     ! output channel: stderr
     iout = nerr
-   
+
     ! compare defined source string with namelist-given output string
     icheck_str_mod = 0
     DO jstr = 1, dim_mod_tst
       IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
         &  icheck_str_mod = 1
     END DO
-   
+
     ! if str_mod_src not found in str_mod_tst - no output
     IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
-   
+
     strout=TRIM(str_prntdes)
     strmod=TRIM(str_mod_src)
 
@@ -442,21 +450,21 @@ CONTAINS
     !                           !  index 1:nproma
     nlev    = SIZE(p_array,2)   !  vertical dimension (levels)
     ndimblk = SIZE(p_array,3)   !  blocks 1:nblks for cells/edges/verts
-   
+
     ! output channel: stderr
     iout = nerr
-   
+
     ! compare defined source string with namelist-given output string
     icheck_str_mod = 0
     DO jstr = 1, dim_mod_tst
       IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
         &  icheck_str_mod = 1
     END DO
-   
+
     ! if str_mod_src not found in str_mod_tst - no output
     IF (icheck_str_mod == 0 .and. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
-   
+
     strout=TRIM(str_prntdes)
     strmod=TRIM(str_mod_src)
 
@@ -466,44 +474,27 @@ CONTAINS
     IF (slev      > nlev) slev = nlev
     elev = nlev
     IF (idbg_elev < nlev) elev = idbg_elev
-    
+
     ! idbg_mxmn<4: one level output only (slev), independent of elev_val
     elev_mxmn = elev
     IF (idbg_mxmn < 4 .AND. idetail_src > 0) elev_mxmn = slev
-    
+
     ! print out maximum and minimum value
+    ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
     DO jk = slev, elev_mxmn
-    
-      ctrx=maxval(p_array(1:nproma,jk,1:ndimblk))
-      ctrn=minval(p_array(1:nproma,jk,1:ndimblk))
 
-      ! find max/min out of active indices only
-       !DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-       !DO jb = v_subdom_cell%start_block, v_subdom_cell%end_block
-       !  CALL get_index_range(v_subdom_cell, jb, i_startidx, i_endidx)
-       !  ctrxind(jb)=maxval(p_array(i_startidx:i_endidx,jk,jb))
-       !  ctrnind(jb)=minval(p_array(i_startidx:i_endidx,jk,jb))
-       !END DO  
-       !ctrx=maxval(ctrxind(:))
-       !ctrn=minval(ctrxind(:))
+      minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), range_subset=in_subset, start_level=jk, end_level=jk)
 
-      ! parallelize:
-      p_test_run_bac = p_test_run
-      p_test_run = .false.
-      glbmx=global_max(ctrx)
-      glbmn=global_min(ctrn)
-      p_test_run = p_test_run_bac
-    
       IF (my_process_is_stdio()) &
-        & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
+        & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)
 
-    
+
       ! location of max/min - parallelize!
       ! WRITE(iout,983) ' LOC ',strout,jk, &
       !   &              MAXLOC(p_array(1:nproma,jk,1:ndimblk)),     &
       !   &              MINLOC(p_array(1:nproma,jk,1:ndimblk))
 ! 983 FORMAT(a,a12,':',a27,'  :',i3, 4i4)
-    
+
     END DO
 
   END IF
@@ -517,25 +508,21 @@ CONTAINS
   !! Print out min and max or a specific cell value and neighbors of a 2-dim array.
   !!
 
-  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src )
+  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
 
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes    ! description of array
   REAL(wp),              INTENT(IN) :: p_array(:,:)   ! 2-dim array for debugging
   CHARACTER(len=*),      INTENT(IN) :: str_mod_src    ! defined string for source of current array
-  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output 
+  INTEGER,               INTENT(IN) :: idetail_src    ! source level from module for print output
+  TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
 
   ! local variables
   CHARACTER(len=27) ::  strout
   CHARACTER(len=12) ::  strmod
   INTEGER           ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
-  REAL(wp)          ::  ctrx, ctrn, glbmx, glbmn
-  !TYPE(t_subset_range), POINTER :: cells_in_domain!, all_cells
-  !REAL(wp)          ::  ctrxind(nproma), ctrnind(nproma)
-  !INTEGER           ::  i_startidx, i_endidx, jb
+  REAL(wp)          ::  minmaxmean(3)
 
   IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
-
-  !cells_in_domain => ppatch%cells%in_domain
 
   ! dimensions - first dimension is nproma
   ndimblk = SIZE(p_array,2)
@@ -558,23 +545,18 @@ CONTAINS
   ! valid g-format without offset of decimal point
   981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
   982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+  992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
 #else
 
-! ! valid e-format with first digit gt zero
+! ! valid e-format with first digit > zero
 ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
 ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
 ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
 
-! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
-! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
-! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2g26.18)
-
-  ! valid g-format without offset of decimal point
-  981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
-  982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
-  991 FORMAT(a,a12,':',a27,'  :',i3, 2g26.18)
+! ! g-format with first digit > zero, not valid for SX-compiler
+  981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
+  982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
+  992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
 #endif
 
   strout=TRIM(str_prntdes)
@@ -613,28 +595,12 @@ CONTAINS
 
   IF (idbg_mxmn >= idetail_src ) THEN
 
-    ctrx=maxval(p_array(1:nproma,1:ndimblk))
-    ctrn=minval(p_array(1:nproma,1:ndimblk))
+    minmaxmean(:) = global_minmaxmean(values=p_array(:,:), range_subset=in_subset)
 
-    ! find max/min out of active indices only
- !   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
- !     CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
- !     ctrxind(jb)=maxval(p_array(1:i_startidx,1:i_endidx))
- !     ctrnind(jb)=minval(p_array(1:i_startidx,1:i_endidx))
- !   END DO  
- !   ctrx=maxval(ctrxind(:))
- !   ctrn=minval(ctrxind(:))
-
-    ! print out maximum and minimum value
-    ! parallelize:
-    p_test_run_bac = p_test_run
-    p_test_run = .false.
-    glbmx=global_max(ctrx)
-    glbmn=global_min(ctrn)
-    p_test_run = p_test_run_bac
-   
     IF (my_process_is_stdio()) &
-      & WRITE(iout,991) ' MAX/MIN ', strmod, strout, jk, glbmx, glbmn
+      & WRITE(iout,992) ' MAX/MIN/MEAN ', strmod, strout, jk, minmaxmean(2), minmaxmean(1), minmaxmean(3)
+
+    ! WRITE(0,*) ' MAX/MIN/MEAN ', minmaxmean(2), minmaxmean(1), minmaxmean(3)
 
   END IF
 

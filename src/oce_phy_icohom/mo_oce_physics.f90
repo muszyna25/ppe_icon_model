@@ -55,9 +55,10 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
-  &                               biharmonic_diffusion_factor, &
-  &                               richardson_factor_tracer, richardson_factor_veloc,      &
-  &                               l_constant_mixing, l_smooth_veloc_diffusion
+  &                               biharmonic_diffusion_factor,                            &
+  &                               richardson_tracer, richardson_veloc,                    &
+  &                               l_constant_mixing, l_smooth_veloc_diffusion,            &
+  &                               l_wind_mixing
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -74,7 +75,7 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
   &                               delete_var_list,          &
   &                               default_var_list_settings,&
-  &                               add_ref
+  &                               add_ref, groups
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
@@ -240,9 +241,6 @@ CONTAINS
 !            END DO
 !          END DO
 
-write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),&
-&minval(p_phys_param%K_veloc_h(:,1,:))
-
 
     ENDIF
     IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, p_patch_3D, p_phys_param%K_veloc_h )
@@ -389,7 +387,8 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
-    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src)
+    CALL dbg_print('smoothed Laplac Diff.'     ,K_h                     ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE smooth_lapl_diff
@@ -434,13 +433,13 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
+    &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev+1,nblks_e/))
+    &            ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics"))
 
 
     !! Tracers
@@ -472,7 +471,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-                    & ldims=(/nproma,n_zlev,nblks_e/))
+                    & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
                     & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
@@ -482,7 +481,7 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=(/nproma,n_zlev+1,nblks_c/))
+                    & ldims=(/nproma,n_zlev+1,nblks_c/),in_group=groups("oce_physics"))
 
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
@@ -591,55 +590,45 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
     ! Local variables
     INTEGER  :: jc, jb, je,jk, itracer
    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
-    INTEGER  :: ilc1, ibc1, ilc2,ibc2!, jj, ible,idxe
+    INTEGER  :: ilc1, ibc1, ilc2,ibc2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: i_startidx_e, i_endidx_e
+    INTEGER  :: z_dolic
 
-    REAL(wp) :: z_rho_up
-    REAL(wp) :: z_rho_down
-    REAL(wp) :: z_stabio
-    REAL(wp) :: z_shear_c
+    REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
 
-!    REAL(wp) :: dz_inv
-!    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
-!   REAL(wp) :: z_lambda_frac 
-!   REAL(wp) :: z_A_tracer_v_old!, z_A_veloc_v_old
-    INTEGER  :: z_dolic
+    REAL(wp) :: dz_inv, z_lambda_frac
 
     !Below is a set of variables and parameters for tracer and velocity
     !REAL(wp), PARAMETER :: z_beta            = 0.6_wp
     !REAL(wp), PARAMETER :: z_one_minus_beta  = 0.4_wp
-    REAL(wp), PARAMETER :: z_lambda          = 0.05_wp
+    REAL(wp), PARAMETER :: z_lambda          = 0.03_wp   !  wind mixing stability parameter (16)
     REAL(wp), PARAMETER :: z_0               = 40.0_wp
-    REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp
-    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
-    REAL(wp)            :: z_av0             = 0.5E-2_wp ! later set via nml richardson_factor_veloc
-    REAL(wp)            :: z_dv0             = 0.5E-2_wp ! later set via nml richardson_factor_tracer
+    REAL(wp), PARAMETER :: z_c1_T            = 5.0_wp    !  PP diffusivity tuning constant
+    REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp    !  PP viscosity tuning constant
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
-    REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
-    REAL(wp) :: z_press, press
-    REAL(wp) :: A_T_tmp
-    REAL(wp) :: z_s1
-    REAL(wp) :: z_s2
+    REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_press, press, A_T_tmp, z_s1, z_s2
     REAL(wp) :: density_grad_e, mean_z_r
-    ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
     TYPE(t_patch), POINTER        :: p_patch
-    !-------------------------------------------------------------------------
-    z_av0 = richardson_factor_veloc
-    z_dv0 = richardson_factor_tracer
+
     !-------------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     edges_in_domain => p_patch%edges%in_domain
-    cells_in_domain => p_patch%cells%in_domain
+    !cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
 
+    !-------------------------------------------------------------------------
+    z_av0 = richardson_veloc
+    z_dv0 = richardson_tracer
+
+    !-------------------------------------------------------------------------
     IF (l_constant_mixing) THEN
       !nothing to do!In sbr init_ho_params (see above)
       !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, itracer) is already
@@ -728,8 +717,9 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
           IF ( z_dolic >= MIN_DOLIC ) THEN
             DO jk = 2, z_dolic
 
-             !dz_inv = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
-               ! p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
+              dz_inv        = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)
+              z_lambda_frac = z_lambda * dz_inv
+              ! p_os%p_diag%inv_prism_center_dist_c(jc,jk,jb) !1.0_wp/v_base%del_zlev_i(jk)
 
               !calculate vertical tracer mixing based on local Richardson number
               DO itracer = 1, no_tracer
@@ -758,24 +748,29 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
 
-!               !This is (16) in Marsland et al. and identical to treatment of velocity
-!               !but it allows to use different parameters
-!               z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
-!               z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
-!               &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
-!               &/(z_lambda_frac+z_vert_density_grad_c)
-!             !For positive Richardson number set vertical mixing coefficient to maximal number 
-!               IF(z_Ri_c <= 0.0_wp)THEN
-!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
-!                 & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
-!                 !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
-!                 !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
-!                 !& + z_A_W_T(jc,jk,jb))
-!              !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
-!               ELSEIF(z_Ri_c > 0.0_wp)THEN
-! !                 write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
-!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)!z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
-!               ENDIF
+                  IF (l_wind_mixing) THEN
+             
+                    ! This is (16) in Marsland et al. and identical to treatment of velocity
+                    ! but it allows to use different parameters
+
+                    !z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
+                    !&*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
+                    !&/(z_lambda_frac+z_vert_density_grad_c)
+
+                    ! For positive Richardson number set vertical mixing coefficient to maximal number 
+                    IF(z_Ri_c(jc,jk,jb) <= 0.0_wp)THEN
+                      params_oce%A_tracer_v(jc,jk,jb,itracer)                        &
+                      & = params_oce%A_tracer_v_back(itracer)!z_one_minus_beta* z_A_tracer_v_old                            &
+                      !& + z_beta*(params_oce%A_tracer_v_back(itracer)                 &
+                      !& + params_oce%A_tracer_v_back(itracer)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
+                      !& + z_A_W_T(jc,jk,jb))
+                      !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, itracer)
+                    ELSEIF(z_Ri_c(jc,jk,jb) > 0.0_wp)THEN
+                      !write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
+                      params_oce%A_tracer_v(jc,jk,jb, itracer) = params_oce%A_tracer_v_back(itracer)
+                                                                   !z_max_diff_T!params_oce%A_tracer_v_back(itracer)
+                    END IF
+                  ENDIF
 
                 END IF
               ENDDO
@@ -840,14 +835,18 @@ write(*,*)'max-min coeff',z_diff_multfac, maxval(p_phys_param%K_veloc_h(:,1,:)),
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src)
-    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(2)    ,str_module,idt_src)
+    CALL dbg_print('UpdPar: p_vn%x(1)'         ,p_os%p_diag%p_vn%x(1)    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: p_vn%x(2)'         ,p_os%p_diag%p_vn%x(2)    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
     idt_src=2  ! output print level (1-5, fix)
     DO itracer = 1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)
-      CALL dbg_print('UpdPar FinalTracerMixing'  ,z_c                    ,str_module,idt_src)
+      CALL dbg_print('UpdPar FinalTracerMixing'  ,z_c                    ,str_module,idt_src, &
+        & in_subset=p_patch%cells%owned)
     ENDDO
-    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%A_veloc_v     ,str_module,idt_src)
+    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%A_veloc_v     ,str_module,idt_src, &
+        & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE update_ho_params
 END MODULE mo_oce_physics

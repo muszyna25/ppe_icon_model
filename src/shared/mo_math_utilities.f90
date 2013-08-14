@@ -158,6 +158,7 @@ MODULE mo_math_utilities
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
+  PUBLIC :: check_orientation
  
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
@@ -194,6 +195,47 @@ MODULE mo_math_utilities
   
 CONTAINS
   
+  !-------------------------------------------------------------------------
+  INTEGER FUNCTION check_orientation (lonc, lon, lat, n)
+    INTEGER, INTENT(in) :: n
+    REAL(wp), INTENT(in) :: lonc
+    REAL(wp), INTENT(in) :: lon(n), lat(n)
+
+    REAL(wp) :: lonl(n), latl(n)
+
+    REAL(wp) :: area
+
+    INTEGER :: i,j
+
+    lonl(:) = lon(:)
+    latl(:) = lat(:)
+
+    DO i = 1, n
+      lonl(i) = lonl(i) - lonc
+      IF (lonl(i) < -pi) THEN
+        lonl(i) =  pi+MOD(lonl(i), pi)
+      ENDIF
+      IF (lonl(i) >  pi) THEN
+        lonl(i) = -pi+MOD(lonl(i), pi)
+      ENDIF
+    ENDDO
+
+    area = 0.0_wp
+    DO i = 1, n
+      j = MOD(i,n)+1
+      area = area+lonl(i)*latl(j)
+      area = area-latl(i)*lonl(j)
+    ENDDO
+
+    IF (area >= 0.0_wp) THEN
+      check_orientation = +1
+    ELSE
+      check_orientation = -1
+    END IF
+
+  END FUNCTION check_orientation
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !! Converts zonal @f$p\_gu@f$ and meridional vector components @f$p\_gv@f$ into cartesian.
@@ -561,8 +603,6 @@ CONTAINS
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
-    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
-    REAL(wp)            :: z_cc           ! cos of angle between endpoints
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
@@ -665,8 +705,6 @@ CONTAINS
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
-    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
-    REAL(wp)            :: z_cc           ! cos of angle between endpoints
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------

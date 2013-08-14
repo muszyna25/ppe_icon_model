@@ -56,7 +56,7 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, SUCCESS
+  USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     l_coarse2fine_mode
@@ -66,7 +66,7 @@ MODULE mo_nh_vert_interp
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, adjust_w, convert_thdvars, & 
                                     convert_omega2w
-  USE mo_util_phys,           ONLY: virtual_temp
+  USE mo_util_phys,           ONLY: virtual_temp, vap_pres
   USE mo_math_gradients,      ONLY: grad_fd_norm, grad_fd_tang
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
@@ -92,6 +92,7 @@ MODULE mo_nh_vert_interp
   REAL(wp), PARAMETER :: zagl_ifsextrap = 150._wp
 
 
+  PUBLIC :: vert_interp
   PUBLIC :: vert_interp_atm
   PUBLIC :: vert_interp_sfc
   PUBLIC :: prepare_lin_intp
@@ -148,11 +149,11 @@ CONTAINS
 
         jgc = p_patch(jg)%child_id(jn)
 
-        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
-                                jn, 1, initicon(jg)%atm%w, initicon(jgc)%atm%w )
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf(jg)%p_dom(jn), &
+                                1, initicon(jg)%atm%w, initicon(jgc)%atm%w )
 
-        CALL interpol2_vec_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
-                                jn, 1, initicon(jg)%atm%vn, initicon(jgc)%atm%vn )
+        CALL interpol2_vec_grf (p_patch(jg), p_patch(jgc), p_grf(jg)%p_dom(jn), &
+                                1, initicon(jg)%atm%vn, initicon(jgc)%atm%vn )
 
       ENDDO
     ENDDO
@@ -220,6 +221,7 @@ CONTAINS
 
 
     ! LOCAL VARIABLES
+    CHARACTER(LEN=*), PARAMETER :: routine = 'vert_interp'
 
     INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
@@ -281,6 +283,10 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
 !-------------------------------------------------------------------------
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
 
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -588,7 +594,7 @@ CONTAINS
       &                   vcoeff_z%lin_cell%wfac_lin,                                        & !out
       &                   vcoeff_z%lin_cell%idx0_lin,                                        & !out
       &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev,    & !in
         &                       vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1)           !out
       vcoeff_z%lin_cell%kpbl2(:,:) = 0
@@ -642,7 +648,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                           & !in
         &                 vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1,               & !out
         &                 vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%wfacpbl2 )                !out
@@ -726,7 +732,7 @@ CONTAINS
     CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
 
     !--- Coefficients: Interpolation to pressure-level fields
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev, & !in
         &                       vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1)        !out
       vcoeff_p%lin_cell%kpbl2(:,:) = 0
@@ -786,7 +792,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
-    IF (itype_pres_msl == 3) THEN
+    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                          & !in
         &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,              & !out
         &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )               !out
@@ -1565,7 +1571,7 @@ CONTAINS
         pres_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (itype_pres_msl == 1) THEN
+      IF (itype_pres_msl == PRES_MSL_METHOD_GME) THEN
 
         ! Preparations for extrapolation below the ground: calculate temperature
         ! profile with artificial limits like in IFS. This temperature profile
@@ -1589,7 +1595,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == 3) THEN
+      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2011,7 +2017,7 @@ CONTAINS
       IF (ierror(jb) > 0) CALL finish("z_at_plevels:",&
         "Error in computing interpolation coefficients")
 
-      IF (itype_pres_msl == 1) THEN
+      IF (itype_pres_msl == PRES_MSL_METHOD_GME) THEN
 
         ! Preparations for extrapolation below the ground: calculate temperature
         ! profile with artificial limits like in IFS. This temperature profile
@@ -2035,7 +2041,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == 3) THEN
+      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2556,7 +2562,7 @@ CONTAINS
         temp_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (l_pz_mode .AND. itype_pres_msl /= 3) THEN
+      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS) THEN
 
         DO jk1 = 1, nlevs_in
           DO jc = 1, nlen
@@ -3232,6 +3238,7 @@ CONTAINS
 
     INTEGER  :: jb, jk, jk1, jc, nlen, jk_start, jk_start_in, jk_start_out, ik1(nproma)
     REAL(wp) :: wfac, pbldev, rhum, qtot
+    REAL(wp) :: e_vapor                     ! vapor pressure
 
 
     REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
@@ -3255,7 +3262,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,pbldev,&
 !$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,              &
-!$OMP            qv_mod,pbl_dev,g1,g2,g3,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            qv_mod,pbl_dev,g1,g2,g3,e_vapor,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -3269,9 +3276,12 @@ CONTAINS
       DO jk1 = 1, nlevs_in
         DO jc = 1, nlen
 
+          ! compute vapour pressure e_vapor=f(qv_in,pres_in)
+          e_vapor = vap_pres(qv_in(jc,jk1,jb),pres_in(jc,jk1,jb))
+
           ! saturation specific humidity of input data
           qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
-                            (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
+                            (pres_in(jc,jk1,jb)-o_m_rdv*e_vapor)
 
           IF (l_satlimit) THEN
             ! limit input data to water saturation when processing interpolated IFS data:
@@ -3378,9 +3388,12 @@ CONTAINS
           ! Height above lowest model level - needed for restoring the boundary-layer deviation
           zalml_out(jc,jk) = z3d_out(jc,jk,jb) - z3d_out(jc,nlevs_out,jb)
 
+          ! compute vapour pressure e_vapor=f(qv_out,pres_out)
+          e_vapor = vap_pres(qv_out(jc,jk,jb),pres_out(jc,jk,jb))
+
           ! saturation specific humidity of output data
           qsat_out(jc,jk) = rdv*sat_pres_water(temp_out(jc,jk,jb)) /    &
-                            (pres_out(jc,jk,jb)-o_m_rdv*qv_out(jc,jk,jb))
+                            (pres_out(jc,jk,jb)-o_m_rdv*e_vapor)
 
         ENDDO
       ENDDO

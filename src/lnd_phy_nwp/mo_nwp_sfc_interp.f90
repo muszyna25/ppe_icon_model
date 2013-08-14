@@ -57,7 +57,7 @@ MODULE mo_nwp_sfc_interp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: process_sfcfields
+  PUBLIC :: process_sfcfields, smi_to_sm_mass
 
 CONTAINS
 
@@ -85,6 +85,7 @@ CONTAINS
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
 
     ! LOCAL VARIABLES
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
     INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
     INTEGER  :: nlen, nlev
@@ -94,6 +95,10 @@ CONTAINS
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
 !-------------------------------------------------------------------------
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
 
     nlev = p_patch%nlev
     jg   = p_patch%id
@@ -268,5 +273,95 @@ CONTAINS
 
 
   END SUBROUTINE process_sfcfields
+  !-------------
+  !>
+  !! SUBROUTINE smi_to_sm_mass
+  !!
+  !! Conversion of soil moisture index  into TERRA soil moisture [m]
+  !!   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
+  !!   safety: min=air dryness point, max=pore volume
+  !!
+  !! Required input: initicon state
+  !! Output is written on fields of land state
+  !!
+  !! @par Revision History
+  !! Initial version by P Ripodas, DWD(2013-05)
+  !! extracted from process_sfcfields
+  !!
+  !-------------
+
+  SUBROUTINE smi_to_sm_mass(p_patch, smoist)
+
+
+    TYPE(t_patch), INTENT(IN) :: p_patch
+    REAL(wp), INTENT(INOUT)  :: smoist(:,:,:)    !soil moist index in
+                                                 !soil moisture mass out
+                                                 ! (nproma,nlev_soil,nblks)
+    ! LOCAL VARIABLES
+
+    INTEGER  ::  jg, jb, jk, jc, nlen
+
+!-------------
+
+    jg   = p_patch%id
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen)
+    DO jb = 1, p_patch%nblks_c
+      IF (jb /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      ENDIF
+      DO jk = 1, nlev_soil-1
+        DO jc = 1, nlen
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) smoist(jc,jk,jb) = &
+            & dzsoil_icon(jk) * &
+            & MIN(0.364_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) smoist(jc,jk,jb) = &
+            & dzsoil_icon(jk) * &
+            & MIN(0.445_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) smoist(jc,jk,jb) = &
+            & dzsoil_icon(jk) * &
+            & MIN(0.455_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) smoist(jc,jk,jb)= &
+            & dzsoil_icon(jk) * &
+            & MIN(0.475_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) smoist(jc,jk,jb)= &
+            & dzsoil_icon(jk) * &
+            & MIN(0.507_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) smoist(jc,jk,jb)= &
+            & dzsoil_icon(jk) * &
+            & MIN(0.863_wp,&
+            & MAX((smoist(jc,jk,jb)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+
+          ! We need to catch problematic coast cases: IFS-ocean, ICON-land - &
+          ! for moisture and temperature 
+          smoist(jc,jk,jb) =  &
+            &               MIN(dzsoil_icon(jk), MAX(0.0_wp, smoist(jc,jk,jb)))
+ 
+        ENDDO
+      ENDDO
+      ! assume no-gradient condition for soil moisture reservoir layer
+      DO jc = 1, nlen
+        smoist(jc,nlev_soil,jb) = smoist(jc,nlev_soil-1,jb)*          &
+                                        dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
+      ENDDO
+
+    ENDDO
+!$OMP END DO 
+!$OMP END PARALLEL
+
+  END SUBROUTINE smi_to_sm_mass
 
 END MODULE mo_nwp_sfc_interp

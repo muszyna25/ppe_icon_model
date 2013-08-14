@@ -83,7 +83,11 @@ PUBLIC
     zcevxp,    & !
     zbevxp,    & !
     zvzxp,     & !
-    zvz0r
+    zvz0r,     & !
+  !CK>
+    vtxexp,    & !!
+    kc_c1,     & !!
+    kc_c2        !!  
 
 ! Variables for hydci_pp, hydci_pp_ice and hydci_pp_gr
 ! --------------------------------------------------------

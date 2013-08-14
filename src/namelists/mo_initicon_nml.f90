@@ -42,24 +42,25 @@ MODULE mo_initicon_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
-    &                              MODE_IFSANA, MODE_DWDANA
+    &                              MODE_IFSANA, MODE_DWDANA,MODE_COMBINED 
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_initicon_config,    ONLY: &
     & config_init_mode          => init_mode,         &
-    & config_nlev_in            => nlev_in,           &
     & config_nlevsoil_in        => nlevsoil_in,       &
     & config_zpbl1              => zpbl1,             &
     & config_zpbl2              => zpbl2,             &
-    & config_l_hice_in          => l_hice_in,         &
     & config_l_sst_in           => l_sst_in,          &
+    & config_l_ana_sfc          => l_ana_sfc,         &
     & config_ifs2icon_filename  => ifs2icon_filename, &
     & config_dwdfg_filename     => dwdfg_filename,    &
-    & config_dwdinc_filename    => dwdinc_filename,   &
+    & config_dwdana_filename    => dwdana_filename,   &
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_ana_varnames_map_file => ana_varnames_map_file
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
+
 
   IMPLICIT NONE
 
@@ -71,7 +72,7 @@ MODULE mo_initicon_nml
   CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the prep_icon preprocessing program
+  ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: init_mode     ! initialization mode
@@ -79,8 +80,9 @@ MODULE mo_initicon_nml
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_hice_in     ! Logical switch, if sea-ice thickness field is provided as input
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
+  LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
+                            ! file dwdana_filename   
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
@@ -93,9 +95,9 @@ MODULE mo_initicon_nml
   ! dwdfg_filename = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: dwdfg_filename
 
-  ! DWD-inc input filename, may contain keywords, by default
-  ! dwdinc_filename = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
-  CHARACTER(LEN=filename_max) :: dwdinc_filename
+  ! DWD-ANA input filename, may contain keywords, by default
+  ! dwdana_filename = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: dwdana_filename
 
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
@@ -103,9 +105,9 @@ MODULE mo_initicon_nml
 
 
   NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_hice_in, l_sst_in, ifs2icon_filename,  &
-                          dwdfg_filename, dwdinc_filename, filetype,            &
-                          ana_varnames_map_file
+                          nlevsoil_in, l_sst_in, l_ana_sfc,                     &
+                          ifs2icon_filename, dwdfg_filename,                    &
+                          dwdana_filename, filetype, ana_varnames_map_file
   
 CONTAINS
 
@@ -124,8 +126,8 @@ CONTAINS
   CHARACTER(LEN=*), INTENT(IN) :: filename
 
   !local variable
-  INTEGER :: i_status
-  INTEGER :: z_go_init(2)   ! for consistency check
+  INTEGER :: i_status, istat
+  INTEGER :: z_go_init(3)   ! for consistency check
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_initicon_nml: read_initicon_namelist'
@@ -136,17 +138,18 @@ CONTAINS
   !
   !
   init_mode   = MODE_IFSANA ! Start from IFS analysis
-  nlev_in     = 91          ! number of levels of input data
+  nlev_in     = -1          ! number of levels of input data (DEPRECATED)
   nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
-  l_hice_in   = .FALSE.     ! true: sea-ice thickness field provided as input
-  l_sst_in    = .FALSE.     ! true: sea surface temperature field provided as input
+  l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
+  l_ana_sfc   = .TRUE.      ! true: read soil/surface analysis fields from 
+                            !       analysis file dwdana_filename 
   filetype    = -1          ! "-1": undefined
   ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
-  dwdinc_filename   = "<path>dwdinc_R<nroot>B<jlev>_DOM<idom>.nc"
+  dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
 
   !------------------------------------------------------------
@@ -156,9 +159,11 @@ CONTAINS
   !
   CALL open_nml(TRIM(filename))
   CALL position_nml ('initicon_nml', status=i_status)
+  IF (my_process_is_stdio()) WRITE(temp_defaults(), initicon_nml)  ! write defaults to temporary text file
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, initicon_nml)
+    READ (nnml, initicon_nml, iostat=istat)                          ! overwrite default settings
+    IF (my_process_is_stdio()) WRITE(temp_settings(), initicon_nml)  ! write settings to temporary text file
   END SELECT
   CALL close_nml
 
@@ -166,29 +171,40 @@ CONTAINS
   ! 4.0 Fill the configuration state
   !------------------------------------------------------------
 
-  config_init_mode         = init_mode
-  config_nlev_in           = nlev_in
-  config_nlevsoil_in       = nlevsoil_in
-  config_zpbl1             = zpbl1
-  config_zpbl2             = zpbl2
-  config_l_hice_in         = l_hice_in
-  config_l_sst_in          = l_sst_in
-  config_ifs2icon_filename = ifs2icon_filename
-  config_dwdfg_filename    = dwdfg_filename
-  config_dwdinc_filename   = dwdinc_filename
-  config_l_coarse2fine_mode= l_coarse2fine_mode
-  config_filetype          = filetype
+  config_init_mode          = init_mode
+  config_nlevsoil_in        = nlevsoil_in
+  config_zpbl1              = zpbl1
+  config_zpbl2              = zpbl2
+  config_l_sst_in           = l_sst_in
+  config_l_ana_sfc          = l_ana_sfc
+  config_ifs2icon_filename  = ifs2icon_filename
+  config_dwdfg_filename     = dwdfg_filename
+  config_dwdana_filename    = dwdana_filename
+  config_l_coarse2fine_mode = l_coarse2fine_mode
+  config_filetype           = filetype
   config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_COMBINED/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. Must be init_mode=1 or 2')
   ENDIF
+
+  !------------------------------------------------------------
+  ! DEPRECATED parameters
+  !------------------------------------------------------------
+  
+  IF ((nlev_in /= -1) .AND. my_process_is_stdio()) THEN
+    WRITE (0,*) "!!                               !!"
+    WRITE (0,*) "!! DEPRECATED NAMELIST PARAMETER !!"
+    WRITE (0,*) "!!                               !!"
+    WRITE (0,*) "!! <nlev_in> no longer used!     !!"
+    WRITE (0,*) "!!                               !!"
+  END IF
 
   ! write the contents of the namelist to an ASCII file
 

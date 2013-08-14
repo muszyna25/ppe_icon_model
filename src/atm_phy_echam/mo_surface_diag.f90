@@ -52,21 +52,21 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE surface_fluxes( lsfc_heat_flux, pdtime, psteplen,     &! in
+  SUBROUTINE surface_fluxes( lsfc_heat_flux, psteplen,             &! in
                            & kproma, kbdim, klev, ksfc_type,       &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, ptsfc_tile, pqsat_tile,   &! in
                            & pca, pcs, bb,                         &! in
-                           & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
-                           & pevap_gbm_ac, dshflx_dT_ac_tile,      &! inout
+                           & plhflx_gbm, pshflx_gbm,               &! out
+                           & pevap_gbm,                            &! out
                            & plhflx_tile, pshflx_tile,             &! out
                            & dshflx_dT_tile,                       &! out
-                           & pevap_tile, pevap_gbm,                &! out
+                           & pevap_tile,                           &! out
                            & evapotranspiration)
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
-    REAL(wp),INTENT(IN) :: pdtime, psteplen
+    REAL(wp),INTENT(IN) :: psteplen
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
     INTEGER, INTENT(IN) :: ih, iqv
@@ -80,18 +80,15 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pca       (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pcs       (kbdim,ksfc_type)
 
-    REAL(wp),INTENT(INOUT) :: bb(kbdim,klev,ih:iqv)
-   !REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
+    REAL(wp),INTENT(IN) :: bb(kbdim,klev,ih:iqv)
 
-    REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) :: pshflx_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) ::  pevap_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) :: dshflx_dT_ac_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: plhflx_gbm(kbdim)
+    REAL(wp),INTENT(OUT)   :: pshflx_gbm(kbdim)
+    REAL(wp),INTENT(OUT)   :: pevap_gbm(kbdim)
 
     REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
+    REAL(wp),INTENT(INOUT) :: pevap_tile(kbdim,ksfc_type)    ! OUT
 
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(kbdim,ksfc_type)
 
@@ -167,11 +164,8 @@ CONTAINS
     pevap_gbm(1:kproma) = 0._wp   ! "pqhfla" in echam
 
     DO jsfc = 1,ksfc_type
-      pevap_gbm   (1:kproma) =   pevap_gbm(1:kproma)                         &
-                             & + pfrc(1:kproma,jsfc)*pevap_tile(1:kproma,jsfc)
-
-      pevap_gbm_ac(1:kproma) =   pevap_gbm_ac(1:kproma)                      &
-                             & + pevap_gbm(1:kproma)*pdtime 
+      pevap_gbm(1:kproma) = pevap_gbm(1:kproma)                           &
+        &                 + pfrc(1:kproma,jsfc)*pevap_tile(1:kproma,jsfc)
     ENDDO
 
     !-------------------------------------------------------------------
@@ -189,10 +183,11 @@ CONTAINS
 
     ! Accumulated grid box mean
 
+    plhflx_gbm(1:kproma) = 0.0_wp
+
     DO jsfc = 1,ksfc_type
-      plhflx_gbm_ac(1:kproma) =   plhflx_gbm_ac(1:kproma)                        &
-                              & + pfrc(1:kproma,jsfc)*plhflx_tile(1:kproma,jsfc) &
-                              &  *pdtime
+      plhflx_gbm(1:kproma) = plhflx_gbm(1:kproma)                           &
+        &                  + pfrc(1:kproma,jsfc)*plhflx_tile(1:kproma,jsfc)
     ENDDO
 
     !-------------------------------------------------------------------
@@ -240,16 +235,13 @@ CONTAINS
     ENDDO
 
 
-    ! Accumulated grid box mean
+    ! grid box mean
+
+    pshflx_gbm(1:kproma) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
-               pshflx_gbm_ac(1:kproma) = pshflx_gbm_ac(1:kproma)                        &
-                              &        + pfrc(1:kproma,jsfc)*pshflx_tile(1:kproma,jsfc) &
-                              &        * pdtime
-    ! Accumulated tiles of temperature tendency of SHF for sea ice model
-    ! averaging take place on output
-      dshflx_dT_ac_tile(1:kproma,jsfc) = dshflx_dT_ac_tile(1:kproma,jsfc)               &
-                                 &     + dshflx_dT_tile(1:kproma,jsfc) *pdtime
+      pshflx_gbm(1:kproma) = pshflx_gbm(1:kproma)                           &
+        &                  + pfrc(1:kproma,jsfc)*pshflx_tile(1:kproma,jsfc)
     ENDDO
 
   END SUBROUTINE surface_fluxes
@@ -257,15 +249,15 @@ CONTAINS
   !!
   !! Compute wind stress over each surface type
   !!
-  SUBROUTINE wind_stress( lsfc_mom_flux, pdtime, psteplen,      &! in
+  SUBROUTINE wind_stress( lsfc_mom_flux, psteplen,              &! in
                         & kproma, kbdim, ksfc_type,             &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
-                        & pu_stress_gbm_ac, pv_stress_gbm_ac,   &! inout
-                        & pu_stress_tile,   pv_stress_tile      )! out
+                        & pu_stress_gbm,  pv_stress_gbm,        &! out
+                        & pu_stress_tile, pv_stress_tile        )! out
 
     LOGICAL, INTENT(IN)    :: lsfc_mom_flux
-    REAL(wp),INTENT(IN)    :: pdtime, psteplen
+    REAL(wp),INTENT(IN)    :: psteplen
     INTEGER, INTENT(IN)    :: kproma, kbdim, ksfc_type
 
     REAL(wp),INTENT(IN)    :: pfrc            (kbdim,ksfc_type)
@@ -273,10 +265,10 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: pfac_sfc        (kbdim)
     REAL(wp),INTENT(IN)    :: pu_rtpfac1      (kbdim)
     REAL(wp),INTENT(IN)    :: pv_rtpfac1      (kbdim)
-    REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) :: pv_stress_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT)   :: pu_stress_tile  (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT)   :: pv_stress_tile  (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pu_stress_gbm   (kbdim)           ! OUT
+    REAL(wp),INTENT(INOUT) :: pv_stress_gbm   (kbdim)           ! OUT
+    REAL(wp),INTENT(INOUT) :: pu_stress_tile  (kbdim,ksfc_type) ! OUT
+    REAL(wp),INTENT(INOUT) :: pv_stress_tile  (kbdim,ksfc_type) ! OUT
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst
@@ -304,6 +296,9 @@ CONTAINS
       !  *(surface turbulent exchange coeff)
       !  *[(u-/v-wind at lowest model level)/tpfac1]
 
+      pu_stress_gbm(1:kproma) = 0.0_wp
+      pv_stress_gbm(1:kproma) = 0.0_wp
+
       DO jsfc = 1,ksfc_type
 
         pu_stress_tile(1:kproma,jsfc) = zconst*pfac_sfc(1:kproma) &
@@ -314,13 +309,13 @@ CONTAINS
                                       & *pcfm_tile(1:kproma,jsfc) &
                                       & *pv_rtpfac1(1:kproma)
 
-        pu_stress_gbm_ac(1:kproma) = pu_stress_gbm_ac(1:kproma)      &
-                                   & + pu_stress_tile(1:kproma,jsfc) &
-                                   &  *pfrc(1:kproma,jsfc)*pdtime
+        pu_stress_gbm(1:kproma)       = pu_stress_gbm(1:kproma)         &
+                                      & + pu_stress_tile(1:kproma,jsfc) &
+                                      &  *pfrc(1:kproma,jsfc)
 
-        pv_stress_gbm_ac(1:kproma) = pv_stress_gbm_ac(1:kproma)      &
-                                   & + pv_stress_tile(1:kproma,jsfc) &
-                                   &  *pfrc(1:kproma,jsfc)*pdtime
+        pv_stress_gbm(1:kproma)       = pv_stress_gbm(1:kproma)         &
+                                      & + pv_stress_tile(1:kproma,jsfc) &
+                                      &  *pfrc(1:kproma,jsfc)
       END DO
 
     END IF ! lsfc_mom_flux

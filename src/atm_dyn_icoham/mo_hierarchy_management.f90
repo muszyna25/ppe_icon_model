@@ -70,7 +70,7 @@ MODULE mo_hierarchy_management
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_ct
-  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
+  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_dynamics_config,     ONLY: ltwotime, lshallow_water,            &
                                     nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
@@ -187,6 +187,7 @@ CONTAINS
     REAL(wp) :: dt_sub, zdtime, rdt_loc
 
     REAL(wp),DIMENSION ( nproma, nlev, p_patch(jg)%nblks_c ) :: temp_save
+    REAL(wp), ALLOCATABLE :: z_pres_sfc(:,:,:)
 
     REAL(wp),DIMENSION(:,:),    POINTER :: p_psfc     => NULL()
     REAL(wp),DIMENSION(:,:),    POINTER :: p_psfc_sv  => NULL()
@@ -437,7 +438,7 @@ CONTAINS
             &                  p_hydro_state(jg)%diag%weta,                 & !in
             &                  z_delp_mc_now,                               & !in
             &                  p_hydro_state(jg)%diag%delp_c,               & !in
-            &                  z_delp_mc_now, z_pres_mc_now, z_pres_ic_now, & !in
+            &                  z_delp_mc_now,                               & !in
             &                  p_hydro_state(jg)%tend_dyn%tracer,           & !inout
             &                  p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
             &                  p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -523,6 +524,7 @@ CONTAINS
               &           z_delp_mc_now,                          &! out
               &           z_pres_mc_now, z_pres_ic_now            )! out
 
+
             CALL step_advection( p_patch(jg), p_int_state(jg), zdtime, jstep,&! in
               &                 p_hydro_state(jg)%prog(n_now)%tracer,        &! in
               &                 z_mflx_me, z_vn_traj,                        &! in
@@ -530,7 +532,7 @@ CONTAINS
               &                 z_mflx_ic,                                   &! in
               &                 z_delp_mc_now,                               &! in
               &                 p_hydro_state(jg)%diag%delp_c,               &! in
-              &                 z_delp_mc_now, z_pres_mc_now, z_pres_ic_now ,&! in
+              &                 z_delp_mc_now,                               &! in
               &                 p_hydro_state(jg)%tend_dyn%tracer,           &! inout*
               &                 p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                 p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -676,6 +678,7 @@ CONTAINS
                 &                           z_delp_mc_now,                   &! out (in fact "old")
                 &                           z_pres_mc_now, z_pres_ic_now     )! out (in fact "old")
 
+
               CALL step_advection( p_patch(jg), p_int_state(jg),               &!in
                 &                  2._wp*zdtime, jstep,                        &!in
                 &                  p_hydro_state(jg)%prog(n_old)%tracer,       &!in
@@ -685,7 +688,7 @@ CONTAINS
                 &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
                 &                  z_delp_mc_now,                              &!in (in fact"old")
                 &                  p_hydro_state(jg)%diag%delp_c,              &!in ("new")
-                &                  z_delp_mc_now, z_pres_mc_now, z_pres_ic_now,&!in (in fact "old")
+                &                  z_delp_mc_now,                              &!in (in fact "old")
                 &                  p_hydro_state(jg)%tend_dyn%tracer,          &!in (ONLY for ref.)
                 &                  p_hydro_state(jg)%prog(n_new)%tracer,       &!inout
                 &                  p_hydro_state(jg)%diag%hfl_tracer,          &!out
@@ -793,6 +796,7 @@ CONTAINS
               &                  z_delp_mc_now,                   &! out
               &                  z_pres_mc_now, z_pres_ic_now     )! out
 
+
             CALL step_advection( p_patch(jg), p_int_state(jg), zdtime, jstep, &! in
               &                  p_hydro_state(jg)%prog(n_now)%tracer,        &! in
               &                  z_mflx_me, z_vn_traj,                        &! in
@@ -800,7 +804,7 @@ CONTAINS
               &                  z_mflx_ic,                                   &! in
               &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%diag%delp_c,               &! in
-              &                  z_delp_mc_now, z_pres_mc_now, z_pres_ic_now, &! in
+              &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%tend_dyn%tracer,           &! inout
               &                  p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                  p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -863,6 +867,7 @@ CONTAINS
               &                     z_vn_traj, z_delp_mc_now,          &! out
               &                     z_pres_mc_now, z_pres_ic_now       )! out
 
+
             CALL step_advection( p_patch(jg), p_int_state(jg), zdtime, jstep, &! in
               &                  p_hydro_state(jg)%prog(n_now)%tracer,        &! in
               &                  p_hydro_state(jg)%diag%mass_flux_e,          &! in
@@ -871,7 +876,7 @@ CONTAINS
               &                  p_hydro_state(jg)%diag%weta,                 &! in
               &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%diag%delp_c,               &! in
-              &                  z_delp_mc_now, z_pres_mc_now, z_pres_ic_now, &! in
+              &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%tend_dyn%tracer,           &! inout*
               &                  p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                  p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -982,10 +987,10 @@ CONTAINS
       DEALLOCATE( z_mflx_me, z_mflx_ic, z_vn_traj, z_omega_traj,        &
         &         z_delp_mc_now, z_pres_mc_now, z_pres_ic_now, STAT=ist )
       IF (ist /= success) THEN
-        CALL finish ( 'mo_hierarchy_management: process_grid',                      &
-          &           'deallocation for z_mflx_me, z_mflx_ic, z_vn_traj, '       // &
-          &           'z_omega_traj, z_delp_mc_now, z_pres_mc_now, z_pres_ic_now'// &
-          &           ' failed' )
+       CALL finish ( 'mo_hierarchy_management: process_grid',                      &
+         &           'deallocation for z_mflx_me, z_mflx_ic, z_vn_traj, '       // &
+         &           'z_omega_traj, z_delp_mc_now, z_pres_mc_now, z_pres_ic_now'// &
+         &           ' failed' )
       ENDIF
 
       !==========================================================================
@@ -1017,26 +1022,26 @@ CONTAINS
           IF (grf_intmethod_c == 2) THEN
 
             IF (ha_dyn_config%ltheta_dyn) THEN
-              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),           &
-                &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
+              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc),                        &
+                &    p_grf_state(jg)%p_dom(jn), 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
                 &    p_hydro_state(jgc)%prog(nnow(jgc))%theta)
             ELSE IF (.NOT. lshallow_water) THEN
-              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),          &
-                &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
+              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc),                       &
+                &    p_grf_state(jg)%p_dom(jn), 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
                 &    p_hydro_state(jgc)%prog(nnow(jgc))%temp)
             ENDIF
 
-            CALL interpol_scal2d_grf (p_patch(jg), p_patch(jgc), &
-              &  p_int_state(jg), p_grf_state(jg)%p_dom(jn), jn, &
-              &  p_hydro_state(jg)%prog(n_sav1)%pres_sfc,        &
-              &  p_hydro_state(jgc)%prog(nnow(jgc))%pres_sfc)
+            ALLOCATE (z_pres_sfc(nproma,1,p_patch(jgc)%nblks_c))
+            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 1,                  &
+              &  RESHAPE(p_hydro_state(jg)%prog(n_sav1)%pres_sfc,(/nproma,1,p_patch(jg)%nblks_c/)), z_pres_sfc)
 
+            p_hydro_state(jgc)%prog(nnow(jgc))%pres_sfc(:,:) = z_pres_sfc(:,1,:)
+            DEALLOCATE (z_pres_sfc)
           ENDIF
 
           IF(ltransport .AND. grf_intmethod_ct == 2) THEN
-            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg), &
-              &  p_grf_state(jg)%p_dom(jn), jn, ntracer,                        &
-              &  f4din1=p_hydro_state(jg)%prog(n_sav1)%tracer,                  &
+            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), ntracer,                        &
+              &  f4din1=p_hydro_state(jg)%prog(n_sav1)%tracer,                                   &
               &  f4dout1=p_hydro_state(jgc)%prog(nnow(jgc))%tracer)
           ENDIF
 
@@ -1362,6 +1367,7 @@ CONTAINS
           &                  z_pres_mc_now, z_pres_ic_now     )! out
 
 
+
         CALL step_advection( p_patch(jg), p_int_state(jg), zdtime, jstep, & !in
           &                  p_hydro_state(jg)%prog(n_now)%tracer,        & !in
           &                  z_mflx_me, z_vn_traj,                        & !in
@@ -1369,7 +1375,7 @@ CONTAINS
           &                  z_mflx_ic,                                   & !in
           &                  z_delp_mc_now,                               & !in
           &                  p_hydro_state(jg)%diag%delp_c,               & !in
-          &                  z_delp_mc_now, z_pres_mc_now, z_pres_ic_now, & !in
+          &                  z_delp_mc_now,                               & !in
           &                  p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                  p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                  p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1443,7 +1449,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now, z_pres_mc_now, z_pres_ic_now ,& !in
+          &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1510,7 +1516,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now, z_pres_mc_now, z_pres_ic_now ,& !in
+          &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1619,7 +1625,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now, z_pres_mc_now, z_pres_ic_now ,& !in
+          &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out

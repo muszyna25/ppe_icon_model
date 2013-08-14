@@ -110,12 +110,10 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
                          , ptte                                 &
                          , pqte,     pxlte,     pxite,  pxtte   &
                          , pxvar,    pxskew                     &
-                         , paclc,    paclcac                    &
-! - INPUT/OUTPUT 1D .
+                         , paclc                                &
+! - OUTPUT 1D .
                          , paclcov,  pqvi                       &
                          , pxlvi,    pxivi                      &
-                         , paprl,    paprs                      &
-! - OUTPUT 1D .
                          , prsfl,    pssfl                      &
 ! - OUTPUT 2D .
                          , prelhum                              &
@@ -189,18 +187,14 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !  pxvar    : distribution width (b-a)                             (n-1)
 !  pxskew   : beta shape parameter "q"                             (n-1)
 !  paclc    : cloud cover  (now diagnosed in cover)
-!  paclcac  : cloud cover, accumulated
-!  - 1D
-!  paclcov  : total cloud cover
-!  pqvi     : vertically integrated spec. humidity, accumulated
-!  pxlvi    : vertically integrated cloud liquid water, accumulated
-!  pxivi    : vertically integrated cloud ice, accumulated
-!  paprl    : total stratiform precipitation (rain+snow), accumulated
-!  paprs    : Snowfall, accumulated
 !
 !     Output arguments.
 !     ------ ----------
 !  - 1D
+!  paclcov  : total cloud cover
+!  pqvi     : vertically integrated spec. humidity
+!  pxlvi    : vertically integrated cloud liquid water
+!  pxivi    : vertically integrated cloud ice
 !  prsfl    : surface rain flux
 !  pssfl    : surface snow flux
 !  - 2D
@@ -261,18 +255,17 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp),INTENT(INOUT) :: pxtec(kbdim,klev)    ,pqtec(kbdim,klev)
   REAL(dp),INTENT(INOUT) :: pxvar(kbdim,klev)    ,pxskew(kbdim,klev)
 
-  REAL(dp),INTENT(INOUT) :: pxlvi(kbdim)         ,pxivi(kbdim)
-  REAL(dp),INTENT(INOUT) :: paclc(kbdim,klev)    ,paclcac(kbdim,klev)
+  REAL(dp),INTENT(INOUT) :: pxlvi(kbdim)         ,pxivi(kbdim)         ! OUT
+  REAL(dp),INTENT(INOUT) :: paclc(kbdim,klev)
   REAL(dp),INTENT(IN)    :: pacdnc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: prelhum(kbdim,klev)
-  REAL(dp),INTENT(INOUT) :: paclcov(kbdim)       ,paprl(kbdim)         &
-                          , pqvi(kbdim)          ,paprs(kbdim)
+  REAL(dp),INTENT(INOUT) :: prelhum(kbdim,klev)                        ! OUT
+  REAL(dp),INTENT(INOUT) :: paclcov(kbdim)       , pqvi(kbdim)         ! OUT
 
   REAL(dp),INTENT(INOUT) :: ptte(kbdim,klev)     ,pqte(kbdim,klev)
   REAL(dp),INTENT(INOUT) :: pxlte(kbdim,klev)    ,pxite(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev)
-  REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)
+  REAL(dp),INTENT(INOUT) :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)  ! OUT
+  REAL(dp),INTENT(INOUT) :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
+  REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)          ! OUT
 
 !---Included for in-cloud scavenging (Philip Stier, 28/03/01):----------
   INTEGER, INTENT(IN)    :: ktrac
@@ -2067,7 +2060,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zxlp1_d        = MAX(zxlp1_d,0.0_dp)
         paclc(jl,jk)   = FSEL(-(zxlp1_d*zxip1_d),paclc(jl,jk),0._dp)
 
-        paclcac(jl,jk) = paclcac(jl,jk) + paclc(jl,jk)*zdtime
         pxlte(jl,jk)   = pxlte(jl,jk) + zdxlcor
         pxite(jl,jk)   = pxite(jl,jk) + zdxicor
         pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
@@ -2108,13 +2100,11 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !       10.    Diagnostics
 !     -------------------------------------------------------------------------
 !
-!       10.1   Accumulated precipitation at the surface
+!       10.1   Precipitation at the surface
 !
   DO 911 jl    = 1,kproma
      prsfl(jl) = zrfl(jl)
      pssfl(jl) = zsfl(jl)
-     paprl(jl) = paprl(jl)+zdtime*(prsfl(jl)+pssfl(jl))
-     paprs(jl) = paprs(jl)+zdtime*pssfl(jl)
 911 END DO
 !!skipped in ICON !++mgs
 !!skipped in ICON   IF (lanysubmodel) CALL set_vphysc_var(kproma, -1, krow, prflstrat=prsfl, psflstrat=pssfl)
@@ -2136,7 +2126,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 
   DO 924 jl     = 1,kproma
      zclcov(jl)  = 1.0_dp-zclcov(jl)
-     paclcov(jl) = paclcov(jl)+zdtime*zclcov(jl)
+     paclcov(jl) = zclcov(jl)
 924 END DO
 !
 !       10.3   Vertical integrals of humidity, cloud water and cloud ice
@@ -2157,9 +2147,9 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 933 END DO
 !
   DO 934 jl   = 1,kproma
-     pqvi(jl)  = pqvi(jl)+zdtime*zqvi(jl)
-     pxlvi(jl) = pxlvi(jl)+zdtime*zxlvi(jl)
-     pxivi(jl) = pxivi(jl)+zdtime*zxivi(jl)
+     pqvi(jl)  = zqvi(jl)
+     pxlvi(jl) = zxlvi(jl)
+     pxivi(jl) = zxivi(jl)
 934 END DO
   !
 #ifdef _PROFILE

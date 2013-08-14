@@ -218,6 +218,12 @@ CONTAINS
 
     nbr_active_comps = nbr_active_comps + 1
 
+    ! write a message so we know where to look !
+    IF (ICON_global_rank == 0) THEN
+      write(0,*) "-------------------------------------------------------------------"
+      write(0,*) "! Redirecting OUTPUT to <experiment folder>/<model>.err.<pocs no> !"
+      write(0,*) "-------------------------------------------------------------------"
+    ENDIF
     CALL icon_cpl_redirect_stdout ( comp_id )
 
     ! -------------------------------------------------------------------

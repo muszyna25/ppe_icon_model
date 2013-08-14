@@ -59,6 +59,7 @@ MODULE mo_grid_nml
     & config_start_time                   => start_time,                   &
     & config_end_time                     => end_time,                     &
     & config_lplane                       => lplane,                       &
+    & config_is_plane_torus               => is_plane_torus,               &
     & config_corio_lat                    => corio_lat,                    &
     & config_l_limited_area               => l_limited_area,               &
     & config_patch_weight                 => patch_weight,                 &
@@ -73,6 +74,7 @@ MODULE mo_grid_nml
 !    & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
     & max_rad_dom
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
 
@@ -103,7 +105,7 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i
+    INTEGER  :: i_status, i, istat
 
     INTEGER    :: cell_type                ! cell type:
 
@@ -118,6 +120,7 @@ MODULE mo_grid_nml
 !    LOGICAL    :: use_dummy_cell_closure ! if true then create a dummy cell and connect it to cells and edges with no neigbor
 
     LOGICAL    :: lplane                   ! f-plane option
+    LOGICAL    :: is_plane_torus           ! f-plane with doubly periodic boundary==> like a plane torus
     REAL(wp)   :: corio_lat                ! Latitude, where the f-plane is located if lplane=.true.
   
     REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
@@ -135,14 +138,15 @@ MODULE mo_grid_nml
 
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
-      &  lplane, corio_lat, l_limited_area, grid_rescale_factor,   &
+      &  lplane, is_plane_torus, corio_lat, l_limited_area,        &
+      &  grid_rescale_factor,                                      &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
-      &  grid_angular_velocity, use_duplicated_connectivity!,       &
+      &  grid_angular_velocity, use_duplicated_connectivity
+
 !      &  use_dummy_cell_closure
 !       &  radiation_grid_distribution
-
 
 
 !    INTEGER  :: funit
@@ -170,7 +174,8 @@ MODULE mo_grid_nml
     ifeedback_type = 2
     start_time(:) = 0._wp
     end_time(:)   = 1.e30_wp
-    lplane      = .FALSE.
+    lplane         = .FALSE.
+    is_plane_torus = .FALSE.
     l_limited_area = .FALSE.
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
@@ -198,8 +203,10 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('grid_nml', status=i_status)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), grid_nml)  ! write defaults to temporary text file
     IF (i_status == POSITIONED) THEN
-      READ (nnml, grid_nml)
+      READ (nnml, grid_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), grid_nml)  ! write settings to temporary text file
     ENDIF
     CALL close_nml
 
@@ -231,6 +238,7 @@ MODULE mo_grid_nml
     config_start_time        = start_time
     config_end_time          = end_time
     config_lplane            = lplane
+    config_is_plane_torus    = is_plane_torus
     config_corio_lat         = corio_lat
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight

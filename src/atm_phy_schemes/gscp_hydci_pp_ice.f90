@@ -3,8 +3,8 @@
 !!
 !! !------------------------------------------------------------------------------
 !!
-!! @par Description of *init_hydci_pp*:
-!!   Initializes some parameters for hydci_pp
+!! @par Description of *init_hydci_pp_ice*:
+!!   Initializes some parameters for hydci_pp_ice
 !! @par Description of *hydci_pp*:
 !!   This module procedure calculates the rates of change of temperature, cloud
 !!   water, cloud ice, water vapor, rain and snow due to cloud microphysical
@@ -106,6 +106,7 @@ USE data_constants  , ONLY :   &
     rvd_m_o,      & !! r_v/r_d - 1
     cp_d,         & !! specific heat of dry air
     cpdr,         & !! 1 / cp_d
+    con_m,        & !! kinematic viscosity (m2/s) !CK<    
     lh_v,         & !! latent heat of vapourization
     lh_f,         & !! latent heat of fusion
     lh_s,         & !! latent heat of sublimation
@@ -162,7 +163,11 @@ USE data_gscp, ONLY: &          ! all variables are used here
     v0snow,    & ! factor in the terminal velocity for snow
     mu_rain,   & ! 
     rain_n0_factor, &
-    cloud_num
+    cloud_num, &
+  !CK>
+    vtxexp,    & !!
+    kc_c1,     & !!
+    kc_c2        !!
 
 
 !------------------------------------------------------------------------------
@@ -235,6 +240,7 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  rvd_m_o=>vtmpc1, & !! r_v/r_d - 1
                                  o_m_rdv        , & !! 1 - r_d/r_v
                                  rdv            , & !! r_d / r_v
+                                 con_m          , & !! kinematic viscosity (m2/s) CK<
                                  lh_v  => alv   , & !! latent heat of vapourization
                                  lh_s  => als   , & !! latent heat of sublimation
                                  lh_f  => alf   , & !! latent heat of fusion
@@ -245,6 +251,8 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  rho_w => rhoh2o, & !! density of liquid water (kg/m^3)
                                  g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
+
+USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
@@ -258,6 +266,11 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
 USE data_gscp                 !xxx: common module COSMO/ICON, all variables are used here
+
+USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated fraction of dust particles acting as ice nuclei
+                                    afrac_soot, &  !! ... of soot particles
+                                    afrac_orga     !! ... of organic material
+
 #endif
 
 !==============================================================================
@@ -344,7 +357,8 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
 ! zcev  = 3.1E-3_ireals , & ! 2*PI*DIFF*HW*N0R*AR**(-1/2)
 ! zbev  = 9.0_ireals    , & ! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
   zcsmel= 1.48E-4_ireals, & ! 4*LHEAT*N0S*AS**(-2/3)/(RHO*lh_f)
-  zbsmel= 14.37_ireals  , & ! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
+!FR old  zbsmel= 14.37_ireals  , & ! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
+  zbsmel= 20.32_ireals  , & !        0.26*sqrt(    RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
   zasmel= 2.31E3_ireals , & ! DIFF*lh_v*RHO/LHEAT
   zcrfrz= 1.68_ireals   , & ! coefficient for raindrop freezing
   
@@ -354,6 +368,18 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zdv    = 2.22e-5_ireals, & ! molecular diffusion coefficient for water vapour
   zlheat = 2.40E-2_ireals, & ! thermal conductivity of dry air
   zeta   = 1.75e-5_ireals    ! kinematic viscosity of air 
+
+!CK>
+! constants needed for cloud ice sedimentation
+! Small hex plates from Mitchell (1996)
+REAL(KIND=ireals), PARAMETER :: &  
+  kc_alpha =  0.5870086, & !..alf, CGS is 0.00739
+  kc_beta  =  2.45,      & !..exponent  in mass-size relation
+  kc_gamma =  0.120285,  & !..gam, CGS is 0.24
+  kc_sigma =  1.85    ,  & !..exponent  in area-size relation
+  do_i     =  5.83    ,  & ! coefficients for drag correction
+  co_i     =  0.6          ! coefficients for turbulence correction
+!CK<
 
 REAL    (KIND=ireals   ), PARAMETER ::  &
   !! Additional parameters
@@ -402,6 +428,36 @@ REAL (KIND=ireals), INTENT(IN)  :: temp
 ice_nuclei_number = 1.0E2_ireals * EXP(0.2_ireals * (t0 - temp))
 
 END FUNCTION ice_nuclei_number
+
+!CK>
+!==============================================================================
+! dimensionless growth time scale (ECHAM Code)
+! B.Kaercher and S. Solomon, JGR 104(D22), 27441-27459, 1999 
+!==============================================================================
+
+REAL(KIND=ireals) ELEMENTAL FUNCTION dep_growth_timescale(b,y,x_0) 
+IMPLICIT NONE
+REAL(KIND=ireals), INTENT(in) :: b,y,x_0
+
+REAL(KIND=ireals), PARAMETER  :: &
+  SQ31 = 0.577350269_ireals,       &
+  SIX1 = 0.166666666_ireals
+
+REAL(KIND=ireals) ::  X,F1,F10,F2,F20
+    
+IF (y.LE.x_0) THEN
+  dep_growth_timescale = 0.
+ELSE
+  X     = MIN( y, 0.9999999_ireals )
+  F1    = SIX1 * LOG( (1.+X +X**2)  / (1.-X)**2 ) 
+  F10   = SIX1 * LOG( (1.+x_0+x_0**2) / (1.-x_0)**2 ) 
+  F2    = SQ31 * ATAN( SQ31*(1.+2.*X) )
+  F20   = SQ31 * ATAN( SQ31*(1.+2.*x_0) )      
+  dep_growth_timescale = (b+1.)*(F1-F10) + (b-1.)*(F2-F20)            
+END IF
+
+END FUNCTION dep_growth_timescale
+!CK<
 
 #ifdef __COSMO__
 !==============================================================================
@@ -462,16 +518,6 @@ END SUBROUTINE message
 
 #endif
 
-
-
-
-
-
-
-
-
-
-
 !==============================================================================
 !>  Module procedure "hydci_pp_ice_init" in "gscp" to initialize some
 !!  coefficients which are used in "hydci_pp_ice"
@@ -493,12 +539,18 @@ SUBROUTINE hydci_pp_ice_init(idbg)
 !------------------------------------------------------------------------------
 
 !!  mu_rain = 0.5  ! is a namelist parameter
+! FR new:
+#ifdef __ICON__
+  mu_rain = atm_phy_nwp_config(1)%mu_rain
+!  mu_snow = atm_phy_nwp_config(1)%mu_snow
+#endif
 
   zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
     * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
   ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
   ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
-  ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
+!FR old:  ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
+  ccsdep =         0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(1.0_ireals/zeta)
   ccsvxp = -(zv1s/(zbms+1.0_ireals)+1.0_ireals)
   ccsvel = zams*v0snow*gamma_fct(zbms+zv1s+1.0_ireals)&
     & *(zams*gamma_fct(zbms+1.0_ireals))**ccsvxp 
@@ -507,9 +559,11 @@ SUBROUTINE hydci_pp_ice_init(idbg)
   ccslxp = 1.0_ireals / (zbms+1.0_ireals)
   ccswxp = zv1s*ccslxp
   ccsaxp = -(zv1s+3.0_ireals)
-  ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
+!FR old:  ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
+  ccsdxp = -(zv1s+1.0_ireals)/2.0_ireals
   ccshi1 = lh_s*lh_s/(zlheat*r_v)
-  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
+!FR old:  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
+  ccdvtp = 2.22E-5 * t0**(-1.94) * 101325.0
   ccidep = 4.0_ireals * zami**(-x1o3)
   zn0r   = 8e6 * EXP(3.2*mu_rain) * (0.01)**(-mu_rain)  ! empirical relation adapted from Ulbrich (1983)
 ! to tune the zn0r variable
@@ -519,11 +573,18 @@ SUBROUTINE hydci_pp_ice_init(idbg)
   zcevxp = (mu_rain+2.)/(mu_rain+4.)
   zcev   = 2.0*pi*zdv/zhw*zn0r*zar**(-zcevxp) * gamma_fct(mu_rain+2.0)
   zbevxp = (2.*mu_rain+5.5_ireals)/(2.*mu_rain+8.)-zcevxp
-  zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
+! FR old:  zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
+!    &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
+  zbev   =          0.26 * SQRT(    zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
     &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
   zvzxp  = 0.5/(mu_rain+4.0)
   zvz0r  = 130.0_ireals*gamma_fct(mu_rain+4.5)/gamma_fct(mu_rain+4.0)*zar**(-zvzxp)
-
+  !CK>
+  vtxexp = kc_beta + 2.0_ireals - kc_sigma !for KC05 ice sedi
+  kc_c1  = 4.0_ireals / ( do_i**2 * SQRT(co_i) )
+  kc_c2  = do_i**2 / 4.0_ireals
+  !CK<
+  
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 10) THEN
@@ -544,22 +605,15 @@ SUBROUTINE hydci_pp_ice_init(idbg)
       WRITE (message_text,'(A,E10.3)') '      zcevxp = ',zcevxp ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      zvzxp  = ',zvzxp  ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      zvz0r  = ',zvz0r  ; CALL message('',message_text)
+      WRITE (message_text,'(A,E10.3)') '      vtxexp = ',vtxexp ; CALL message('',message_text) !CK<
+      WRITE (message_text,'(A,E10.3)') '       kc_c1 = ',kc_c1  ; CALL message('',message_text) !CK<
+      WRITE (message_text,'(A,E10.3)') '       kc_c2 = ',kc_c2  ; CALL message('',message_text) !CK<      
     ENDIF
   END IF
 
   CALL message('hydci_pp_ice_init','microphysical values initialized')
 
 END SUBROUTINE hydci_pp_ice_init
-
-
-
-
-
-
-
-
-
-
 
 
 !==============================================================================
@@ -569,34 +623,36 @@ END SUBROUTINE hydci_pp_ice_init
 !------------------------------------------------------------------------------
 
 SUBROUTINE hydci_pp_ice (             &
-  nvec,ke,                           & !> array dimensions
-  ivstart,ivend, kstart,             & !! optional start/end indicies
-  idbg,                              & !! optional debug level
-  zdt, dz,                           & !! numerics parameters
-  t,p,rho,qv,qc,qi,qr,qs,            & !! prognostic variables
+  nvec,ke,ke1,                        & !> array dimensions !CK> ke1
+  ivstart,ivend,kstart,               & !! optional start/end indicies
+  idbg,                               & !! optional debug level
+  zdt,dz,                             & !! numerics parameters
+  w,tke,                              & !! !CK> w,tke
+  t,p,rho,qv,qc,qi,qni,qni_nuc,       & !! prognostic variables !CK> qni,qni_nuc
+  qr,qs,                              & !! prognostic variables
 #ifdef __ICON__
   !xxx: this should become a module variable, e.g. in a new module mo_data_gscp.f90
-  qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
+  qi0,qc0,                            & !! cloud ice/water threshold for autoconversion
 #endif
-  prr_gsp,prs_gsp,                   & !! surface precipitation rates
+  prr_gsp,prs_gsp,                    & !! surface precipitation rates
 #ifdef NUDGING
-  tinc_lh,                           & !  t-increment due to latent heat 
-  tt_lheat,                          & !  t-increments due to latent heating (nud) 
-  qrsflux,                           & !  total precipitation flux
+  tinc_lh,                            & !  t-increment due to latent heat 
+  tt_lheat,                           & !  t-increments due to latent heating (nud) 
+  qrsflux,                            & !  total precipitation flux
 #endif
-  l_cv,                              &
-  ddt_tend_t     , ddt_tend_qv     , &
-  ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
-  ddt_tend_qr    , ddt_tend_qs     , & !!    necessary for dynamics
-  ddt_diag_au    , ddt_diag_ac     , & !!
-  ddt_diag_ev    , ddt_diag_nuc    , & !! ddt_diag_xxx are optional
-  ddt_diag_idep  , ddt_diag_sdep   , & !!   diagnostic tendencies of all
-  ddt_diag_agg   , ddt_diag_rim    , & !!   individual microphysical processes
-  ddt_diag_rcri  , ddt_diag_icri   , & !!
-  ddt_diag_dau   , ddt_diag_iau    , & !!
-  ddt_diag_imelt , ddt_diag_smelt  , & !!
-  ddt_diag_cfrz  , ddt_diag_rfrz   , & !!
-  ddt_diag_shed                      ) !!
+  l_cv,                               &
+  ddt_tend_t     , ddt_tend_qv      , &
+  ddt_tend_qc    , ddt_tend_qi      , & !> ddt_tend_xx are tendencies
+  ddt_tend_qr    , ddt_tend_qs      , & !!    necessary for dynamics
+  ddt_diag_au    , ddt_diag_ac      , & !!
+  ddt_diag_ev    , ddt_diag_nuc     , & !! ddt_diag_xxx are optional
+  ddt_diag_idep  , ddt_diag_sdep    , & !!   diagnostic tendencies of all
+  ddt_diag_agg   , ddt_diag_rim     , & !!   individual microphysical processes
+  ddt_diag_rcri  , ddt_diag_icri    , & !!
+  ddt_diag_dau   , ddt_diag_iau     , & !!
+  ddt_diag_imelt , ddt_diag_smelt   , & !!
+  ddt_diag_cfrz  , ddt_diag_rfrz    , & !!
+  ddt_diag_shed                       ) !!
 
 !------------------------------------------------------------------------------
 !>
@@ -610,7 +666,7 @@ SUBROUTINE hydci_pp_ice (             &
 !!   The subroutine relies on conversion terms used in hydci.
 !!
 !! Method:
-!!   The
+!!   The sedimentation of rain and snow is computed implicitly.
 !!
 !------------------------------------------------------------------------------
 !! Declarations:
@@ -623,9 +679,12 @@ SUBROUTINE hydci_pp_ice (             &
 !! --------------------
 
   INTEGER, INTENT(IN) ::  &
-    nvec          ,    & !> number of horizontal points
-    ke                     !! number of grid points in vertical direction
-
+    nvec             ,    & !> number of horizontal points
+    ke               ,    & !! number of grid points in vertical direction
+!CK>
+    ke1                     ! index of the lowest model half level (=ke+1)
+!CK<
+    
   INTEGER, INTENT(IN), OPTIONAL ::  &
     ivstart    ,    & !> optional start index for horizontal direction
     ivend      ,    & !! optional end index   for horizontal direction
@@ -651,7 +710,19 @@ SUBROUTINE hydci_pp_ice (             &
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
-
+  
+!CK>
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  REAL(KIND=ireals), DIMENSION(nvec,ke1), INTENT(IN) ::  &   ! dim (ie,ke1)
+#else
+  REAL(KIND=ireals), DIMENSION(:,:), INTENT(IN) ::   &   ! dim (ie,ke1)
+#endif
+  w                 , & !! vertical wind speed (defined on half levels)  ( m/s )
+  tke                   !! SQRT(2*TKE); TKE='turbul. kin. energy'        ( m/s )
+                        !! (defined on half levels)  
+!CK<
+  
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
@@ -665,6 +736,10 @@ SUBROUTINE hydci_pp_ice (             &
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
     qi              ,    & !! specific cloud ice   content                  (kg/kg)
+    !CK>
+    qni             ,    & !! specific cloud ice number                     ( 1/kg)   
+    qni_nuc         ,    & !! activated ice nuclei                          ( 1/kg)
+    !CK<    
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
@@ -692,12 +767,12 @@ SUBROUTINE hydci_pp_ice (             &
 #else
   REAL(KIND=ireals), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
 #endif
-    ddt_tend_t      , & !> tendency T                                       ( 1/s )
-    ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
-    ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
-    ddt_tend_qi     , & !! tendency qi                                      ( 1/s )
-    ddt_tend_qr     , & !! tendency qr                                      ( 1/s )
-    ddt_tend_qs         !! tendency qs                                      ( 1/s )
+    ddt_tend_t       , & !> tendency T                                       ( 1/s )
+    ddt_tend_qv      , & !! tendency qv                                      ( 1/s )
+    ddt_tend_qc      , & !! tendency qc                                      ( 1/s )
+    ddt_tend_qi      , & !! tendency qi                                      ( 1/s )
+    ddt_tend_qr      , & !! tendency qr                                      ( 1/s )
+    ddt_tend_qs          !! tendency qs                                      ( 1/s )
 
 #ifdef __xlC__
   ! LL: xlc has trouble optimizing with the assumed shape, define the shape
@@ -750,44 +825,97 @@ SUBROUTINE hydci_pp_ice (             &
     fxna ,             & ! statement function for ice crystal number
     ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
     znimax,            & ! maximum number of cloud ice crystals
+    !CK>
+    zximax,            & ! maximum mass of ice crystals
+    zximin,            & ! minimum mass of ice crystals
+    zxcloud,           & ! average mass of cloud droplets    
+    !CK<    
     zpvsw0,            & ! sat.vap. pressure at melting temperature
     zqvsw0,            & ! sat.specific humidity at melting temperature
 !    zdt,               & ! timestep for integration (water / ice )
     zdtr ,             & ! reciprocal of timestep for integration
-    zscau , zscac  , zscrim , zscshe, zsnuc , & ! local values of the
+    zscau , zscac  , zscrim , zscshe,         & ! local values of the !CK removed zsnuc
     zsiau , zsagg  , zsidep , zsicri, zsrcri, & ! transfer rates
-    zsdau , zssdep , zssmelt, & ! defined below
+    zssdep , zssmelt,  & ! defined below        !CK removed zsdau
     zsrfrz,                                   & !
     zscsum, zscmax, zcorr,  & ! terms for limiting  total cloud water depletion
     zsrsum, zsrmax,    & ! terms for limiting  total rain water depletion
     zssmax,            & ! term for limiting snow depletion
-    znin,              & ! number of cloud ice crystals at nucleation
-    znid,              & ! number of cloud ice crystals for deposition
+    znid,              & ! number of cloud ice crystals for deposition !CK rm znin
     zmi ,              & ! mass of a cloud ice crystal
     zsvidep, zsvisub,  & ! deposition, sublimation of cloud ice
     zsimax , zsisum , zsvmax,   & ! terms for limiting total
-    zqvsi, zqvsw,      & ! sat. specitic humidity at ice and water saturation
-    zztau, zxfac, zx1, zx2, ztt, &   ! some help variables
+    zqvsw,             & ! sat. specitic humidity at ice and water saturation
+    zqvsidiff,         & !! qv-zqvsi !CK<
+    zxfac, zx1, zx2, ztt, & ! some help variables !CK removed zztau
     ztau, zphi, zhi, zdvtp, ztc
 
   REAL    (KIND=ireals   ) ::  &
     zqct   ,& ! layer tendency of cloud water
     zqvt   ,& ! layer tendency of water vapour
     zqit   ,& ! layer tendency of cloud ice
+    zqnit  ,& ! layer tendency of cloud ice !CK<    
     zqrt   ,& ! layer tendency of rain
     zqst      ! layer tendency of snow
 
   REAL (KIND=ireals)         ::       &
     mma(10), mmb(10)
 
-  REAL    (KIND=ireals   ) ::  &
-    zlnqrk,zlnqsk,     & !
-    zlnlogmi,               & !
-    qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp
-
+  REAL    (KIND=ireals   ) ::         &
+    zlnqrk,zlnqsk,                                       & !!
+    qcg,tg,qvg,qrg,qsg,qig,rhog,ppg,alf,bet,m2s,m3s,hlp, & !!
+!CK>
+    qnig,qnig_nuc,asphere,ssi,wg,zri,xt,xs
+!CK<
+    
   LOGICAL :: &
     llqr,llqs,llqc,llqi  !   switch for existence of qr, qs, qc, qi
 
+!CK>
+  LOGICAL :: &
+    lhom                       !! switch for homogeneous nucleation
+  
+   REAL    (KIND=ireals   ), PARAMETER ::  &
+    tau_mix    = 14000.0_ireals,  & !> mixing timescale for activated IN (2 hours = 7200 s)
+    na_dust    = 162.e3_ireals,   & !! initial number density of dust [1/m3], Phillips08 value 162e3
+    na_soot    =  15.e6_ireals,   & !! initial number density of soot [1/m3], Phillips08 value 15e6
+    na_orga    = 177.e6_ireals,   & !! initial number density of organics [1/m3], Phillips08 value 177e6
+    ni_het_max =  50.e3_ireals,   & !! max number of IN between 1-10 per liter, i.e. 1d3-10d3 [1/m3] 
+    ni_hom_max = 5000e3_ireals      !! number of liquid aerosols between 100-5000 per liter   [1/m3]
+
+  REAL    (KIND=ireals   ), PARAMETER ::  &
+    rho0   = 1.225e+0_ireals, & ! reference air density
+    ! Single bullets of Heymsfield and Iaquinta, see their Eq (A29) and text below
+    zvz0i  = 3577_ireals,  & ! Factor in the terminal velocity for cloud ice
+    zvzxi  = 1.31_ireals,  & ! Exponent in the terminal velocity for cloud ice
+    zvimin = 0.01_ireals,  & ! Minimum terminal velocity for cloud ice
+    zvimax = 1.00_ireals     ! Maximum terminal velocity for cloud ice
+
+  ! some constants needed for Kaercher and Lohmann approach
+  REAL(KIND=ireals), PARAMETER :: &
+    rho_ice = 900.0             , &   !>..Materialdichte von Eis
+    r_0     = 0.25e-6           , &   !! aerosol particle radius prior to freezing
+    alpha_d = 0.5               , &   !! deposition coefficient (KL02; Spichtinger & Gierens 2009)
+    k_b     = 1.38065e-23       , &   !! Boltzmann constant [J/K]
+    M_w     = 18.01528e-3       , &   !! molecular mass of water [kg/mol]
+    M_a     = 28.96e-3          , &   !! molecular mass of air [kg/mol]
+    N_avo   = 6.022e23          , &   !! Avogadro number [1/mol]
+    ma_w    = M_w / N_avo       , &   !! mass of water molecule [kg]
+    svol    = ma_w / rho_ice          !! specific volume of a water molecule in ice
+  
+  !==============================================================================
+  
+  ! Look-up table for Phillips et al. 2008 nucleation
+  INTEGER(KIND=iintegers), PARAMETER :: &
+    ttmax  = 30,      &  !! sets limit for temperature in look-up table
+    ssmax  = 60,      &  !! sets limit for ice supersaturation in look-up table
+    ttstep = 2,       &  !! increment for temperature in look-up table
+    ssstep = 1           !! increment for ice supersaturation in look-up table
+
+!FR/CK: include file --> data_hydci_pp_ice.f90   
+ 
+!CK<
+  
   REAL(KIND=ireals), DIMENSION(nvec,ke) ::   &
     t_in               ,    & !> temperature                                   (  K  )
     qv_in              ,    & !! specific water vapor content                  (kg/kg)
@@ -795,9 +923,6 @@ SUBROUTINE hydci_pp_ice (             &
     qi_in              ,    & !! specific cloud ice   content                  (kg/kg)
     qr_in              ,    & !! specific rain content                         (kg/kg)
     qs_in                     !! specific snow content                         (kg/kg)
-
-
-
 
 
 !! Local (automatic) arrays:
@@ -808,12 +933,18 @@ SUBROUTINE hydci_pp_ice (             &
 #endif
 
   REAL    (KIND=ireals   ) ::  &
+    zqvsi       (nvec),     & !> sat. specitic humidity at ice and water saturation 
     zvzr        (nvec),     & !
     zvzs        (nvec),     & !
+    zvzi        (nvec),     & ! !CK< ice sedimentation
     zpkr        (nvec),     & !
     zpks        (nvec),     & !
+    zpki        (nvec),     & ! !CK< ice sedimentation
+    zpkni       (nvec),     & ! !CK< ice sedimentation
     zprvr       (nvec),     & !
     zprvs       (nvec),     & !
+    zprvi       (nvec),     & ! !CK< ice sedimentation
+    zprvni      (nvec),     & ! !CK< ice sedimentation
 #ifdef __COSMO__
     zdummy      (nvec,8),   & !
 #endif
@@ -827,10 +958,24 @@ SUBROUTINE hydci_pp_ice (             &
     zn0s        (nvec),     & !
     zimr        (nvec),     & !
     zims        (nvec),     & !
+    zimi        (nvec),     & ! !CK<
+    zimni       (nvec),     & ! !CK<
     zzar        (nvec),     & !
     zzas        (nvec),     & !
+    zzai        (nvec),     & ! !CK<
+    zzani       (nvec),     & ! !CK< 
     zqrk        (nvec),     & !
     zqsk        (nvec),     & !
+    !CK>
+    zqik        (nvec),     & !
+    zqnik       (nvec),     & !
+    znidiag     (nvec),     & ! number of ice crystal from empirical diagnostic relation
+    zDi         (nvec),     & ! mean diameter of cloud ice crystals
+    zxi         (nvec),     & ! mean mass of cloud ice crystals
+    vt_kc05     (nvec),     & ! terminal vel. ice
+    zsi         (nvec),     & ! supersaturation over ice
+    zpvsi       (nvec),     & ! saturation vapor pressure at over ice
+    !CK<    
     zdtdh       (nvec),     & !
     z1orhog     (nvec),     & ! 1/rhog
     zrho1o2     (nvec),     & ! (rho0/rhog)**1/2
@@ -845,12 +990,16 @@ SUBROUTINE hydci_pp_ice (             &
   REAL    (KIND=ireals   ) ::  &
     scau   (nvec), & ! transfer rate due to autoconversion of cloud water
     scac   (nvec), & ! transfer rate due to accretion of cloud water
-    snuc   (nvec), & ! transfer rate due nucleation of cloud ice
+    !CK>
+    snucn  (nvec), & !! transfer rate due to nucleation of cloud ice number
+    snucq  (nvec), & !! transfer rate due to nucleation of cloud ice mass
+    snucn2 (nvec), & !! transfer rate due to nucleation of cloud ice number
+    snucq2 (nvec), & !! transfer rate due to nucleation of cloud ice mass
+    !CK<    
     scfrz  (nvec), & ! transfer rate due homogeneous freezing of cloud water
     simelt (nvec), & ! transfer rate due melting of cloud ice
     sidep  (nvec), & ! transfer rate due depositional growth of cloud ice
     ssdep  (nvec), & ! transfer rate due depositional growth of snow
-    sdau   (nvec), & ! transfer rate due depositional cloud ice autoconversion
     srim   (nvec), & ! transfer rate due riming of snow
     sshed  (nvec), & ! transfer rate due shedding
     sicri  (nvec), & ! transfer rate due cloud ice collection by rain (sink qi)
@@ -863,7 +1012,7 @@ SUBROUTINE hydci_pp_ice (             &
 
   ! Dimensions and loop counter for storing the indices
   INTEGER (KIND=iintegers) ::  &
-    ic1, ic2, ic3, ic4, ic5, ic6, i1d
+    ic1, ic2, ic3, ic4, ic5, ic6, ic7, i1d !CK> ic7
 
   !> Integer arrays for a better vectorization
   INTEGER (KIND=iintegers) ::  &
@@ -872,9 +1021,24 @@ SUBROUTINE hydci_pp_ice (             &
     ivdx3(nvec), & !!
     ivdx4(nvec), & !!
     ivdx5(nvec), & !!
-    ivdx6(nvec)    !!
+    ivdx6(nvec), & !!
+    ivdx7(nvec)    !! !CK< homogeneous nucleation
 
+  !CK>
+  INTEGER (KIND=iintegers) ::  &
+    tt, ss, jj                 ! for look-up table 
 
+  REAL(KIND=ireals)  :: infrac(3)
+  REAL(KIND=ireals)  :: ni_hom,ri_hom,mi_hom
+  REAL(KIND=ireals)  :: Xi_mck, Xi_mck_inv,tau_dep_ice_inv,tau_dep_snow_inv  
+  REAL(KIND=ireals)  :: v_th,n_sat,flux,phi,cool,tau,delta,w_p,scr
+  REAL(KIND=ireals)  :: ctau,acoeff(3),bcoeff(2),ri_dot
+  REAL(KIND=ireals)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
+  REAL(KIND=ireals)  :: tgrow,ri_max,beta,xj,dxj,xmid,fmid,si_het,thom
+  REAL(KIND=ireals)  :: Xbest , cbest, kc_b1, kc_b2, kc_a1, bracket
+  !CK<
+
+  
 !------------ End of header ---------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -927,22 +1091,47 @@ SUBROUTINE hydci_pp_ice (             &
 !  Section 1: Initial setting of local and global variables
 !------------------------------------------------------------------------------
 
-
-
 ! Some constant coefficients
     znimax = fxna(zthn) ! Maximum number of cloud ice crystals
     zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
 
+!CK>  
+  asphere = 4._ireals/3._ireals * pi * rho_ice
+  zxcloud = pi/6.0_ireals * rho_w * 50.e-6_ireals**3  ! Average size of cloud droplets
+  zximin  = zami * 10.e-6_ireals**3      ! Minimum mean mass of cloud ice
+  zximax  = zami * 250e-6_ireals**3      ! Maximum mean mass of cloud ice
+!CK<
+    
 ! Delete precipitation fluxes from previous timestep
 !CDIR BEGIN COLLAPSE
     prr_gsp (:) = 0.0_ireals
     prs_gsp (:) = 0.0_ireals
     zpkr    (:) = 0.0_ireals
     zpks    (:) = 0.0_ireals
+    zpki    (:) = 0.0_ireals !CK<
+    zpkni   (:) = 0.0_ireals !CK<    
     zprvr   (:) = 0.0_ireals
     zprvs   (:) = 0.0_ireals
+    zprvi   (:) = 0.0_ireals !CK<
+    zprvni  (:) = 0.0_ireals !CK<    
     zvzr    (:) = 0.0_ireals
     zvzs    (:) = 0.0_ireals
+    !CK>
+    zzai    (:) = 0.0_ireals  
+    zzani   (:) = 0.0_ireals
+    zqik    (:) = 0.0_ireals  
+    zqnik   (:) = 0.0_ireals  
+    zimi    (:) = 0.0_ireals
+    zimni   (:) = 0.0_ireals
+    zvzr    (:) = 0.0_ireals
+    zvzs    (:) = 0.0_ireals
+    zvzi    (:) = 0.0_ireals
+    vt_kc05 (:) = 0.0_ireals
+    zDi     (:) = 0.0_ireals   
+    zxi     (:) = zximin
+    zsi     (:) = 0.0_ireals
+    znidiag (:) = 0.0_ireals
+    !CK<    
 !CDIR END
 
 
@@ -1020,6 +1209,8 @@ SUBROUTINE hydci_pp_ice (             &
     CALL message('',message_text)
     WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qi  = ',MAXVAL(qi),MINVAL(qi)
     CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qni = ',MAXVAL(qni),MINVAL(qni) !CK<
+    CALL message('',message_text)    
     WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qs  = ',MAXVAL(qs),MINVAL(qs)
     CALL message('',message_text)
   ENDIF
@@ -1057,32 +1248,41 @@ SUBROUTINE hydci_pp_ice (             &
 
     ic1 = 0
     ic2 = 0
-
+    ic4 = 0 !CK< cloud ice sedimentation
+    
     DO iv = iv_start, iv_end
 
-        qrg = qr(iv,k)
-        qsg = qs(iv,k)
-        qvg = qv(iv,k)
-        qcg = qc(iv,k)
-        qig = qi(iv,k)
-        tg  = t(iv,k)
-        ppg = p(iv,k)
+        qrg  = qr(iv,k)
+        qsg  = qs(iv,k)
+        qvg  = qv(iv,k)
+        qcg  = qc(iv,k)
+        qig  = qi(iv,k)
+        qnig = qni(iv,k) !CK<       
+        tg   = t(iv,k)
+        ppg  = p(iv,k)
         rhog = rho(iv,k)
 
         !..for density correction of fall speeds
         z1orhog(iv) = 1.0_ireals/rhog
         zrho1o2(iv) = EXP(LOG(zrho0*z1orhog(iv))*x1o2)
 
-        zqrk(iv) = qrg * rhog
-        zqsk(iv) = qsg * rhog
-
+        zqrk(iv)  = qrg  * rhog
+        zqsk(iv)  = qsg  * rhog
+        zqik(iv)  = qig  * rhog  !CK<
+        zqnik(iv) = qnig * rhog  !CK<
+      
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
-
+        llqi = zqik(iv) > zqmin  !CK<
+        
         zdtdh(iv) = 0.5_ireals * zdt / dz(iv,k)
 
         zzar(iv)   = zqrk(iv)/zdtdh(iv) + zprvr(iv) + zpkr(iv)
         zzas(iv)   = zqsk(iv)/zdtdh(iv) + zprvs(iv) + zpks(iv)
+        !CK<
+        zzai  (iv) = zqik(iv) / zdtdh(iv) + zprvi(iv)  + zpki(iv)
+        zzani (iv) = zqnik(iv)/ zdtdh(iv) + zprvni(iv) + zpkni(iv)
+        !CK<        
 
         IF (llqs) THEN
           ic1 = ic1 + 1
@@ -1091,8 +1291,13 @@ SUBROUTINE hydci_pp_ice (             &
         IF (llqr) THEN
           ic2 = ic2 + 1
           ivdx2(ic2) = iv
-       ENDIF
-    
+        ENDIF
+        !CK>
+        IF (llqi) THEN
+          ic4 = ic4 + 1
+          ivdx4(ic4) = iv
+        ENDIF
+        !CK<  
      ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1160,6 +1365,44 @@ SUBROUTINE hydci_pp_ice (             &
       ENDIF
     ENDDO loop_over_qr_sedi
 
+!CK<    
+!CDIR NODEP,VOVERTAKE,VOB
+    loop_over_qi_sedi: DO i1d = 1, ic4
+      iv = ivdx4(i1d)
+
+      qig  = qi(iv,k)
+      qnig = qni(iv,k)
+      rhog = rho(iv,k)
+      
+      zxi(iv) = MAX(MIN(qig/(qnig+zeps),zximax),zximin)
+      
+      IF (zvzi(iv) == 0.0_ireals) THEN
+        ! Cloud ice sedimentation based on Khvorostyanov and Curry 2005 
+        cbest  = 2.0_ireals * kc_alpha * g / ( kc_gamma * rhog * con_m**2 )
+        
+        ! For consistency, hexagonal plates are assumed
+        zDi(iv) = EXP((1./kc_beta)*LOG(zxi(iv)/kc_alpha))
+        
+        ! Best number, Eq. (8) of MH05
+        Xbest = cbest * EXP(vtxexp*LOG(zDi(iv)))
+        bracket= SQRT(1.0_ireals + kc_c1*SQRT(Xbest)) - 1.0_ireals
+        
+        ! Eq (2.8) of KC05
+        kc_b1 = kc_c1*SQRT(Xbest) / ( 2.0*bracket * SQRT( 1.0 + kc_c1*SQRT(Xbest)) )
+      
+        ! Eq (2.7) of KC05
+        kc_b2 =EXP( kc_b1*LOG(Xbest))
+        kc_a1 = kc_c2 * bracket**2 / kc_b2
+        
+        ! Eq. (2.11)-(2.14) of KC05
+        zvzi(iv) = kc_a1 * con_m **(1.0_ireals -2.0_ireals *kc_b1)    &
+            * ( ( 2.0_ireals * kc_alpha * g ) / ( EXP( kc_b1 *LOG(rhog * kc_gamma) ) ))   &
+            * EXP( (kc_b1*vtxexp - 1.0_ireals)*LOG (zDi(iv)))
+
+!       zvzi(iv)  = MIN(MAX(vt_kc05(iv)),zvimin),zvimax)
+      END IF
+    END DO loop_over_qi_sedi
+!CK<
 
 
   !----------------------------------------------------------------------------
@@ -1180,12 +1423,16 @@ SUBROUTINE hydci_pp_ice (             &
 
     scau         (:) = 0.0_ireals
     scac         (:) = 0.0_ireals
-    snuc         (:) = 0.0_ireals
+    !CK>
+    snucn        (:) = 0.0_ireals
+    snucq        (:) = 0.0_ireals
+    snucn2       (:) = 0.0_ireals
+    snucq2       (:) = 0.0_ireals
+    !CK<    
     scfrz        (:) = 0.0_ireals
     simelt       (:) = 0.0_ireals
     sidep        (:) = 0.0_ireals
     ssdep        (:) = 0.0_ireals
-    sdau         (:) = 0.0_ireals
     srim         (:) = 0.0_ireals
     sshed        (:) = 0.0_ireals
     sicri        (:) = 0.0_ireals
@@ -1203,6 +1450,7 @@ SUBROUTINE hydci_pp_ice (             &
     ic4 = 0
     ic5 = 0
     ic6 = 0
+    ic7 = 0 !CK<   
     DO iv = iv_start, iv_end
 
         qrg  = qr(iv,k)
@@ -1211,12 +1459,22 @@ SUBROUTINE hydci_pp_ice (             &
         qcg  = qc(iv,k)
         qig  = qi(iv,k)
         tg   =  t(iv,k)
+        wg   =  w(iv,k) !CK<        
         ppg  =  p(iv,k)
         rhog = rho(iv,k)
 
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
+        llqi = zqik(iv) > zqmin !CK<  
 
+        !CK>
+        ! saturation vapor pressure, saturation mixing ratio and saturation ratio over ice
+        zpvsi(iv) = sat_pres_ice(tg)
+        zqvsi(iv) = zpvsi(iv)/(rhog * r_v * tg) 
+        zsi(iv)   = qvg * rhog * tg * r_v / zpvsi(iv)
+        scr       = 2.349 - tg / 259.00 !critical ice supersaturation
+        !CK<
+        
         IF (llqr) THEN
           !US reported by Thorsten Reinhardt: Multiplication with zrho1o2 was missing
           zpkr(iv) = zqrk(iv) * zvz0r * EXP (zvzxp * LOG (zqrk(iv))) * zrho1o2(iv)
@@ -1231,17 +1489,35 @@ SUBROUTINE hydci_pp_ice (             &
           zpks(iv) = 0.0_ireals
         ENDIF
 
+        !CK>
+        IF (llqi) THEN
+          zpki(iv)  = zqik(iv)  * zvzi(iv)
+          zpkni(iv) = zqnik(iv) * zvzi(iv)
+        ELSE
+          zpki(iv)  = 0.0_ireals
+          zpkni(iv) = 0.0_ireals
+        ENDIF
+      !CK<
+      
         zpkr(iv)   = MIN( zpkr(iv) , zzar(iv) )
         zpks(iv)   = MIN( zpks(iv) , zzas(iv) )
+        zpki(iv)   = MIN( zpki(iv) , zzai(iv) ) 
+        zpkni(iv)  = MIN( zpkni(iv), zzani(iv))
 
         zzar(iv)   = zdtdh(iv) * (zzar(iv)-zpkr(iv))
         zzas(iv)   = zdtdh(iv) * (zzas(iv)-zpks(iv))
-
+        zzai(iv)   = zdtdh(iv) * (zzai(iv)-zpki(iv))
+        zzani(iv)  = zdtdh(iv) * (zzani(iv)- zpkni(iv))
+       
         zimr(iv)   = 1.0_ireals / (1.0_ireals + zvzr(iv) * zdtdh(iv))
         zims(iv)   = 1.0_ireals / (1.0_ireals + zvzs(iv) * zdtdh(iv))
+        zimi(iv)   = 1.0_ireals / (1.0_ireals + zvzi(iv) * zdtdh(iv)) !
+        zimni(iv)  = 1.0_ireals / (1.0_ireals + zvzi(iv) * zdtdh(iv)) !not a typo
 
         zqrk(iv)   = zzar(iv)*zimr(iv)
         zqsk(iv)   = zzas(iv)*zims(iv)
+        zqik(iv)   = zzai(iv)*zimi(iv)  
+        zqnik(iv)  = zzani(iv)*zimni(iv)
 
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
@@ -1260,11 +1536,25 @@ SUBROUTINE hydci_pp_ice (             &
           ic3 = ic3 + 1
           ivdx3(ic3) = iv
         ENDIF
-        IF ( tg < zthet .AND. qvg >  8.E-6_ireals &
-                        .AND. qig <= 0.0_ireals ) THEN
+        !CK>
+        ! heterogeneous nucleation requires supersaturation
+        IF ( (tg < t0 ) .AND. (zsi(iv) > 1.0_ireals) .AND. (zsi(iv) < scr) &
+          .AND. (qni_nuc(iv,k) < ni_het_max) ) THEN
           ic4 = ic4 + 1
           ivdx4(ic4) = iv
         ENDIF
+        ! homogeneous nucleation requires critical supersaturation
+        IF ( (tg < t0 ) .AND. (zsi(iv) > scr) .AND. &
+          (qni(iv,k) < ni_hom_max) .AND. (wg > 0._ireals) ) THEN
+          ic7 = ic7 + 1
+          ivdx7(ic7) = iv
+        ENDIF
+        !IF ( tg < zthet .AND. qvg >  8.E-6_ireals &
+        !                .AND. qig <= 0.0_ireals ) THEN
+        !  ic4 = ic4 + 1
+        !  ivdx4(ic4) = iv
+        !ENDIF
+        !CK<
         IF (llqc) THEN
           ic5 = ic5 + 1
           ivdx5(ic5) = iv
@@ -1328,9 +1618,8 @@ SUBROUTINE hydci_pp_ice (             &
       ppg  =   p(iv,k)
       rhog = rho(iv,k)
       llqs = zqsk(iv) > zqmin
-      zqvsi  = fqvs( fpvsi(tg), ppg )
       zdvtp  = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg          
-      zhi    = ccshi1*zdvtp*rhog*zqvsi/(tg*tg)
+      zhi    = ccshi1*zdvtp*rhog*zqvsi(iv)/(tg*tg)
       hlp    = zdvtp / (1.0_ireals + zhi)
       zcidep(iv) = ccidep * hlp
       IF (llqs) THEN
@@ -1352,22 +1641,171 @@ SUBROUTINE hydci_pp_ice (             &
 
 ! ic4
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_icenucleation: DO i1d = 1, ic4
+    loop_over_heticenucleation: DO i1d = 1, ic4
       iv = ivdx4(i1d)
 
-      qvg  =  qv(iv,k)
-      tg   =   t(iv,k)
-      ppg  =   p(iv,k)
-      rhog = rho(iv,k)
+      ssi  = zsi(iv)       ! saturation ratio
+      ppg  = p(iv,k)
+      tg   = t(iv,k)
+      qnig = qni(iv,k)
+      qcg  = qc(iv,k)
+      qvg  = qv(iv,k)
 
-      zqvsi   = fqvs( fpvsi(tg), ppg )
-      IF( qvg > zqvsi ) THEN
-        znin  = MIN( fxna(tg), znimax )
-        zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
-        snuc(iv) = zsnuc
-      ENDIF
+      qnig_nuc = qni_nuc(iv,k)
 
-    ENDDO loop_over_icenucleation
+      llqc = qcg > zqmin
+
+      ! Heterogeneous ice nucleation using Phillips et al (2008) scheme
+      ! calculate indices used for look-up tables
+      xt = (274._ireals - tg)  / ttstep
+      xs = (100._ireals*(ssi-1.0_ireals)) / ssstep    
+      xt = MIN(xt,ttmax-1.0_ireals)
+      xs = MIN(xs,ssmax-1.0_ireals)
+      tt = INT(xt)
+      ss = INT(xs)
+      
+      IF (llqc) THEN
+        ! immersion freezing at water saturation as function of temperature
+        infrac(1) = (tt+1-xt) * afrac_dust(tt,99) + (xt-tt) * afrac_dust(tt+1,99)
+        infrac(2) = (tt+1-xt) * afrac_soot(tt,99) + (xt-tt) * afrac_soot(tt+1,99)
+        infrac(3) = (tt+1-xt) * afrac_orga(tt,99) + (xt-tt) * afrac_orga(tt+1,99)
+      ELSE
+        ! deposition freezing, bi-linear interpolation in look-up tables
+        infrac(1) = (tt+1-xt) * (ss+1-xs) * afrac_dust(tt,ss  ) +  (xt-tt)*(ss+1-xs) * afrac_dust(tt+1,ss  ) &
+                    + (tt+1-xt) * (xs-ss)   * afrac_dust(tt,ss+1) +  (xt-tt)*(xs-ss)   * afrac_dust(tt+1,ss+1)
+        infrac(2) = (tt+1-xt) * (ss+1-xs) * afrac_soot(tt,ss  ) +  (xt-tt)*(ss+1-xs) * afrac_soot(tt+1,ss  ) &
+                    + (tt+1-xt) * (xs-ss)   * afrac_soot(tt,ss+1) +  (xt-tt)*(xs-ss)   * afrac_soot(tt+1,ss+1)
+        infrac(3) = (tt+1-xt) * (ss+1-xs) * afrac_orga(tt,ss  ) +  (xt-tt)*(ss+1-xs) * afrac_orga(tt+1,ss  ) &
+                    + (tt+1-xt) * (xs-ss)   * afrac_orga(tt,ss+1) +  (xt-tt)*(xs-ss)   * afrac_orga(tt+1,ss+1)
+      END IF
+ 
+      znidiag(iv) = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
+      znidiag(iv) = MIN(znidiag(iv),ni_het_max)
+      
+      IF (znidiag(iv).LT.1e-9) znidiag(iv) = 0.0_ireals
+       
+      snucn(iv) = MAX( z1orhog(iv)*znidiag(iv) - qnig_nuc,0.d0) * zdtr
+      snucq(iv) = zmi0 * snucn(iv)
+
+     ! IF (znidiag(iv).GT.0) THEN
+     !   WRITE(*,*)'ni_het,qnig_nuc,ssi',znidiag*1e-6, qnig_nuc*1e-6,ssi
+     ! END IF
+        
+    ENDDO loop_over_heticenucleation
+
+!!!!CDIR noNODEP,VOVERTAKE,VOB
+!CDIR NOMOVE,NODEP
+    loop_over_homicenucleation: DO i1d = 1, ic7
+        iv = ivdx7(i1d)
+
+        ! Homogeneous nucleation using KHL06 scheme
+        ssi  = zsi(iv)       ! saturation ratio
+        ppg  = p(iv,k)
+        tg   = t(iv,k)
+        wg   = w(iv,k) + 0.5 * tke(iv,k)
+        qig  = qi(iv,k)
+        qnig = qni(iv,k)
+        qcg  = qc(iv,k)
+        qvg  = qv(iv,k)
+        rhog = rho(iv,k)
+
+        zxi(iv) = MAX(MIN(qig/(qnig+zeps),zximax),zximin)
+        
+        ! critical supersaturation for homogenous nucleation, cf. Eq. (1) of KB08
+        scr = 2.349_ireals - tg / 259.00_ireals
+        
+        ! pre-existing ice is spherical or not?
+        zri = EXP( x1o3 * LOG(zxi(iv)/asphere) )
+
+        zdvtp   = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg          
+        v_th    = SQRT( 8._ireals*k_b*tg/(pi*ma_w) ) 
+        flux    = alpha_d * v_th/4._ireals
+        n_sat   = zpvsi(iv) / (k_b*tg)  
+        
+        ! coeffs of supersaturation equation
+        acoeff(1) = (lh_s * g) / (cp_d * r_v * tg**2) - g/(r_d * tg)
+        acoeff(2) = 1.0_ireals / n_sat
+        acoeff(3) = (lh_s**2 * M_w * ma_w)/(cp_d * ppg * tg * M_a) 
+        
+        ! coeffs of depositional growth equation
+        bcoeff(1) = flux * svol * n_sat * (ssi - 1.0_ireals)
+        bcoeff(2) = flux / zdvtp
+        
+        ! pre-existing ice crystals included as reduced updraft speed
+        ri_dot = bcoeff(1) / (1.0_ireals + bcoeff(2) * zri)
+        R_ik   = 4.0_ireals * pi / svol * rhog * qnig * zri**2 * ri_dot
+        w_p    = (acoeff(2) + acoeff(3) * ssi)/(acoeff(1) * ssi) * R_ik  ! KHL06, Eq.(19)
+        
+        cool   = g / cp_d * wg
+        ctau   = tg * ( 0.004_ireals *tg - 2._ireals ) + 304.4_ireals         
+        tau    = 1.0_ireals / (ctau * cool)                    ! freezing timescale, Eq.(5)
+
+        si_het =  ssi + acoeff(1) * ssi * (wg - w_p) * zdt     ! Si for next time step KHL06 Eq.(20)
+
+        lhom = ( wg > w_p )
+
+        IF (lhom .AND. (si_het > scr) ) THEN 
+          ! do not trigger hom. nucleation if next time step is still within nucleation event          
+          thom = (1.0_ireals/(acoeff(1)*wg) * LOG(scr/ssi) + tau)          
+          lhom = ( thom < (0.5_ireals * zdt) ) ! nucleation event in less than half a time step
+        ELSE
+          lhom = .FALSE.
+        END IF
+ 
+        IF (lhom) THEN   ! homogeneous nucleation event
+          
+          ! timescales of freezing event (see KL02, RM05, KHL06)
+          delta   = (bcoeff(2) * r_0)                         ! dimless aerosol radius, eq.(4)  
+          phi     = acoeff(1)*ssi / ( acoeff(2) + acoeff(3)*ssi) * (wg - w_p) 
+          
+          ! monodisperse approximation following KHL06
+          kappa   = 2._ireals * bcoeff(1) * bcoeff(2) * tau / (1._ireals+ delta)**2  ! kappa, Eq. 8 KHL06
+          sqrtkap = SQRT(kappa)                                        ! root of kappa
+          ren     = 3._ireals * sqrtkap / ( 2.0_ireals + SQRT(1._ireals+9._ireals*kappa/pi) ) ! analy. approx. of erfc by RM05
+
+          R_imfc  = 4. * pi * bcoeff(1)/bcoeff(2)**2 / svol  
+          R_im    = R_imfc / (1.0_ireals+ delta) * ( delta**2 - 1.0_ireals &
+            & + (1.0_ireals+0.5_ireals*kappa*(1.0_ireals+ delta)**2) * ren/sqrtkap+ zeps)           ! Eq. 6 KHL06
+          
+          ! number concentration and radius of ice particles after nucleation
+          ni_hom  = phi / R_im                                         ! Eq.9 KHL06
+          ri_0    = 1.0_ireals + 0.5_ireals * sqrtkap * ren                           ! for Eq. 3 KHL06 
+          ri_hom  = (ri_0 * (1.0_ireals + delta) - 1._ireals ) / bcoeff(2)            ! Eq. 3 KHL06 * REN = Eq.23 KHL06
+
+          ! calculate change of ri by depositional growth
+          ri_max = ( ri_hom**3 + 3._ireals * ma_w * n_sat * (scr - 1._ireals)  &     ! Eq. 12 KL02
+                 / (asphere * ni_hom) )**x1o3     
+         
+          ! iteration 
+          tgrow   = 0.75_ireals/(pi * ni_hom * zdv * ri_max)
+          beta    = (4.0_ireals*zdv)/(v_th * alpha_d * ri_max) ! dimless, for Eq.15 KL02
+          Xj      = ri_hom/ri_max                     ! ratio between initial particle size and final ri_max
+          dXj     = 1.0_ireals - Xj
+          
+!CDIR EXPAND=8
+          DO jj=1,8
+            dXj     = dXj * 0.5_ireals
+            Xmid    = Xj + dXj
+            Fmid    = dep_growth_timescale(beta,Xmid,Xj) - zdt/tgrow
+            IF (Fmid .LT. 0.) Xj = Xmid
+          ENDDO
+
+          ! Values after dt
+          ri_hom = Xj * ri_max
+          mi_hom = asphere * ri_hom**3
+
+          ! ni_hom is a number density, need #/(kg*s)
+          snucn2(iv) = MIN(MAX(z1orhog(iv)*ni_hom, 0.d0),ni_hom_max) * zdtr  
+          snucq2(iv) = mi_hom * snucn2(iv)
+
+         ! IF (ni_hom .GT. 0) THEN
+         !   WRITE(*,*)'ni_hom,qig,ssi',ni_hom*1e-6, qig*1e6,ssi
+         !   !snucq2(iv) = MIN(mi_hom * snucn2(iv),qvg - zqvsi)
+         ! END IF
+          
+        ENDIF
+ 
+      ENDDO loop_over_homicenucleation
 
     !--------------------------------------------------------------------------
     ! Section 5: Search for cloudy grid points with cloud water and
@@ -1383,6 +1821,7 @@ SUBROUTINE hydci_pp_ice (             &
       qvg  =   qv(iv,k)
       qcg  =   qc(iv,k)
       qig  =   qi(iv,k)
+      qnig =  qni(iv,k) !CK<    
       tg   =    t(iv,k)
       ppg  =    p(iv,k)
       rhog =  rho(iv,k)
@@ -1420,8 +1859,13 @@ SUBROUTINE hydci_pp_ice (             &
       ENDIF
       ! Check for maximum depletion of cloud water and adjust the
       ! transfer rates accordingly
-      zscmax = qcg*zdtr 
-      zscsum = zscau + zscac + zscrim + zscshe 
+      zscmax = qcg*zdtr
+      !CK>
+      ! heterogeneous freezing using Phillips et al. (2008) scheme
+      scfrz(iv) = zxcloud * MAX( z1orhog(iv)*znidiag(iv) - qnig,0.d0) * zdtr
+      zscsum = zscau + zscac + zscrim + zscshe + scfrz(iv)
+      !CK<      
+      !zscsum = zscau + zscac + zscrim + zscshe 
       zcorr  = zscmax / MAX( zscmax, zscsum )
       IF( tg <= zthn ) THEN
         scfrz(iv) = zscmax
@@ -1432,17 +1876,19 @@ SUBROUTINE hydci_pp_ice (             &
         sshed(iv) = zcorr*zscshe 
       ENDIF
 
+      !CK>
       ! Calculation of heterogeneous nucleation of cloud ice.
       ! This is done in this section, because we require water saturation
       ! for this process (i.e. the existence of cloud water) to exist.
       ! Hetrogeneous nucleation is assumed to occur only when no
       ! cloud ice is present and the temperature is below a nucleation
       ! threshold.
-      IF( tg <= 267.15_ireals .AND. qig <= 0.0_ireals ) THEN
-        znin  = MIN( fxna(tg), znimax )
-        zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
-        snuc(iv) = zsnuc
-      ENDIF
+      ! IF( tg <= 267.15_ireals .AND. qig <= 0.0_ireals ) THEN
+      !  znin  = MIN( fxna(tg), znimax )
+      !  zsnuc = zmi0 * z1orhog(iv) * znin * zdtr
+      !  snuc(iv) = zsnuc
+      !ENDIF
+      !CK<
       ! Calculation of in-cloud rainwater freezing
       IF ( tg < ztrfrz ) THEN
         zsrfrz = zcrfrz*SQRT( (ztrfrz-tg)**3 )* zeln27o16qrk(iv)
@@ -1463,67 +1909,86 @@ SUBROUTINE hydci_pp_ice (             &
 
       qvg  =  qv(iv,k)
       qig  =  qi(iv,k)
+      qnig =  qni(iv,k)
       qsg  =  qs(iv,k)
       tg   =   t(iv,k)
       ppg  =   p(iv,k)
       rhog = rho(iv,k)
       llqi =  qig > zqmin
-
+      !CK>
+      zqvsidiff = qvg - zqvsi(iv)
+      tau_dep_ice_inv  = 0.0_ireals
+      tau_dep_snow_inv = 0.0_ireals
+      !CK<
+      
       IF (tg<=t0) THEN
-        zqvsi   = fqvs( fpvsi(tg), ppg )
-        znin    = MIN( fxna(tg), znimax )
-        zmi     = MIN( rhog*qig/znin, zmimax )
-        zmi     = MAX( zmi0, zmi )
-        zsvmax  = (qvg - zqvsi) * zdtr
+        !CK>
+        znid    = rhog * qnig 
+        zmi     = MAX(MIN(qig/(qnig+zeps), zmimax ), zmi0)
+        zsvmax  = (qvg - zqvsi(iv)) * zdtr
         zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
         zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(iv) &
           * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
-        znid      = rhog * qig/zmi
+        
         IF (llqi) THEN
-          zlnlogmi= LOG (zmi)
-          zsidep    = zcidep(iv) * znid * EXP(0.33_ireals * zlnlogmi)   &
-                        * ( qvg - zqvsi )
+          ! depositional growth as relaxation for cloud ice
+          tau_dep_ice_inv = zcidep(iv) * znid * EXP(0.33_ireals *  LOG (zmi))
+!          WRITE (*,*) 'ni/cm3, qi mg/kg, 1/tau_i s ', znid*1e-6,qig*1e6,1./tau_dep_ice_inv
+        END IF
+          
+        ! depositional growth as relaxation for snow
+        zxfac      = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
+        tau_dep_snow_inv = zcsdep(iv) * zxfac/ zcslam(iv)**2
+        
+        Xi_mck_inv = (tau_dep_ice_inv + tau_dep_snow_inv)!Eq. 7
+        Xi_mck     = 1.0_ireals/ Xi_mck_inv
+
+        IF (llqi) THEN
+          zsidep  = tau_dep_ice_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
+          zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
+                            * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+
+          zsicri    = zcicri * qig * zeln7o8qrk(iv)
+          zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv) 
         ELSE
           zsidep = 0.0_ireals
+          zsiau = 0.0_ireals
+          zsicri = 0.0_ireals
+          zsrcri = 0.0_ireals
         ENDIF
+          
+        zssdep  = tau_dep_snow_inv*Xi_mck*zqvsidiff * (1.0_ireals - EXP(-zdt*Xi_mck_inv)) * zdtr
+      
         zsvidep   = 0.0_ireals
         zsvisub   = 0.0_ireals
-        zsimax    = qig*zdtr 
+        zsimax    = qig*zdtr
+
         IF( zsidep > 0.0_ireals ) THEN
           zsvidep = MIN( zsidep, zsvmax )
         ELSEIF (zsidep < 0.0_ireals ) THEN
-          zsvisub = - MAX(-zsimax, zsvmax )
+  !        zsvisub = - MAX(-zsimax, zsvmax ) ! this would imply sublimating everything within one time step
+          zsvisub = - MAX(-zsidep, zsvmax )
         ENDIF
-        zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
-          * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
-        IF (llqi) THEN
-          zlnlogmi = LOG(zmsmin/zmi)
-          zztau    = 1.5_ireals*( EXP(0.66_ireals*zlnlogmi) - 1.0_ireals)
-          zsdau    = zsvidep/MAX(zztau,zeps)
-        ELSE
-          zsdau    =  0.0_ireals
-        ENDIF
-        zsicri    = zcicri * qig * zeln7o8qrk(iv)
-        zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
-        zxfac     = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
-        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
 
-        ! Check for maximal depletion of vapor by sdep
-        IF (zssdep > 0.0_ireals) zssdep = MIN(zssdep, zsvmax-zsvidep)
-        ! Check for maximal depletion of snow by sdep
-        IF (zssdep < 0.0_ireals) zssdep = MAX(zssdep, -qsg*zdtr)
+       
+!        zxfac     = 1.0_ireals + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
+!        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi ) / (zcslam(iv)+zeps)**2
 
-        zsisum = zsiau + zsdau + zsagg + zsicri + zsvisub
+!        ! Check for maximal depletion of vapor by sdep
+!        IF (zssdep > 0.0_ireals) zssdep = MIN(zssdep, zsvmax-zsvidep)
+!        ! Check for maximal depletion of snow by sdep
+!        IF (zssdep < 0.0_ireals) zssdep = MAX(zssdep, -qsg*zdtr)
+
+        zsisum = zsiau + zsagg + zsicri + zsvisub
         zcorr  = 0.0_ireals
         IF( zsimax > 0.0_ireals ) zcorr  = zsimax / MAX( zsimax, zsisum )
         sidep(iv)  = zsvidep - zcorr*zsvisub
-        sdau (iv)  = zcorr*zsdau
         siau (iv)  = zcorr*zsiau
         sagg (iv)  = zcorr*zsagg
         ssdep(iv)  = zssdep
         srcri(iv)  = zsrcri
         sicri(iv)  = zcorr*zsicri
-
+!CK<        
 
       !------------------------------------------------------------------------
       ! Section 7: Search for warm grid points with cloud ice and/or snow and
@@ -1531,8 +1996,8 @@ SUBROUTINE hydci_pp_ice (             &
       !------------------------------------------------------------------------
 
       ELSE ! tg > 0
-        simelt(iv) = qig*zdtr
-        zqvsw0      = fqvs( zpvsw0, ppg)
+        simelt(iv)  = qig*zdtr
+        zqvsw0      = zpvsw0 / (rhog * r_v * tg)
         zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
         zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(iv)
         zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(iv)
@@ -1553,10 +2018,10 @@ SUBROUTINE hydci_pp_ice (             &
 
       qvg = qv(iv,k)
       tg  =  t(iv,k)
-      ppg =  p(iv,k)
+      rhog = rho(iv,k)
+      zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
 
       zlnqrk      = LOG (zqrk(iv))
-      zqvsw       = fqvs( fpvsw(tg), ppg )
       zx1         = 1.0_ireals + zbev * EXP (zbevxp  * zlnqrk)
       sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
 !      zqvsw    = fqvs( fpvsw(tg), ppg )
@@ -1581,12 +2046,16 @@ SUBROUTINE hydci_pp_ice (             &
 
 !        qvg = qv(iv,k)
 !        qcg = qc(iv,k)
-        qrg = qr(iv,k)
-        qsg = qs(iv,k)
-        qig = qi(iv,k)
+        qrg  = qr(iv,k)
+        qsg  = qs(iv,k)
+        qig  = qi(iv,k)
+        qnig = qni(iv,k)         !CK<
+        qnig_nuc = qni_nuc(iv,k) !CK<         
 !        tg  = t (iv,k)
         rhog = rho(iv,k)
 
+        zxi(iv) = MAX(MIN(qig/(qnig+zeps),zximax),zximin) !CK<
+        
         zsrmax = zzar(iv)*z1orhog(iv)*zdtr
         zssmax = zzas(iv)*z1orhog(iv)*zdtr
         zsrsum = sev(iv) + srfrz(iv) + srcri(iv)
@@ -1601,17 +2070,29 @@ SUBROUTINE hydci_pp_ice (             &
         IF (ssdep(iv) < 0.0_ireals ) THEN
           ssdep(iv) = MAX(ssdep(iv), - zssmax)
         ENDIF
-        zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snuc(iv)
+!CK>        
+        zqvt = sev(iv)   - sidep(iv) - ssdep(iv)  - snucq(iv)  - snucq2(iv)
         zqct = simelt(iv)- scau(iv)  - scfrz(iv)  - scac(iv)   - sshed(iv) - srim(iv) 
-        zqit = snuc(iv)  + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) - sdau(iv)            &
-                                                               - sagg(iv) - siau(iv)
+        zqit = snucq(iv)  + snucq2(iv) + scfrz(iv) - simelt(iv) - sicri(iv)  + sidep(iv) &
+                                                   - sagg(iv)   - siau(iv)
+        zqnit = snucn (iv) + snucn2(iv) + scfrz (iv) / zxi(iv)  &
+            - ( simelt(iv) + sicri (iv) + sagg  (iv) + siau(iv) ) / zxcloud      
+!CK<        
         zqrt = scau(iv)  + sshed(iv) + scac(iv)   + ssmelt(iv) - sev(iv) - srcri(iv) - srfrz(iv) 
-        zqst = siau(iv)  + sdau(iv)  + sagg(iv)   - ssmelt(iv) + sicri(iv) + srcri(iv)           & 
-                                                               + srim(iv) + ssdep(iv) + srfrz(iv)
-        ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
+        zqst = siau(iv)  + sagg(iv)  - ssmelt(iv) + sicri(iv) + srcri(iv)            & 
+                                                  + srim(iv) + ssdep(iv) + srfrz(iv)
+        ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
-        ! Update variables and add qi to qrs for water loading 
-        qig = MAX ( 0.0_ireals, qig + zqit*zdt)
+        ! Update variables and add qi to qrs for water loading
+!CK>
+        qig  = MAX ( 0.0_ireals, (zzai (iv)*z1orhog(iv) + zqit  * zdt) * zimi(iv))
+        qnig = MAX ( 0.0_ireals, (zzani(iv)*z1orhog(iv) + zqnit * zdt) * zimni(iv))
+        !qig  = MAX ( 0.0_ireals, qig + zqit*zdt)
+        
+        ! tracking of activated heterogeneous IN
+        qni_nuc(iv,k) = MAX(0.0_ireals, qnig_nuc + ( snucn(iv) - qnig_nuc/tau_mix ) * zdt)
+!CK<
+        
         qrg = MAX ( 0.0_ireals, (zzar(iv)*z1orhog(iv) + zqrt*zdt)*zimr(iv))
         qsg = MAX ( 0.0_ireals, (zzas(iv)*z1orhog(iv) + zqst*zdt)*zims(iv))
 
@@ -1624,10 +2105,18 @@ SUBROUTINE hydci_pp_ice (             &
           ! for the next level
           zprvr(iv) = qrg*rhog*zvzr(iv)
           zprvs(iv) = qsg*rhog*zvzs(iv)
+          zprvi(iv) = qig*rhog*zvzi(iv)
+          zprvni(iv) = qnig*rhog*zvzi(iv)
 
           IF (zprvr(iv) <= zqmin) zprvr(iv)=0.0_ireals
           IF (zprvs(iv) <= zqmin) zprvs(iv)=0.0_ireals
-
+          !CK<
+          IF (zprvi(iv) <= zqmin .or. zprvni(iv) <= zqmin) THEN
+             zprvi(iv)  = 0.0_ireals
+            zprvni(iv)  = 0.0_ireals
+          END IF
+          !CK>
+        
 #ifdef NUDGING
           ! for the latent heat nudging
           IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
@@ -1646,10 +2135,44 @@ SUBROUTINE hydci_pp_ice (             &
           ELSE
             zvzs(iv)= zvz0s(iv) * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(iv,k+1))*0.5_ireals*rhog)) * zrho1o2(iv)
           ENDIF
+!CK>
+          IF (qig+qi(iv,k+1) <= zqmin .OR. qnig+qni(iv,k+1)<= zqmin) THEN
+            zvzi(iv)= 0.0_ireals
+          ELSE 
+            cbest  = 2.0_ireals * kc_alpha * g / ( kc_gamma * rhog * con_m**2 )
+            
+            hlp =(qig+qi(iv,k+1))/(qnig+qni(iv,k+1)+zeps)
+            zDi(iv) = EXP((1./kc_beta)*LOG(hlp/kc_alpha))
+            
+            ! Best number, Eq. (8) of MH05
+            Xbest = cbest * EXP(vtxexp*LOG(zDi(iv)))
+            
+            bracket= SQRT(1.0_ireals + kc_c1*SQRT(Xbest)) - 1.0_ireals
+            
+            ! Eq (2.8) of KC05
+            kc_b1 = kc_c1*SQRT(Xbest) / ( 2.0*bracket * SQRT( 1.0 + kc_c1*SQRT(Xbest)) )
+            
+            ! Eq (2.7) of KC05
+            kc_b2 =EXP( kc_b1*LOG(Xbest))
+            kc_a1 = kc_c2 * bracket**2 / kc_b2
+            
+            ! This is Eq. (2.11)-(2.14) of KC05
+            zvzi(iv) = kc_a1 * con_m **(1.0_ireals -2.0_ireals *kc_b1)    &
+              * ( ( 2.0_ireals * kc_alpha * g ) / ( EXP( kc_b1 *LOG(rhog * kc_gamma) ) ))   &
+              * EXP( (kc_b1*vtxexp - 1.0_ireals)*LOG (zDi(iv)))
+            
+            ! zvzi(iv) = MIN(MAX(zvzi(iv),0.0_ireals),zvimax)
+            
+          ENDIF
+          !CK<
+          
         ELSE
-          ! Precipitation fluxes at the ground
+          ! Precipitation fluxes at the ground 
           prr_gsp(iv) = 0.5_ireals * (qrg*rhog*zvzr(iv) + zpkr(iv))
-          prs_gsp(iv) = 0.5_ireals * (qsg*rhog*zvzs(iv) + zpks(iv))
+!CK>
+          prs_gsp(iv) = 0.5_ireals * (qsg*rhog*zvzs(iv) + zpks(iv)) + & 
+                        0.5_ireals * (qig*rhog*zvzi(iv) + zpki(iv))     
+!CK<        
 
 #ifdef NUDGING
           ! for the latent heat nudging
@@ -1663,6 +2186,7 @@ SUBROUTINE hydci_pp_ice (             &
         qr (iv,k) = qrg
         qs (iv,k) = MAX ( 0.0_ireals, qsg )
         qi (iv,k) = qig
+        qni(iv,k) = qnig !CK< 
 !        qrs(iv,k   ) = qrg+qsg+qig
         t  (iv,k) = t (iv,k) + ztt*zdt 
         qv (iv,k) = MAX ( 0.0_ireals, qv(iv,k) + zqvt*zdt )
@@ -1685,6 +2209,12 @@ SUBROUTINE hydci_pp_ice (             &
           WRITE(message_text,'(a)') ' WARNING: hydci_pp_ice, negative value in qi'
           CALL message('',message_text)
         ENDIF
+        !CK>
+        IF (qni(iv,k) < 0.0_ireals) THEN
+          WRITE(message_text,'(a)') ' WARNING: hydci_pp_ice, negative value in qni'
+          CALL message('',message_text)
+        ENDIF
+        !CK<
         IF (qs(iv,k) < 0.0_ireals) THEN
           WRITE(message_text,'(a)') ' WARNING: hydci_pp_ice, negative value in qs'
           CALL message('',message_text)
@@ -1707,7 +2237,7 @@ SUBROUTINE hydci_pp_ice (             &
                zdummy(:,4),zdummy(:,5),zdummy(:,6), &
                zdummy(:,7),zdummy(:,8),               &
                b1, b2w, b3, b4w, b234w, rdv, o_m_rdv,     &
-               rvd_m_o, lh_v, cpdr, cp_d,                 &
+               rvd_m_o, lh_v, z_heat_cap_r, cp_d,                 &
                nvec, 1, iv_start, iv_end, 1 , 1 )
 
   IF ( ldiabf_lh ) THEN
@@ -1798,7 +2328,8 @@ CALL satad_v_3d (                             &
 
   END IF
 
-  IF (izdebug > 15) THEN
+  IF (izdebug > 15) THEN ! for debugging
+!  IF (izdebug > 1) THEN
     CALL message('gscp_hydci_pp_ice', 'UPDATED VARIABLES')
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice T= ',&
     MAXVAL( t(:,:)), MINVAL(t(:,:) )
@@ -1811,6 +2342,12 @@ CALL satad_v_3d (                             &
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice qi= ',&
     MAXVAL( qi(:,:)), MINVAL(qi(:,:) )
+   CALL message('', TRIM(message_text))
+   WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice qni= ',&
+    MAXVAL( qni(:,:)), MINVAL(qni(:,:) )
+   CALL message('', TRIM(message_text))
+   WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice qni_nuc= ',&
+    MAXVAL( qni_nuc(:,:)), MINVAL(qni_nuc(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp_ice qr= ',&
     MAXVAL( qr(:,:)), MINVAL(qr(:,:) )
@@ -1827,194 +2364,6 @@ CALL satad_v_3d (                             &
 END SUBROUTINE hydci_pp_ice
 
 
-#ifdef __ICON__
-SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &
-  zdqd  , zqdwe, zh   , ztg0  , ztgn, zdqdt0, zgqd0, zphe ,  &
-  b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, &
-  cp_d, idim, jdim, ilo, iup, jlo, jup )
-
-!-------------------------------------------------------------------------------
-!
-! Description:
-!   This routine corrects the temperature (te), the specific humidity (qve)
-!   and the cloud water content (qce) for condensation/evaporation.
-!
-! Method:
-!   Saturation adjustment, i.e. reversible condensation/evaporation at
-!   constant pressure by assuming chemical equilibrium of water and vapor
-!
-!-------------------------------------------------------------------------------
-
-! Subroutine arguments:
-! --------------------
-  INTEGER (KIND=iintegers), INTENT (IN)    ::  &
-    kitera,              & !  Numver of iterations in the numerical scheme
-    idim, jdim,          & !  Dimension of I/O-fields
-    ilo, iup, jlo, jup     !  start- and end-indices for the computation
-
-  REAL    (KIND=ireals),    INTENT (IN)    ::  &
-    tstart  (idim,jdim), & ! Start temperature for iteration
-    phfe    (idim,jdim)  ! Pressure (input)
-
-  REAL    (KIND=ireals),    INTENT (INOUT) ::  &
-    te      (idim,jdim), & ! Temperature on input/ouput
-    qve     (idim,jdim), & ! Specific humidity on input/output
-    qce     (idim,jdim), & ! Specific cloud water content on input/output
-    zdqd    (idim,jdim), & !
-    zqdwe   (idim,jdim), & !
-    zh      (idim,jdim), & !
-    ztg0    (idim,jdim), & !
-    ztgn    (idim,jdim), & !
-    zdqdt0  (idim,jdim), & !
-    zgqd0   (idim,jdim), & !
-    zphe    (idim,jdim)    !
-
-  REAL    (KIND=ireals),    INTENT (IN)    ::  &
-    b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, cp_d
-
-! Local parameters: None
-! ----------------
-! Local scalars:
-! -------------
-  INTEGER (KIND=iintegers) ::  &
-    i, j,                & !  Loop indices
-    nzit,                & !  Loop for iterations
-    nsat,                & !  Number of saturated gridpoints
-    iwrk(idim*jdim),     & !  i-index of saturated gridpoints
-    jwrk(idim*jdim),     & !  j-index of saturated gridpoints
-    indx                   !  loop index
-
-  REAL    (KIND=ireals   ) ::  &
-    zgeu  ,              & !
-    zgqdu ,              & !
-    zgew  ,              & !
-    zqwmin,              & ! Minimum cloud water content for adjustment
-    fgew  ,              & ! Name of satement function
-    fgqd  ,              & ! ...
-    fdqdt ,              & ! ...
-    zt    ,              & ! Dummy argument for statement functions
-    zge   ,              & ! ...
-    zp    ,              & ! ...
-    zgqd                   ! ...
-
-  REAL    (KIND=ireals   ) ::  &
-    minzdqd
-
-!------------ End of header ----------------------------------------------------
-
-!-------------------------------------------------------------------------------
-! Begin Subroutine satad
-!-------------------------------------------------------------------------------
-
-! STATEMENT FUNCTIONS
-
-fgew(zt)       = b1*EXP( b2w*(zt-b3)/(zt-b4w) )
-fgqd(zge,zp)   = rdrd*zge/( zp - emrdrd*zge )
-fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
-
-  zqwmin = 1.0E-20_ireals
-
-  nsat = 0
-
-  minzdqd= 1.0_ireals
-
-  DO j = jlo , jup
-    DO i = ilo , iup
-
-      ! "save" the start values for the temperature
-      ztg0 (i,j) = tstart(i,j)
-
-      ! correction for negative values of qv and qc
-      qve (i,j) = MAX( qve(i,j), 0.0_ireals )
-      qce (i,j) = MAX( qce(i,j), 0.0_ireals )
-
-      ! assume first subsaturation
-      zqdwe(i,j)= qve(i,j) + qce(i,j)
-      te (i,j)  = te(i,j) - lh_v*qce(i,j)*cpdr
-      qve(i,j)  = zqdwe(i,j)
-      qce(i,j)  = 0.0_ireals
-      zgeu      = fgew(te(i,j))
-      zgqdu     = fgqd(zgeu,phfe(i,j))
-      zdqd(i,j) = zgqdu - zqdwe(i,j)
-      minzdqd   = MIN(minzdqd,zdqd(i,j))
-
-    ENDDO
-  ENDDO
-
-!NEC_CB if zdqd>=0, then for sure no points are found
-  IF ( minzdqd >= 0.0_ireals ) RETURN
-
-  DO j = jlo , jup
-    DO i = ilo , iup
-
-      IF (zdqd(i,j) < 0.0_ireals ) THEN
-        nsat       = nsat+1
-        iwrk(nsat) = i
-        jwrk(nsat) = j
-      ENDIF
-
-    ENDDO
-  ENDDO
-
-  IF (nsat == 0) RETURN
-
-! Do saturation adjustments for saturated gridpoints
-! --------------------------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-     i = iwrk(indx)
-     j = jwrk(indx)
-     zh   (i,j) = cp_d*te(i,j) + lh_v*qve(i,j)
-     zphe (i,j) = phfe(i,j)
-     zgew       = fgew(ztg0(i,j))
-     zgqd0(i,j) = fgqd(zgew,zphe(i,j))
-  ENDDO
-
-  IF ( kitera > 1 ) THEN
-    DO  nzit  = 1 , kitera-1
-
-!cdir nodep
-      DO indx = 1, nsat
-        i = iwrk(indx)
-        j = jwrk(indx)
-        zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-        ztg0(i,j)   = (zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)))/ &
-                      ( cp_d + lh_v*zdqdt0(i,j) )
-        zgew        = fgew(ztg0(i,j))
-        zgqd0(i,j)  = fgqd(zgew,zphe(i,j))
-      ENDDO
-    ENDDO
-  ENDIF
-
-!-------------------------------------------------------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-      i = iwrk(indx)
-      j = jwrk(indx)
-      zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-      ztgn(i,j)   = ( zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)) ) / &
-                    ( cp_d + lh_v*zdqdt0(i,j) )
-      zgqd0(i,j)  = zgqd0(i,j) + zdqdt0(i,j)*( ztgn(i,j)-ztg0(i,j) )
-  ENDDO
-
-! Distribute the result on gridpoints
-! -----------------------------------
-
-!cdir nodep
-  DO indx = 1, nsat
-      i = iwrk(indx)
-      j = jwrk(indx)
-      te (i,j) =  ztgn(i,j)
-      qve(i,j) = zgqd0(i,j)
-      qce(i,j) = MAX( zqdwe(i,j) - zgqd0(i,j), zqwmin )
-  ENDDO
-
-! End of the subroutine
-
-END SUBROUTINE satad
-#endif
 
 !==============================================================================
 

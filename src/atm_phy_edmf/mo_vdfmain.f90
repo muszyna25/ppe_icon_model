@@ -86,7 +86,7 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , jb, jg                                                             & ! -
  & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
  & , w_snow_ex, w_snow_eff_ex                                           & ! -
- & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
+ & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
  & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
  & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
@@ -423,6 +423,10 @@ USE mo_vdfcloud     ,ONLY : vdfcloud
 USE mo_surfexcdriver,ONLY : surfexcdriver
 USE mo_surfpp       ,ONLY : surfpp
 
+USE mo_run_config,   ONLY : ltestcase
+USE mo_nh_testcases, ONLY : nh_test_name
+USE mo_nh_torus_exp ,ONLY : cbl_stevens_fluxes
+
 IMPLICIT NONE
 
 
@@ -572,7 +576,8 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   t_g_ex         ,qv_s_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
   t_snow_ex      ,t_s_ex         ,                                            & 
-  w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex        ,w_i_ex
+  w_snow_ex      ,w_snow_eff_ex  ,rho_snow_ex    ,h_snow_ex       ,           &
+  w_i_ex         ,w_p_ex         ,w_s_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
   t_so_ex             
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
@@ -885,7 +890,7 @@ CALL SURFEXCDRIVER( &
    & , jb, jg                                                             & ! -
    & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
    & , w_snow_ex, w_snow_eff_ex                                           & ! -
-   & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex                   & ! -
+   & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
    & , t_so_ex, w_so_ex, w_so_ice_ex                                      & ! -
    & , PU10M, PV10M                    &  !, t_2m_ex, u_10m_ex, v_10m_ex  & ! -
    & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
@@ -996,6 +1001,13 @@ DO JL=KIDIA,KFDIA
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
+
+! optional SCM case definition after Stevens(2007)
+  IF (ltestcase .AND. nh_test_name=='CBL') THEN
+    CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
+                           & ZRHO         , T_G(JL)      , &
+                           & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
+  ENDIF
 
 ENDDO
 
