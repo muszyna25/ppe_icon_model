@@ -34,7 +34,7 @@
 !!
 MODULE mo_atmo_model
 
-  ! basic modules  
+  ! basic modules
   USE mo_kind,                    ONLY: wp, dp
   USE mo_exception,               ONLY: message, finish, message_text
   USE mo_mpi,                     ONLY: p_stop, my_process_is_io,                             &
@@ -53,7 +53,7 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
-                                  
+
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
@@ -63,7 +63,7 @@ MODULE mo_atmo_model
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
-    &                                   ltimer,                                               & 
+    &                                   ltimer,                                               &
     &                                   iforcing,                                             & !    namelist parameter
     &                                   ldump_states,                                         & ! flag if states should be dumped
     &                                   lrestore_states,                                      & ! flag if states should be restored
@@ -79,8 +79,8 @@ MODULE mo_atmo_model
     &                                   ishallow_water, max_dom
 
   ! time stepping
-  USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic 
-  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic 
+  USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
+  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
   ! coupling
   USE mo_icon_cpl_init,           ONLY: icon_cpl_init
@@ -110,12 +110,12 @@ MODULE mo_atmo_model
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, init_ext_data, destruct_ext_data
-  USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart                                 
+  USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
 
   ! horizontal interpolation
-  USE mo_interpol_config,         ONLY: configure_interpolation 
+  USE mo_interpol_config,         ONLY: configure_interpolation
   USE mo_intp_state,              ONLY: construct_2d_interpol_state,                          &
     &                                   destruct_2d_interpol_state, transfer_interpol_state
   USE mo_grf_intp_state,          ONLY: construct_2d_gridref_state,                           &
@@ -139,16 +139,16 @@ MODULE mo_atmo_model
     &                                   restore_gridref_state_netcdf, dump_lonlat_data_netcdf,&
     &                                   restore_lonlat_data_netcdf
 
- 
+
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
   PRIVATE
-  
+
   PUBLIC :: atmo_model, construct_atmo_model, destruct_atmo_model
-  
+
 CONTAINS
-  
+
 
   !-------------------------------------------------------------------
   !>
@@ -159,7 +159,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
-#ifndef NOMPI    
+#ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
     REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
@@ -170,13 +170,13 @@ CONTAINS
     !---------------------------------------------------------------------
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
-    
+
     !---------------------------------------------------------------------
     ! construct the coupler
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupler()
-    ENDIF 
-    
+    ENDIF
+
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
     !---------------------------------------------------------------------
@@ -196,14 +196,14 @@ CONTAINS
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     CALL destruct_atmo_model()
-  
+
     !---------------------------------------------------------------------
     ! destruct the coupler
     IF ( is_coupled_run() ) CALL ICON_cpl_finalize
-    
+
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS
-#ifndef NOMPI    
+#ifndef NOMPI
 #if defined(__SX__)
     IF (msg_level >= 16) THEN
       CALL util_get_maxrss(maxrss)
@@ -233,7 +233,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
     LOGICAL :: lsuccess
     INTEGER :: jg, jgp
 
@@ -251,8 +251,8 @@ CONTAINS
 
       ! First read the restart master file (ASCII format) to find out
       ! which NetCDF files the model should read.
-      ! Comment by Hui Wan: 
-      ! The namelist variable atmo_restart_info_filename should be 
+      ! Comment by Hui Wan:
+      ! The namelist variable atmo_restart_info_filename should be
       ! an input argument of the subroutine read_restart_info_file.
 
       CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
@@ -282,7 +282,7 @@ CONTAINS
     END IF ! is_restart_run()
 
     !---------------------------------------------------------------------
-    ! 1.1 Read namelists (newly) specified by the user; fill the 
+    ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
 
@@ -298,14 +298,14 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
-    !    because some components of the state, e.g., num_lev, may be 
+    !    because some components of the state, e.g., num_lev, may be
     !    modified in this subroutine which affects the following CALLs.
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
     CASE (inh_atmosphere)
       CALL configure_run( iadv_rcf )
     CASE DEFAULT
-      CALL configure_run    
+      CALL configure_run
     END SELECT
 
     ! complete initicon config-state
@@ -394,7 +394,6 @@ CONTAINS
     CALL build_decomposition(num_lev,num_levp1,nshift, l_is_ocean=.FALSE.,  &
       &                      l_restore_states=lrestore_states)
 
-   
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
@@ -486,7 +485,7 @@ CONTAINS
       END IF
     ENDIF
 
-   
+
     !-------------------------------------------------------------------
     ! Initialize icon_comm_lib
     !-------------------------------------------------------------------
@@ -495,7 +494,7 @@ CONTAINS
 !    ENDIF
 
 
-    !--------------------------------------------        
+    !--------------------------------------------
     ! Setup the information for the physical patches
     CALL setup_phys_patches
 
@@ -513,7 +512,7 @@ CONTAINS
     ! Dump divided patches with interpolation and grf state to NetCDF
     ! file and exit
     IF(ldump_states)THEN
-      
+
       CALL message(TRIM(routine),'ldump_states is set: '//&
                   'dumping patches+states and finishing')
 
@@ -595,7 +594,7 @@ CONTAINS
 
 
     CALL init_rrtm_model_repart()
-    
+
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
@@ -603,7 +602,7 @@ CONTAINS
   !-------------------------------------------------------------------
   !>
   SUBROUTINE destruct_atmo_model()
-    
+
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:destruct_atmo_model"
 
     INTEGER :: error_status
@@ -656,17 +655,17 @@ CONTAINS
     ! clear restart namelist buffer
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
-    
+
     CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !    ENDIF
-    
+
     CALL message(TRIM(routine),'clean-up finished')
-    
+
   END SUBROUTINE destruct_atmo_model
   !-------------------------------------------------------------------
- 
+
   !-------------------------------------------------------------------
   !>
   SUBROUTINE construct_atmo_coupler()
@@ -677,10 +676,10 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
     INTEGER :: grid_id
-    INTEGER :: grid_shape(2) 
-    INTEGER :: field_shape(3) 
+    INTEGER :: grid_shape(2)
+    INTEGER :: field_shape(3)
     INTEGER :: i, patch_no, error_status
-    
+
     !---------------------------------------------------------------------
     ! 11. Do the setup for the coupled run
     !
@@ -696,7 +695,7 @@ CONTAINS
       CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
       ! split the global_mpi_communicator into the components
       !------------------------------------------------------------
-      
+
       patch_no = 1
 
       grid_shape(1)=1
@@ -707,7 +706,7 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                          ! output
-      
+
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native cells are located.
       CALL ICON_cpl_def_location ( &
@@ -743,7 +742,7 @@ CONTAINS
       CALL ICON_cpl_search
 
     ENDIF
-    
+
   END SUBROUTINE construct_atmo_coupler
 
 END MODULE mo_atmo_model

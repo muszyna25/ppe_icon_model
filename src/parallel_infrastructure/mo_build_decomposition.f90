@@ -58,7 +58,7 @@ CONTAINS
     END IF
 
     ! Allocate patch array to start patch construction.
-    ! 
+    !
     ! At the same time, we allocate the "p_patch_local_parent" which
     ! is the local portion of each patch's parent grid.
     ALLOCATE(p_patch             (n_dom_start  :n_dom), &
@@ -118,7 +118,7 @@ CONTAINS
         ! ------------------------------------------------
 
         CALL restore_patches_netcdf( p_patch, .FALSE. )
-        
+
       ELSE
 
         ! ------------------------------------------------
@@ -139,12 +139,12 @@ CONTAINS
 
           ! use internal domain decomposition algorithm
 
-          IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN 
+          IF (ldump_dd .AND. .NOT. my_process_is_mpi_parallel()) THEN
             ! If ldump_dd is set in a single processor run, a domain
             ! decomposition for nproc_dd processors is done
-            CALL decompose_domain(p_patch_global, nproc_dd)
+            CALL decompose_domain(p_patch, p_patch_global, nproc_dd)
           ELSE
-            CALL decompose_domain(p_patch_global)
+            CALL decompose_domain(p_patch, p_patch_global)
           END IF
 
         ENDIF ! division_method
@@ -180,7 +180,7 @@ CONTAINS
       IF (lrestore .AND. my_process_is_mpi_test()) CALL disable_sync_checks
       CALL complete_patches( p_patch )
       IF (lrestore .AND. my_process_is_mpi_test()) CALL enable_sync_checks
-     
+
       IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore)) &
         &    CALL set_comm_input_bcast()
 
@@ -203,7 +203,7 @@ CONTAINS
     ELSE
       CALL finalize_decomposition
     END IF
-      
+
     IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
       ! Print diagnostic information about domain decomposition
       DO jg = 1, n_dom

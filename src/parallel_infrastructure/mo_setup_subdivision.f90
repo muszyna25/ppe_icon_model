@@ -59,7 +59,7 @@ MODULE mo_setup_subdivision
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -119,8 +119,9 @@ CONTAINS
   !!        sequential runs where it simply copies (and initializes)
   !!        the patch data structure.
   !!
-  SUBROUTINE decompose_domain( p_patch_global, opt_n_procs )
+  SUBROUTINE decompose_domain( p_patch, p_patch_global, opt_n_procs )
 
+    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
     INTEGER, INTENT(IN), OPTIONAL :: opt_n_procs
 
