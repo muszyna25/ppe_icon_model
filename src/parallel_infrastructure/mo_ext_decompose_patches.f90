@@ -99,7 +99,7 @@ MODULE mo_ext_decompose_patches
   PUBLIC :: ext_decompose_patches
 
   ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
+  TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
@@ -249,8 +249,6 @@ CONTAINS
         wrk_p_parent_patch_g => p_patch_global(jgp)
       ENDIF
 
-      wrk_p_patch_g => p_patch_global(jg)
-
       ! Set division method, divide_for_radiation is only used for patch 0
 
       divide_for_radiation = (jg == 0)
@@ -259,8 +257,9 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(jg, patch_2D(jg)%n_proc, patch_2D(jg)%proc0, cell_owner, &
-        & patch_2D(jg)%cells%radiation_owner )
+      CALL divide_patch_cells(p_patch_global(jg), jg, patch_2D(jg)%n_proc, &
+                              patch_2D(jg)%proc0, cell_owner,              &
+                              patch_2D(jg)%cells%radiation_owner )
 
       DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
@@ -276,16 +275,14 @@ CONTAINS
       ! Have still to check if int state/grf state is needed at all for jg==0,
       ! if this is not the case, the ghost rows can be dropped again.
 
-        wrk_p_patch_g => p_patch_global(jg)
         is_compute_grid = .true.
 !        IF (ignore_land_points) &
 !          is_compute_grid = .false.
 
-        CALL divide_patch(patch_2D(jg), cell_owner, n_ghost_rows, is_compute_grid, p_pe_work)
+        CALL divide_patch(patch_2D(jg), p_patch_global(jg), cell_owner, n_ghost_rows, is_compute_grid, p_pe_work)
 
 !        IF(jg > n_dom_start) THEN
-!          wrk_p_patch_g => p_patch_global(jgp)
-!          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
+!          CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
 !        ENDIF
 
       DEALLOCATE(cell_owner)
@@ -350,8 +347,9 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(patch_no, n_proc, proc0, cell_owner, radiation_owner)
+  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner, radiation_owner)
 
+    TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch_g
     INTEGER, INTENT(IN)  :: patch_no !> Patch number, identifies how to decompose it
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
@@ -593,10 +591,11 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch(wrk_p_patch, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_g, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
+    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
 
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
