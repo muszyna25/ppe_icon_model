@@ -100,10 +100,6 @@ MODULE mo_setup_subdivision
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
 
-  ! number of grid points of different categories:
-  ! lateral points, interior points, nested points, halo points
-  INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
-
 CONTAINS
 
   !------------------------------------------------------------------

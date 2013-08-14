@@ -100,10 +100,6 @@ MODULE mo_atmo_model
   USE mo_complete_subdivision,    ONLY: setup_phys_patches
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
-#ifndef NOMPI
-  USE mo_setup_subdivision,       ONLY: npts_local
-#endif
-
   ! Vertical grid
   USE mo_vertical_coord_table,    ONLY: init_vertical_coord_table, vct_a, vct_b, apzero
   USE mo_nh_init_utils,           ONLY: init_hybrid_coord, init_sleve_coord
@@ -162,7 +158,6 @@ CONTAINS
 #ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
-    REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
 #endif
 #endif
 
@@ -209,15 +204,6 @@ CONTAINS
       CALL util_get_maxrss(maxrss)
       PRINT  *, "PE #", get_my_mpi_all_id(), &
         &    ": MAXRSS (MiB) = ", maxrss
-      ! compute memory consumption per grid point (w/out halo points)
-      maxrss_gridpt = REAL(maxrss)/SUM(npts_local(n_dom_start:n_dom, 1:3))
-      maxrss_gridpt_min = p_min(zfield=maxrss_gridpt, comm=p_comm_work)
-      maxrss_gridpt_max = p_max(zfield=maxrss_gridpt, comm=p_comm_work)
-      WRITE (message_text,'(a,a,f5.3,a,a,f5.3)')   &
-        & "memory consumption (MiB/grid point): ", &
-        & "min = ", maxrss_gridpt_min, " / ", &
-        & "max = ", maxrss_gridpt_max
-      CALL message(TRIM(routine),message_text)
     END IF
 #endif
 #endif
