@@ -95,14 +95,7 @@ MODULE mo_setup_subdivision
 
   !modules interface-------------------------------------------
   !subroutines
-  PUBLIC :: decompose_domain, discard_large_arrays,      &
-            divide_parent_cells, get_local_index,        &
-            divide_subset_geometric, sort_array_by_row,  &
-            count_entries, divide_cells_by_location,     &
-            divide_patch, divide_patch_cells
-#ifdef HAVE_METIS
-  PUBLIC :: divide_subset_metis
-#endif
+  PUBLIC :: decompose_domain
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
