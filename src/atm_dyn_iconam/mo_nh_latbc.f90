@@ -70,7 +70,7 @@ MODULE mo_nh_latbc
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
   USE mo_netcdf_read,         ONLY: nf, read_netcdf_data_single,        &
                                     read_netcdf_data
-  USE mo_sync,                ONLY: cumulative_sync_patch_array, &
+  USE mo_sync,                ONLY: sync_patch_array_mult, &
     &                               SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -751,46 +751,51 @@ MODULE mo_nh_latbc
     i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, 1, grf_bdywidth_c)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, grf_bdywidth_c)
 
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-
-            p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
-              &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
-              &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
-
-            p_nh_state%prog(tlev)%theta_v(jc,jk,jb) = &
-              &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
-              &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
-
-            ! Diagnose rhotheta from rho and theta
-            p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb) = &
-              &   p_nh_state%prog(tlev)%rho(jc,jk,jb) * &
-              &   p_nh_state%prog(tlev)%theta_v(jc,jk,jb)
-
-            ! Diagnose exner from rhotheta
-            p_nh_state%prog(tlev)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
-              & p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb)))
-
-            p_nh_state%prog(tlev)%w(jc,jk,jb) = &
-              &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
-              &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-
+      DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_nh_state%prog(tlev)%w(jc,nlevp1,jb) = &
-            &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
-            &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
+
+          p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
+            &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
+            &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
+
+          p_nh_state%prog(tlev)%theta_v(jc,jk,jb) = &
+            &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
+            &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
+
+          ! Diagnose rhotheta from rho and theta
+          p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb) = &
+            &   p_nh_state%prog(tlev)%rho(jc,jk,jb) * &
+            &   p_nh_state%prog(tlev)%theta_v(jc,jk,jb)
+
+          ! Diagnose exner from rhotheta
+          p_nh_state%prog(tlev)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
+            & p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb)))
+
+          p_nh_state%prog(tlev)%w(jc,jk,jb) = &
+            &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
+            &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
+
         ENDDO
       ENDDO
+
+      DO jc = i_startidx, i_endidx
+        p_nh_state%prog(tlev)%w(jc,nlevp1,jb) = &
+          &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
+          &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
+      ENDDO
+    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+    CALL sync_patch_array(SYNC_E, p_patch, p_nh_state%prog(tlev)%vn)
+    CALL sync_patch_array_mult(SYNC_C, p_patch, 5, p_nh_state%prog(tlev)%w, &
+      &   p_nh_state%prog(tlev)%theta_v, p_nh_state%prog(tlev)%rho,         &
+      &   p_nh_state%prog(tlev)%rhotheta_v, p_nh_state%prog(tlev)%exner     )
 
   END SUBROUTINE adjust_boundary_data
   !-------------------------------------------------------------------------
