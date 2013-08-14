@@ -87,28 +87,28 @@ dnl ######################################################################
 ac_hostname=$(hostname)
 ac_hostname=${ac_hostname%%\.*}
 
-if [[ x$ac_hostname = xplogintest1 ]] ; then
-  ac_sitename=dkrz.de
-else 
-
-if [ $(hostname) = $ac_hostname ] ; then
+AS_CASE([x"$ac_hostname"],
+  [xplogintest1],
+  [ac_sitename=dkrz.de],
+  [xwizard*],
+  [ac_hostname=wizard],
+  [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
    fqdn=$(hostname)
 fi
   echo $fqdn
-  if [ -n "$fqdn" ]; then
+  if [[ -n "$fqdn" ]]; then
     ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
   else
-    if [ -n "$PE_ENV" ] ; then
+    if [[ -n "$PE_ENV" ]] ; then
       fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
       echo "detecting Cray environment... $fqdn"
     else
       fqdn=${HOSTNAME}
     fi
     ac_sitename=${fqdn}
-  fi
-fi
+  fi])
 
 dnl ######################################################################
 
@@ -633,15 +633,11 @@ else
     use_flags_group=$with_flags
 fi
 
-if [[ "$use_flags_group" = "std" ]] ; then
-   FFLAGS="${FFLAGS} ${STD_FLAGS}"
-elif [[ "$use_flags_group" = "hiopt" ]] ; then
-   FFLAGS="${FFLAGS} ${HIOPT_FLAGS}"
-else
-   echo "unkown with_flags patrameter: $with_flags" 
-   exit 1   
-fi
- 
+dnl the following prepends VARIANT_FLAGS to FFLAGS
+dnl when given --with-flags=variant argument to configure
+AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
+  [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
+  [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])
 
 
 #------------------------

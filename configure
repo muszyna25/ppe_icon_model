@@ -2320,6 +2320,7 @@ else
   mh_setup=""
 fi
 
+
 # Check whether --with-flags was given.
 if test "${with_flags+set}" = set; then :
   withval=$with_flags;
@@ -2343,11 +2344,13 @@ esac
 ac_hostname=$(hostname)
 ac_hostname=${ac_hostname%%\.*}
 
-if [ x$ac_hostname = xplogintest1 ] ; then
-  ac_sitename=dkrz.de
-else
-
-if [ $(hostname) = $ac_hostname ] ; then
+case x"$ac_hostname" in #(
+  xplogintest1) :
+    ac_sitename=dkrz.de ;; #(
+  xwizard*) :
+    ac_hostname=wizard ;; #(
+  *) :
+    if [ $(hostname) = $ac_hostname ] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
    fqdn=$(hostname)
@@ -2358,12 +2361,13 @@ fi
   else
     if [ -n "$PE_ENV" ] ; then
       fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+      echo "detecting Cray environment... $fqdn"
     else
       fqdn=${HOSTNAME}
     fi
     ac_sitename=${fqdn}
-  fi
-fi
+  fi ;;
+esac
 
 
 host_frag=""
@@ -5226,6 +5230,7 @@ fi
 $as_echo "$ac_cv_fc_libs" >&6; }
 FCLIBS="$ac_cv_fc_libs"
 
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5636,15 +5641,16 @@ else
     use_flags_group=$with_flags
 fi
 
-if [ "$use_flags_group" = "std" ] ; then
-   FFLAGS="${FFLAGS} ${STD_FLAGS}"
-elif [ "$use_flags_group" = "hiopt" ] ; then
-   FFLAGS="${FFLAGS} ${HIOPT_FLAGS}"
+set -x
+if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
+  eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
 else
-   echo "unkown with_flags patrameter: $with_flags"
-   exit 1
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unknown with_flags patrameter: $with_flags
+See \`config.log' for more details" "$LINENO" 5; }
 fi
-
+set +x
 
 
 #------------------------
