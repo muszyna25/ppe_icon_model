@@ -28,13 +28,20 @@ def procLog(logFile,tags)
 
   # read in the whole file
   logContent = File.open(logFile).readlines.map(&:chomp)
+  # grep out the timer report
+  timerReportStart = logContent.index(logContent.detect(0) {|line| /Timer report/.match(line)})
+  dbg(timerReportStart)
+  timerContent = logContent[timerReportStart..-1]
+  # grep out the runscript
+  runscriptContent = logContent.grep(/^\+ /)
 
+  logContent = runscriptContent + timerContent
   # get the simulation length
   simulationStart, simulationEnd = logContent.grep(/(start|end)_date/).map {|v| DateTime.parse(v.split(' = ')[-1])}
   simulationLengthInDays         = (simulationEnd - simulationStart).to_i
   simulationLengthInYears        = simulationLengthInDays/365.0
   oneDayInSeconds                = 86400.0
-  dbg(simulationLengthInYears)
+  dbg("simulationLengthInYears:" + simulationLengthInYears.to_s)
 
   # collect all requested timers
   dbg(logContent.grep(logpattern).map(&:split).map {|v|[v.grep(tagpattern),v[-1]].flatten})
@@ -52,6 +59,7 @@ def procLog(logFile,tags)
     next if 'PEs' == k
     v = v.map(&:to_f)
     v_mean = v.reduce(0.0,:+)/v.size
+    pp v
     if 'total' == k
       retval[k] = simulationLengthInYears/(v_mean/oneDayInSeconds)
       minMaxHash[k+'_min'] = simulationLengthInYears/(v.min / oneDayInSeconds)
@@ -130,7 +138,9 @@ logFiles.each {|file|
 puts "Processing files #{logFiles.join(', ')} ..."
 
 # Which timers should get analyzed?
-tags    = %w[total gmres tracer_ab upd_phys upd_flx adv_horz dif_horz adv_vert dif_vert hflx_lim]
+#tags    = %w[total gmres tracer_ab upd_phys upd_flx adv_horz dif_horz adv_vert dif_vert hflx_lim]
+tags    = %w[total gmres tracer_ab upd_phys exch_data]
+#tags    = %w[total gmres]
 #tags    = %w[total global_sum exch_data]
 
 # setup for parallel processing
