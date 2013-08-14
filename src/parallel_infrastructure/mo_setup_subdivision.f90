@@ -474,7 +474,7 @@ CONTAINS
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
-    INTEGER, OPTIONAL, POINTER :: radiation_owner(:)
+    INTEGER, POINTER :: radiation_owner(:)
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
@@ -487,10 +487,7 @@ CONTAINS
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
-
-    IF (PRESENT(radiation_owner)) THEN
-      NULLIFY(radiation_owner)
-    ENDIF
+    NULLIFY(radiation_owner)
 
     IF (division_method(patch_no) == div_from_file     .OR. &
         division_method(patch_no) == ext_div_from_file .OR. &
@@ -542,12 +539,6 @@ CONTAINS
 
           ! fill decomposition_structure
           CALL fill_wrk_decomposition_struct(decomposition_struct, wrk_p_patch_g)
-
-          IF ((division_method(patch_no) == ext_div_medial_redrad_cluster .OR. &
-               division_method(patch_no) == ext_div_medial_redrad) .AND.       &
-              (.NOT. PRESENT(radiation_owner))) THEN
-            CALL finish('divide_patch_cells', 'Unkown radiation_owner not present')
-          ENDIF
 
           SELECT CASE (division_method(patch_no))
 
