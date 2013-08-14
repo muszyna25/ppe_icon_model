@@ -164,7 +164,7 @@ CONTAINS
 
     ! Check if the processor set should be split for patches of the 1st generation.
     ! This is the case if patch_weight > 0 for at least one of the root's childs.
-    ! For clearness, we require that patch_weight=0 for any other patch
+    ! For clarity, we require that patch_weight=0 for any other patch
 
     ! Get weights for 1st generation patches
     proc_split = .FALSE.
@@ -174,7 +174,7 @@ CONTAINS
       IF(weight(jc) > 0._wp) proc_split = .TRUE.
     ENDDO
 
-    ! Check if weights for other patches are 0 (for clearness only)
+    ! Check if weights for other patches are 0 (for clarity only)
     IF(patch_weight(1) /= 0._wp) &
       CALL finish(routine,'Weight for root patch must be 0')
     DO jg = 2, n_dom
