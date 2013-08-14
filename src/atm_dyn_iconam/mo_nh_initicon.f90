@@ -2175,6 +2175,14 @@ MODULE mo_nh_initicon
         &                p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt),              &
         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
+      ! w_so
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'w_so',                           &
+        &                p_patch(jg)%n_patch_cells_g,                                        &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,             &
+        &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
+
+
     ENDIF  ! l_ana_sfc
 
   END SUBROUTINE read_dwdana_sfc
