@@ -93,7 +93,14 @@ MODULE mo_setup_subdivision
 
   !modules interface-------------------------------------------
   !subroutines
-  PUBLIC :: decompose_domain
+  PUBLIC :: decompose_domain, discard_large_arrays,      &
+            divide_parent_cells, get_local_index,        &
+            divide_subset_geometric, sort_array_by_row,  &
+            count_entries, divide_cells_by_location,     &
+            divide_patch
+#ifdef HAVE_METIS
+  PUBLIC :: divide_subset_metis
+#endif
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
@@ -414,6 +421,7 @@ CONTAINS
 
   END SUBROUTINE decompose_domain
 
+
   !-----------------------------------------------------------------------------
   !> discard_large_arrays:
   !! Deallocate large arrays in patch which are not output to NetCDF anyways
@@ -446,7 +454,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE discard_large_arrays
-
 
   !-----------------------------------------------------------------------------
   !>
@@ -703,6 +710,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
+    LOGICAL :: lcount_flag
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -1069,7 +1077,9 @@ CONTAINS
 
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+!    lcount_flag = (.NOT. l_compute_grid) .OR. ignore_land_points
+    lcount_flag = (.NOT. l_compute_grid)
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_cells
         IF (flag2_c(j)==0) THEN
           n = n + 1
@@ -1259,7 +1269,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_edges
         IF (flag2_e(j)==0) THEN
           n = n + 1
@@ -1441,7 +1451,7 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (.NOT. l_compute_grid) THEN
+    IF (lcount_flag) THEN
       DO j = 1, wrk_p_patch_g%n_patch_verts
         IF (flag2_v(j)==0 ) THEN
           n = n + 1
@@ -1864,7 +1874,7 @@ CONTAINS
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), POINTER :: wrk_divide_patch
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
@@ -2401,7 +2411,7 @@ CONTAINS
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), POINTER :: wrk_divide_patch
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
