@@ -1715,6 +1715,16 @@ CONTAINS
     ! p_p%verts%edge_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
+    !
+    ! Set verts%num_edges (in array_v_real(:,1))
+    DO jv = 1, p_p%n_patch_verts_g
+      array_v_real(jv,1) = 0.0_wp
+      DO ji=1, max_verts_connectivity
+        IF (array_v_int(jv,ji) /= 0) &
+          array_v_real(jv,1) = array_v_real(jv,1) + 1.0_wp
+      END DO
+    END DO
+
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
@@ -1731,11 +1741,7 @@ CONTAINS
       END DO
     END DO
 
-    !
-    ! Set verts%num_edges (in array_v_int(:,1))
-    DO jv = 1, p_p%n_patch_verts_g
-      array_v_int(jv,1) = COUNT(array_v_int(jv, 1:max_verts_connectivity) /= 0)
-    END DO
+    array_v_int(:,1) = INT(array_v_real(:,1))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%glb_index,  &
