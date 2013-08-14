@@ -71,7 +71,7 @@ MODULE mo_setup_subdivision
   USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
-    & ext_div_medial_redrad_cluster, redrad_split_factor
+    & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
 
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis
@@ -80,6 +80,8 @@ MODULE mo_setup_subdivision
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
+  USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
+    & read_ascii_decomposition
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 #endif
@@ -97,7 +99,7 @@ MODULE mo_setup_subdivision
             divide_parent_cells, get_local_index,        &
             divide_subset_geometric, sort_array_by_row,  &
             count_entries, divide_cells_by_location,     &
-            divide_patch
+            divide_patch, divide_patch_cells
 #ifdef HAVE_METIS
   PUBLIC :: divide_subset_metis
 #endif
@@ -470,14 +472,18 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner)
+  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner, &
+                                radiation_owner)
 
-    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
+    TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch_g
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
+    INTEGER, OPTIONAL, POINTER :: radiation_owner(:)
+
+    TYPE(t_decomposition_structure)  :: decomposition_struct
 
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
@@ -489,52 +495,138 @@ CONTAINS
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
 
-    IF (division_method(patch_no) == div_from_file) THEN
+    IF (PRESENT(radiation_owner)) THEN
+      NULLIFY(radiation_owner)
+    ENDIF
 
-      ! Area subdivision is read from file
+    IF (division_method(patch_no) == div_from_file     .OR. &
+        division_method(patch_no) == ext_div_from_file .OR. &
+        division_method(patch_no) > 100) THEN
 
-      IF(p_pe_work == 0) THEN
+      ! only procs 0 will decompose and then broadcast
+      IF (p_pe_work == 0) THEN
 
-        IF (division_file_name(patch_no) == "") THEN
-          use_division_file_name = &
-            & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+        IF (division_method(patch_no) == div_from_file) THEN
+
+          ! Area subdivision is read from file
+
+          IF (division_file_name(patch_no) == "") THEN
+            use_division_file_name = &
+              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+          ELSE
+            use_division_file_name = division_file_name(patch_no)
+          ENDIF
+
+          WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
+          n = find_next_free_unit(10,99)
+
+          OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
+          IF(i /= 0) CALL finish('divide_patch',&
+            & 'Unable to open input file: '//TRIM(use_division_file_name))
+
+          DO j = 1, wrk_p_patch_g%n_patch_cells
+            READ(n,*,IOSTAT=i) cell_owner(j)
+            IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
+          ENDDO
+          CLOSE(n)
+
+        ELSEIF (division_method(patch_no) == ext_div_from_file) THEN
+
+          IF (division_file_name(patch_no) == "") THEN
+            use_division_file_name = &
+              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+          ELSE
+            use_division_file_name = division_file_name(patch_no)
+          ENDIF
+
+          CALL read_ascii_decomposition(use_division_file_name, cell_owner, wrk_p_patch_g%n_patch_cells)
+
         ELSE
-          use_division_file_name = division_file_name(patch_no)
-        ENDIF
 
-        WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
-        n = find_next_free_unit(10,99)
+          !----------------------------------------------------------
+          ! external decompositions
+          ! just to make sure that the radiation onwer is not acitve
 
-        OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
-        IF(i /= 0) CALL finish('divide_patch',&
-          & 'Unable to open input file: '//TRIM(use_division_file_name))
+          ! fill decomposition_structure
+          CALL fill_wrk_decomposition_struct(decomposition_struct, wrk_p_patch_g)
 
-        DO j = 1, wrk_p_patch_g%n_patch_cells
-          READ(n,*,IOSTAT=i) cell_owner(j)
-          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
-        ENDDO
-        CLOSE(n)
+          IF ((division_method(patch_no) == ext_div_medial_redrad_cluster .OR. &
+               division_method(patch_no) == ext_div_medial_redrad) .AND.       &
+              (.NOT. PRESENT(radiation_owner))) THEN
+            CALL finish('divide_patch_cells', 'Unkown radiation_owner not present')
+          ENDIF
+
+          SELECT CASE (division_method(patch_no))
+
+          CASE (ext_div_medial)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .false.,           &
+              & cells_owner = cell_owner)
+
+          CASE (ext_div_medial_cluster)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .true.,            &
+              & cells_owner = cell_owner)
+
+          CASE (ext_div_medial_redrad)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .false.,           &
+              & cells_owner = cell_owner,    &
+              & radiation_onwer = radiation_owner,      &
+              & radiation_split_factor = redrad_split_factor)
+
+          CASE (ext_div_medial_redrad_cluster)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .true.,            &
+              & cells_owner = cell_owner,    &
+              & radiation_onwer = radiation_owner,      &
+              & radiation_split_factor = redrad_split_factor)
+
+
+          CASE DEFAULT
+            CALL finish('divide_patch_cells', 'Unkown division_method')
+
+          END SELECT
+
+          ! clean decomposition_struct
+          CALL clean_wrk_decomposition_struct(decomposition_struct)
+
+        ENDIF ! subddivision_method(patch_no)
 
         ! Quick check for correct values
-
-        IF(MINVAL(cell_owner(:)) < 0 .or. MAXVAL(cell_owner(:)) >= n_proc) THEN
+        IF(MINVAL(cell_owner(:)) < 0 .or. &
+           MAXVAL(cell_owner(:)) >= n_proc) THEN
           WRITE(0,*) "n_porc=",n_proc, " MINAVAL=", MINVAL(cell_owner(:)), &
             " MAXVAL=", MAXVAL(cell_owner(:))
           CALL finish('divide_patch','Illegal subdivision in input file')
         ENDIF
 
-      ENDIF
+      ENDIF ! IF (p_pe_work == 0)
 
+      ! broadcast cell_owner array to other processes
       CALL p_bcast(cell_owner, 0, comm=p_comm_work)
 
-      IF(p_pe_work==0) WRITE(0,*) 'Successfully read: '//TRIM(division_file_name(patch_no))
+      IF (division_method(patch_no) == ext_div_medial_redrad_cluster .OR. &
+        & division_method(patch_no) == ext_div_medial_redrad) THEN
+        ! distribute the radiation owner
+        IF (p_pe_work /= 0) &
+            ALLOCATE(radiation_owner(wrk_p_patch_g%n_patch_cells))
 
-    ELSE IF (division_method(patch_no) > 100) THEN
+        CALL p_bcast(radiation_owner, 0, comm=p_comm_work)
+        wrk_p_patch_g%cells%radiation_owner => radiation_owner
 
-      CALL finish('mo_setup_subdivision', "external decompositions cannot be used from this module")
+      ENDIF
 
-    ELSE
-      ! Built in subdivison methods
+    ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
+         !     division_method(patch_no) == ext_div_from_file .OR. &
+         !     division_method(patch_no) > 100)
+
+
+      ! Built-in subdivison methods
 
       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
 
@@ -614,7 +706,7 @@ CONTAINS
 
       ENDIF
 
-    ENDIF
+    ENDIF ! division_method
 
     ! Set processor offset
     cell_owner(:) = cell_owner(:) + proc0
@@ -2503,4 +2595,69 @@ CONTAINS
 
   END SUBROUTINE divide_subset_metis
 #endif
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE fill_wrk_decomposition_struct(decomposition_struct, patch)
+    TYPE(t_decomposition_structure) :: decomposition_struct
+    TYPE(t_patch) :: patch
+
+    INTEGER :: no_of_cells, no_of_verts, cell, vertex
+    INTEGER :: jb, jl, i, jl_v, jb_v, return_status
+
+    CHARACTER(*), PARAMETER :: method_name = "fill_wrk_decomposition_struct"
+
+    decomposition_struct%no_of_cells = patch%n_patch_cells
+    decomposition_struct%no_of_edges = patch%n_patch_edges
+    decomposition_struct%no_of_verts = patch%n_patch_verts
+    no_of_cells = decomposition_struct%no_of_cells
+    no_of_verts = decomposition_struct%no_of_verts
+
+    ALLOCATE( decomposition_struct%cell_geo_center(no_of_cells), &
+      &  decomposition_struct%cells_vertex(3,no_of_cells), &
+      &  decomposition_struct%vertex_geo_coord(no_of_verts),  &
+      &  stat=return_status)
+    IF (return_status > 0) &
+      & CALL finish (method_name, "ALLOCATE(decomposition_struct")
+
+    DO cell = 1, no_of_cells
+      jb = blk_no(cell) ! block index
+      jl = idx_no(cell) ! line index
+      decomposition_struct%cell_geo_center(cell)%lat = patch%cells%center(jl,jb)%lat
+      decomposition_struct%cell_geo_center(cell)%lon = patch%cells%center(jl,jb)%lon
+      DO i = 1, 3
+        jl_v = patch%cells%vertex_idx(jl,jb,i)
+        jb_v = patch%cells%vertex_blk(jl,jb,i)
+        vertex = idx_1d(jl_v, jb_v)
+        decomposition_struct%cells_vertex(i, cell) = vertex
+      ENDDO
+    ENDDO
+
+    DO vertex = 1, no_of_verts
+      jb = blk_no(vertex) ! block index
+      jl = idx_no(vertex) ! line index
+      decomposition_struct%vertex_geo_coord(vertex)%lat = patch%verts%vertex(jl,jb)%lat
+      decomposition_struct%vertex_geo_coord(vertex)%lon = patch%verts%vertex(jl,jb)%lon
+    ENDDO
+
+    NULLIFY(decomposition_struct%cell_cartesian_center)
+    CALL geographical_to_cartesian(decomposition_struct%cell_geo_center, no_of_cells, &
+      & decomposition_struct%cell_cartesian_center)
+
+  END SUBROUTINE fill_wrk_decomposition_struct
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE clean_wrk_decomposition_struct(decomposition_struct)
+    TYPE(t_decomposition_structure) :: decomposition_struct
+
+    DEALLOCATE( decomposition_struct%cell_geo_center, &
+      &  decomposition_struct%cells_vertex,           &
+      &  decomposition_struct%vertex_geo_coord,       &
+      &  decomposition_struct%cell_cartesian_center)
+
+  END SUBROUTINE clean_wrk_decomposition_struct
+  !-------------------------------------------------------------------------
+
 END MODULE mo_setup_subdivision
