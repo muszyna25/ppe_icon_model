@@ -97,9 +97,6 @@ MODULE mo_setup_subdivision
   !subroutines
   PUBLIC :: decompose_domain
 
-  ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
-
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
 
@@ -137,6 +134,7 @@ CONTAINS
     INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
+    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
 
     CALL message(routine, 'start of domain decomposition')
 
@@ -304,7 +302,9 @@ CONTAINS
       END IF
 
       IF (my_process_is_mpi_parallel()) THEN
-        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner, p_patch(jg)%cells%radiation_owner)
+        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, &
+             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_g, &
+             p_patch(jg)%cells%radiation_owner)
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
       END IF
@@ -465,7 +465,7 @@ CONTAINS
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner, &
-                                radiation_owner)
+                                wrk_p_parent_patch_g, radiation_owner)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch_g
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
@@ -473,6 +473,7 @@ CONTAINS
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
+    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
     INTEGER, OPTIONAL, POINTER :: radiation_owner(:)
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
