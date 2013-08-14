@@ -89,7 +89,7 @@ done
 # ectrans plots to mkoehler@DWD
 
 cd %ECTEMP%/%SUITE%
-ln -s %EXPNUM% %SUITE%_%EXPNUM%
+ln -sf %EXPNUM% %SUITE%_%EXPNUM%
 tarfile=%SUITE%_%EXPNUM%_${YYYYMM}_UNTAR.tar
 tar cvf ${tarfile} %SUITE%_%EXPNUM%/${YYYYMM}/metplots
 /home/ms/de/dfr/Perl/ectrans.pl -r ECtoFE04 -O plots ${tarfile}

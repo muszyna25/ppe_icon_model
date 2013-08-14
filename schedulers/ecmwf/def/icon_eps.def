@@ -16,11 +16,11 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "064"                #---experiment number---
-set EXPNUM2       "064"                #---experiment number used for score comparison---
+set EXPNUM        "070"                #---experiment number---
+set EXPNUM2       "070"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
-set FIRST_DATE    20120701
-set LAST_DATE     20120701
+set FIRST_DATE    20130501
+set LAST_DATE     20130501
 set MONTHS        201207               #---months to be run e.g. 201201_201207
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
@@ -268,7 +268,7 @@ suite $USER
                 on_ecgate
 
               task get_data
-                trigger (setup == complete) and (../once == complete)
+                trigger (setup_eps == complete) and (../../../once == complete)
                 on_hpc_parallel
                 edit SCJOBTYPE    parallel
                 edit SCJOBCLASS   np
@@ -278,7 +278,7 @@ suite $USER
                 edit SCWALLCLOCKLIMIT 02:00:00
     
               task init_data
-                trigger (get_data == complete) and (build == complete)
+                trigger (get_data == complete) and (../../build == complete)
                 on_hpc_parallel
                 edit SCJOBTYPE    parallel
                 edit SCJOBCLASS   np

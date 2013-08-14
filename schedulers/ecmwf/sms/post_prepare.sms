@@ -155,6 +155,19 @@ done
  done
 fi
 
+if [[ %NENS% -gt 0 ]] ; then
+  for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
+    for levtype in ML PL HL ; do
+      if [[ -f ${outdir}/${nmem}/${basename}_${nmem}_DOM01_${levtype}_0001.grb ]] ; then
+        ecp -o ${outdir}/${nmem}/${basename}_${nmem}_DOM01_${levtype}_0001.grb $ecfsdir/${nmem}
+      else
+        ecp     $ecfsdir/${nmem}/${basename}_${nmem}_DOM01_${levtype}_0001.grb ${outdir}
+      fi
+    done
+  done
+fi
+
+
 #-----------------------------------------------------------------------------
 # fix and copy data to ecgate for metview processing
 
