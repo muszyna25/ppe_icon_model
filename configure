@@ -5641,16 +5641,16 @@ else
     use_flags_group=$with_flags
 fi
 
-set -x
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
   eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
 else
+  if test x"$use_flags_group" != xstd; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unknown with_flags patrameter: $with_flags
+as_fn_error $? "unknown with_flags parameter: $with_flags
 See \`config.log' for more details" "$LINENO" 5; }
 fi
-set +x
+fi
 
 
 #------------------------
