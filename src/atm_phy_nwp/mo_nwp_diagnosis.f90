@@ -929,7 +929,7 @@ CONTAINS
     cflmax = MAXVAL(maxcfl)
     cflmax = global_max(cflmax) ! maximum over all PEs
     WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
-    CALL message('nwp_nh_interface: ', TRIM(message_text))
+    CALL message('nwp_diag_output_2: ', TRIM(message_text))
 
 
     IF (msg_level >= 18 .AND. lcall_turb) THEN ! extended turbulence diagnostic
@@ -949,7 +949,7 @@ CONTAINS
       vturbmax = global_max(vturbmax)
 
       WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
-      CALL message('nwp_nh_interface: ', TRIM(message_text))
+      CALL message('nwp_diag_output_2: ', TRIM(message_text))
       WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
       CALL message('', TRIM(message_text))
 
