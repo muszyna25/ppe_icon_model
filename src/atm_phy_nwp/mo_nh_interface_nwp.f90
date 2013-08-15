@@ -106,6 +106,7 @@ MODULE mo_nh_interface_nwp
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
+  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
@@ -278,7 +279,7 @@ CONTAINS
            & CALL message('mo_nh_interface_nwp:', 'update_tracers')
 
       IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
-      
+
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  prm_nwp_tend          ,& !in
@@ -550,16 +551,18 @@ CONTAINS
 
     ENDIF
 
+      IF (art_config(jg)%lart) THEN
 
-    IF (art_config(jg)%lart) THEN
+       CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 
-      CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
-                 &          pt_patch,                           & !>in
-                 &          p_prog_list,                        & !>in
-                 &          prm_diag,                           & !>in
-                 &          pt_prog%rho,                        & !>in               
-                 &          pt_prog_rcf%tracer)                   !>inout             
-    ENDIF !lart
+       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+                  &          pt_patch,                           & !>in
+                  &          p_prog_list,                        & !>in
+                  &          prm_diag,                           & !>in
+                  &          pt_prog%rho,                        & !>in
+                  &          pt_prog_rcf%tracer)                   !>inout
+
+      ENDIF !lart
 
 
     IF (timers_level > 1) CALL timer_start(timer_fast_phys)
@@ -1814,6 +1817,18 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+
+      IF(art_config(jg)%lart .AND. art_config(jg)%lart_conv) THEN
+! KL add convective tendency and fix to positive values
+      DO jt=1,art_config(jg)%nconv_tracer  ! ASH
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+             pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
+             +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+          ENDDO
+        ENDDO
+      ENDDO
+      ENDIF !lart
 
 !DR additional clipping for qr, qs 
 !DR (very small negative values may occur during the transport process (order 10E-15)) 

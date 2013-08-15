@@ -62,7 +62,7 @@
 MODULE mo_nwp_phy_types
 
   USE mo_kind,                ONLY: wp
-  USE mo_fortran_tools,       ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_model_domain,        ONLY: t_patch
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_nwp_parameters,      ONLY: t_phy_params
@@ -82,7 +82,6 @@ MODULE mo_nwp_phy_types
   !types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
-
 
   !
   !!data structure defining model states
@@ -384,6 +383,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
       &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
+
+    TYPE(t_ptr_tracer), ALLOCATABLE :: conv_tracer_tend(:,:) !< pointer for chemical tracer conv. tend.
+
   END TYPE t_nwp_phy_tend
 
 END MODULE mo_nwp_phy_types

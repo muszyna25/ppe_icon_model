@@ -55,6 +55,10 @@ MODULE mo_run_config
   PUBLIC :: iqni, iqni_nuc, iqg !CK<
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
+  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: iCS137_conv,iI131_conv,iTE132_conv,iZR95_conv,iXE133_conv,iI131g_conv,iI131o_conv,iBA140_conv,iRU103_conv !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0
+  PUBLIC :: iseasa_conv,iseasb_conv,iseasc_conv,iseasa0_conv,iseasb0_conv,iseasc0_conv
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -148,7 +152,36 @@ MODULE mo_run_config
     INTEGER :: iash4_conv        !< 
     INTEGER :: iash5_conv        !<
     INTEGER :: iash6_conv        !<
-
+    INTEGER :: iCS137       !< radioactive nuclides
+    INTEGER :: iI131        !<
+    INTEGER :: iTE132       !< 
+    INTEGER :: iZR95        !<
+    INTEGER :: iXE133       !<
+    INTEGER :: iI131g       !<
+    INTEGER :: iI131o       !<
+    INTEGER :: iBA140       !< 
+    INTEGER :: iRU103       !<
+    INTEGER :: iCS137_conv  !< Convective tendencies for radioactive nuclides
+    INTEGER :: iI131_conv   !< 
+    INTEGER :: iTE132_conv  !< 
+    INTEGER :: iZR95_conv   !<
+    INTEGER :: iXE133_conv  !<
+    INTEGER :: iI131g_conv  !<
+    INTEGER :: iI131o_conv  !<
+    INTEGER :: iBA140_conv  !<
+    INTEGER :: iRU103_conv  !<
+    INTEGER :: iseasa       !< Sea Salt Aerosol Mode A Mass Density
+    INTEGER :: iseasb       !< Sea Salt Aerosol Mode B Mass Density
+    INTEGER :: iseasc       !< Sea Salt Aerosol Mode C Mass Density
+    INTEGER :: iseasa0      !< Sea Salt Aerosol Mode A Number Density
+    INTEGER :: iseasb0      !< Sea Salt Aerosol Mode B Number Density
+    INTEGER :: iseasc0      !< Sea Salt Aerosol Mode C Number Density
+    INTEGER :: iseasa_conv  !< Sea Salt Aerosol Mode A Mass Density due to convection
+    INTEGER :: iseasb_conv  !< Sea Salt Aerosol Mode B Mass Density due to convection
+    INTEGER :: iseasc_conv  !< Sea Salt Aerosol Mode C Mass Density due to convection
+    INTEGER :: iseasa0_conv !< Sea Salt Aerosol Mode A Number Density due to convection
+    INTEGER :: iseasb0_conv !< Sea Salt Aerosol Mode B Number Density due to convection
+    INTEGER :: iseasc0_conv !< Sea Salt Aerosol Mode C Number Density due to convection
 
     REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
 

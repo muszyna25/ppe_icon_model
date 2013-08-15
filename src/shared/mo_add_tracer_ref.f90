@@ -1,5 +1,5 @@
 !>
-!!               This module is not used
+!!               This module is used by ICON-ART
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -76,12 +76,13 @@ CONTAINS
   ! reference to an existing pointer to a 3D tracer field
   ! optionally overwrite some default meta data
   !
-  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
-    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
-    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
-    &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
-    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
-    &        rrho_tracer)
+  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,    &
+    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart, &
+    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,            &
+    &        lis_tracer,tracer_class,                                              &
+    &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
+    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
+    &        rrho_tracer, halflife_tracer, imis_tracer)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -101,6 +102,7 @@ CONTAINS
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
     LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class   ! type of tracer (cloud, volcash, radioact,...)
     INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
     INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
     LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
@@ -110,6 +112,8 @@ CONTAINS
     LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
     REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
     REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
+    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer! radioactive half-life in s^-1
+    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer    ! IMIS number
 
 
     ! Local variables:
@@ -169,6 +173,7 @@ CONTAINS
     !
     tracer_info = create_tracer_metadata(                                     &
       &                                  lis_tracer       = lis_tracer,       &
+      &                                  tracer_class     = tracer_class,     &
       &                                  ihadv_tracer     = zihadv_tracer,    &
       &                                  ivadv_tracer     = zivadv_tracer,    &
       &                                  lturb_tracer     = lturb_tracer,     &
@@ -177,7 +182,9 @@ CONTAINS
       &                                  lconv_tracer     = lconv_tracer,     &
       &                                  lwash_tracer     = lwash_tracer,     &
       &                                  rdiameter_tracer = rdiameter_tracer, &
-      &                                  rrho_tracer      = rrho_tracer )
+      &                                  rrho_tracer      = rrho_tracer,      &
+      &                                  halflife_tracer  = halflife_tracer,  &
+      &                                  imis_tracer      = imis_tracer)
 
 
 

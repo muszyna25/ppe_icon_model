@@ -87,7 +87,6 @@ MODULE mo_nonhydro_state
   USE mo_art_config,           ONLY: t_art_config,art_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
@@ -764,8 +763,8 @@ MODULE mo_nonhydro_state
         ! art
         IF (artconf%lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
-                    & p_prog%tracer_ptr,advconf,&
-                    & timelev,ldims=shape3d_c,tlev_source=1)
+                    & p_prog%tracer_ptr,advconf,p_prog=p_prog,&
+                    & timelev=timelev,ldims=shape3d_c,tlev_source=1)
         ENDIF
    
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)

@@ -611,11 +611,14 @@ CONTAINS
   ! Comment by DR: Maybe for the future one could define different sets of default values
   ! for different groups of ART species.
   ! 
-  FUNCTION create_tracer_metadata(lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, &
+  FUNCTION create_tracer_metadata(lis_tracer,tracer_class,                              &
+    &                            ihadv_tracer, ivadv_tracer, lturb_tracer,              &
     &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
-    &                            lwash_tracer,rdiameter_tracer, rrho_tracer) RESULT(tracer_meta)
+    &                            lwash_tracer,rdiameter_tracer, rrho_tracer,            &
+    &                            halflife_tracer,imis_tracer) RESULT(tracer_meta) 
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
     INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer    ! method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer    ! turbulent transport (TRUE/FALSE)
@@ -625,6 +628,8 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
     REAL(wp), INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
     REAL(wp), INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
+    REAL(wp), INTENT(IN), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
+    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer         ! IMIS number
 
     TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
 
@@ -633,6 +638,13 @@ CONTAINS
       tracer_meta%lis_tracer = lis_tracer
     ELSE
       tracer_meta%lis_tracer = .FALSE.
+    ENDIF
+
+    ! tracer_class
+    IF ( PRESENT(tracer_class) ) THEN
+      tracer_meta%tracer_class = tracer_class
+    ELSE
+      tracer_meta%tracer_class = "cloud"  ! USE cloud as standard
     ENDIF
 
     ! ihadv_tracer
@@ -696,6 +708,20 @@ CONTAINS
       tracer_meta%rrho_tracer = rrho_tracer
     ELSE
       tracer_meta%rrho_tracer = 1000.0_wp       ! particle density in kg m^-3
+    ENDIF
+
+    ! halflife_tracer
+    IF ( PRESENT(halflife_tracer) ) THEN
+      tracer_meta%halflife_tracer = halflife_tracer
+    ELSE
+      tracer_meta%halflife_tracer = 0.0_wp       ! half-life in s^-1
+    ENDIF
+
+    ! imis_tracer
+    IF ( PRESENT(imis_tracer) ) THEN
+      tracer_meta%imis_tracer = imis_tracer
+    ELSE
+      tracer_meta%imis_tracer = -999       ! IMIS number
     ENDIF
 
   END FUNCTION create_tracer_metadata
@@ -3588,6 +3614,12 @@ CONTAINS
         IF (this_list_element%field%info%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
+          WRITE (message_text,'(a,a)') &
+             'Tracer class                                : ', &
+             this_list_element%field%info%tracer%tracer_class
+          CALL message('', message_text)
+
+
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
              this_list_element%field%info%tracer%ihadv_tracer
@@ -3637,6 +3669,18 @@ CONTAINS
              'particle density in kg m^-3                 : ', &
              this_list_element%field%info%tracer%rrho_tracer
           CALL message('', message_text)
+
+        WRITE (message_text,'(a,e18.12)') &
+             'Radioactive half-life in s^-1                      : ', &
+             this_list_element%field%info%tracer%halflife_tracer
+          CALL message('', message_text)
+
+        WRITE (message_text,'(a,i3)') &
+             'IMIS number                      : ', &
+             this_list_element%field%info%tracer%imis_tracer
+          CALL message('', message_text)
+
+
         ELSE
           CALL message('', 'Tracer field                                : no.')
         ENDIF
@@ -3948,135 +3992,4 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_post_op
   !------------------------------------------------------------------------------------------------
-
-
-!  !------------------------------------------------------------------------------------------------
-!  ! This is not used and it is not the right module to use!
-!  ! Should be removed
-!  !
-!  ! create (allocate) a new table entry
-!  ! reference to an existing pointer to a 3D tracer field
-!  ! optionally overwrite some default meta data
-!  !
-!  SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,  &
-!    &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart,  &
-!    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,          &
-!    &        lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,  &
-!    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,          &
-!    &        rrho_tracer)
-!
-!    TYPE(t_var_list)    , INTENT(inout)        :: this_list
-!    CHARACTER(len=*)    , INTENT(in)           :: target_name
-!    CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-!    INTEGER             , INTENT(inout)        :: tracer_idx     ! index in 4D tracer container
-!    TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
-!    TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
-!    TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
-!    TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
-!    INTEGER             , INTENT(in), OPTIONAL :: jg             ! patch id
-!    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
-!    LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
-!    LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
-!    INTEGER,              INTENT(in), OPTIONAL :: isteptype      ! type of statistical processing
-!    INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
-!    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
-!    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
-!    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
-!    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
-!    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
-!    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
-!    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
-!    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer    ! sedimentation (TRUE/FALSE)
-!    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer    ! dry deposition (TRUE/FALSE)
-!    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer   ! convection  (TRUE/FALSE)
-!    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
-!    REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
-!    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
-!
-!
-!    ! Local variables:
-!    TYPE(t_list_element), POINTER :: target_element
-!    TYPE(t_var_metadata), POINTER :: target_info
-!    TYPE(t_tracer_meta)           :: tracer_info    ! tracer meta data
-!
-!    INTEGER :: zihadv_tracer, zivadv_tracer
-!
-!    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
-!
-!  !------------------------------------------------------------------
-!
-!    ! get pointer to target element (in this case 4D tracer container)
-!    target_element => find_list_element (this_list, target_name)
-!    ! get tracer field metadata
-!    target_info => target_element%field%info
-!
-!    ! get index of current field in 4D container and set
-!    ! tracer index accordingly.
-!    ! Note that this will be repeated for each patch. Otherwise it may happen that
-!    ! some MPI-processes miss this assignment.
-!    !
-!    tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
-!
-!    WRITE (message_text,'(a,i3,a,a)')                                            &
-!      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
-!    CALL message(TRIM(routine),message_text)
-!
-!
-!
-!    ! set default values
-!    ! If ihadv_tracer or ivadv_tracer are not present, take respective value from the
-!    ! advection_config state.
-!    ! If ihadv_tracer or ivadv_tracer are present, take those values, and overwrite
-!    ! the respective values of the advection_config state.
-!    !
-!    IF ( PRESENT( ihadv_tracer )) THEN
-!      zihadv_tracer = ihadv_tracer
-!      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
-!      ! SANITY CHECKED NAMELIST SETTINGS.
-!      advconf%ihadv_tracer(tracer_idx) = ihadv_tracer
-!    ELSE
-!      zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
-!    ENDIF
-!
-!    IF ( PRESENT( ivadv_tracer )) THEN
-!      zivadv_tracer = ivadv_tracer
-!      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
-!      ! SANITY CHECKED NAMELIST SETTINGS.
-!      advconf%ivadv_tracer(tracer_idx) = ivadv_tracer
-!    ELSE
-!      zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
-!    ENDIF
-!
-!    ! generate tracer metadata information
-!    !
-!    tracer_info = create_tracer_metadata(                                     &
-!      &                                  lis_tracer       = lis_tracer,       &
-!      &                                  ihadv_tracer     = zihadv_tracer,    &
-!      &                                  ivadv_tracer     = zivadv_tracer,    &
-!      &                                  lturb_tracer     = lturb_tracer,     &
-!      &                                  lsed_tracer      = lsed_tracer,      &
-!      &                                  ldep_tracer      = ldep_tracer,      &
-!      &                                  lconv_tracer     = lconv_tracer,     &
-!      &                                  lwash_tracer     = lwash_tracer,     &
-!      &                                  rdiameter_tracer = rdiameter_tracer, &
-!      &                                  rrho_tracer      = rrho_tracer )
-!
-!
-!
-!    ! create new table entry reference including additional tracer metadata
-!    CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
-!       &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
-!       &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
-!       &          isteptype=isteptype, tlev_source=tlev_source,                  &
-!       &          vert_interp=vert_interp, hor_interp=hor_interp,                &
-!       &          tracer_info=tracer_info, in_group=in_group                     )
-!
-!    ! Get the number of convection tracers
-!    IF (lconv_tracer) THEN
-!      art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
-!    ENDIF
-!
-!  END SUBROUTINE add_var_list_reference_tracer
-
-
 END MODULE mo_var_list

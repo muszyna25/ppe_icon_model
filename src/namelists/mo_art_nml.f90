@@ -38,6 +38,7 @@
 !!
 MODULE mo_art_nml
 
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_kind                ,ONLY: wp
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_exception           ,ONLY: finish
@@ -48,7 +49,7 @@ MODULE mo_art_nml
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_io_restart_namelist ,ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_art_config          ,ONLY: art_config ,t_volc_list,MAX_NUM_VOLC 
+  USE mo_art_config          ,ONLY: art_config ,t_volc_list,max_volc_input
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
   
@@ -71,30 +72,42 @@ MODULE mo_art_nml
     
  END TYPE t_list_volcanoes
 
- TYPE (t_list_volcanoes) :: art_volclist_tot(MAX_NUM_VOLC) !>list of volcanoes
+    TYPE (t_list_volcanoes) :: art_volclist_tot(max_volc_input) !>list of volcanoes
  
-    LOGICAL :: lart                        !< main switch for using the ART-package
-                                           !< .TRUE.: switch ON
-                                           !< .FALSE.: switch OFF
+    LOGICAL :: lart                !< main switch for using the ART-package
+                                   !< .TRUE.: switch ON
+                                   !< .FALSE.: switch OFF
+                                   
+    LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_volcano                !< Treatment of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_emis_volcano           !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_emiss          !< Emission of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_conv_volcano           !< Convection of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_conv           !< Convection of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_wash_volcano           !< Washout of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_wash           !< Washout of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_rad_volcano            !< Radiative impact of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_rad            !< Radiative impact of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lart_cloud_volcano          !< Cloud volcanic ash interaction (TRUE/FALSE)
+    LOGICAL :: lart_cloud          !< Cloud volcanic ash interaction (TRUE/FALSE)
 
     INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
 
-  LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
-  NAMELIST/art_nml/ lart, lart_volcano, lart_emis_volcano,lart_conv_volcano, lart_wash_volcano, &
-    &               lart_rad_volcano, lart_cloud_volcano, nart_emis_volcano_update,art_volclist_tot, lart_volclist
+    LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
 
+    CHARACTER (LEN=120) :: volcanofile_path
+
+    LOGICAL :: lart_radioact                !< Treatment of volcanic ash (TRUE/FALSE)
+   
+    LOGICAL :: lart_decay_radioact          !< Treatment of volcanic ash (TRUE/FALSE)
+
+    CHARACTER (LEN=120) :: radioactfile_path
+
+    NAMELIST/art_nml/ lart, lart_seasalt, lart_volcano, lart_emiss,lart_conv, lart_wash,            &
+   &               lart_rad, lart_cloud, nart_emis_volcano_update,art_volclist_tot,   &
+   &               lart_volclist, volcanofile_path,lart_radioact,lart_decay_radioact, &
+   &               radioactfile_path
 
 CONTAINS
 
@@ -130,20 +143,29 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     lart                = .FALSE.        ! ART-package switched off
+    lart_seasalt        = .FALSE.
     lart_volcano        = .FALSE.        ! Treatment of volcanic ash
-    lart_emis_volcano   = .FALSE.        ! Emission of volcanic ash
-    lart_conv_volcano   = .FALSE.        ! Convection of volcanic ash
-    lart_wash_volcano   = .FALSE.        ! Washout of volcanic ash 
-    lart_rad_volcano    = .FALSE.        ! Radiative impact of volcanic ash
-    lart_cloud_volcano  = .FALSE.        ! Impact on clouds
+    lart_emiss   = .FALSE.        ! Emission of volcanic ash
+    lart_conv   = .FALSE.        ! Convection of volcanic ash
+    lart_wash   = .FALSE.        ! Washout of volcanic ash 
+    lart_rad    = .FALSE.        ! Radiative impact of volcanic ash
+    lart_cloud  = .FALSE.        ! Impact on clouds
 
     nart_emis_volcano_update= 0          ! Time interval for reading emission file
     lart_volclist=.FALSE.
-    art_volclist_tot(:)%lon   = -1._wp     ! Longitude coordinate of each volcano. 
-                                           !-1 is used for creating the list of volcanoes.  
+    art_volclist_tot(:)%lon   = -1000._wp     ! Longitude coordinate of each volcano. 
+                                           !-1000 is used for creating the list of volcanoes.  
     art_volclist_tot(:)%lat   = 0._wp     ! Latitude coordinate of each volcano
     art_volclist_tot(:)%zname = ""        ! Name of volcanoes
 !   art_volclist_tot(:)%nstart= 1         ! Start time of volcanic eruption
+
+    volcanofile_path          =  "./volcanofile"
+
+    lart_radioact             = .FALSE.    !< Treatment of radioactive nuclides
+    lart_decay_radioact       = .FALSE.    !< Treatment of radioactive decay
+    radioactfile_path         =  "./radioactfile"
+
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -183,21 +205,30 @@ CONTAINS
       nvolc=0
       DO
         nvolc = nvolc + 1
-        IF (nvolc > MAX_NUM_VOLC) EXIT           ! maximum number reached.
-        IF (art_volclist_tot(nvolc)%lon == -1._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
+        IF (nvolc > max_volc_input) THEN
+          CALL message(TRIM(routine), 'number of volcanos in input file &
+        & exeedes maximum allowed number of 20, please use file input')
+          EXIT           ! maximum number reached.
+        ENDIF
+        IF (art_volclist_tot(nvolc)%lon == -1000._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
       ENDDO
       nvolc=nvolc-1
     DO jg= 0,max_dom
       art_config(jg)%lart          = lart
+      art_config(jg)%lart_seasalt  = lart_seasalt
       art_config(jg)%lart_volcano     = lart_volcano
-      art_config(jg)%lart_emis_volcano     = lart_emis_volcano
-      art_config(jg)%lart_conv_volcano  = lart_conv_volcano
-      art_config(jg)%lart_wash_volcano  = lart_wash_volcano
-      art_config(jg)%lart_rad_volcano     = lart_rad_volcano
-      art_config(jg)%lart_cloud_volcano   = lart_cloud_volcano
+      art_config(jg)%lart_emiss     = lart_emiss
+      art_config(jg)%lart_conv  = lart_conv
+      art_config(jg)%lart_wash  = lart_wash
+      art_config(jg)%lart_rad     = lart_rad
+      art_config(jg)%lart_cloud   = lart_cloud
       art_config(jg)%nart_emis_volcano_update   = nart_emis_volcano_update 
       art_config(jg)%lart_volclist=lart_volclist
       art_config(jg)%nvolc         = nvolc
+      art_config(jg)%volcanofile_path  = volcanofile_path
+      art_config(jg)%lart_radioact = lart_radioact
+      art_config(jg)%lart_decay_radioact = lart_radioact
+      art_config(jg)%radioactfile_path = radioactfile_path
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)

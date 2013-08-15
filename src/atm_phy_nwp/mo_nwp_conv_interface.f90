@@ -58,6 +58,8 @@ MODULE mo_nwp_conv_interface
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_fortran_tools,        ONLY: t_ptr_tracer
+  USE mo_art_config,           ONLY: art_config
   USE mo_cuparameters,         ONLY: lmfscv
 
   IMPLICIT NONE
@@ -78,7 +80,7 @@ CONTAINS
     &                         p_prog,                    & !>in
     &                         p_prog_rcf,                & !>inout
     &                         p_diag ,                   & !>inout
-    &                         prm_diag,prm_nwp_tend      ) !>inout 
+    &                         prm_diag,prm_nwp_tend      ) !>inout
 
 
 
@@ -233,8 +235,7 @@ CONTAINS
         ! The following input fields must be reset to zero because the convective
         ! tendencies are added to them
         prm_nwp_tend%ddt_temp_pconv  (:,:,jb)     = 0._wp
-        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc) = 0._wp
-        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi) = 0._wp
+        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,:)   = 0._wp
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
 
@@ -252,6 +253,9 @@ CONTAINS
         ENDIF
 
 !#ifdef __BOUNDCHECK
+
+
+IF(art_config(jg)%nconv_tracer > 0) THEN
           CALL cumastrn &
 &           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
@@ -289,9 +293,55 @@ CONTAINS
 &            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
-&            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
-&            pvddraf=      prm_diag%con_gust (:,jb)                           )  !! OUT
+&            pcape =       prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf=      prm_diag%con_gust (:,jb)                           ,& !! OUT
+&            ktrac = art_config(jg)%nconv_tracer                              ,& !! IN 
+&            pcen  =   p_prog_rcf%conv_tracer(jb,:)                           ,& !! IN 
+&            ptenc =   prm_nwp_tend%conv_tracer_tend(jb,:) )                     !! OUT
 
+ELSE
+
+          CALL cumastrn &
+&           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
+&            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
+&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
+&            phy_params = phy_params(jg),                                      & !! IN
+&            pten   = p_diag%temp      (:,:,jb)                              ,& !! IN
+&            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                          ,& !! IN
+&            puen   = p_diag%u         (:,:,jb), pven   = p_diag%v( :,:,jb) ,& !! IN
+&            plitot = z_plitot                 , pvervel= z_omega_p         ,& !! IN
+&            pqhfl  = z_qhfl                   , pahfs  = z_shfl            ,& !! IN
+&            pap    = p_diag%pres      (:,:,jb), paph   = p_diag%pres_ifc(:,:,jb),& !! IN
+&            pgeo   = p_metrics%geopot_agl (:,:,jb)                        ,& !! IN
+&            pgeoh  = p_metrics%geopot_agl_ifc(:,:,jb)                        ,& !! IN
+&            zdph   = p_diag%dpres_mc    (:,:,jb)                            ,& !! IN
+&            zdgeoh = p_metrics%dgeopot_mc(:,:,jb)                            ,& !! IN
+&            ptent  = z_dtdt                                                  ,& !! INOUT
+&            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
+&            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
+&            ptenq  = z_dtdqv                                                 ,& !! INOUT
+&            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
+&            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
+!&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqs)               ,& !! OUT
+&            ldcum  = prm_diag%locum  (:,jb)                                  ,& !! OUT
+&            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
+&            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
+&            kctop  = prm_diag%mtop_con(:,jb)                                 ,& !! OUT
+&            LDSHCV = prm_diag%ldshcv  (:,jb)                                 ,& !! IN
+&            pmfu   =      prm_diag%con_udd(:,:,jb,1)                         ,& !! OUT
+&            pmfd   =      prm_diag%con_udd(:,:,jb,2)                         ,& !! OUT
+&            pmfude_rate = prm_diag%con_udd(:,:,jb,3)                         ,& !! OUT
+&            pmfdde_rate = prm_diag%con_udd(:,:,jb,4)                         ,& !! OUT
+&            ptu    =      prm_diag%con_udd(:,:,jb,5)                         ,& !! OUT
+&            pqu    =      prm_diag%con_udd(:,:,jb,6)                         ,& !! OUT
+&            plu    =      prm_diag%con_udd(:,:,jb,7)                         ,& !! OUT
+&            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
+&            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
+&            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
+&            pcape =       prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf=      prm_diag%con_gust (:,jb)                           ,& !! OUT
+&            ktrac = 0                                                         ) !! IN 
+ENDIF
 
         ! Postprocessing on some fields
 
@@ -330,7 +380,6 @@ CONTAINS
           prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
             &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
             &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
-
 
           prm_diag%rain_con_rate(i_startidx:i_endidx,jb) =                                &
             &                    prm_diag%rain_con_rate_3d(i_startidx:i_endidx,nlevp1,jb)
