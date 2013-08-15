@@ -201,6 +201,10 @@ MODULE mo_nh_latbc
 
     END DO
 
+    ! prepare read/last indices
+    read_latbc_tlev = 1   ! read in the first time-level slot
+    last_latbc_tlev = 2
+
     CALL message(TRIM(routine),'done')
 
   END SUBROUTINE allocate_latbc_data
@@ -218,24 +222,32 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-19)
   !!
-  SUBROUTINE read_latbc_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime, tlev)
+  SUBROUTINE read_latbc_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
     TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
-    INTEGER,                INTENT(IN)  :: tlev        !< latbc data slot id used for storing time
-                                                       !  level boundary data (values are 1 or 2)
+
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
                                                        
     SELECT CASE (latbc_config%itype_latbc)
     CASE(1)
       CALL message(TRIM(routine), 'IFS boundary data')
-      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data, latbc_datetime, tlev)
+      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data, latbc_datetime )
     CASE(2)
       CALL message(TRIM(routine), 'ICON output boundary data')
-      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data, latbc_datetime, tlev)
+      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data, latbc_datetime )
     END SELECT
+
+    ! Adjust read/last indices
+    !
+    ! New boundary data time-level is always read in p_latbc_data(read_latbc_tlev),
+    ! whereas p_latbc_data(last_latbc_tlev) always holds the last read boundary data
+    !
+    read_latbc_tlev = last_latbc_tlev 
+    last_latbc_tlev = 3 - read_latbc_tlev
+
   END SUBROUTINE read_latbc_data
   !-------------------------------------------------------------------------
 
@@ -248,14 +260,12 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
-  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime, tlev)
+  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
     TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
-    INTEGER,                INTENT(IN)  :: tlev        !< latbc data slot id used for storing time
-                                                       !  level boundary data (values are 1 or 2)
 
     ! local variables
     TYPE(t_patch), POINTER              :: patch
@@ -269,6 +279,7 @@ MODULE mo_nh_latbc
     INTEGER, POINTER                    :: iidx(:,:,:), iblk(:,:,:)
     REAL(wp)                            :: temp_v(nproma,p_patch(1)%nlev,p_patch(1)%nblks_c), &
       &                                    vn, w, rho, theta_v
+    INTEGER                             :: tlev
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
@@ -278,6 +289,7 @@ MODULE mo_nh_latbc
     iblk           => patch%edges%cell_blk
 
     nlev_in = latbc_config%nlev_in
+    tlev = read_latbc_tlev
       
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -425,14 +437,12 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
-  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime, tlev)
+  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
     TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
-    INTEGER,                INTENT(IN)  :: tlev        !< latbc data slot id used for storing time
-                                                       !  level boundary data (values are 1 or 2)
 
     ! local variables
     TYPE(t_patch), POINTER              :: patch
@@ -442,9 +452,11 @@ MODULE mo_nh_latbc
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
+    INTEGER                             :: tlev
                                             
-    patch => p_patch(1)                                        
-    nlev_in = latbc_config%nlev_in
+    patch     => p_patch(1)                                        
+    nlev_in   = latbc_config%nlev_in
+    tlev      = read_latbc_tlev
       
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test

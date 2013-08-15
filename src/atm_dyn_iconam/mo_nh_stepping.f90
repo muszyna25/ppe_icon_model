@@ -152,9 +152,10 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: init_ls_forcing
-  USE mo_nh_latbc,            ONLY: read_latbc_tlev, last_latbc_tlev, allocate_latbc_data , &
-                                    read_latbc_data, deallocate_latbc_data, p_latbc_data,   &
-                                    last_latbc_datetime, adjust_boundary_data
+  USE mo_nh_latbc,            ONLY: allocate_latbc_data , read_latbc_data, &
+    &                               deallocate_latbc_data, p_latbc_data,   &
+    &                               last_latbc_datetime, adjust_boundary_data, &
+    &                               read_latbc_tlev, last_latbc_tlev
   USE mo_interface_les,       ONLY: les_phy_interface
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
@@ -517,15 +518,8 @@ MODULE mo_nh_stepping
         last_latbc_datetime%caltime - datetime%caltime)*rdaylen
 
       IF (latbc_elapsed .LT. 0._wp) THEN
-        !
-        ! new data analysis is always read in p_latbc_data(read_latbc_tlev),
-        ! whereas p_latbc_data(last_latbc_tlev) always holds the last data
-        ! analysis which has been read.
-        !
         CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-        CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
-        last_latbc_tlev = read_latbc_tlev
-        read_latbc_tlev = 3 - read_latbc_tlev
+        CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
       ENDIF
 
     ENDIF
@@ -2302,18 +2296,11 @@ MODULE mo_nh_stepping
 
     ! read the first time level...
     last_latbc_datetime = time_config%ini_datetime
-    read_latbc_tlev = 1 ! read in the first data slot
-    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
+    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
     
-    ! prepare indices for next reading
-    read_latbc_tlev = 2 ! next boundary data will be read in the 2nd data slot
-    last_latbc_tlev = 1 ! boundary data was last read in the 1st data slot
-
     ! ... and also the second
     CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime, read_latbc_tlev)
-    read_latbc_tlev = last_latbc_tlev
-    last_latbc_tlev = 3 - read_latbc_tlev
+    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
   ENDIF
 
 END SUBROUTINE allocate_nh_stepping
