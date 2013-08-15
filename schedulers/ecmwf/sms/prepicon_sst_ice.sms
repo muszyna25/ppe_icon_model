@@ -119,17 +119,18 @@ do
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
-IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
+#IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
+IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_%RES%_DOM01.nc"
 
-if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
+#if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
-&parallel_nml
- nproma                       = 10
-/
-&prepicon_nml
- i_oper_mode                  = 4
-/
+!&parallel_nml
+! nproma                       = 10
+!/
+!&prepicon_nml
+! i_oper_mode                  = 4
+!/
 ! interpolation regular grid-> ICON
 &remap_nml
  in_grid_filename             = "${IFS_FILENAME_GRB}"
@@ -140,13 +141,15 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
+ out_filetype      = 4
+ rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! SST
  inputname      = "SST"         
  outputname     = "SST"          
  code           = 34          
- type_of_layer  = "surface" 
+! type_of_layer  = "surface" 
 /
 EOF
 # -------------------------------------------------
@@ -161,24 +164,25 @@ export USE_SIGNAL_HANDLING=yes
 echo "job::end"
 
 
-fi
+#fi
 
 
 # CI
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
-IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
+#IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
+IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_%RES%_DOM01.nc"
 
-if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
+#if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
-&parallel_nml
- nproma                       = 10
-/
-&prepicon_nml
- i_oper_mode                  = 4
-/
+!&parallel_nml
+! nproma                       = 10
+!/
+!&prepicon_nml
+! i_oper_mode                  = 4
+!/
 ! interpolation regular grid-> ICON
 &remap_nml
  in_grid_filename             = "${IFS_FILENAME_GRB}"
@@ -189,13 +193,15 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
+ out_filetype      = 4
+ rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! CI
  inputname      = "CI"         
  outputname     = "CI"          
  code           = 31          
- type_of_layer  = "surface" 
+! type_of_layer  = "surface" 
 /
 EOF
 # -------------------------------------------------
@@ -209,7 +215,7 @@ export USE_SIGNAL_HANDLING=yes
  ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 echo "job::end"
 
-fi
+#fi
 
 done
 rm  ./iconremap_mpi

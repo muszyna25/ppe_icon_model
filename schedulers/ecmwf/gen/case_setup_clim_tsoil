@@ -43,7 +43,12 @@ cd $EXPDIR
 # grid parameters
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
-extpar_filename=extpar_${atmo_dyn_grids}
+#extpar_filename=extpar_${atmo_dyn_grids}
+extpar_filename=extpar_${res}_DOM01.nc
+ifs2icon_filename=ifs2icon_${res}_DOM01.nc
+sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
+ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
+
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
@@ -131,6 +136,8 @@ ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t'"
 pl_varlist="'u','v','temp','geopot','clc'"      
 hl_varlist="'u','v','temp','pres',  'clc'"   
+
+
 
 # ---
 
@@ -305,6 +312,8 @@ cat > ${atmo_namelist} << EOF
  lsnowtile                    = .false.
  lseaice                      = .true.
  sstice_mode                  = 3
+ sst_td_filename              = '${sst_td_filename}'
+ ci_td_filename               = '${ci_td_filename}'
 /
 &radiation_nml
  irad_o3                      = 7
@@ -387,6 +396,7 @@ cat > ${atmo_namelist} << EOF
  itopo                        = 1
  n_iter_smooth_topo           = 0
  heightdiff_threshold         = 3000.
+ extpar_filename              = '${extpar_filename}'
 /
 EOF
 

@@ -114,7 +114,7 @@ cat > NAMELIST_PREPICON << EOF
  s_maxsize         = 500000
  l_have3dbuffer    = .false.
  out_filetype      = 4
- rbf_vec_scale     = 0.01
+! rbf_vec_scale     = 0.01
 /
 ! DEFINITIONS FOR IFS INPUT DATA
 !

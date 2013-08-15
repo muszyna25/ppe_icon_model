@@ -30,7 +30,7 @@ RADDIR=${basedir}/icon_input/radiation
 SSTICEDIR=${sstice_dir}/icon_input/sstice
 
 # --------------------------------------------------------------------
-
+case_setup_clim
 
 #set -x
 
@@ -44,6 +44,10 @@ cd $EXPDIR
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
 extpar_filename=extpar_${atmo_dyn_grids}
+ifs2icon_filename=ifs2icon_${res}_DOM01.nc
+sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
+ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
+
 
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
@@ -168,6 +172,7 @@ cat > ${atmo_namelist} << EOF
  nlev_in                      = 60          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000. 
+ ifs2icon_filename            = '${ifs2icon_filename}'
  l_sst_in                     = .TRUE.
 /
 &io_nml
@@ -279,6 +284,8 @@ cat > ${atmo_namelist} << EOF
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
  sstice_mode                  = 3
+ sst_td_filename              = '${sst_td_filename}'
+ ci_td_filename               = '${ci_td_filename}'
 /
 &radiation_nml
  irad_o3                      = 7
