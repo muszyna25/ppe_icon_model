@@ -63,6 +63,18 @@ else
   mh_setup=""            
 fi
 
+AC_ARG_WITH([mtime],
+  [AS_HELP_STRING([--with-mtime],
+    [enable use of mtime for development/prototyping])],
+    [],
+    [])
+
+if test x$with_mtime != x; then
+    use_mtime="yes"
+else
+    use_mtime="no"
+fi
+
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
     [use specified group od flags (std, hiopt, noopt, etc])],
@@ -578,6 +590,11 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
+
+if [[ "x$use_mtime" = xyes ]] ; then
+    my_srcdirs="externals/mtime/src ${my_srcdirs}"
+fi
+
 ac_srcdirs=""
 for dir in $my_srcdirs ; do
     ac_srcdirs="${ac_srcdirs} $dir"
@@ -631,6 +648,10 @@ if test x$with_flags = x; then
     use_flags_group="std"
 else
     use_flags_group=$with_flags
+fi
+
+if [[ "x$use_mtime" = xyes ]] ; then
+   ac_libs="$ac_libs -lmtime"
 fi
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS

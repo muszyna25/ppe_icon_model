@@ -732,6 +732,7 @@ enable_option_checking
 with_fortran
 with_openmp
 with_setup
+with_mtime
 with_flags
 with_lapack
 with_zlib
@@ -1368,6 +1369,7 @@ Optional Packages:
   --with-fortran=COMPILER select_available compiler (see README.compiler)
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-setup=<name>     use user specific setup (mh_setup)
+  --with-mtime            enable use of mtime for development/prototyping
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
   --with-zlib=DIR         Required I/O package
@@ -2318,6 +2320,19 @@ if test x$with_setup != x ; then
   mh_setup=$with_setup
 else
   mh_setup=""
+fi
+
+
+# Check whether --with-mtime was given.
+if test "${with_mtime+set}" = set; then :
+  withval=$with_mtime;
+fi
+
+
+if test x$with_mtime != x; then
+    use_mtime="yes"
+else
+    use_mtime="no"
 fi
 
 
@@ -5586,6 +5601,11 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
+
+if [ "x$use_mtime" = xyes ] ; then
+    my_srcdirs="externals/mtime/src ${my_srcdirs}"
+fi
+
 ac_srcdirs=""
 for dir in $my_srcdirs ; do
     ac_srcdirs="${ac_srcdirs} $dir"
@@ -5639,6 +5659,10 @@ if test x$with_flags = x; then
     use_flags_group="std"
 else
     use_flags_group=$with_flags
+fi
+
+if [ "x$use_mtime" = xyes ] ; then
+   ac_libs="$ac_libs -lmtime"
 fi
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :

@@ -6,6 +6,7 @@
 use Cwd;
 use File::Copy;
 use Getopt::Long;
+use File::Path;
 
 # Option processing
 
@@ -44,6 +45,13 @@ foreach $inc ( @incs ) {
     copy ( "include/${inc}", "${build_path}/include/${inc}" );
 }
 
+opendir(DIR, "externals/mtime/include") or die "Unable to open include:$!\n";
+@incs = grep /\.(inc|h)/, readdir(DIR);
+closedir(DIR);
+foreach $inc ( @incs ) {
+    copy ( "externals/mtime/include/${inc}", "${build_path}/include/${inc}" );
+}
+
 # scan dependencies (recursive)
 
 foreach $dir ( @directories ) {
@@ -71,6 +79,7 @@ foreach $dir ( @directories ) {
 
     print "creating $print_path/$dir/Makefile\n";
 
+    mkpath("$build_path/$dir");
     open MAKEFILE, ">$build_path/$dir/Makefile";
 
     print MAKEFILE "#----------------------------------------------------------\n";
@@ -78,8 +87,15 @@ foreach $dir ( @directories ) {
     print MAKEFILE "#----------------------------------------------------------\n";
     print MAKEFILE "\n";
 
+    $add_vpath_level = 0;
     if ( "$dir" ne "src" ) {
-	print MAKEFILE "LIB  = $dir\n\n";
+	if ( $dir =~ m/^externals/) {
+	    @subdirs = split(/\//, $dir);
+	    print MAKEFILE "LIB  = $subdirs[1]\n\n";
+	    $add_vpath_level = 2;
+	} else {
+	    print MAKEFILE "LIB  = $dir\n\n";
+	}
     }
 
 # write VPATH
@@ -95,6 +111,9 @@ foreach $dir ( @directories ) {
 #	}
         # Use a constant upward path, this allows arbitary source folder tree depth 
         $key = "../../../".$key.":";
+	if ($add_vpath_level == 2) {
+	    $key = "../../".$key;
+	}
 	push @vpath, $key;
     }
     print MAKEFILE @vpath;
@@ -152,8 +171,13 @@ foreach $dir ( @directories ) {
 	push @target_all, $key;
     }
     if ( "$dir" ne "src" ) {
-	print MAKEFILE "all: \$(LIB)\n\n";
-	print MAKEFILE "\$(LIB): ../lib/lib\$(LIB).a\n";
+	if ( $dir =~ m/^externals/) {
+	    print MAKEFILE "all: \$(LIB)\n\n";
+	    print MAKEFILE "\$(LIB): ../../../lib/lib\$(LIB).a\n";
+	} else {
+	    print MAKEFILE "all: \$(LIB)\n\n";
+	    print MAKEFILE "\$(LIB): ../lib/lib\$(LIB).a\n";
+	}
     } else {
 	print MAKEFILE "all: \$(OBJS) ";
 	&PrintWords (13, 0, @target_all);
@@ -161,8 +185,19 @@ foreach $dir ( @directories ) {
     print MAKEFILE "\n\n";
     
     if ( "$dir" ne "src" ) {
-	print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
-	print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../lib/lib\$(LIB).a \$(OBJS)\n\n";
+	if ( $dir =~ m/^externals/) {
+	    print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
+	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n\n";
+            print MAKEFILE "\n\n";
+	    $include_dir = $dir;
+	    $include_dir =~ s/src/include/;
+            print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+            print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
+            print MAKEFILE "\n\n";
+	} else {
+	    print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
+	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../lib/lib\$(LIB).a \$(OBJS)\n\n";
+	}
 
 	if ( "$dir" eq "support" ) {
             print MAKEFILE "ifeq (\$(ARCH), SX)\n";
