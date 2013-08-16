@@ -443,12 +443,6 @@ CONTAINS
          !! of the temperature at the lowest model level towards ground level,
          !! a recalculation is not required
 
-
-         !AD:For idealized cases there exists routine to calculate surface
-         !conditions. Think of moving call to surface_conditions from 
-         !mo_sgs_turbulence to this place to avoid unnecessary arguements
-         !passing (eg lnd_prog_new) in nwp_turbdiff 
-
          CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
                                & pt_patch,                         & !>input
                                & ext_data,                         & !>input
@@ -521,6 +515,7 @@ CONTAINS
 
 
     IF (timers_level > 1) CALL timer_start(timer_fast_phys)
+
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
       
 
@@ -560,6 +555,7 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+
             pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)          &
 &                                  * ( 1._wp +  vtmpc1                 &
 &                                  *  pt_prog_rcf%tracer(jc,jk,jb,iqv) &
@@ -1223,17 +1219,10 @@ CONTAINS
           exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
             & pt_patch%sync_cells_not_in_domain, &
             & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
-          IF (diffusion_config(jg)%lhdiff_w) &
-            w_comm = new_icon_comm_variable(pt_prog%w, &
-              & pt_patch%sync_cells_not_in_domain, &
-              & status=is_ready, scope=until_sync, name="pt_prog%w")
         ENDIF
 
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+3, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
-        ELSE IF (lhdiff_rcf) THEN
+        IF (lhdiff_rcf) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
                                      pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
         ELSE

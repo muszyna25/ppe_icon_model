@@ -1313,24 +1313,28 @@ MODULE mo_sgs_turbulence
 
     diff_smag_ic => prm_diag%tkvh
 
+
+    !multiply by exner to convert from theta tend to temp tend
+    !assuming that exner perturbation are small compared to temp
+    IF(TRIM(scalar_name)=='theta')THEN 
 !ICON_OMP_WORKSHARE
-    fac_conv(:,:,:) = 1._wp
+      fac_conv(:,:,:) = exner(:,:,:)
 !ICON_OMP_END_WORKSHARE
+    ELSE
+!ICON_OMP_WORKSHARE
+      fac_conv(:,:,:) = 1._wp
+!ICON_OMP_END_WORKSHARE
+    END IF
 
-
-    !Special treatment for different scalars: includes
-    !boundary treatment also
-
+    !Special boundary treatment for different scalars
 !ICON_OMP_PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
-     rl_start = grf_bdywidth_c+1
-     rl_end   = min_rlcell_int
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-     i_startblk = p_patch%cells%start_blk(rl_start,1)
-     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF(TRIM(scalar_name)=='theta')THEN
-      !multiply by exner to convert from theta tend to temp tend
-      !assuming that exner perturbation are small compared to temp
 !ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1338,7 +1342,6 @@ MODULE mo_sgs_turbulence
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               fac(jc,jk,jb) = cpd * rcvd / rho(jc,jk,jb)
-              fac_conv(jc,jk,jb) = exner(jc,jk,jb)
             END DO
           END DO
           DO jc = i_startidx, i_endidx
@@ -1398,7 +1401,7 @@ MODULE mo_sgs_turbulence
           ! compute kh_smag_e * grad(var) 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-                nabla2_e(je,jk,jb) = fac_conv(jc,jk,jb) * diff_smag_e(je,jk,jb) * &
+                nabla2_e(je,jk,jb) = diff_smag_e(je,jk,jb) * &
                                      p_patch%edges%inv_dual_edge_length(je,jb)*   &
                                     (var(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
                                      var(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
@@ -1422,9 +1425,9 @@ MODULE mo_sgs_turbulence
             DO jc = i_startidx, i_endidx
               !horizontal tendency
               tot_tend(jc,jk,jb)  =  fac(jc,jk,jb) * (                                 &
-                nabla2_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
-                nabla2_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
-                nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb) )
+                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb) )
             ENDDO
           ENDDO
         ENDDO
