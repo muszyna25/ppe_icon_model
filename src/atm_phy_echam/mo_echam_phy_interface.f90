@@ -70,6 +70,7 @@ MODULE mo_echam_phy_interface
   USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,  &
     & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
     & timer_echam_sync_temp , timer_echam_sync_tracers
+  USE mo_time_interpolation,ONLY: time_weights_limm
                                 
   USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
@@ -77,7 +78,7 @@ MODULE mo_echam_phy_interface
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
-  USE mo_o3,                 ONLY: read_amip_o3 !, time_weights
+  USE mo_o3,                 ONLY: read_amip_o3
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -354,9 +355,12 @@ CONTAINS
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
+    IF (ltrig_rad) THEN
+      CALL time_weights_limm(datetime_radtran)   ! Calculate interpolation weights 
+                                                 ! for linear interp. of monthly means
+    END IF
     IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
        CALL read_amip_o3(datetime%year, p_patch)
-!       CALL time_weights(datetime_radtran, wgt1, wgt2, inm1, inm2)
     END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN

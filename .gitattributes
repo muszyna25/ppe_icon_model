@@ -1492,6 +1492,7 @@ src/shared/mo_profile.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
+src/shared/mo_time_interpolation.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
 src/shared/mo_util_dbg_prnt.f90 -text

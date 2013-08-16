@@ -44,7 +44,6 @@ MODULE mo_o3
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
-  USE mo_datetime,                 ONLY: t_datetime, aux_datetime, print_datetime_all
 
   IMPLICIT NONE
   PRIVATE
@@ -52,9 +51,9 @@ MODULE mo_o3
   INTEGER, SAVE                     :: pre_year=-999999                  ! Variable to check if it is time to read
 
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
-  PUBLIC                            :: read_amip_o3, time_weights
+  PUBLIC                            :: read_amip_o3
 
-  REAL(wp), POINTER                 :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
+  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
   INTEGER                           :: nplev_o3
 
@@ -70,14 +69,40 @@ CONTAINS
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=18)                 :: subprog_name
     INTEGER                           :: ncid, varid, mpi_comm,i
+    REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
   
     IF (year > pre_year) THEN
 
-      write(cyear,'(i4)') year
-      fname='ozone'//TRIM(cyear)//'.nc'
-      write(0,*) 'Read ozone from file: ',fname 
-      o3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
-      o3_plev=vmr2mmr_o3*o3_plev
+      IF (ALLOCATED(o3_plev)) THEN
+        o3_plev(:,:,:,0)=o3_plev(:,:,:,12)
+        write(cyear,'(i4)') year
+        fname='ozone'//TRIM(cyear)//'.nc'
+        write(0,*) 'Read ozone from file: ',fname 
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
+        o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
+        write(cyear,'(i4)') year+1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3d_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=1, end_timestep=1)
+        o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+      ELSE
+        write(cyear,'(i4)') year
+        fname='ozone'//TRIM(cyear)//'.nc'
+        write(0,*) 'Read ozone from file: ',fname 
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
+        ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
+        o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
+        write(cyear,'(i4)') year-1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=12,end_timestep=12)
+        o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+        write(cyear,'(i4)') year+1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=1,end_timestep=1)
+        o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
+      END IF
 
       subprog_name='mo_o3:read_amip_o3'
       nplev_o3=SIZE(o3_plev,2)
@@ -124,51 +149,4 @@ CONTAINS
   !! @par Revision History
   !! Rewritten after echam6 by J.S. Rast, MPI-M Hamburg (2013-07-31)
   !!
-  SUBROUTINE time_weights(event_date, wgt1, wgt2, inm1, inm2)
-    !
-    TYPE(t_datetime), INTENT(in) :: event_date !any event date
-    REAL(wp), INTENT(out)        :: wgt1, wgt2 !interpolation weights for months with
-    INTEGER, INTENT(out)         :: inm1, inm2 !inm1 and inm2 as indices [0,..,13] respectively
-    
-    REAL(wp)                     :: zcmonfrc ! current month fraction
-    REAL(wp)                     :: zevent_tim !time in month
-    REAL(wp)                     :: zcmlen2, znmlen2 !half of current/nearest month length
-    TYPE(t_datetime)             :: znevent_date
-
-    zcmonfrc=event_date%monfrc
-    zevent_tim=event_date%montim ! event time since first of month in frac. days
-    zcmlen2=event_date%monlen*0.5_wp
-    IF (zcmonfrc<=0.5_wp) THEN
-      inm1=event_date%month-1  !interpolate between value of previous and current month, 
-                               !"nearest" is previous month
-      inm2=event_date%month
-      znevent_date=event_date
-      znevent_date%day=1
-      IF (inm1 == 0) THEN
-        znevent_date%month=12
-        znevent_date%year=event_date%year-1
-      END IF
-      CALL aux_datetime(znevent_date)
-      znmlen2=znevent_date%monlen*0.5_wp
-      wgt1=(zcmlen2-zevent_tim)/(zcmlen2+znmlen2)
-      wgt2=1._wp-wgt1
-    ELSE
-      inm1=event_date%month
-      inm2=event_date%month+1
-      znevent_date=event_date
-      znevent_date%day=1
-      IF (inm2 == 13) THEN
-        znevent_date%month=1
-        znevent_date%year=znevent_date%year+1
-      END IF
-      CALL aux_datetime(znevent_date)
-      znmlen2=znevent_date%monlen*0.5_wp
-      wgt2=(zevent_tim-zcmlen2)/(zcmlen2+znmlen2)
-      wgt1=1._wp-wgt2
-    END IF
-  write(0,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-  CALL print_datetime_all(event_date)
-  write(0,*) 'inm1,inm2,wgt1,wgt2= ',inm1, inm2, wgt1, wgt2
-  write(0,*) '=============================================================='
-  END SUBROUTINE time_weights 
 END MODULE mo_o3
