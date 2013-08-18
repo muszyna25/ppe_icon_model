@@ -42,17 +42,18 @@
 MODULE mo_ocean_nml_crosscheck
 
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: message, message_text, finish, print_value
+  USE mo_exception,         ONLY: message, message_text, finish, print_value, warning
   USE mo_grid_config,       ONLY: init_grid_configuration
-  USE mo_parallel_config,   ONLY: check_parallel_configuration
+  USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum
   USE mo_run_config,        ONLY: nsteps, dtime
   USE mo_time_config,       ONLY: time_config, restart_experiment
   USE mo_datetime,          ONLY: add_time, print_datetime_all
   USE mo_io_config,         ONLY: dt_checkpoint
   USE mo_grid_config,       ONLY: grid_rescale_factor
+  USE mo_ocean_nml,         ONLY: select_solver, select_restart_gmres, select_gmres, &
+    & use_absolute_solver_tolerance
 
-
-IMPLICIT NONE
+  IMPLICIT NONE
 
   PRIVATE
 
@@ -169,9 +170,31 @@ CONTAINS
 
 
   SUBROUTINE oce_crosscheck()
+
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:oce_crosscheck'
+
     CALL check_parallel_configuration()
     CALL resize_ocean_simulation_length()
     CALL init_grid_configuration
+
+    SELECT CASE (select_solver)
+      CASE (select_gmres)
+
+      CASE (select_restart_gmres)
+
+        IF (p_test_run .OR. .NOT. l_fast_sum ) THEN
+           CALL message(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
+           CALL message(method_name, "Using the standard gmres solver")
+           select_solver = select_gmres
+        ELSE
+           use_absolute_solver_tolerance = .true.
+        ENDIF
+
+      CASE default
+        CALL finish(method_name, "Unknown solver")
+
+    END SELECT
+
   END SUBROUTINE oce_crosscheck
 
 

@@ -74,17 +74,17 @@ MODULE mo_ocean_gmres
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: ocean_gmres, gmres_oce, gmres_oce_old
+  PUBLIC :: ocean_restart_gmres,gmres_oce_old
   PUBLIC :: gmres_oce_e2e
   CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_ocean_gmres'
 
 
-INTERFACE ocean_gmres
-
-  MODULE PROCEDURE gmres_oce
-  MODULE PROCEDURE gmres_oce_e2e
-
-END INTERFACE
+!INTERFACE ocean_restart_gmres
+!
+!  MODULE PROCEDURE ocean_restart_gmres
+!  MODULE PROCEDURE gmres_oce_e2e
+!
+!END INTERFACE
 
 !lk  INTERFACE DOT_PRODUCT
 !lk    MODULE PROCEDURE active_dot
@@ -111,7 +111,7 @@ CONTAINS
 !! inital guess, overwritten with the solution
 !!
 !-------------------------------------------------------------------------
-SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
+SUBROUTINE ocean_restart_gmres( x,lhs,h_e, thickness_c, old_h, p_patch_3D, &
                     & coeff, p_op_coeff, b,                      &
                     & tolerance,abstol,m,maxiterex,niter,res,    &
                     & preconditioner)
@@ -477,7 +477,7 @@ INTEGER :: my_mpi_work_communicator
 
    res(1:niter) = ABS(rn2(1:niter))
 
-END SUBROUTINE gmres_oce
+END SUBROUTINE ocean_restart_gmres
 !-------------------------------------------------------------------------
 
 

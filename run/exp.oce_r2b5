@@ -118,13 +118,11 @@ ocean_model_equations=-1  # equation system: -1=hydrost. ocean
 dtime=${dtime:=1200}      # model timestep in seconds
 
 solver_tolerance=${solver_tolerance:=1.0E-12}
-use_absolute_solver_tolerance=${use_absolute_solver_tolerance:=".true."}
-solver_max_iter_per_restart=${solver_max_iter_per_restart:=10}
-solver_max_restart_iterations=${solver_max_restart_iterations:=20}
+solver_max_iter_per_restart=${solver_max_iter_per_restart:=20}
+solver_max_restart_iterations=${solver_max_restart_iterations:=50}
 
 # the original setup
 # solver_tolerance=1.0E-6
-# use_absolute_solver_tolerance=".false."
 # solver_max_iter_per_restart=1000
 # solver_max_restart_iterations=20
 
@@ -211,9 +209,7 @@ cat > ${ocean_namelist} << EOF
   i_apply_bulk          = 0      ! 1=use bulk formula without sea ice
   !veloc_diffusion_order = 2      ! biharmonic friction
   !veloc_diffusion_form  = 1      ! curlcurl-graddiv form of laplacian
-  ! solver_tolerance      = 1.0E-6 ! solver tolerance; default is 1.0E-6
   solver_tolerance              = ${solver_tolerance}
-  use_absolute_solver_tolerance = ${use_absolute_solver_tolerance}
   solver_max_iter_per_restart   = ${solver_max_iter_per_restart}
   solver_max_restart_iterations = ${solver_max_restart_iterations}
 /

@@ -179,13 +179,20 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
   REAL(wp) :: ab_beta               = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
+
+
   ! parameters for gmres solver
-  REAL(wp) :: solver_tolerance                 = 1.e-6_wp   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: solver_start_tolerance           = -1.0_wp
+  REAL(wp) :: solver_tolerance                 = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+!  REAL(wp) :: solver_start_tolerance           = -1.0_wp
   INTEGER  :: solver_max_restart_iterations    = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
-  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
-  LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
+!  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
+  LOGICAL  :: use_absolute_solver_tolerance    = .true.   ! Maximum value allowed for solver tolerance
+  INTEGER, PARAMETER :: select_gmres = 1
+  INTEGER, PARAMETER :: select_restart_gmres = 2
+  INTEGER :: select_solver = select_restart_gmres
+
+
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
   REAL(wp) :: threshold_min_T       = -4.0_wp    ! abort criterion for salinity minimum
@@ -307,11 +314,9 @@ MODULE mo_ocean_nml
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
     &                 dhdtw_abort,                                         &
     &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
-    &                 use_absolute_solver_tolerance, solver_start_tolerance, &
-    &                 solver_tolerance_decrease_ratio,                     &
     &                 solver_max_restart_iterations,                       &
-    &                 solver_max_iter_per_restart
-
+    &                 solver_max_iter_per_restart,                         &
+    &                 select_solver
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
@@ -492,10 +497,10 @@ MODULE mo_ocean_nml
      ENDIF
 
 
-     IF (solver_start_tolerance <= 0.0_wp) THEN
-       solver_start_tolerance = solver_tolerance
-       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
-     ENDIF
+!     IF (solver_start_tolerance <= 0.0_wp) THEN
+!       solver_start_tolerance = solver_tolerance
+!       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
+!     ENDIF
 
      IF (l_forc_freshw) THEN
        limit_elevation = .TRUE.
