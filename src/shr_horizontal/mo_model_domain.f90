@@ -146,6 +146,8 @@ MODULE mo_model_domain
     TYPE(t_patch_3D), POINTER :: patch_3D
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
+    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
+
     LOGICAL :: is_in_domain
 
     CHARACTER(len=32) :: name
@@ -167,6 +169,8 @@ MODULE mo_model_domain
 
     TYPE(t_patch), POINTER :: patch
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
+
+    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain

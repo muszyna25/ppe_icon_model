@@ -88,6 +88,7 @@ CONTAINS
     subset%size        = 0
     subset%entity_location  = 0
     subset%patch       => patch
+    NULLIFY(subset%vertical_levels)
 
     IF (PRESENT(located)) subset%entity_location = located
 
@@ -172,6 +173,7 @@ CONTAINS
     subset%recommended_stride = 0
     subset%entity_location    = 0
     subset%patch              => patch
+    NULLIFY(subset%vertical_levels)
 
     my_proc_id = get_my_mpi_work_id()
 
