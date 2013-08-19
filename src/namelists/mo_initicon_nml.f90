@@ -76,7 +76,6 @@ MODULE mo_initicon_nml
   ! ----------------------------------------------------------------------------
   !
   INTEGER  :: init_mode     ! initialization mode
-  INTEGER  :: nlev_in       ! number of model levels of input data
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
@@ -104,7 +103,7 @@ MODULE mo_initicon_nml
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
 
-  NAMELIST /initicon_nml/ init_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
+  NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode, &
                           nlevsoil_in, l_sst_in, l_ana_sfc,                     &
                           ifs2icon_filename, dwdfg_filename,                    &
                           dwdana_filename, filetype, ana_varnames_map_file
@@ -138,7 +137,6 @@ CONTAINS
   !
   !
   init_mode   = MODE_IFSANA ! Start from IFS analysis
-  nlev_in     = -1          ! number of levels of input data (DEPRECATED)
   nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
@@ -193,18 +191,6 @@ CONTAINS
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. Must be init_mode=1 or 2')
   ENDIF
-
-  !------------------------------------------------------------
-  ! DEPRECATED parameters
-  !------------------------------------------------------------
-  
-  IF ((nlev_in /= -1) .AND. my_process_is_stdio()) THEN
-    WRITE (0,*) "!!                               !!"
-    WRITE (0,*) "!! DEPRECATED NAMELIST PARAMETER !!"
-    WRITE (0,*) "!!                               !!"
-    WRITE (0,*) "!! <nlev_in> no longer used!     !!"
-    WRITE (0,*) "!!                               !!"
-  END IF
 
   ! write the contents of the namelist to an ASCII file
 
