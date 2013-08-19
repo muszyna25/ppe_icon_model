@@ -213,11 +213,13 @@ MODULE mo_icon_comm_lib
     INTEGER :: dim_4                           ! =no_of_variables
         
     REAL(wp), POINTER :: recv_values_2d(:,:)     ! nproma, nblocks
-    REAL(wp), GENERAL_3D, POINTER :: recv_values_3d   ! if 3D: nproma, vertical layers, nblocks
+!    REAL(wp), GENERAL_3D, POINTER :: recv_values_3d   ! if 3D: nproma, vertical layers, nblocks
+    REAL(wp), POINTER :: recv_values_3d(:,:,:)   ! if 3D: nproma, vertical layers, nblocks
     REAL(wp), POINTER :: recv_values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
     
     REAL(wp), POINTER :: send_values_2d(:,:)     ! nproma, nblocks
-    REAL(wp), GENERAL_3D, POINTER :: send_values_3d   ! if 3D: nproma, vertical layers, nblocks
+!    REAL(wp), GENERAL_3D, POINTER :: send_values_3d   ! if 3D: nproma, vertical layers, nblocks
+    REAL(wp), POINTER :: send_values_3d(:,:,:)   ! if 3D: nproma, vertical layers, nblocks
     REAL(wp), POINTER :: send_values_4d(:,:,:,:) ! nproma, vertical layers, nblocks
 
     CHARACTER(len=32) :: name

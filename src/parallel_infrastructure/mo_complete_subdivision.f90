@@ -37,14 +37,7 @@
 !! $Id: n/a$
 !!
 MODULE mo_complete_subdivision
-  ! If METIS is installed, uncomment the following line
-  ! (or better adjust configure to recognize that)
-  !
   !-------------------------------------------------------------------------
-  !    ProTeX FORTRAN source: Style 2
-  !    modified for ICON project, DWD/MPI-M 2006
-  !-------------------------------------------------------------------------
-  !
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &

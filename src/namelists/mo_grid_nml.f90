@@ -71,7 +71,7 @@ MODULE mo_grid_nml
     & config_grid_rescale_factor          => grid_rescale_factor,          &
     & config_grid_angular_velocity        => namelist_grid_angular_velocity,&
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
-!    & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
+    & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
     & max_rad_dom
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -117,7 +117,7 @@ MODULE mo_grid_nml
     LOGICAL    :: l_limited_area            
 
     LOGICAL    :: use_duplicated_connectivity ! if true, the zero connectivity is replaced by the last non-zero value
-!    LOGICAL    :: use_dummy_cell_closure ! if true then create a dummy cell and connect it to cells and edges with no neigbor
+    LOGICAL    :: use_dummy_cell_closure ! if true then create a dummy cell and connect it to cells and edges with no neigbor
 
     LOGICAL    :: lplane                   ! f-plane option
     LOGICAL    :: is_plane_torus           ! f-plane with doubly periodic boundary==> like a plane torus
@@ -143,9 +143,8 @@ MODULE mo_grid_nml
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
-      &  grid_angular_velocity, use_duplicated_connectivity
-
-!      &  use_dummy_cell_closure
+      &  grid_angular_velocity, use_duplicated_connectivity,       &
+      &  use_dummy_cell_closure
 !       &  radiation_grid_distribution
 
 
@@ -182,7 +181,7 @@ MODULE mo_grid_nml
     lredgrid_phys = .FALSE.
 !     radiation_grid_distribution = 0
     use_duplicated_connectivity = config_use_duplicated_connectivity
-!    use_dummy_cell_closure      = config_use_dummy_cell_closure
+    use_dummy_cell_closure      = config_use_dummy_cell_closure
 
     !----------------------------------------------------------------
     grid_rescale_factor   = 1.0_wp
@@ -244,7 +243,7 @@ MODULE mo_grid_nml
     config_patch_weight      = patch_weight
     config_lredgrid_phys     = lredgrid_phys
     config_use_duplicated_connectivity = use_duplicated_connectivity
-!    config_use_dummy_cell_closure      = use_dummy_cell_closure
+    config_use_dummy_cell_closure      = use_dummy_cell_closure
 !     config_radiation_grid_distrib  = radiation_grid_distribution
     config_dynamics_grid_filename  = dynamics_grid_filename
     config_dynamics_parent_grid_id = dynamics_parent_grid_id

@@ -130,7 +130,7 @@ MODULE mo_model_domimp_patches
     & radiation_grid_filename,  global_cell_type, lplane, &
     & grid_length_rescale_factor,                         &
     & is_plane_torus, grid_sphere_radius,                 &
-    & use_duplicated_connectivity!,  use_dummy_cell_closure
+    & use_duplicated_connectivity,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used

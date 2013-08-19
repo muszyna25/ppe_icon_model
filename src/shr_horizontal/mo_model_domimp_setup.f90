@@ -116,7 +116,6 @@ MODULE mo_model_domimp_setup
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling, on_cells, on_edges, on_vertices
   USE mo_math_types
-  
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
   
   IMPLICIT NONE
@@ -140,66 +139,6 @@ MODULE mo_model_domimp_setup
   
 CONTAINS
     
-    
-  !-------------------------------------------------------------------------
-  !>
-  ! adds a dummy cell at the end of the existing cells
-  ! and creates a "dummy" connectivity for edges and cells that have no neighbor
-  ! Note that the dummy cell has to be already allocated!
-  ! This is indented for the ocean, with no land cells
-  !
-  ! The subsets must have been filled in order in order to call this routine.
-!  SUBROUTINE create_dummy_cell_closure( patch )
-!    TYPE(t_patch), INTENT(inout), TARGET ::  patch
-!
-!    INTEGER :: block, idx, start_idx, end_idx, neighbor
-!    INTEGER :: dummy_cell_blk, dummy_cell_idx
-!
-!    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_setup:create_dummy_cell_closure'
-!
-!    ! the last cell is the dummy cell
-!    dummy_cell_blk = patch%nblks_c
-!    dummy_cell_idx = patch%npromz_c
-!
-!
-!     write(0,*) "------------ start  create_dummy_cell_closure ---------------"
-!
-! !$OMP PARALLEL
-! !$OMP DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
-!    DO block = patch%edges%all%start_block, patch%edges%all%end_block
-!      CALL get_index_range(patch%edges%all, block, start_idx, end_idx)
-!      DO idx = start_idx, end_idx
-!        DO neighbor=1,2
-!          IF ( patch%edges%cell_idx(idx, block, neighbor) == 0) THEN
-!            patch%edges%cell_blk(idx, block, neighbor) = dummy_cell_blk
-!            patch%edges%cell_idx(idx, block, neighbor) = dummy_cell_idx
-!          ENDIF
-!        END DO
-!      END DO
-!    END DO
-! !$OMP END DO
-!
-! !$OMP PARALLEL DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
-!    DO block = patch%cells%all%start_block, patch%cells%all%end_block
-!      CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
-!      DO idx = start_idx, end_idx
-!         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN
-!          ! this is not the dummy cell
-!          DO neighbor=1, patch%cells%max_connectivity
-!            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0) THEN
-!              patch%cells%neighbor_blk(idx, block, neighbor) = dummy_cell_blk
-!              patch%cells%neighbor_idx(idx, block, neighbor) = dummy_cell_idx
-!  !             write(0,*) "Replaced neighbor at ", block, idx, neighbor
-!            ENDIF
-!          END DO
-!         ENDIF
-!      END DO
-!    END DO
-! !$OMP END DO
-! !$OMP END PARALLEL
-!
-!  END SUBROUTINE create_dummy_cell_closure
-  !-----------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
   !>
