@@ -130,7 +130,7 @@ MODULE mo_model_domimp_patches
     & radiation_grid_filename,  global_cell_type, lplane, &
     & grid_length_rescale_factor,                         &
     & is_plane_torus, grid_sphere_radius,                 &
-    & use_duplicated_connectivity! ,  use_dummy_cell_closure
+    & use_duplicated_connectivity!,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used
@@ -845,10 +845,10 @@ CONTAINS
       & start_idx_e(:,:), end_idx_e(:,:), &
       & start_idx_v(:,:), end_idx_v(:,:)
 
-    ! dummy values for number of internal halo cells, edges, vertices
-    INTEGER :: n_e_halo_cells
-    INTEGER :: n_e_halo_edges
-    INTEGER :: n_e_halo_verts
+    ! dummy values for number of internal halo cells, edges, vertices, not actually used
+!    INTEGER :: n_e_halo_cells
+!    INTEGER :: n_e_halo_edges
+!    INTEGER :: n_e_halo_verts
 
     ! INTEGER :: patch_unit
 
@@ -868,9 +868,9 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
-    n_e_halo_cells = 0
-    n_e_halo_edges = 0
-    n_e_halo_verts = 0
+!    n_e_halo_cells = 0
+!    n_e_halo_edges = 0
+!    n_e_halo_verts = 0
 
     ilev = patch%level
     ipar_id = patch%parent_id
@@ -1020,34 +1020,22 @@ CONTAINS
     ! calculate and save values for the blocking
     !
     ! ... for the cells
-    patch%nblks_c       = ( patch%n_patch_cells + n_e_halo_cells - 1 )  &
-      & / nproma + 1
-    patch%nblks_int_c   = ( patch%n_patch_cells - 1 ) / nproma + 1
-    patch%npromz_int_c  = patch%n_patch_cells  &
-      & - (patch%nblks_int_c - 1)*nproma
-    ! total number of cells
-    patch%n_patch_cells = patch%n_patch_cells + n_e_halo_cells
+    patch%nblks_c       = ( patch%n_patch_cells - 1 ) / nproma + 1
     patch%npromz_c      = patch%n_patch_cells - (patch%nblks_c - 1)*nproma
+    patch%nblks_int_c   = patch%nblks_c
+    patch%npromz_int_c  = patch%npromz_c
 
     ! ... for the edges
-    patch%nblks_e       = ( patch%n_patch_edges + n_e_halo_edges - 1 )  &
-      & / nproma + 1
-    patch%nblks_int_e   = ( patch%n_patch_edges - 1 ) / nproma + 1
-    patch%npromz_int_e  = patch%n_patch_edges  &
-      & - (patch%nblks_int_e - 1)*nproma
-    ! total number of edges
-    patch%n_patch_edges = patch%n_patch_edges + n_e_halo_edges
-    patch%npromz_e      = patch%n_patch_edges - (patch%nblks_e - 1)*nproma
+    patch%nblks_e       = ( patch%n_patch_edges - 1 ) / nproma + 1
+    patch%npromz_e      = patch%n_patch_edges - (patch%nblks_e - 1) * nproma
+    patch%nblks_int_e   = patch%nblks_e
+    patch%npromz_int_e  = patch%npromz_e
 
     ! ... for the vertices
-    patch%nblks_v       = ( patch%n_patch_verts + n_e_halo_verts - 1 )  &
-      & / nproma + 1
-    patch%nblks_int_v   = ( patch%n_patch_verts - 1 ) / nproma + 1
-    patch%npromz_int_v  = patch%n_patch_verts  &
-      & - (patch%nblks_int_v - 1)*nproma
-    ! total number of vertices
-    patch%n_patch_verts = patch%n_patch_verts + n_e_halo_verts
+    patch%nblks_v       = ( patch%n_patch_verts - 1 ) / nproma + 1
     patch%npromz_v      = patch%n_patch_verts - (patch%nblks_v - 1)*nproma
+    patch%nblks_int_v   = patch%nblks_v
+    patch%npromz_int_v  = patch%npromz_v
 
     !
     ! allocate temporary arrays to read in data form the grid/patch generator
