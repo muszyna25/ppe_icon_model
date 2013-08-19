@@ -130,8 +130,8 @@ MODULE mo_sv_test
          &         'allocation of zhelp_c failed')
     ENDIF
 
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
 
     ! topography
@@ -233,8 +233,8 @@ MODULE mo_sv_test
 
   !--------------------------------------------------------------------
 
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
 
     nlev = ptr_patch%nlev
 
@@ -331,8 +331,8 @@ MODULE mo_sv_test
     REAL(wp)  :: vmax
   !--------------------------------------------------------------------
 
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     nlev = ptr_patch%nlev
 

@@ -604,10 +604,10 @@ ENDIF
    ! weighted time step (not to mix up with si_offctr)
    z_dt = p_dtime*si_coeff
 
-   nblks_c   = pt_patch%nblks_int_c
-   npromz_c  = pt_patch%npromz_int_c
-   nblks_e   = pt_patch%nblks_int_e
-   npromz_e  = pt_patch%npromz_int_e
+   nblks_c   = pt_patch%nblks_c
+   npromz_c  = pt_patch%npromz_c
+   nblks_e   = pt_patch%nblks_e
+   npromz_e  = pt_patch%npromz_e
 
 !-----------------------------------------------------------------------
 ! 1. Calculate the right-hand-side of the 3D Helmholtz equation
@@ -1066,8 +1066,8 @@ ENDIF
   INTEGER       :: jb, jc, nblks_c, npromz_c
 
 !-----------------------------------------------------------------------
-   nblks_c   = pt_patch%nblks_int_c
-   npromz_c  = pt_patch%npromz_int_c
+   nblks_c   = pt_patch%nblks_c
+   npromz_c  = pt_patch%npromz_c
 
 ! Laplacian
 
@@ -1221,10 +1221,10 @@ ENDIF
    ! weighted time step (not to mix up with si_offctr)
    z_dt = p_dtime*si_coeff
 
-   nblks_c   = pt_patch%nblks_int_c
-   npromz_c  = pt_patch%npromz_int_c
-   nblks_e   = pt_patch%nblks_int_e
-   npromz_e  = pt_patch%npromz_int_e
+   nblks_c   = pt_patch%nblks_c
+   npromz_c  = pt_patch%npromz_c
+   nblks_e   = pt_patch%nblks_e
+   npromz_e  = pt_patch%npromz_e
 
 !-----------------------------------------------------------------------
 ! 1. Calculate the right-hand-side of the 3D Helmholtz equation
@@ -1539,8 +1539,8 @@ ENDIF
 
 !-----------------------------------------------------------------------
 
-   nblks_c   = pt_patch%nblks_int_c
-   npromz_c  = pt_patch%npromz_int_c
+   nblks_c   = pt_patch%nblks_c
+   npromz_c  = pt_patch%npromz_c
 
 ! multiply by the structure matrix
 !$OMP PARALLEL

@@ -188,7 +188,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 
     !-------------------------------------------------------------------------
     ! Dynamics to physics: remap dynamics variables to physics grid
@@ -246,7 +246,7 @@ CONTAINS
     ! Additional diagnostic variables
 
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -386,7 +386,7 @@ CONTAINS
     ! For each block, call "physc" to compute various parameterised processes
     !-------------------------------------------------------------------------
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -655,7 +655,7 @@ CONTAINS
       ! Accumulate wind tendencies contributed by various parameterized processes.
 
 !       jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!       nblks = p_patch%nblks_int_c
+!       nblks = p_patch%nblks_c
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -680,11 +680,11 @@ CONTAINS
       ENDIF
       
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!       nblks = p_patch%nblks_int_e
+!       nblks = p_patch%nblks_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,p_patch%nblks_int_e
-        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_int_e, &
+      DO jb = jbs,p_patch%nblks_e
+        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_e, &
           & jcs,jce, grf_bdywidth_e+1)
         DO jk = 1,nlev
           DO jc = jcs,jce

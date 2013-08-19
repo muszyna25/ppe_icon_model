@@ -584,7 +584,7 @@
         ptr_int_lonlat%rbf_c2l_idx(:,:,:) = 0
 
         ! values for the blocking
-        nblks_c  = ptr_patch%nblks_int_c
+        nblks_c  = ptr_patch%nblks_c
 
         ! The start block depends on the width of the stencil
         i_nchdom   = MAX(1,ptr_patch%n_childdom)

@@ -2872,21 +2872,21 @@ CONTAINS
     !
     ! ... for the cells
     p%nblks_c       = blk_no(p%n_patch_cells)
-    p%nblks_int_c   = p%nblks_c
+    p%nblks_c   = p%nblks_c
     p%npromz_c      = p%n_patch_cells - (p%nblks_c - 1)*nproma
-    p%npromz_int_c  = p%npromz_c
+    p%npromz_c  = p%npromz_c
 
     ! ... for the edges
     p%nblks_e       = blk_no(p%n_patch_edges)
-    p%nblks_int_e   = p%nblks_e
+    p%nblks_e   = p%nblks_e
     p%npromz_e      = p%n_patch_edges - (p%nblks_e - 1)*nproma
-    p%npromz_int_e  = p%npromz_e
+    p%npromz_e  = p%npromz_e
 
     ! ... for the vertices
     p%nblks_v       = blk_no(p%n_patch_verts)
-    p%nblks_int_v   = p%nblks_v
+    p%nblks_v   = p%nblks_v
     p%npromz_v      = p%n_patch_verts - (p%nblks_v - 1)*nproma
-    p%npromz_int_v  = p%npromz_v
+    p%npromz_v  = p%npromz_v
 
     ! Allocate patch
 

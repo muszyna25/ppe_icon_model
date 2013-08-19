@@ -172,8 +172,8 @@ CONTAINS
     !------------
     ! Dimension parameters
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     !-------------------------------------------------
     ! Part 1: sum_{j=1}^k div(vn*delp_e)_j
@@ -301,8 +301,8 @@ CONTAINS
 
     ! Dimension parameters
 
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
 
     ! Diagnose cell based quantities: pressure on full and half levels,
     ! layer thickness, and some auxiliary variables
@@ -370,7 +370,7 @@ CONTAINS
 
     !---
 
-    nblks_e = p_patch%nblks_int_e
+    nblks_e = p_patch%nblks_e
 
     ! Edge-based layer thickness: pressure levels
     IF (p_test_run)  p_delp_e(:,:,:) = 0
@@ -454,9 +454,9 @@ CONTAINS
 
     ! Dimension parameters
 
-    nblks_e  = p_patch%nblks_int_e
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
+    nblks_e  = p_patch%nblks_e
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
 
     ! Diagnose cell based quantities: pressure on full and half levels,
     ! layer thickness, and some auxiliary variables
@@ -587,7 +587,7 @@ CONTAINS
 
     ! inquire dimension parameter
 
-    nblks_c  = p_patch%nblks_int_c
+    nblks_c  = p_patch%nblks_c
 
     !-------------------------------------------------------
     ! Diagnose virtual temperature (hydrostatic model only)

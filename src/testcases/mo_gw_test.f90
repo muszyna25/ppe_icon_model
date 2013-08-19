@@ -130,10 +130,10 @@ MODULE mo_gw_test
   z_nsqog = gw_brunt_vais**2/grav
   z_rr    = grid_sphere_radius/3.0_wp
 
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
-  nblks_e   = pt_patch%nblks_int_e
-  npromz_e  = pt_patch%npromz_int_e
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
+  nblks_e   = pt_patch%nblks_e
+  npromz_e  = pt_patch%npromz_e
 
   ! number of vertical levels
   nlev = pt_patch%nlev

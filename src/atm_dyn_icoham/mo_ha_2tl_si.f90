@@ -133,9 +133,9 @@ MODULE mo_ha_2tl_si
 !----------------------------------------------------------------------------
    IF (ltimer) CALL timer_start(timer_step_2tl_si)
 
-   nblks_c   = p_patch%nblks_int_c
-   nblks_e   = p_patch%nblks_int_e
-   npromz_e  = p_patch%npromz_int_e
+   nblks_c   = p_patch%nblks_c
+   nblks_e   = p_patch%nblks_e
+   npromz_e  = p_patch%npromz_e
 
 !----------------------------------------------------------
 ! 1. Calculate right-hand side of the increment equations
@@ -339,8 +339,8 @@ MODULE mo_ha_2tl_si
 
 ! Dimension parameters
 
-   nblks_c   = pt_patch%nblks_int_c
-   nblks_e   = pt_patch%nblks_int_e
+   nblks_c   = pt_patch%nblks_c
+   nblks_e   = pt_patch%nblks_e
 
 ! Start calculation
 
@@ -571,8 +571,8 @@ MODULE mo_ha_2tl_si
 !---------------------------------------
 ! Dimension parameters
 
-  nblks_c  = p_patch%nblks_int_c
-  npromz_c = p_patch%npromz_int_c
+  nblks_c  = p_patch%nblks_c
+  npromz_c = p_patch%npromz_c
   
   ALLOCATE( z_mflux(nproma, nlev, p_patch%nblks_e),stat=return_status)
   IF (return_status > 0) &
@@ -637,10 +637,10 @@ MODULE mo_ha_2tl_si
 
 !---------------------------------------
 
-  nblks_c  = p_patch%nblks_int_c
-  npromz_c = p_patch%npromz_int_c
-  nblks_e  = p_patch%nblks_int_e
-  npromz_e = p_patch%npromz_int_e
+  nblks_c  = p_patch%nblks_c
+  npromz_c = p_patch%npromz_c
+  nblks_e  = p_patch%nblks_e
+  npromz_e = p_patch%npromz_e
 
 !------------------------------------------------------
 ! gradient of geopotential change
@@ -744,8 +744,8 @@ MODULE mo_ha_2tl_si
 
 !----------------------------------------------------
 
-  nblks_e  = p_patch%nblks_int_e
-  npromz_e = p_patch%npromz_int_e
+  nblks_e  = p_patch%nblks_e
+  npromz_e = p_patch%npromz_e
 
   ! LL: conteq_vn should not need communication
   CALL conteq_vn( p_dvn, p_delp_e, p_temp, p_rdelp_c,        &

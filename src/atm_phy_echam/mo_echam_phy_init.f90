@@ -437,7 +437,7 @@ CONTAINS
       !----------------------------------------
       ! Loop over all blocks in domain jg
       !----------------------------------------
-      nblks_c = p_patch(jg)%nblks_int_c
+      nblks_c = p_patch(jg)%nblks_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 
         ! For idealized test cases
@@ -977,7 +977,7 @@ CONTAINS
 
       field => prm_field(jg)
 
-      nblks_c = p_patch(jg)%nblks_int_c
+      nblks_c = p_patch(jg)%nblks_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE

@@ -219,9 +219,9 @@
               relhum(nproma,nlev,ptr_patch%nblks_c), &
               z_qv(nproma,nlev,ptr_patch%nblks_c))
     ALLOCATE ( jglayer(nproma,nlev,ptr_patch%nblks_c) )
-    nblks_c   = ptr_patch%nblks_int_c
-    npromz_c  = ptr_patch%npromz_int_c
-    nblks_e   = ptr_patch%nblks_int_e
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
+    nblks_e   = ptr_patch%nblks_e
 
 
 !
@@ -634,10 +634,10 @@ jglayer(:,:,:)=0
               relhum(nproma,nlev,ptr_patch%nblks_c) )
     ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
     ALLOCATE ( jnlayer(nproma,nlev,ptr_patch%nblks_c) )
-   nblks_c   = ptr_patch%nblks_int_c
-   npromz_c  = ptr_patch%npromz_int_c
-   nblks_e   = ptr_patch%nblks_int_e
-   !npromz_e  = ptr_patch%npromz_int_e
+   nblks_c   = ptr_patch%nblks_c
+   npromz_c  = ptr_patch%npromz_c
+   nblks_e   = ptr_patch%nblks_e
+   !npromz_e  = ptr_patch%npromz_e
 
 ! set the values at h_nconst(1)
     thetab(1) = theta0_base_nconst
@@ -954,9 +954,9 @@ jnlayer(:,:,:)=0
     ! number of vertical levels
     nlev   = ptr_patch%nlev
 
-!    nblks_c   = ptr_patch%nblks_int_c
-!    npromz_c  = ptr_patch%npromz_int_c
-    nblks_e   = ptr_patch%nblks_int_e
+!    nblks_c   = ptr_patch%nblks_c
+!    npromz_c  = ptr_patch%npromz_c
+    nblks_e   = ptr_patch%nblks_e
 
     SELECT CASE (itype_anaprof_uv)
 

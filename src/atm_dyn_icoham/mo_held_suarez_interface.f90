@@ -104,8 +104,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Dimension parameters related to refinement and MPI parallelisation
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
     nlev    = p_patch%nlev
 
     !-------------------------------------------------------------------------

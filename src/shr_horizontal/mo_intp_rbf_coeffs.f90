@@ -247,7 +247,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 !--------------------------------------------------------------------
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
+  nblks_c  = ptr_patch%nblks_c
   !
   ! The stencil consists of 9 edges, the cell edges are taken
   ! and the edges of the nearest neighbours are taken
@@ -488,7 +488,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 !--------------------------------------------------------------------
 
   ! values for the blocking
-  nblks_v  = ptr_patch%nblks_int_v
+  nblks_v  = ptr_patch%nblks_v
 
   ! init pentagon counter for security check
   ipent = 0
@@ -643,7 +643,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec
 !--------------------------------------------------------------------
 
   ! values for the blocking
-  nblks_e  = ptr_patch%nblks_int_e
+  nblks_e  = ptr_patch%nblks_e
 
   !
   ! The stencil consists of 4 edges, the edges of two neighboring
@@ -782,7 +782,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
   i_rcstartlev = 2
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
+  nblks_c  = ptr_patch%nblks_c
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
@@ -1136,7 +1136,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 
   ! Values for the blocking
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
-  nblks_c    = ptr_patch%nblks_int_c
+  nblks_c    = ptr_patch%nblks_c
 
   ! loop through all patch cells (and blocks)
 
@@ -1300,7 +1300,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
   i_rcstartlev = 2
 
   ! values for the blocking
-  nblks_v  = ptr_patch%nblks_int_v
+  nblks_v  = ptr_patch%nblks_v
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%verts%start_blk(i_rcstartlev,1)
@@ -1728,7 +1728,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
   i_rcstartlev = 2
 
   ! values for the blocking
-  nblks_e  = ptr_patch%nblks_int_e
+  nblks_e  = ptr_patch%nblks_e
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)

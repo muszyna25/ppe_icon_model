@@ -327,8 +327,8 @@ ENDIF
 CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
-  nblks_e   = ptr_patch%nblks_int_e
-  npromz_e  = ptr_patch%npromz_int_e
+  nblks_e   = ptr_patch%nblks_e
+  npromz_e  = ptr_patch%npromz_e
 
 !$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
@@ -752,8 +752,8 @@ CASE(6) ! (cell_type == 6)
 !
 ! 2. reconstruction of cell based geographical gradient
 !
-  nblks_c = ptr_patch%nblks_int_c
-  npromz_c = ptr_patch%npromz_int_c
+  nblks_c = ptr_patch%nblks_c
+  npromz_c = ptr_patch%npromz_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
@@ -841,8 +841,8 @@ END SUBROUTINE grad_green_gauss_cell
     ii2 => pt_int%dir_gradh_i2
     ib2 => pt_int%dir_gradh_b2
 
-    nblks_e  = pt_patch%nblks_int_e
-    npromz_e = pt_patch%npromz_int_e
+    nblks_e  = pt_patch%nblks_e
+    npromz_e = pt_patch%npromz_e
 
     ! number of vertical levels
     nlev = pt_patch%nlev

@@ -792,20 +792,6 @@ MODULE mo_model_domain
     ! the same information seen from the parent level (duplication needed to simplify flow control)
     INTEGER :: nshift_child
 
-    ! internal...
-    ! LL: these numbers are the same as nblks_c, etc.
-    !     See mo_subdivision, line 1100
-    !     They are confusing and should be removed.
-    ! number of blocks and chunk length in last block
-    ! ... for the cells
-    INTEGER :: nblks_int_c
-    INTEGER :: npromz_int_c
-    ! ... for the edges
-    INTEGER :: nblks_int_e
-    INTEGER :: npromz_int_e
-    ! ... for the vertices
-    INTEGER :: nblks_int_v
-    INTEGER :: npromz_int_v
 
     !
     ! ! Mask and bathymetry for ocean patch

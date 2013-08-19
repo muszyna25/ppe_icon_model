@@ -268,10 +268,10 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
   ! local variables related to the blocking
 
-  nblks_c   = p_patch%nblks_int_c
-  npromz_c  = p_patch%npromz_int_c
-  nblks_e   = p_patch%nblks_int_e
-  npromz_e  = p_patch%npromz_int_e
+  nblks_c   = p_patch%nblks_c
+  npromz_c  = p_patch%npromz_c
+  nblks_e   = p_patch%nblks_e
+  npromz_e  = p_patch%npromz_e
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
 

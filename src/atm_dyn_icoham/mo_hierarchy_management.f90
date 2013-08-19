@@ -746,12 +746,12 @@ CONTAINS
               p_temp => p_hydro_state(jg)%prog(n_new)%temp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
-              DO jb = 1,p_patch(jg)%nblks_int_c
+              DO jb = 1,p_patch(jg)%nblks_c
 
-                IF (jb /= p_patch(jg)%nblks_int_c) THEN
+                IF (jb /= p_patch(jg)%nblks_c) THEN
                   nlen = nproma
                 ELSE
-                  nlen = p_patch(jg)%npromz_int_c
+                  nlen = p_patch(jg)%npromz_c
                 ENDIF
 
                 temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)
@@ -1570,12 +1570,12 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = 1,p_patch(jg)%nblks_int_c
+          DO jb = 1,p_patch(jg)%nblks_c
 
-            IF (jb /= p_patch(jg)%nblks_int_c) THEN
+            IF (jb /= p_patch(jg)%nblks_c) THEN
               nlen = nproma
             ELSE
-              nlen = p_patch(jg)%npromz_int_c
+              nlen = p_patch(jg)%npromz_c
             ENDIF
 
             temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)

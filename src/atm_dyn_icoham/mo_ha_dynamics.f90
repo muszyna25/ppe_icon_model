@@ -116,8 +116,8 @@ CONTAINS
   IF (ltimer) CALL timer_start(timer_dyn_temp)
 ! Dimension parameters related to refinement and MPI parallelisation
 
-   nblks_c = pt_patch%nblks_int_c
-   nblks_e = pt_patch%nblks_int_e
+   nblks_c = pt_patch%nblks_c
+   nblks_e = pt_patch%nblks_e
 
 ! Update the diagnostic state vector. This includes the calculation of
 ! pressure and related quantities, vorticity and divergence, u- and v-wind,
@@ -274,8 +274,8 @@ CONTAINS
 
 ! Dimension parameters
 
-  nblks_e  = pt_patch%nblks_int_e
-  nblks_c  = pt_patch%nblks_int_c
+  nblks_e  = pt_patch%nblks_e
+  nblks_c  = pt_patch%nblks_c
 
 ! Divergence of mass flux at full levels
   IF (p_test_run) p_mflux(:,:,:) = 0.0_wp
@@ -422,8 +422,8 @@ CONTAINS
 
 ! Dimension parameters
 
-  nblks_c = pt_patch%nblks_int_c
-  nblks_e = pt_patch%nblks_int_e
+  nblks_c = pt_patch%nblks_c
+  nblks_e = pt_patch%nblks_e
 
 !=====================================================================
 ! Horizontal gradient of geopotential

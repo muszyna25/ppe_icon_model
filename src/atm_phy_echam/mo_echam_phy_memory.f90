@@ -143,7 +143,7 @@ MODULE mo_echam_phy_memory
   !! dynamics grid, but is unstaggered. This means
   !!
   !!    nlev_phy = nlev
-  !!   nblks_phy = patch%nblks_int_c
+  !!   nblks_phy = patch%nblks_c
   !!
   !! In the long run, the physics grid and dynamics grid may differ in
   !! horizontal and/or vertical resolution, or even in shape.

@@ -144,10 +144,10 @@ MODULE mo_nh_torus_exp
   !-------------------------------------------------------------------------
 
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
@@ -372,10 +372,10 @@ MODULE mo_nh_torus_exp
     DEALLOCATE( zz, z_tp, z_qv, z_u, z_v)
 
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlevp1 = ptr_patch%nlevp1
@@ -539,10 +539,10 @@ MODULE mo_nh_torus_exp
   !-------------------------------------------------------------------------
 
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev

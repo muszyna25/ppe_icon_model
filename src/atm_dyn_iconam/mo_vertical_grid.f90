@@ -153,8 +153,8 @@ MODULE mo_vertical_grid
         l_half_lev_centr = .FALSE.
       END SELECT
 
-      nblks_c   = p_patch(jg)%nblks_int_c
-      npromz_c  = p_patch(jg)%npromz_int_c
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
 
       i_nchdom   = MAX(1,p_patch(jg)%n_childdom)
 
@@ -305,8 +305,8 @@ MODULE mo_vertical_grid
       ! at the vertices
       ALLOCATE(z_ifv(nproma,nlevp1,p_patch(jg)%nblks_v))
       ALLOCATE(z_mfv(nproma,nlev  ,p_patch(jg)%nblks_v))
-      nblks_v   = p_patch(jg)%nblks_int_v
-      npromz_v  = p_patch(jg)%npromz_int_v
+      nblks_v   = p_patch(jg)%nblks_v
+      npromz_v  = p_patch(jg)%npromz_v
 
       ! Initialize vertical coordinate for vertex points
       CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
@@ -355,8 +355,8 @@ MODULE mo_vertical_grid
                                  p_nh(jg)%metrics%ddxn_z_half,p_nh(jg)%metrics%ddxn_z_full)
 
       ! vertically averaged metrics
-      nblks_e   = p_patch(jg)%nblks_int_e
-      npromz_e  = p_patch(jg)%npromz_int_e
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
@@ -2028,10 +2028,10 @@ MODULE mo_vertical_grid
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
 
     IF (p_test_run) THEN
 !$OMP PARALLEL WORKSHARE

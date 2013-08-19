@@ -96,10 +96,10 @@ CONTAINS
     INTEGER :: nlev, nlevp1         !< number of full and half levels
     !--------------------------------------------------------------------------
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -212,10 +212,10 @@ CONTAINS
 
     !--------------------------------------------------------------------------
 
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
-    nblks_e  = p_patch%nblks_int_e
-    npromz_e = p_patch%npromz_int_e
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
     nlev     = p_patch%nlev
     nlevp1   = p_patch%nlevp1
 

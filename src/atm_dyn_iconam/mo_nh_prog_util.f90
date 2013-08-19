@@ -143,11 +143,11 @@ CONTAINS
     !-----------------------------------------------------------
 
     IF(TRIM(ctype)=="cell")THEN
-      nblks  = p_patch%nblks_int_c
-      npromz = p_patch%npromz_int_c
+      nblks  = p_patch%nblks_c
+      npromz = p_patch%npromz_c
     ELSEIF(TRIM(ctype)=="edge")THEN
-      nblks  = p_patch%nblks_int_e
-      npromz = p_patch%npromz_int_e
+      nblks  = p_patch%nblks_e
+      npromz = p_patch%npromz_e
     ELSE
       CALL finish(TRIM(routine),'Wrong ctype for the input variable!')
     END IF

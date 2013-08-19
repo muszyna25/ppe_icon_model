@@ -114,8 +114,8 @@ CONTAINS
     ! Dimension parameters related to refinement and MPI parallelisation
     IF (ltimer) CALL timer_start(timer_held_suarez_intr)
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     ! number of vertical levels
     nlev = p_patch%nlev

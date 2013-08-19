@@ -164,7 +164,7 @@ CONTAINS
     !step forward - model interior
     !-----------------------------------
     jbs = curr_patch%cells%start_blk(grf_bdywidth_c+1,1)
-    jbe = curr_patch%nblks_int_c
+    jbe = curr_patch%nblks_c
 !$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs, jbe
       CALL get_indices_c(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_c+1)
@@ -185,7 +185,7 @@ CONTAINS
 !$OMP END DO
 
     jbs = curr_patch%edges%start_blk(grf_bdywidth_e+1,1)
-    jbe = curr_patch%nblks_int_e
+    jbe = curr_patch%nblks_e
 !$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
        CALL get_indices_e(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_e+1)

@@ -1022,20 +1022,14 @@ CONTAINS
     ! ... for the cells
     patch%nblks_c       = ( patch%n_patch_cells - 1 ) / nproma + 1
     patch%npromz_c      = patch%n_patch_cells - (patch%nblks_c - 1)*nproma
-    patch%nblks_int_c   = patch%nblks_c
-    patch%npromz_int_c  = patch%npromz_c
 
     ! ... for the edges
     patch%nblks_e       = ( patch%n_patch_edges - 1 ) / nproma + 1
     patch%npromz_e      = patch%n_patch_edges - (patch%nblks_e - 1) * nproma
-    patch%nblks_int_e   = patch%nblks_e
-    patch%npromz_int_e  = patch%npromz_e
 
     ! ... for the vertices
     patch%nblks_v       = ( patch%n_patch_verts - 1 ) / nproma + 1
     patch%npromz_v      = patch%n_patch_verts - (patch%nblks_v - 1)*nproma
-    patch%nblks_int_v   = patch%nblks_v
-    patch%npromz_int_v  = patch%npromz_v
 
     !
     ! allocate temporary arrays to read in data form the grid/patch generator

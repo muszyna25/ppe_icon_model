@@ -156,8 +156,8 @@ CONTAINS
       ptr_ekin => diag%e_kin
     ENDIF
 
-    nblks_c   = patch(jg)%nblks_int_c
-    npromz_c  = patch(jg)%npromz_int_c
+    nblks_c   = patch(jg)%nblks_c
+    npromz_c  = patch(jg)%npromz_c
 
     ! number of vertical levels
     nlev = patch(jg)%nlev

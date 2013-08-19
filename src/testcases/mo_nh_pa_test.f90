@@ -156,12 +156,12 @@ CONTAINS
     z_aleph = p_rotate_axis_deg * pi/180.0_wp   !< deg2rad rotation angle
 
 
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
-    nblks_v  = ptr_patch%nblks_int_v
-    npromz_v = ptr_patch%npromz_int_v
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
+    nblks_v  = ptr_patch%nblks_v
+    npromz_v = ptr_patch%npromz_v
 
     nlev = ptr_patch%nlev
 
@@ -403,13 +403,13 @@ CONTAINS
     INTEGER  :: nlev, nlevp1            !< number of full and half levels
 
     REAL(wp) :: &                       !< pressure at interface levels
-      &  z_pres_ic(nproma,ptr_patch%nlevp1,ptr_patch%nblks_int_c)
+      &  z_pres_ic(nproma,ptr_patch%nlevp1,ptr_patch%nblks_c)
 
 !!$    REAL(wp) :: &                       !< updated pressure
-!!$      &  zpres_help(nproma,ptr_patch%nlev,ptr_patch%nblks_int_c)
+!!$      &  zpres_help(nproma,ptr_patch%nlev,ptr_patch%nblks_c)
 
     REAL(wp) ::  &                      !< vertical velocity in pressure coordinates
-     &  zomega(nproma,ptr_patch%nlevp1,ptr_patch%nblks_int_c)
+     &  zomega(nproma,ptr_patch%nlevp1,ptr_patch%nblks_c)
     REAL(wp) :: zomega_t                !< time dependent part of the vertical
                                         !< velocity in pressure coordinates
     REAL(wp) :: zshape                  !< shape function
@@ -426,8 +426,8 @@ CONTAINS
 !
 
 !     write(0,*) "set_nh_w_rho: k_step=", k_step
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev     = ptr_patch%nlev

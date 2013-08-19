@@ -225,10 +225,10 @@ MODULE m_dyn
 ! 0. Preliminary calculations
 !-------------------------------------------------------------------------------
 
-   nblks_c   = pt_patch%nblks_int_c
-   npromz_c  = pt_patch%npromz_int_c
-   nblks_e   = pt_patch%nblks_int_e
-   npromz_e  = pt_patch%npromz_int_e
+   nblks_c   = pt_patch%nblks_c
+   npromz_c  = pt_patch%npromz_c
+   nblks_e   = pt_patch%nblks_e
+   npromz_e  = pt_patch%npromz_e
 
    SELECT CASE (iforcing)
    CASE (iecham,ildf_echam, inwp)  ! real physics

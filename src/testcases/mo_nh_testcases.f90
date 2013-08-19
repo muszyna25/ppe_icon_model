@@ -383,8 +383,8 @@ MODULE mo_nh_testcases
   ! Initialize topography to zero if idealized topo is used
   IF ( itopo == 0 ) THEN
     DO jg = 1, n_dom
-      ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_int_c) = 0.0_wp
-      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_int_v) = 0.0_wp
+      ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_c) = 0.0_wp
+      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_v) = 0.0_wp
     ENDDO
   ENDIF
 
@@ -403,8 +403,8 @@ MODULE mo_nh_testcases
     z_x2_geo%lat = 0.0_wp
 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_c
-        IF (jb /=  p_patch(jg)%nblks_int_c) THEN
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_c
@@ -422,8 +422,8 @@ MODULE mo_nh_testcases
       ENDDO 
     ENDDO 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_v
-        IF (jb /=  p_patch(jg)%nblks_int_v) THEN
+      DO jb = 1, p_patch(jg)%nblks_v
+        IF (jb /=  p_patch(jg)%nblks_v) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_v
@@ -448,8 +448,8 @@ MODULE mo_nh_testcases
     z_x2_geo%lat = 0.0_wp
 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_c
-        IF (jb /=  p_patch(jg)%nblks_int_c) THEN
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_c
@@ -470,8 +470,8 @@ MODULE mo_nh_testcases
       ENDDO 
     ENDDO 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_v
-        IF (jb /=  p_patch(jg)%nblks_int_v) THEN
+      DO jb = 1, p_patch(jg)%nblks_v
+        IF (jb /=  p_patch(jg)%nblks_v) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_v
@@ -495,9 +495,9 @@ MODULE mo_nh_testcases
   CASE ('jabw', 'jabw_s')
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -508,9 +508,9 @@ MODULE mo_nh_testcases
   CASE ('jabw_m')  
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -530,9 +530,9 @@ MODULE mo_nh_testcases
    ENDIF
 
    DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -545,9 +545,9 @@ MODULE mo_nh_testcases
   CASE ('wk82')  
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -586,9 +586,9 @@ MODULE mo_nh_testcases
   CASE ('g_lim_area')
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c,  &
@@ -858,8 +858,8 @@ MODULE mo_nh_testcases
 
   DO jg = 1, n_dom
     p_nhdom   => p_nh_state(jg)
-    nblks_e   = p_patch(jg)%nblks_int_e
-    npromz_e  = p_patch(jg)%npromz_int_e
+    nblks_e   = p_patch(jg)%nblks_e
+    npromz_e  = p_patch(jg)%npromz_e
 
     ! number of vertical levels
     nlev   = p_patch(jg)%nlev
@@ -886,8 +886,8 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO
     ENDDO
-    nblks_c   = p_patch(jg)%nblks_int_c
-    npromz_c  = p_patch(jg)%npromz_int_c
+    nblks_c   = p_patch(jg)%nblks_c
+    npromz_c  = p_patch(jg)%npromz_c
     ! scalars (all is dry!)
     DO jt = 1, ntl 
       DO jb = 1, nblks_c

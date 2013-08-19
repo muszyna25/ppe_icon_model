@@ -252,10 +252,10 @@ MODULE mo_nh_jabw_exp
     
     zeta_v    = 0._wp
     zeta_v_e  = 0._wp
-    nblks_c   = ptr_patch%nblks_int_c
-    npromz_c  = ptr_patch%npromz_int_c
-    nblks_e   = ptr_patch%nblks_int_e
-    npromz_e  = ptr_patch%npromz_int_e
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
+    nblks_e   = ptr_patch%nblks_e
+    npromz_e  = ptr_patch%npromz_e
 
     ptr_nh_diag%pres_sfc(:,:) = p_sfc    !set surface pressure to the prescribed value
     ps_o_p0ref = p_sfc/p0ref
@@ -413,8 +413,8 @@ MODULE mo_nh_jabw_exp
     CALL init_ncar_testcases_domain()
    ! number of vertical levels
     nlev   = ptr_patch%nlev
-    nblks_c   = ptr_patch%nblks_int_c
-    npromz_c  = ptr_patch%npromz_int_c
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
     nlev      = ptr_patch%nlev
 
    ps_o_p0ref = p_sfc/p0ref
@@ -525,8 +525,8 @@ MODULE mo_nh_jabw_exp
 !--------------------------------------------------------------------
 
     nlev      = ptr_patch%nlev
-    nblks_c   = ptr_patch%nblks_int_c
-    npromz_c  = ptr_patch%npromz_int_c
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
 
  IF (PRESENT(opt_global_moist)) THEN
     l_global_moist=.TRUE.

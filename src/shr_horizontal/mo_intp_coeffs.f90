@@ -295,8 +295,8 @@ CONTAINS
       z_frac_area = 0._wp
       
       ! Fractional areas R_{i,v}
-      nblks_c  = p_pa%nblks_int_c
-      npromz_c = p_pa%npromz_int_c
+      nblks_c  = p_pa%nblks_c
+      npromz_c = p_pa%npromz_c
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -353,8 +353,8 @@ CONTAINS
       ENDDO
       
       ! heli coeffs
-      nblks_e  = p_pa%nblks_int_e
-      npromz_e = p_pa%npromz_int_e
+      nblks_e  = p_pa%nblks_e
+      npromz_e = p_pa%npromz_e
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -481,8 +481,8 @@ CONTAINS
     
     ! Vector reconstruction on hexagons
     !==================================
-    nblks_c  = p_pa%nblks_int_c
-    npromz_c = p_pa%npromz_int_c
+    nblks_c  = p_pa%nblks_c
+    npromz_c = p_pa%npromz_c
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -533,8 +533,8 @@ CONTAINS
     
     ! Vector reconstruction on triangles
     !===================================
-    nblks_v  = p_pa%nblks_int_v
-    npromz_v = p_pa%npromz_int_v
+    nblks_v  = p_pa%nblks_v
+    npromz_v = p_pa%npromz_v
     DO jb = 1, nblks_v
       IF (jb /= nblks_v) THEN
         nlen = nproma
@@ -593,8 +593,8 @@ CONTAINS
       
       ! Vector reconstruction on rhombi
       !================================
-      nblks_e  = p_pa%nblks_int_e
-      npromz_e = p_pa%npromz_int_e
+      nblks_e  = p_pa%nblks_e
+      npromz_e = p_pa%npromz_e
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
           nlen = nproma
@@ -672,8 +672,8 @@ CONTAINS
       
       ! Computation of the coefficients for the vorticity flux term
       !============================================================
-      nblks_e  = p_pa%nblks_int_e
-      npromz_e = p_pa%npromz_int_e
+      nblks_e  = p_pa%nblks_e
+      npromz_e = p_pa%npromz_e
       
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
@@ -3376,7 +3376,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
     
     
     !
@@ -3573,7 +3573,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jb,ne,ilq,ibq,i_startidx,i_endidx,z_nx,z_ny,&
@@ -3668,7 +3668,7 @@ CONTAINS
 
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
 
     !<< AD
     ! Modification for is_plane_torus for HDCP2: the planar distance between any two
@@ -3909,7 +3909,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
     
     
     
@@ -4086,7 +4086,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2,xyloc_n1,&
@@ -4248,7 +4248,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
     
     !<< AD
     ! Modification for is_plane_torus for HDCP2: the planar distance between any two
@@ -4412,7 +4412,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%edges%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_e
+    i_endblk   = ptr_patch%nblks_e
     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2,cc_cell,&
@@ -4609,7 +4609,7 @@ CONTAINS
     
     ! start and end block
     i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
-    i_endblk   = ptr_patch%nblks_int_c
+    i_endblk   = ptr_patch%nblks_c
     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,nv,nq,i_startidx,i_endidx,ilv,ibv,z_vert_cc,z_quad_cc, &

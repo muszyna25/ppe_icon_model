@@ -248,7 +248,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
   i_rlstart = 2
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
+  nblks_c  = ptr_patch%nblks_c
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rlstart,1)
@@ -604,7 +604,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
   ptr_ncells => ptr_int_lsq%lsq_dim_stencil(:,:)
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
+  nblks_c  = ptr_patch%nblks_c
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
@@ -1361,7 +1361,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
   ptr_ncells => ptr_int_lsq%lsq_dim_stencil(:,:)
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
+  nblks_c  = ptr_patch%nblks_c
 
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
@@ -2058,12 +2058,12 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 !--------------------------------------------------------------------
 
   ! values for the blocking
-  nblks_c  = ptr_patch%nblks_int_c
-  npromz_c = ptr_patch%npromz_int_c
-  nblks_e  = ptr_patch%nblks_int_e
-  npromz_e = ptr_patch%npromz_int_e
-  nblks_v  = ptr_patch%nblks_int_v
-  npromz_v = ptr_patch%npromz_int_v
+  nblks_c  = ptr_patch%nblks_c
+  npromz_c = ptr_patch%npromz_c
+  nblks_e  = ptr_patch%nblks_e
+  npromz_e = ptr_patch%npromz_e
+  nblks_v  = ptr_patch%nblks_v
+  npromz_v = ptr_patch%npromz_v
 
   ! a) the control volume associated to each edge is defined as the
   ! quadrilateral whose edges are the primal edge and the associated dual edge

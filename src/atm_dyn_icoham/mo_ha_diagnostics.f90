@@ -268,8 +268,8 @@ MODULE mo_ha_diagnostics
       p_prog => p_hydro_state(jg)%prog(ntimlev(jg))
       p_diag => p_hydro_state(jg)%diag
 
-      nblks_c   = p_patch(jg)%nblks_int_c
-      npromz_c  = p_patch(jg)%npromz_int_c
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
 
 #ifndef __SUNPRO_F95
 !$OMP PARALLEL
@@ -466,8 +466,8 @@ MODULE mo_ha_diagnostics
       p_prog => p_hydro_state(jg)%prog(ntimlev(jg))
       p_diag => p_hydro_state(jg)%diag
 
-      nblks_c   = p_patch(jg)%nblks_int_c
-      npromz_c  = p_patch(jg)%npromz_int_c
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -490,8 +490,8 @@ MODULE mo_ha_diagnostics
       WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_energy(:,:) = 0._wp
       z_total_energy = global_sum_array(z_energy)
 
-      nblks_v   = p_patch(jg)%nblks_int_v
-      npromz_v  = p_patch(jg)%npromz_int_v
+      nblks_v   = p_patch(jg)%nblks_v
+      npromz_v  = p_patch(jg)%npromz_v
       ptr_area  => p_patch(jg)%verts%dual_area
       ptr_cori  => p_patch(jg)%verts%f_v
       ALLOCATE(z_circulation(nproma,nblks_v))
@@ -556,8 +556,8 @@ MODULE mo_ha_diagnostics
 !      p_prog => p_hydro_state(jg)%prog(ntimlev(jg))
 !      p_diag => p_hydro_state(jg)%diag
 
-!      nblks_c   = p_patch(jg)%nblks_int_c
-!      npromz_c  = p_patch(jg)%npromz_int_c
+!      nblks_c   = p_patch(jg)%nblks_c
+!      npromz_c  = p_patch(jg)%npromz_c
 
 !       DO jt=1,ntracer
 !        DO jb = 1, nblks_c

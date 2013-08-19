@@ -477,7 +477,7 @@ CONTAINS
    !--------------------------------------------------------
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
    i_startblk = curr_patch%cells%start_blk(grf_bdywidth_c+1,1)
-   i_endblk   = curr_patch%nblks_int_c
+   i_endblk   = curr_patch%nblks_c
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 
@@ -516,7 +516,7 @@ CONTAINS
    !--------------------------------------------------------
 
    i_startblk = curr_patch%edges%start_blk(grf_bdywidth_e+1,1)
-   i_endblk   = curr_patch%nblks_int_e
+   i_endblk   = curr_patch%nblks_e
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 

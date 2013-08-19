@@ -211,9 +211,9 @@ MODULE mo_nh_wk_exp
 !--------------------------------------------------------------------
 !
 
-    nblks_c   = ptr_patch%nblks_int_c
-    npromz_c  = ptr_patch%npromz_int_c
-    nblks_e   = ptr_patch%nblks_int_e
+    nblks_c   = ptr_patch%nblks_c
+    npromz_c  = ptr_patch%npromz_c
+    nblks_e   = ptr_patch%nblks_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
@@ -449,8 +449,8 @@ MODULE mo_nh_wk_exp
 
     ! number of vertical levels
    nlev   = ptr_patch%nlev
-   nblks_c   = ptr_patch%nblks_int_c
-   npromz_c  = ptr_patch%npromz_int_c
+   nblks_c   = ptr_patch%nblks_c
+   npromz_c  = ptr_patch%npromz_c
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,nlen,jk,jc, z_klev,z_lon, z_lat,z_cosr, z_r, z_h,z_rR_2, z_hH_2, z_rad )
