@@ -1019,7 +1019,9 @@ MODULE mo_nh_stepping
         ! and nudging increments (or, alternatively, the full fields) should be
         ! written to the grf_tend fields
 
-        CALL adjust_boundary_data ( p_patch(jg), latbc_inter1, latbc_inter2, nnow(jg), p_nh_state(jg) )
+        if (latbc_config%itype_latbc .GT. 0) &
+          &   CALL adjust_boundary_data ( p_patch(jg), latbc_inter1, latbc_inter2, &
+          &                               nnow(jg), p_nh_state(jg) )
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
 
