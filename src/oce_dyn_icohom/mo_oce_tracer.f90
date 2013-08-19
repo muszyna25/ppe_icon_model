@@ -514,7 +514,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert,str_module,idt_src)
+    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
     ! #slo# 2013-08-09 - test: no tracer horz/vert advection/horz diffusion
@@ -579,8 +579,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src)
-      CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src)
+      CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
@@ -610,8 +610,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('AftImplDiff: z_temp'       ,z_temp                   ,str_module,idt_src)
-      CALL dbg_print('AftImplDiff: trac_new'     ,trac_new                 ,str_module,idt_src)
+      CALL dbg_print('AftImplDiff: z_temp',   z_temp,   str_module, idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('AftImplDiff: trac_new', trac_new, str_module, idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
     !vertival diffusion is calculated explicitely
@@ -681,8 +681,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
     ! END DO
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('aft. AdvIndivTrac: trac_old',trac_old                 ,str_module,idt_src)
-  CALL dbg_print('aft. AdvIndivTrac: trac_new',trac_new                 ,str_module,idt_src)
+  CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module,idt_src, in_subset=cells_in_domain)
+  CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module,idt_src, in_subset=cells_in_domain)
   !---------------------------------------------------------------------
 
 END SUBROUTINE advect_individual_tracer_ab

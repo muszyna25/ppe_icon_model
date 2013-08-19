@@ -166,14 +166,16 @@ CONTAINS
     LOGICAL :: l_maxiter     ! true if reached m iterations
     INTEGER :: gmres_restart_iterations
     CHARACTER(LEN=max_char_length) :: string
-    TYPE(t_subset_range), POINTER :: all_cells, all_edges
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, owned_cells, owned_edges
     TYPE(t_patch), POINTER :: patch_horz
     
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
     patch_horz => p_patch_3d%p_patch_2d(1)
-    all_cells  => p_patch_3d%p_patch_2d(1)%cells%ALL
-    all_edges  => p_patch_3d%p_patch_2d(1)%edges%ALL
+    all_cells  => patch_horz%cells%ALL
+    all_edges  => patch_horz%edges%ALL
+    owned_cells  => patch_horz%cells%owned
+    owned_edges  => patch_horz%edges%owned
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     tolerance                            = solver_tolerance
@@ -227,11 +229,11 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('on entry: h-old'                ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-    CALL dbg_print('on entry: h-new'                ,p_os%p_prog(nnew(1))%h ,str_module,idt_src)
-    CALL dbg_print('on entry: vn-old'               ,p_os%p_prog(nold(1))%vn,str_module,idt_src)
+    CALL dbg_print('on entry: h-old'                ,p_os%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
+    CALL dbg_print('on entry: h-new'                ,p_os%p_prog(nnew(1))%h ,str_module, idt_src, in_subset=owned_cells)
+    CALL dbg_print('on entry: vn-old'               ,p_os%p_prog(nold(1))%vn,str_module, idt_src, in_subset=owned_edges)
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module,idt_src)
+    CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
     !---------------------------------------------------------------------
     
     ! abort condition for elevation and vn:
@@ -1354,16 +1356,17 @@ CONTAINS
     INTEGER :: je, jk, jb
     REAL(wp) :: gdt
     REAL(wp) :: z_grad_h(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
-    TYPE(t_subset_range), POINTER :: edges_in_domain!, cells_in_domain
+    TYPE(t_subset_range), POINTER :: edges_in_domain, owned_cells, owned_edges
     CHARACTER(LEN=*), PARAMETER ::     &
       & method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
     TYPE(t_patch), POINTER :: patch
     !----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     !-----------------------------------------------------------------------
-    patch         => p_patch_3d%p_patch_2d(1)
+    patch           => p_patch_3d%p_patch_2d(1)
     edges_in_domain => patch%edges%in_domain
-    !cells_in_domain => patch%cells%in_domain
+    owned_cells     => patch%cells%owned
+    owned_edges     => patch%edges%owned
     !----------------------------------------------------------------------
     
     z_grad_h(1:nproma,1:patch%nblks_e) = 0.0_wp
@@ -1447,16 +1450,16 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('NormVel: vn_old'            ,p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
-    CALL dbg_print('NormVel: vn_pred'           ,p_os%p_diag%vn_pred         ,str_module,idt_src)
+    CALL dbg_print('NormVel: vn_old'            ,p_os%p_prog(nold(1))%vn     ,str_module,idt_src, in_subset=owned_edges )
+    CALL dbg_print('NormVel: vn_pred'           ,p_os%p_diag%vn_pred         ,str_module,idt_src, in_subset=owned_edges)
     IF (.NOT.l_rigid_lid) THEN
-      CALL dbg_print('NormVel: grad h-new'      ,z_grad_h                    ,str_module,idt_src)
+      CALL dbg_print('NormVel: grad h-new'      ,z_grad_h                    ,str_module,idt_src, in_subset=owned_cells)
     END IF
-    CALL dbg_print('NormVel: vn_time_weighted'  ,p_os%p_diag%vn_time_weighted,str_module,idt_src)
+    CALL dbg_print('NormVel: vn_time_weighted'  ,p_os%p_diag%vn_time_weighted,str_module,idt_src, in_subset=owned_edges)
     CALL dbg_print('NormVel: vn_change'         ,p_os%p_prog(nnew(1))%vn - &
-      & p_os%p_prog(nold(1))%vn     ,str_module,idt_src)
+      & p_os%p_prog(nold(1))%vn     ,str_module,idt_src, in_subset=owned_edges)
     idt_src=2  ! outputm print level (1-5, fix)
-    CALL dbg_print('NormVel: vn_new'            ,p_os%p_prog(nnew(1))%vn     ,str_module,idt_src)
+    CALL dbg_print('NormVel: vn_new'            ,p_os%p_prog(nnew(1))%vn     ,str_module,idt_src, in_subset=owned_edges)
     !---------------------------------------------------------------------
     
     ! Update of scalar product quantities
