@@ -1734,12 +1734,6 @@ I & 1& &
 \tabularnewline
 
 \hline 
-nlev\_in&
-I & 91 & &
-\textbf{DEPRECATED!} Number of model levels of input data (no longer in use)&
-\tabularnewline
-
-\hline 
 nlevsoil\_in&
 I & 4 & &
 number of soil levels of input data&
@@ -5972,10 +5966,10 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
-\begin{changeitem}{initicon\_nml}{ 2013-07-02 }{ 12700 }
+\begin{changeitem}{initicon\_nml}{ 2013-08-19 }{ 13311 }
   \begin{itemize}
    \item The number of vertical input levels is now read from file.
-         The namelist parameter \textbf{nlev\_in} is deprecated and will soon be removed.
+         The namelist parameter \textbf{nlev\_in} has become obsolete in r12700 and has been removed.
   \end{itemize}
 \end{changeitem}
 
