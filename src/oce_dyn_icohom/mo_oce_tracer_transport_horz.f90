@@ -123,7 +123,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   REAL(wp), INTENT(IN)                   :: K_h(:,:,:)         !horizontal mixing coeff
   REAL(wp), INTENT(IN)                   :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp), INTENT(IN)                   :: h_new(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(OUT)                  :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(INOUT)                  :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
   !
   !Local variables
   REAL(wp) :: delta_z
@@ -155,7 +155,6 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   z_div_adv_h   (:,:,:) = 0.0_wp
   z_div_diff_h  (:,:,:) = 0.0_wp
   z_diff_flux_h (:,:,:) = 0.0_wp
-  flux_horz     (:,:,:) = 0.0_wp
   !z_flux_2D    (1:nproma,1:p_patch%nblks_e)         = 0.0_wp
   !z_vn_c(1:nproma,1:p_patch%nblks_c)%x(1)  =0.0_wp
   !z_vn_c(1:nproma,1:p_patch%nblks_c)%x(2)  =0.0_wp
