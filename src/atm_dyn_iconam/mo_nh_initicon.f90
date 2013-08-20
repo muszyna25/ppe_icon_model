@@ -186,13 +186,6 @@ MODULE mo_nh_initicon
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
 
-!   TYPE(t_bool_table) :: bool_table
-!
-!    CALL init_bool_table(bool_table)
-!    CALL add_column(bool_table, "COSMO-DE", (/ "SLEVE      ", "regular    " /), 2)
-!    CALL add_column(bool_table, "GME",      (/ "hydrostatic", "global     " /), 2)
-!    CALL add_column(bool_table, "ICON",     (/ "SLEVE      ", "super-fast ", "global     " /), 3)
-!    CALL print_bool_table(bool_table)
 
 
     ! Allocate initicon data type
@@ -893,7 +886,7 @@ MODULE mo_nh_initicon
     INTEGER :: nlev_ana, nlev_fg                                  ! number of vertical levels (in fg/ana file)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
-
+    TYPE(t_bool_table) :: bool_table
 
     IF(p_pe == p_io) THEN
 
@@ -1083,7 +1076,13 @@ MODULE mo_nh_initicon
 
       ! Printout table
       !
-
+      CALL message("Required surface input fields:",'Source of FG and ANA fields:')
+      CALL init_bool_table(bool_table)
+      CALL add_column(bool_table, "FG-SFC (default)", grp_vars_fg_default,  ngrp_vars_fg_default)
+      CALL add_column(bool_table, "FG-SFC",           grp_vars_fg,          ngrp_vars_fg)
+      CALL add_column(bool_table, "ANA-SFC (default)",grp_vars_ana_default, ngrp_vars_ana_default)
+      CALL add_column(bool_table, "ANA-SFC",          grp_vars_ana,         ngrp_vars_ana)
+      CALL print_bool_table(bool_table)
     ENDIF  ! p_pe == p_io
 
 
