@@ -99,6 +99,8 @@ MODULE mo_nh_initicon
   USE mo_cdi_constants          ! We need all
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
+  USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
+    &                               t_bool_table
   USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
   USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
 
@@ -183,6 +185,14 @@ MODULE mo_nh_initicon
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
+
+!   TYPE(t_bool_table) :: bool_table
+!
+!    CALL init_bool_table(bool_table)
+!    CALL add_column(bool_table, "COSMO-DE", (/ "SLEVE      ", "regular    " /), 2)
+!    CALL add_column(bool_table, "GME",      (/ "hydrostatic", "global     " /), 2)
+!    CALL add_column(bool_table, "ICON",     (/ "SLEVE      ", "super-fast ", "global     " /), 3)
+!    CALL print_bool_table(bool_table)
 
 
     ! Allocate initicon data type
