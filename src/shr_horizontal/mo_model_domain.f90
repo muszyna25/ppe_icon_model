@@ -764,7 +764,7 @@ MODULE mo_model_domain
     !
     ! ! values for the blocking
     !
-    ! total...
+    INTEGER :: allocated_cell_blocks  ! number of allocated cell blocks
     ! number of blocks and chunk length in last block
     ! ... for the cells
     INTEGER :: nblks_c

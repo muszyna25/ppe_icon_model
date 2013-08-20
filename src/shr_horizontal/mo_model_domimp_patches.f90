@@ -1022,6 +1022,7 @@ CONTAINS
     ! ... for the cells
     patch%nblks_c       = ( patch%n_patch_cells - 1 ) / nproma + 1
     patch%npromz_c      = patch%n_patch_cells - (patch%nblks_c - 1)*nproma
+    patch%allocated_cell_blocks = patch%nblks_c
 
     ! ... for the edges
     patch%nblks_e       = ( patch%n_patch_edges - 1 ) / nproma + 1
