@@ -1372,7 +1372,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & ldims=shape2d,                                                    &
           & post_op=post_op(POST_OP_SCALE, arg1=1._wp/grav,                   &
           &                 new_cf=new_cf_desc),                              &
-          & in_group=groups("dwd_fg_sfc_vars") )
+          & in_group=groups("dwd_fg_sfc_vars","dwd_fg_sfc_in") )
         diag%gz0(:,:)=0.01_wp
 
 

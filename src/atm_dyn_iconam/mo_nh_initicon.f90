@@ -74,7 +74,7 @@ MODULE mo_nh_initicon
   USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_util_string,         ONLY: tolower, difference, one_of
+  USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
     &                               llake, isub_lake, ntiles_water
@@ -235,8 +235,12 @@ MODULE mo_nh_initicon
       ! Generate lists of fields that must be read from FG/ANA files
       !
       DO jg = 1, n_dom
-        CALL create_input_groups(initicon(jg)%sfc%grp_vars_fg,  initicon(jg)%sfc%ngrp_vars_fg, &
-          &                      initicon(jg)%sfc%grp_vars_ana, initicon(jg)%sfc%ngrp_vars_ana)
+        CALL create_input_groups(                                            &
+          &   initicon(jg)%sfc%grp_vars_fg,  initicon(jg)%sfc%ngrp_vars_fg,  &
+          &   initicon(jg)%sfc%grp_vars_ana, initicon(jg)%sfc%ngrp_vars_ana, &
+          &   initicon(jg)%sfc%grp_vars_fg_default , initicon(jg)%sfc%ngrp_vars_fg_default,  &
+          &   initicon(jg)%sfc%grp_vars_ana_default, initicon(jg)%sfc%ngrp_vars_ana_default, &
+          &   init_mode)
       ENDDO
 
     END IF
@@ -832,26 +836,34 @@ MODULE mo_nh_initicon
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', containing the names of the variables which  
+  !! Generates groups 'in_grp_vars_fg' and 'in_grp_vars_ana', containing the names of the variables which  
   !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based in the ICON-internal output groups "dwd_fg_sfc_vars" and "dwd_ana_sfc_vars".
-  !! In a first step it is checked, whether the FG-file contains all members of the group 'grp_vars_fg'.
-  !! If this is not the case, the model aborts. In a second step it is checked, whether the ANA-File 
-  !! contains all members of the group 'grp_vars_ana'. If a member is missing, it is removed from the 
-  !! group 'grp_vars_ana' and a warning is issued, however the model does not abort.
-  !! In a third step, members that belong to both 'grp_vars_ana' AND 'grp_vars_fg' are removed from 
-  !! 'grp_vars_fg', such that double reading is avoided.  
+  !! Both groups are based in the ICON-internal output groups "in_dwd_fg_sfc" and "in_dwd_ana_sfc".
+  !! In a first step it is checked, whether the ANA-File contains all members of the group 'in_grp_vars_ana'. 
+  !! If a member is missing, it is removed from the group 'in_grp_vars_ana', added to the group 
+  !! 'in_grp_vars_fg', and a warning is issued, however the model does not abort. In a second step it is 
+  !! checked, whether the FG-File contains all members of the group 'in_grp_vars_fg'. If this is not the 
+  !! case, the model aborts.
+  !! At the end, a table is printed that shows which variables are part of which input group.
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2013-07-08)
   !!
   !!
-  SUBROUTINE create_input_groups(grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana)
+  SUBROUTINE create_input_groups(grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
+    &                            grp_vars_fg_default, ngrp_vars_fg_default,              &
+    &                            grp_vars_ana_default, ngrp_vars_ana_default,            &
+    &                            init_mode)
 
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in dwd_fg_sfc_vars
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in dwd_ana_sfc_vars
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg_default(:)   ! default vars fg-file
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana_default(:)  ! default vars ana-file
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in dwd_fg_sfc_in
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in dwd_ana_sfc_in
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg_default  ! default number dwd_fg_sfc_in
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_default ! default number dwd_ana_sfc_in
+    INTEGER,                    INTENT(IN)    :: init_mode        ! initialization mode
 
     ! local variables
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
@@ -875,20 +887,36 @@ MODULE mo_nh_initicon
 
     IF(p_pe == p_io) THEN
 
-      ! Collect group 'grp_vars_fg' from dwd_fg_sfc_vars
+
+      ! Collect group 'grp_vars_fg' from dwd_fg_sfc_in
       !
-      grp_name ='dwd_fg_sfc_vars' 
+      grp_name ='dwd_fg_sfc_in' 
       CALL collect_group(TRIM(grp_name), grp_vars_fg, ngrp_vars_fg,    &
         &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
+      ! Special HACK for MODE_COMBINED:
+      ! remove z0 from grp_vars_fg, if init_mode=MODE_COMBINED, since it must not be read from 
+      ! GME soil input data.
+      IF (init_mode == MODE_COMBINED) THEN
+        CALL difference(grp_vars_fg, ngrp_vars_fg, (/'gz0'/), 1)
+      ENDIF
 
-      ! Collect group 'grp_vars_ana' from dwd_ana_sfc_vars
+
+      ! Collect group 'grp_vars_ana' from dwd_ana_sfc_in
       !
-      grp_name ='dwd_ana_sfc_vars' 
+      grp_name ='dwd_ana_sfc_in' 
       CALL collect_group(TRIM(grp_name), grp_vars_ana, ngrp_vars_ana,  &
         &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
       ! Lateron, grp_vars_fg and grp_vars_ana will be the groups that control the reading stuff
+
+      ! Store default groups:
+      !
+      grp_vars_fg_default (1:ngrp_vars_fg ) = grp_vars_fg (1:ngrp_vars_fg )
+      grp_vars_ana_default(1:ngrp_vars_ana) = grp_vars_ana(1:ngrp_vars_ana)
+      ngrp_vars_fg_default  = ngrp_vars_fg
+      ngrp_vars_ana_default = ngrp_vars_ana                
+
 
 
       !
@@ -965,6 +993,69 @@ MODULE mo_nh_initicon
 !!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
 
 
+
+      ! Check, whether the ANA-file inventory list contains all required analysis fields.
+      ! If not, remove the corresponding file name from the group 'grp_vars_ana' and issue a warning.
+      ! The missing field is added to the group 'grp_vars_fg' and thus the model tries to read 
+      ! it from the FG-File.
+      !
+      DO ivar=1,ngrp_vars_ana_default
+        index = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
+
+        IF ( index == -1) THEN  ! variable not found
+          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' not found in ANA-input file.'
+          CALL message(routine, TRIM(message_text))
+          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' will be read from FG-input, instead.'
+          CALL message(routine, TRIM(message_text))
+
+          ! remove missing field from analysis input-group grp_vars_ana
+          CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_default(ivar:ivar), 1)
+
+          ! add missing field to the FG-group grp_vars_fg
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(ivar:ivar), 1)
+        ELSE
+          ! save varID
+          grp_varID_ana(ivar) = grp_varID_anafile(index)
+        ENDIF
+      ENDDO  
+
+
+
+
+!!$      ! Remove those names from grp_vars_fg which are also included in grp_vars_ana
+!!$      ! Thus, only those variables are read from the first guess, which are not contained 
+!!$      ! in the analysis file. By this, we avoid double reading.
+!!$      !
+!!$      DO ivar=1,ngrp_vars_ana
+!!$
+!!$        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_fg(:))
+!!$
+!!$        ! If grp_vars_ana(ivar) is also a group member of grp_vars_fg(:)
+!!$        IF (index /= -1) THEN ! found matching name.
+!!$          !
+!!$          ! Check, whether the number of vertical levels matches as well
+!!$
+!!$          ! get number of vertical levels for variable grp_vars_ana(ivar)
+!!$          varID    = grp_varID_ana(ivar)             ! CDI variable ID with this name in analysis 
+!!$          vlistID  = streamInqVlist(fileID_ana(1))
+!!$          zaxisID  = vlistInqVarZaxis(vlistID, varID)
+!!$          nlev_ana = zaxisInqSize(zaxisID)
+!!$
+!!$          ! get number of vertical levels for variable grp_vars_fg(index)
+!!$          varID    = grp_varID_fg(index)             ! CDI variable ID with this name in analysis 
+!!$          vlistID  = streamInqVlist(fileID_fg(1))
+!!$          zaxisID  = vlistInqVarZaxis(vlistID, varID)
+!!$          nlev_fg  = zaxisInqSize(zaxisID)
+!!$
+!!$          IF (nlev_ana == nlev_fg) THEN
+!!$            ! remove grp_vars_ana(ivar) from grp_vars_fg(:)
+!!$            CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_ana(ivar:ivar), 1)
+!!$          ENDIF
+!!$        ENDIF          
+!!$      ENDDO
+
+
+
       ! Check, whether the FG-file inventory group contains all fields which are needed for a 
       ! successfull model start. If not, then stop the model and issue an error. 
       DO ivar=1,ngrp_vars_fg
@@ -979,61 +1070,9 @@ MODULE mo_nh_initicon
         ENDIF
       ENDDO  
 
-      ! Check, whether the ANA-file inventory list contains all required analysis fields.
-      ! If not, remove the corresponding file name from the group 'grp_vars_ana' and issue a warning.
-      ! The missing field will then be read from the FG-file
-      DO ivar=1,ngrp_vars_ana
-        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_anafile(:))
 
-        IF ( index == -1) THEN  ! variable not found
-          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana(ivar))//' not found in ANA-input file.'
-          CALL message(routine, TRIM(message_text))
-          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana(ivar))//' will be read from FG-input, instead.'
-          CALL message(routine, TRIM(message_text))
-
-          ! remove missing field from analysis input-group
-          CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana(ivar:ivar), 1)
-        ELSE
-          ! save varID
-          grp_varID_ana(ivar) = grp_varID_anafile(index)
-        ENDIF
-      ENDDO  
-
-
-
-
-      ! Remove those names from grp_vars_fg which are also included in grp_vars_ana
-      ! Thus, only those variables are read from the first guess, which are not contained 
-      ! in the analysis file. By this, we avoid double reading.
+      ! Printout table
       !
-      DO ivar=1,ngrp_vars_ana
-
-        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_fg(:))
-
-        ! If grp_vars_ana(ivar) is also a group member of grp_vars_fg(:)
-        IF (index /= -1) THEN ! found matching name.
-          !
-          ! Check, whether the number of vertical levels matches as well
-
-          ! get number of vertical levels for variable grp_vars_ana(ivar)
-          varID    = grp_varID_ana(ivar)             ! CDI variable ID with this name in analysis 
-          vlistID  = streamInqVlist(fileID_ana(1))
-          zaxisID  = vlistInqVarZaxis(vlistID, varID)
-          nlev_ana = zaxisInqSize(zaxisID)
-
-          ! get number of vertical levels for variable grp_vars_fg(index)
-          varID    = grp_varID_fg(index)             ! CDI variable ID with this name in analysis 
-          vlistID  = streamInqVlist(fileID_fg(1))
-          zaxisID  = vlistInqVarZaxis(vlistID, varID)
-          nlev_fg  = zaxisInqSize(zaxisID)
-
-          IF (nlev_ana == nlev_fg) THEN
-            ! remove grp_vars_ana(ivar) from grp_vars_fg(:)
-            CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_ana(ivar:ivar), 1)
-          ENDIF
-        ENDIF          
-      ENDDO
-
 
     ENDIF  ! p_pe == p_io
 
@@ -1974,33 +2013,19 @@ MODULE mo_nh_initicon
           &                p_lnd_state(jg)%diag_lnd%h_snow_t(:,:,jt),                 &
           &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-!!$        IF (lmulti_snow) THEN
-!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg),'t_snow_m',              &
-!!$            &                p_patch(jg)%n_patch_cells_g,                            &
-!!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                nlev_snow+1,                                            &
-!!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt))
-!!$
-!!$          CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho_snow_m',           &
-!!$            &                p_patch(jg)%n_patch_cells_g,                            &
-!!$            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                nlev_snow,                                              &
-!!$            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt))
-!!$        ELSE
 
-          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg),'t_snow',                   &
-            &                p_patch(jg)%n_patch_cells_g,                               &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt),   &
-            &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg),'t_snow',                   &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_t(:,:,jt),   &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-          CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'rho_snow',                &
-            &                p_patch(jg)%n_patch_cells_g,                               &
-            &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
-            &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt), &
-            &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'rho_snow',                &
+          &                p_patch(jg)%n_patch_cells_g,                               &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,    &
+          &                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(:,:,jt), &
+          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
-!!$        ENDIF
 
 
      ! multi layer fields 
@@ -2011,11 +2036,6 @@ MODULE mo_nh_initicon
           &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
 
-        ! Only required, when starting from GME soil
-        IF (init_mode == MODE_COMBINED) THEN
-         CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
-        END IF
-          
         ! so far w_so_ice is re-initialized in terra_multlay_init
         CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so_ice',                    &
           &                p_patch(jg)%n_patch_cells_g,                                   &
@@ -2032,15 +2052,13 @@ MODULE mo_nh_initicon
       ENDDO ! jt
 
 
-      ! when starting from GME soil, we do not read z0. 
+      ! Skipped in MODE_COMBINED (i.e. when starting from GME soil) 
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
-      IF (init_mode /= MODE_COMBINED) THEN
-        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'gz0',                         &
-          &                p_patch(jg)%n_patch_cells_g,                                   &
-          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
-          &                prm_diag(jg)%gz0(:,:),                                         &
-          &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
-      ENDIF
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'gz0',                         &
+        &                p_patch(jg)%n_patch_cells_g,                                   &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
+        &                prm_diag(jg)%gz0(:,:),                                         &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
     ENDDO ! loop over model domains
 
@@ -2182,8 +2200,17 @@ MODULE mo_nh_initicon
         &                nlev_soil, p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt), &
         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_ana(1:ngrp_vars_ana) )
 
-
     ENDIF  ! l_ana_sfc
+
+
+    ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
+    ! Also note, that the domain-loop is missing
+    IF (init_mode == MODE_COMBINED) THEN
+      jg = 1
+      DO jt=1, ntiles_total
+        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+      ENDDO
+    END IF
 
   END SUBROUTINE read_dwdana_sfc
 
@@ -3046,8 +3073,10 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
       ! allocate groups for list of fields that must be read during initialization
-      ALLOCATE(initicon(jg)%sfc%grp_vars_fg (100)  , &
-               initicon(jg)%sfc%grp_vars_ana(100)    )
+      ALLOCATE(initicon(jg)%sfc%grp_vars_fg (100)        , &
+               initicon(jg)%sfc%grp_vars_ana(100)        , &
+               initicon(jg)%sfc%grp_vars_fg_default (100), &
+               initicon(jg)%sfc%grp_vars_ana_default(100)  )
     ENDDO ! loop over model domains
 
     ! read the map file into dictionary data structure:

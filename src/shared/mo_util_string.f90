@@ -60,6 +60,7 @@ MODULE mo_util_string
   PUBLIC :: MAX_STRING_LEN
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
+  PUBLIC :: add_to_list
   PUBLIC :: one_of
   PUBLIC :: insert_group
   PUBLIC :: delete_keyword_list
@@ -545,6 +546,44 @@ CONTAINS
       str_list1(iwrite) = ' '
     END DO
   END SUBROUTINE difference
+
+
+
+
+  !==============================================================================
+  !+ Add entries from list 2 to list 1, if they are not already present 
+  !+ in list 1.
+  !
+  ! @note This is a very crude implementation, quadratic complexity.
+  !
+  SUBROUTINE add_to_list(str_list1, nitems1, str_list2, nitems2)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list1(:)
+    INTEGER,                   INTENT(INOUT) :: nitems1
+    CHARACTER(len=*),          INTENT(IN)    :: str_list2(:)
+    INTEGER,                   INTENT(IN)    :: nitems2
+    ! local variables
+    INTEGER :: iread, i
+    LOGICAL :: l_duplicate
+    
+
+    ! Loop over all items that should potentially be added    
+    DO iread=1,nitems2
+      ! check if item is already in string list 1:
+      l_duplicate = .FALSE.
+      ! Loop over all items in the target list (list 1)
+      CHECK_LOOP : DO i=1,nitems1
+        IF (TRIM(str_list1(i)) == TRIM(str_list2(iread))) THEN
+          l_duplicate = .TRUE.
+          EXIT CHECK_LOOP
+        END IF
+      END DO CHECK_LOOP
+      IF (.NOT. l_duplicate) THEN
+        str_list1(nitems1+1) = str_list2(iread)
+        nitems1 = nitems1+1
+      END IF
+    END DO
+    
+  END SUBROUTINE add_to_list
 
 
   !==============================================================================
