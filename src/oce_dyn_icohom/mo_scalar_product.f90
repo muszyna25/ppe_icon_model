@@ -110,7 +110,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
     !!  mpi parallelized by LL
-  SUBROUTINE calc_scalar_product_veloc_3D( p_patch_3D, vn_e_old, vn_e_new,&
+  SUBROUTINE calc_scalar_product_veloc_3d( p_patch_3D, vn_e_old, vn_e_new,&
     & p_diag, p_op_coeff)
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
