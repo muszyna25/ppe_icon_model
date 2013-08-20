@@ -119,11 +119,11 @@ MODULE mo_oce_ab_timestepping_mimetic
   
   
   ! these are allocated once for efficeincy and used only by the lhs for the solver
-  REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%nblks_c)
+  REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
   REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
   REAL(wp), ALLOCATABLE :: lhs_z_e_top (:,:)
-  REAL(wp), ALLOCATABLE :: lhs_div_z_c(:,:)  ! (nproma,1,patch%nblks_c)
+  REAL(wp), ALLOCATABLE :: lhs_div_z_c(:,:)  ! (nproma,1,patch%alloc_cell_blocks)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)
   
 CONTAINS
@@ -157,7 +157,7 @@ CONTAINS
     INTEGER :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
-    REAL(wp) :: z_h_c(nproma,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: z_h_c(nproma,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_h_e(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
     REAL(wp) :: z_implcoeff
@@ -179,7 +179,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     tolerance                            = solver_tolerance
-    z_h_c(1:nproma,1:patch_horz%nblks_c) = 0.0_wp
+    z_h_c(1:nproma,1:patch_horz%alloc_cell_blocks) = 0.0_wp
     z_h_e(1:nproma,1:patch_horz%nblks_e) = 0.0_wp
     
     CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nold(1))%h)
@@ -444,12 +444,12 @@ CONTAINS
   SUBROUTINE jacobi_precon( p_jp, p_patch_3d, p_op_coeff,thick_e) !RESULT(p_jp)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-    REAL(wp),INTENT(inout)                        :: p_jp(:,:)    ! inout for sync, dimension: (nproma,patch%nblks_c)
+    REAL(wp),INTENT(inout)                        :: p_jp(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
     TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
     REAL(wp),INTENT(in)                           :: thick_e(:,:)
     !
     ! Left-hand side calculated from iterated height
-    !REAL(wp) :: p_jp(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,patch%nblks_c)
+    !REAL(wp) :: p_jp(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,patch%alloc_cell_blocks)
     !
     ! local variables
     REAL(wp) :: gdt2
@@ -457,7 +457,7 @@ CONTAINS
     INTEGER :: jc, jb  !, je
     !REAL(wp) :: z1,z2,z3
     INTEGER :: edge_1_idx, edge_1_blk, edge_2_idx, edge_2_blk, edge_3_idx, edge_3_blk
-    REAL(wp) :: p_diag(nproma,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: p_diag(nproma,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells  !, cells_in_domain, all_edges
     TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
     !-----------------------------------------------------------------------
@@ -469,7 +469,7 @@ CONTAINS
     !cells_in_domain => patch%cells%in_domain
     !all_edges => patch%edges%all
     
-    !p_jp(1:nproma,1:patch%nblks_c)  = 0.0_wp
+    !p_jp(1:nproma,1:patch%alloc_cell_blocks)  = 0.0_wp
     
     gdt2 = grav*(dtime)**2
     
@@ -994,11 +994,11 @@ CONTAINS
     REAL(wp) :: gdt2    !, delta_z
     REAL(wp) :: z_e2d(nproma,p_patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_e)
-    REAL(wp) :: div_z_depth_int_c(nproma,p_patch_3d%p_patch_2d(1)%nblks_c)
-    REAL(wp) :: div_z_c(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: div_z_depth_int_c(nproma,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_z_c(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_e)
     
-    !TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,patch%nblks_c)
+    !TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,patch%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
     TYPE(t_patch), POINTER :: patch_horz
     !REAL(wp) :: thick
@@ -1017,8 +1017,8 @@ CONTAINS
     z_vn_ab(1:nproma,1:n_zlev,1:patch_horz%nblks_e)  = 0.0_wp
     z_e2d(1:nproma,1:patch_horz%nblks_e)             = 0.0_wp
     z_e(1:nproma,1:n_zlev,1:patch_horz%nblks_e)      = 0.0_wp
-    div_z_depth_int_c(1:nproma,1:patch_horz%nblks_c) = 0.0_wp
-    div_z_c(1:nproma,1:n_zlev,1:patch_horz%nblks_c)  = 0.0_wp
+    div_z_depth_int_c(1:nproma,1:patch_horz%alloc_cell_blocks) = 0.0_wp
+    div_z_c(1:nproma,1:n_zlev,1:patch_horz%alloc_cell_blocks)  = 0.0_wp
     
     
     ! LL: this should not be required
@@ -1193,12 +1193,12 @@ CONTAINS
     
     patch         => p_patch_3d%p_patch_2d(1)
     
-    ALLOCATE(lhs_result(nproma,patch%nblks_c), &
+    ALLOCATE(lhs_result(nproma,patch%alloc_cell_blocks), &
       & lhs_z_grad_h(nproma,patch%nblks_e),     &
       & lhs_z_e     (nproma,patch%nblks_e),     &
       & lhs_z_e_top (nproma,patch%nblks_e),     &
-      & lhs_div_z_c (nproma,patch%nblks_c),     &
-      & lhs_z_grad_h_cc(nproma,patch%nblks_c),  &
+      & lhs_div_z_c (nproma,patch%alloc_cell_blocks),     &
+      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
     
     IF (return_status > 0) &
@@ -1234,7 +1234,7 @@ CONTAINS
     & thickness_c,p_op_coeff) result(p_lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-    REAL(wp),    INTENT(inout)       :: p_x(:,:)    ! inout for sync, dimension: (nproma,patch%nblks_c)
+    REAL(wp),    INTENT(inout)       :: p_x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
     REAL(wp),    INTENT(in)          :: h_old(:,:)
     REAL(wp),    INTENT(in)          :: coeff
     TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
@@ -1243,7 +1243,7 @@ CONTAINS
     !  these are small (2D) arrays and allocated once for efficiency
     ! Left-hand side calculated from iterated height
     !
-    REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
+    REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%alloc_cell_blocks)
     
     ! local variables,
     REAL(wp) :: gdt2_inv, gam_times_beta
@@ -1262,7 +1262,7 @@ CONTAINS
     gdt2_inv       = 1.0_wp / (grav*(dtime)**2)
     gam_times_beta = ab_gam * ab_beta
     
-    p_lhs   (1:nproma,patch%nblks_c)  = 0.0_wp
+    p_lhs   (1:nproma,patch%alloc_cell_blocks)  = 0.0_wp
     
     CALL sync_patch_array(sync_c, patch, p_x )
     
@@ -1503,16 +1503,16 @@ CONTAINS
     TYPE(t_hydro_ocean_state)         :: p_os
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
-    REAL(wp),         INTENT(inout)   :: pw_c (nproma,n_zlev+1,p_patch_3d%p_patch_2d(1)%nblks_c) ! vertical velocity on cells
+    REAL(wp),         INTENT(inout)   :: pw_c (nproma,n_zlev+1,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! vertical velocity on cells
     !
     !
     ! Local variables
     INTEGER :: jc, jk, jb, je
     INTEGER :: z_dolic
     INTEGER :: i_startidx, i_endidx
-    REAL(wp) :: div_depth_int(nproma,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: div_depth_int(nproma,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     !REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_c(nproma,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: z_c(nproma,p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_abort
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: p_patch
@@ -1523,9 +1523,9 @@ CONTAINS
     edges_in_domain => p_patch%edges%in_domain
     
     ! due to nag -nan compiler-option:
-    pw_c(1:nproma,1:n_zlev+1,1:p_patch%nblks_c) = 0.0_wp
-    div_depth_int(1:nproma,1:p_patch%nblks_c)   = 0.0_wp
-    z_c          (1:nproma,1:p_patch%nblks_c)   = 0.0_wp
+    pw_c(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks) = 0.0_wp
+    div_depth_int(1:nproma,1:p_patch%alloc_cell_blocks)   = 0.0_wp
+    z_c          (1:nproma,1:p_patch%alloc_cell_blocks)   = 0.0_wp
     !------------------------------------------------------------------
     ! Step 1) Calculate divergence of horizontal velocity at all levels
     !------------------------------------------------------------------
@@ -1747,8 +1747,6 @@ CONTAINS
     !local variables
     REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
     REAL(wp) :: z_e(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-    !TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,p_patch%nblks_c)
-    !TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
     !edges_in_domain => p_patch%edges%in_domain
     

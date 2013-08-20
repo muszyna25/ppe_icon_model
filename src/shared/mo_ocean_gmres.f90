@@ -60,7 +60,6 @@ MODULE mo_ocean_gmres
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
     & timer_gmres_p_sum, activate_sync_timers
-  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array, &
     & sync_e, sync_c, sync_v, sync_patch_array

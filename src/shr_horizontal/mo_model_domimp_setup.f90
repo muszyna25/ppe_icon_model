@@ -804,7 +804,7 @@ CONTAINS
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN
       patch%cells%halo_level(:,:) = 0
-      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%nblks_c) = -1
+      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
       patch%edges%halo_level(:,:) = 0
       patch%edges%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
       patch%verts%halo_level(:,:) = 0
@@ -916,7 +916,7 @@ CONTAINS
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN
       patch%cells%halo_level(:,:) = 0
-      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%nblks_c) = -1
+      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
       patch%edges%halo_level(:,:) = 0
       patch%edges%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
       patch%verts%halo_level(:,:) = 0

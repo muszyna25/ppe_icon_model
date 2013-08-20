@@ -418,6 +418,8 @@ CONTAINS
 
     DO jk = slev, elev_val
 
+      ! LL ERROR Note: this should be rewritten.
+      ! it's not safe to use the number of blocks to identify the what is the grid entity
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
         IF (my_process_is_stdio()) &

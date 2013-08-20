@@ -317,7 +317,7 @@ CONTAINS
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)                          :: grad_coeff(:,:,:)!(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(INOUT)                       :: grad_norm_psi_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 
     !
@@ -442,7 +442,7 @@ CONTAINS
     !
     REAL(wp), INTENT(in)          :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
-    REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
@@ -559,13 +559,12 @@ CONTAINS
     !
     REAL(wp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
-    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     INTEGER,  INTENT(in)          :: level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
 
     INTEGER :: jc, jb
     INTEGER :: i_startidx, i_endidx
-    !INTEGER :: nlen, npromz_c, nblks_c
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
@@ -647,7 +646,7 @@ CONTAINS
   SUBROUTINE grad_fd_norm_oce_2d_3d( psi_c, p_patch, grad_coeff, grad_norm_psi_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
+    REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(in)    :: grad_coeff(:,:)
     REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
 

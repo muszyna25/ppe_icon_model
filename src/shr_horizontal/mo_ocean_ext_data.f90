@@ -223,7 +223,7 @@ CONTAINS
     !--------------------------------------------------------------
 
     !determine size of arrays
-    nblks_c = p_patch%nblks_c
+    nblks_c = p_patch%alloc_cell_blocks
     nblks_e = p_patch%nblks_e
 
 

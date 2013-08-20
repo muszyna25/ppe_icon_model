@@ -117,8 +117,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   REAL(wp) :: content(1:no_tracer), content_old(1:no_tracer), content_first(1:no_tracer)
   INTEGER  :: iloc(2)
   REAL(wp) :: zlat, zlon
-  REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: cells_in_domain
   TYPE(t_patch), POINTER         :: p_patch 
   !-------------------------------------------------------------------------------
@@ -420,21 +420,21 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
                                      & trac_new, tracer_id)
 
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-  REAL(wp), INTENT(INOUT)              :: trac_old(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(INOUT)              :: trac_old(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-  REAL(wp), INTENT(in)                 :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(in)                 :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(in)                 :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(in)                 :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)                 :: K_h(:,:,:)       !horizontal mixing coeff
   REAL(wp), INTENT(in)                 :: A_v(:,:,:)       !vertical mixing coeff
-  REAL(wp), INTENT(INOUT)              :: trac_new(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  !new tracer
+  REAL(wp), INTENT(INOUT)              :: trac_new(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !new tracer
   INTEGER,  INTENT(IN)                 :: tracer_id
   !Local variables
   REAL(wp) :: delta_t, delta_z,delta_z_new, content, content_old
-  REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: dt_inv
 
   INTEGER  :: jc,jk,jb
@@ -451,17 +451,17 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   delta_t = dtime
   dt_inv = 1.0_wp/dtime
 
-  z_temp      (1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
-  flux_horz   (1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
-  flux_vert   (1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
-  div_diff_flx(1:nproma,1:n_zlev,1:p_patch%nblks_c) = 0.0_wp
+  z_temp      (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+  flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+  flux_vert   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+  div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
-  trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c)  = 0.0_wp
+  trac_new(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)  = 0.0_wp
 
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=1  ! output print level (1-5, fix)
-  CALL dbg_print('on entry: IndTrac: trac_old',trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c) ,str_module,idt_src)
+  CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src)
   !---------------------------------------------------------------------
   !content = tracer_content(p_patch, trac_old, p_os%p_prog(nold(1))%h)
   !content_old=content
@@ -587,19 +587,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
       !calculate vert diffusion impicit: result is stored in trac_out
-      CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                                        &
-                                         & z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c),       &
-                                         & p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c),&
-                                         & A_v,                                               &
-                                         & p_op_coeff,                                        &
-                                         & trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c))
-
-       !DO jk=1,n_zlev
-       !write(*,*)'AFTER DIFF: TRACER old:new',jk,&
-       !&minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-       !&minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-       !END DO
-
+      CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
+                                         & z_temp(:,:,:),                   &
+                                         & p_os%p_prog(nnew(1))%h(:,:),     &
+                                         & A_v,                             &
+                                         & p_op_coeff,                      &
+                                         & trac_new(:,:,:))
 
       CALL sync_patch_array(SYNC_C, p_patch, trac_new)
       IF (ltimer) CALL timer_stop(timer_dif_vert)
@@ -668,18 +661,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
     ENDIF ! lvertical_diff_implicit
   ENDIF!iswm_oce /= 1)
 
-      !DO jk=1,n_zlev
-      ! write(*,*)'TRACER TRANSPORT: TRACER old:new',jk,&
-      !&minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-      !&minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-      !END DO
-
-
-    !DO jk=1,n_zlev
-    ! write(*,*)'TRACER old:new',jk,&
-    ! &minval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_old(1:nproma,jk,1:p_patch%nblks_c)),&
-    ! &minval(trac_new(1:nproma,jk,1:p_patch%nblks_c)),maxval(trac_new(1:nproma,jk,1:p_patch%nblks_c))
-    ! END DO
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module,idt_src, in_subset=cells_in_domain)
@@ -692,8 +673,8 @@ END SUBROUTINE advect_individual_tracer_ab
 !TODO review, currently not used
 function tracer_content(p_patch, tracer, height) RESULT(content)
   TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
-  REAL(wp), INTENT(IN) :: tracer(nproma,n_zlev, p_patch%nblks_c)
-  REAL(wp), INTENT(IN) :: height(nproma, p_patch%nblks_c) 
+  REAL(wp), INTENT(IN) :: tracer(nproma,n_zlev, p_patch%alloc_cell_blocks)
+  REAL(wp), INTENT(IN) :: height(nproma, p_patch%alloc_cell_blocks)
   REAL(wp) content
   REAL(wp) :: delta_z
   INTEGER  :: jc,jk,jb

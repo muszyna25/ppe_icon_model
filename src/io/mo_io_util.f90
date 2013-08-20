@@ -216,7 +216,7 @@ CONTAINS
 
     IF(typ == GATHER_C) THEN
 
-      IF(UBOUND(in_field,3) /= p_patch%nblks_c) &
+      IF(UBOUND(in_field,3) /= p_patch%alloc_cell_blocks) &
         CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
       dim1 = nproma
       dim3 = (p_patch%n_patch_cells_g-1)/nproma+1

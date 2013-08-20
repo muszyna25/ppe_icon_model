@@ -148,7 +148,6 @@ MODULE mo_io_vlist
     &                                 num_work_procs, get_my_mpi_all_id
   USE mo_math_constants,        ONLY: pi
   USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_intp,                  ONLY: verts2cells_scalar
   USE mo_mpi,                   ONLY: p_pe
   USE mo_util_string,           ONLY: string_contains_word, toupper
   USE mo_oce_physics,           ONLY: t_ho_params, v_params

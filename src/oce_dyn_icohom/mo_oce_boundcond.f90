@@ -103,13 +103,13 @@ CONTAINS
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
     REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
-    REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,nblks_c)
+    REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
     TYPE(t_cartesian_coordinates), INTENT(out) :: top_bc_u_cc(:,:)
     
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_scale(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_scale(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells   
     TYPE(t_patch), POINTER        :: p_patch 
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -374,7 +374,7 @@ CONTAINS
 ! !     !DR TYPE(external_data), INTENT(in) :: p_ext_data  !< external data
 ! !     !
 ! !     ! Bottom boundary condition at cells
-! !     REAL(wp), INTENT(inout)           :: bot_bc_w(:,:) ! dim: (nproma,nblks_c)
+! !     REAL(wp), INTENT(inout)           :: bot_bc_w(:,:) ! dim: (nproma,alloc_cell_blocks)
 ! !     !
 ! !     ! Local variables
 ! !     INTEGER :: jb, jc, je, i_dolic
@@ -384,7 +384,7 @@ CONTAINS
 ! !     INTEGER, DIMENSION(:,:,:),POINTER :: iidx, iblk
 ! !     INTEGER, DIMENSION(:,:),  POINTER :: p_dolic
 ! !     REAL(wp), DIMENSION(:,:,:),   POINTER :: p_bathy
-! !     TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,1,p_patch%nblks_c)
+! !     TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,1,p_patch%alloc_cell_blocks)
 ! ! 
 ! !     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells    
 ! !     !-----------------------------------------------------------------------
@@ -392,7 +392,7 @@ CONTAINS
 ! !     all_cells => p_patch%cells%all
 ! !         
 ! !     bot_bc_w(:,:) = 0.0_wp
-! !     z_grad_h_cc(nproma,1,p_patch%nblks_c)%x = 0.0_wp
+! !     z_grad_h_cc(nproma,1,p_patch%alloc_cell_blocks)%x = 0.0_wp
 ! !     
 ! !     iidx      => p_patch%edges%cell_idx
 ! !     iblk      => p_patch%edges%cell_blk
@@ -462,7 +462,7 @@ CONTAINS
 ! !     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 ! !     TYPE(t_hydro_ocean_state), TARGET :: p_os
 ! !     REAL(wp),POINTER                  :: grad_coeff(:,:,:)
-! !     REAL(wp), INTENT(inout)           :: top_bc_w(nproma,p_patch%nblks_c)
+! !     REAL(wp), INTENT(inout)           :: top_bc_w(nproma,p_patch%alloc_cell_blocks)
 ! !     INTEGER                           :: timestep
 ! !     !TYPE(t_int_state),TARGET,INTENT(in), OPTIONAL :: p_int
 ! !     
@@ -472,9 +472,9 @@ CONTAINS
 ! !     INTEGER :: rl_start, rl_end
 ! !     REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
 ! !     REAL(wp) :: z_u_times_gradh_c
-! !     TYPE(t_cartesian_coordinates) :: z_grad_h_cc_vec(1:nproma,1,1:p_patch%nblks_c)
-! !     REAL(wp) :: grad_h_u(1:nproma,1,1:p_patch%nblks_c)
-! !     REAL(wp) :: grad_h_v(1:nproma,1,1:p_patch%nblks_c)
+! !     TYPE(t_cartesian_coordinates) :: z_grad_h_cc_vec(1:nproma,1,1:p_patch%alloc_cell_blocks)
+! !     REAL(wp) :: grad_h_u(1:nproma,1,1:p_patch%alloc_cell_blocks)
+! !     REAL(wp) :: grad_h_v(1:nproma,1,1:p_patch%alloc_cell_blocks)
 ! !     ! CHARACTER(len=max_char_length), PARAMETER :: &
 ! !     !          & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
 ! !     !-----------------------------------------------------------------------
@@ -484,13 +484,13 @@ CONTAINS
 ! !     i_endblk   = p_patch%cells%end_blk(rl_end,1)
 ! !     
 ! !     top_bc_w(:,:) = 0.0_wp
-! !  !  z_grad_h_cc_vec(nproma,1,p_patch%nblks_c)%x(:) = 0.0_wp
+! !  !  z_grad_h_cc_vec(nproma,1,p_patch%alloc_cell_blocks)%x(:) = 0.0_wp
 ! !     
 ! !     DO jb = i_startblk, i_endblk
 ! !       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
 ! !         & i_startidx, i_endidx, rl_start, rl_end)
 ! !       DO jc = i_startidx, i_endidx
-! !         z_grad_h_cc_vec(nproma,1,p_patch%nblks_c)%x(:) = 0.0_wp
+! !         z_grad_h_cc_vec(nproma,1,p_patch%alloc_cell_blocks)%x(:) = 0.0_wp
 ! !       END DO
 ! !     END DO
 ! !     
@@ -602,7 +602,7 @@ CONTAINS
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_c(nproma,p_patch%nblks_c)
+    REAL(wp):: z_c(nproma,p_patch%alloc_cell_blocks)
 
     TYPE(t_subset_range), POINTER :: all_cells
     

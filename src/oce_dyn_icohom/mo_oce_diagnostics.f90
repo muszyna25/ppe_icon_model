@@ -205,7 +205,7 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   !-----------------------------------------------------------------------
   CHARACTER(len=max_char_length) :: headerLine
   CHARACTER(len=max_char_length) :: listname
-  INTEGER                        :: nblks_c,nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
+  INTEGER                        :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
   REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, column_volume
 
   TYPE(t_patch), POINTER         :: p_patch
@@ -783,7 +783,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
-                                                   ! dims: (nproma,nlev+1,nblks_c)
+                                                   ! dims: (nproma,nlev+1,alloc_cell_blocks)
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
@@ -963,7 +963,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
-                                                     ! dims: (nproma,nlev,nblks_c)
+                                                     ! dims: (nproma,nlev,alloc_cell_blocks)
   REAL(wp), INTENT(OUT)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !

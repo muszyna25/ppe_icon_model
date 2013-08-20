@@ -370,7 +370,7 @@ CONTAINS
     p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
     p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
     
-    ALLOCATE( p_patch%cells%cartesian_center(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%cartesian_center(nproma,p_patch%alloc_cell_blocks) )
     p_patch%cells%cartesian_center(:,:)%x(1) = 0._wp
     p_patch%cells%cartesian_center(:,:)%x(2) = 0._wp
     p_patch%cells%cartesian_center(:,:)%x(3) = 0._wp
@@ -477,7 +477,7 @@ CONTAINS
     INTEGER :: max_childdom
     
     ! Please note: The following variables in the patch MUST already be set:
-    ! - nblks_c
+    ! - alloc_cell_blocks
     ! - nblks_e
     ! - nblks_v
     ! - n_patch_cells
@@ -494,22 +494,22 @@ CONTAINS
     !
     ! !grid cells
     !
-    ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%nblks_c,4) )
-    ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
-    ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%center(nproma,p_patch%nblks_c) )
-    ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%alloc_cell_blocks,4) )
+    ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%alloc_cell_blocks,4) )
+    ALLOCATE( p_patch%cells%child_id(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%center(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
@@ -666,7 +666,7 @@ CONTAINS
     INTEGER :: jc, je, jv
     
     ! Please note: The following variables in the patch MUST already be set:
-    ! - nblks_c
+    ! - alloc_cell_blocks
     ! - nblks_e
     ! - nblks_v
     ! - n_patch_cells
@@ -681,15 +681,15 @@ CONTAINS
     ! !grid cells
     !
     IF (iopmode /= 2) THEN
-      IF (.NOT. ALLOCATED(p_patch%cells%phys_id)) ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
-      ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
-      ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
+      IF (.NOT. ALLOCATED(p_patch%cells%phys_id)) ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
+      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+      ALLOCATE( p_patch%cells%area(nproma,p_patch%alloc_cell_blocks) )
+      ALLOCATE( p_patch%cells%f_c(nproma,p_patch%alloc_cell_blocks) )
     ENDIF
     
     IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
-      ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
+      ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%alloc_cell_blocks) )
+      ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%alloc_cell_blocks) )
       ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
       ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
       ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
@@ -860,11 +860,11 @@ CONTAINS
       p_patch%edges%owner_mask = .TRUE.
       p_patch%verts%owner_mask = .TRUE.
     
-      p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = -1
+      p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = -1
       p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
       p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
     
-      p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = .FALSE.
+      p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = .FALSE.
       p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
       p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
     

@@ -145,9 +145,8 @@ CONTAINS
     INTEGER  :: jc, jb, i, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
-    !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     ! Local declarations for coupling:
     LOGICAL               :: write_coupler_restart
@@ -1249,8 +1248,8 @@ CONTAINS
 
     INTEGER :: jc, jb, i
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1381,7 +1380,7 @@ CONTAINS
                                      !=2.0: double gyre
                                      !=n.0: n-gyre
   REAL(wp) :: y_length               !basin extension in y direction in degrees
-  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
@@ -1720,7 +1719,7 @@ CONTAINS
   SUBROUTINE balance_elevation (p_patch_3D, h_old)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
-    REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     TYPE(t_patch), POINTER                  :: p_patch
     TYPE(t_subset_range), POINTER           :: all_cells
@@ -1782,8 +1781,8 @@ CONTAINS
     INTEGER :: ncid, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
-    REAL(wp):: z_flux(nproma,p_patch%nblks_c,iforc_len)  ! set length is iforc_len, 3rd dimension
-    REAL(wp):: z_c   (nproma,iforc_len,p_patch%nblks_c)  ! 2nd dimension is iforc_len
+    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,iforc_len)  ! set length is iforc_len, 3rd dimension
+    REAL(wp):: z_c   (nproma,iforc_len,p_patch%alloc_cell_blocks)  ! 2nd dimension is iforc_len
     !TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------

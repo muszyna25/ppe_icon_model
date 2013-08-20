@@ -447,16 +447,18 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_2D_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
         ENDIF
+        netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
     ENDIF
 
     CALL scatter_cells_2D(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, patch)
@@ -583,16 +585,18 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid )')
         ENDIF
+       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:) = 0.0_wp
     ENDIF
     start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, 3)
     end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, 3)
@@ -751,18 +755,22 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_3D_1extdim_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
+        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
+          & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &
           & stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid )')
         ENDIF
+        netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
-      & stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
+        & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &
+        & stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:) = 0.0_wp
     ENDIF
     start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, 4)
     end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, 4)

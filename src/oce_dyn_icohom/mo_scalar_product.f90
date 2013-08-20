@@ -294,7 +294,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
-    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)                       :: h_e(:,:)       ! SW-case: h_e is thickness at edges
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
@@ -437,7 +437,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
-    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,alloc_cell_blocks)
                                                                  ! intent(inout) for nag compiler
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
@@ -506,7 +506,7 @@ CONTAINS
     REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     INTEGER, INTENT(in), OPTIONAL              :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL              :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
@@ -650,7 +650,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(IN), OPTIONAL             :: scalar_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)  
     INTEGER, INTENT(in), OPTIONAL              :: level       ! optional vertical start level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
@@ -774,7 +774,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(IN)                 :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(IN)   :: p_op_coeff
     REAL(wp), INTENT(INOUT)              :: p_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL       :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL       :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !Local variables
     INTEGER :: slev, elev
     INTEGER :: i_startidx_e, i_endidx_e
@@ -974,7 +974,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN),OPTIONAL              :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN),OPTIONAL              :: scalar(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !Local variables
     INTEGER :: slev, elev
     INTEGER :: i_startidx_e, i_endidx_e
@@ -1246,7 +1246,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
                                    & opt_slev, opt_elev, subset_range )
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(out)                      :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL              :: opt_slev        ! optional vertical start level
@@ -1327,7 +1327,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
   SUBROUTINE map_cell2edges_3D_1level( p_patch_3D, p_vn_c, ptp_vn,p_op_coeff, level, subset_range )
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(out)                      :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in) :: level          ! vertical level
@@ -1463,7 +1463,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
 ! !   SUBROUTINE map_cell2edges_2d( p_patch_3D, p_vn_c, ptp_vn, p_op_coeff)
 ! !     
 ! !     TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
-! !     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c) 
+! !     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
 ! !     REAL(wp), INTENT(inout)                    :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
 ! !     TYPE(t_operator_coeff)                     :: p_op_coeff
 ! ! 

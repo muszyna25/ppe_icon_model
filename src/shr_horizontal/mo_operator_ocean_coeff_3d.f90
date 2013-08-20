@@ -198,7 +198,7 @@ CONTAINS
     ! determine size of arrays, i.e.
     ! values for the blocking
     !
-    nblks_c  = p_patch%nblks_c
+    nblks_c  = p_patch%alloc_cell_blocks
     nblks_e  = p_patch%nblks_e
     nblks_v  = p_patch%nblks_v
     nz_lev   = n_zlev
@@ -514,7 +514,7 @@ CONTAINS
      TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
      TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:3)
-     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c,1:3)
+     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
     !
     !Local variables
     !
@@ -676,21 +676,13 @@ CONTAINS
 !
     REAL(wp)                      :: prime_edge_length      (1:nproma,patch%nblks_e)
     REAL(wp)                      :: dual_edge_length       (1:nproma,patch%nblks_e)
-    !REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
-    !REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges )
     REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
-    !REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
-    !REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch%nblks_e,1:no_dual_edges)
 
-    REAL(wp)                      :: div_coeff              (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    REAL(wp)                      :: div_coeff              (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     REAL(wp)                      :: rot_coeff              (1:nproma,1:patch%nblks_v,1:no_dual_edges)
     REAL(wp)                      :: grad_coeff             (1:nproma,1:patch%nblks_e)
 
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    !TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
 
 
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
@@ -1000,12 +992,12 @@ CONTAINS
 !
     REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
     !REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
-    REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%alloc_cell_blocks)
+    REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     REAL(wp)                      :: norm, orientation
     REAL(wp)                      :: dist_edge_cell, dist_edge_cell_basic
 
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
     TYPE(t_cartesian_coordinates) :: cell_center, edge_center
     TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
@@ -2106,9 +2098,6 @@ CONTAINS
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor, level
-    !REAL(wp) :: z_sync_c(nproma,n_zlev,p_patch%nblks_c)
-    !REAL(wp) :: z_sync_e(nproma,n_zlev,p_patch%nblks_e)
-    !REAL(wp) :: z_sync_v(nproma,n_zlev,p_patch%nblks_v)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:init_diff_operator_coeff_3D')

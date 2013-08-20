@@ -323,8 +323,8 @@ CONTAINS
 
     REAL(wp)                      :: z_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates) :: u_v_cc_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_cartesian_coordinates) :: u_v_cc_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_div_vec_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    TYPE(t_cartesian_coordinates) :: u_v_cc_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_div_vec_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER         :: p_patch 
@@ -433,11 +433,11 @@ CONTAINS
   ! ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   ! ! INTEGER :: rl_start_e, rl_end_e,rl_start_c, rl_end_c
   ! ! REAL(wp) :: z_tmp(nproma,n_zlev,p_patch%nblks_e)
-  ! ! TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
+  ! ! TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%alloc_cell_blocks)
   ! ! INTEGER :: il_c1, ib_c1, il_c2, ib_c2
   ! ! INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   ! ! TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
-  ! ! TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
+  ! ! TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%alloc_cell_blocks)
   ! ! !-----------------------------------------------------------------------
   ! ! rl_start_e = 1
   ! ! rl_end_e   = min_rledge
@@ -570,8 +570,8 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     REAL(wp), POINTER :: del_zlev_i(:)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER         :: p_patch 
     !-----------------------------------------------------------------------
@@ -579,13 +579,13 @@ CONTAINS
     all_cells => p_patch%cells%all
    !-----------------------------------------------------------------------
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
     slev = 1
     elev = n_zlev
@@ -691,10 +691,10 @@ CONTAINS
     INTEGER :: z_dolic
     REAL(wp), POINTER :: del_zlev_i(:)
     REAL(wp), POINTER :: del_zlev_m(:)
-    REAL(wp)                      :: z_w_ave  (nproma,n_zlev,  p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,  p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp)                      :: z_w_ave  (nproma,n_zlev,  p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,  p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
@@ -705,16 +705,16 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_ave (1:nproma,1:n_zlev,  1:p_patch%nblks_c) = 0.0_wp
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%nblks_c) = 0.0_wp
+    z_w_ave (1:nproma,1:n_zlev,  1:p_patch%alloc_cell_blocks) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
 
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
@@ -844,8 +844,8 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     REAL(wp), POINTER :: del_zlev_m(:)
-    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
@@ -855,11 +855,11 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%nblks_c) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -943,8 +943,8 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     REAL(wp), POINTER :: del_zlev_m(:)
-    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
@@ -954,11 +954,11 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%nblks_c) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -1034,8 +1034,8 @@ CONTAINS
 !     INTEGER :: jc, jk, jb
 !     INTEGER :: i_startidx, i_endidx
 !     INTEGER :: z_dolic
-!     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)
-!     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+!     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks)
+!     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch%alloc_cell_blocks)
 !     TYPE(t_subset_range), POINTER :: all_cells
 !     !-----------------------------------------------------------------------
 !     all_cells => p_patch%cells%all
@@ -1043,13 +1043,13 @@ CONTAINS
 !     slev = 1
 !     elev = n_zlev
 ! 
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(1) = 0.0_wp
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(2) = 0.0_wp
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)%x(3) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 ! 
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(1) = 0.0_wp
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(2) = 0.0_wp
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%nblks_c)%x(3) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
 ! 
 ! 
 !     DO jb = all_cells%start_block, all_cells%end_block
@@ -1424,20 +1424,20 @@ CONTAINS
 ! 
 !     !
 !     ! Components of cell based variable which is vertically advected
-!     REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-!     REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-!     REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+!     REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+!     REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+!     REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
 !     !
 !     ! Top boundary condition for cell based variables
-!     REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-!     REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+!     REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+!     REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
 !     !
 !     ! Bottom boundary condition for cell based variables
-!     REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-!     REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+!     REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+!     REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
 !     !
-!     REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-!     REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+!     REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+!     REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
 ! 
 !     ! variable in which horizontally advected velocity is stored
 !     REAL(wp), INTENT(inout) :: veloc_adv_vert_e(:,:,:)
@@ -1448,10 +1448,10 @@ CONTAINS
 ! 
 !     TYPE(t_subset_range), POINTER :: all_cells
 ! 
-!     REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-!       & z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-!       & z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
-!       & z_adv_v_m(nproma,n_zlev,p_patch%nblks_c)
+!     REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks),  &
+!       & z_adv_v_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks),  &
+!       & z_adv_u_m(nproma,n_zlev,p_patch%alloc_cell_blocks),  &
+!       & z_adv_v_m(nproma,n_zlev,p_patch%alloc_cell_blocks)
 !     !-----------------------------------------------------------------------
 !     all_cells => p_patch%cells%all
 ! 

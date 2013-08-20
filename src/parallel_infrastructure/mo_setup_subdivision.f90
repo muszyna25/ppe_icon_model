@@ -1024,21 +1024,16 @@ CONTAINS
     !
     ! ... for the cells
     wrk_p_patch%nblks_c       = blk_no(wrk_p_patch%n_patch_cells)
-    wrk_p_patch%nblks_c   = wrk_p_patch%nblks_c
     wrk_p_patch%npromz_c      = wrk_p_patch%n_patch_cells - (wrk_p_patch%nblks_c - 1)*nproma
-    wrk_p_patch%npromz_c  = wrk_p_patch%npromz_c
+    wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c
 
     ! ... for the edges
     wrk_p_patch%nblks_e       = blk_no(wrk_p_patch%n_patch_edges)
-    wrk_p_patch%nblks_e   = wrk_p_patch%nblks_e
     wrk_p_patch%npromz_e      = wrk_p_patch%n_patch_edges - (wrk_p_patch%nblks_e - 1)*nproma
-    wrk_p_patch%npromz_e  = wrk_p_patch%npromz_e
 
     ! ... for the vertices
     wrk_p_patch%nblks_v       = blk_no(wrk_p_patch%n_patch_verts)
-    wrk_p_patch%nblks_v   = wrk_p_patch%nblks_v
     wrk_p_patch%npromz_v      = wrk_p_patch%n_patch_verts - (wrk_p_patch%nblks_v - 1)*nproma
-    wrk_p_patch%npromz_v  = wrk_p_patch%npromz_v
 
     ! Also needed for patch allocation
     wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom

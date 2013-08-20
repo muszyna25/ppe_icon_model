@@ -412,7 +412,7 @@ CONTAINS
 
     ! Local variables
     INTEGER   :: ist, i,jtrc
-    INTEGER   :: nblks_c, nblks_e
+    INTEGER   :: alloc_cell_blocks, nblks_e
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = this_mod_name//':construct_ho_physics'
@@ -426,7 +426,7 @@ CONTAINS
       &                             model_type='oce' )
 
     ! determine size of arrays
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
     nblks_e = p_patch%nblks_e
 
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
@@ -454,7 +454,7 @@ CONTAINS
       &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
       &            t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &            ldims=(/nproma,n_zlev+1,nblks_c,no_tracer/), &
+      &            ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
       &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ! Reference to individual tracer, for I/O
@@ -481,7 +481,7 @@ CONTAINS
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=(/nproma,n_zlev+1,nblks_c/),in_group=groups("oce_physics"))
+                    & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_physics"))
 
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
@@ -596,11 +596,11 @@ CONTAINS
     INTEGER  :: z_dolic
 
     REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
-    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     REAL(wp) :: dz_inv, z_lambda_frac
 

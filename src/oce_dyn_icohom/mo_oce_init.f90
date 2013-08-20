@@ -138,8 +138,8 @@ CONTAINS
     !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_prog(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_prog(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
@@ -322,8 +322,8 @@ CONTAINS
     INTEGER :: ncid, dimid
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_relax(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_c(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_relax(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
@@ -843,7 +843,7 @@ CONTAINS
   INTEGER :: i_startidx_c, i_endidx_c
   INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: z_dolic
-  REAL(wp):: z_c(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp):: z_c(nproma,n_zlev,p_patch%alloc_cell_blocks)
   REAL(wp):: z_lat, z_lon
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
@@ -2202,8 +2202,8 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
      REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
     !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
      REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-     REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
-     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,p_patch%nblks_c)
+     REAL(wp) :: z_kin(nproma,1,p_patch%alloc_cell_blocks)
+     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,p_patch%alloc_cell_blocks)
      !-----------------------------------------------------------------------
      TYPE(t_subset_range), POINTER :: all_cells
      !-----------------------------------------------------------------------
