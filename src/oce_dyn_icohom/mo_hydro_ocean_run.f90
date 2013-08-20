@@ -246,7 +246,7 @@ CONTAINS
       CALL update_sfcflx( p_patch_3D, p_os(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
-      IF(.NOT.l_STAGGERED_TIMESTEP)THEN
+      IF(.NOT.l_staggered_timestep)THEN
 
         CALL calc_thickness( p_patch_3D, p_os(jg), p_ext_data(jg))
         !CALL height_related_quantities( p_patch_3D, p_os(jg), p_ext_data(jg))
