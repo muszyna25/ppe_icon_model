@@ -86,6 +86,7 @@ MODULE mo_setup_subdivision
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 #endif
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
+  USE mo_grid_config,         ONLY: use_dummy_cell_closure
 
   IMPLICIT NONE
 
@@ -1026,6 +1027,10 @@ CONTAINS
     wrk_p_patch%nblks_c       = blk_no(wrk_p_patch%n_patch_cells)
     wrk_p_patch%npromz_c      = wrk_p_patch%n_patch_cells - (wrk_p_patch%nblks_c - 1)*nproma
     wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c
+    IF (use_dummy_cell_closure) THEN
+      IF (wrk_p_patch%npromz_c == nproma) &
+       wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c + 1
+    ENDIF
 
     ! ... for the edges
     wrk_p_patch%nblks_e       = blk_no(wrk_p_patch%n_patch_edges)

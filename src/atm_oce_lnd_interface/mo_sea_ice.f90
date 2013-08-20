@@ -134,12 +134,12 @@ CONTAINS
     !INTEGER i
     INTEGER :: ibits = DATATYPE_PACK16
 
-    INTEGER :: nblks_c, ist
+    INTEGER :: alloc_cell_blocks, ist
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_sea_ice'
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
 
     p_ice%kice = i_no_ice_thick_class
 
@@ -147,67 +147,67 @@ CONTAINS
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Tsurf', p_ice%Tsurf ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('Tsurf', '', 'surface temperature', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T1', p_ice%T1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'T2', p_ice%T2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E1', p_ice%E1 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'E2', p_ice%E2 ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('E2', 'Jm/kg', 'Energy content lower layer', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'vol', p_ice%vol ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('vol', 'm^3', 'ice volume', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hi', p_ice%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hs', p_ice%hs ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hiold', p_ice%hiold ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hiold', 'm', 'ice thickness (last timstep)', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'hsold', p_ice%hsold ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('hsold', 'm', 'snow thickness (last timstep)', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'Qtop', p_ice%Qtop ,&
@@ -215,13 +215,13 @@ CONTAINS
       &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'Qbot', p_ice%Qbot ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'heatocei', p_ice%heatocei ,&
@@ -229,14 +229,14 @@ CONTAINS
       &          t_cf_var('heatocei', 'J', 'Energy to ocean when all ice is melted', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'surfmelt', p_ice%surfmelt ,&
@@ -244,14 +244,14 @@ CONTAINS
       &          t_cf_var('surfmelt', 'm', 'surface melt water running into ocean', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'surfmeltT', p_ice%surfmeltT ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('surfmeltT', 'C', 'Mean temperature of surface melt water', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'evapwi', p_ice%evapwi ,&
@@ -259,41 +259,41 @@ CONTAINS
       &          t_cf_var('evapwi', 'kg/m^2', 'amount of evaporated water if no ice left', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'conc', p_ice%conc ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'ice_u', p_ice%u ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_u', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'ice_v', p_ice%v ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('ice_v', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'concSum', p_ice%concSum ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('concSum', '', 'total ice concentration', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'newice', p_ice%newice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('newice', 'm', 'new ice groth in open water', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
@@ -301,7 +301,7 @@ CONTAINS
       &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice', &
       &                   DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     ALLOCATE(p_ice%hi_lim(i_no_ice_thick_class), STAT=ist)
@@ -358,7 +358,7 @@ CONTAINS
     TYPE(t_var_list),INTENT(INOUT) :: var_list
 
     ! Local variables
-    INTEGER                        :: nblks_c, ist, jtrc, i
+    INTEGER                        :: alloc_cell_blocks, ist, jtrc, i
     CHARACTER(len=max_char_length) :: oce_tracer_names(no_tracer),&
     &                                 oce_tracer_units(no_tracer),&
     &                                 oce_tracer_longnames(no_tracer)
@@ -369,78 +369,78 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
 
     CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_wind_u', 'm/s', 'forc_wind_u', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_wind_v', 'm/s', 'forc_wind_v', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_hflx', 'm/s', 'forc_hflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_fwfx', p_sfc_flx%forc_fwfx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwfx', 'm/s', 'forc_fwfx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_swflx', 'm/s', 'forc_swflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_lwflx', p_sfc_flx%forc_lwflx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_lwflx', 'm/s', 'forc_lwflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_ssflx', p_sfc_flx%forc_ssflx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_ssflx', 'm/s', 'forc_ssflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_slflx', p_sfc_flx%forc_slflx , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_slflx', 'm/s', 'forc_slflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_runoff', p_sfc_flx%forc_runoff , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_fwbc', p_sfc_flx%forc_fwbc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwbc', 'm/s', 'forc_fwbc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_hfrelax', 'm/s', 'forc_hfrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_fwrelax', p_sfc_flx%forc_fwrelax , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
       ! there are four tracer related fields: tracer focing, tracer relaxation
       ! and both accumulated
@@ -448,25 +448,25 @@ CONTAINS
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(var_list, 'forc_tracer_relax', p_sfc_flx%forc_tracer_relax , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(var_list, 'forc_tracer_acc', p_sfc_flx%forc_tracer_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('forc_tracer_acc', 'm/s', 'forc_tracer_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       CALL add_var(var_list, 'forc_tracer_relax_acc', p_sfc_flx%forc_tracer_relax_acc , &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &          t_cf_var('forc_tracer_relax_acc', 'm/s', 'forc_tracer_relax_acc', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,nblks_c,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_sfc_flx%tracer_ptr(no_tracer*4))
@@ -485,7 +485,7 @@ CONTAINS
           &                    oce_tracer_units(jtrc), &
           &                    'forcing: '//TRIM(oce_tracer_longnames(jtrc)), DATATYPE_FLT32), &
           &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,nblks_c/))
+          &           ldims=(/nproma,alloc_cell_blocks/))
       END DO
       DO jtrc = no_tracer+1,2*no_tracer
         i = jtrc - no_tracer
@@ -497,7 +497,7 @@ CONTAINS
           &                    oce_tracer_units(i), &
           &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
           &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,nblks_c/))
+          &           ldims=(/nproma,alloc_cell_blocks/))
       END DO
       DO jtrc = (2*no_tracer)+1,3*no_tracer
         i = jtrc - 2*no_tracer
@@ -509,7 +509,7 @@ CONTAINS
           &                    oce_tracer_units(i), &
           &                    'forcing accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
           &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+          &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
       END DO
       DO jtrc = (3*no_tracer)+1,4*no_tracer
         i = jtrc - 3*no_tracer
@@ -521,82 +521,82 @@ CONTAINS
           &                    oce_tracer_units(i), &
           &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
           &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+          &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
       END DO
     ENDIF
     CALL add_var(var_list, 'forc_wind_u_acc', p_sfc_flx%forc_wind_u_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_wind_u_acc', 'm/s', 'forc_wind_u_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_wind_v_acc', p_sfc_flx%forc_wind_v_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_wind_v_acc', 'm/s', 'forc_wind_v_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_hflx_acc', p_sfc_flx%forc_hflx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_hflx_acc', 'm/s', 'forc_hflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_fwfx_acc', p_sfc_flx%forc_fwfx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwfx_acc', 'm/s', 'forc_fwfx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_swflx_acc', p_sfc_flx%forc_swflx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_swflx_acc', 'm/s', 'forc_swflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_lwflx_acc', p_sfc_flx%forc_lwflx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_lwflx_acc', 'm/s', 'forc_lwflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_ssflx_acc', p_sfc_flx%forc_ssflx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_ssflx_acc', 'm/s', 'forc_ssflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_slflx_acc', p_sfc_flx%forc_slflx_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_slflx_acc', 'm/s', 'forc_slflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_precip_acc', 'm/s', 'forc_precip_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_evap_acc', p_sfc_flx%forc_evap_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_evap_acc', 'm/s', 'forc_evap_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_runoff_acc', p_sfc_flx%forc_runoff_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_runoff_acc', 'm/s', 'forc_runoff_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_fwbc_acc', p_sfc_flx%forc_fwbc_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwbc_acc', 'm/s', 'forc_fwbc_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_hfrelax_acc', 'm/s', 'forc_hfrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_fwrelax_acc', p_sfc_flx%forc_fwrelax_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/),in_group=groups("oce_default"))
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
     ! cartesians
-    ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
     END IF
@@ -650,62 +650,62 @@ CONTAINS
     TYPE(t_atmos_for_ocean ), INTENT(INOUT) :: p_as
 
     ! Local variables
-    INTEGER :: nblks_c, ist
+    INTEGER :: alloc_cell_blocks, ist
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_for_ocean'
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
 
-    ALLOCATE(p_as%tafo(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%tafo(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for tafo failed')
     END IF
-    ALLOCATE(p_as%ftdew(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%ftdew(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ftdew failed')
     END IF
-    ALLOCATE(p_as%fclou(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%fclou(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for fclou failed')
     END IF
 
-    ALLOCATE(p_as%fu10(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%fu10(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for fu10 failed')
     END IF
 
-    ALLOCATE(p_as%fswr(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%fswr(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for fswr failed')
     END IF
 
-    ALLOCATE(p_as%pao(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%pao(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for pao failed')
     END IF
 
-    ALLOCATE(p_as%u(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%u(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for u failed')
     END IF
-    ALLOCATE(p_as%v(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%v(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for v failed')
     END IF
 
-    ALLOCATE(p_as%precip(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%precip(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for precip failed')
     END IF
 
-    ALLOCATE(p_as%evap(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%evap(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for evap failed')
     END IF
 
-    ALLOCATE(p_as%runoff(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_as%runoff(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for runoff failed')
     END IF
@@ -814,97 +814,97 @@ CONTAINS
     INTEGER,               INTENT(IN)    :: i_no_ice_thick_class
     ! Local variables
     INTEGER :: ibits = DATATYPE_PACK16
-    INTEGER :: nblks_c, ist
+    INTEGER :: alloc_cell_blocks, ist
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_fluxes'
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
 
-    ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
     END IF
 
-    ALLOCATE(p_atm_f%lat(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%lat(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for lat failed')
     END IF
 
-    ALLOCATE(p_atm_f%LWout(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%LWout(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWout failed')
     END IF
 
-    ALLOCATE(p_atm_f%LWnet(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%LWnet(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWnet failed')
     END IF
 
-    ALLOCATE(p_atm_f%SWnet(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%SWnet(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for SWnet failed')
     END IF
 
-    ALLOCATE(p_atm_f%bot(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%bot(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
     END IF
 
-    ALLOCATE(p_atm_f%dsensdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%dsensdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for dsensdT failed')
     END IF
 
-    ALLOCATE(p_atm_f%dlatdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%dlatdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sens failed')
     END IF
 
-    ALLOCATE(p_atm_f%dLWdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%dLWdT(nproma,i_no_ice_thick_class,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for dLWdT failed')
     END IF
 
-    ALLOCATE(p_atm_f%rprecw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%rprecw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for rprecw failed')
     END IF
 
-    ALLOCATE(p_atm_f%rpreci(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%rpreci(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for rpreci failed')
     END IF
 
-    ALLOCATE(p_atm_f%sensw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%sensw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for sensw failed')
     END IF
 
-    ALLOCATE(p_atm_f%latw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%latw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for latw failed')
     END IF
 
 
-    ALLOCATE(p_atm_f%LWoutw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%LWoutw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWoutw failed')
     END IF
 
-    ALLOCATE(p_atm_f%LWnetw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%LWnetw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWnetw failed')
     END IF
 
-    ALLOCATE(p_atm_f%SWnetw(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%SWnetw(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for SWnetw failed')
     END IF
 
-    ALLOCATE(p_atm_f%LWin(nproma,nblks_c), STAT=ist)
+    ALLOCATE(p_atm_f%LWin(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for LWin failed')
      END IF
@@ -914,56 +914,56 @@ CONTAINS
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('albvisdirw', '', 'albvisdirw', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albvisdifw', p_atm_f%albvisdifw ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('albvisdifw', '', 'albvisdifw', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albnirdirw', p_atm_f%albnirdirw ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('albnirdirw', '', 'albnirdirw', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albnirdifw', p_atm_f%albnirdifw ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('albnirdifw', '', 'albnirdifw', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albvisdir', p_atm_f%albvisdir ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('albvisdir', '', 'albvisdir', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albvisdif', p_atm_f%albvisdif ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('albvisdif', '', 'albvisdif', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albnirdir', p_atm_f%albnirdir ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('albnirdir', '', 'albnirdir', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_restart_list, 'albnirdif', p_atm_f%albnirdif ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('albnirdif', '', 'albnirdif', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/),in_group=groups("ice_default"),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
 
 
@@ -1123,7 +1123,7 @@ CONTAINS
     !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
     !local variables
-    REAL(wp), DIMENSION(nproma,ice%kice, p_patch%nblks_c) :: &
+    REAL(wp), DIMENSION(nproma,ice%kice, p_patch%alloc_cell_blocks) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & draft,      & ! position of ice-ocean interface below sea level
       & Tfw           ! Ocean freezing temperature [C]
@@ -1138,11 +1138,12 @@ CONTAINS
     !   CALL alloc_mem_commo_ice (ice, Qatm, QatmAve)
     !   CALL ice_zero            (ice, Qatm, QatmAve)
 
-    ! FORALL(i=1:nproma, j=1:p_patch%nblks_c, k=1:ice%kice)
+    ! FORALL(i=1:nproma, j=1:p_patch%alloc_cell_blocks, k=1:ice%kice)
     !    ice% hi    (i,j,k) = sictho (i,j)
     !    ice% hs    (i,j,k) = sicsno (i,j)
     ! END FORALL
 
+    ! LL Note: this needs to be rewritten using subsets !
     IF ( no_tracer >= 2 ) THEN
       DO k=1,ice%kice
         Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1592,9 +1593,9 @@ CONTAINS
 
     !Local Variables
     ! position of ice-ocean interface below sea level                       [m]
-    REAL(wp) :: draft(nproma,ice%kice, p_patch%nblks_c)
+    REAL(wp) :: draft(nproma,ice%kice, p_patch%alloc_cell_blocks)
 
-    REAL(wp), DIMENSION (nproma, p_patch%nblks_c) ::   &
+    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) ::   &
       & draftAve,      &! average draft of sea ice within a grid cell             [m]
       & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
@@ -1711,9 +1712,9 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     INTEGER  :: k
-    REAL(wp) :: sst(nproma,p_patch%nblks_c)
-    REAL(wp) :: Tfw(nproma,p_patch%nblks_c) ! Ocean freezing temperature [C]
-    REAL(wp) :: old_conc(nproma,p_patch%nblks_c)
+    REAL(wp) :: sst(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
+    REAL(wp) :: old_conc(nproma,p_patch%alloc_cell_blocks)
     ! h_0 from Hibler (1979)
 !    REAL(wp), PARAMETER :: hnull = 0.5_wp
 
@@ -1804,7 +1805,7 @@ CONTAINS
 
 
     !Local variables
-    REAL(wp), DIMENSION (nproma,p_patch%nblks_c) ::           &
+    REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
       & Tsurf,          &  ! Surface temperature                             [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
@@ -1890,7 +1891,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     rhoair(:,:) = 0._wp
-    DO jb = 1,p_patch%nblks_c
+    DO jb = 1,p_patch%alloc_cell_blocks
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
 
@@ -1991,7 +1992,7 @@ CONTAINS
 
 
     !Local variables
-    REAL(wp), DIMENSION (nproma,p_patch%nblks_c) ::           &
+    REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
       & Tsurf,          &  ! Surface temperature                             [C]
       & tafoK,          &  ! Air temperature at 2 m in Kelvin                [K]
       & fu10lim,        &  ! wind speed at 10 m height in range 2.5...32     [m/s]
@@ -2096,7 +2097,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     rhoair(:,:) = 0._wp
-    DO jb = 1,p_patch%nblks_c
+    DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
 

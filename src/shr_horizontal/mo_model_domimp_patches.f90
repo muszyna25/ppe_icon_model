@@ -2162,14 +2162,18 @@ CONTAINS
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_real'
-    INTEGER nblks, npromz, n, nlen, jb, jl
+    INTEGER nblks, npromz, n, nlen, jb, jl, chk_blocks
 
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
+    chk_blocks = nblks
+    IF (use_dummy_cell_closure) THEN
+      IF (npromz == nproma) chk_blocks = nblks + 1
+    ENDIF
 
     ! consistency check
     IF ( (SIZE(p_divided_real_array_out,1) /= nproma) .OR.  &
-      &  (SIZE(p_divided_real_array_out,2) >  nblks) ) THEN
+      &  (SIZE(p_divided_real_array_out,2) >  chk_blocks) ) THEN
       CALL finish(routine, "Internal error!")
     END IF
 
@@ -2213,14 +2217,18 @@ CONTAINS
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches:divide_int'
-    INTEGER nblks, npromz, n, nlen, jb, jl
+    INTEGER nblks, npromz, n, nlen, jb, jl, chk_blocks
 
     nblks  = (nvals-1)/nproma + 1
     npromz = nvals - (nblks-1)*nproma
+    chk_blocks = nblks
+    IF (use_dummy_cell_closure) THEN
+      IF (npromz == nproma) chk_blocks = nblks + 1
+    ENDIF
 
     ! consistency check
     IF ( (SIZE(p_divided_int_array_out,1) /= nproma) .OR.  &
-      &  (SIZE(p_divided_int_array_out,2) >  nblks) ) THEN
+      &  (SIZE(p_divided_int_array_out,2) >  chk_blocks) ) THEN
       CALL finish(routine, "Internal error!")
     END IF
 
