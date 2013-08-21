@@ -147,6 +147,9 @@ USE mo_turbdiff_config,      ONLY: turbdiff_config
 IMPLICIT NONE
 PUBLIC
 
+REAL(KIND=ireals), POINTER :: &
+    impl_weight(:)           ! implicit weights for tridiagonal solver
+
 !
 ! Switches controlling turbulent diffusion:
 ! ------------------------------------------
@@ -200,6 +203,8 @@ LOGICAL :: &
 
      INTEGER (KIND=iintegers), INTENT(IN) :: jg !patch index
 
+     impl_weight => turbdiff_config(jg)%impl_weight
+     
      lsso         =(atm_phy_nwp_config(jg)%inwp_sso.GT.0)
      lconv        =(atm_phy_nwp_config(jg)%inwp_convection.GT.0)
 

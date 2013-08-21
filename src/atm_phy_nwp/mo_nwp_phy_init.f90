@@ -52,12 +52,12 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish,message_text
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
-                                    igme, iedmf, ivdiff  
+                                    igme, iedmf, ivdiff, SUCCESS, MAX_CHAR_LENGTH   
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -93,8 +93,9 @@ MODULE mo_nwp_phy_init
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
-  USE mo_data_turbdiff,       ONLY: get_turbdiff_param, &
-    &                               lsflcnd
+  USE mo_data_turbdiff,       ONLY: get_turbdiff_param, lsflcnd, &
+                                    impl_s, impl_t,              &
+                                    impl_weight
   USE src_turbdiff_new,       ONLY: organize_turbdiff
   USE src_turbdiff,           ONLY: turbtran, turbdiff
 
@@ -191,6 +192,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   INTEGER :: khydromet, ktrac
 
+  INTEGER :: k1500m                  ! index of first half level above 1500m
+  INTEGER :: istatus=0
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+     routine = 'mo_nwp_phy_init:init_nwp_phy'
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -415,6 +421,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !   write(0,*) "=============================================="
 
 
+  ! index of first half level with height >= 1500 m (above boundary layer)
+  k1500m = 1
+  
   !--------------------------------------------------------------
   !>reference pressure according to U.S. standard atmosphere
   ! (with the caveat that the stratosphere is assumed isothermal, which does not hurt
@@ -425,6 +434,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_standardatm))
   DO jk = nlev, 1, -1
     jk1 = jk + nshift
+    IF ( vct_a(jk1) >= 1500.0_wp .AND. vct_a(jk1+1) < 1500.0_wp ) THEN
+      k1500m = jk1
+    END IF
     zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
     IF (zfull < htropo) THEN
       temp = t00 + dtdz_standardatm*zfull
@@ -858,7 +870,34 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
+    ! allocate and init implicit weights for tridiagonal solver
+    ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
+              STAT=istatus )
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of impl_weight failed')
+    ENDIF
+
     CALL get_turbdiff_param(jg)
+
+    ! using an over implicit value (impl_s) near surface,
+    ! reduced to in general slightly off-centered value (impl_t)
+    ! in about 1500 m height      
+    DO jk = 1, k1500m
+      impl_weight(jk) = impl_t
+    END DO
+    DO jk = k1500m+1, nlev
+      impl_weight(jk) = impl_t &
+                      + (impl_s-impl_t) * (jk-k1500m) / REAL(nlev-k1500m, wp)
+    END DO
+    impl_weight(nlevp1) = impl_s
+
+    ! using constant implicit value      
+! JF:     impl_weight(:) = impl_t
+
+! JF:     DO jk = 1, nlevp1
+! JF:       PRINT *, "JF:  jg:", jg, " k:", jk, "   impl_weight(k): ", impl_weight(jk)
+! JF:     END DO
 
 
     rl_start = 1 ! Initialization is done also for nest boundary points

@@ -60,6 +60,9 @@ MODULE mo_turbdiff_config
 
     ! namelist variables
 
+    REAL(wp), DIMENSION(:), POINTER :: &
+      &  impl_weight    ! implicit weights for tridiagonal solver
+
     INTEGER :: &   ! type of surface-atmosphere transfer
       &  itype_tran
     INTEGER :: &   ! mode of surface-atmosphere transfer
