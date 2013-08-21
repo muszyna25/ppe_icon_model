@@ -152,10 +152,10 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: init_ls_forcing
-  USE mo_nh_latbc,            ONLY: allocate_latbc_data , read_latbc_data, &
+  USE mo_nh_latbc,            ONLY: prepare_latbc_data , read_latbc_data, &
     &                               deallocate_latbc_data, p_latbc_data,   &
-    &                               last_latbc_datetime, adjust_boundary_data, &
-    &                               read_latbc_tlev, last_latbc_tlev
+    &                               adjust_boundary_data, read_latbc_tlev, &
+    &                               last_latbc_tlev, update_lin_interc
   USE mo_interface_les,       ONLY: les_phy_interface
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
@@ -315,6 +315,14 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping ()
 
+  ! Read first two time levels for lateral boundary data nudging
+  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
+    CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), &
+      &                  ext_data(1), datetime)
+    CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), &
+      &                  ext_data(1), datetime)
+  ENDIF
+
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
 
@@ -381,15 +389,15 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
+    ! fix the first grf_bdywidth(=4) boundary cell-layers
+    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+      CALL adjust_boundary_data ( p_patch(1), datetime, nnow(1), p_nh_state(1) )
+
     IF (output_mode%l_vlist) THEN
       CALL write_output( datetime )
       CALL message(TRIM(routine),'Initial Output')
       l_have_output = .TRUE.
     END IF
-
-    ! fix the first grf_bdywidth(=4) boundary cell-layers
-    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
-      CALL adjust_boundary_data ( p_patch(1), 0._wp, 1._wp, nnow(1), p_nh_state(1) )
 
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output( datetime, 0._wp, .FALSE. )
@@ -509,20 +517,9 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime)
 
-    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
-
-      ! Check if we need to read boundary data
-      CALL date_to_time(datetime)
-      CALL date_to_time(last_latbc_datetime)
-      latbc_elapsed = (last_latbc_datetime%calday - datetime%calday + &
-        last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-
-      IF (latbc_elapsed .LT. 0._wp) THEN
-        CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-        CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
-      ENDIF
-
-    ENDIF
+    ! read boundary data if necessary
+    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
     CALL message(TRIM(routine),message_text)
@@ -849,7 +846,7 @@ MODULE mo_nh_stepping
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
 
-    REAL(wp) :: latbc_inter1, latbc_inter2 ! interpolation coeffs for lateral boundaries
+    REAL(wp) :: latbc_lc1, latbc_lc2 ! interpolation coeffs for lateral boundaries
     
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
@@ -887,24 +884,21 @@ MODULE mo_nh_stepping
 
       IF (latbc_config%itype_latbc .GT. 0) THEN
         
-        ! compute the coefficients for the linear interpolation
-        CALL date_to_time(datetime)
-        CALL date_to_time(last_latbc_datetime)
-        latbc_inter2 = (last_latbc_datetime%calday - datetime%calday + &
-          last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-        latbc_inter2 = latbc_inter2 / latbc_config%dtime_latbc
-        latbc_inter1 = 1._wp - latbc_inter2
+        ! update the coefficients for the linear interpolation
+        CALL update_lin_interc( datetime )
+        latbc_lc1 = latbc_config%lc1
+        latbc_lc2 = latbc_config%lc2
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%vn &
-          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%vn
-        p_nh_state(jg)%prog(n_save)%w = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w &
-          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w
-        p_nh_state(jg)%prog(n_save)%rho = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho &
-          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
-          + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
+        p_nh_state(jg)%prog(n_save)%vn = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%vn &
+          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%vn
+        p_nh_state(jg)%prog(n_save)%w = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%w &
+          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%w
+        p_nh_state(jg)%prog(n_save)%rho = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%rho &
+          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%rho
+        p_nh_state(jg)%prog(n_save)%theta_v = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
+          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
           
@@ -1020,7 +1014,7 @@ MODULE mo_nh_stepping
         ! written to the grf_tend fields
 
         if (latbc_config%itype_latbc .GT. 0) &
-          &   CALL adjust_boundary_data ( p_patch(jg), latbc_inter1, latbc_inter2, &
+          &   CALL adjust_boundary_data ( p_patch(jg), datetime, &
           &                               nnow(jg), p_nh_state(jg) )
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
@@ -2293,17 +2287,8 @@ MODULE mo_nh_stepping
   ENDDO
 
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
-    CALL allocate_latbc_data(p_patch(1), p_nh_state(1), ext_data(1))
-
-    ! read the first time level...
-    last_latbc_datetime = time_config%ini_datetime
-    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
-    
-    ! ... and also the second
-    CALL add_time(latbc_config%dtime_latbc,0,0,0,last_latbc_datetime)
-    CALL read_latbc_data(p_patch, p_nh_state(1), p_int_state(1), ext_data(1), last_latbc_datetime)
-  ENDIF
+  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+    &   CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
 
 END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------

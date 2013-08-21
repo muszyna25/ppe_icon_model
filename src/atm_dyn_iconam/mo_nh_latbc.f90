@@ -74,7 +74,7 @@ MODULE mo_nh_latbc
     &                               SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_datetime,            ONLY: t_datetime
+  USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen
   USE mo_time_config,         ONLY: time_config
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
@@ -100,9 +100,10 @@ MODULE mo_nh_latbc
   TYPE(t_initicon_state) :: p_latbc_data(2)     ! storage for two time-level boundary data
   INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
 
-  PUBLIC :: allocate_latbc_data, read_latbc_data, deallocate_latbc_data,  &
+  PUBLIC :: prepare_latbc_data, read_latbc_data, deallocate_latbc_data,  &
     &       p_latbc_data, latbc_fileid, read_latbc_tlev, last_latbc_tlev, &
-    &       last_latbc_datetime, adjust_boundary_data
+    &       last_latbc_datetime, adjust_boundary_data,                    &
+    &       update_lin_interc
 
   CONTAINS
 
@@ -115,8 +116,9 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
-  SUBROUTINE allocate_latbc_data(patch, p_nh_state, ext_data)
-    TYPE(t_patch),          INTENT(IN)  :: patch
+  SUBROUTINE prepare_latbc_data(p_patch, p_int_state, p_nh_state, ext_data)
+    TYPE(t_patch),          INTENT(IN)  :: p_patch
+    TYPE(t_int_state),      INTENT(IN)  :: p_int_state
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
@@ -128,6 +130,7 @@ MODULE mo_nh_latbc
       "mo_nh_latbc::allocate_latbc_data"
 
     CALL message(TRIM(routine),'start')
+
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
@@ -141,11 +144,11 @@ MODULE mo_nh_latbc
 
     last_latbc_datetime = time_config%ini_datetime
 
-    nlev = patch%nlev
-    nlevp1 = nlev + 1
-    nblks_c = patch%nblks_c
-    nblks_v = patch%nblks_v
-    nblks_e = patch%nblks_e
+    nlev    = p_patch%nlev
+    nlevp1  = nlev + 1
+    nblks_c = p_patch%nblks_c
+    nblks_v = p_patch%nblks_v
+    nblks_e = p_patch%nblks_e
 
     DO tlev = 1, 2
       ! Basic icon_remap data
@@ -187,7 +190,7 @@ MODULE mo_nh_latbc
                p_latbc_data(tlev)%atm%qs       (nproma,nlev  ,nblks_c)  )
                
       ! allocate anyway (sometimes not needed)
-      ALLOCATE(p_latbc_data(tlev)%atm_in%vn(nproma,nlev_in,patch%nblks_e))
+      ALLOCATE(p_latbc_data(tlev)%atm_in%vn(nproma,nlev_in,p_patch%nblks_e))
 
       ! topography and metrics are time independent
 !$OMP PARALLEL
@@ -201,13 +204,24 @@ MODULE mo_nh_latbc
 
     END DO
 
+    ! last reading-in time is the initial time
+    last_latbc_datetime = time_config%ini_datetime
+
     ! prepare read/last indices
     read_latbc_tlev = 1   ! read in the first time-level slot
     last_latbc_tlev = 2
+    
+    ! read first two time steps
+    CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
+      &                   time_config%ini_datetime, lopt_check_read=.FALSE.,  &
+      &                   lopt_time_incr=.FALSE.                              )
+    CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
+      &                   time_config%ini_datetime, lopt_check_read=.FALSE.,  &
+      &                   lopt_time_incr=.TRUE.                               )
 
     CALL message(TRIM(routine),'done')
 
-  END SUBROUTINE allocate_latbc_data
+  END SUBROUTINE prepare_latbc_data
   !-------------------------------------------------------------------------
 
 
@@ -222,22 +236,59 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-19)
   !!
-  SUBROUTINE read_latbc_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
-    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
-    TYPE(t_int_state),      INTENT(IN)  :: p_int
-    TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
-    TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
+  SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, ext_data, datetime, &
+    &                         lopt_check_read, lopt_time_incr )
+    TYPE(t_patch),          INTENT(IN)    :: p_patch
+    TYPE(t_nh_state),       INTENT(IN)    :: p_nh_state  !< nonhydrostatic state on the global domain
+    TYPE(t_int_state),      INTENT(IN)    :: p_int
+    TYPE(t_external_data),  INTENT(IN)    :: ext_data    !< external data on the global domain
+    TYPE(t_datetime),       INTENT(INOUT) :: datetime    !< current time
+    LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
+    LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
+    LOGICAL                               :: lcheck_read
+    LOGICAL                               :: ltime_incr
+    REAL                                  :: tdiff
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
-                                                       
+
+    IF (PRESENT(lopt_check_read)) THEN
+      lcheck_read = lopt_check_read
+    ELSE
+      lcheck_read = .TRUE.
+    ENDIF
+
+    IF (PRESENT(lopt_time_incr)) THEN
+      ltime_incr = lopt_time_incr
+    ELSE
+      ltime_incr = .TRUE.
+    ENDIF
+
+    !
+    ! do we need to read boundary data
+    !
+    IF (lcheck_read) THEN
+      CALL date_to_time(datetime)
+      tdiff = (last_latbc_datetime%calday - datetime%calday + &
+        last_latbc_datetime%caltime - datetime%caltime)*rdaylen
+      IF (tdiff .GE. 0.) RETURN
+    ENDIF
+
+    ! Prepare the last_latbc_datetime for the next time level
+    IF (ltime_incr) THEN
+      CALL add_time( latbc_config%dtime_latbc, 0, 0, 0, last_latbc_datetime )
+      CALL date_to_time(last_latbc_datetime)
+    ENDIF
+
+    !
+    ! start reading boundary data
+    !
     SELECT CASE (latbc_config%itype_latbc)
     CASE(1)
       CALL message(TRIM(routine), 'IFS boundary data')
-      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data, latbc_datetime )
+      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data )
     CASE(2)
       CALL message(TRIM(routine), 'ICON output boundary data')
-      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data, latbc_datetime )
+      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data )
     END SELECT
 
     ! Adjust read/last indices
@@ -260,15 +311,13 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
-  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
-    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
+  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int, ext_data)
+    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
-    TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
 
     ! local variables
-    TYPE(t_patch), POINTER              :: patch
     INTEGER                             :: jc,je,jk,jb                ! loop indices
     INTEGER                             :: nblks_c, nblks_e           ! number of blocks
     INTEGER                             :: i_startblk, i_endblk
@@ -277,16 +326,15 @@ MODULE mo_nh_latbc
                                            latbc_fileid, no_levels
     LOGICAL                             :: l_exist
     INTEGER, POINTER                    :: iidx(:,:,:), iblk(:,:,:)
-    REAL(wp)                            :: temp_v(nproma,p_patch(1)%nlev,p_patch(1)%nblks_c), &
+    REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c), &
       &                                    vn, w, rho, theta_v
     INTEGER                             :: tlev
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
 
-    patch          => p_patch(1)                                        
-    iidx           => patch%edges%cell_idx
-    iblk           => patch%edges%cell_blk
+    iidx           => p_patch%edges%cell_idx
+    iblk           => p_patch%edges%cell_blk
 
     nlev_in = latbc_config%nlev_in
     tlev = read_latbc_tlev
@@ -298,7 +346,7 @@ MODULE mo_nh_latbc
     ENDIF
 
     IF (my_process_is_stdio()) THEN
-      latbc_full_filename = generate_filename(nroot, patch%level, latbc_datetime)
+      latbc_full_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
       WRITE(message_text,'(a,a)') 'reading from ', TRIM(latbc_full_filename)
       CALL message(TRIM(routine), message_text)
@@ -328,7 +376,7 @@ MODULE mo_nh_latbc
       !
       ! check the number of cells and vertical levels
       !
-      IF(patch%n_patch_cells_g /= no_cells) THEN
+      IF(p_patch%n_patch_cells_g /= no_cells) THEN
         CALL finish(TRIM(routine),&
         & 'n_patch_cells_g and cells in IFS2ICON file do not match.')
       ENDIF
@@ -343,56 +391,56 @@ MODULE mo_nh_latbc
     !
     ! read prognostic 3d fields
     !
-    CALL read_netcdf_data_single( latbc_fileid, 'temp', patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%temp     )
+    CALL read_netcdf_data_single( latbc_fileid, 'temp',   p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%temp   )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'u',    patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm_in%u     )
+    CALL read_netcdf_data_single( latbc_fileid, 'u',      p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%u   )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'v',    patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm_in%v     )
+    CALL read_netcdf_data_single( latbc_fileid, 'v',      p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%v   )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'w',    patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlevp1,         p_latbc_data(tlev)%atm%w        )
+    CALL read_netcdf_data_single( latbc_fileid, 'w',      p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlevp1,         p_latbc_data(tlev)%atm%w      )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'pres', patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%pres     )
+    CALL read_netcdf_data_single( latbc_fileid, 'pres',   p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%pres   )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'qv',   patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%qv       )
+    CALL read_netcdf_data_single( latbc_fileid, 'qv',     p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qv     )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'qc',   patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%qc       )
+    CALL read_netcdf_data_single( latbc_fileid, 'qc',     p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qc     )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'qi',   patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%qi       )
+    CALL read_netcdf_data_single( latbc_fileid, 'qi',     p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qi     )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'qr',   patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%qr       )
+    CALL read_netcdf_data_single( latbc_fileid, 'qr',     p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qr     )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'qs',   patch%n_patch_cells_g,          &
-      &                           patch%n_patch_cells,  patch%cells%glb_index,          &
-      &                           patch%nlev,           p_latbc_data(tlev)%atm%qs       )
+    CALL read_netcdf_data_single( latbc_fileid, 'qs',     p_patch%n_patch_cells_g,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qs     )
 
     !
     ! Convert u and v on cell points to vn at edge points
     !
-    CALL interp_uv_2_vn( patch, p_int, p_latbc_data(tlev)%atm_in%u,                     &
+    CALL interp_uv_2_vn( p_patch, p_int, p_latbc_data(tlev)%atm_in%u,                   &
       &                  p_latbc_data(tlev)%atm_in%v, p_latbc_data(tlev)%atm%vn )
 
     !
     ! Compute virtual temperature
     !
-    CALL virtual_temp( patch, p_latbc_data(tlev)%atm%temp, p_latbc_data(tlev)%atm%qv,   &
+    CALL virtual_temp( p_patch, p_latbc_data(tlev)%atm%temp, p_latbc_data(tlev)%atm%qv, &
       &                p_latbc_data(tlev)%atm%qc, p_latbc_data(tlev)%atm%qi,            &
       &                p_latbc_data(tlev)%atm%qr, p_latbc_data(tlev)%atm%qs,            &
       &                temp_v )
@@ -400,15 +448,15 @@ MODULE mo_nh_latbc
     !
     ! Compute NH prognostic thermodynamical variables 
     !
-    CALL convert_thdvars( patch, p_latbc_data(tlev)%atm%pres, temp_v,                   &
+    CALL convert_thdvars( p_patch, p_latbc_data(tlev)%atm%pres, temp_v,                 &
       &                   p_latbc_data(tlev)%atm%rho,                                   &
       &                   p_latbc_data(tlev)%atm%exner,                                 &
       &                   p_latbc_data(tlev)%atm%theta_v )
 
-    CALL sync_patch_array(SYNC_E, patch, p_latbc_data(tlev)%atm%vn)
-    CALL sync_patch_array(SYNC_C, patch, p_latbc_data(tlev)%atm%w)
-    CALL sync_patch_array(SYNC_C, patch, p_latbc_data(tlev)%atm%theta_v)
-    CALL sync_patch_array(SYNC_C, patch, p_latbc_data(tlev)%atm%rho)
+    CALL sync_patch_array(SYNC_E, p_patch, p_latbc_data(tlev)%atm%vn)
+    CALL sync_patch_array(SYNC_C, p_patch, p_latbc_data(tlev)%atm%w)
+    CALL sync_patch_array(SYNC_C, p_patch, p_latbc_data(tlev)%atm%theta_v)
+    CALL sync_patch_array(SYNC_C, p_patch, p_latbc_data(tlev)%atm%rho)
 
     !
     ! close file
@@ -437,15 +485,13 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
-  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data, latbc_datetime)
-    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch(:)
+  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data)
+    TYPE(t_patch),          INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
-    TYPE(t_datetime),       INTENT(IN)  :: latbc_datetime
 
     ! local variables
-    TYPE(t_patch), POINTER              :: patch
     INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
                                             latbc_fileid, no_levels, varid
     LOGICAL                             :: l_exist
@@ -454,7 +500,6 @@ MODULE mo_nh_latbc
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
     INTEGER                             :: tlev
                                             
-    patch     => p_patch(1)                                        
     nlev_in   = latbc_config%nlev_in
     tlev      = read_latbc_tlev
       
@@ -465,7 +510,7 @@ MODULE mo_nh_latbc
     ENDIF
 
     IF (my_process_is_stdio()) THEN
-      latbc_full_filename = generate_filename(nroot, patch%level, latbc_datetime)
+      latbc_full_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
       WRITE(message_text,'(a,a)') 'reading from', TRIM(latbc_full_filename)
       CALL message(TRIM(routine), message_text)
@@ -495,7 +540,7 @@ MODULE mo_nh_latbc
       !
       ! check the number of cells and vertical levels
       !
-      IF(patch%n_patch_cells_g /= no_cells) THEN
+      IF(p_patch%n_patch_cells_g /= no_cells) THEN
         CALL finish(TRIM(routine),&
         & 'n_patch_cells_g and cells in IFS2ICON file do not match.')
       ENDIF
@@ -563,64 +608,64 @@ MODULE mo_nh_latbc
 
     
     !
-    ! read correct prognostic 3d fields from IFS2ICON file
+    ! read IFS data
     !
-    CALL read_netcdf_data_single( latbc_fileid, 'T', patch%n_patch_cells_g,           &
-                                  patch%n_patch_cells, patch%cells%glb_index,         &
+    CALL read_netcdf_data_single( latbc_fileid, 'T', p_patch%n_patch_cells_g,           &
+                                  p_patch%n_patch_cells, p_patch%cells%glb_index,       &
                                   nlev_in, p_latbc_data(tlev)%atm_in%temp )
 
     IF (lread_vn) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'VN', patch%n_patch_edges_g,        &
-        &                     patch%n_patch_edges, patch%edges%glb_index,             &
+      CALL read_netcdf_data_single( latbc_fileid, 'VN', p_patch%n_patch_edges_g,        &
+        &                     p_patch%n_patch_edges, p_patch%edges%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%vn )
     ELSE
-      CALL read_netcdf_data_single( latbc_fileid, 'U', patch%n_patch_cells_g,         &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+      CALL read_netcdf_data_single( latbc_fileid, 'U', p_patch%n_patch_cells_g,         &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%u )
 
-      CALL read_netcdf_data_single( latbc_fileid, 'V', patch%n_patch_cells_g,         &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+      CALL read_netcdf_data_single( latbc_fileid, 'V', p_patch%n_patch_cells_g,         &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%v )
     ENDIF
 
-    CALL read_netcdf_data_single( latbc_fileid, 'W', patch%n_patch_cells_g,           &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%omega )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'QV', patch%n_patch_cells_g,          &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data_single( latbc_fileid, 'QV', p_patch%n_patch_cells_g,          &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qv )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'QC', patch%n_patch_cells_g,          &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data_single( latbc_fileid, 'QC', p_patch%n_patch_cells_g,          &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qc )
 
-    CALL read_netcdf_data_single( latbc_fileid, 'QI', patch%n_patch_cells_g,          &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data_single( latbc_fileid, 'QI', p_patch%n_patch_cells_g,          &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qi )
 
     IF (lread_qr) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'QR', patch%n_patch_cells_g,        &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+      CALL read_netcdf_data_single( latbc_fileid, 'QR', p_patch%n_patch_cells_g,        &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qr )
     ELSE
       p_latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
     ENDIF
 
     IF (lread_qs) THEN
-      CALL read_netcdf_data_single( latbc_fileid, 'QS', patch%n_patch_cells_g,        &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+      CALL read_netcdf_data_single( latbc_fileid, 'QS', p_patch%n_patch_cells_g,        &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qs )
     ELSE
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
-    CALL read_netcdf_data( latbc_fileid, TRIM(psvar), patch%n_patch_cells_g,          &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data( latbc_fileid, TRIM(psvar), p_patch%n_patch_cells_g,          &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%psfc )
 
-    CALL read_netcdf_data( latbc_fileid, TRIM(geop_ml_var), patch%n_patch_cells_g,    &
-        &                     patch%n_patch_cells, patch%cells%glb_index,             &
+    CALL read_netcdf_data( latbc_fileid, TRIM(geop_ml_var), p_patch%n_patch_cells_g,    &
+        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%phi_sfc )
       
     !
@@ -635,7 +680,7 @@ MODULE mo_nh_latbc
     !
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
-    CALL vert_interp(patch, p_int, p_nh_state%metrics, p_latbc_data(tlev))
+    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, p_latbc_data(tlev))
 
   END SUBROUTINE read_latbc_ifs_data
   !-------------------------------------------------------------------------
@@ -720,10 +765,9 @@ MODULE mo_nh_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-08-02)
   !!
-  SUBROUTINE adjust_boundary_data ( p_patch, latbc_inter1, latbc_inter2, &
-    &                               tlev, p_nh_state )
+  SUBROUTINE adjust_boundary_data ( p_patch, datetime, tlev, p_nh_state )
     TYPE(t_patch),    INTENT(IN)    :: p_patch
-    REAL(wp),         INTENT(IN)    :: latbc_inter1, latbc_inter2
+    TYPE(t_datetime), INTENT(INOUT) :: datetime
     INTEGER,          INTENT(IN)    :: tlev   ! nnow or nnew
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state
 
@@ -732,9 +776,16 @@ MODULE mo_nh_latbc
       &                                i_startidx, i_endidx
     INTEGER                         :: ic, jc, jk, jb, je
     INTEGER                         :: nlev, nlevp1
+    REAL(wp)                        :: lc1, lc2
 
     nlev = p_patch%nlev
     nlevp1 = p_patch%nlevp1
+
+    ! compute time integration coefficient
+    CALL update_lin_interc(datetime)
+
+    lc1 = latbc_config%lc1
+    lc2 = latbc_config%lc2
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -751,8 +802,8 @@ MODULE mo_nh_latbc
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
           p_nh_state%prog(tlev)%vn(je,jk,jb) = &
-            &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%vn(je,jk,jb) &
-            &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%vn(je,jk,jb)
+            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%vn(je,jk,jb) &
+            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%vn(je,jk,jb)
         ENDDO
       ENDDO
     ENDDO
@@ -772,12 +823,12 @@ MODULE mo_nh_latbc
         DO jc = i_startidx, i_endidx
 
           p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
-            &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
-            &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
+            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
+            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
 
           p_nh_state%prog(tlev)%theta_v(jc,jk,jb) = &
-            &   latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
-            &   + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
+            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
+            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
 
           ! Diagnose rhotheta from rho and theta
           p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb) = &
@@ -789,16 +840,16 @@ MODULE mo_nh_latbc
             & p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb)))
 
           p_nh_state%prog(tlev)%w(jc,jk,jb) = &
-            &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
-            &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
+            &  lc2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
+            &  + lc1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
 
         ENDDO
       ENDDO
 
       DO jc = i_startidx, i_endidx
         p_nh_state%prog(tlev)%w(jc,nlevp1,jb) = &
-          &  latbc_inter2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
-          &  + latbc_inter1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
+          &  lc2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
+          &  + lc1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
       ENDDO
     ENDDO
 !$OMP END DO
@@ -810,6 +861,27 @@ MODULE mo_nh_latbc
       &   p_nh_state%prog(tlev)%rhotheta_v, p_nh_state%prog(tlev)%exner     )
 
   END SUBROUTINE adjust_boundary_data
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !  Update linear interpolation coefficients for a given time stamp
+  !
+  !! @par Revision History
+  !! Initial version by S. Brdar, DWD (2013-08-02)
+  !!
+  SUBROUTINE update_lin_interc( datetime )
+    TYPE(t_datetime),   INTENT(INOUT) :: datetime
+
+    CALL date_to_time(datetime)
+    CALL date_to_time(last_latbc_datetime)
+    latbc_config%lc2 = (last_latbc_datetime%calday - datetime%calday + &
+      last_latbc_datetime%caltime - datetime%caltime)*rdaylen
+    latbc_config%lc2 = latbc_config%lc2 / latbc_config%dtime_latbc
+    latbc_config%lc1 = 1._wp - latbc_config%lc2
+
+  END SUBROUTINE update_lin_interc
   !-------------------------------------------------------------------------
 
 
