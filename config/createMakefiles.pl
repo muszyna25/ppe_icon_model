@@ -45,11 +45,13 @@ foreach $inc ( @incs ) {
     copy ( "include/${inc}", "${build_path}/include/${inc}" );
 }
 
-opendir(DIR, "externals/mtime/include") or die "Unable to open include:$!\n";
-@incs = grep /\.(inc|h)/, readdir(DIR);
-closedir(DIR);
-foreach $inc ( @incs ) {
-    copy ( "externals/mtime/include/${inc}", "${build_path}/include/${inc}" );
+if ( -d "externals/mtime/include" ) {
+    opendir(DIR, "externals/mtime/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach $inc ( @incs ) {
+	copy ( "externals/mtime/include/${inc}", "${build_path}/include/${inc}" );
+    }
 }
 
 # scan dependencies (recursive)
