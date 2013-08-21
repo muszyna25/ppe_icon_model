@@ -183,9 +183,10 @@ CONTAINS
     ! construct and print the table header
     WRITE (dst,*) "" ! new line
     ! first column:
-    width      = table%rowname_len
-    format_str = "(a"//TRIM(int2string(table%rowname_len))//',a)'
-    WRITE (dst,TRIM(format_str), advance='no') " ", "    "
+    DO i=1,table%rowname_len
+      WRITE (dst,'(a)', advance='no') " "
+    END DO
+    WRITE (dst,'(a)', advance='no') DELIMITER
     ! other, TRUE/FALSE columns:
     DO icol = 1, table%n_columns
       title_str = table%column(icol)%title
@@ -199,9 +200,9 @@ CONTAINS
     ! write the table contents
     LOOP : DO i=1,table%n_rows
       ! first column:
-      width      = table%rowname_len
       format_str = "(a"//TRIM(int2string(table%rowname_len))//',a)'
-      WRITE (dst,TRIM(format_str), advance='no') table%rowname(i), "    "
+      title_str  = table%rowname(i)
+      WRITE (dst,TRIM(format_str), advance='no') ADJUSTL(title_str(1:table%rowname_len)), DELIMITER
       ! other, TRUE/FALSE columns:
       DO icol = 1, table%n_columns
         entry_str = get_bool_table_entry(table%rowname(i), table%column(icol))
