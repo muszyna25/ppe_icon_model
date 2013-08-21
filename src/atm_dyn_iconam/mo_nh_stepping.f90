@@ -315,14 +315,6 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping ()
 
-  ! Read first two time levels for lateral boundary data nudging
-  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
-    CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), &
-      &                  ext_data(1), datetime)
-    CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), &
-      &                  ext_data(1), datetime)
-  ENDIF
-
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
 
