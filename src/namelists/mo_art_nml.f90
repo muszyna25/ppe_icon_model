@@ -79,6 +79,8 @@ MODULE mo_art_nml
                                    !< .FALSE.: switch OFF
                                    
     LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
+    
+    LOGICAL :: lart_dust           !< Treatment of mineral dust aerosol (TRUE/FALSE)
 
     LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
 
@@ -104,9 +106,10 @@ MODULE mo_art_nml
 
     CHARACTER (LEN=120) :: radioactfile_path
 
-    NAMELIST/art_nml/ lart, lart_seasalt, lart_volcano, lart_emiss,lart_conv, lart_wash,            &
-   &               lart_rad, lart_cloud, nart_emis_volcano_update,art_volclist_tot,   &
-   &               lart_volclist, volcanofile_path,lart_radioact,lart_decay_radioact, &
+    NAMELIST/art_nml/ lart, lart_seasalt, lart_dust, lart_volcano, lart_emiss,        &
+   &               lart_conv, lart_wash, lart_rad, lart_cloud,                        &
+   &               nart_emis_volcano_update,art_volclist_tot, lart_volclist,          &
+   &               volcanofile_path,lart_radioact,lart_decay_radioact,                &
    &               radioactfile_path
 
 CONTAINS
@@ -143,7 +146,8 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     lart                = .FALSE.        ! ART-package switched off
-    lart_seasalt        = .FALSE.
+    lart_seasalt        = .FALSE.        ! Treatment of sea salt aerosol
+    lart_dust           = .FALSE.        ! Treatment of mineral dust aerosol
     lart_volcano        = .FALSE.        ! Treatment of volcanic ash
     lart_emiss   = .FALSE.        ! Emission of volcanic ash
     lart_conv   = .FALSE.        ! Convection of volcanic ash
@@ -214,21 +218,22 @@ CONTAINS
       ENDDO
       nvolc=nvolc-1
     DO jg= 0,max_dom
-      art_config(jg)%lart          = lart
-      art_config(jg)%lart_seasalt  = lart_seasalt
-      art_config(jg)%lart_volcano     = lart_volcano
-      art_config(jg)%lart_emiss     = lart_emiss
-      art_config(jg)%lart_conv  = lart_conv
-      art_config(jg)%lart_wash  = lart_wash
-      art_config(jg)%lart_rad     = lart_rad
-      art_config(jg)%lart_cloud   = lart_cloud
-      art_config(jg)%nart_emis_volcano_update   = nart_emis_volcano_update 
-      art_config(jg)%lart_volclist=lart_volclist
-      art_config(jg)%nvolc         = nvolc
-      art_config(jg)%volcanofile_path  = volcanofile_path
-      art_config(jg)%lart_radioact = lart_radioact
-      art_config(jg)%lart_decay_radioact = lart_radioact
-      art_config(jg)%radioactfile_path = radioactfile_path
+      art_config(jg)%lart                     = lart
+      art_config(jg)%lart_seasalt             = lart_seasalt
+      art_config(jg)%lart_dust                = lart_dust
+      art_config(jg)%lart_volcano             = lart_volcano
+      art_config(jg)%lart_emiss               = lart_emiss
+      art_config(jg)%lart_conv                = lart_conv
+      art_config(jg)%lart_wash                = lart_wash
+      art_config(jg)%lart_rad                 = lart_rad
+      art_config(jg)%lart_cloud               = lart_cloud
+      art_config(jg)%nart_emis_volcano_update = nart_emis_volcano_update 
+      art_config(jg)%lart_volclist            = lart_volclist
+      art_config(jg)%nvolc                    = nvolc
+      art_config(jg)%volcanofile_path         = volcanofile_path
+      art_config(jg)%lart_radioact            = lart_radioact
+      art_config(jg)%lart_decay_radioact      = lart_radioact
+      art_config(jg)%radioactfile_path        = radioactfile_path
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)
