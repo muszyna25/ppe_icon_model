@@ -59,6 +59,8 @@ MODULE mo_run_config
   PUBLIC :: iCS137_conv,iI131_conv,iTE132_conv,iZR95_conv,iXE133_conv,iI131g_conv,iI131o_conv,iBA140_conv,iRU103_conv !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0
   PUBLIC :: iseasa_conv,iseasb_conv,iseasc_conv,iseasa0_conv,iseasb0_conv,iseasc0_conv
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0
+  PUBLIC :: idusta_conv,idustb_conv,idustc_conv,idusta0_conv,idustb0_conv,idustc0_conv
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -182,6 +184,18 @@ MODULE mo_run_config
     INTEGER :: iseasa0_conv !< Sea Salt Aerosol Mode A Number Density due to convection
     INTEGER :: iseasb0_conv !< Sea Salt Aerosol Mode B Number Density due to convection
     INTEGER :: iseasc0_conv !< Sea Salt Aerosol Mode C Number Density due to convection
+    INTEGER :: idusta       !< Sea Salt Aerosol Mode A Mass Density
+    INTEGER :: idustb       !< Sea Salt Aerosol Mode B Mass Density
+    INTEGER :: idustc       !< Sea Salt Aerosol Mode C Mass Density
+    INTEGER :: idusta0      !< Sea Salt Aerosol Mode A Number Density
+    INTEGER :: idustb0      !< Sea Salt Aerosol Mode B Number Density
+    INTEGER :: idustc0      !< Sea Salt Aerosol Mode C Number Density
+    INTEGER :: idusta_conv  !< Sea Salt Aerosol Mode A Mass Density due to convection
+    INTEGER :: idustb_conv  !< Sea Salt Aerosol Mode B Mass Density due to convection
+    INTEGER :: idustc_conv  !< Sea Salt Aerosol Mode C Mass Density due to convection
+    INTEGER :: idusta0_conv !< Sea Salt Aerosol Mode A Number Density due to convection
+    INTEGER :: idustb0_conv !< Sea Salt Aerosol Mode B Number Density due to convection
+    INTEGER :: idustc0_conv !< Sea Salt Aerosol Mode C Number Density due to convection
 
     REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
 
