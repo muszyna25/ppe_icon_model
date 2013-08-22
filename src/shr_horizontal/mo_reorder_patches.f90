@@ -42,10 +42,10 @@ MODULE mo_reorder_patches
     &                           idx_no, blk_no, idx_1d
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
-  
+
   IMPLICIT NONE
   PRIVATE
-  
+
 
   CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_reorder_patches')
 
@@ -66,14 +66,14 @@ MODULE mo_reorder_patches
     MODULE PROCEDURE reorder_array_pos_t3D
     MODULE PROCEDURE reorder_array_pos_i4D
   END INTERFACE
-  
+
   INTERFACE reorder_array_content
     MODULE PROCEDURE reorder_array_content_i1D
     MODULE PROCEDURE reorder_array_content_i2D
     MODULE PROCEDURE reorder_array_content_i3D
     MODULE PROCEDURE reorder_array_content_i4D
   END INTERFACE
-   
+
 CONTAINS
 
   !> In-situ reordering of patch CELLS according to a given
@@ -116,7 +116,7 @@ CONTAINS
     CALL reorder_array_pos(pp%cells%area,            idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%center,          idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%cartesian_center,idx_old2new,      pp%nblks_c, pp%npromz_c)
-!    IF (ASSOCIATED(pp%cells%radiation_owner)) THEN 
+!    IF (ASSOCIATED(pp%cells%radiation_owner)) THEN
 !      CALL reorder_array_pos(pp%cells%radiation_owner, idx_old2new,      pp%n_patch_cells)
 !    END IF
     CALL reorder_array_pos(pp%cells%owner_local,     idx_old2new,      pp%n_patch_cells)
@@ -129,7 +129,7 @@ CONTAINS
       &                        pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%neighbor_idx,    idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%neighbor_blk,    idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
-    
+
     ! in this patch: translate contents of edges data structure
     CALL reorder_array_content(pp%edges%cell_idx, pp%edges%cell_blk, idx_old2new, &
       &                        pp%nblks_e, pp%npromz_e, 1, 2)
@@ -339,7 +339,7 @@ CONTAINS
 
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -359,7 +359,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_i1D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -386,7 +386,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_i2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, LOGICALS.
   !
   !  @todo OpenMP parallelization.
@@ -413,7 +413,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_l2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, REALS.
   !
   !  @todo OpenMP parallelization.
@@ -440,7 +440,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_r2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, geographical coordinates.
   !
   !  @todo OpenMP parallelization.
@@ -467,7 +467,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_g2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, t_tangent_vectors.
   !
   !  @todo OpenMP parallelization.
@@ -494,7 +494,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_t2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  2D implementation, t_cartesian_coordinates
   !
   !  @todo OpenMP parallelization.
@@ -521,7 +521,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_c2D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  3D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -570,7 +570,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_i3D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  4D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -604,7 +604,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_i4D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  3D implementation, REALS.
   !
   !  @todo OpenMP parallelization.
@@ -649,7 +649,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_r3D
 
 
-  !> reorder array entries according to a given permutation array. 
+  !> reorder array entries according to a given permutation array.
   !  3D implementation, REALS.
   !
   !  @todo OpenMP parallelization.
@@ -694,7 +694,7 @@ CONTAINS
   END SUBROUTINE reorder_array_pos_t3D
 
 
-  !> translate array content according to a given permutation array. 
+  !> translate array content according to a given permutation array.
   !  3D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -717,7 +717,7 @@ CONTAINS
   END SUBROUTINE reorder_array_content_i1D
 
 
-  !> translate array content according to a given permutation array. 
+  !> translate array content according to a given permutation array.
   !  3D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -754,7 +754,7 @@ CONTAINS
   END SUBROUTINE reorder_array_content_i2D
 
 
-  !> translate array content according to a given permutation array. 
+  !> translate array content according to a given permutation array.
   !  3D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
@@ -829,7 +829,7 @@ CONTAINS
   END SUBROUTINE reorder_array_content_i3D
 
 
-  !> translate array content according to a given permutation array. 
+  !> translate array content according to a given permutation array.
   !  3D implementation, INTEGERS.
   !
   !  @todo OpenMP parallelization.
