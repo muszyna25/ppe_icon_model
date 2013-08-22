@@ -829,7 +829,6 @@ CONTAINS
     flag2_e(:) = -1
     flag2_v(:) = -1
 
-    jg = wrk_p_patch_g%id
     i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
 
     ! find inner edges/verts and ghost cells/edges/verts
@@ -1268,7 +1267,7 @@ CONTAINS
         ENDDO
       ENDDO
       ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
+      IF (wrk_p_patch_g%id == 0) THEN
         ilev1 = min_rlcell_int
         ilev_st = 1
       ELSE
@@ -1461,7 +1460,7 @@ CONTAINS
         ENDIF
       ENDDO
       ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
+      IF (wrk_p_patch_g%id == 0) THEN
         ilev1 = min_rledge_int
         ilev_st = 1
       ELSE
@@ -1644,7 +1643,7 @@ CONTAINS
         ENDIF
       ENDDO
       ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
+      IF (wrk_p_patch_g%id == 0) THEN
         ilev1 = min_rlvert_int
         ilev_st = 1
       ELSE
