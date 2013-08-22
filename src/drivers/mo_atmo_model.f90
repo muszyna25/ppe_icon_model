@@ -377,7 +377,7 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    CALL build_decomposition(num_lev,num_levp1,nshift, l_is_ocean=.FALSE.,  &
+    CALL build_decomposition(num_lev,num_levp1,nshift,  is_ocean_decomposition = .false., &
       &                      l_restore_states=lrestore_states)
 
     !--------------------------------------------------------------------------------

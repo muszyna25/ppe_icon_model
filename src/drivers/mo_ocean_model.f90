@@ -238,8 +238,8 @@ CONTAINS
 
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
-    CALL build_decomposition(num_lev,num_levp1,nshift,&
-      &                      .TRUE.,lrestore_states,patch_3D)
+    CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
+      & l_restore_states=lrestore_states, patch_3d=patch_3D)
     CALL construct_icon_communication(patch_3D%p_patch_2D(:), n_dom=1)
 
     !--------------------------------------------        
@@ -266,7 +266,7 @@ CONTAINS
 
     DO jg =1,n_dom
       !The 3D-ocean version of previous calls 
-      CALL configure_advection( jg, p_patch_3D%p_patch_2D(jg)%nlev, p_patch_3D%p_patch_2D(1)%nlev, &
+      CALL configure_advection( jg, patch_3D%p_patch_2D(jg)%nlev, patch_3D%p_patch_2D(1)%nlev, &
         &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
         &                      0, 1, .false., .true., ntracer )
     ENDDO
