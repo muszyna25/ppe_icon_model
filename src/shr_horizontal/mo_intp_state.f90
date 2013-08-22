@@ -1588,67 +1588,16 @@ SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
   REAL(wp), INTENT(IN)    :: arri(:,:)
   REAL(wp), INTENT(INOUT) :: arro(:,:)
   ! local variables
-  LOGICAL, PARAMETER :: luse_comm_pattern = .TRUE.
-  INTEGER :: i, jb_glb, jc_glb, jb_loc, jc_loc
 
-  IF (luse_comm_pattern) THEN
-
-    IF(typ == SYNC_C) THEN
-      CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
-    ELSEIF(typ == SYNC_E) THEN
-      CALL exchange_data(comm_pat_glb_to_loc_e, RECV=arro, SEND=arri)
-    ELSEIF(typ == SYNC_V) THEN
-      CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
-    ELSE
-      CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
-    ENDIF
-
+  IF(typ == SYNC_C) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
+  ELSEIF(typ == SYNC_E) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_e, RECV=arro, SEND=arri)
+  ELSEIF(typ == SYNC_V) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
   ELSE
-    ! The following code does a direct copy (for sequential
-    ! runs). However, note that even for sequential runs the upper
-    ! branch is used (with trivial communication patterns)!
-
-    IF(typ == SYNC_C) THEN
-      ! do a local copy
-      DO i=1,p_lp%n_patch_cells
-        IF (p_p%cells%owner_g(p_lp%cells%glb_index(i)) >= 0) THEN
-          jb_loc = blk_no(i)
-          jc_loc = idx_no(i)
-          jb_glb = blk_no(p_p%cells%loc_index(p_lp%cells%glb_index(i)))
-          jc_glb = idx_no(p_p%cells%loc_index(p_lp%cells%glb_index(i)))
-          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
-        END IF
-      END DO
-      !
-    ELSEIF(typ == SYNC_E) THEN
-      ! do a local copy
-      DO i=1,p_lp%n_patch_edges
-        IF (p_p%edges%owner_g(p_lp%edges%glb_index(i)) >= 0) THEN
-          jb_loc = blk_no(i)
-          jc_loc = idx_no(i)
-          jb_glb = blk_no(p_p%edges%loc_index(p_lp%edges%glb_index(i)))
-          jc_glb = idx_no(p_p%edges%loc_index(p_lp%edges%glb_index(i)))
-          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
-        END IF
-      END DO
-      !
-    ELSEIF(typ == SYNC_V) THEN
-      ! do a local copy
-      DO i=1,p_lp%n_patch_verts
-        IF (p_p%verts%owner_g(p_lp%verts%glb_index(i)) >= 0) THEN
-          jb_loc = blk_no(i)
-          jc_loc = idx_no(i)
-          jb_glb = blk_no(p_p%verts%loc_index(p_lp%verts%glb_index(i)))
-          jc_glb = idx_no(p_p%verts%loc_index(p_lp%verts%glb_index(i)))
-          arro(jc_loc, jb_loc) = arri(jc_glb,jb_glb)
-        END IF
-      END DO
-      !
-    ELSE
-      CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
-    ENDIF
-
-  END IF
+    CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
+  ENDIF
 
 END SUBROUTINE xfer_var_r2
 
