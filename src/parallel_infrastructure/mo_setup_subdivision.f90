@@ -789,7 +789,6 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
-    LOGICAL :: lcount_flag
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -1155,9 +1154,8 @@ CONTAINS
 
 
     n = 0
-!    lcount_flag = (.NOT. l_compute_grid) .OR. ignore_land_points
-    lcount_flag = (.NOT. l_compute_grid)
-    IF (lcount_flag) THEN
+!    (.NOT. l_compute_grid) .OR. ignore_land_points
+    IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_cells
         IF (flag2_c(j)==0) THEN
           n = n + 1
@@ -1347,7 +1345,8 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (lcount_flag) THEN
+!    (.NOT. l_compute_grid) .OR. ignore_land_points
+    IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_edges
         IF (flag2_e(j)==0) THEN
           n = n + 1
@@ -1529,7 +1528,8 @@ CONTAINS
     !---------------------------------------------------------------------------------------
 
     n = 0
-    IF (lcount_flag) THEN
+!    (.NOT. l_compute_grid) .OR. ignore_land_points
+    IF (.NOT. l_compute_grid) THEN
       DO j = 1, wrk_p_patch_g%n_patch_verts
         IF (flag2_v(j)==0 ) THEN
           n = n + 1
