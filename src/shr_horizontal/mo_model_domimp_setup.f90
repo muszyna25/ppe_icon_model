@@ -1275,20 +1275,20 @@ CONTAINS
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
     IF (patch%cells%in_domain%no_of_holes > 0) THEN
-      IF (get_my_mpi_work_id() == 0) THEN
-        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
-        write(0,*) "=============================="
-        write(0,*) "patch%cells%owner_mask:",patch%cells%owner_mask(:,:)
-        write(0,*) "=============================="
-        write(0,*) "patch%cells%owner:",patch%cells%owner_local(:)
-        write(0,*) "=============================="
-        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
-        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-        write(0,*) "=============================="
-        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
-      ELSE
+!      IF (get_my_mpi_work_id() == 0) THEN
+!        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner_mask:",patch%cells%owner_mask(:,:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner:",patch%cells%owner_local(:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
+!        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!        write(0,*) "=============================="
+!        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
+!      ELSE
         CALL warning(method_name, "patch%cells%in_domain no_of_holes > 0")
-      ENDIF
+!      ENDIF
     ENDIF
     IF (patch%cells%one_edge_in_domain%no_of_holes > 0) &
       CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
