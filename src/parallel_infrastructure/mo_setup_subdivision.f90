@@ -788,7 +788,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
-    LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_v(:)
+    LOGICAL, ALLOCATABLE :: lcount_c(:)
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -1144,10 +1144,8 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     ALLOCATE(lcount_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(lcount_v(wrk_p_patch_g%n_patch_verts))
 
     lcount_c(:) = .FALSE.
-    lcount_v(:) = .FALSE.
 
 
     n = 0
@@ -1368,186 +1366,32 @@ CONTAINS
          refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
 
-    n = 0
-!    (.NOT. l_compute_grid) .OR. ignore_land_points
-    IF (.NOT. l_compute_grid) THEN
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        IF (flag2_v(j)==0 ) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          lcount_v(j) = .TRUE.
-        ELSE
-          wrk_p_patch%verts%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ELSE
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = wrk_p_patch_g%verts%refin_ctrl(jl,jb)
-        IF (flag2_v(j)==0 .OR. irl0==1 .AND. flag2_v(j)>0 .OR. &
-          & (irl0==2 .OR. irl0<0) .AND. flag2_v(j)==1 ) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          lcount_v(j) = .TRUE.
-        ELSE
-          wrk_p_patch%verts%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-
-    ! Set start_idx/blk ... end_idx/blk for verts.
-    ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
-
-    DO j=1,wrk_p_patch%max_childdom
-      DO i=min_rlvert_int,max_rlvert
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%verts%start_idx(i,j),           &
-          & wrk_p_patch_g%verts%start_blk(i,j),           &
-          & wrk_p_patch%verts%start_idx(i,j),             &
-          & wrk_p_patch%verts%start_blk(i,j),             &
-          & +1 )
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%verts%end_idx(i,j),             &
-          & wrk_p_patch_g%verts%end_blk(i,j),             &
-          & wrk_p_patch%verts%end_idx(i,j),               &
-          & wrk_p_patch%verts%end_blk(i,j),               &
-          & -1 )
-      ENDDO
-      ! Preset remaining index sections with dummy values
-      wrk_p_patch%verts%start_idx(min_rlvert:min_rlvert_int-1,j) = -9999
-      wrk_p_patch%verts%start_blk(min_rlvert:min_rlvert_int-1,j) = -9999
-      wrk_p_patch%verts%end_idx(min_rlvert:min_rlvert_int-1,j)   = -9999
-      wrk_p_patch%verts%end_blk(min_rlvert:min_rlvert_int-1,j)   = -9999
-    ENDDO
-
-    IF(.NOT.l_compute_grid) THEN
-      ! Gather all halo vertices at the end of the patch.
-      ! They do not undergo further ordering and will be placed at index level min_rlvert_int-1
-      irlev = min_rlvert_int-1
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        IF(flag2_v(j)>1) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          jb_v = blk_no(n) ! block index
-          jl_v = idx_no(n) ! line index
-          ! This ensures that just the first point found at this irlev is saved as start point
-          IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-            wrk_p_patch%verts%start_idx(irlev,:) = jl_v
-            wrk_p_patch%verts%start_blk(irlev,:) = jb_v
-          ENDIF
-        ENDIF
-      ENDDO
-      ! Set end index when the last point is processed
-      jb_v = blk_no(n) ! block index
-      jl_v = idx_no(n) ! line index
-      wrk_p_patch%verts%end_idx(min_rlvert:irlev,:) = jl_v
-      wrk_p_patch%verts%end_blk(min_rlvert:irlev,:) = jb_v
-      wrk_p_patch%verts%start_idx(min_rlvert:irlev-1,:) = wrk_p_patch%verts%start_idx(irlev,1)
-      wrk_p_patch%verts%start_blk(min_rlvert:irlev-1,:) = wrk_p_patch%verts%start_blk(irlev,1)
-    ELSE
-      ! Gather all halo vertices except those lying in the lateral boundary interpolation zone
-      ! at the end. They are sorted by the flag2_v value and will be placed at the
-      ! index levels between min_rlvert_int-1 and min_rlvert
-      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-      ! cannot be used here
-      DO ilev = 1, n_boundary_rows+1
-        irlev = MAX(min_rlvert, min_rlvert_int - ilev)  ! index section into which the halo points are put
-        DO j = 1, wrk_p_patch_g%n_patch_verts
-          IF (flag2_v(j)==ilev .AND. .NOT. lcount_v(j)) THEN
-            n = n + 1
-            wrk_p_patch%verts%glb_index(n) = j
-            wrk_p_patch%verts%loc_index(j) = n
-            jb_v = blk_no(n) ! block index
-            jl_v = idx_no(n) ! line index
-            ! This ensures that just the first point found at this irlev is saved as start point
-            IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-              wrk_p_patch%verts%start_idx(irlev,:) = jl_v
-              wrk_p_patch%verts%start_blk(irlev,:) = jb_v
-            ENDIF
-            wrk_p_patch%verts%end_idx(irlev,:) = jl_v
-            wrk_p_patch%verts%end_blk(irlev,:) = jb_v
-          ENDIF
-        ENDDO
-        ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-          wrk_p_patch%verts%start_idx(irlev,:) = wrk_p_patch%verts%end_idx(irlev+1,i_nchdom)+1
-          wrk_p_patch%verts%start_blk(irlev,:) = wrk_p_patch%verts%end_blk(irlev+1,i_nchdom)
-          wrk_p_patch%verts%end_idx(irlev,:)   = wrk_p_patch%verts%end_idx(irlev+1,i_nchdom)
-          wrk_p_patch%verts%end_blk(irlev,:)   = wrk_p_patch%verts%end_blk(irlev+1,i_nchdom)
-        ENDIF
-      ENDDO
-      ! Fill start and end indices for remaining index sections
-      IF (wrk_p_patch_g%id == 0) THEN
-        ilev1 = min_rlvert_int
-        ilev_st = 1
-      ELSE
-        ilev1 = MAX(min_rlvert, min_rlvert_int -(n_boundary_rows+1))
-        ilev_st = n_boundary_rows+2
-      ENDIF
-      DO ilev = ilev_st,max_hw+1
-        irlev = MAX(min_rlvert, min_rlvert_int - ilev)  ! index section into which the halo points are put
-        wrk_p_patch%verts%start_idx(irlev,:) = wrk_p_patch%verts%end_idx(ilev1,1) + 1
-        wrk_p_patch%verts%start_blk(irlev,:) = wrk_p_patch%verts%end_blk(ilev1,1)
-        wrk_p_patch%verts%end_idx(irlev,:)   = wrk_p_patch%verts%end_idx(ilev1,1)
-        wrk_p_patch%verts%end_blk(irlev,:)   = wrk_p_patch%verts%end_blk(ilev1,1)
-      ENDDO
-    ENDIF
-
-    ! If a PE owns only nest boundary points, it may happen that one or more index
-    ! sections of halo vertices are empty. These are filled here
-    IF (wrk_p_patch%verts%start_blk(0,1)     > wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
-      .OR. wrk_p_patch%verts%start_blk(0,1) == wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
-      .AND. wrk_p_patch%verts%start_idx(0,1) > wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) &
-      ) THEN
-      DO i = min_rlvert_int-1, min_rlvert, -1
-        IF (wrk_p_patch%verts%start_idx(i,1) == -9999 .OR. &
-            wrk_p_patch%verts%start_blk(i,1) == -9999 .OR. &
-            wrk_p_patch%verts%end_idx(i,1)   == -9999 .OR. &
-            wrk_p_patch%verts%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(i+1,1)
-          wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(i+1,1)
-          wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(i+1,1)
-          wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(i+1,1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Finally, fill start indices of halo rows with meaningful values for empty patches
-    ! (which occur when processor splitting is applied)
-    IF (wrk_p_patch%nblks_v <= 0 .OR. wrk_p_patch%npromz_v <= 0) THEN
-      DO i=min_rlvert,min_rlvert_int-1
-        wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(min_rlvert_int,1)
-        wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(min_rlvert_int,1)
-        wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(min_rlvert_int,1)
-        wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(min_rlvert_int,1)
-      ENDDO
-    ENDIF
-
-    ! special treatment for sequential runs with trivial decomposition
-    IF (MAXVAL(flag2_v) == 0) THEN
-      i_nchdom = MAX(1,wrk_p_patch%n_childdom)
-      wrk_p_patch%verts%end_idx(min_rlvert:min_rlvert_int-1,:) = wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom)
-      wrk_p_patch%verts%end_blk(min_rlvert:min_rlvert_int-1,:) = wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
-
-      IF (wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) == nproma) THEN
-        wrk_p_patch%verts%start_blk(min_rlvert:min_rlvert_int-1,:) = &
-          &   wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) + 1
-        wrk_p_patch%verts%start_idx(min_rlvert:min_rlvert_int-1,:) = 1
-      ELSE
-        wrk_p_patch%verts%start_idx(min_rlvert:min_rlvert_int-1,:) = &
-          &    wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) + 1
-        wrk_p_patch%verts%start_blk(min_rlvert:min_rlvert_int-1,:) = &
-          &   wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
-      END IF
-    END IF
+    CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
+         n_patch_cve_g = wrk_p_patch_g%n_patch_verts, &
+         max_childdom = wrk_p_patch%max_childdom, &
+         nchilddom = MAX(1,wrk_p_patch%n_childdom), &
+         patch_id = wrk_p_patch_g%id, &
+         nblks = wrk_p_patch%nblks_v, &
+         npromz = wrk_p_patch%npromz_v, &
+         min_rlcve = min_rlvert, &
+         min_rlcve_int = min_rlvert_int, &
+         max_rlcve = max_rlvert, &
+         max_ilev = n_boundary_rows+1, &
+         max_hw_cve = max_hw + 1, &
+         flag2 = flag2_v, &
+         glb_index = wrk_p_patch%verts%glb_index, &
+         loc_index = wrk_p_patch%verts%loc_index, &
+         start_idx = wrk_p_patch%verts%start_idx, &
+         start_blk = wrk_p_patch%verts%start_blk, &
+         end_idx = wrk_p_patch%verts%end_idx, &
+         end_blk = wrk_p_patch%verts%end_blk, &
+         start_idx_g = wrk_p_patch_g%verts%start_idx, &
+         start_blk_g = wrk_p_patch_g%verts%start_blk, &
+         end_idx_g = wrk_p_patch_g%verts%end_idx, &
+         end_blk_g = wrk_p_patch_g%verts%end_blk, &
+         l_compute_grid = l_compute_grid, &
+         refin_ctrl = wrk_p_patch_g%verts%refin_ctrl, &
+         refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
     ! Note: the use of write(0,*) instead of CALL message is intended here
@@ -1711,7 +1555,7 @@ CONTAINS
 
     ENDDO
 
-    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_v)
+    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c)
 
   END SUBROUTINE divide_patch
 
@@ -1724,6 +1568,15 @@ CONTAINS
          .OR. ((irl0==3 .OR. irl0==4) .AND. (flag==1 .OR. flag==2)) &
          .OR. ((irl0==5 .OR. irl0==6 .OR. irl0<0) .AND. flag==1)
   END FUNCTION refine_edges
+
+  FUNCTION refine_verts(flag, irl0) RESULT(p)
+    INTEGER, INTENT(in) :: flag, irl0
+    LOGICAL :: p
+
+    p = flag == 0 &
+         .OR.  (irl0 == 1                .AND. flag  > 0) &
+         .OR. ((irl0 == 2 .OR. irl0 < 0) .AND. flag == 1)
+  END FUNCTION refine_verts
 
   SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
        max_childdom, nchilddom, patch_id, nblks, npromz, &
