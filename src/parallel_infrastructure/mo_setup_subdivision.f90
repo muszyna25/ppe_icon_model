@@ -788,7 +788,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
-    LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
+    LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_v(:)
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -1144,11 +1144,9 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     ALLOCATE(lcount_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(lcount_e(wrk_p_patch_g%n_patch_edges))
     ALLOCATE(lcount_v(wrk_p_patch_g%n_patch_verts))
 
     lcount_c(:) = .FALSE.
-    lcount_e(:) = .FALSE.
     lcount_v(:) = .FALSE.
 
 
@@ -1342,188 +1340,32 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------------------------
-
-    n = 0
-!    (.NOT. l_compute_grid) .OR. ignore_land_points
-    IF (.NOT. l_compute_grid) THEN
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        IF (flag2_e(j)==0) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          lcount_e(j) = .TRUE.
-        ELSE
-          wrk_p_patch%edges%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ELSE
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = wrk_p_patch_g%edges%refin_ctrl(jl,jb)
-        IF (flag2_e(j)==0 .OR. ((irl0==1 .OR. irl0==2) .AND. flag2_e(j)>=1) .OR. &
-          & (irl0==3 .OR. irl0==4) .AND. (flag2_e(j)==1 .OR. flag2_e(j)==2) .OR. &
-          & (irl0==5 .OR. irl0==6 .OR. irl0<0) .AND. flag2_e(j)==1 ) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          lcount_e(j) = .TRUE.
-        ELSE
-          wrk_p_patch%edges%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Set start_idx/blk ... end_idx/blk for edges.
-    ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
-
-    DO j=1,wrk_p_patch%max_childdom
-      DO i=min_rledge_int,max_rledge
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%edges%start_idx(i,j),           &
-          & wrk_p_patch_g%edges%start_blk(i,j),           &
-          & wrk_p_patch%edges%start_idx(i,j),             &
-          & wrk_p_patch%edges%start_blk(i,j),             &
-          & +1 )
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%edges%end_idx(i,j),             &
-          & wrk_p_patch_g%edges%end_blk(i,j),             &
-          & wrk_p_patch%edges%end_idx(i,j),               &
-          & wrk_p_patch%edges%end_blk(i,j),               &
-          & -1 )
-      ENDDO
-      ! Preset remaining index sections with dummy values
-      wrk_p_patch%edges%start_idx(min_rledge:min_rledge_int-1,j) = -9999
-      wrk_p_patch%edges%start_blk(min_rledge:min_rledge_int-1,j) = -9999
-      wrk_p_patch%edges%end_idx(min_rledge:min_rledge_int-1,j)   = -9999
-      wrk_p_patch%edges%end_blk(min_rledge:min_rledge_int-1,j)   = -9999
-    ENDDO
-
-    IF(.NOT.l_compute_grid) THEN
-      ! Gather all halo edges at the end of the patch.
-      ! They do not undergo further ordering and will be placed at index level min_rledge_int-1
-      irlev = min_rledge_int-1
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        IF(flag2_e(j)>1) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          jb_e = blk_no(n) ! block index
-          jl_e = idx_no(n) ! line index
-          ! This ensures that just the first point found at this irlev is saved as start point
-          IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-            wrk_p_patch%edges%start_idx(irlev,:) = jl_e
-            wrk_p_patch%edges%start_blk(irlev,:) = jb_e
-          ENDIF
-        ENDIF
-      ENDDO
-      ! Set end index when the last point is processed
-      jb_e = blk_no(n) ! block index
-      jl_e = idx_no(n) ! line index
-      wrk_p_patch%edges%end_idx(min_rledge:irlev,:) = jl_e
-      wrk_p_patch%edges%end_blk(min_rledge:irlev,:) = jb_e
-      wrk_p_patch%edges%start_idx(min_rledge:irlev-1,:) = wrk_p_patch%edges%start_idx(irlev,1)
-      wrk_p_patch%edges%start_blk(min_rledge:irlev-1,:) = wrk_p_patch%edges%start_blk(irlev,1)
-    ELSE
-      ! Gather all halo edges except those lying in the lateral boundary interpolation zone
-      ! at the end. They are sorted by the flag2_e value and will be placed at the
-      ! index levels between min_rledge_int-1 and min_rledge
-      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-      ! cannot be used here
-      DO ilev = 1, 2*n_boundary_rows+1
-        irlev = MAX(min_rledge, min_rledge_int - ilev)  ! index section into which the halo points are put
-        DO j = 1, wrk_p_patch_g%n_patch_edges
-          IF (flag2_e(j)==ilev .AND. .NOT. lcount_e(j)) THEN
-            n = n + 1
-            wrk_p_patch%edges%glb_index(n) = j
-            wrk_p_patch%edges%loc_index(j) = n
-            jb_e = blk_no(n) ! block index
-            jl_e = idx_no(n) ! line index
-            ! This ensures that just the first point found at this irlev is saved as start point
-            IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-              wrk_p_patch%edges%start_idx(irlev,:) = jl_e
-              wrk_p_patch%edges%start_blk(irlev,:) = jb_e
-            ENDIF
-            wrk_p_patch%edges%end_idx(irlev,:) = jl_e
-            wrk_p_patch%edges%end_blk(irlev,:) = jb_e
-          ENDIF
-        ENDDO
-        ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-          wrk_p_patch%edges%start_idx(irlev,:) = wrk_p_patch%edges%end_idx(irlev+1,i_nchdom)+1
-          wrk_p_patch%edges%start_blk(irlev,:) = wrk_p_patch%edges%end_blk(irlev+1,i_nchdom)
-          wrk_p_patch%edges%end_idx(irlev,:)   = wrk_p_patch%edges%end_idx(irlev+1,i_nchdom)
-          wrk_p_patch%edges%end_blk(irlev,:)   = wrk_p_patch%edges%end_blk(irlev+1,i_nchdom)
-        ENDIF
-      ENDDO
-      ! Fill start and end indices for remaining index sections
-      IF (wrk_p_patch_g%id == 0) THEN
-        ilev1 = min_rledge_int
-        ilev_st = 1
-      ELSE
-        ilev1 = MAX(min_rledge, min_rledge_int -(2*n_boundary_rows+1))
-        ilev_st = 2*n_boundary_rows+2
-      ENDIF
-      DO ilev = ilev_st,2*max_hw+1
-        irlev = MAX(min_rledge, min_rledge_int - ilev)  ! index section into which the halo points are put
-        wrk_p_patch%edges%start_idx(irlev,:) = wrk_p_patch%edges%end_idx(ilev1,1) + 1
-        wrk_p_patch%edges%start_blk(irlev,:) = wrk_p_patch%edges%end_blk(ilev1,1)
-        wrk_p_patch%edges%end_idx(irlev,:)   = wrk_p_patch%edges%end_idx(ilev1,1)
-        wrk_p_patch%edges%end_blk(irlev,:)   = wrk_p_patch%edges%end_blk(ilev1,1)
-      ENDDO
-    ENDIF
-
-    ! If a PE owns only nest boundary points, it may happen that one or more index
-    ! sections of halo edges are empty. These are filled here
-    IF (wrk_p_patch%edges%start_blk(0,1)     > wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
-      .OR. wrk_p_patch%edges%start_blk(0,1) == wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
-      .AND. wrk_p_patch%edges%start_idx(0,1) > wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) &
-      ) THEN
-      DO i = min_rledge_int-1, min_rledge, -1
-        IF (wrk_p_patch%edges%start_idx(i,1) == -9999 .OR. &
-            wrk_p_patch%edges%start_blk(i,1) == -9999 .OR. &
-            wrk_p_patch%edges%end_idx(i,1)   == -9999 .OR. &
-            wrk_p_patch%edges%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(i+1,1)
-          wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(i+1,1)
-          wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(i+1,1)
-          wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(i+1,1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Finally, fill start indices of halo rows with meaningful values for empty patches
-    ! (which occur when processor splitting is applied)
-    IF (wrk_p_patch%nblks_e <= 0 .OR. wrk_p_patch%npromz_e <= 0) THEN
-      DO i=min_rledge,min_rledge_int-1
-        wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(min_rledge_int,1)
-        wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(min_rledge_int,1)
-        wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(min_rledge_int,1)
-        wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(min_rledge_int,1)
-      ENDDO
-    ENDIF
-
-    ! special treatment for sequential runs with trivial decomposition
-    IF (MAXVAL(flag2_e) == 0) THEN
-      i_nchdom = MAX(1,wrk_p_patch%n_childdom)
-      wrk_p_patch%edges%end_idx(min_rledge:min_rledge_int-1,:) = wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom)
-      wrk_p_patch%edges%end_blk(min_rledge:min_rledge_int-1,:) = wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom)
-
-      IF (wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) == nproma) THEN
-        wrk_p_patch%edges%start_blk(min_rledge:min_rledge_int-1,:) = &
-          &   wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) + 1
-        wrk_p_patch%edges%start_idx(min_rledge:min_rledge_int-1,:) = 1
-      ELSE
-        wrk_p_patch%edges%start_idx(min_rledge:min_rledge_int-1,:) = &
-          &    wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) + 1
-        wrk_p_patch%edges%start_blk(min_rledge:min_rledge_int-1,:) = &
-          &   wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom)
-      END IF
-    END IF
-
+    CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_edges, &
+         n_patch_cve_g = wrk_p_patch_g%n_patch_edges, &
+         max_childdom = wrk_p_patch%max_childdom, &
+         nchilddom = MAX(1,wrk_p_patch%n_childdom), &
+         patch_id = wrk_p_patch_g%id, &
+         nblks = wrk_p_patch%nblks_e, &
+         npromz = wrk_p_patch%npromz_e, &
+         min_rlcve = min_rledge, &
+         min_rlcve_int = min_rledge_int, &
+         max_rlcve = max_rledge, &
+         max_ilev = 2*n_boundary_rows+1, &
+         max_hw_cve = 2*max_hw + 1, &
+         flag2 = flag2_e, &
+         glb_index = wrk_p_patch%edges%glb_index, &
+         loc_index = wrk_p_patch%edges%loc_index, &
+         start_idx = wrk_p_patch%edges%start_idx, &
+         start_blk = wrk_p_patch%edges%start_blk, &
+         end_idx = wrk_p_patch%edges%end_idx, &
+         end_blk = wrk_p_patch%edges%end_blk, &
+         start_idx_g = wrk_p_patch_g%edges%start_idx, &
+         start_blk_g = wrk_p_patch_g%edges%start_blk, &
+         end_idx_g = wrk_p_patch_g%edges%end_idx, &
+         end_blk_g = wrk_p_patch_g%edges%end_blk, &
+         l_compute_grid = l_compute_grid, &
+         refin_ctrl = wrk_p_patch_g%edges%refin_ctrl, &
+         refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
 
     n = 0
@@ -1869,9 +1711,225 @@ CONTAINS
 
     ENDDO
 
-    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
+    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_v)
 
   END SUBROUTINE divide_patch
+
+  FUNCTION refine_edges(flag, irl0) RESULT(p)
+    INTEGER, INTENT(in) :: flag, irl0
+    LOGICAL :: p
+
+    p = flag==0 &
+         .OR. ((irl0==1 .OR. irl0==2) .AND. flag>=1) &
+         .OR. ((irl0==3 .OR. irl0==4) .AND. (flag==1 .OR. flag==2)) &
+         .OR. ((irl0==5 .OR. irl0==6 .OR. irl0<0) .AND. flag==1)
+  END FUNCTION refine_edges
+
+  SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
+       max_childdom, nchilddom, patch_id, nblks, npromz, &
+       min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
+       flag2, glb_index, loc_index, &
+       start_idx, start_blk, end_idx, end_blk, &
+       start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+       l_compute_grid, refin_ctrl, refinement_predicate)
+    INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, max_childdom, &
+         nchilddom, patch_id, nblks, npromz, &
+         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
+    LOGICAL, INTENT(in) :: l_compute_grid
+    INTEGER, INTENT(in) :: flag2(:), refin_ctrl(:, :)
+    INTEGER, INTENT(inout) :: glb_index(:), loc_index(:)
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(inout) :: &
+         start_idx, start_blk, end_idx, end_blk
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(in) :: &
+         start_idx_g, start_blk_g, end_idx_g, end_blk_g
+    INTERFACE
+      FUNCTION refinement_predicate(flag, irl0) RESULT(p)
+        INTEGER, INTENT(in) :: flag, irl0
+        LOGICAL :: p
+      END FUNCTION refinement_predicate
+    END INTERFACE
+
+    LOGICAL, ALLOCATABLE :: lcount(:)
+    INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jl, n
+
+    ALLOCATE(lcount(n_patch_cve_g))
+    lcount = .FALSE.
+    n = 0
+!    (.NOT. l_compute_grid) .OR. ignore_land_points
+    IF (.NOT. l_compute_grid) THEN
+      DO j = 1, n_patch_cve_g
+        IF (flag2(j)==0) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          lcount(j) = .TRUE.
+        ELSE
+          loc_index(j) = -(n+1)
+        ENDIF
+      ENDDO
+    ELSE
+      DO j = 1, n_patch_cve_g
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        irl0 = refin_ctrl(jl,jb)
+        IF (refinement_predicate(flag2(j), irl0)) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          lcount(j) = .TRUE.
+        ELSE
+          loc_index(j) = -(n+1)
+        ENDIF
+      ENDDO
+    ENDIF
+
+    ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
+    ! This must be done here since it depends on the special (monotonic)
+    ! setting of the loc_index array.
+
+    DO j=1,max_childdom
+      DO i=min_rlcve_int,max_rlcve
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & start_idx_g(i,j),           &
+          & start_blk_g(i,j),           &
+          & start_idx(i,j),             &
+          & start_blk(i,j),             &
+          & +1 )
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & end_idx_g(i,j),             &
+          & end_blk_g(i,j),             &
+          & end_idx(i,j),               &
+          & end_blk(i,j),               &
+          & -1 )
+      ENDDO
+      ! Preset remaining index sections with dummy values
+      start_idx(min_rlcve:min_rlcve_int-1,j) = -9999
+      start_blk(min_rlcve:min_rlcve_int-1,j) = -9999
+      end_idx(min_rlcve:min_rlcve_int-1,j)   = -9999
+      end_blk(min_rlcve:min_rlcve_int-1,j)   = -9999
+    ENDDO
+
+    IF(.NOT.l_compute_grid) THEN
+      ! Gather all halo cells/edges/verts at the end of the patch.
+      ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
+      irlev = min_rlcve_int-1
+      DO j = 1, n_patch_cve_g
+        IF(flag2(j)>1) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          ! This ensures that just the first point found at this irlev is saved as start point
+          IF (start_idx(irlev,1)==-9999) THEN
+            start_idx(irlev,:) = idx_no(n) ! line index
+            start_blk(irlev,:) = blk_no(n) ! block index
+          ENDIF
+        ENDIF
+      ENDDO
+      ! Set end index when the last point is processed
+      end_idx(min_rlcve:irlev,:) = idx_no(n) ! line index
+      end_blk(min_rlcve:irlev,:) = blk_no(n) ! block index
+      start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
+      start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
+    ELSE
+      ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
+      ! at the end. They are sorted by the flag2 value and will be placed at the
+      ! index levels between min_rlcve_int-1 and min_rlcve
+      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
+      ! cannot be used here
+      DO ilev = 1, max_ilev
+        irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+        DO j = 1, n_patch_cve_g
+          IF (flag2(j) == ilev .AND. .NOT. lcount(j)) THEN
+            n = n + 1
+            glb_index(n) = j
+            loc_index(j) = n
+            jb = blk_no(n) ! block index
+            jl = idx_no(n) ! line index
+            ! This ensures that just the first point found at this irlev is saved as start point
+            IF (start_idx(irlev,1)==-9999) THEN
+              start_idx(irlev,:) = jl
+              start_blk(irlev,:) = jb
+            ENDIF
+            end_idx(irlev,:) = jl
+            end_blk(irlev,:) = jb
+          ENDIF
+        ENDDO
+        ! Just in case that no grid point is found (may happen for ilev=1)
+        IF (start_idx(irlev,1)==-9999) THEN
+          start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
+          start_blk(irlev,:) = end_blk(irlev+1,nchilddom)
+          end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
+          end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
+        ENDIF
+      ENDDO
+      ! Fill start and end indices for remaining index sections
+      IF (patch_id == 0) THEN
+        ilev1 = min_rlcve_int
+        ilev_st = 1
+      ELSE
+        ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
+        ilev_st = max_ilev + 1
+      ENDIF
+      DO ilev = ilev_st,max_hw_cve
+        irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+        start_idx(irlev,:) = end_idx(ilev1,1) + 1
+        start_blk(irlev,:) = end_blk(ilev1,1)
+        end_idx(irlev,:)   = end_idx(ilev1,1)
+        end_blk(irlev,:)   = end_blk(ilev1,1)
+      ENDDO
+    ENDIF
+
+    ! If a PE owns only nest boundary points, it may happen that one or more index
+    ! sections of halo cells/verts/edges are empty. These are filled here
+    IF (start_blk(0,1)     > end_blk(min_rlcve_int,nchilddom) &
+      .OR. start_blk(0,1) == end_blk(min_rlcve_int,nchilddom) &
+      .AND. start_idx(0,1) > end_idx(min_rlcve_int,nchilddom) ) THEN
+      DO i = min_rlcve_int-1, min_rlcve, -1
+        IF (start_idx(i,1) == -9999 .OR. &
+            start_blk(i,1) == -9999 .OR. &
+            end_idx(i,1)   == -9999 .OR. &
+            end_blk(i,1)   == -9999 ) THEN
+          start_idx(i,:) = start_idx(i+1,1)
+          start_blk(i,:) = start_blk(i+1,1)
+          end_idx(i,:)   = end_idx(i+1,1)
+          end_blk(i,:)   = end_blk(i+1,1)
+        ENDIF
+      ENDDO
+    ENDIF
+
+    ! Finally, fill start indices of halo rows with meaningful values for empty patches
+    ! (which occur when processor splitting is applied)
+    IF (nblks <= 0 .OR. npromz <= 0) THEN
+      DO i=min_rlcve,min_rlcve_int-1
+        start_idx(i,:) = start_idx(min_rlcve_int,1)
+        start_blk(i,:) = start_blk(min_rlcve_int,1)
+        end_idx(i,:)   = end_idx(min_rlcve_int,1)
+        end_blk(i,:)   = end_blk(min_rlcve_int,1)
+      ENDDO
+    ENDIF
+
+    ! special treatment for sequential runs with trivial decomposition
+    IF (MAXVAL(flag2) == 0) THEN
+      end_idx(min_rlcve:min_rlcve_int-1,:) = end_idx(min_rlcve_int,nchilddom)
+      end_blk(min_rlcve:min_rlcve_int-1,:) = end_blk(min_rlcve_int,nchilddom)
+
+      IF (end_idx(min_rlcve_int,nchilddom) == nproma) THEN
+        start_blk(min_rlcve:min_rlcve_int-1,:) = &
+             &   end_blk(min_rlcve_int,nchilddom) + 1
+        start_idx(min_rlcve:min_rlcve_int-1,:) = 1
+      ELSE
+        start_idx(min_rlcve:min_rlcve_int-1,:) = &
+          &    end_idx(min_rlcve_int,nchilddom) + 1
+        start_blk(min_rlcve:min_rlcve_int-1,:) = &
+          &   end_blk(min_rlcve_int,nchilddom)
+      END IF
+    END IF
+
+    DEALLOCATE(lcount)
+
+  END SUBROUTINE build_patch_start_end
 
   !-------------------------------------------------------------------------
   !>
