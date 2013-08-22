@@ -57,7 +57,7 @@ MODULE mo_complete_subdivision
     & get_my_mpi_all_id, my_process_is_mpi_parallel, null_comm_type,    &
     & set_mpi_work_communicators, set_comm_input_bcast
 
-  USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method   
+  USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
@@ -106,7 +106,7 @@ CONTAINS
       ibuf(:,1) = p_patch(:)%n_proc
       ibuf(:,2) = p_patch(:)%proc0
       CALL p_send(ibuf, process_mpi_all_test_id, 2)
-      
+
     ENDIF
 
 
@@ -218,7 +218,7 @@ CONTAINS
       CALL set_comm_pat_gather(p_patch(jg))
 
       CALL set_owner_mask(p_patch(jg))
-     
+
       ! Fill the owner_local value
       ! this is done in the set_owner_mask
       ! CALL fill_owner_local(p_patch(jg))
@@ -242,7 +242,7 @@ CONTAINS
       ELSE
 
         ! Note: The following call is deprecated and will be removed.
-        ! 
+        !
         ! CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
 
         CALL setup_comm_grf_interpolation(p_patch(jg), p_patch(jgp))
@@ -283,31 +283,31 @@ CONTAINS
       ENDIF
 
     ENDDO
-                 
+
   END SUBROUTINE finalize_decomposition
 
   !-----------------------------------------------------------------------------
   !>
   ! Fills the in_patch%cells%owner_local using the in_patch%cells%owner_g
   ! Note: At the moment it uses the p_work_pe number which is not the same
-  ! as the my_mpi_all_id. It requires 
+  ! as the my_mpi_all_id. It requires
 !   SUBROUTINE fill_owner_local(in_patch)
-! 
+!
 !     TYPE(t_patch), INTENT(inout) :: in_patch
-! 
+!
 !     INTEGER :: local_cell_idx, global_cell_idx
 !     INTEGER :: i, jb, jl, jb_e, jl_e, jb_v, jl_v, jv, je
 !     INTEGER :: owner_id
-! 
+!
 !     in_patch%edges%owner_local(:) = -1
 !     in_patch%verts%owner_local(:) = -1
-! 
+!
 !     DO local_cell_idx = 1, in_patch%n_patch_cells
 !       global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
 !       owner_id = in_patch%cells%owner_g(global_cell_idx)
 !       in_patch%cells%owner_local(local_cell_idx) = in_patch%cells%owner_g(global_cell_idx)
 !       IF (owner_id < 0) CYCLE
-! 
+!
 !       ! go around the cell edges mark the owner
 !       jb = blk_no(local_cell_idx) ! block index
 !       jl = idx_no(local_cell_idx) ! line index
@@ -328,14 +328,14 @@ CONTAINS
 !           in_patch%edges%owner_local(je) = owner_id
 !           in_patch%verts%owner_local(jv) = owner_id
 !         ENDIF
-! 
+!
 !       ENDDO
-! 
+!
 !     ENDDO
-! 
-! 
+!
+!
 !   END SUBROUTINE fill_owner_local
- 
+
   !-----------------------------------------------------------------------------
   !>
   !! Sets the owner mask
@@ -348,7 +348,7 @@ CONTAINS
     p_patch%cells%owner_mask = .false.
     p_patch%edges%owner_mask = .false.
     p_patch%verts%owner_mask = .false.
-      
+
     p_patch%cells%owner_local(:) = -1
     p_patch%edges%owner_local(:) = -1
     p_patch%verts%owner_local(:) = -1
@@ -374,7 +374,7 @@ CONTAINS
       p_patch%edges%owner_mask(jl,jb) = p_patch%edges%owner_g(jg)==p_pe_work
       ! fill local owner
       p_patch%edges%owner_local(j) = p_patch%edges%owner_g(jg)
-    
+
     ENDDO
 
     DO j = 1, p_patch%n_patch_verts
@@ -1058,7 +1058,7 @@ CONTAINS
       glb_index(:) = -1
       owner(:)     = -1
 
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization 
+      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_cells
         jc = idx_no(j)
         jb = blk_no(j)
@@ -1082,7 +1082,7 @@ CONTAINS
     ! in order to be able to use the lists in the exchange routine
     ! (This is necessary even though the child cells of a given cell are always
     !  owned by the same PE because the halo cells are included in the communication pattern)
-    
+
     num_send = 0
     num_recv = 0
 
@@ -1183,7 +1183,7 @@ CONTAINS
       glb_index(:) = -1
       owner(:)     = -1
 
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization 
+      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_edges
         je = idx_no(j)
         jb = blk_no(j)
@@ -1205,7 +1205,7 @@ CONTAINS
 
     ! Recompute send/recv processor lists for the edge-based communication patterns
     ! in order to be able to use the lists in the exchange routine
-    
+
     num_send = 0
     num_recv = 0
 
@@ -1346,7 +1346,7 @@ CONTAINS
     ! in order to be able to use the lists in the exchange routine
     ! (This is necessary even though the child cells of a given cell are always
     !  owned by the same PE because the halo cells are included in the communication pattern)
-    
+
     num_send = 0
     num_recv = 0
 
@@ -1468,7 +1468,7 @@ CONTAINS
 
     ! Recompute send/recv processor lists for the edge-based communication patterns
     ! in order to be able to use the lists in the exchange routine
-    
+
     num_send = 0
     num_recv = 0
 
@@ -1854,7 +1854,7 @@ CONTAINS
       CALL set_comm_pat_gather(p_patch_2D(jg))
 
       CALL set_owner_mask(p_patch_2D(jg))
-     
+
      ! Fill the owner_local value
       ! this is done in the set_owner_mask
       ! CALL fill_owner_local(p_patch(jg))
@@ -1877,15 +1877,15 @@ CONTAINS
 !         CALL setup_comm_cpy_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
 !         CALL setup_comm_grf_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
 !         CALL setup_comm_ubc_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-! 
+!
 !         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
 !         CALL set_comm_pat_gather(p_patch_local_parent(jg))
-! 
+!
 !         CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
-! 
+!
 !         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
 !           &                   p_patch(jg)%parent_child_index)
-! 
+!
 !         CALL set_owner_mask(p_patch_local_parent(jg))
       ENDIF
 
@@ -1916,7 +1916,7 @@ CONTAINS
       ENDIF
 
     ENDDO
-                 
+
   END SUBROUTINE finalize_decomposition_oce
 
   !-----------------------------------------------------------------------------
