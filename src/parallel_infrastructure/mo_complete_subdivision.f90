@@ -1611,9 +1611,9 @@ CONTAINS
       ! Get global arrays by obtaining the global maximum
       ! Since p_max works on real valued arrays only, we have to convert to real and back
 
-      glb_phys_id_c = INT( p_max(REAL(glb_phys_id_c,wp), comm=p_comm_work) )
-      glb_phys_id_e = INT( p_max(REAL(glb_phys_id_e,wp), comm=p_comm_work) )
-      glb_phys_id_v = INT( p_max(REAL(glb_phys_id_v,wp), comm=p_comm_work) )
+      glb_phys_id_c = p_max(glb_phys_id_c, comm=p_comm_work)
+      glb_phys_id_e = p_max(glb_phys_id_e, comm=p_comm_work)
+      glb_phys_id_v = p_max(glb_phys_id_v, comm=p_comm_work)
 
       ! Get the physical patches contained within current patch
 
