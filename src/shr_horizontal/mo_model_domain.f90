@@ -139,7 +139,6 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: idx(:)
 
     INTEGER :: size
-    INTEGER :: allocated_size
     INTEGER :: recommended_stride  ! in case of parallelization/vectorization
 
     TYPE(t_patch), POINTER :: patch
