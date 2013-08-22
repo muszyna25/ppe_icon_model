@@ -199,7 +199,7 @@ IMPLICIT NONE
 
 PRIVATE
 
-!!CJPUBLIC :: setup_interpol, 
+!!CJPUBLIC :: setup_interpol,
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
@@ -262,7 +262,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     CALL finish ('mo_interpolation:construct_int_state',  &
     &            'allocation for c_lin_e failed')
   ENDIF
-  
+
   IF (ptr_patch%cell_type == 3) THEN
     !
     ! e_bln_c_s
@@ -305,7 +305,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for e_flx_avg failed')
     ENDIF
     !
-    !e_aw_v 
+    !e_aw_v
     !
     ALLOCATE (ptr_int%e_aw_v(nproma,6,nblks_v), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -805,7 +805,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ENDIF
     !
     ! lsq_rmat_utri_c
-    ! 
+    !
     idummy=(lsq_high_set%dim_unk*lsq_high_set%dim_unk - lsq_high_set%dim_unk)/2
     ALLOCATE (ptr_int%lsq_high%lsq_rmat_utri_c(nproma, idummy, nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1204,7 +1204,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ENDIF
 
   IF ( iequations == ihs_ocean) THEN
-    ! 
+    !
     ! arrays that are required for #slo OLD# reconstruction
     !
     ALLOCATE(ptr_int%dist_cell2edge(nproma,nblks_e,2),STAT=ist)
@@ -1237,7 +1237,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     !
     !coefficients for edge to vertex mapping.
     !
-    !Dimension: nproma,nblks_v encode number of vertices, 
+    !Dimension: nproma,nblks_v encode number of vertices,
     !1:6 is number of edges of a vertex,
     !1:2 is for u and v component of vertex vector
     ALLOCATE(ptr_int%edge2vert_coeff_cc(nproma,nblks_v,1:6),STAT=ist)
@@ -1881,7 +1881,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   ! Set up communication patterns for transferring the data to local parents.
   ! Since these communication patterns are not used elsewhere, they are
   ! stored locally and deleted at the end of the routine
-    
+
   ALLOCATE(owner(p_lp%n_patch_cells))
   DO j = 1, p_lp%n_patch_cells
     owner(j) = p_p%cells%owner_g(p_lp%cells%glb_index(j))
@@ -1889,7 +1889,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%glb_index,  &
     & p_p%cells%loc_index, comm_pat_glb_to_loc_c)
   DEALLOCATE(owner)
-  
+
   ALLOCATE(owner(p_lp%n_patch_edges))
   DO j = 1, p_lp%n_patch_edges
     owner(j) = p_p%edges%owner_g(p_lp%edges%glb_index(j))
@@ -2831,7 +2831,7 @@ SUBROUTINE destruct_2d_interpol_state( ptr_int_state)
   INTEGER                 :: jg
 
   !-----------------------------------------------------------------------
-  
+
   CALL message(routine, 'start to destruct int state')
 
   DO jg = n_dom_start, n_dom
@@ -2839,7 +2839,7 @@ SUBROUTINE destruct_2d_interpol_state( ptr_int_state)
   ENDDO
 
   CALL message (routine, 'destruction of interpolation state finished')
-  
+
 END SUBROUTINE destruct_2d_interpol_state
 
 
