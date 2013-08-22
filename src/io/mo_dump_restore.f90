@@ -2917,7 +2917,7 @@ CONTAINS
     INTEGER, INTENT(IN)    :: n    ! Number of local points
     INTEGER, INTENT(IN)    :: n_g  ! Number of global points
     INTEGER, INTENT(IN)    :: glb_index(:) ! Global index (for local points)
-    INTEGER, INTENT(INOUT) :: loc_index(:) ! Local index to be set
+    INTEGER, INTENT(OUT) :: loc_index(:) ! Local index to be set
 
     INTEGER :: i, last
 
