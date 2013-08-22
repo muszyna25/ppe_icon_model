@@ -1280,14 +1280,14 @@ CONTAINS
       ALLOCATE (pat%pelist_send(pat%np_send),   pat%pelist_recv(pat%np_recv),   &
                 pat%send_startidx(pat%np_send), pat%recv_startidx(pat%np_recv), &
                 pat%send_count(pat%np_send),    pat%recv_count(pat%np_recv)     )
-      
+
       pat%pelist_send(:)   = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_startidx(:) = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%send_count(:)    = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
       pat%pelist_recv(:)   = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_startidx(:) = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
       pat%recv_count(:)    = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
-      
+
       ALLOCATE(pat%send_src_blk(pat%n_send))
       ALLOCATE(pat%send_src_idx(pat%n_send))
       pat%send_src_idx(:)  = idx_no(pat_data(n+1:n+pat%n_send))
@@ -1580,7 +1580,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lfull
 
     INTEGER :: varid
-    
+
     CHARACTER(*), PARAMETER :: method_name = "mo_dump_restore:patch_io"
 
     CALL store_proc_dependent_dimensions(p)
@@ -1747,7 +1747,7 @@ CONTAINS
       CALL comm_pat_io('comm_pat_loc_to_glb_e_fbk',    p%comm_pat_loc_to_glb_e_fbk)
     ENDIF
 
-  
+
   END SUBROUTINE patch_io
 
   !-------------------------------------------------------------------------
@@ -2242,7 +2242,7 @@ CONTAINS
               &          pg%p_dom(jcd)%grf_vec_ind_2a, pg%p_dom(jcd)%grf_vec_blk_2a, is_e)
          CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_2b',   &
               &          pg%p_dom(jcd)%grf_vec_ind_2b, pg%p_dom(jcd)%grf_vec_blk_2b, is_e)
-         
+
          CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1a', &
               &          pg%p_dom(jcd)%grf_vec_stencil_1a, is_e) ! nproma_grf, isb_e:ieb_e
          CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1b', &
@@ -2574,7 +2574,7 @@ CONTAINS
     ENDIF
 
     IF(output_defines) CALL set_atts_and_dims(p, num_work_procs)
- 
+
     ! Emit additional dimensions and variable definitions for patch/int state/grf state
 
     ! Output attributes and dimensions
@@ -2960,7 +2960,7 @@ CONTAINS
 
     CALL message ('restore_patches_netcdf','start to restore patches')
 
-    ! Currently, restoring domain decompositions (lfull==.FALSE.) is implemented only for 
+    ! Currently, restoring domain decompositions (lfull==.FALSE.) is implemented only for
     ! one file per patch, full restores are according to l_one_file_per_patch
 
     IF(lfull) THEN
@@ -3103,7 +3103,7 @@ CONTAINS
     p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 
  !   ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-    
+
     DO jg = n_dom_start+1, n_dom
       jgp = p_patch(jg)%parent_id
       p_patch_local_parent(jg)%id           = p_patch(jgp)%id
@@ -3368,7 +3368,7 @@ CONTAINS
 
     lonlat_data => lonlat_grid_list(grid_id)
     grid => lonlat_data%grid
-   
+
     ! total number of lon-lat grid points (local to this PE)
     CALL def_dim('unlimited', NF_UNLIMITED, dim_unlimited)
     IF (nthis_local_pts > 0) THEN
@@ -3473,7 +3473,7 @@ CONTAINS
       ! rbf_c2grad_dim,nproma,nblks_lonlat
       CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', intp%rbf_c2grad_idx, intp%rbf_c2grad_blk )
     END IF
-    IF (ALLOCATED(intp%cell_vert_dist)) THEN 
+    IF (ALLOCATED(intp%cell_vert_dist)) THEN
       ! 2,nproma,nblks_lonlat
       CALL bvar_io(1,4,'int.lonlat.cell_vert_dist', intp%cell_vert_dist )
     END IF
@@ -3550,11 +3550,11 @@ CONTAINS
         nthis_local_pts = intp%nthis_local_pts
         IF(use_one_file) &
           nthis_local_pts = p_max(nthis_local_pts, comm=p_comm_work)
-        
+
         ll_filename = dump_restore_filename_ll(grid_id, dom_id,               &
           &                                    p_patch(dom_id)%grid_filename, &
           &                                    model_base_dir)
-        
+
         WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(ll_filename)
         CALL message (routine, TRIM(message_text))
 
@@ -3564,7 +3564,7 @@ CONTAINS
         IF (output_defines) THEN
           CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
           CALL nf(nf_create(TRIM(ll_filename), nf_clobber, ncid))
-          
+
           ! Output attributes and dimensions
           CALL def_lonlat_data(grid_id, dom_id, nthis_local_pts)
         END IF
@@ -3586,10 +3586,10 @@ CONTAINS
           ! synchronize working PEs when writing to the same file:
           IF(use_one_file) CALL p_barrier(comm=p_comm_work)
 
-          IF(ip /= get_my_mpi_work_id()) CYCLE    
+          IF(ip /= get_my_mpi_work_id()) CYCLE
 
           CALL nf(nf_open(TRIM(ll_filename), NF_WRITE, ncid))
-        
+
           ! store no. of nlocal_pts (unblocked variable)
           CALL uvar_io_i0('int.lonlat.nthis_local_pts', intp%nthis_local_pts)
           CALL uvar_io_i0('int.lonlat.nmax_local_pts',  nthis_local_pts)
@@ -3688,10 +3688,10 @@ CONTAINS
         ALLOCATE(intp%tri_idx(2, nproma, nblks_lonlat),   &
           &      intp%global_idx(intp%nthis_local_pts), STAT=errstat )
         IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
-        
+
         ! restore lon-lat interpolation coefficients:
         CALL lonlat_data_io(grid_id, dom_id)
-        
+
         ! Close NetCDF file
         CALL nf(nf_close(ncid))
       END DO DOM_LOOP
