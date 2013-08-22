@@ -113,7 +113,7 @@ MODULE mo_model_domimp_setup
   USE mo_sync,               ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range, read_subset, write_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
-  USE mo_loopindices,
+  USE mo_loopindices
   USE mo_impl_constants
   USE mo_math_types
   USE mo_math_utilities
