@@ -2273,38 +2273,25 @@ CONTAINS
     ! output array
     INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
 
-    INTEGER nblks, npromz, n, nlen, jb, jl, j_g, j_l
+    INTEGER :: j, jb, jl, j_g, j_l
 
-    nblks  = (nvals-1)/nproma + 1
-    npromz = nvals - (nblks-1)*nproma
+    DO j = 1, nvals
+      jb = (j - 1) / nproma + 1
+      jl = MOD(j - 1, nproma) + 1
 
-    n = 0
-    DO jb = 1, nblks
-
-      IF (jb /= nblks) THEN
-        nlen = nproma
+      ! get global index in divided array
+      j_g = p_idx_array_in(glb_index(j))
+      IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
+        ! Just for safety, this should not happen, set result to 0
+        j_l = 0
       ELSE
-        nlen = npromz
+        ! get local index
+        j_l = loc_index(j_g)
+        IF(j_l < 0) j_l = -j_g
       END IF
-
-      DO jl = 1, nlen
-        n = n+1
-        ! get global index in divided array
-        j_g = p_idx_array_in(glb_index(n))
-        IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
-          ! Just for safety, this should not happen, set result to 0
-          idx_array_out(jl,jb) = idx_no(0)
-          blk_array_out(jl,jb) = blk_no(0)
-        ELSE
-          ! get local index
-          j_l = loc_index(j_g)
-          ! handle values outside local domain in the same way as get_local_index
-          IF(j_l < 0) j_l = -j_g
-          idx_array_out(jl,jb) = idx_no(j_l)
-          blk_array_out(jl,jb) = blk_no(j_l)
-        ENDIF
-      END DO
-
+      ! handle values outside local domain in the same way as get_local_index
+      idx_array_out(jl,jb) = idx_no(j_l)
+      blk_array_out(jl,jb) = blk_no(j_l)
     END DO
 
   END SUBROUTINE divide_idx
