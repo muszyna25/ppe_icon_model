@@ -74,6 +74,9 @@ MODULE mo_art_config
     ! Sea Salt Aerosol
     LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
     
+    ! Mineral Dust Aerosol
+    LOGICAL :: lart_dust           !< Treatment of mineral dust aerosol (TRUE/FALSE)
+    
     ! Processes
     LOGICAL :: lart_emiss          !< Emission of aerosol (TRUE/FALSE)
 
