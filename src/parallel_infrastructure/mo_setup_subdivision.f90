@@ -68,7 +68,7 @@ MODULE mo_setup_subdivision
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
     & p_pe_work, p_n_work, get_my_mpi_all_id, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
+  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
     & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
@@ -132,6 +132,7 @@ CONTAINS
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
     TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
+    LOGICAL :: l_compute_grid
 
     CALL message(routine, 'start of domain decomposition')
 
@@ -390,8 +391,13 @@ CONTAINS
         ! ----------------------------------------------
         ! operation modes 2,3: "opt_n_procs" not present
         ! ----------------------------------------------
+        IF (use_dummy_cell_closure) THEN
+          l_compute_grid = .false.
+        ELSE
+          l_compute_grid = .true.
+        ENDIF
 
-        CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
 
         IF(jg > n_dom_start) THEN
           ! SR divide_patch(wrk_p_patch,              cell_owner,   n_boundary_rows, l_compute_grid, my_proc  )

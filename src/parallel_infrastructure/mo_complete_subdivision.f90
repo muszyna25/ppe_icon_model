@@ -1,7 +1,6 @@
 !>
-!!               This module provides all routines for dividing patches.
-!!
 !!               This module provides all routines for dividing patches
+!!
 !! (including interpolation state) and setting up communication.
 !!
 !! @par Revision History

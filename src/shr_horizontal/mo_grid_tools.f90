@@ -59,8 +59,7 @@ MODULE mo_grid_tools
   PUBLIC :: calculate_edge_area
   PUBLIC :: get_oriented_edges_from_global_vertices
   PUBLIC :: find_oriented_edge_from_vertices
-
-!  PUBLIC :: create_dummy_cell_closure
+  PUBLIC :: create_dummy_cell_closure
 
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
@@ -314,7 +313,7 @@ CONTAINS
     !----------------------------------------------------------------------------
     ! loop over all blocks and edges
 
-!$OMP PARALLEL DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, istart_e, iend_e)
       DO je = istart_e, iend_e
@@ -323,7 +322,7 @@ CONTAINS
             &  * patch%edges%dual_edge_length(je,jb)
       END DO
     END DO
-!$OMP END PARALLEL DO
+!ICON_OMP_END_PARALLEL DO
 
   END SUBROUTINE calculate_edge_area
   !-------------------------------------------------------------------------
@@ -355,9 +354,9 @@ CONTAINS
     INTEGER :: jb, je                   ! loop indices    
     !-----------------------------------------------------------------------
                 
-!$OMP PARALLEL    
+!ICON_OMP_PARALLEL
     ! calculate cells cartesian positions
-!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = patch%cells%all%start_block, patch%cells%all%end_block
       CALL get_index_range(patch%cells%all, jb, start_index, end_index)
       DO je = start_index, end_index            
@@ -365,10 +364,10 @@ CONTAINS
         patch%cells%cartesian_center(je,jb) = gc2cc(patch%cells%center(je,jb))
       ENDDO
     ENDDO
-!$OMP END DO NOWAIT
+!ICON_OMP_END_DO NOWAIT
     
     ! calculate verts cartesian positions
-!$OMP DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(jb,je, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = patch%verts%all%start_block, patch%verts%all%end_block
       CALL get_index_range(patch%verts%all, jb, start_index, end_index)
       DO je = start_index, end_index            
@@ -376,10 +375,10 @@ CONTAINS
         patch%verts%cartesian(je,jb) = gc2cc(patch%verts%vertex(je,jb))
       ENDDO
     ENDDO
-!$OMP END DO NOWAIT
+!ICON_OMP_END_DO NOWAIT
 
     ! calculate edges positions
-!$OMP DO PRIVATE(jb,je,z_lon,z_lat,z_u,z_v,z_norm,z_vec, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(jb,je,z_lon,z_lat,z_u,z_v,z_norm,z_vec, start_index, end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = patch%edges%all%start_block, patch%edges%all%end_block
       CALL get_index_range(patch%edges%all, jb, start_index, end_index)
       DO je = start_index, end_index
@@ -438,8 +437,8 @@ CONTAINS
       END DO
       
     END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE calculate_patch_cartesian_positions
   !-------------------------------------------------------------------------
@@ -453,56 +452,56 @@ CONTAINS
   ! This is indented for the ocean, with no land cells
   !
   ! The subsets must have been filled in order in order to call this routine.
-!  SUBROUTINE create_dummy_cell_closure( patch )
-!    TYPE(t_patch), INTENT(inout), TARGET ::  patch
-!
-!    INTEGER :: block, idx, start_idx, end_idx, neighbor
-!    INTEGER :: dummy_cell_blk, dummy_cell_idx
-!
-!    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grid_tools:create_dummy_cell_closure'
-!
-!    ! the last cell is the dummy cell
-!    dummy_cell_blk = patch%nblks_c
-!    dummy_cell_idx = patch%npromz_c
-!
-!
-!     write(0,*) "------------ start  create_dummy_cell_closure ---------------"
-!
-! !$OMP PARALLEL
-! !$OMP DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
-!    DO block = patch%edges%all%start_block, patch%edges%all%end_block
-!      CALL get_index_range(patch%edges%all, block, start_idx, end_idx)
-!      DO idx = start_idx, end_idx
-!        DO neighbor=1,2
-!          IF ( patch%edges%cell_idx(idx, block, neighbor) == 0) THEN
-!            patch%edges%cell_blk(idx, block, neighbor) = dummy_cell_blk
-!            patch%edges%cell_idx(idx, block, neighbor) = dummy_cell_idx
-!          ENDIF
-!        END DO
-!      END DO
-!    END DO
-! !$OMP END DO
-!
-! !$OMP PARALLEL DO PRIVATE(block, idx, start_idx, end_idx) ICON_OMP_DEFAULT_SCHEDULE
-!    DO block = patch%cells%all%start_block, patch%cells%all%end_block
-!      CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
-!      DO idx = start_idx, end_idx
-!         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN
-!          ! this is not the dummy cell
-!          DO neighbor=1, patch%cells%max_connectivity
-!            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0) THEN
-!              patch%cells%neighbor_blk(idx, block, neighbor) = dummy_cell_blk
-!              patch%cells%neighbor_idx(idx, block, neighbor) = dummy_cell_idx
-!  !             write(0,*) "Replaced neighbor at ", block, idx, neighbor
-!            ENDIF
-!          END DO
-!         ENDIF
-!      END DO
-!    END DO
-! !$OMP END DO
-! !$OMP END PARALLEL
-!
-!  END SUBROUTINE create_dummy_cell_closure
+  SUBROUTINE create_dummy_cell_closure( patch )
+    TYPE(t_patch), INTENT(inout), TARGET ::  patch
+
+    INTEGER :: block, idx, start_idx, end_idx, neighbor
+    INTEGER :: dummy_cell_blk, dummy_cell_idx
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grid_tools:create_dummy_cell_closure'
+
+    write(0,*) "------------ start  create_dummy_cell_closure ---------------"
+
+    dummy_cell_idx = patch%cells%dummy_cell_index
+    dummy_cell_blk = patch%cells%dummy_cell_block
+
+   ! Fill edge connectivity with the dummy cell
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(block, idx, start_idx, end_idx)
+    DO block = patch%edges%all%start_block, patch%edges%all%end_block
+      CALL get_index_range(patch%edges%all, block, start_idx, end_idx)
+      DO idx = start_idx, end_idx
+        DO neighbor=1,2
+          IF ( patch%edges%cell_idx(idx, block, neighbor) == 0) THEN
+            patch%edges%cell_blk(idx, block, neighbor) = dummy_cell_blk
+            patch%edges%cell_idx(idx, block, neighbor) = dummy_cell_idx
+          ENDIF
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO
+
+   ! Fill cell connectivity with the dummy cell
+!ICON_OMP_DO PRIVATE(block, idx, start_idx, end_idx)
+    DO block = patch%cells%all%start_block, patch%cells%all%end_block
+      CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
+      DO idx = start_idx, end_idx
+         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN
+          ! this is not the dummy cell
+          DO neighbor=1, patch%cells%max_connectivity
+            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0) THEN
+              patch%cells%neighbor_blk(idx, block, neighbor) = dummy_cell_blk
+              patch%cells%neighbor_idx(idx, block, neighbor) = dummy_cell_idx
+  !             write(0,*) "Replaced neighbor at ", block, idx, neighbor
+            ENDIF
+          END DO
+         ENDIF
+      END DO
+    END DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+  END SUBROUTINE create_dummy_cell_closure
   !-----------------------------------------------------------------------
     
   

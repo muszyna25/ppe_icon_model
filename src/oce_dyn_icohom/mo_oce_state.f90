@@ -68,7 +68,9 @@ MODULE mo_oce_state
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, t_grid_cells, t_grid_edges
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
+    & use_dummy_cell_closure
+!  USE mo_grid_tools,          ONLY: create_dummy_cell_closure
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
@@ -3366,13 +3368,26 @@ CONTAINS
     END DO
     patch_3D%p_patch_1D(1)%ocean_volume(n_zlev+1) = global_ocean_volume
     !-------------------------------------------------
+    CALL complete_ocean_subsets(patch_3D)
 
-    CALL set_subset_ocean_vertical_layers(patch_3D)
 
   END SUBROUTINE init_patch_3D
   !------------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------------
+  SUBROUTINE complete_ocean_subsets(patch_3D)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
+
+    CALL set_subset_ocean_vertical_layers(patch_3D)
+    CALL ocean_subsets_ignore_land(patch_3D)
+    CALL check_ocean_subsets(patch_3D)
+
+  END SUBROUTINE complete_ocean_subsets
+  !------------------------------------------------------------------------------------
+
+
+
+
   SUBROUTINE set_subset_ocean_vertical_layers(patch_3D)
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
 
@@ -3406,7 +3421,9 @@ CONTAINS
   !------------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------------
-  SUBROUTINE check_ocean_subsets(patch_3D)
+  ! ignore land points in range subsets
+  ! this only works if the land points are re-ordered
+  SUBROUTINE ocean_subsets_ignore_land(patch_3D)
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
 
     TYPE(t_patch),     POINTER :: patch_2D
@@ -3473,6 +3490,23 @@ CONTAINS
       CALL fill_subset(patch_2D%verts%in_domain, patch_2D, patch_2D%verts%halo_level, 0, 1)
 
     ENDIF
+  END SUBROUTINE ocean_subsets_ignore_land
+  !------------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------------
+  SUBROUTINE check_ocean_subsets(patch_3D)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
+
+    TYPE(t_patch),     POINTER :: patch_2D
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, all_verts
+
+    INTEGER :: block, startidx, endidx, idx
+    !-----------------------------------------------------------------------------
+
+    patch_2D => patch_3D%p_patch_2D(1)
+    all_cells   => patch_2D%cells%all
+    all_edges   => patch_2D%edges%all
+    all_verts   => patch_2D%verts%all
 
 !    IF (patch_2D%edges%in_domain%no_of_holes > 0) THEN
 !      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block

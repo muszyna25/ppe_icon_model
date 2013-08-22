@@ -345,6 +345,9 @@ MODULE mo_model_domain
     TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned
     TYPE(t_subset_range) :: one_edge_in_domain ! cells with exactly one edge in domain. these are always halo cells
 
+    INTEGER :: dummy_cell_block, dummy_cell_index     ! in case of existing a dummy cell for closing the
+      ! local domain, these point to the dummy cell. This cell does not actually "exist"! =0 if no dummy cell
+
   END TYPE t_grid_cells
 
   ! !grid_edge class

@@ -490,10 +490,11 @@ CONTAINS
     
     p_patch%cell_type = global_cell_type
     max_childdom = p_patch%max_childdom
-    
     !
     ! !grid cells
     !
+    p_patch%cells%dummy_cell_block = 0
+    p_patch%cells%dummy_cell_index = 0
     ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%alloc_cell_blocks) )

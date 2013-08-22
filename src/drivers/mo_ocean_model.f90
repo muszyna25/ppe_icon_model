@@ -141,7 +141,7 @@ CONTAINS
 
     INTEGER :: n_io, jg, jfile, ist
 
-    TYPE(t_patch_3D), POINTER     :: p_patch_3D
+    TYPE(t_patch_3D), POINTER     :: patch_3D
     ! For the coupling
 
     INTEGER, PARAMETER :: no_of_fields = 10
@@ -239,14 +239,14 @@ CONTAINS
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
     CALL build_decomposition(num_lev,num_levp1,nshift,&
-      &                      .TRUE.,lrestore_states,p_patch_3D)
-    CALL construct_icon_communication(p_patch_3D%p_patch_2D(:), n_dom=1)
+      &                      .TRUE.,lrestore_states,patch_3D)
+    CALL construct_icon_communication(patch_3D%p_patch_2D(:), n_dom=1)
 
     !--------------------------------------------        
     ! Setup the information for the physical patches
     CALL setup_phys_patches
 
-    CALL setup_ocean_namelists(p_patch_3D%p_patch_2D(1))
+    CALL setup_ocean_namelists(patch_3D%p_patch_2D(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -271,7 +271,6 @@ CONTAINS
         &                      0, 1, .false., .true., ntracer )
     ENDDO
 
-
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
     !------------------------------------------------------------------
@@ -282,7 +281,7 @@ CONTAINS
 
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
-    CALL construct_ocean_ext_data(p_patch_3D%p_patch_2D(1:), ext_data)
+    CALL construct_ocean_ext_data(patch_3D%p_patch_2D(1:), ext_data)
     !------------------------------------------------------------------
     ! Prepare the coupling
     !
@@ -302,16 +301,16 @@ CONTAINS
       patch_no      = 1
 
       grid_shape(1) = 1
-      grid_shape(2) = p_patch_3D%p_patch_2D(patch_no)%n_patch_cells
+      grid_shape(2) = patch_3D%p_patch_2D(patch_no)%n_patch_cells
 
       CALL ICON_cpl_def_grid ( &
-        & grid_shape, p_patch_3D%p_patch_2D(patch_no)%cells%glb_index, & ! input
+        & grid_shape, patch_3D%p_patch_2D(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                          ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native cells are located.
       CALL ICON_cpl_def_location ( &
-        & grid_id, grid_shape, p_patch_3D%p_patch_2D(patch_no)%cells%owner_local, & ! input
+        & grid_id, grid_shape, patch_3D%p_patch_2D(patch_no)%cells%owner_local, & ! input
         & p_pe_work,  & ! this owner id
         & error_status )                                            ! output
 
@@ -345,7 +344,7 @@ CONTAINS
     ENDIF
 #endif
     ! Prepare time integration
-    CALL prepare_ho_integration(p_patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
+    CALL prepare_ho_integration(patch_3D, v_ocean_state, ext_data, v_sfc_flx, &
       &                         v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:)) 
  
     !------------------------------------------------------------------
@@ -359,7 +358,7 @@ CONTAINS
 #else
       jg = 1 !no nesting
      !DO jg = ,n_dom
-     CALL read_restart_files( p_patch_3D%p_patch_2D(jg) )
+     CALL read_restart_files( patch_3D%p_patch_2D(jg) )
      !END DO
 #endif
       CALL message(TRIM(routine),'normal exit from read_restart_files')
@@ -391,15 +390,15 @@ CONTAINS
       ! Initialize the first output file which will contain also the
       ! initial conditions.
       jfile = 1
-      CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
-      IF (lwrite_initial)       CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
+      CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=patch_3D%p_patch_2D)
+      IF (lwrite_initial)       CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=patch_3D%p_patch_2D)
       IF (lwrite_initial) THEN
        !IF (output_mode%l_nml) THEN
        !  CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
        !ENDIF
         IF (output_mode%l_vlist) THEN
           CALL write_output_oce( time_config%cur_datetime,z_sim_time=(/1.0_wp/),&
-         &p_patch_3D=p_patch_3D, p_os=v_ocean_state)
+         & p_patch_3D=patch_3D, p_os=v_ocean_state)
         ENDIF
       ENDIF
       l_have_output = .TRUE.
@@ -410,7 +409,7 @@ CONTAINS
 
       CALL get_restart_attribute('next_output_file',jfile)
 !      IF (n_io.le.nsteps) THEN
-         CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=p_patch_3D%p_patch_2D)
+         CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2D=patch_3D%p_patch_2D)
          l_have_output = .TRUE.
 !      ELSE
 !         l_have_output = .FALSE.
@@ -421,7 +420,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_model_init)
 
-    CALL perform_ho_stepping( p_patch_3D, v_ocean_state,                    &
+    CALL perform_ho_stepping( patch_3D, v_ocean_state,                    &
       &                       ext_data, datetime, n_io,                     &
       &                       jfile,                                        &
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
@@ -452,9 +451,9 @@ CONTAINS
     ENDIF
 
     !The 3D-ocean version of previous calls    
-    CALL destruct_patches( p_patch_3D%p_patch_2D )
+    CALL destruct_patches( patch_3D%p_patch_2D )
     CALL destruct_patches( p_patch_local_parent )
-    NULLIFY( p_patch_3D%p_patch_2D )
+    NULLIFY( patch_3D%p_patch_2D )
 
     ! Delete variable lists
 
