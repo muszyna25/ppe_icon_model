@@ -1222,14 +1222,6 @@ REAL (KIND=ireals), TARGET :: &
 !    Seicher-Target fuer obige Pointer:
      rho_tar(ie,ke), exner_tar(ie,ke)
 
-!Declaration of statement functions:
-
-REAL (KIND=ireals) :: &
-     zexner, zpres               !Exner factor and its argument
-
-!Exner-factor:
- zexner(zpres)=(zpres/p0ref)**rdocp
-
 !-------------------------------------------------------------------------------
 
  istat=0; ilocstat=0
@@ -2168,29 +2160,28 @@ SUBROUTINE turbtran
 
 !        Thermodynamische Hilfsvariablen auf dem Unterrand der Prandtl-Schicht:
 
-         CALL adjust_satur_equil ( ke1,                                    &
+         CALL adjust_satur_equil_trans ( istartpar, iendpar,       &
 !
-              istartpar, iendpar,  ke1, ke1,                               &
+              lcalrho=.TRUE., lcalepr=.NOT.lprfcor,                &
+              lcaltdv=.TRUE.,                                      &
+              lpotinp=.FALSE., ladjout=.FALSE.,                    &
 !
-              lcalrho=.TRUE., lcalepr=.NOT.lprfcor, lcaltdv=.TRUE.,        &
-              lpotinp=.FALSE., ladjout=.FALSE.,                            &
+              icldmod=icldm_tran,                                  &
 !
-              icldmod=icldm_tran,                                          &
+              zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,             &
 !
-              zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                     &
+              prs=ps, t=t_g, qv=qv_s,                              &
 !
-              prs_2d=ps, t_2d=t_g, qv_2d=qv_s,                             &
+              fip=tfh,                                             &
 !
-              fip=tfh, &
+              exner=eprs(:,ke1), rcld=rcld(:,ke1),                 &
+              dens=rho_2d(:,ke1),                                  &
 !
-              exner=eprs(:,ke1:ke1), rcld=rcld(:,ke1:ke1),                 &
-                                     dens=rho_2d(:,ke1:ke1),               &
+              qst_t=a(:,ke1,3), g_tet=a(:,ke1,4),                  &
+                                g_h2o=a(:,ke1,5),                  &
 !
-              qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),                  &
-                                    g_h2o=a(:,ke1:ke1,5),                  &
-!
-              tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),    &
-                                           q_liq=vari(:,ke1:ke1,liq)    )
+              tet_l=vari(:,ke1,tet_l), q_h2o=vari(:,ke1,h2o_g),    &
+                                       q_liq=vari(:,ke1,liq) )
 
 !        Beachte: 'ts_2d' und 'qds_2d' zeigen auf die 'ke1'-Schicht von 'vari(tet_l)' und 'vari(h2o_g)
 !                 und sind jetzt die Erhaltungsvariablen am Unterrand der Prandtl-Schicht.
@@ -2556,27 +2547,26 @@ SUBROUTINE turbtran
       END DO
       !Beachte, dass sich die 2m-Werte bislang auf die Erhalturngsvariablen beziehen
 
-      CALL adjust_satur_equil ( ke1,                                 &
+      CALL adjust_satur_equil_trans ( istartpar, iendpar,       &
 !
-           istartpar, iendpar,  ke1, ke1,                            &
+           lcalrho=.FALSE., lcalepr=.TRUE.,                     &
+           lcaltdv=.FALSE.,                                     &
+           lpotinp= .TRUE., ladjout=.TRUE.,                     &
 !
-           lcalrho=.FALSE., lcalepr=.TRUE., lcaltdv=.FALSE.,         &
-           lpotinp= .TRUE., ladjout=.TRUE.,                          &
+           icldmod=icldm_tran,                                  &
 !
-           icldmod=icldm_tran,                                       &
+           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,             &
 !
-           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                  &
+           prs=prs_2d, t=vari(:,ke1,tet_l),                     &
+                      qv=vari(:,ke1,h2o_g),                     &
 !
-           prs_2d=prs_2d, t_2d=vari(:,ke1,tet_l),                    &
-                         qv_2d=vari(:,ke1,h2o_g),                    &
+           exner=eprs(:,ke1), rcld=rclc(:,ke1),                 &
 !
-           exner=eprs(:,ke1:ke1), rcld=rclc(:,ke1:ke1),              &
+           qst_t=a(:,ke1,3), g_tet=a(:,ke1,4),                  &
+                             g_h2o=a(:,ke1,5),                  &
 !
-           qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),               &
-                                 g_h2o=a(:,ke1:ke1,5),               &
-!
-           tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g), &
-                                        q_liq=vari(:,ke1:ke1,liq) )
+           tet_l=vari(:,ke1,tet_l), q_h2o=vari(:,ke1,h2o_g),    &
+                                    q_liq=vari(:,ke1,liq) )
 
       DO i=istartpar, iendpar
           t_2m(i)=vari(i,ke1,tet_l)
@@ -3376,25 +3366,26 @@ SUBROUTINE turbdiff
 
 !     Thermodynamische Hilfsvariablen auf Hauptflaechen:
 
-      CALL adjust_satur_equil (  1,                                               &
+      CALL adjust_satur_equil (  1,                               &
 !
-           istartpar, iendpar,   1, ke,                                           &
+           istartpar, iendpar,   1, ke,                           &
 !
-           lcalrho=.NOT.PRESENT(rho), lcalepr=.NOT.PRESENT(epr), lcaltdv=.TRUE.,  &
-           lpotinp=.FALSE., ladjout=.FALSE.,                                      &
+           lcalrho=.NOT.PRESENT(rho), lcalepr=.NOT.PRESENT(epr),  &
+           lcaltdv=.TRUE.,                                        &
+           lpotinp=.FALSE., ladjout=.FALSE.,                      &
 !
-           icldmod=icldm_turb,                                                    &
+           icldmod=icldm_turb,                                    &
 !
-           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                               &
+           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,               &
 !
-           prs=prs, t=t, qv=qv, qc=qc,                                            &
+           prs=prs, t=t, qv=qv, qc=qc,                            &
 !
-           exner=exner, rcld=rcld, dens=rhoh,                                     &
+           exner=exner, rcld=rcld, dens=rhoh,                     &
 !
-           r_cpd=a(:,:,2), qst_t=a(:,:,3), g_tet=a(:,:,4),                        &
-                                           g_h2o=a(:,:,5),                        &
-           tet_l=vari(:,:,tet_l), q_h2o=vari(:,:,h2o_g),                          &
-                                  q_liq=vari(:,:,liq)      )
+           r_cpd=a(:,:,2), qst_t=a(:,:,3), g_tet=a(:,:,4),        &
+                                           g_h2o=a(:,:,5),        &
+           tet_l=vari(:,:,tet_l), q_h2o=vari(:,:,h2o_g),          &
+                                  q_liq=vari(:,:,liq) )
 
 !     Vorbelegung mit Erhaltungsvariablen auf unterster Hauptflaeche als Referenz-Niveau:
 
@@ -3405,27 +3396,29 @@ SUBROUTINE turbdiff
 
 !     Thermodynamische Hilfsvariablen auf Unterrand der Prandtl-Schicht:
 
-      CALL adjust_satur_equil ( ke1,                                              &
+      CALL adjust_satur_equil_trans ( istartpar, iendpar,       &
 !
-           istartpar, iendpar,  ke1, ke1,                                         &
+           lcalrho=.TRUE. , lcalepr=.TRUE.,                     &
+           lcaltdv=.TRUE.,                                      &
+           lpotinp=.FALSE., ladjout=.FALSE.,                    &
 !
-           lcalrho=.TRUE. , lcalepr=.TRUE., lcaltdv=.TRUE.,                       &
-           lpotinp=.FALSE., ladjout=.FALSE.,                                      &
+           icldmod=icldm_turb,                                  &
 !
-           icldmod=icldm_turb,                                                    &
+           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,             &
 !
-           zrcpv=zrcpv, zrcpl=zrcpl, zlhocp=zlhocp,                               &
+           prs=ps, t=t_g, qv=qv_s,                              &
 !
-           prs_2d=ps, t_2d=t_g, qv_2d=qv_s,                                       &
+           fip=tfh,                                             &
 !
-           fip=tfh,                                                               &
+           exner=a(:,ke1,1), rcld=rcld(:,ke1),                  &
+           dens=rhon(:,ke1),                                    &
+           r_cpd=a(:,ke1,2),                                    &
 !
-           exner=a(:,ke1:ke1,1), rcld=rcld(:,ke1:ke1), dens=rhon(:,ke1:ke1),      &
+           qst_t=a(:,ke1,3), g_tet=a(:,ke1,4),                  &
+                             g_h2o=a(:,ke1,5),                  &
 !
-           r_cpd=a(:,ke1:ke1,2), qst_t=a(:,ke1:ke1,3), g_tet=a(:,ke1:ke1,4),      &
-                                                       g_h2o=a(:,ke1:ke1,5),      &
-           tet_l=vari(:,ke1:ke1,tet_l), q_h2o=vari(:,ke1:ke1,h2o_g),              &
-                                        q_liq=vari(:,ke1:ke1,liq)            )
+           tet_l=vari(:,ke1,tet_l), q_h2o=vari(:,ke1,h2o_g),    &
+                                    q_liq=vari(:,ke1,liq) )
 
 !     Berechnung der horizontalen Windgeschwindigkeiten
 !     im Massenzentrum der Gitterbox:
@@ -4392,7 +4385,7 @@ SUBROUTINE turbdiff
 
          IF (kcm.LE.ke) THEN
             leff_flux = .TRUE.
-         ELSE 
+         ELSE
             leff_flux = .FALSE.
          END IF
 
@@ -4898,17 +4891,25 @@ END SUBROUTINE turbdiff
 
 !********************************************************************************
 
-SUBROUTINE adjust_satur_equil ( ktp,             &
+SUBROUTINE adjust_satur_equil ( ktp,  &
 !
-   i_st, i_en, k_st, k_en,                       &
+   i_st, i_en, k_st, k_en,            &
 !
-   lcalrho, lcalepr, lcaltdv, lpotinp, ladjout,  &
-   icldmod,                                      &
-   zrcpv, zrcpl, zlhocp,                         &
+   lcalrho, lcalepr,                  &
+   lcaltdv,                           &
+   lpotinp, ladjout,                  &
 !
-   prs, t, qv, qc, prs_2d, t_2d, qv_2d, fip,     &
-   exner, rcld, dens,                            &
-   r_cpd, qst_t, g_tet, g_h2o, tet_l,            &
+   icldmod,                           &
+!
+   zrcpv, zrcpl, zlhocp,              &
+!
+   prs, t, qv, qc,                    &
+!
+   fip,                               &
+!
+   exner, rcld, dens, r_cpd,          &
+!
+   qst_t, g_tet, g_h2o, tet_l,        &
    q_h2o, q_liq )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &
@@ -4927,11 +4928,8 @@ LOGICAL, INTENT(IN) :: &
 INTEGER (KIND=IINTEGERS), INTENT(IN) :: &
   icldmod      !mode of water cloud representation
 
-REAL (KIND=ireals), DIMENSION(:,ktp:), OPTIONAL, INTENT(IN) :: &
+REAL (KIND=ireals), DIMENSION(:,ktp:), INTENT(IN) :: &
   prs, t, qv            !current 3D pressure, temperature and water vapor content
-
-REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
-  prs_2d, t_2d, qv_2d   !current 2D pressure, temperature and water vapor content
 
 REAL (KIND=ireals), DIMENSION(:,ktp:), OPTIONAL, INTENT(IN) :: &
   qc           !current cloud water content
@@ -4968,9 +4966,6 @@ REAL (KIND=ireals), INTENT(IN) :: &
   zrcpl,  &    !0-rcpl  swith for cp_d/cp_l - 1
   zlhocp       !0-lhocp switch for ratio between of latent heat of evap and heat capacity
 
-LOGICAL :: &
-  l3d_flag     !.true. if pressure, temperature and water vapor input is given for 3D model levels
-
 REAL (KIND=ireals) :: &
   teta, pdry,  &     !corrected pot. temp. and partial pressure of dry air
   clcv, fakt         !cloud cover and auxilary factor
@@ -4980,19 +4975,10 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
   qvap, &            !corrected water vapour content
   virt               !reciprocal virtual factor
 
-REAL (KIND=ireals), DIMENSION(i_st:i_en,k_st:k_en) :: &
-  prs_3d             ! temporary field to save pressure for call of turb_cloud
-
 INTEGER (KIND=iintegers) :: &
-  i,k
+  i, k
 
 !-------------------------------------------------------------------------------
-
-   IF ( PRESENT(prs) .AND. PRESENT(t) .AND. PRESENT(qv) ) THEN
-      l3d_flag = .TRUE.
-   ELSE  IF ( PRESENT(prs_2d) .AND. PRESENT(t_2d) .AND. PRESENT(qv_2d) ) THEN
-      l3d_flag = .FALSE.
-   END IF
 
    !Save conserved variables at reference levels for interpolation:
    IF (PRESENT(fip)) THEN
@@ -5006,48 +4992,28 @@ INTEGER (KIND=iintegers) :: &
 
    !Conserved variables at given levels (with respect to phase change):
    IF (icldmod.EQ.-1 .OR. .NOT.PRESENT(qc)) THEN
-      IF ( l3d_flag ) THEN
-         DO k=k_st, k_en
-            DO i=i_st,i_en
-               q_h2o(i,k)=qv(i,k) !tot. wat. cont.
-               tet_l(i,k)= t(i,k) !liq. wat. temp.
-            END DO
-         END DO
-      ELSE
+      DO k=k_st, k_en
          DO i=i_st,i_en
-            q_h2o(i,k_st)=qv_2d(i) !tot. wat. cont.
-            tet_l(i,k_st)= t_2d(i) !liq. wat. temp.
+            q_h2o(i,k)=qv(i,k) !tot. wat. cont.
+            tet_l(i,k)= t(i,k) !liq. wat. temp.
          END DO
-      END IF
+      END DO
    ELSE
-      IF ( l3d_flag ) THEN
-         DO k=k_st, k_en
-            DO i=i_st,i_en
-               q_h2o(i,k)=qv(i,k) +       qc(i,k) !tot. wat. cont.
-               tet_l(i,k)= t(i,k) - lhocp*qc(i,k) !liq. wat. temp.
-            END DO
-         END DO
-      ELSE
+      DO k=k_st, k_en
          DO i=i_st,i_en
-            q_h2o(i,k_st)=qv_2d(i) +       qc(i,k_st) !tot. wat. cont.
-            tet_l(i,k_st)= t_2d(i) - lhocp*qc(i,k_st) !liq. wat. temp.
+            q_h2o(i,k)=qv(i,k) +       qc(i,k) !tot. wat. cont.
+            tet_l(i,k)= t(i,k) - lhocp*qc(i,k) !liq. wat. temp.
          END DO
-      END IF
+      END DO
    END IF
 
    !Calculation of Exner-pressure:
    IF (lcalepr) THEN
-      IF ( l3d_flag ) THEN
-         DO k=k_st, k_en
-            DO i=i_st,i_en
-               exner(i,k)=zexner(prs(i,k))
-            END DO
-         END DO
-      ELSE
+      DO k=k_st, k_en
          DO i=i_st,i_en
-            exner(i,k_st)=zexner(prs_2d(i))
+            exner(i,k)=zexner(prs(i,k))
          END DO
-      END IF
+      END DO
    END IF
 
    !Transformation in real liquid water temperature:
@@ -5101,44 +5067,22 @@ INTEGER (KIND=iintegers) :: &
             END DO
          END DO
       ELSE
-         IF ( l3d_flag ) THEN
-            CALL turb_cloud( ktp,                          &
-                 i_st, i_en, k_st, k_en,                   &
-                 icldtyp=0,                                &
-                 prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
-                 clcv=rcld, clwc=q_liq )
-         ELSE
-            DO i=i_st,i_en
-               prs_3d(i,k_st) = prs_2d(i)
-            END DO
-            CALL turb_cloud( ktp,                          &
-                 i_st, i_en, k_st, k_en,                   &
-                 icldtyp=0,                                &
-                 prs=prs_3d, ps=ps, t=tet_l, qv=q_h2o,  &
-                 clcv=rcld, clwc=q_liq )
-         END IF
+         CALL turb_cloud( ktp,                          &
+              i_st, i_en, k_st, k_en,                   &
+              icldtyp=0,                                &
+              prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
+              clcv=rcld, clwc=q_liq )
       END IF
 
    ELSEIF (icldmod.EQ.2) THEN
       !Spezielle Diagnose von Wasserwolken;
       !unter Breruecksichtigung subskaliger Kondensation:
 
-      IF ( l3d_flag ) THEN
-         CALL turb_cloud( ktp,                          &
-              i_st, i_en, k_st, k_en,                   &
-              icldtyp=itype_wcld,                       &
-              prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
-              clcv=rcld, clwc=q_liq )
-      ELSE
-         DO i=i_st,i_en
-               prs_3d(i,k_st) = prs_2d(i)
-         END DO
-         CALL turb_cloud( ktp,                          &
-              i_st, i_en, k_st, k_en,                   &
-              icldtyp=itype_wcld,                       &
-              prs=prs_3d, ps=ps, t=tet_l, qv=q_h2o,  &
-              clcv=rcld, clwc=q_liq )
-      END IF
+      CALL turb_cloud( ktp,                          &
+           i_st, i_en, k_st, k_en,                   &
+           icldtyp=itype_wcld,                       &
+           prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
+           clcv=rcld, clwc=q_liq )
    END IF
 
    !Berechnung der thermodynamischen Hilfsfelder:
@@ -5164,23 +5108,17 @@ INTEGER (KIND=iintegers) :: &
    END IF
 
    IF (lcalrho) THEN
-      IF ( l3d_flag ) THEN
-         DO k=k_st, k_en
-            DO i=i_st,i_en
-               dens(i,k)=virt(i,k)*prs(i,k)/(r_d*temp(i,k))
-            END DO
-         END DO
-      ELSE
+      DO k=k_st, k_en
          DO i=i_st,i_en
-            dens(i,k_st)=virt(i,k_st)*prs_2d(i)/(r_d*temp(i,k_st))
+            dens(i,k)=virt(i,k)*prs(i,k)/(r_d*temp(i,k))
          END DO
-      END IF
+      END DO
    END IF
 
    IF (PRESENT(r_cpd)) THEN
       DO k=k_st, k_en
          DO i=i_st,i_en
-            r_cpd(i,k)=z1+zrcpv*qvap(i,k)+zrcpl*q_liq(i,k)  !Cp/Cpd
+            r_cpd(i,k)=z1+zrcpv*qvap(i,k)+zrcpl*q_liq(i,k)      !Cp/Cpd
          END DO
       END DO
    END IF
@@ -5188,51 +5126,31 @@ INTEGER (KIND=iintegers) :: &
    IF (.NOT.ladjout) THEN
       DO k=k_st, k_en
          DO i=i_st,i_en
-            tet_l(i,k)=tet_l(i,k)/exner(i,k)              !liquid water pot. temp.
+            tet_l(i,k)=tet_l(i,k)/exner(i,k)                    !liquid water pot. temp.
          END DO
       END DO
    END IF
 
    IF (lcaltdv) THEN
-      IF ( l3d_flag ) THEN
-         DO k=k_st, k_en
-            DO i=i_st,i_en
-!_________________________________________________________
-!test:      old qvsat
-               pdry=(z1-qvap(i,k))*virt(i,k)*prs(i,k)              !partial pressure of dry air
-! JF:                pdry=prs(i,k)
-!_________________________________________________________
-
-               qst_t(i,k)=zdqsdt( temp(i,k), zqvap( zpsat_w( temp(i,k) ), pdry ) )
-                                                                   !d_qsat/d_T
-               teta= temp(i,k)/exner(i,k)                          !potential temperature
-               fakt=(zlhocp/temp(i,k)-(z1+rvd_m_o)*virt(i,k))/(z1+qst_t(i,k)*zlhocp)
-               clcv=c_scld*rcld(i,k)/(z1+rcld(i,k)*(c_scld-z1))    !resulting cloud cover
-
-               g_h2o(i,k)=grav*(rvd_m_o*virt(i,k)+clcv*fakt)       !g    -factor of q_h20-gradient
-               g_tet(i,k)=grav*(z1/teta-clcv*fakt*exner(i,k)*qst_t(i,k))
-                                                                   !g/tet-factor of tet_l-gradient
-            END DO
-         END DO
-      ELSE
+      DO k=k_st, k_en
          DO i=i_st,i_en
 !_________________________________________________________
-!test: old qvsat
-            pdry=(z1-qvap(i,k_st))*virt(i,k_st)*prs_2d(i)          !partial pressure of dry air
-! JF:             pdry=prs_2d(i)
+!test:   old qvsat
+            pdry=(z1-qvap(i,k))*virt(i,k)*prs(i,k)              !partial pressure of dry air
+! JF:             pdry=prs(i,k)
 !_________________________________________________________
 
-            qst_t(i,k_st)=zdqsdt( temp(i,k_st), zqvap( zpsat_w( temp(i,k_st) ), pdry ) )
-                                                                   !d_qsat/d_T
-            teta= temp(i,k_st)/exner(i,k_st)                       !potential temperature
-            fakt=(zlhocp/temp(i,k_st)-(z1+rvd_m_o)*virt(i,k_st))/(z1+qst_t(i,k_st)*zlhocp)
-            clcv=c_scld*rcld(i,k_st)/(z1+rcld(i,k_st)*(c_scld-z1)) !resulting cloud cover
+            qst_t(i,k)=zdqsdt( temp(i,k), zqvap( zpsat_w( temp(i,k) ), pdry ) )
+                                                                !d_qsat/d_T
+            teta= temp(i,k)/exner(i,k)                          !potential temperature
+            fakt=(zlhocp/temp(i,k)-(z1+rvd_m_o)*virt(i,k))/(z1+qst_t(i,k)*zlhocp)
+            clcv=c_scld*rcld(i,k)/(z1+rcld(i,k)*(c_scld-z1))    !resulting cloud cover
 
-            g_h2o(i,k_st)=grav*(rvd_m_o*virt(i,k_st)+clcv*fakt)    !g    -factor of q_h20-gradient
-            g_tet(i,k_st)=grav*(z1/teta-clcv*fakt*exner(i,k_st)*qst_t(i,k_st))
-                                                                   !g/tet-factor of tet_l-gradient
+            g_h2o(i,k)=grav*(rvd_m_o*virt(i,k)+clcv*fakt)       !g    -factor of q_h20-gradient
+            g_tet(i,k)=grav*(z1/teta-clcv*fakt*exner(i,k)*qst_t(i,k))
+                                                                !g/tet-factor of tet_l-gradient
          END DO
-      END IF
+      END DO
    END IF
 
    !Die thermodynamischen Hilfsgroessen wurden hier
@@ -5243,6 +5161,226 @@ INTEGER (KIND=iintegers) :: &
    !wenn die Dichte nicht angepasst wird!
 
 END SUBROUTINE adjust_satur_equil
+
+!********************************************************************************
+
+SUBROUTINE adjust_satur_equil_trans ( i_st, i_en, &
+!
+   lcalrho, lcalepr,                              &
+   lcaltdv,                                       &
+   lpotinp, ladjout,                              &
+!
+   icldmod,                                       &
+!
+   zrcpv, zrcpl, zlhocp,                          &
+!
+   prs, t, qv,                                    &
+!
+   fip,                                           &
+!
+   exner, rcld, dens, r_cpd,                      &
+!
+   qst_t, g_tet, g_h2o, tet_l,                    &
+   q_h2o, q_liq )
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+  i_st, i_en   !horizontal start- and end-indices
+
+LOGICAL, INTENT(IN) :: &
+  lcalrho, &   !density calculation required
+  lcalepr, &   !exner pressure calculation required
+  lcaltdv, &   !calculation of special thermodynamic variables required
+  lpotinp, &   !input temperature is a potential one
+  ladjout      !output of adjusted variables insted of conserved ones
+
+INTEGER (KIND=IINTEGERS), INTENT(IN) :: &
+  icldmod      !mode of water cloud representation
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(IN) :: &
+  prs, t, qv   !current 2D pressure, temperature and water vapor content
+
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
+  fip          !interpolation factor with respect to an reference level
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(INOUT) :: &
+  exner, &     !current Exner-factor
+  rcld         !inp: standard deviation of oversaturation
+               !out: saturation fraction
+
+REAL (KIND=ireals), DIMENSION(:), TARGET, INTENT(INOUT) :: &
+  tet_l, &     !inp: liquid water potent. temp. (only if 'fip' is present)
+               !out: liquid water potent. temp. (or adjust. 't' , if "ladjout")
+  q_h2o, &     !inp: total  water content (only if 'fip' is present)
+               !out: total  water content       (or adjust. 'qv', if "ladjout")
+  q_liq        !out: liquid water content after adjustment
+
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
+  dens,  &     !current air density
+  r_cpd        !cp/cpd
+
+REAL (KIND=ireals), DIMENSION(:), TARGET, INTENT(OUT) :: &
+  qst_t, &     !out: d_qsat/d_T
+               !aux:                                    TARGET for 'qvap', if ".NOT.ladjout"
+  g_tet, &     !out: g/tet-factor of tet_l-gradient in buoyancy term
+               !aux: total  water content of ref. lev.; TARGET for 'temp', if ".NOT.ladjout"
+  g_h2o        !out: g    -factpr of q_h20-gradient in buoyancy term
+               !aux: liq. wat. pot. temp. of ref. lev.; TARGET for 'virt'
+
+REAL (KIND=ireals), INTENT(IN) :: &
+  zrcpv,  &    !0-rcpv  swith for cp_d/cp_v - 1
+  zrcpl,  &    !0-rcpl  swith for cp_d/cp_l - 1
+  zlhocp       !0-lhocp switch for ratio between of latent heat of evap and heat capacity
+
+REAL (KIND=ireals) :: &
+  teta, pdry,  &     !corrected pot. temp. and partial pressure of dry air
+  clcv, fakt         !cloud cover and auxilary factor
+
+REAL (KIND=ireals), DIMENSION(:), POINTER :: &
+  temp, &            !corrected temperature
+  qvap, &            !corrected water vapour content
+  virt               !reciprocal virtual factor
+
+INTEGER (KIND=iintegers) :: &
+  i
+
+!-------------------------------------------------------------------------------
+
+   !Save conserved variables at reference levels for interpolation:
+   IF (PRESENT(fip)) THEN
+      DO i=i_st,i_en
+         g_h2o(i)=q_h2o(i) !tot. wat. cont.
+         g_tet(i)=tet_l(i) !liq. wat. pot. temp.
+      END DO
+   END IF
+
+   !Conserved variables at given levels (with respect to phase change):
+   DO i=i_st,i_en
+      q_h2o(i)=qv(i) !tot. wat. cont.
+      tet_l(i)= t(i) !liq. wat. temp.
+   END DO
+
+   !Calculation of Exner-pressure:
+   IF (lcalepr) THEN
+      DO i=i_st,i_en
+         exner(i)=zexner(prs(i))
+      END DO
+   END IF
+
+   !Transformation in real liquid water temperature:
+   IF (lpotinp) THEN
+      DO i=i_st,i_en
+         tet_l(i)=exner(i)*tet_l(i)
+      END DO
+   END IF
+
+   !Interpolation of conserved variables (with respect ot phase change)
+   !onto levels of interest:
+   IF (PRESENT(fip)) THEN
+      DO i=i_st,i_en
+         q_h2o(i)=           g_h2o(i)*(z1-fip(i))+q_h2o(i)*fip(i)
+         tet_l(i)=exner(i)*g_tet(i)*(z1-fip(i))+tet_l(i)*fip(i)
+      END DO
+
+      !The layer between the reference level and the current level is assumed
+      !to be a pure CFL layer without any mass. Consequently the Exner pressure
+      !values at both levels are treated like being equal.
+   END IF
+
+   !Berechnung der effektiven Bedeckung mit Wasserwolken:
+   IF (icldmod.LE.0) THEN
+      !Keine Wolkenberuecksichtigung;
+      !alles Wolkenwasser wird ignoriert oder verdunstet:
+
+      DO i=i_st,i_en
+         rcld(i)=z0
+        q_liq(i)=z0
+      END DO
+
+   ELSEIF (icldmod.EQ.1) THEN
+      !Wolkenwasser wird als skalige Wolke interpretiert:
+
+      CALL turb_cloud_trans( i_st, i_en,             &
+           icldtyp=0,                                &
+           prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
+           clcv=rcld, clwc=q_liq )
+
+   ELSEIF (icldmod.EQ.2) THEN
+      !Spezielle Diagnose von Wasserwolken;
+      !unter Breruecksichtigung subskaliger Kondensation:
+
+      CALL turb_cloud_trans( i_st, i_en,             &
+           icldtyp=itype_wcld,                       &
+           prs=prs, ps=ps, t=tet_l, qv=q_h2o,        &
+           clcv=rcld, clwc=q_liq )
+
+   END IF
+
+   !Berechnung der thermodynamischen Hilfsfelder:
+
+   IF (ladjout) THEN !output of adjusted non conservative variables
+      qvap => q_h2o
+      temp => tet_l
+   ELSE !output of conserved variables
+      qvap => qst_t
+      temp => g_tet
+   END IF
+
+   virt => g_h2o
+
+   IF (ladjout .OR. lcaltdv .OR. lcalrho .OR. PRESENT(r_cpd)) THEN
+      DO i=i_st,i_en
+         temp(i)=tet_l(i)+zlhocp*q_liq(i)         !corrected temperature
+         qvap(i)=q_h2o(i)-       q_liq(i)         !corrected water vapor
+         virt(i)=z1/(z1+rvd_m_o*qvap(i)-q_liq(i)) !rezipr. virtual factor
+      END DO
+   END IF
+
+   IF (lcalrho) THEN
+      DO i=i_st,i_en
+         dens(i)=virt(i)*prs(i)/(r_d*temp(i))
+      END DO
+   END IF
+
+   IF (PRESENT(r_cpd)) THEN
+      DO i=i_st,i_en
+         r_cpd(i)=z1+zrcpv*qvap(i)+zrcpl*q_liq(i)        !Cp/Cpd
+      END DO
+   END IF
+
+   IF (.NOT.ladjout) THEN
+      DO i=i_st,i_en
+         tet_l(i)=tet_l(i)/exner(i)                      !liquid water pot. temp.
+      END DO
+   END IF
+
+   IF (lcaltdv) THEN
+      DO i=i_st,i_en
+!______________________________________________________
+!test: old qvsat
+         pdry=(z1-qvap(i))*virt(i)*prs(i)                !partial pressure of dry air
+! JF:          pdry=prs(i)
+!_________________________________________________________
+
+         qst_t(i)=zdqsdt( temp(i), zqvap( zpsat_w( temp(i) ), pdry ) )
+                                                         !d_qsat/d_T
+         teta= temp(i)/exner(i)                          !potential temperature
+         fakt=(zlhocp/temp(i)-(z1+rvd_m_o)*virt(i))/(z1+qst_t(i)*zlhocp)
+         clcv=c_scld*rcld(i)/(z1+rcld(i)*(c_scld-z1))    !resulting cloud cover
+
+         g_h2o(i)=grav*( rvd_m_o*virt(i)+clcv*fakt )     !g    -factor of q_h20-gradient
+         g_tet(i)=grav*( z1/teta-clcv*fakt*exner(i)*qst_t(i) )
+                                                         !g/tet-factor of tet_l-gradient
+      END DO
+   END IF
+
+   !Die thermodynamischen Hilfsgroessen wurden hier
+   !unter Beruecksichtigung der diagnostizierten
+   !Kondensationskorrektur gebildet, indem die entspr.
+   !korrigierten Werte fuer t, qv und ql benutzt wurden.
+   !Beachte, dass es zu einer gewissen Inkosistenz kommt,
+   !wenn die Dichte nicht angepasst wird!
+
+END SUBROUTINE adjust_satur_equil_trans
 
 !********************************************************************************
 
@@ -5947,12 +6085,212 @@ END SUBROUTINE turb_cloud
 
 !********************************************************************************
 
+SUBROUTINE turb_cloud_trans ( istart, iend,  &
+!
+   icldtyp,                                  &
+!
+   prs, ps, t, qv,                           &
+!
+   rcld, clcv, clwc )
+
+
+!------------------------------------------------------------------------------
+!
+! Description:
+!
+!     This routine calculates the area fraction of a grid box covered
+!     by stratiform (non-convective) clouds.
+!     If subgrid-scale condensation is required, an additional
+!     saturation adjustment is done.
+!
+! Method:
+!
+!     icldtyp = 0 : grid scale diagnosis of saturation deficit
+!     Cloud water is estimated by grid scale saturation adjustment,
+!     which equals the case "icldtyp = 2" in calse of no variance.
+!     So cloud cover is either "0" or "1".
+!
+!     icldtyp = 1 : empirical diaagnosis of saturation deficit
+!     The fractional cloud cover clcv is determined empirically from
+!     relative humidity. Also, an in-cloud water content of sugrid-scale
+!     clouds is determined as a fraction of the saturation specific
+!     humidity. Both quantities define the grid-volume mean cloud water
+!     content.
+
+!     icldtyp = 2: statistical diagnosis of saturation deficit
+!     A Gaussion distribution is assumed for the saturation deficit
+!     dq = qt - qs where qt = qv + ql is the total water content and
+!     qs is the saturation specific humidity. Using the standard deviation
+!     rcld of this distribution (on input) and the conservative grid-scale
+!     quantities qt and tl (liquid water temperature), a corrected liquid
+!     water content is determined which contains also the contributions from
+!     subgrid-scale clouds. A corresponding cloudiness is also calculated.
+!
+!------------------------------------------------------------------------------
+
+! Subroutine arguments
+!----------------------
+
+! Scalar arguments with intent(in):
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &  ! indices used for allocation of arrays
+  istart, iend,      & ! zonal      start and end index
+!
+  icldtyp              ! type of cloud diagnostics
+
+! Array arguments with intent(in):
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(IN) :: &
+  ps     ! surface pressure
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(IN) :: &
+  prs,   & ! atmospheric pressure
+  t,     & ! temperature (main levels)
+  qv       ! water vapour (")
+
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
+  rcld     ! standard deviation of saturation deficit
+
+! Array arguments with intent(out):
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(INOUT) :: &
+  clcv     ! stratiform subgrid-scale cloud cover
+
+REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
+  clwc     ! liquid water content of ""
+
+! Local variables and constants
+! -----------------------------
+
+INTEGER (KIND=iintegers) :: &
+  i,k ! loop indices
+
+REAL (KIND=ireals), PARAMETER :: &
+  zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit
+  zclwfak  = 0.005_ireals,   & ! fraction of saturation specific humidity
+  zuc      = 0.95_ireals       ! constant for critical relative humidity
+
+REAL (KIND=ireals), DIMENSION(istart:iend) :: &
+  qt, tl, qs, gam
+
+REAL (KIND=ireals) :: &
+  pres, ql, dq, q, sig, uc, & !
+  zsigma, zclc1, zq_max       !
+
+!------------------------------------------------------------------
+!Festlegung der Formelfunktionen fuer die Turbulenzparametrisierung:
+
+!------------ End of header ----------------------------------------
+
+! Begin Subroutine turb_cloud
+! ---------------------------
+
+  zq_max = q_crit*(z1/clc_diag - z1)
+
+  !qv and t already contain the conservation variables
+  DO i = istart, iend
+     qt(i) = qv(i)
+     tl(i) =  t(i)
+  END DO
+
+  DO i = istart, iend
+     pres=(z1-qt(i))/(z1+rvd_m_o*qt(i))*prs(i)         ! part. pressure of dry air
+     qs(i) = zqvap( zpsat_w( tl(i) ), pres )             ! saturation mixing ratio
+     gam(i) = z1 / ( z1 + lhocp*zdqsdt( tl(i), qs(i) ) ) ! slope factor
+  END DO
+
+  DO i = istart, iend
+
+     pres = prs(i)        ! pressure
+     dq   = qt(i) - qs(i)   ! saturation deficit
+
+     IF ( icldtyp .EQ. 1 ) THEN
+
+       ! Calculation of cloud cover and cloud water content
+       ! using an empirical relative humidity criterion
+
+       zsigma = pres / ps(i)
+
+       ! critical relative humidity
+       uc = zuc - uc1 * zsigma * ( z1 - zsigma )  &
+                      * ( z1 + uc2*(zsigma-0.5_ireals) )
+
+       ! cloud cover
+       clcv(i) = MAX( z0,  &
+                      MIN( z1, clc_diag * ((qt(i)/qs(i)-uc)/(ucl-uc))**2 ) )
+
+       ! in-cloud water content
+       ql = qs(i) * zclwfak
+
+       ! grid-volume water content
+       IF ( dq > 0.0_ireals ) THEN
+         zclc1 = clc_diag * ( (z1-uc)/(ucl-uc) )**2
+         ql    = ql + (gam(i)*dq-ql)*(clcv(i)-zclc1)/(z1-zclc1)
+       END IF
+       clwc(i) = clcv(i) * ql
+
+     ELSE !cloud water diagnosis based on saturation adjustment
+
+       IF ( icldtyp .EQ. 2 ) THEN
+
+         ! Statistical calculation of cloud cover and cloud water content
+         ! using the standard deviation of the saturation deficit
+
+         IF (PRESENT(rcld)) THEN !rcld contains standard deviation
+           sig = MIN ( zsig_max, rcld(i) )
+         ELSE !clcv contains standard deviation and will be overwritten by cloud cover
+           sig = MIN ( zsig_max, clcv(i) )
+         END IF
+
+       ELSE !grid scale adjustment wihtout any variance
+
+         sig=z0
+
+       END IF
+
+       ! in case of sig=0, the method is similar to grid-scale
+       ! saturation adjustment. Otherwise, a fractional cloud cover
+       ! is diagnosed.
+       IF ( sig <= 0.0_ireals ) THEN
+         clcv(i) = ABS ( (SIGN(z1,dq)+z1)*0.5_ireals )
+         clwc(i) = clcv(i) * gam(i) * dq
+       ELSE
+         q = dq/sig
+         clcv(i) = MIN ( z1, MAX ( z0, clc_diag * ( z1 + q/q_crit) ) )
+         IF ( q <= - q_crit ) THEN
+           clwc(i) = z0
+         ELSEIF ( q >= zq_max ) THEN
+           clwc(i) = gam(i) * dq
+         ELSE
+           clwc(i) = gam(i) * MIN( qt(i), sig*zq_max ) &
+                            * ( (q + q_crit)/(zq_max + q_crit) )**2
+         ENDIF
+
+       ENDIF
+
+     ENDIF
+
+  ENDDO
+
+END SUBROUTINE turb_cloud_trans
+
+!********************************************************************************
+
+FUNCTION zexner (zpres)
+
+  REAL (KIND=ireals), INTENT(IN) :: zpres
+  REAL (KIND=ireals) :: zexner
+
+  zexner = (zpres/p0ref)**rdocp
+
+END FUNCTION zexner
+
 FUNCTION zpsat_w (ztemp)
 
   REAL (KIND=ireals), INTENT(IN) :: ztemp
   REAL (KIND=ireals) :: zpsat_w
 
-  zpsat_w=b1*exp(b2w*(ztemp-b3)/(ztemp-b4w))
+  zpsat_w = b1*EXP(b2w*(ztemp-b3)/(ztemp-b4w))
 
 END FUNCTION zpsat_w
 
@@ -5965,9 +6303,9 @@ FUNCTION zqvap (zpvap, zpres)
 !mod_2011/09/28: zpres=patm -> zpres=pdry {
 !________________________________________________
 !test: old qsat
-! zqvap=rdv*zpvap/(zpres-o_m_rdv*zpvap)
-  zqvap=rdv*zpvap
-  zqvap=zqvap/(zpres+zqvap)
+! zqvap = rdv*zpvap/(zpres-o_m_rdv*zpvap)
+  zqvap = rdv*zpvap
+  zqvap = zqvap/(zpres+zqvap)
 !________________________________________________
 !mod_2011/09/28: zpres=patm -> zpres=pdry }
 
@@ -6305,7 +6643,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
         DO i=i_st,i_en
            dif_tend(i,k)=dif_tend(i,k)                          &
                           +z1d2*(eff_flux(i,k+1)+eff_flux(i,k)) & !flux on full level
-                               *cur_prof(i,k)                       !r_air-gradient
+                               *cur_prof(i,k)                     !r_air-gradient
         END DO
      END DO
   END IF
