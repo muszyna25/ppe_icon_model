@@ -2875,6 +2875,7 @@ CONTAINS
     p%nblks_c   = p%nblks_c
     p%npromz_c      = p%n_patch_cells - (p%nblks_c - 1)*nproma
     p%npromz_c  = p%npromz_c
+    p%alloc_cell_blocks = p%nblks_c
 
     ! ... for the edges
     p%nblks_e       = blk_no(p%n_patch_edges)
