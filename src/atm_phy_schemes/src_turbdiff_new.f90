@@ -6791,7 +6791,6 @@ REAL (KIND=ireals), POINTER :: &
 
 REAL (KIND=ireals) :: &
 !
-  rhs_grad(i_st:i_en,k_tp:k_sf), & ! gradients of variable on RHS
   dp_k(i_st:i_en,k_tp:k_sf)        ! modified RHS coefficients
 
 REAL (KIND=ireals) :: &
@@ -6817,18 +6816,12 @@ REAL (KIND=ireals) :: &
      rhs_prof => cur_prof
    END SELECT
 
-   DO k=k_tp+1, k_sf-1
-     DO i=i_st, i_en
-       rhs_grad(i,k) = d_k(i,k) * ( rhs_prof(i,k+1) - rhs_prof(i,k) )
-     END DO
-   END DO
-
 
 !  initialize d_k-prime (elemination of a_k's)
 !  uppermost level:
    k=k_tp+1
    DO i=i_st, i_en
-     rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + rhs_grad(i,k)
+     rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + d_k(i,k) * ( rhs_prof(i,k+1) - rhs_prof(i,k) )
      dp_k(i,k) = rhs * i_k(i,k)
    END DO
 
@@ -6836,7 +6829,8 @@ REAL (KIND=ireals) :: &
 !  other levels:
    DO k=k_tp+2, k_sf-1
      DO i=i_st, i_en
-       rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + rhs_grad(i,k) - rhs_grad(i,k-1)
+       rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + d_k(i,k)   * ( rhs_prof(i,k+1) - rhs_prof(i,k) ) &
+                                              + d_k(i,k-1) * ( rhs_prof(i,k-1) - rhs_prof(i,k) )
        dp_k(i,k) = ( rhs + dp_k(i,k-1) * a_k(i,k) ) * i_k(i,k)
      END DO
    END DO
