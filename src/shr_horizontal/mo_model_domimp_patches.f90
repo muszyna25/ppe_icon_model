@@ -1718,9 +1718,18 @@ CONTAINS
 
     !
     ! Set verts%num_edges (in array_v_int(:,1))
-    DO jv = 1, p_p%n_patch_verts_g
-      array_v_int(jv,1) = COUNT(array_v_int(jv, 1:max_verts_connectivity) /= 0)
-    END DO
+    IF (use_duplicated_connectivity) THEN
+      DO jv = 1, p_p%n_patch_verts_g
+        array_v_int(jv,1) &
+             = COUNT(array_v_int(jv, 1:max_verts_connectivity) &
+             /= array_v_int(jv, max_verts_connectivity)) + 1
+      END DO
+    ELSE
+      DO jv = 1, p_p%n_patch_verts_g
+        array_v_int(jv,1) &
+             = COUNT(array_v_int(jv, 1:max_verts_connectivity) /= 0)
+      END DO
+    END IF
 
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
