@@ -435,7 +435,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   DO jk = nlev, 1, -1
     jk1 = jk + nshift
     IF ( vct_a(jk1) >= 1500.0_wp .AND. vct_a(jk1+1) < 1500.0_wp ) THEN
-      k1500m = jk1
+      k1500m = jk  ! not jk1 (may result in out-of-bounds)!
     END IF
     zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
     IF (zfull < htropo) THEN
