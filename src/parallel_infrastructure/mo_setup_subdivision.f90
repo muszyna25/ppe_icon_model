@@ -1449,7 +1449,7 @@ CONTAINS
 
     LOGICAL, ALLOCATABLE :: lcount(:)
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jl, n, &
-         exec_sequence
+         exec_sequence, ref_flag
 
     ALLOCATE(lcount(n_patch_cve_g))
     lcount = .FALSE.
@@ -1518,8 +1518,9 @@ CONTAINS
       ! Gather all halo cells/edges/verts at the end of the patch.
       ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
       irlev = min_rlcve_int-1
+      ref_flag = MERGE(0, 1, l_cell_correction)
       DO j = 1, n_patch_cve_g
-        IF(flag2(j)>1) THEN
+        IF (flag2(j) > ref_flag) THEN
           n = n + 1
           glb_index(n) = j
           loc_index(j) = n
