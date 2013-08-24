@@ -510,7 +510,7 @@ CONTAINS
 
     CALL init_ho_lhs_fields_mimetic   ( patch_3D )
 
-    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D%p_patch_2D(1))
+    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
 
     CALL message (TRIM(routine),'end')
 

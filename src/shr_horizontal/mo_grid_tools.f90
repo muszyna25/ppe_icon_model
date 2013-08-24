@@ -452,15 +452,17 @@ CONTAINS
   ! This is indented for the ocean, with no land cells
   !
   ! The subsets must have been filled in order in order to call this routine.
-  SUBROUTINE create_dummy_cell_closure( patch )
-    TYPE(t_patch), INTENT(inout), TARGET ::  patch
+  SUBROUTINE create_dummy_cell_closure( patch_3D )
+    TYPE(t_patch_3D), INTENT(inout), TARGET ::  patch_3D
 
+    TYPE(t_patch), POINTER ::  patch
     INTEGER :: block, idx, start_idx, end_idx, neighbor
     INTEGER :: dummy_cell_blk, dummy_cell_idx
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grid_tools:create_dummy_cell_closure'
 
     write(0,*) "------------ start  create_dummy_cell_closure ---------------"
+    patch => patch_3D%p_patch_2D(1)
 
     dummy_cell_idx = patch%cells%dummy_cell_index
     dummy_cell_blk = patch%cells%dummy_cell_block

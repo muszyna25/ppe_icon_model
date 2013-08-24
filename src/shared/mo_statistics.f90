@@ -207,29 +207,55 @@ CONTAINS
     REAL(wp) :: minmaxmean(3)
 
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
-    INTEGER :: block, startidx, endidx, number_of_values
+    INTEGER :: block, startidx, endidx, number_of_values, idx
     INTEGER :: communicator
 
     IF (PRESENT(range_subset)) THEN
       ! init the min, max values
-      block = range_subset%start_block
-      CALL get_index_range(range_subset, block, startidx, endidx)
-      min_value = values(startidx, block)
-      max_value = values(startidx, block)
+!      block = range_subset%start_block
+!      CALL get_index_range(range_subset, block, startidx, endidx)
+!      min_value = values(startidx, block)
+!      max_value = values(startidx, block)
+!      sum_value = 0._wp
+      min_value = 1.e16_wp         ! some large value
+      max_value = -1.e16_wp        ! some small value
       sum_value = 0._wp
+      number_of_values = 0
+
+      IF (ASSOCIATED(range_subset%vertical_levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx)
+!ICON_OMP FIRSTPRIVATE(min_in_block, max_in_block, sum_value, number_of_values) &
+!ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value) reduction(sum:number_of_values)
+        DO block = range_subset%start_block, range_subset%end_block
+          CALL get_index_range(range_subset, block, startidx, endidx)
+          DO idx = startidx, endidx
+            IF (range_subset%vertical_levels(idx,block) > 0) THEN
+              min_value    = MIN(min_value, values(idx, block))
+              max_value    = MAX(max_value, values(idx, block))
+              sum_value    = sum_value + values(idx, block)
+            ENDIF
+            number_of_values = number_of_values +  1
+          ENDDO
+        ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+      ELSE ! no range_subset%vertical_levels
+
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO block = range_subset%start_block, range_subset%end_block
-        CALL get_index_range(range_subset, block, startidx, endidx)
-        min_in_block = MINVAL(values(startidx:endidx, block))
-        max_in_block = MAXVAL(values(startidx:endidx, block))
-        min_value    = MIN(min_value, min_in_block)
-        max_value    = MAX(max_value, max_in_block)
-        sum_value    = sum_value + SUM(values(startidx:endidx, block))
-      ENDDO
+        DO block = range_subset%start_block, range_subset%end_block
+          CALL get_index_range(range_subset, block, startidx, endidx)
+          min_in_block = MINVAL(values(startidx:endidx, block))
+          max_in_block = MAXVAL(values(startidx:endidx, block))
+          min_value    = MIN(min_value, min_in_block)
+          max_value    = MAX(max_value, max_in_block)
+          sum_value    = sum_value + SUM(values(startidx:endidx, block))
+        ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      ! compute the total number of values
-      number_of_values = range_subset%size
+        ! compute the total number of values
+        number_of_values = range_subset%size
+
+      ENDIF ! (ASSOCIATED(range_subset%vertical_levels))
 
     ELSE
       min_value = values(1,1)

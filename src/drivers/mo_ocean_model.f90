@@ -48,7 +48,7 @@ MODULE mo_ocean_model
 
   USE mo_io_async,            ONLY: vlist_io_main_proc
 
-  USE mo_advection_config,    ONLY: configure_advection
+!  USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   USE mo_run_config,          ONLY: configure_run, output_mode
   USE mo_gribout_config,      ONLY: configure_gribout
@@ -264,12 +264,12 @@ CONTAINS
 
     CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
 
-    DO jg =1,n_dom
-      !The 3D-ocean version of previous calls 
-      CALL configure_advection( jg, patch_3D%p_patch_2D(jg)%nlev, patch_3D%p_patch_2D(1)%nlev, &
-        &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
-        &                      0, 1, .false., .true., ntracer )
-    ENDDO
+!    DO jg =1,n_dom
+!      !The 3D-ocean version of previous calls
+!      CALL configure_advection( jg, patch_3D%p_patch_2D(jg)%nlev, patch_3D%p_patch_2D(1)%nlev, &
+!        &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
+!        &                      0, 1, .false., .true., ntracer )
+!    ENDDO
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
