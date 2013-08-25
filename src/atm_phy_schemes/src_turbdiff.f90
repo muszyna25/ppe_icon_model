@@ -3388,6 +3388,7 @@ REAL (KIND=ireals) :: &
 
       DO k=1,ke1
          IF (k.LT.ke1) THEN
+!DIR$ IVDEP
             DO i=istartpar,iendpar    
                tp(i)=t(i,k)+zlhocp*hlp(i,k)
                qd(i)=qv(i,k)-hlp(i,k)
@@ -3496,6 +3497,7 @@ REAL (KIND=ireals) :: &
 !     Berechnung der Modellschichtdicken:
         
       DO k=1,ke
+!DIR$ IVDEP
          DO i=istartpar,iendpar    
             dicke(i,k)=hhl(i,k)-hhl(i,k+1)
          END DO
@@ -3505,6 +3507,7 @@ REAL (KIND=ireals) :: &
 !     der Wolkendichte und der Luftdichte auf Nebenflaechen:
 
       DO k=ke,2,-1
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             hlp(i,k)=dp0(i,k)+dp0(i,k-1)
          END DO
@@ -4038,7 +4041,7 @@ REAL (KIND=ireals) :: &
                      lay(i)=SQRT(vel1**2+vel2**2+w(i,k)**2)
                   END DO
                END If
-
+!DIR$ IVDEP
                DO i=istartpar,iendpar
 
 !                 Hilfsgroesse zur Berechn. der reduzierten Konstanten:
@@ -4315,7 +4318,7 @@ REAL (KIND=ireals) :: &
                tkvm(i,k)=MAX( con_m, tkmmin, tkvm(i,k)*tke(i,k,ntur) )
             END DO
          END DO
- 
+
          RETURN !finish this subroutine
 
       END IF   
@@ -4570,12 +4573,14 @@ REAL (KIND=ireals) :: &
 !     tendenzen ausser der Divergenz des Drucktransportes:
 
       IF (ltmpcor) THEN
+!DIR$ IVDEP
          DO i=istart,iend
             ttens(i,1)=ttens(i,1)+tinc(tem)*tketens(i,2) &
                          /(len_scale(i,1)+len_scale(i,2))
 
          END DO
          DO k=2,ke
+!DIR$ IVDEP
             DO i=istart,iend
                ttens(i,k)=ttens(i,k)+tinc(tem)*(tketens(i,k)+tketens(i,k+1)) &
                             /(len_scale(i,k)+len_scale(i,k+1))
@@ -4589,7 +4594,7 @@ REAL (KIND=ireals) :: &
       lcircterm=(pat_len.GT.z0)
 
       IF (lcircterm) THEN !Der Zirculationsterm (Drucktransportterm muss berechnet werden)
-
+!DIR$ IVDEP
          DO i=istartpar,iendpar
            IF (dpat(i).GT.z0) THEN
              l_pat(i)=pat_len*dpat(i) 
@@ -4685,6 +4690,7 @@ REAL (KIND=ireals) :: &
             lays(i,ku)=z0
          END DO
          DO k=ke,kcm,-1   
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                lays(i,ko)=w(i,k)
                wert=z1d2*(cbig(i,k)  +csml(i,k) &
@@ -4725,11 +4731,13 @@ REAL (KIND=ireals) :: &
 
             DO k=ke,kcm,-1
                IF (kcm.EQ.1) THEN
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      lays(i,ku)=lays(i,ku)*z1d2 &
                          *(rair(i,k)-rair(i,k+1))/dicke(i,k)
                   END DO
                ELSE   
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      lays(i,ko)=-rhon(i,k)*tkvh(i,k)*vari(i,k,n)
                      lays(i,ku)=(lays(i,ko)+lays(i,ku))*z1d2 &
@@ -4741,14 +4749,17 @@ REAL (KIND=ireals) :: &
                      wind(i,k,n)=wind(i,k,n)-lays(i,ku)*tinc(n)
                   END DO
                ELSEIF (n.EQ.tem) THEN
+!DIR$ IVDEP
                   DO i=istart,iend
                      ttens(i,k)=ttens(i,k)-lays(i,ku)*tinc(tem)
                   END DO
                ELSEIF (n.EQ.vap) THEN
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qvtens(i,k)=qvtens(i,k)-lays(i,ku)*tinc(vap)
                   END DO
                ELSEIF (n.EQ.liq) THEN
+!DIR$ IVDEP
                   DO i=istart,iend
                      qctens(i,k)=qctens(i,k)-lays(i,ku)*tinc(liq)
                   END DO
@@ -4847,6 +4858,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.tem) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      hlp(i,k)=t(i,k)/exner(i,k)
                   END DO
@@ -4938,6 +4950,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.tem) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      ttens(i,k)=ttens(i,k) &
                                   +exner(i,k)*(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -4945,6 +4958,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.vap) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qvtens(i,k)=qvtens(i,k) &
                                   +(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -4959,6 +4973,7 @@ REAL (KIND=ireals) :: &
                END IF
             ELSEIF (n.EQ.liq) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qctens(i,k)=qctens(i,k) &
                                   +(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -5054,11 +5069,10 @@ REAL (KIND=ireals) :: &
          END IF
 
          DO k=kk,ke   
+!DIR$ IVDEP
             DO i=istart,iend 
                utens(i,k)=utens(i,k) &
-                           +(wind(i,k,u_m)+wind(i,k,u_m))*z1d2
-            END DO
-            DO i=istart,iend  
+                           +(wind(i,k,u_m)+wind(i,k,u_m))*z1d2  
                vtens(i,k)=vtens(i,k) &
                            +(wind(i,k,v_m)+wind(i,k,v_m))*z1d2
             END DO
@@ -5188,6 +5202,7 @@ REAL (KIND=ireals) :: &
 !           Zirkulationstermes explizit behandelt werden:
 
             DO k=2,ke
+!DIR$ IVDEP
                DO i=istartpar,iendpar
                   hlp(i,k)=tketens(i,k-1)-tketens(i,k) 
                END DO
@@ -5198,6 +5213,7 @@ REAL (KIND=ireals) :: &
 !        Volumenkorrektur in der Rauhigkeitsschicht:
 
          DO k=MAX( 2, kcm ), ke
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                hlp(i,k)=hlp(i,k) &
                   +z1d2*(tketens(i,k)*dp0(i,k-1)+tketens(i,k-1)*dp0(i,k)) &
@@ -5430,6 +5446,7 @@ REAL (KIND=ireals) :: &
 
    l=1; k=k_tp+l; kp1=k+1; l0=1; l1=0
 
+!DIR$ IVDEP
    DO i=i_st, i_en
       expl_mom(i,l1)= diff_mom(i,kp1)+ impl_mom(i,kp1) 
       diff_tnd        = disc_mom(i,k  )* cur_prof(i,k  ) &
@@ -5443,7 +5460,7 @@ REAL (KIND=ireals) :: &
  
    DO l=2, n-1
       k=k_tp+l; kp1=k+1; km1=k-1; l0=MOD(l,2); l1=MOD(l+1,2)
-
+!DIR$ IVDEP
       DO i=i_st, i_en
          expl_mom(i,l1)= diff_mom(i,kp1)+ impl_mom(i,kp1)
          diff_tnd        = disc_mom(i,k  )* cur_prof(i,k  )                  &
@@ -5468,6 +5485,7 @@ REAL (KIND=ireals) :: &
    END DO
 
    IF (PRESENT(srf_flux)) THEN
+!DIR$ IVDEP
       DO i=i_st, i_en
          srf_flux(i)=expl_sfl(i)-impl_mom(i,kp1)*(cur_prof(i,kp1)-upd_prof(i,k))
       END DO
@@ -5479,7 +5497,7 @@ REAL (KIND=ireals) :: &
 
    DO l=n-1, 1, -1
       k=k_tp+l; kp1=k+1
-
+!DIR$ IVDEP
       DO i=i_st, i_en
          upd_prof(i,k) = upd_prof(i,k)-impl_mom(i,kp1)*upd_prof(i,kp1)*invs_mom(i,k)
       END DO

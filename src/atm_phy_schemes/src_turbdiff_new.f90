@@ -459,6 +459,24 @@ LOGICAL :: &
 !
     lerror=.FALSE.
 
+#ifdef _CRAYFTN
+TYPE modvar !model variable
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: av(:,:) => NULL() !atmospheric values
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: sv(:)   => NULL() !surface     values (concentration of flux density)
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: at(:,:) => NULL() !atmospheric time tendencies
+     LOGICAL                     :: fc                  !surface values are flux densities
+END TYPE modvar
+
+TYPE turvar !turbulence variables
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: tkv(:,:) => NULL() !turbulent coefficient for vert. diff.
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: dzs(:)   => NULL() !effective surface layer depth
+END TYPE turvar
+
+TYPE varprf !variable profile
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: bl(:,:) !variable at boundary model levels
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: ml(:,:) !variable at main     model levels
+END TYPE varprf
+#else
 TYPE modvar !model variable
      REAL (KIND=ireals), POINTER :: av(:,:) => NULL() !atmospheric values
      REAL (KIND=ireals), POINTER :: sv(:)   => NULL() !surface     values (concentration of flux density)
@@ -475,7 +493,7 @@ TYPE varprf !variable profile
      REAL (KIND=ireals), POINTER :: bl(:,:) !variable at boundary model levels
      REAL (KIND=ireals), POINTER :: ml(:,:) !variable at main     model levels
 END TYPE varprf
-
+#endif
 !-------------------------------------------------------------------------------
 CONTAINS
 !-------------------------------------------------------------------------------
@@ -1212,7 +1230,11 @@ REAL (KIND=ireals), TARGET :: &
      a_3,a_5,a_6,b_1,b_2, &
      l_scal,fc_min
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), POINTER :: &
+#endif
 !
 !    Pointer fuer Felder der Dichte, des Exnerfaktors und der EDR:
      rhoh(:,:),  exner(:,:), ediss(:,:)
@@ -1760,7 +1782,11 @@ SUBROUTINE turbtran
         dz_sa_h  (ie),    &
         dz_s0_h  (ie)
 
+#ifdef _CRAYFTN
+     REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
+#else
      REAL (KIND=ireals), POINTER :: &
+#endif
 !
         vel1_2d  (:),      &
         vel2_2d  (:),      &
@@ -1978,6 +2004,7 @@ SUBROUTINE turbtran
          END DO
       END IF !only for initialization
 
+!DIR$ IVDEP
       DO i=istartpar, iendpar
          z0m_2d(i)  = gz0(i)/grav   !mean roughness length
          l_tur_z0(i)= akt*z0m_2d(i) !turbulent length scale
@@ -2002,6 +2029,7 @@ SUBROUTINE turbtran
       DO it_durch=it_start, it_end !Iterationen
 !print *,"it_durch=",it_durch
 
+!DIR$ IVDEP
          DO i=istartpar, iendpar
 
 !           Berechnung weiterer benoetigter Laengenskalen:
@@ -2113,10 +2141,12 @@ SUBROUTINE turbtran
 
          DO k=ks, ke
             IF (.NOT.PRESENT(epr)) THEN
+!DIR$ IVDEP
                DO i=istartpar, iendpar
                   exner(i,k)=zexner(prs(i,k))
                END DO
             END IF
+!DIR$ IVDEP
             DO i=istartpar, iendpar
                vari(i,k,u_m)  = u(i,k)
                vari(i,k,v_m)  = v(i,k)
@@ -2128,6 +2158,7 @@ SUBROUTINE turbtran
          END DO
 
          IF (lprfcor) THEN
+!DIR$ IVDEP
             DO i=istartpar, iendpar
                len1=z2*h_top_2d(i)
                len2=(h_top_2d(i)-h_atm_2d(i))**2 &
@@ -2147,6 +2178,7 @@ SUBROUTINE turbtran
                                  -len2*vari(i,ke-1,h2o_g))/lh
             END DO
          END IF
+!DIR$ IVDEP
          DO i=istartpar, iendpar
             vel_2d(i)=MAX( vel_min, SQRT(vel1_2d(i)**2+vel2_2d(i)**2) )
          END DO
@@ -2201,6 +2233,7 @@ SUBROUTINE turbtran
             END DO
          END DO
 
+!DIR$ IVDEP
          DO i=istartpar, iendpar
             fm2_2d(i,ke1)=MAX( grad(i,u_m)**2+grad(i,v_m)**2, fc_min )
             fh2_2d(i,ke1)=g_tet(i)*grad(i,tet_l)+g_vap(i)*grad(i,h2o_g)
@@ -2260,6 +2293,7 @@ SUBROUTINE turbtran
                                   tls=len_scale(:,ke1:ke1), tvt=tvt(:,ke1:ke1) )
 
 
+!DIR$ IVDEP
          DO i=istartpar, iendpar
 
 ! 4h)       Bestimmung der durch Wirkung der L-Schicht
@@ -2275,11 +2309,10 @@ SUBROUTINE turbtran
 
             tcm(i)=tkvm(i,ke1)*tfm(i)/(dz_0a_m(i)*vel_2d(i))
             tch(i)=tkvh(i,ke1)*tfh(i)/(dz_0a_h(i)*vel_2d(i))
-!if (i.eq.im) then
-!  print *,"in turbtran: dz_0a,sa=",dz_0a_h(i),dz_sa_h(i)
-!  print *,"vel_2d=",vel_2d(i)
-!  print *,"  tkvh=",tkvh(i,ke1)," tch=",tch(i)," tfh=",tfh(i)
-!endif
+         END DO
+
+
+         DO i=istartpar, iendpar
 
 ! 4i)       Diagnose von gz0 (fuer den naechsten Zeitschritt)
 !           ueber Wasserflaechen mit der (angepassten) Charnock-Formel
@@ -2310,6 +2343,7 @@ SUBROUTINE turbtran
          IF (it_durch.LT.it_end) THEN !at least one additional iteration
 
             !Profile factors using U_star**2=tkvm*SQRT(fm2):
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                fakt=h_top_2d(i)/z0m_2d(i)                             !(l_a-l_0)/l_0; l_0=akt*z0m
                wert=l_tur_z0(i)*SQRT(tkvm(i,ke1)*SQRT(fm2_2d(i,ke1))) !l_0*U_star
@@ -2329,6 +2363,7 @@ SUBROUTINE turbtran
 ! 4j) Berechnung der Standardabweichnung des Saettigungsdefizites:
 
 !k->ke1
+!DIR$ IVDEP
       DO i=istartpar, iendpar
          rcld(i,ke1)=SQRT(l_tur_z0(i)*tkvh(i,ke1)*d_h)* &
                        ABS(epr_2d(i)*qsat_dT(i)*vari(i,ke1,tet_l)-vari(i,ke1,h2o_g))
@@ -2337,6 +2372,7 @@ SUBROUTINE turbtran
 ! 4h) Berechnung der Enthalpie- und Impulsflussdichten sowie der EDR am Unterrand:
 
       IF (PRESENT(shfl_s)) THEN
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             shfl_s(i)=cp_d*rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,tet_l)*epr_2d(i)
             !Note: shfl_s is positive downward and belogns to the T-equation!
@@ -2355,6 +2391,7 @@ SUBROUTINE turbtran
       END IF
 
       IF (PRESENT(qvfl_s)) THEN
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             qvfl_s(i)=rho_2d(i,ke1)*tkvh(i,ke1)*grad(i,h2o_g)
             !Note: qvfl_s is positive downward!
@@ -2384,6 +2421,7 @@ SUBROUTINE turbtran
       END IF
 
       IF (PRESENT(edr)) THEN
+!DIR$ IVDEP
          DO i=i_st,i_en
             edr(i,ke1)=tke(i,ke1,ntur)**3/(d_m*l_tur_z0(i))
          END DO
@@ -2419,6 +2457,7 @@ SUBROUTINE turbtran
 
          val2=z1/epsi
 
+!DIR$ IVDEP
          DO i=istartpar, iendpar
             IF (k_2d(i).EQ.ke) THEN
 !              2m-Niveau unterhalb der untersten Modell-Hauptflaeche
@@ -2463,6 +2502,7 @@ SUBROUTINE turbtran
 
       ELSE !using only a logarithmic profile above a SYNOP lawn
 
+!DIR$ IVDEP
          DO i=istartpar, iendpar
             IF (k_2d(i).EQ.ke) THEN
 !              2m-Niveau unterhalb der untersten Modell-Hauptflaeche
@@ -2498,6 +2538,7 @@ SUBROUTINE turbtran
 
       END IF
 
+!DIR$ IVDEP
       DO i=istartpar, iendpar
          IF (k_2d(i).LT.ke) THEN
 !           2m-Niveau liegt oberhalb der untersten Hauptflaeche und wir nutzen
@@ -2539,6 +2580,7 @@ SUBROUTINE turbtran
 
 !     Berechnung der zugehoerigen Modell- und Feuchtevariablen im 2m-Niveau:
 
+!DIR$ IVDEP
       DO i=istartpar, iendpar
          wert=ts_2d(i)*(z1+rvd_m_o*qds_2d(i))     !angenaeherte virt. Temp.
          prs_2d(i)=prs_2d(i)             &        !Druck
@@ -2586,6 +2628,7 @@ SUBROUTINE turbtran
 
       CALL diag_level(istartpar,iendpar, z10m_2d, k_2d, hk_2d, hk1_2d)
 
+!DIR$ IVDEP
       DO i=istartpar, iendpar
 
          IF (k_2d(i).EQ.ke) THEN
@@ -3071,7 +3114,11 @@ SUBROUTINE turbdiff
            i_k(ie,ke1),   &        ! inversion coefficients for elemination step
            d_k(ie,ke1)             ! RHS coefficients
 
+#ifdef _CRAYFTN
+      REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
+#else
       REAL (KIND=ireals), POINTER :: &
+#endif
 !
 !          Pointer fuer Tendenzfelder:
 !
@@ -3098,7 +3145,11 @@ SUBROUTINE turbdiff
 !          The following buffers wouldn't be necessary, if the related pointers above
 !          were allowed to be allocated at run time:
 
+#ifdef _CRAYFTN
+      REAL (KIND=ireals), DIMENSION(:,:), POINTER, CONTIGUOUS :: &
+#else
       REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
+#endif
 !
             cur_prof, upd_prof, sav_prof, &
             expl_mom, diff_dep
@@ -3486,6 +3537,7 @@ SUBROUTINE turbdiff
 !bug_mod_2011/09/23: dicke(i,ke1) -> dz0(i,mom), dz0(i,sca) {
       IF (itype_tran.EQ.2) THEN !Transferkoeffizienten mit turbtran
          ! spezifiche effektive Dicke der Prandtlschicht:
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             dzsm(i)=tkvm(i,ke1)*tfm(i)/(vh0(i)*tcm(i))
             dzsh(i)=tkvh(i,ke1)*tfh(i)/(vh0(i)*tch(i))
@@ -3494,6 +3546,7 @@ SUBROUTINE turbdiff
 !print *,"   tfh=",tfh(im)," dzsh=",dzsh(im),dzsh(im)/tfh(im)
       ELSE
          ! Unspezifische Hilfskonstruktion fuer neutrale Schichtung:
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             dzsm(i)=z0m(i)*LOG(z1d2*dicke(i,ke)/z0m(i)+z1)
             dzsh(i)=dzsm(i)
@@ -3521,6 +3574,7 @@ SUBROUTINE turbdiff
          END DO
       END DO
       DO k=kcm-1,1,-1
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             len_scale(i,k)=dicke(i,k)+len_scale(i,k+1)
          END DO
@@ -3541,6 +3595,7 @@ SUBROUTINE turbdiff
 !       lay(i)=MAX( l_scal, z1d2*(hhl(i,k-1)-hhl(i,k+1)) )
 !    END DO
 ! END IF
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             len_scale(i,k)=akt*MAX( len_min, &
                                       len_scale(i,k)/(z1+len_scale(i,k)/lay(i)) )
@@ -3655,6 +3710,7 @@ SUBROUTINE turbdiff
             END DO
 
             DO k=ke,2,-1
+!DIR$ IVDEP
                DO i=istartpar,iendpar
                   hlp(i,k)=hlp(i,k+1)+vari(i,k,n) &
                                          *(hhl(i,k)-hhl(i,k+1))
@@ -3885,6 +3941,7 @@ SUBROUTINE turbdiff
 
 !        Reduzierte Konstanten und implizite Horizontalwind-Tendenzen durch Formreibung:
 
+!DIR$ IVDEP
          DO i=istartpar,iendpar
 
 !           Windbetrag auf der aktuellen Hauptflaeche:
@@ -3909,6 +3966,7 @@ SUBROUTINE turbdiff
 
          END DO
 
+!DIR$ IVDEP
          DO i=i_st,i_en
             utens(i,k)=utens(i,k)+vars(i,u_m)
             vtens(i,k)=vtens(i,k)+vars(i,v_m)
@@ -4140,6 +4198,7 @@ SUBROUTINE turbdiff
 !        Es wurde i.a. noch keine unteren Randwerte fuer
 !        tke(), sowie tkvm(), tkvh() und edr() berechnet:
 
+!DIR$ IVDEP
          DO i=istartpar,iendpar
 !Achtung!
 !bug_mod_2011/09/23: dicke(i,ke1) -> dz0(i,mom), dz0(i,sca) {
@@ -4167,6 +4226,7 @@ SUBROUTINE turbdiff
             ELSE
                ediss => tketens
             END IF
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                ediss(i,ke1)=tke(i,ke1,ntur)**3/(d_m*len_scale(i,ke1))
             END DO
@@ -4194,6 +4254,7 @@ SUBROUTINE turbdiff
       IF (ltmpcor) THEN
 
           DO k=2, ke1
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                thermik=tkvh(i,k)*frh(i,k)
                phasdif=tkvh(i,k)*frm(i,k) &
@@ -4210,6 +4271,7 @@ SUBROUTINE turbdiff
          END DO
 
 !achtung
+!DIR$ IVDEP
          DO i=i_st,i_en
             ttens(i,1)=ttens(i,1)+tinc(tem)*tketens(i,2) &
                          /(len_scale(i,1)+len_scale(i,2))
@@ -4217,6 +4279,7 @@ SUBROUTINE turbdiff
          END DO
          DO k=2,ke
 !achtung
+!DIR$ IVDEP
             DO i=i_st,i_en
                ttens(i,k)=ttens(i,k)+tinc(tem)*(tketens(i,k)+tketens(i,k+1)) &
                             /(len_scale(i,k)+len_scale(i,k+1))
@@ -4229,6 +4292,7 @@ SUBROUTINE turbdiff
 
       IF (lcircterm) THEN !Der Zirkulationsterm muss berechnet werden
 
+!DIR$ IVDEP
          DO i=istartpar,iendpar
            l_pat(i)=l_hori*dpat(i)/(l_hori+dpat(i))
          END DO
@@ -4318,6 +4382,7 @@ SUBROUTINE turbdiff
 
 !print *,"k=",2," cur_prof=",cur_prof(im,2)
          DO k=3, ke1
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                diff_dep(i,k)=hhl(i,k-1)-hhl(i,k)
                expl_mom(i,k)=rhoh(i,k-1)*z1d2*(cur_prof(i,k-1)+cur_prof(i,k))/diff_dep(i,k)
@@ -4413,6 +4478,7 @@ SUBROUTINE turbdiff
 !        Zuschlag durch Volumenterm innerhalb der Rauhigkeitsschicht:
 
          DO k=ke,kcm,-1 !innerhalb der Rauhigkeitsschicht
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                wert=(tketens(i,k)*dp0(i,k)+tketens(i,k+1)*dp0(i,k-1))/(dp0(i,k)+dp0(i,k-1))
                    !effektive TKE-Flussdichte interpoliert auf die k-te Nebenflaeche,
@@ -4425,6 +4491,7 @@ SUBROUTINE turbdiff
 !        Speichern der zugehoerigen q-Tendenzen:
 
          DO k=2,ke
+!DIR$ IVDEP
             DO i=istartpar,iendpar
 !___________________________________________________________________________
 !test:
@@ -4510,6 +4577,7 @@ SUBROUTINE turbdiff
          rcld(i,1)=rcld(i,2)
       END DO
       DO k=2,kem-1
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             rcld(i,k)=(rcld(i,k)+rcld(i,k+1))*z1d2
          END DO
@@ -4517,6 +4585,7 @@ SUBROUTINE turbdiff
 !     Fuer die unterste Hauptflaeche (k=ke) wird bei kem=ke
 !     der Wert auf der entspr. Nebenflaeche beibehalten.
 
+!DIR$ IVDEP
       DO i=istartpar,iendpar
          dzsm(i)=dzsm(i)/tfm(i)
          dzsh(i)=dzsh(i)/tfh(i)
@@ -4528,6 +4597,7 @@ SUBROUTINE turbdiff
 
       IF (.NOT.PRESENT(rho)) THEN
          DO k=1,ke
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                virt=z1+rvd_m_o*qv(i,k)-qc(i,k) !virtueller Faktor
                rhoh(i,k)=prs(i,k)/(r_d*virt*t(i,k))
@@ -4544,12 +4614,14 @@ SUBROUTINE turbdiff
 
       IF (.NOT.PRESENT(epr)) THEN
          DO k=1, ke
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                exner(i,k)=zexner(prs(i,k))
             END DO
          END DO
       END IF
 
+!DIR$ IVDEP
       DO i=istartpar,iendpar
          vel1=u(i,ke)
          vel2=v(i,ke)
@@ -4658,6 +4730,7 @@ SUBROUTINE turbdiff
             IF (lsfli(n) .AND. (.NOT.lturatm .OR. n.NE.tem .OR. n.NE.vap)) THEN
                !Load effective surface layer gradients due to given flux values:
 
+!DIR$ IVDEP
                DO i=istart,iend
                   vari(i,ke1,m)=dvar(n)%sv(i)/(rhon(i,ke1)*vtyp(ivtype)%tkv(i,ke1))
                END DO
@@ -4681,15 +4754,18 @@ SUBROUTINE turbdiff
                cur_prof => hlp
 
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istart,iend
                      cur_prof(i,k)=t(i,k)/exner(i,k) !potential temperature
                   END DO
                END DO
+!DIR$ IVDEP
                DO i=istart,iend
                   cur_prof(i,ke1)=t_g(i)/zexner(ps(i))
                END DO
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
                   DO k=1,ke
+!DIR$ IVDEP
                      DO i=istart,iend
                         dicke(i,k)=ttens(i,k)/exner(i,k)
                      END DO
@@ -4775,6 +4851,7 @@ SUBROUTINE turbdiff
 
             IF (n.EQ.tem) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istart,iend
 !mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rather than -fluxes {
                      dvar(n)%at(i,k)=dvar(n)%at(i,k)+exner(i,k)*dicke(i,k)*tinc(n)
@@ -4783,6 +4860,7 @@ SUBROUTINE turbdiff
                END DO
             ELSE
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istart,iend
                      dvar(n)%at(i,k)=dvar(n)%at(i,k)+dicke(i,k)*tinc(n)
                   END DO
@@ -4791,6 +4869,7 @@ SUBROUTINE turbdiff
 
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istart,iend
                      qv_conv(i,k)=qv_conv(i,k)+dicke(i,k) !always a tendency
                   END DO
@@ -4826,6 +4905,7 @@ SUBROUTINE turbdiff
                istart=i_st; iend=i_en
             END IF
 
+!DIR$ IVDEP
             DO i=istart,iend
                vari(i,ke1,n)=rhon(i,ke1)*vtyp(ivtype)%tkv(i,ke1)*vari(i,ke1,n)
             END DO
@@ -4970,7 +5050,11 @@ REAL (KIND=ireals) :: &
   teta, pdry,  &     !corrected pot. temp. and partial pressure of dry air
   clcv, fakt         !cloud cover and auxilary factor
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), DIMENSION(:,:), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
+#endif
   temp, &            !corrected temperature
   qvap, &            !corrected water vapour content
   virt               !reciprocal virtual factor
@@ -5000,6 +5084,7 @@ INTEGER (KIND=iintegers) :: &
       END DO
    ELSE
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
             q_h2o(i,k)=qv(i,k) +       qc(i,k) !tot. wat. cont.
             tet_l(i,k)= t(i,k) - lhocp*qc(i,k) !liq. wat. temp.
@@ -5010,6 +5095,7 @@ INTEGER (KIND=iintegers) :: &
    !Calculation of Exner-pressure:
    IF (lcalepr) THEN
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
             exner(i,k)=zexner(prs(i,k))
          END DO
@@ -5019,6 +5105,7 @@ INTEGER (KIND=iintegers) :: &
    !Transformation in real liquid water temperature:
    IF (lpotinp) THEN
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
             tet_l(i,k)=exner(i,k)*tet_l(i,k)
          END DO
@@ -5029,6 +5116,7 @@ INTEGER (KIND=iintegers) :: &
    !onto levels of interest:
    IF (PRESENT(fip)) THEN
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
             q_h2o(i,k)=             g_h2o(i,k)*(z1-fip(i))+q_h2o(i,k)*fip(i)
             tet_l(i,k)=exner(i,k)*g_tet(i,k)*(z1-fip(i))+tet_l(i,k)*fip(i)
@@ -5099,6 +5187,7 @@ INTEGER (KIND=iintegers) :: &
 
    IF (ladjout .OR. lcaltdv .OR. lcalrho .OR. PRESENT(r_cpd)) THEN
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
             temp(i,k)=tet_l(i,k)+zlhocp*q_liq(i,k)         !corrected temperature
             qvap(i,k)=q_h2o(i,k)-       q_liq(i,k)         !corrected water vapor
@@ -5133,6 +5222,7 @@ INTEGER (KIND=iintegers) :: &
 
    IF (lcaltdv) THEN
       DO k=k_st, k_en
+!DIR$ IVDEP
          DO i=i_st,i_en
 !_________________________________________________________
 !test:   old qvsat
@@ -5235,7 +5325,11 @@ REAL (KIND=ireals) :: &
   teta, pdry,  &     !corrected pot. temp. and partial pressure of dry air
   clcv, fakt         !cloud cover and auxilary factor
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), DIMENSION(:), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), DIMENSION(:), POINTER :: &
+#endif
   temp, &            !corrected temperature
   qvap, &            !corrected water vapour content
   virt               !reciprocal virtual factor
@@ -5268,6 +5362,7 @@ INTEGER (KIND=iintegers) :: &
 
    !Transformation in real liquid water temperature:
    IF (lpotinp) THEN
+!DIR$ IVDEP
       DO i=i_st,i_en
          tet_l(i)=exner(i)*tet_l(i)
       END DO
@@ -5276,6 +5371,7 @@ INTEGER (KIND=iintegers) :: &
    !Interpolation of conserved variables (with respect ot phase change)
    !onto levels of interest:
    IF (PRESENT(fip)) THEN
+!DIR$ IVDEP
       DO i=i_st,i_en
          q_h2o(i)=           g_h2o(i)*(z1-fip(i))+q_h2o(i)*fip(i)
          tet_l(i)=exner(i)*g_tet(i)*(z1-fip(i))+tet_l(i)*fip(i)
@@ -5328,6 +5424,7 @@ INTEGER (KIND=iintegers) :: &
    virt => g_h2o
 
    IF (ladjout .OR. lcaltdv .OR. lcalrho .OR. PRESENT(r_cpd)) THEN
+!DIR$ IVDEP
       DO i=i_st,i_en
          temp(i)=tet_l(i)+zlhocp*q_liq(i)         !corrected temperature
          qvap(i)=q_h2o(i)-       q_liq(i)         !corrected water vapor
@@ -5354,6 +5451,7 @@ INTEGER (KIND=iintegers) :: &
    END IF
 
    IF (lcaltdv) THEN
+!DIR$ IVDEP
       DO i=i_st,i_en
 !______________________________________________________
 !test: old qvsat
@@ -5576,6 +5674,7 @@ LOGICAL :: corr
               tvs(i)=q1+SQRT(q1**2+fakt*(q0**2+z2*dt_tke*con_m*fm2(i,k)))
            END DO
         ELSEIF (imode_stke.EQ.-1) THEN !diagn. solution of station. TKE-equation
+!DIR$ IVDEP
            DO i=i_st, i_en
               q0=tke(i,k,nvor)
               q2=l_dis(i)*(tvt(i,k)+frc(i))
@@ -5613,6 +5712,7 @@ LOGICAL :: corr
 
      IF (lstfnct) THEN
 
+!DIR$ IVDEP
         DO i=i_st, i_en
 
            d0=dd(i,0)
@@ -5753,6 +5853,7 @@ END IF
      END IF
      DO k=k_st, k_en
 !Achtung: edr vielleicht besser mit effektivem Wert q3*q0**2/l_dis
+!DIR$ IVDEP
         DO i=i_st, i_en
            ediss(i,k)=tke(i,k,ntur)**3/(dd(i,0)*tls(i,k))
         END DO
@@ -6001,6 +6102,7 @@ REAL (KIND=ireals) :: &
 ! print *,"qs=",qs(im)
 !end if
 
+!DIR$ IVDEP
      DO i = istart, iend
 
         pres = prs(i,k)        ! pressure
@@ -6193,12 +6295,14 @@ REAL (KIND=ireals) :: &
      tl(i) =  t(i)
   END DO
 
+!DIR$ IVDEP
   DO i = istart, iend
      pres=(z1-qt(i))/(z1+rvd_m_o*qt(i))*prs(i)         ! part. pressure of dry air
      qs(i) = zqvap( zpsat_w( tl(i) ), pres )             ! saturation mixing ratio
      gam(i) = z1 / ( z1 + lhocp*zdqsdt( tl(i), qs(i) ) ) ! slope factor
   END DO
 
+!DIR$ IVDEP
   DO i = istart, iend
 
      pres = prs(i)        ! pressure
@@ -6463,7 +6567,11 @@ REAL (KIND=ireals) :: &
     fr_var, &           ! 1/dt_var
     tkmin               ! effective minimal diffusion coefficient
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), DIMENSION(:,:), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
+#endif
 !
     rhon, rhoh
 
@@ -6487,6 +6595,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
      IF (linisetup .OR. .NOT.PRESENT(rho_n)) THEN
         DO k=k_hi,k_lw
+!DIR$ IVDEP
            DO i=i_st,i_en
               expl_mom(i,k)=hhl(i,k)-hhl(i,k+1)
            END DO
@@ -6510,6 +6619,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
            disc_mom(i,k_hi)=rho(i,k_hi)*expl_mom(i,k_hi)*fr_var
         END DO
         DO k=k_hi+1,k_lw
+!DIR$ IVDEP
            DO i=i_st,i_en
               disc_mom(i,k)=rho(i,k)*expl_mom(i,k)*fr_var
               diff_dep(i,k)=z1d2*(expl_mom(i,k-1)+expl_mom(i,k))
@@ -6518,11 +6628,13 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      END IF
 
      DO k=k_hi+1,k_lw
+!DIR$ IVDEP
         DO i=i_st,i_en
            expl_mom(i,k)=MAX( tkmin, tkv(i,k) ) &
                           *rhon(i,k)/diff_dep(i,k)
         END DO
      END DO
+!DIR$ IVDEP
      DO i=i_st,i_en
         diff_dep(i,k_sf)=dzs(i)
         expl_mom(i,k_sf)=rhon(i,k_sf)*tkv(i,k_sf)/diff_dep(i,k_sf)
@@ -6547,6 +6659,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 ! Optional correction of vertical profiles:
 
   IF (lsfgrduse .AND. igrdcon.NE.2) THEN !effective surface value from effective surface gradient
+!DIR$ IVDEP
      DO i=i_st,i_en
         cur_prof(i,k_sf)=cur_prof(i,k_sf-1)-diff_dep(i,k_sf)*eff_flux(i,k_sf)
      END DO
@@ -6555,6 +6668,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
   IF (igrdcon.EQ.1) THEN !only correction profiles
      DO k=k_sf,kgc,-1
+!DIR$ IVDEP
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-cur_prof(i,k)
         END DO
@@ -6563,12 +6677,14 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
         cur_prof(i,kgc-1)=z0
      END DO
      DO k=kgc,k_sf
+!DIR$ IVDEP
         DO i=i_st,i_en
             cur_prof(i,k)=cur_prof(i,k-1)+(cur_prof(i,k)-diff_dep(i,k)*eff_flux(i,k))
         END DO
      END DO
   ELSEIF (igrdcon.EQ.2) THEN !effektive total profile
      DO k=kgc,k_sf
+!DIR$ IVDEP
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-diff_dep(i,k)*eff_flux(i,k)
         END DO
@@ -6577,22 +6693,26 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
   IF (itndcon.EQ.3) THEN !add diffusion correction from tendency to current profile
      !Related downward flux densities:
+!DIR$ IVDEP
      DO i=i_st,i_en
         eff_flux(i,2)=-dif_tend(i,1)*disc_mom(i,1)*dt_var
      END DO
      DO k=k_hi+1,k_lw
+!DIR$ IVDEP
         DO i=i_st,i_en
            eff_flux(i,k+1)=eff_flux(i,k)-dif_tend(i,k)*disc_mom(i,k)*dt_var
         END DO
      END DO
      !Virtual total vertical increment:
      DO k=k_hi+1,k_sf
+!DIR$ IVDEP
         DO i=i_st,i_en
            eff_flux(i,k)=eff_flux(i,k)/diff_mom(i,k)+(cur_prof(i,k-1)-cur_prof(i,k))
         END DO
      END DO
      !Related corrected profile:
      DO k=k_hi+1,k_sf
+!DIR$ IVDEP
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-eff_flux(i,k)
         END DO
@@ -6601,10 +6721,12 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
   IF (itndcon.GE.1) THEN !calculate updated profile by adding tendency increment to current profile
      DO k=k_hi,k_lw
+!DIR$ IVDEP
         DO i=i_st,i_en
             dif_tend(i,k)=cur_prof(i,k)+dif_tend(i,k)*dt_var
         END DO
      END DO
+!DIR$ IVDEP
      DO i=i_st,i_en
         dif_tend(i,k_sf)=cur_prof(i,k_sf)
      END DO
@@ -6626,6 +6748,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
   !Calculation of time tendencies:
 
   DO k=k_hi,k_lw
+!DIR$ IVDEP
      DO i=i_st,i_en
         dif_tend(i,k)=(dif_tend(i,k)-cur_prof(i,k))*fr_var
      END DO
@@ -6635,11 +6758,13 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
   IF (PRESENT(r_air)) THEN
      DO k=kcm,k_lw  !r_air-gradient within the roughness layer
+!DIR$ IVDEP
         DO i=i_st,i_en
            cur_prof(i,k)=(r_air(i,k)-r_air(i,k+1))/(dt_var*disc_mom(i,k))
         END DO
      END DO
      DO k=kcm,k_lw  !within the roughness layer
+!DIR$ IVDEP
         DO i=i_st,i_en
            dif_tend(i,k)=dif_tend(i,k)                          &
                           +z1d2*(eff_flux(i,k+1)+eff_flux(i,k)) & !flux on full level
@@ -6706,6 +6831,7 @@ INTEGER (KIND=iintegers) :: &
    END IF
 
    DO k=k_tp+2, k_sf-m+1
+!DIR$ IVDEP
      DO i=i_st, i_en
        a_k(i,k) = rho_tkv_o_dz(i,k) * impl_weight(k)
      END DO
@@ -6713,6 +6839,7 @@ INTEGER (KIND=iintegers) :: &
 
 !  uppermost level:
    k=k_tp+1
+!DIR$ IVDEP
    DO i=i_st, i_en
      d_k(i,k)  = rho_tkv_o_dz(i,k+1) - a_k(i,k+1)
      i_k(i,k)  = z1 / ( rho_dz_o_dt(i,k) + a_k(i,k+1) )
@@ -6721,6 +6848,7 @@ INTEGER (KIND=iintegers) :: &
 
 !  other levels:
    DO k=k_tp+2, k_sf-m
+!DIR$ IVDEP
      DO i=i_st, i_en
        d_k(i,k)  = rho_tkv_o_dz(i,k+1) - a_k(i,k+1)
        i_k(i,k)  = z1 / ( rho_dz_o_dt(i,k) + a_k(i,k+1) + ( z1 - cp_k(i,k-1) ) * a_k(i,k) )
@@ -6731,6 +6859,7 @@ INTEGER (KIND=iintegers) :: &
    ! flux condition at the surface:
    IF (lsflucond) THEN
      k=k_sf-1
+!DIR$ IVDEP
      DO i=i_st, i_en
        ! no implicit surface weight
        d_k(i,k)  = rho_tkv_o_dz(i,k+1)
@@ -6784,7 +6913,11 @@ INTEGER (KIND=iintegers) :: &
 !
   i, k             ! horizontal and vertical coordiante indices
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), POINTER :: &
+#endif
 !
   old_prof(:,:), & ! old variable profile value
   rhs_prof(:,:)    ! RHS variable profile value
@@ -6820,6 +6953,7 @@ REAL (KIND=ireals) :: &
 !  initialize d_k-prime (elemination of a_k's)
 !  uppermost level:
    k=k_tp+1
+!DIR$ IVDEP
    DO i=i_st, i_en
      rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + d_k(i,k) * ( rhs_prof(i,k+1) - rhs_prof(i,k) )
      dp_k(i,k) = rhs * i_k(i,k)
@@ -6828,6 +6962,7 @@ REAL (KIND=ireals) :: &
 !  solve for vectors d_k-prime (elemination of a_k's)
 !  other levels:
    DO k=k_tp+2, k_sf-1
+!DIR$ IVDEP
      DO i=i_st, i_en
        rhs = rho_dz_o_dt(i,k) * old_prof(i,k) + d_k(i,k)   * ( rhs_prof(i,k+1) - rhs_prof(i,k) ) &
                                               + d_k(i,k-1) * ( rhs_prof(i,k-1) - rhs_prof(i,k) )
@@ -6838,6 +6973,7 @@ REAL (KIND=ireals) :: &
 
    IF ( itndcon > 0 ) THEN
      DO k=k_tp+1, k_sf-1
+!DIR$ IVDEP
        DO i=i_st, i_en
          cur_prof(i,k) = upd_prof(i,k)
        END DO
@@ -6850,6 +6986,7 @@ REAL (KIND=ireals) :: &
 !  surface level:
    k=k_sf-1
 !  initialize upd_prof (timestep n+1)
+!DIR$ IVDEP
    DO i=i_st, i_en
      upd_prof(i,k) = dp_k(i,k) + cp_k(i,k) * cur_prof(i,k+1)
    END DO
@@ -6857,6 +6994,7 @@ REAL (KIND=ireals) :: &
 !  other levels:
 !  solve for upd_prof (timestep n+1) from the vectors c-prime and d-prime
    DO k=k_sf-2, k_tp+1, -1
+!DIR$ IVDEP
      DO i=i_st, i_en
        upd_prof(i,k) = dp_k(i,k) + cp_k(i,k) * upd_prof(i,k+1)
      END DO
@@ -6874,6 +7012,7 @@ REAL (KIND=ireals) :: &
      END DO
 
      DO k=k_tp+2, k_sf
+!DIR$ IVDEP
        DO i=i_st, i_en
          eff_flux(i,k) = eff_flux(i,k-1) + ( cur_prof(i,k-1) - upd_prof(i,k-1) ) &
                                            * rho_dz_o_dt(i,k-1)
@@ -6934,6 +7073,7 @@ REAL (KIND=ireals) :: &
 
    DO k=k_tp+2, k_sf-2
 
+!DIR$ IVDEP
       DO i=i_st,i_en
          smo_tend(i,k)=remfact* cur_tend(i,k)                      &
                         +versmot*(cur_tend(i,k-1)*disc_mom(i,k-1)  &
@@ -6947,6 +7087,7 @@ REAL (KIND=ireals) :: &
 
    k=k_sf-1
 
+!DIR$ IVDEP
    DO i=i_st,i_en
       smo_tend(i,k)=remfact* cur_tend(i,k)                     &
                      +versmot* cur_tend(i,k-1)*disc_mom(i,k-1) &
@@ -6955,6 +7096,7 @@ REAL (KIND=ireals) :: &
 
    DO k=k_sf, k_lw-1
 
+!DIR$ IVDEP
       DO i=i_st,i_en
          smo_tend(i,k)=cur_tend(i,k)
       END DO
@@ -6988,7 +7130,11 @@ REAL (KIND=ireals), TARGET, OPTIONAL, INTENT(INOUT) :: &
 
 INTEGER (KIND=iintegers) :: i,k,n
 
+#ifdef _CRAYFTN
+REAL (KIND=ireals), DIMENSION(:,:), POINTER, CONTIGUOUS :: &
+#else
 REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
+#endif
 !
    usdep     !used  layer depth
 
@@ -7002,6 +7148,7 @@ LOGICAL :: ldepth, lrpdep, lauxil
       IF (lauxil) THEN !layer depth needs to be calculated
          usdep => auxil
          DO k=k_en, k_st-1, -1
+!DIR$ IVDEP
             DO i=i_st, i_en
                usdep(i,k)=depth(i,k)-depth(i,k+1)
             END DO
@@ -7011,12 +7158,14 @@ LOGICAL :: ldepth, lrpdep, lauxil
       END IF
       IF (lrpdep) THEN !precalculation of the reciprocal layer depth
          DO k=k_en, k_st, -1
+!DIR$ IVDEP
             DO i=i_st, i_en
                rpdep(i,k)=z1/(usdep(i,k-1)+usdep(i,k))
             END DO
          END DO
          DO n=1, nvars
             DO k=k_en, k_st, -1
+!DIR$ IVDEP
                DO i=i_st, i_en
                   pvar(n)%bl(i,k)=(pvar(n)%ml(i,k  )*usdep(i,k-1)  &
                                     +pvar(n)%ml(i,k-1)*usdep(i,k))   &
@@ -7027,6 +7176,7 @@ LOGICAL :: ldepth, lrpdep, lauxil
       ELSE !no precalculation
          DO n=1, nvars
             DO k=k_en, k_st, -1
+!DIR$ IVDEP
                DO i=i_st, i_en
                   pvar(n)%bl(i,k)=(pvar(n)%ml(i,k  )*usdep(i,k-1)  &
                                     +pvar(n)%ml(i,k-1)*usdep(i,k))   &
@@ -7038,6 +7188,7 @@ LOGICAL :: ldepth, lrpdep, lauxil
    ELSE !inverse of main level interpolation
       DO n=1, nvars
          DO k=k_st, k_en
+!DIR$ IVDEP
             DO i=i_st, i_en
                pvar(n)%bl(i,k)=z2*pvar(n)%ml(i,k)-pvar(n)%ml(i,k+1)
             END DO
