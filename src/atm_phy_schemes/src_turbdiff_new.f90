@@ -4826,19 +4826,13 @@ SUBROUTINE turbdiff
 !           Berechnung der vertikalen Diffusionstendenzen:
 
             CALL vert_grad_diff( kcm, kgc,                         &
-
                  istart, iend, 0, ke1,                             &
-!
                  dt_var, ivtype, igrdcon, itndcon,                 &
                  linisetup, lnewvtype, lsflucond, lsfli(n),        &
-!
                  rho=rhoh, rho_n=rhon, hhl=hhl, r_air=rair,        &
-!
                  tkv=vtyp(ivtype)%tkv, dzs=vtyp(ivtype)%dzs,       &
-!
                  disc_mom=a(:,:,1), expl_mom=a(:,:,2),             &
                  diff_mom=a(:,:,3), diff_dep=a(:,:,5),             &
-!
                  cur_prof=cur_prof, dif_tend=dicke,                &
                  eff_flux=vari(:,:,m), leff_flux=leff_flux )
 
