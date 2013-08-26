@@ -128,7 +128,8 @@ MODULE mo_model_domimp_patches
     & radiation_grid_filename,  global_cell_type, lplane, &
     & grid_length_rescale_factor,                         &
     & is_plane_torus, grid_sphere_radius,                 &
-    & use_duplicated_connectivity,  use_dummy_cell_closure
+    & use_duplicated_connectivity,  use_dummy_cell_closure, &
+    & get_gridfile_cell_type
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used
@@ -950,8 +951,6 @@ CONTAINS
       number_of_grid_used(ig) = 42
     ENDIF
 
-
-
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
     IF (icheck /= nroot) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -971,6 +970,10 @@ CONTAINS
         & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
+
+    ! this is not the best way to determine the mcells_max_connectivity
+    ! but it will do as long as we deal only with triangles or hexagons
+    CALL get_gridfile_cell_type(ncid, patch%cells%max_connectivity)
 
     ! Check additional attributes for consistency with the current namelist settings
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))

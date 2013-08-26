@@ -1947,16 +1947,20 @@ CONTAINS
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
-                cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-                cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ! at least one of the two cells exists and is sea cell
+                IF (icell_idx_2 <= 0) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                ELSE IF (icell_idx_1 <= 0) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ELSE IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                ELSE
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ENDIF
 !                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
 !                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! add only the sea dual area, ie the triagle area between
                 ! the vertex, edge centre, and sea cell center
-                IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) > sea_boundary) THEN
-                  ! cell2 is the sea cell
-                  cell1_cc%x = cell2_cc%x
-                ENDIF
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
                   & + triangle_area(cell1_cc, vertex_cc, patch%edges%cartesian_center(ile,ibe))
               ENDIF

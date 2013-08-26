@@ -461,8 +461,9 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grid_tools:create_dummy_cell_closure'
 
-    write(0,*) "------------ start  create_dummy_cell_closure ---------------"
     patch => patch_3D%p_patch_2D(1)
+    ! write(0,*) "------------ start create_dummy_cell_closure ---------------"
+    ! write(0,*) "patch%cells%max_connectivity=", patch%cells%max_connectivity
 
     dummy_cell_idx = patch%cells%dummy_cell_index
     dummy_cell_blk = patch%cells%dummy_cell_block
@@ -488,10 +489,11 @@ CONTAINS
     DO block = patch%cells%all%start_block, patch%cells%all%end_block
       CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
       DO idx = start_idx, end_idx
-         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN
+         IF (block /= dummy_cell_blk .OR. idx /= dummy_cell_idx) THEN ! this is not needed
           ! this is not the dummy cell
           DO neighbor=1, patch%cells%max_connectivity
-            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0) THEN
+            IF ( patch%cells%neighbor_idx(idx, block, neighbor) == 0 .OR. &
+              & patch%cells%neighbor_blk(idx, block, neighbor) == 0 ) THEN
               patch%cells%neighbor_blk(idx, block, neighbor) = dummy_cell_blk
               patch%cells%neighbor_idx(idx, block, neighbor) = dummy_cell_idx
   !             write(0,*) "Replaced neighbor at ", block, idx, neighbor

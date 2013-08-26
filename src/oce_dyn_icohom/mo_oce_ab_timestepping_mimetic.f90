@@ -156,7 +156,7 @@ CONTAINS
     INTEGER :: iter_sum                        ! sum of iterations
     INTEGER :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
     INTEGER :: i_startidx_c, i_endidx_c
-    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: edge_start_idx, edge_end_idx
     REAL(wp) :: z_h_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_h_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
@@ -217,8 +217,8 @@ CONTAINS
     END DO
     !2) Thickness at edges
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+      DO je = edge_start_idx, edge_end_idx
         IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)&
             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +p_os%p_diag%h_e(je,jb)
@@ -582,35 +582,25 @@ CONTAINS
     !
     INTEGER :: je, jk, jb
     REAL(wp) :: gdt
-    REAL(wp) :: z_gradh_e(nproma,1,patch_3d%p_patch_2d(n_dom)%nblks_e)
+    REAL(wp) :: z_gradh_e(nproma, patch_3d%p_patch_2d(n_dom)%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,patch_3d%p_patch_2d(n_dom)%nblks_e)
-    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
-    INTEGER :: i_startidx_e, i_endidx_e, dolic_e
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, owned_edges
+    INTEGER :: edge_start_idx, edge_end_idx, dolic_e
     TYPE(t_patch), POINTER :: patch_horz
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !  &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
-    patch_horz    => patch_3d%p_patch_2d(n_dom)
+    patch_horz      => patch_3d%p_patch_2d(n_dom)
     edges_in_domain => patch_3d%p_patch_2d(n_dom)%edges%in_domain
     all_edges       => patch_3d%p_patch_2d(n_dom)%edges%ALL
+    owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
     
-    z_gradh_e(:,:,:) = 0.0_wp
-    gdt              = grav*dtime
-    
-    !---------------------------------------------------------------------
-    ! STEP 1: calculate gradient of surface height at previous timestep
-    !---------------------------------------------------------------------
-    
-    CALL grad_fd_norm_oce_2d_3d( p_os%p_prog(nold(1))%h,     &
-      & patch_horz,                  &
-      & p_op_coeff%grad_coeff(:,1,:),  &
-      & z_gradh_e(:,1,:))
-    CALL sync_patch_array(sync_e, patch_horz, z_gradh_e(:,1,:))
+    gdt             = grav * dtime
     
     !---------------------------------------------------------------------
-    ! STEP 2: horizontal advection
+    ! STEP 1: horizontal advection
     !---------------------------------------------------------------------
     
     IF(l_initial_timestep)THEN
@@ -630,7 +620,7 @@ CONTAINS
     ENDIF
     
     !---------------------------------------------------------------------
-    ! STEP 3: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
+    ! STEP 2: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
     !---------------------------------------------------------------------
     
     IF ( iswm_oce /= 1 ) THEN
@@ -640,11 +630,11 @@ CONTAINS
         & p_os%p_diag%rho(:,:,:) )
       
       ! calculate hydrostatic pressure from density at timelevel nc
-      CALL calc_internal_press( patch_3d,                        &
-        & p_os%p_diag%rho,                   &
-        & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,&
-        & p_os%p_prog(nold(1))%h,            &
-        & p_os%p_diag%press_hyd)
+      CALL calc_internal_press( patch_3d,                  &  ! in
+        & p_os%p_diag%rho,                                 &  ! in
+        & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
+        & p_os%p_prog(nold(1))%h,                          &  ! in
+        & p_os%p_diag%press_hyd)                              ! inout
       
       ! calculate gradient of hydrostatic pressure in 3D
       CALL grad_fd_norm_oce_3d( p_os%p_diag%press_hyd,  &
@@ -675,7 +665,6 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src = 3  ! output print level (1-5, fix)
-    CALL dbg_print('old height gradient'       ,z_gradh_e                 ,str_module,idt_src)
     CALL dbg_print('horizontal advection'      ,p_os%p_diag%veloc_adv_horz,str_module,idt_src)
     CALL dbg_print('density'                   ,p_os%p_diag%rho           ,str_module,idt_src, &
       & in_subset=patch_3d%p_patch_2d(n_dom)%cells%owned)
@@ -687,7 +676,7 @@ CONTAINS
     !---------------------------------------------------------------------
     
     !---------------------------------------------------------------------
-    ! STEP 4: compute harmonic or biharmoic laplacian diffusion of velocity.
+    ! STEP 3: compute harmonic or biharmoic laplacian diffusion of velocity.
     !         This term is discretized explicitly. Order and form of the laplacian
     !         are determined in mo_oce_diffusion according to namelist settings
     !---------------------------------------------------------------------
@@ -699,6 +688,28 @@ CONTAINS
       & p_os%p_diag%laplacian_horz)
     
     CALL sync_patch_array(sync_e, patch_horz, p_os%p_diag%laplacian_horz)
+
+    !---------------------------------------------------------------------
+    ! STEP 4: calculate weighted gradient of surface height at previous timestep
+    !---------------------------------------------------------------------
+
+    z_gradh_e(:,patch_3d%p_patch_2d(n_dom)%nblks_e)  = 0.0_wp
+    CALL grad_fd_norm_oce_2d_3d( p_os%p_prog(nold(1))%h,     &
+      & patch_horz,                  &
+      & p_op_coeff%grad_coeff(:,1,:),  &
+      & z_gradh_e(:,:))
+    CALL dbg_print('old height gradient'  ,z_gradh_e, str_module,idt_src, in_subset=owned_edges)
+
+    DO jb = owned_edges%start_block, owned_edges%end_block
+       CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
+       z_gradh_e(edge_start_idx:edge_end_idx, jb) = &
+         & (1.0_wp-ab_beta) * grav * z_gradh_e(edge_start_idx:edge_end_idx, jb)
+    ENDDO
+    CALL sync_patch_array(sync_e, patch_horz, z_gradh_e(:,:))
+
+    !---------------------------------------------------------------------
+    ! STEP 5:
+    !---------------------------------------------------------------------
     
     IF (l_inverse_flip_flop) THEN
       
@@ -716,56 +727,56 @@ CONTAINS
       IF(l_staggered_timestep)THEN
         
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
             
-            p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
-              & - z_e(i_startidx_e:i_endidx_e,jk,jb)  &
-              & - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e,jk,jb)  &
-              & + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e,jk,jb)  &
-              & + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e,jk,jb)
+            p_os%p_aux%g_n(edge_start_idx:edge_end_idx, jk, jb) = &
+              & - z_e(edge_start_idx:edge_end_idx,jk,jb)  &
+              & - p_os%p_diag%veloc_adv_vert(edge_start_idx:edge_end_idx,jk,jb)  &
+              & + p_os%p_diag%laplacian_horz(edge_start_idx:edge_end_idx,jk,jb)  &
+              & + p_os%p_diag%laplacian_vert(edge_start_idx:edge_end_idx,jk,jb)
           END DO
         END DO
         
       ELSEIF(.NOT.l_staggered_timestep)THEN
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
-            p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
-              & -p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)       &
-              & - z_e(i_startidx_e:i_endidx_e, jk, jb)  &
-              & - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+            p_os%p_aux%g_n(edge_start_idx:edge_end_idx, jk, jb) = &
+              & -p_os%p_diag%press_grad(edge_start_idx:edge_end_idx, jk, jb)       &
+              & - z_e(edge_start_idx:edge_end_idx, jk, jb)  &
+              & - p_os%p_diag%veloc_adv_vert(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_horz(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_vert(edge_start_idx:edge_end_idx, jk, jb)
           END DO
         END DO
       ENDIF
       
       CALL sync_patch_array(sync_e, patch_horz, p_os%p_aux%g_n)
       
-    ELSEIF(.NOT.(l_inverse_flip_flop))THEN
+    ELSE ! IF(.NOT.(l_inverse_flip_flop))THEN
       
       IF(l_staggered_timestep)THEN
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
-            p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) =&!-p_os%p_diag%press_grad(:,jk,:)      &
-              & - p_os%p_diag%veloc_adv_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-              & - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+            p_os%p_aux%g_n(edge_start_idx:edge_end_idx, jk, jb) =&!-p_os%p_diag%press_grad(:,jk,:)      &
+              & - p_os%p_diag%veloc_adv_horz(edge_start_idx:edge_end_idx, jk, jb)  &
+              & - p_os%p_diag%veloc_adv_vert(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_horz(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_vert(edge_start_idx:edge_end_idx, jk, jb)
           END DO
         END DO
-      ELSEIF(.NOT.l_staggered_timestep)THEN
+      ELSE ! IF(.NOT.l_staggered_timestep)THEN
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
-            p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
-              & - p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)      &
-              & - p_os%p_diag%veloc_adv_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-              & - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-              & + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+            p_os%p_aux%g_n(edge_start_idx:edge_end_idx, jk, jb) = &
+              & - p_os%p_diag%press_grad(edge_start_idx:edge_end_idx, jk, jb)      &
+              & - p_os%p_diag%veloc_adv_horz(edge_start_idx:edge_end_idx, jk, jb)  &
+              & - p_os%p_diag%veloc_adv_vert(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_horz(edge_start_idx:edge_end_idx, jk, jb)  &
+              & + p_os%p_diag%laplacian_vert(edge_start_idx:edge_end_idx, jk, jb)
           END DO
         END DO
       ENDIF
@@ -786,41 +797,42 @@ CONTAINS
         
         IF(l_staggered_timestep)THEN
           DO jb = all_edges%start_block, all_edges%end_block
-            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+            CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
             DO jk = 1, n_zlev
-              DO je = i_startidx_e, i_endidx_e
+              DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
                   !IF(v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)    &
                     & + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
                     & -p_os%p_diag%press_grad(je,jk,jb)  &
-                    & - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+                    & - z_gradh_e(je ,jb))
                 ENDIF
+
               END DO
             END DO
           END DO
           
-        ELSEIF(.NOT.l_staggered_timestep)THEN
+        ELSE   ! IF(.NOT.l_staggered_timestep)THEN
           
           !---------DEBUG DIAGNOSTICS-------------------------------------------
           idt_src = 5  ! output print level (1-5, fix)
           CALL dbg_print('Bef fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src)
           CALL dbg_print('Bef fin term: g_nimd'       ,p_os%p_aux%g_nimd         ,str_module,idt_src)
-          CALL dbg_print('Bef fin term: gradh_e'      ,z_gradh_e                 ,str_module,idt_src)
           !---------------------------------------------------------------------
           
           DO jb = all_edges%start_block, all_edges%end_block
-            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+            CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
             DO jk = 1, n_zlev
-              DO je = i_startidx_e, i_endidx_e
+              DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
                   !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)  &
                     & + dtime*(p_os%p_aux%g_nimd(je,jk,jb) &
-                    & - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+                    & - z_gradh_e(je, jb))
                 ENDIF
+
               END DO
             END DO
           END DO
@@ -836,9 +848,9 @@ CONTAINS
         IF(l_staggered_timestep)THEN
           
           DO jb = all_edges%start_block, all_edges%end_block
-            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+            CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
             DO jk = 1, n_zlev
-              DO je = i_startidx_e, i_endidx_e
+              DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)  &
@@ -853,9 +865,9 @@ CONTAINS
         ELSEIF(.NOT.l_staggered_timestep)THEN
           
           DO jb = all_edges%start_block, all_edges%end_block
-            CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+            CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
             DO jk = 1, n_zlev
-              DO je = i_startidx_e, i_endidx_e
+              DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)&
@@ -877,8 +889,8 @@ CONTAINS
       IF(expl_vertical_velocity_diff==1)THEN
         
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+          DO je = edge_start_idx, edge_end_idx
             
             IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
               p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
@@ -901,13 +913,13 @@ CONTAINS
     ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
       
       DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
         DO jk = 1, n_zlev
-          DO je = i_startidx_e, i_endidx_e
+          DO je = edge_start_idx, edge_end_idx
             !IF(patch_3d%lsm_c(je,jk,jb) <= sea_boundary)THEN
             p_os%p_diag%vn_pred(je,jk,jb) = (p_os%p_prog(nold(1))%vn(je,jk,jb)        &
               & + dtime*(p_os%p_aux%g_nimd(je,jk,jb)        &
-              & - (1.0_wp-ab_beta)*grav*z_gradh_e(je,1,jb)))
+              & - z_gradh_e(je, jb)))
           END DO
         END DO
       END DO
@@ -916,9 +928,9 @@ CONTAINS
       IF ( iforc_oce/=10) THEN
         
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
-            DO je = i_startidx_e, i_endidx_e
+            DO je = edge_start_idx, edge_end_idx
               !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
               p_os%p_diag%vn_pred(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
                 & + p_os%p_aux%bc_top_vn(je,jb)    &
@@ -997,7 +1009,7 @@ CONTAINS
     !  local variables
     !
     INTEGER :: i_startidx_c, i_endidx_c
-    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: edge_start_idx, edge_end_idx
     INTEGER :: jc, jb, jk, je
     INTEGER :: i_dolic_c,i_dolic_e
     REAL(wp) :: gdt2    !, delta_z
@@ -1037,8 +1049,8 @@ CONTAINS
     
     IF(iswm_oce == 1)THEN
       DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
+        CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+        DO je = edge_start_idx, edge_end_idx
           DO jk=1,n_zlev
             !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
             z_vn_ab(je,jk,jb)=ab_gam*p_os%p_diag%vn_pred(je,jk,jb)&
@@ -1051,8 +1063,8 @@ CONTAINS
       
       IF(expl_vertical_velocity_diff==1)THEN
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+          DO je = edge_start_idx, edge_end_idx
             i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
             DO jk=1,i_dolic_e
               !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
@@ -1066,8 +1078,8 @@ CONTAINS
       ELSEIF(expl_vertical_velocity_diff==0)THEN
         
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+          DO je = edge_start_idx, edge_end_idx
             i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
             DO jk=1,i_dolic_e
               !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
@@ -1093,8 +1105,8 @@ CONTAINS
       IF( iswm_oce /= 1 ) THEN !the 3D case
         
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+          DO je = edge_start_idx, edge_end_idx
             i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)
             DO jk=1,i_dolic_e
               z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
@@ -1105,8 +1117,8 @@ CONTAINS
       ELSEIF( iswm_oce == 1 ) THEN
         
         DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
+          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+          DO je = edge_start_idx, edge_end_idx
             i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)
             DO jk=1,i_dolic_e
               z_e(je,jk,jb)= z_vn_ab(je,jk,jb)*p_os%p_diag%thick_e(je,jb)
@@ -1362,7 +1374,7 @@ CONTAINS
     TYPE(t_external_data), TARGET :: p_ext_data
     !
     !  local variables
-    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: edge_start_idx, edge_end_idx
     INTEGER :: je, jk, jb
     REAL(wp) :: gdt
     REAL(wp) :: z_grad_h(nproma,patch_3d%p_patch_2d(1)%nblks_e)
@@ -1396,12 +1408,12 @@ CONTAINS
     IF (iswm_oce == 1) THEN ! shallow water case
       
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
         DO jk = 1, n_zlev
-          DO je = i_startidx_e, i_endidx_e
+          DO je = edge_start_idx, edge_end_idx
             IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
               p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
                 & - gdt*ab_beta*z_grad_h(je,jb))
@@ -1415,12 +1427,12 @@ CONTAINS
       IF (.NOT.l_rigid_lid) THEN
         
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+          CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
           DO jk = 1, n_zlev
-            DO je = i_startidx_e, i_endidx_e
+            DO je = edge_start_idx, edge_end_idx
               IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
                 p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
                   & - gdt*ab_beta*z_grad_h(je,jb))
@@ -1437,12 +1449,12 @@ CONTAINS
     
     
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+      CALL get_index_range(edges_in_domain, jb, edge_start_idx, edge_end_idx)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
       DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+        DO je = edge_start_idx, edge_end_idx
           IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
             p_os%p_diag%vn_time_weighted(je,jk,jb)      &
               & = ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb) &
@@ -1678,7 +1690,7 @@ CONTAINS
     !REAL(wp), ALLOCATABLE :: inv_flip_flop_e2(:,:)!(nproma,p_patch%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
     INTEGER :: jk
-    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !INTEGER :: i_startblk_e, i_endblk_e, edge_start_idx, edge_end_idx
     !-----------------------------------------------------------------------
     
     tolerance                = 1.0e-12_wp  ! solver_tolerance

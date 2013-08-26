@@ -61,27 +61,21 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
-  
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
-
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
      & grid_sphere_radius, grid_angular_velocity
-
   PUBLIC :: namelist_grid_angular_velocity
-
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
+  PUBLIC :: get_gridfile_cell_type
 
 ! !   PUBLIC :: radiation_grid_distribution
   
   PUBLIC :: n_dom_start, max_childdom     
-
   PUBLIC :: n_phys_dom
-
   PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
-
   PUBLIC :: use_duplicated_connectivity, use_dummy_cell_closure
   ! ------------------------------------------------------------------------
 

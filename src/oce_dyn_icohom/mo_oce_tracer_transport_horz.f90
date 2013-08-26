@@ -6,7 +6,6 @@
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2011/01)
 !!
-!!  mpi parallelized LL
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M

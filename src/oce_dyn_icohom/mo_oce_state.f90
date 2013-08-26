@@ -1887,8 +1887,11 @@ CONTAINS
                   ibln = p_patch%cells%neighbor_blk(jc,jb,ji)
                   ! counts number of land-cells for all three neighbors
                   !  - only one land-point neighbor is allowed
-                  IF ( lsm_c(idxn,ibln) > SEA_BOUNDARY) &
-                    &  nowet_c=nowet_c + 1
+                  IF (idxn <= 0) THEN
+                    nowet_c = nowet_c + 1
+                  ELSE IF ( lsm_c(idxn,ibln) > SEA_BOUNDARY ) THEN
+                    nowet_c = nowet_c + 1
+                  ENDIF
                 END DO
 
                 ! More than 1 wet neighbor-cell then set cell to land
@@ -2052,30 +2055,50 @@ CONTAINS
           iic2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
           !
-          IF (iic1 == 0) THEN
-            iic1 = iic2
-            ibc1 = ibc2
-          ENDIF
-          IF (iic2 == 0) THEN
-            iic2 = iic1
-            ibc2 = ibc1
+!          IF (iic1 == 0) THEN
+!            iic1 = iic2
+!            ibc1 = ibc2
+!          ENDIF
+!          IF (iic2 == 0) THEN
+!            iic2 = iic1
+!            ibc2 = ibc1
+!          ENDIF
+
+          ! when a cell is missing then the edge is considered boundary (=0)
+          ! in case of open boundaries we have to create a bteer process through
+          ! the grid tools
+          IF (iic1 == 0 ) THEN
+            IF (v_base%lsm_c(iic2,jk,ibc2) <= SEA_BOUNDARY) THEN
+              v_base%lsm_e(je,jk,jb) = BOUNDARY
+            ELSE
+              v_base%lsm_e(je,jk,jb) = LAND
+            ENDIF
+          ELSE IF (iic2 == 0 ) THEN
+            IF (v_base%lsm_c(iic1,jk,ibc1) <= SEA_BOUNDARY) THEN
+              v_base%lsm_e(je,jk,jb) = BOUNDARY
+            ELSE
+              v_base%lsm_e(je,jk,jb) = LAND
+            ENDIF
+          ELSE
+
+            ! set land/sea for all edges
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
+              &   v_base%lsm_e(je,jk,jb) = SEA
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
+              &   v_base%lsm_e(je,jk,jb) = LAND
+
+            ! set boundary values at edges
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
+              &   v_base%lsm_e(je,jk,jb) = BOUNDARY
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
+              &   v_base%lsm_e(je,jk,jb) = BOUNDARY
+
           ENDIF
 
-          ! set land/sea for all edges
-          IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
-            &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
-            &   v_base%lsm_e(je,jk,jb) = SEA
-          IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
-            &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
-            &   v_base%lsm_e(je,jk,jb) = LAND
-
-          ! set boundary values at edges
-          IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
-            &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
-            &   v_base%lsm_e(je,jk,jb) = BOUNDARY
-          IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
-            &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
-            &   v_base%lsm_e(je,jk,jb) = BOUNDARY
 
           ! count land/sea/boundary values (sum of nosea_e no_lnd_e nobnd_e is global value)
           IF ( v_base%lsm_e(je,jk,jb) <  BOUNDARY )      &
@@ -2278,14 +2301,18 @@ CONTAINS
           ibc1 = p_patch%edges%cell_blk(je,jb,1)
           iic2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
-          dol_c1 = v_base%dolic_c(iic1,ibc1)
-          dol_c2 = v_base%dolic_c(iic2,ibc2)
 
-          IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
-            WRITE(message_text,'(a,2i3,a,i3)') &
-              &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
-            CALL message(TRIM(routine), TRIM(message_text))
-          END IF
+          IF (iic1 > 0 .AND. iic2 > 0) THEN
+            dol_c1 = v_base%dolic_c(iic1,ibc1)
+            dol_c2 = v_base%dolic_c(iic2,ibc2)
+
+            IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
+              WRITE(message_text,'(a,2i3,a,i3)') &
+                &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
+              CALL message(TRIM(routine), TRIM(message_text))
+            END IF
+
+          END IF ! iic1 > 0 .AND. iic2 > 0
 
         END IF
 
@@ -2504,10 +2531,12 @@ CONTAINS
                ! coordinates of neighbouring cells
                n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
                n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
-               IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_atlantic) then       ! NEIGHBOR IS tROPaTL
-                 is_area_5 = .true.
-               ELSE IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
-                 is_area_8 = .true.
+               IF (n_idx(i) > 0) THEN
+                 IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_atlantic) then       ! NEIGHBOR IS tROPaTL
+                   is_area_5 = .true.
+                 ELSE IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
+                   is_area_8 = .true.
+                 END IF
                END IF
              END DO
 
