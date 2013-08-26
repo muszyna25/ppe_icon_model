@@ -167,7 +167,19 @@ const_z0  = 0.0003
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho','gz0','shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','qv_s','pres_sfc'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho','gz0','qv','qc'
+/
+&output_nml
+ filetype         = 4
+ dom              = -1
+ output_time_unit = 2
+ output_bounds    = 0.,180.,1.   !start, end, increment
+ steps_per_file   = 2000
+ include_last     = .TRUE.
+ remap            = 0   ! triangular grid
+ output_filename  = '${EXPNAME}_tseries'
+ output_grid      = .TRUE.
+ ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','clct'
 /
 EOF
 #-----------------------------------------------------------------------------
