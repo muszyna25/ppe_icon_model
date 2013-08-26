@@ -106,18 +106,21 @@
 MODULE mo_model_domimp_setup
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, warning
+  USE mo_exception,          ONLY: finish, warning, message
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity, use_dummy_cell_closure, grid_sphere_radius
   USE mo_sync,               ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range, read_subset, write_subset
-  USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
+  USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq, global_mpi_barrier, &
+    & get_my_global_mpi_id
+
   USE mo_loopindices
   USE mo_impl_constants
   USE mo_math_types
   USE mo_math_utilities
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+  USE mo_master_control,     ONLY: get_my_process_type, ocean_process
   
   IMPLICIT NONE
   
@@ -357,13 +360,6 @@ CONTAINS
         ilv4 = ptr_patch%edges%vertex_idx(je,jb,4)
         ibv4 = ptr_patch%edges%vertex_blk(je,jb,4)
 
-        !     IF ( ilv3 > 0 .AND. ilv4 > 0) THEN
-        !      write(*,*) "cells:", ilc1, ibc1, ilc2, ibc2
-        !      write(*,*) "cell1 vertex idx :", ptr_patch%cells%vertex_idx(ilc1,ibc1,:)
-        !      write(*,*) "cell1 vertex blk :", ptr_patch%cells%vertex_blk(ilc1,ibc1,:)
-        !      write(*,*) "cell2 vertex idx :", ptr_patch%cells%vertex_idx(ilc2,ibc2,:)
-        !      write(*,*) "cell2 vertex blk :", ptr_patch%cells%vertex_blk(ilc2,ibc2,:)
-        !      write(*,*) "chosen vertexes:", ilv3,ibv3, ilv4,ibv4
         cc_ev3 = gc2cc(ptr_patch%verts%vertex(ilv3,ibv3))
         cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
 
@@ -585,7 +581,6 @@ CONTAINS
     
     
     !-----------------------------------------------------------------------
-    
     ! values for the blocking
     nblks_e  = patch%nblks_e
     
@@ -770,12 +765,11 @@ CONTAINS
     CALL sync_patch_array(sync_e,patch,patch%edges%quad_area)
     DO iie = 1, 4
       CALL sync_patch_array(sync_e,patch,patch%edges%quad_orientation(:,:,iie))
-      
+
       CALL sync_idx(sync_e,sync_e,patch,patch%edges%quad_idx(:,:,iie), &
         & patch%edges%quad_blk(:,:,iie), &
         & opt_remap=.FALSE.)
     ENDDO
-    
     
   END SUBROUTINE init_quad_twoadjcells
   !-------------------------------------------------------------------------
@@ -1274,7 +1268,11 @@ CONTAINS
       & mask=patch%cells%halo_level, start_mask=0, end_mask=1, located=on_cells)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
+!    IF (get_my_mpi_work_id() == 0) THEN
+!      write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!    ENDIF
     IF (patch%cells%in_domain%no_of_holes > 0) THEN
+      IF (get_my_process_type() == ocean_process) THEN
 !      IF (get_my_mpi_work_id() == 0) THEN
 !        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
 !        write(0,*) "=============================="
@@ -1285,13 +1283,29 @@ CONTAINS
 !        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
 !        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !        write(0,*) "=============================="
-!        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
-!      ELSE
+!       ENDIF
+        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
+      ELSE
         CALL warning(method_name, "patch%cells%in_domain no_of_holes > 0")
+      ENDIF
+    ENDIF
+
+    IF (patch%cells%one_edge_in_domain%no_of_holes > 0)  THEN
+!      IF (get_my_mpi_work_id() == 0) THEN
+!        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner_mask:",patch%cells%owner_mask(:,:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner:",patch%cells%owner_local(:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
+!        write(0,*) "subset blocks:", patch%cells%one_edge_in_domain%start_block, patch%cells%in_domain%end_block
+!        write(0,*) "=============================="
+!        CALL finish(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
+!      ELSE
+        CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
 !      ENDIF
     ENDIF
-    IF (patch%cells%one_edge_in_domain%no_of_holes > 0) &
-      CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
@@ -1315,6 +1329,18 @@ CONTAINS
       & mask=patch%edges%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_in_domain%is_in_domain   = .false.
     
+    IF (patch%edges%owned%no_of_holes > 0)  THEN
+        CALL warning(method_name, "patch%edges%owned no_of_holes > 0")
+    ENDIF
+    IF (patch%edges%in_domain%no_of_holes > 0)  THEN
+        CALL warning(method_name, "patch%edges%in_domain no_of_holes > 0")
+    ENDIF
+!    IF (get_my_mpi_work_id() == 0) THEN
+!      write(0,*) "patch%edges%halo_level:",patch%edges%halo_level
+!      write(0,*) "=============================="
+!    ENDIF
+
+
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(subset=patch%verts%all,  patch=patch, &

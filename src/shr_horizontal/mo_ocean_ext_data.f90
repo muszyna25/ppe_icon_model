@@ -154,7 +154,7 @@ CONTAINS
       &                          'external data started')
 
 
-    write(0,*) 'create new external data list for ocean'
+    ! write(0,*) 'create new external data list for ocean'
     ! Build external data list for constant-in-time fields for the ocean model
     DO jg = 1, n_dom
       WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
