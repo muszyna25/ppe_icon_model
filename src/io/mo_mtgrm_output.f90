@@ -1053,7 +1053,7 @@ CONTAINS
       &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
       &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
       &       meteogram_output_config%ninc_mtgrm) == 0) .AND. &
-      &  (MOD(jsteps_adv_ntsteps+1,iadv_rcf)==0)
+      &  (MOD(jsteps_adv_ntsteps,iadv_rcf)==0)
     
   END FUNCTION meteogram_is_sample_step
 
