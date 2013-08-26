@@ -323,7 +323,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   CALL div_oce_3d( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
      & subset_range=cells_in_domain)
 
-  CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
+  CALL div_oce_3d( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
      & subset_range=cells_in_domain)
 
 
