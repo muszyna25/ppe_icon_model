@@ -423,15 +423,15 @@ CONTAINS
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,981) '   VALUE ', strmod, strout, jk, p_array(c_i,jk,c_b), &
+          & WRITE(iout,981) '        VALUE ', strmod, strout, jk, p_array(c_i,jk,c_b), &
           &                 (' C',i,':',p_array(nc_i(i),jk,nc_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_e) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
+          & WRITE(iout,982) '        VALUE ', strmod, strout, jk, &
           &                 (' E',i,':',p_array(ne_i(i),jk,ne_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_v) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
+          & WRITE(iout,982) '        VALUE ', strmod, strout, jk, &
           &                 (' V',i,':',p_array(nv_i(i),jk,nv_b(i)),i=1,3)
       END IF
 
