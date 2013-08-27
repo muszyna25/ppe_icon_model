@@ -169,7 +169,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 60          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000. 
  ifs2icon_filename            = '${ifs2icon_filename}'

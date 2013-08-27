@@ -163,7 +163,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 60          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000. 
  ifs2icon_filename            = '${ifs2icon_filename}'
@@ -171,6 +170,7 @@ cat > ${atmo_namelist} << EOF
 /
 &io_nml
  lflux_avg                    = .FALSE.
+ itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  dt_checkpoint                = ${dt_restart}   
 /
 &run_nml
@@ -183,7 +183,7 @@ cat > ${atmo_namelist} << EOF
  ntracer                      = 5
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
- msg_level                    = 5           ! default: 5, much more: 20
+ msg_level                    = 12           ! default: 5, much more: 20
  ldump_states                 = ${ldump_states}
  lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.

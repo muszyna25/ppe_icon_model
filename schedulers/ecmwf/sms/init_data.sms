@@ -124,11 +124,32 @@ cat > NAMELIST_PREPICON << EOF
  code           = 130          
 !intp_method    = 3     
 /
+EOF
+if [ %SIMMODE% -ne 3  ] ; then
+
+cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! horiz. wind comp. u and v
  inputname      = "U", "V"         
- outputname     = "VN"          
-!intp_method    = 3     
+ outputname     = "VN"  
 /
+EOF
+else
+
+cat >> NAMELIST_PREPICON << EOF
+&input_field_nml  ! horiz. wind comp. u and v
+ inputname      = "U"
+ outputname     = "U"  
+ code           = 130 
+/
+&input_field_nml  ! horiz. wind comp. u and v
+ inputname      = "V"         
+ outputname     = "V" 
+ code           = 131  
+/
+EOF
+
+fi
+cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! vertical velocity
  inputname      = "OMEGA" 
  outputname     = "W"
