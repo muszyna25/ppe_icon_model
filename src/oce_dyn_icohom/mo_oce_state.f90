@@ -60,7 +60,7 @@ MODULE mo_oce_state
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
-    &                               success, max_char_length, min_dolic,               &
+    &                               success, max_char_length, MIN_DOLIC,               &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
@@ -3211,7 +3211,7 @@ CONTAINS
         END DO
 
         jk = v_base%dolic_c(jc,jb)
-        IF (jk >= min_dolic) THEN
+        IF (jk >= MIN_DOLIC) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_c(jc,jb) = patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
@@ -3248,26 +3248,26 @@ CONTAINS
             patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk) + patch_3D%bottom_thick_c(jc,jb)
 
           ENDIF ! l_partial_cells
-        ENDIF ! jk>=min_dolic
+        ENDIF ! jk>=MIN_DOLIC
       END DO
     END DO
 
     ! If column has not enough wet layers set all 4 depth-arrays to zero
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        DO jk=1,n_zlev
-          IF ( v_base%dolic_c(jc,jb) < min_dolic) THEN
+  ! DO jb = all_cells%start_block, all_cells%end_block
+  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  !   DO jc = i_startidx_c, i_endidx_c
+  !     DO jk=1,n_zlev
+  !       IF ( v_base%dolic_c(jc,jb) < MIN_DOLIC) THEN
 
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-            patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = 0.0_wp
+  !         patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
+  !         patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = 0.0_wp
 
-            patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-          ENDIF
-        END DO
-      END DO
-    END DO
+  !         patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
+  !         patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
+  !       ENDIF
+  !     END DO
+  !   END DO
+  ! END DO
 
 
     DO jb = all_edges%start_block, all_edges%end_block
@@ -3295,7 +3295,7 @@ CONTAINS
         END DO
 
         jk = v_base%dolic_e(je,jb)
-        IF (jk >= min_dolic) THEN
+        IF (jk >= MIN_DOLIC) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_e(je,jb) = patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
@@ -3333,26 +3333,26 @@ CONTAINS
             patch_3D%column_thick_e(je,jb) = v_base%zlev_i(jk) + patch_3D%bottom_thick_e(je,jb)
 
           ENDIF ! l_partial_cells
-        ENDIF ! jk>=min_dolic
+        ENDIF ! jk>=MIN_DOLIC
 
       END DO
     END DO
     !If column has not enough wet layers set all 4 depth-arrays to zero
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        DO jk=1,n_zlev
-          IF ( v_base%dolic_e(je,jb) < min_dolic) THEN
+   !DO jb = all_edges%start_block, all_edges%end_block
+   !  CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+   !  DO je = i_startidx_e, i_endidx_e
+   !    DO jk=1,n_zlev
+   !      IF ( v_base%dolic_e(je,jb) < MIN_DOLIC) THEN
 
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-            patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
+   !        patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
+   !        patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
 
-            patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-          ENDIF
-        END DO
-      END DO
-    END DO
+   !        patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
+   !        patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
+   !      ENDIF
+   !    END DO
+   !  END DO
+   !END DO
 
     ! set halo values to zero in specific arrays for calculating global sum with respect to lsm
     ! cells

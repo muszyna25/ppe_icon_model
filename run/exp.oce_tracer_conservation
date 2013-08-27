@@ -199,7 +199,7 @@ cat > ${ocean_namelist} << EOF
   k_sal_h            = 0.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 0.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 0.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
+  MAX_VERT_DIFF_TRAC = 0.0       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
   idiag_oce          = 1              ! 1: write standard ocean diagnostics to stderr
@@ -216,6 +216,7 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
+!  oce_t_ref          = 1.0
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only
