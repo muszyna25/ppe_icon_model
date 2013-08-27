@@ -795,7 +795,6 @@ schedulers/ecmwf/def/ifs_trigger.def -text
 schedulers/ecmwf/doc/doc.html -text
 schedulers/ecmwf/gen/build.job -text
 schedulers/ecmwf/gen/cancel_check_progress -text
-schedulers/ecmwf/gen/case_setup -text
 schedulers/ecmwf/gen/case_setup.B-matrix -text
 schedulers/ecmwf/gen/case_setup_clim -text
 schedulers/ecmwf/gen/case_setup_clim_tsoil -text
