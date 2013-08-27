@@ -1309,7 +1309,6 @@ src/configure_model/mo_grid_config.f90 -text
 src/configure_model/mo_gridref_config.f90 -text
 src/configure_model/mo_gw_hines_config.f90 -text
 src/configure_model/mo_ha_dyn_config.f90 -text
-src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_initicon_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
@@ -1442,7 +1441,6 @@ src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_ha_dyn_nml.f90 -text
-src/namelists/mo_icon_testbed_nml.f90 -text
 src/namelists/mo_initicon_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
@@ -1573,6 +1571,8 @@ src/shr_horizontal/mo_ocean_ext_data.f90 -text
 src/shr_horizontal/mo_operator_ocean_coeff_3d.f90 -text
 src/shr_horizontal/mo_reorder_patches.f90 -text
 src/shr_horizontal/mo_smooth_topo.f90 -text
+src/testbed/mo_icon_testbed_config.f90 -text
+src/testbed/mo_icon_testbed_nml.f90 -text
 src/testbed/mo_test_communication.f90 -text
 src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
