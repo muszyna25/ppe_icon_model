@@ -122,7 +122,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   REAL(wp), INTENT(IN)                   :: K_h(:,:,:)         !horizontal mixing coeff
   REAL(wp), INTENT(IN)                   :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(IN)                   :: h_new(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  REAL(wp), INTENT(INOUT)                  :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(INOUT)                :: flux_horz(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !
   !Local variables
   REAL(wp) :: delta_z
@@ -136,7 +136,8 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   REAL(wp) :: z_div_adv_h  (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   ! horizontal tracer divergence
   REAL(wp) :: z_div_diff_h (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! horizontal tracer divergence
   REAL(wp) :: z_diff_flux_h(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e) ! horizontal diffusive tracer flux
-  !REAL(wp) :: z_flux_2D    (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
+
+  REAL(wp) :: thickness_e, surface_height
   !TYPE(t_cartesian_coordinates):: z_vn_c   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !TYPE(t_cartesian_coordinates):: z_vn_c_3D(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain  
@@ -154,13 +155,6 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   z_div_adv_h   (:,:,:) = 0.0_wp
   z_div_diff_h  (:,:,:) = 0.0_wp
   z_diff_flux_h (:,:,:) = 0.0_wp
-  !z_flux_2D    (1:nproma,1:p_patch%nblks_e)         = 0.0_wp
-  !z_vn_c(1:nproma,1:p_patch%alloc_cell_blocks)%x(1)  =0.0_wp
-  !z_vn_c(1:nproma,1:p_patch%alloc_cell_blocks)%x(2)  =0.0_wp
-  !z_vn_c(1:nproma,1:p_patch%alloc_cell_blocks)%x(3)  =0.0_wp
-  !z_vn_c_3D(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1)  =0.0_wp
-  !z_vn_c_3D(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2)  =0.0_wp
-  !z_vn_c_3D(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3)  =0.0_wp
 
   ! Initialize timer for horizontal advection
   IF (ltimer) CALL timer_start(timer_adv_horz)
@@ -206,18 +200,23 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   END SELECT
 
 
+  CALL dbg_print('Adv upwind: adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
   !Multiply fluxes with edge height
 ! !-------------------------------------------------------------------------------
   IF( l_edge_based)THEN
 ! !-------------------------------------------------------------------------------
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
-          z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+      DO je = i_startidx_e, i_endidx_e
+        DO jk = 1, p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
+          surface_height = merge(p_os%p_diag%h_e(je,jb),0.0_wp, 1 == jk)
+          thickness_e = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk) + surface_height
+          thickness_e = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+          z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*thickness_e
         END DO
       END DO
     END DO
+  CALL dbg_print('Adv*thick_e:adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
 ! !-------------------------------------------------------------------------------
   ELSEIF(.NOT. l_edge_based)THEN
 ! !-------------------------------------------------------------------------------
