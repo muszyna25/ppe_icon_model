@@ -177,17 +177,11 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-        IF(z_dolic>0)THEN
-          DO jk = 1, z_dolic!-1
-         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             ! positive vertical divergence in direction of w (upward positive)
-              flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
-                                      &-z_adv_flux_v(jc,jk+1,jb)
-          END IF
+            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
+                                    &-z_adv_flux_v(jc,jk+1,jb)
         ENDDO
-        ENDIF
       END DO
     END DO
 
