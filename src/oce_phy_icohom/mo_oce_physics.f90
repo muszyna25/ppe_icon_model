@@ -78,7 +78,10 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               add_ref, groups
 USE mo_cf_convention
 USE mo_grib2
-USE mo_cdi_constants
+USE mo_cdi_constants,       ONLY: GRID_CELL, GRID_EDGE, GRID_REFERENCE,           &
+  &                               GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL, &
+  &                               ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF,    &
+  &                               datatype_pack16, datatype_flt32, filetype_nc2
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, global_max
 IMPLICIT NONE

@@ -96,7 +96,10 @@ MODULE mo_nh_initicon
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group, &
     &                               total_number_of_variables
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
+    &                               zaxisInqType, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF,    &
+    &                               ZAXIS_HEIGHT, vlistInqVarZaxis, vlistNvars,       &
+    &                               streamInqVlist, streamOpenRead
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
@@ -883,7 +886,7 @@ MODULE mo_nh_initicon
     INTEGER :: vlistID, varID, ivar, mpi_comm
     INTEGER :: zaxisID
     INTEGER :: index
-    INTEGER :: nlev_ana, nlev_fg                                  ! number of vertical levels (in fg/ana file)
+!!$    INTEGER :: nlev_ana, nlev_fg                                  ! number of vertical levels (in fg/ana file)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
     TYPE(t_bool_table) :: bool_table
