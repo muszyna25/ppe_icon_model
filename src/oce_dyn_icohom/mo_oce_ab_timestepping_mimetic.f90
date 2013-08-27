@@ -693,7 +693,9 @@ CONTAINS
     ! STEP 4: calculate weighted gradient of surface height at previous timestep
     !---------------------------------------------------------------------
 
-    z_gradh_e(:,patch_3d%p_patch_2d(n_dom)%nblks_e)  = 0.0_wp
+!    z_gradh_e(:,patch_3d%p_patch_2d(n_dom)%nblks_e)  = 0.0_wp
+    ! zero all for the nag compiler
+    z_gradh_e(:,:)  = 0.0_wp
     CALL grad_fd_norm_oce_2d_3d( p_os%p_prog(nold(1))%h,     &
       & patch_horz,                  &
       & p_op_coeff%grad_coeff(:,1,:),  &
