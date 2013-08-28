@@ -134,12 +134,13 @@ MODULE mo_nh_testcases
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
-
+   
   LOGICAL  :: linit_tracer_fv  !< finite volume initialization for tracer fields
                                !< if .TRUE.
 
   LOGICAL  :: lcoupled_rho     !< re-integrate mass equation in PA test cases (TRUE/FALSE)
 
+  REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
@@ -167,7 +168,7 @@ MODULE mo_nh_testcases
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
-                            u_cbl, v_cbl, th_cbl                  
+                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb                  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -333,6 +334,8 @@ MODULE mo_nh_testcases
     v_cbl(1:2) = 0._wp 
     th_cbl(1)  = 290._wp
     th_cbl(2)  = 0.006_wp
+    w_perturb  = 0.05_wp    
+    th_perturb = 0.2_wp    
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -1238,12 +1241,10 @@ MODULE mo_nh_testcases
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
                       
-      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", 0.05_wp, nlev-3, nlev ) 
+                               "cell", w_perturb, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", 0.2_wp, nlev-3, nlev ) 
-      END IF
+                               "cell", th_perturb, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1260,12 +1261,10 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
-      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", 0.05_wp, nlev-3, nlev ) 
+                               "cell", w_perturb, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", 0.2_wp, nlev-3, nlev ) 
-      END IF
+                               "cell", th_perturb, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1282,12 +1281,10 @@ MODULE mo_nh_testcases
       CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
                       
-      IF (atm_phy_nwp_config(1)%inwp_turb==5) THEN
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", 0.05_wp, nlev-3, nlev ) 
+                               "cell", w_perturb, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", 0.2_wp, nlev-3, nlev ) 
-      END IF
+                               "cell", th_perturb, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
