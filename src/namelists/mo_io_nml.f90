@@ -213,7 +213,7 @@ CONTAINS
     output_nml_dict         = ' '
     netcdf_dict             = ' '
 
-    lzaxis_reference        = .FALSE. ! use ZAXIS_HYBRID
+    lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
 
 
     !------------------------------------------------------------------
