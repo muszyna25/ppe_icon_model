@@ -123,14 +123,16 @@ MODULE mo_ocean_model
   
   PRIVATE
   
-  PUBLIC :: ocean_model, ocean_patch_3d
+  PUBLIC :: ocean_model
+  PUBLIC :: construct_ocean_model, destruct_ocean_model
+  PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
   LOGICAL :: l_have_output
   TYPE(t_patch_3d), POINTER :: ocean_patch_3d
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
-  TYPE(t_operator_coeff)                          :: p_op_coeff
-  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: v_ocean_state(:)
+  TYPE(t_operator_coeff)                          :: operators_coefficients
+  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
   
@@ -204,7 +206,7 @@ CONTAINS
         !ENDIF
         IF (output_mode%l_vlist) THEN
           CALL write_output_oce( time_config%cur_datetime,z_sim_time=(/1.0_wp/),&
-            & p_patch_3d=ocean_patch_3d, p_os=v_ocean_state)
+            & p_patch_3d=ocean_patch_3d, p_os=ocean_state)
         ENDIF
       ENDIF
       l_have_output = .TRUE.
@@ -224,12 +226,12 @@ CONTAINS
     END IF ! (not) is_restart_run()
 
     !------------------------------------------------------------------
-    CALL perform_ho_stepping( ocean_patch_3d, v_ocean_state,                    &
+    CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
       & ext_data, start_datetime, n_io,                     &
       & jfile,                                        &
       & (nsteps == INT(time_config%dt_restart/dtime)),&
       & v_sfc_flx,                                    &
-      & v_params, p_as, p_atm_f,v_sea_ice,p_op_coeff,&
+      & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients,&
       & l_have_output)
     !------------------------------------------------------------------
     
@@ -256,7 +258,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
-    CALL finalise_ho_integration(v_ocean_state, v_params, &
+    CALL finalise_ho_integration(ocean_state, v_params, &
       & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
 
     !---------------------------------------------------------------------
@@ -301,6 +303,8 @@ CONTAINS
 
   !--------------------------------------------------------------------------
   !>
+  !!
+  !! It does not include the restart processes, these are called from the calling routine ocean_model
   !!
   SUBROUTINE construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
 
@@ -370,9 +374,9 @@ CONTAINS
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
-    ALLOCATE (v_ocean_state(n_dom), stat=ist)
+    ALLOCATE (ocean_state(n_dom), stat=ist)
     IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for v_ocean_state failed')
+      CALL finish(TRIM(routine),'allocation for ocean_state failed')
     ENDIF
 
     !---------------------------------------------------------------------
@@ -410,8 +414,8 @@ CONTAINS
 #endif
 
     ! Prepare time integration
-    CALL prepare_ho_integration(ocean_patch_3d, v_ocean_state, ext_data, v_sfc_flx, &
-      & v_params, p_as, p_atm_f, v_sea_ice,p_op_coeff)!,p_int_state(1:))
+    CALL prepare_ho_integration(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
+      & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
 
 
   END SUBROUTINE construct_ocean_model
