@@ -79,7 +79,8 @@ export NC_BLOCKSIZE=128mb
 export F_PROGINF=DETAIL
 
 module unload netcdf
-module load netcdf4/4.1.2
+#module load netcdf4/4.1.2
+module load netcdf4
 
 
 # -------------------------------------------------

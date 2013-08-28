@@ -179,7 +179,8 @@ suite $USER
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
-    set ENABLE_SSTICE             1 #to avoid running again
+    set     ENABLE_CHECK          1
+    set ENABLE_SSTICE             0 #to avoid running again
     set ENABLE_POST               1
     set     ENABLE_METEOGRAM      1
     set     ENABLE_POST_METVIEW   0
@@ -385,7 +386,7 @@ suite $USER
 	      
               task check_progress
                 trigger  (model == active)
-                complete (model == complete)
+                complete ($ENABLE_CHECK == 0 ) or (model == complete )
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 02:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS

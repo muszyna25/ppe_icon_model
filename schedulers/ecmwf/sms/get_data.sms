@@ -54,7 +54,7 @@ if [[ %YMD%%INIHOUR% -ge 2013062512 ]] ; then
 else
   nlev=91
 fi
-
+#rm -f ${IFSDATADIR2}/${IFS_FILENAME_NC}
 if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ]] ; then
   echo 'ifs2icon file can be copied - no MARS!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}

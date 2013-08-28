@@ -44,19 +44,27 @@ cd $EXPDIR
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
 #extpar_filename=extpar_${atmo_dyn_grids}
-extpar_filename=extpar_${res}_DOM01.nc
+extpar_filename=icon_extpar_${res}_G.nc
 ifs2icon_filename=ifs2icon_${res}_DOM01.nc
 sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
 ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
 
+#rm -f ${atmo_dyn_grids}
+#rm -f ${atmo_rad_grids}
+#rm -f ${extpar_filename}
+#rm -f ${ifs2icon_filename}
+
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
-ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
+
+#rm -f *SST**${res}*
+#rm -f *CI**${res}*
 
 ln -sf ${SSTICEDIR}/*/*SST**${res}* .
 ln -sf ${SSTICEDIR}/*/*CI**${res}* .
@@ -267,7 +275,7 @@ cat > ${atmo_namelist} << EOF
                      -10.08, -61.93, 'LBA_Rondonia',
                       13.50,   2.5 , 'Niamey',
                       36.61, -97.49, 'ARM_Southern_Great_Plains',
-                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow'
+                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
                       -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
                      -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
                      -20.00,-120.00, 'Tropical Ocean cumumulus',
@@ -280,7 +288,7 @@ cat > ${atmo_namelist} << EOF
                       55.195,  7.158,'FINO3'
 /
 &nwp_phy_nml
- inwp_gscp                    = 10  ! 1: default, or 10
+ inwp_gscp                    = 1   ! 1: default, or 10
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
@@ -302,7 +310,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 10.0
+ rat_sea                      = 7.5
 /
 &lnd_nml
  ntiles                       = 3
@@ -332,7 +340,7 @@ cat > ${atmo_namelist} << EOF
  ivctype                      = 2
  itime_scheme                 = 4
  exner_expol                  = 0.333
- vwind_offctr                 = 0.2
+ vwind_offctr                 = 0.3         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
  iadv_rcf                     = 5

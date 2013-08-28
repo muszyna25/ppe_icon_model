@@ -139,12 +139,12 @@ cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! horiz. wind comp. u and v
  inputname      = "U"
  outputname     = "U"  
- code           = 130 
+ code           = 131 
 /
 &input_field_nml  ! horiz. wind comp. u and v
  inputname      = "V"         
  outputname     = "V" 
- code           = 131  
+ code           = 132  
 /
 EOF
 
@@ -333,6 +333,7 @@ fi
 
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 
+#rm -f ${IFSDATADIR2}/${IFS_FILENAME_NC} 
 if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
   echo 'ifs2icon file can be copied - no prepicon!'
   ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}

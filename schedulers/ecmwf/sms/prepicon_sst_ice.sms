@@ -43,7 +43,8 @@ rm CI*nc
 dwd_grib_api=/home/ms/de/dwd/grib_api
 # export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
 #export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+#export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.9.16:/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions"
 # =============================================
 
 ICON_GRIDFILE="icon_grid_%RES%_G.nc"
@@ -142,7 +143,7 @@ cat > NAMELIST_PREPICON << EOF
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
  out_filetype      = 4
- rbf_vec_scale     = 0.01
+ !rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! SST
@@ -194,7 +195,7 @@ cat > NAMELIST_PREPICON << EOF
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
  out_filetype      = 4
- rbf_vec_scale     = 0.01
+ !rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! CI
