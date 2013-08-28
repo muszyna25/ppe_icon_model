@@ -110,8 +110,9 @@ MODULE mo_ext_data_state
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+    &                              ZA_LAKE_BOTTOM, DATATYPE_FLT32, DATATYPE_PACK16,&
+    &                              FILETYPE_NC2, TSTEP_CONSTANT, TSTEP_MAX,        &
+    &                              TSTEP_AVG
 
   USE mo_master_control,        ONLY: is_restart_run
 
@@ -694,7 +695,7 @@ CONTAINS
       cf_desc    = t_cf_var('lake_depth', 'm', 'lake depth', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 1, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc,&
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 

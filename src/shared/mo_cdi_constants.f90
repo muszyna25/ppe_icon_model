@@ -51,10 +51,15 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER, PUBLIC      :: ZA_PRESSURE_0          = 24
   INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_RUNOFF_S      = 25
   INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_RUNOFF_G      = 26
+  ! Lake
+  INTEGER, PARAMETER, PUBLIC      :: ZA_LAKE_BOTTOM         = 27
+  INTEGER, PARAMETER, PUBLIC      :: ZA_LAKE_BOTTOM_HALF    = 28
+  INTEGER, PARAMETER, PUBLIC      :: ZA_MIX_LAYER           = 29
+  INTEGER, PARAMETER, PUBLIC      :: ZA_SEDIMENT_BOTTOM_TW_HALF = 30
   ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA     = 27
-  INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA_HALF= 28
-  INTEGER, PARAMETER, PUBLIC      :: ZA_GENERIC_ICE         = 29
+  INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA     = 31
+  INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA_HALF= 32
+  INTEGER, PARAMETER, PUBLIC      :: ZA_GENERIC_ICE         = 33
 
 CONTAINS
 
@@ -62,16 +67,20 @@ CONTAINS
     LOGICAL :: is_2d_field
     INTEGER, INTENT(IN) :: izaxis
 
-    is_2d_field = (izaxis == ZA_surface)       .OR.  &
-      &           (izaxis == ZA_cloud_base)    .OR.  &
-      &           (izaxis == ZA_cloud_top)     .OR.  &
-      &           (izaxis == ZA_isotherm_zero) .OR.  &
-      &           (izaxis == ZA_height_2m)     .OR.  &
-      &           (izaxis == ZA_height_10m)    .OR.  &
-      &           (izaxis == ZA_meansea)       .OR.  &
-      &           (izaxis == ZA_TOA)           .OR.  &
-      &           (izaxis == ZA_PRESSURE_800)  .OR.  &
-      &           (izaxis == ZA_PRESSURE_400)  .OR.  &
+    is_2d_field = (izaxis == ZA_surface)                 .OR.  &
+      &           (izaxis == ZA_cloud_base)              .OR.  &
+      &           (izaxis == ZA_cloud_top)               .OR.  &
+      &           (izaxis == ZA_isotherm_zero)           .OR.  &
+      &           (izaxis == ZA_height_2m)               .OR.  &
+      &           (izaxis == ZA_height_10m)              .OR.  &
+      &           (izaxis == ZA_meansea)                 .OR.  &
+      &           (izaxis == ZA_TOA)                     .OR.  &
+      &           (izaxis == ZA_LAKE_BOTTOM)             .OR.  &
+      &           (izaxis == ZA_LAKE_BOTTOM_HALF)        .OR.  &
+      &           (izaxis == ZA_MIX_LAYER)               .OR.  &
+      &           (izaxis == ZA_SEDIMENT_BOTTOM_TW_HALF) .OR.  &
+      &           (izaxis == ZA_PRESSURE_800)            .OR.  &
+      &           (izaxis == ZA_PRESSURE_400)            .OR.  &
       &           (izaxis == ZA_PRESSURE_0)
   END FUNCTION is_2d_field
 

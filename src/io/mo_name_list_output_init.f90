@@ -96,7 +96,8 @@ MODULE mo_name_list_output_init
   &                                               t_patch_info, t_reorder_info, t_grid_info,      &
   &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
   &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
-  &                                               sfs_name_list, second_tos, GRP_PREFIX
+  &                                               sfs_name_list, ffs_name_list, second_tos,       &
+  &                                               first_tos, GRP_PREFIX
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
@@ -2350,6 +2351,59 @@ CONTAINS
       CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_0), "hPa")
       DEALLOCATE(lbounds, ubounds, levels)
 
+      !
+      ! Specific vertical axis for Lake-model
+      !
+
+      !
+      ! Lake bottom (we define it as a layer in order to be able to re-set 
+      ! either the first- or secondFixedSurfaces if necessary)
+      !
+      of%cdiZaxisID(ZA_lake_bottom)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 1._dp ! hPa
+      ubounds(1)= 0._dp   ! hPa
+      levels(1) = 1._dp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_lake_bottom), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_lake_bottom), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_lake_bottom), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_lake_bottom), "m")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Lake bottom half (interface, i.e. only typeOfFirstFixedSurface)
+      !
+      of%cdiZaxisID(ZA_lake_bottom_half)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 0._dp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_lake_bottom_half), levels)
+      CALL zaxisDefUnits(of%cdiZaxisID(ZA_lake_bottom_half), "m")
+      DEALLOCATE(levels)
+      !
+      ! Mixing layer (we define it as a layer in order to be able to re-set 
+      ! either the first- or secondFixedSurfaces if necessary)
+      !
+      of%cdiZaxisID(ZA_mix_layer)  = zaxisCreate(ZAXIS_MIX_LAYER, 1)
+      ALLOCATE(lbounds(1), ubounds(1), levels(1))
+      lbounds(1)= 1._dp ! hPa
+      ubounds(1)= 0._dp   ! hPa
+      levels(1) = 1._dp   ! hPa
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_mix_layer), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_mix_layer), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels (of%cdiZaxisID(ZA_mix_layer), levels)
+      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_mix_layer), "m")
+      DEALLOCATE(lbounds, ubounds, levels)
+      !
+      ! Bottom of sediment layer penetrated by thermal wave (interface, i.e. only typeOfFirstFixedSurface)
+      !
+      of%cdiZaxisID(ZA_sediment_bottom_tw_half)  = zaxisCreate(ZAXIS_SEDIMENT_BOTTOM_TW, 1)
+      ALLOCATE(levels(1))
+      levels(1) = 0._dp
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_sediment_bottom_tw_half), levels)
+      CALL zaxisDefUnits(of%cdiZaxisID(ZA_sediment_bottom_tw_half), "m")
+      DEALLOCATE(levels)
+
+
+
 
       ! Define axes for output on p-, i- and z-levels
       !
@@ -3058,19 +3112,39 @@ CONTAINS
       END IF
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        ! For HHL/z_ifc, HSURF/topography_c set "typeOfSecondFixedSurface = 101 (mean sea level)"
-        ! that is, a Fortran equivalent of:
-        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", 101), 0);
-        ! additional special treatment needed for
+
+        ! Re-Set "typeOfSecondFixedSurface" for the following set of variables
+        !
+        ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
+        !
+        ! HHL     : typeOfSecondFixedSurface = 101
+        ! HSURF   : typeOfSecondFixedSurface = 101 
         ! HBAS_CON: typeOfSecondFixedSurface = 101
         ! HTOP_CON: typeOfSecondFixedSurface = 101
         ! HTOP_DC : typeOfSecondFixedSurface = 101
         ! HZEROCL : typeOfSecondFixedSurface = 101
         ! CLCL    : typeOfSecondFixedSurface = 1
-        IF ( get_id(TRIM(info%name)) /= -1 ) THEN
+        ! C_T_LK  : typeOfSecondFixedSurface = 162
+        ! H_B1_LK : typeOfSecondFixedSurface = 165
+        IF ( get_id(TRIM(info%name),sfs_name_list) /= -1 ) THEN
           CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", &
-            &                    second_tos(get_id(TRIM(info%name))))
+            &                    second_tos(get_id(TRIM(info%name),sfs_name_list)))
         ENDIF
+
+        ! Re-Set "typeOfFirstFixedSurface" for the following set of variables
+        !
+        ! GRIB_CHECK(grib_set_long(gh, "typeOfFirstFixedSurface", xxx), 0);
+        !
+        ! T_MNW_LK: typeOfFirstFixedSurface = 1
+        ! DEPTH_LK: typeOfFirstFixedSurface = 1
+        ! T_WML_LK: typeOfFirstFixedSurface = 1
+        ! H_ML_LK : typeOfFirstFixedSurface = 1
+        !
+        IF ( get_id(TRIM(info%name),ffs_name_list) /= -1 ) THEN
+          CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", &
+            &                    first_tos(get_id(TRIM(info%name),ffs_name_list)))
+        ENDIF
+
 
         ! Quick hack: shortName.def should be revised, instead
         IF ( TRIM(info%name)=='qv_s' ) THEN
@@ -3096,22 +3170,46 @@ CONTAINS
   END SUBROUTINE add_variables_to_vlist
 
 
+!!$  !------------------------------------------------------------------------------------------------
+!!$  !> FUNCTION get_id:
+!!$  !  Search for name in String-Array sfs_name_list containing all variables for which
+!!$  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine
+!!$  !  the proper typeOfSecondFixedSurface from second_tos.
+!!$  !  If no match is found, get_id is set to -1.
+!!$  !
+!!$  !
+!!$  FUNCTION get_id(in_str)
+!!$    INTEGER                      :: get_id, iname
+!!$    CHARACTER(LEN=*), INTENT(IN) :: in_str
+!!$    CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
+!!$
+!!$    get_id = -1
+!!$    LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
+!!$      IF (toupper(TRIM(in_str)) == toupper(TRIM(sfs_name_list(iname)))) THEN
+!!$        get_id = iname
+!!$        EXIT LOOP_GROUPS
+!!$      END IF
+!!$    END DO LOOP_GROUPS
+!!$  END FUNCTION get_id
+
+
   !------------------------------------------------------------------------------------------------
   !> FUNCTION get_id:
-  !  Search for name in String-Array sfs_name_list containing all variables for which
-  !  typeOfSecondFixedSurface must be re-set. Returns variable-ID which is used to determine
-  !  the proper typeOfSecondFixedSurface from second_tos.
-  !  If no match is found, get_id is set to -1.
+  !  Search for name in String-Array name_list containing all variables for which
+  !  typeOfSecondFixedSurface or typeOfFirstFixedSurface must be re-set. Returns variable-ID 
+  !  which is used to determine the proper typeOfSecondFixedSurface/typeOfFirstFixedSurface 
+  !  from second_tos/first_tos. If no match is found, get_id is set to -1.
   !
   !
-  FUNCTION get_id(in_str)
-    INTEGER                      :: get_id, iname
-    CHARACTER(LEN=*), INTENT(IN) :: in_str
+  FUNCTION get_id(in_str, name_list)
+    INTEGER                       :: get_id, iname
+    CHARACTER(LEN=*) , INTENT(IN) :: in_str
+    CHARACTER(LEN=12), INTENT(IN) :: name_list(:)
     CHARACTER(*), PARAMETER :: routine = modname//"::get_id"
 
     get_id = -1
-    LOOP_GROUPS : DO iname=1,SIZE(sfs_name_list)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(sfs_name_list(iname)))) THEN
+    LOOP_GROUPS : DO iname=1,SIZE(name_list)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(name_list(iname)))) THEN
         get_id = iname
         EXIT LOOP_GROUPS
       END IF

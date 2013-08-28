@@ -35,8 +35,8 @@ MODULE mo_name_list_output_types
   PUBLIC :: msg_io_shutdown
   PUBLIC :: IRLON, IRLAT, ILATLON
   PUBLIC :: ICELL, IEDGE, IVERT
-  PUBLIC :: sfs_name_list
-  PUBLIC :: second_tos
+  PUBLIC :: sfs_name_list, ffs_name_list
+  PUBLIC :: second_tos, first_tos
   PUBLIC :: GRP_PREFIX
   ! derived data types:
   PUBLIC :: t_reorder_info
@@ -73,12 +73,19 @@ MODULE mo_name_list_output_types
   INTEGER, PARAMETER :: IVERT                 = 3
 
   ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(7) =(/"z_ifc       ", "topography_c", &
+  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(9) =(/"z_ifc       ", "topography_c", &
     &                                                 "hbas_con    ", "htop_con    ", &
     &                                                 "hzerocl     ", "clcl        ", &
-    &                                                 "htop_dc     "/)
+    &                                                 "htop_dc     ", "c_t_lk      ", &
+    &                                                 "h_b1_lk     "/)
   ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(7)    =(/101, 101, 101, 101, 101, 1, 101/)
+  INTEGER          , PARAMETER :: second_tos(9)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165/)
+
+  ! fields for which typeOfFirstFixedSurface must be re-set
+  CHARACTER(LEN=12), PARAMETER :: ffs_name_list(4) =(/"t_mnw_lk    ", "depth_lk    ", &
+    &                                                 "t_wml_lk    ", "h_ml_lk     "/)
+  ! typeOfFirstFixedSurface to be used
+  INTEGER          , PARAMETER :: first_tos(4)    =(/1, 1, 1, 1/)
 
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
@@ -202,7 +209,7 @@ MODULE mo_name_list_output_types
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
-    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
+    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_il)   ! name of isentropic level fields
 
     ! --------------------
     ! horizontal interpol.
@@ -285,7 +292,7 @@ MODULE mo_name_list_output_types
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(29) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(33) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute

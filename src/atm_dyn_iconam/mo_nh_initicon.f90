@@ -99,7 +99,7 @@ MODULE mo_nh_initicon
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
     &                               zaxisInqType, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF,    &
     &                               ZAXIS_HEIGHT, vlistInqVarZaxis, vlistNvars,       &
-    &                               streamInqVlist, streamOpenRead
+    &                               streamInqVlist, streamOpenRead, streamInqNvars
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
@@ -334,6 +334,7 @@ MODULE mo_nh_initicon
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
     INTEGER :: jg, vlistID, jlev, mpi_comm
+!!$    INTEGER :: nvars_fg, nvars_ana                     ! number of input fields
     LOGICAL :: l_exist
 
     CALL cdiDefMissval(cdimissval) 
@@ -358,6 +359,15 @@ MODULE mo_nh_initicon
           WRITE (0,"(a)") " "
           WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdfg_file(jg))
           fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
+
+!!$          ! check whether the file is empty (does not work unfortunately; internal CDI error)
+!!$          nvars_fg = streamInqNvars(fileID_fg(jg))
+!!$          IF (nvars_fg <= 0 ) THEN
+!!$            WRITE(message_text,'(a)') 'File '//TRIM(dwdfg_file(jg))//' is empty'
+!!$            CALL message(TRIM(routine), TRIM(message_text))
+!!$            CALL finish(routine, "Arrggh!: Empty input file")
+!!$          ENDIF
+
           vlistID = streamInqVlist(fileID_fg(jg))
           CALL print_cdi_summary(vlistID)
         CASE default
@@ -381,6 +391,15 @@ MODULE mo_nh_initicon
           WRITE (0,"(a)") " "
           WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdana_file(jg))
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
+
+!!$          ! check whether the file is empty (does not work unfortunately; internal CDI error)
+!!$          nvars_ana = streamInqNvars(fileID_ana(jg))
+!!$          IF (nvars_ana <= 0 ) THEN
+!!$            WRITE(message_text,'(a)') 'File '//TRIM(dwdana_file(jg))//' is empty'
+!!$            CALL message(TRIM(routine), TRIM(message_text))
+!!$            CALL finish(routine, "Arrggh!: Empty analysis file")
+!!$          ENDIF
+
           vlistID = streamInqVlist(fileID_ana(jg))
           CALL print_cdi_summary(vlistID)
         CASE default

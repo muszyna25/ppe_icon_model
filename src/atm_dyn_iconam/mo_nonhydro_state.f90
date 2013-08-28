@@ -2045,7 +2045,8 @@ MODULE mo_nonhydro_state
       &                   'geometric height at half level center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF_HHL, cf_desc, grib2_desc,  &
+!DR                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF_HHL, cf_desc, grib2_desc,  &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf,                                          & 
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &

@@ -377,7 +377,7 @@ CONTAINS
     END DO
 #endif
 
-    IF(use_pio) CALL pioFinalize
+!DR    IF(use_pio) CALL pioFinalize
 
     ! Shut down MPI
     !
@@ -429,11 +429,12 @@ CONTAINS
 
       use_pio = .TRUE.
 
-      res = pioInit ( pio_type, p_comm_work, my_io_task_no, num_io_tasks, pio_comm )
+!DR      res = pioInit ( pio_type, p_comm_work, my_io_task_no, num_io_tasks, pio_comm )
+      res = 0  !DR new
 
       IF(res==0) THEN
         ! This is the return of the writer PEs at the very end
-        CALL pioFinalize
+!DR        CALL pioFinalize
         CALL p_stop
         STOP
       ENDIF
