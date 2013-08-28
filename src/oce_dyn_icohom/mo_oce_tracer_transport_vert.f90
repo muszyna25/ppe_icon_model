@@ -229,6 +229,7 @@ CONTAINS
     INTEGER             :: i_startidx_c, i_endidx_c
     INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER             :: jkm1                     !< jk - 1
+    INTEGER             :: k
     TYPE(t_patch), POINTER :: p_patch
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
