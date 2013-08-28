@@ -3152,7 +3152,7 @@ SUBROUTINE turbdiff
 #endif
 !
             cur_prof, upd_prof, sav_prof, &
-            expl_mom, diff_dep
+            expl_mom, impl_mom, diff_dep
 
       LOGICAL ::  &
 !
@@ -4365,6 +4365,7 @@ SUBROUTINE turbdiff
 !        Vorbereitung zur Bestimmung der vertikalen Diffusions-Tendenzen von q**2:
 
          expl_mom => a(:,:,1)
+         impl_mom => a(:,:,2)
          upd_prof => a(:,:,4)
          diff_dep => a(:,:,5)
          cur_prof => hlp
@@ -4386,6 +4387,7 @@ SUBROUTINE turbdiff
             DO i=istartpar,iendpar
                diff_dep(i,k)=hhl(i,k-1)-hhl(i,k)
                expl_mom(i,k)=rhoh(i,k-1)*z1d2*(cur_prof(i,k-1)+cur_prof(i,k))/diff_dep(i,k)
+               impl_mom(i,k)=rhoh(i,k-1)*diff_dep(i,k)*fr_tke
             END DO
 !print *,"k=",k," cur_prof=",cur_prof(im,k)," a5=",diff_dep(im,k)
          END DO
@@ -4466,6 +4468,7 @@ SUBROUTINE turbdiff
          CALL prep_impl_vert_diff ( lsflucond=.FALSE.,        &
               i_st=istartpar, i_en=iendpar, k_tp=1, k_sf=ke1, &
               rho_dz_o_dt=dicke, rho_tkv_o_dz=expl_mom,       &
+! JF:               rho_dz_o_dt_fl=impl_mom,                        &
               a_k=a_k, cp_k=cp_k, i_k=i_k, d_k=d_k )
 
          CALL calc_impl_vert_diff ( itndcon=0,                &
@@ -4831,8 +4834,10 @@ SUBROUTINE turbdiff
                  linisetup, lnewvtype, lsflucond, lsfli(n),        &
                  rho=rhoh, rho_n=rhon, hhl=hhl, r_air=rair,        &
                  tkv=vtyp(ivtype)%tkv, dzs=vtyp(ivtype)%dzs,       &
+                 a_k=a_k, cp_k=cp_k, i_k=i_k, d_k=d_k,             &
                  disc_mom=a(:,:,1), expl_mom=a(:,:,2),             &
-                 diff_mom=a(:,:,3), diff_dep=a(:,:,5),             &
+                 impl_mom=a(:,:,3),                                &
+                 diff_mom=a(:,:,4), diff_dep=a(:,:,5),             &
                  cur_prof=cur_prof, dif_tend=dicke,                &
                  eff_flux=vari(:,:,m), leff_flux=leff_flux )
 
@@ -6436,7 +6441,10 @@ SUBROUTINE vert_grad_diff ( kcm, kgc,                  &
 !
           rho, rho_s, rho_n, hhl, r_air, tkv, dzs,     &
 !
-          disc_mom, expl_mom, diff_mom, diff_dep,      &
+          a_k, cp_k, i_k, d_k,                         &
+!
+          disc_mom, expl_mom, impl_mom,                &
+          diff_mom, diff_dep,                          &
 !
           cur_prof, dif_tend, eff_flux, leff_flux )
 
@@ -6514,6 +6522,17 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 !
     rho_s            ! air density at the surface                   (Kg/m3)
 
+!
+!     Coefficients of tri-diagonal system for semi-implict vertical diffusion
+!
+                  ! DIMENSION(ie,ke1)
+REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) :: &
+!
+    a_k,   &         ! coefficients in lower diagonal
+    cp_k,  &         ! modified coefficients in upper diagonal
+    i_k,   &         ! inversion coefficients for elemination step
+    d_k              ! RHS coefficients
+
                   ! DIMENSION(ie,ke1)
 REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
 !
@@ -6521,6 +6540,7 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
 !
     disc_mom, &      ! prep_inp calc_inp: discretised momentum (rho*dz/dt) on var. levels
     expl_mom, &      ! prep_inp         : diffusion   momentum (rho*K/dz))
+    impl_mom, &      ! prep_inp         : discretised momentum (rho*dz/dt) on flux levels
     diff_dep, &      ! diffusion depth
     diff_mom         ! aux: (calculation of) air density at half levels
                      ! aux: saved comlete diffusion momentum (only in case of "itndcon.EQ.3")
@@ -6545,16 +6565,6 @@ INTEGER (KIND=iintegers) :: &
 !
     i,k, &
     k_lw, k_hi          ! vertical index of the lowest and highest level
-
-!
-!     Coefficients of tri-diagonal system for semi-implict vertical diffusion
-!
-REAL (KIND=ireals) :: &
-!
-    a_k(i_st:i_en,k_tp:k_sf),   &    ! coefficients in lower diagonal
-    cp_k(i_st:i_en,k_tp:k_sf),  &    ! modified coefficients in upper diagonal
-    i_k(i_st:i_en,k_tp:k_sf),   &    ! inversion coefficients for elemination step
-    d_k(i_st:i_en,k_tp:k_sf)         ! RHS coefficients
 
 REAL (KIND=ireals) :: &
 !
@@ -6624,6 +6634,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      DO k=k_hi+1,k_lw
 !DIR$ IVDEP
         DO i=i_st,i_en
+           impl_mom(i,k)=rhon(i,k)*diff_dep(i,k)*fr_var
            expl_mom(i,k)=MAX( tkmin, tkv(i,k) ) &
                           *rhon(i,k)/diff_dep(i,k)
         END DO
@@ -6631,6 +6642,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 !DIR$ IVDEP
      DO i=i_st,i_en
         diff_dep(i,k_sf)=dzs(i)
+        impl_mom(i,k_sf)=rhon(i,k_sf)*diff_dep(i,k_sf)*fr_var
         expl_mom(i,k_sf)=rhon(i,k_sf)*tkv(i,k_sf)/diff_dep(i,k_sf)
      END DO
      !Attention: 'tkmin' should be excluded for the surface level 'k_sf'!
@@ -6646,6 +6658,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      CALL prep_impl_vert_diff ( lsflucond=lsflucond,    &
           i_st=i_st, i_en=i_en, k_tp=k_tp, k_sf=k_sf,   &
           rho_dz_o_dt=disc_mom, rho_tkv_o_dz=expl_mom,  &
+! JF:           rho_dz_o_dt_fl=impl_mom,                      &
           a_k=a_k, cp_k=cp_k, i_k=i_k, d_k=d_k )
 
   END IF
@@ -6786,7 +6799,7 @@ END SUBROUTINE vert_grad_diff
 
 SUBROUTINE prep_impl_vert_diff ( lsflucond, i_st, i_en, k_tp, k_sf, &
 !
-   rho_dz_o_dt, rho_tkv_o_dz, a_k, cp_k, i_k, d_k )
+   rho_dz_o_dt, rho_tkv_o_dz, rho_dz_o_dt_fl, a_k, cp_k, i_k, d_k )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &
 !
@@ -6803,6 +6816,10 @@ REAL (KIND=ireals), INTENT(IN) :: &
 !
    rho_dz_o_dt(:,:),  & ! rho*dz/dt on variable levels
    rho_tkv_o_dz(:,:)    ! rho*K/dz  on flux     levels
+
+REAL (KIND=ireals), OPTIONAL, INTENT(IN) :: &
+!
+   rho_dz_o_dt_fl(:,:)  ! rho*dz/dt on flux     levels
 
 REAL (KIND=ireals), INTENT(OUT) :: &
 !
@@ -6824,12 +6841,22 @@ INTEGER (KIND=iintegers) :: &
      m = 1
    END IF
 
-   DO k=k_tp+2, k_sf-m+1
+   IF ( PRESENT(rho_dz_o_dt_fl) ) THEN
+     DO k=k_tp+2, k_sf-m+1
 !DIR$ IVDEP
-     DO i=i_st, i_en
-       a_k(i,k) = rho_tkv_o_dz(i,k) * impl_weight(k)
+       DO i=i_st, i_en
+         a_k(i,k) = rho_tkv_o_dz(i,k) &
+                  * MAX( MIN(rho_tkv_o_dz(i,k)/rho_dz_o_dt_fl(i,k), impl_s ), impl_t )
+       END DO
      END DO
-   END DO
+   ELSE
+     DO k=k_tp+2, k_sf-m+1
+!DIR$ IVDEP
+       DO i=i_st, i_en
+         a_k(i,k) = rho_tkv_o_dz(i,k) * impl_weight(k)
+       END DO
+     END DO
+   END IF
 
 !  uppermost level:
    k=k_tp+1
