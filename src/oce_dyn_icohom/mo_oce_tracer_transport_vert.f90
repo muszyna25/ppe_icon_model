@@ -240,20 +240,13 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
-        !IF(z_dolic>=MIN_DOLIC)THEN
-        DO jk = 2, z_dolic
-          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        DO k = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             jkm1 = jk - 1
             ! calculate vertical tracer flux using upwind method
              pupflux_i(jc,jk,jb) =                 &
                &  laxfr_upflux_v( pw_c(jc,jk,jb),  &
                &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
-          ENDIF
-          !! no fluxes at bottom boundary !pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
         ENDDO
-        !zero advective flux at bottom boundary
-        !pupflux_i(jc,z_dolic+1,jb)=0.0_wp
       END DO
     END DO 
 
