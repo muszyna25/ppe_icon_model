@@ -75,6 +75,7 @@ MODULE mo_nh_initicon
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
+  USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
     &                               llake, isub_lake, ntiles_water
@@ -334,7 +335,7 @@ MODULE mo_nh_initicon
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
     INTEGER :: jg, vlistID, jlev, mpi_comm
-!!$    INTEGER :: nvars_fg, nvars_ana                     ! number of input fields
+    INTEGER :: flen_fg, flen_ana                     ! filesize in bytes
     LOGICAL :: l_exist
 
     CALL cdiDefMissval(cdimissval) 
@@ -360,13 +361,13 @@ MODULE mo_nh_initicon
           WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdfg_file(jg))
           fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
 
-!!$          ! check whether the file is empty (does not work unfortunately; internal CDI error)
-!!$          nvars_fg = streamInqNvars(fileID_fg(jg))
-!!$          IF (nvars_fg <= 0 ) THEN
-!!$            WRITE(message_text,'(a)') 'File '//TRIM(dwdfg_file(jg))//' is empty'
-!!$            CALL message(TRIM(routine), TRIM(message_text))
-!!$            CALL finish(routine, "Arrggh!: Empty input file")
-!!$          ENDIF
+          ! check whether the file is empty (does not work unfortunately; internal CDI error)
+          flen_fg = util_filesize(TRIM(dwdfg_file(jg)))
+          IF (flen_fg <= 0 ) THEN
+            WRITE(message_text,'(a)') 'File '//TRIM(dwdfg_file(jg))//' is empty'
+            CALL message(TRIM(routine), TRIM(message_text))
+            CALL finish(routine, "Arrggh!: Empty input file")
+          ENDIF
 
           vlistID = streamInqVlist(fileID_fg(jg))
           CALL print_cdi_summary(vlistID)
@@ -392,13 +393,13 @@ MODULE mo_nh_initicon
           WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdana_file(jg))
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
 
-!!$          ! check whether the file is empty (does not work unfortunately; internal CDI error)
-!!$          nvars_ana = streamInqNvars(fileID_ana(jg))
-!!$          IF (nvars_ana <= 0 ) THEN
-!!$            WRITE(message_text,'(a)') 'File '//TRIM(dwdana_file(jg))//' is empty'
-!!$            CALL message(TRIM(routine), TRIM(message_text))
-!!$            CALL finish(routine, "Arrggh!: Empty analysis file")
-!!$          ENDIF
+          ! check whether the file is empty (does not work unfortunately; internal CDI error)
+          flen_ana = util_filesize(TRIM(dwdana_file(jg)))
+          IF (flen_ana <= 0 ) THEN
+            WRITE(message_text,'(a)') 'File '//TRIM(dwdana_file(jg))//' is empty'
+            CALL message(TRIM(routine), TRIM(message_text))
+            CALL finish(routine, "Arrggh!: Empty analysis file")
+          ENDIF
 
           vlistID = streamInqVlist(fileID_ana(jg))
           CALL print_cdi_summary(vlistID)
