@@ -129,17 +129,13 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
   INTEGER  :: jc, jk, jb, je
-  !REAL(wp) :: max_flux(1:n_zlev),min_flux(1:n_zlev)
-  !REAL(wp) :: z_vn         (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+
   REAL(wp) :: z_adv_flux_h (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_adv_flux_h2(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_div_adv_h  (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   ! horizontal tracer divergence
   REAL(wp) :: z_div_diff_h (nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! horizontal tracer divergence
   REAL(wp) :: z_diff_flux_h(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%nblks_e) ! horizontal diffusive tracer flux
 
-  REAL(wp) :: thickness_e, surface_height
-  !TYPE(t_cartesian_coordinates):: z_vn_c   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  !TYPE(t_cartesian_coordinates):: z_vn_c_3D(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain  
   !CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_tracer_transport_horz:advect_diffuse_flux_horz')
@@ -200,7 +196,7 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
   END SELECT
 
 
-  CALL dbg_print('Adv upwind: adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
+  CALL dbg_print('Adv upwind: adv_flux_h',z_adv_flux_h,str_module,idt_src,edges_in_domain)
   !Multiply fluxes with edge height
 ! !-------------------------------------------------------------------------------
   IF( l_edge_based)THEN
@@ -209,14 +205,11 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
         DO jk = 1, p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-          surface_height = merge(p_os%p_diag%h_e(je,jb),0.0_wp, 1 == jk)
-          thickness_e = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk) + surface_height
-          thickness_e = p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
-          z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*thickness_e
+          z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
         END DO
       END DO
     END DO
-  CALL dbg_print('Adv*thick_e:adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
+  CALL dbg_print('Adv*thick_e:adv_flux_h',z_adv_flux_h,str_module,idt_src,edges_in_domain)
 ! !-------------------------------------------------------------------------------
   ELSEIF(.NOT. l_edge_based)THEN
 ! !-------------------------------------------------------------------------------
@@ -343,11 +336,10 @@ SUBROUTINE advect_diffuse_flux_horz( p_patch_3D,          &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
-  CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h                ,str_module,idt_src,edges_in_domain)
-  CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h                 ,str_module,idt_src,cells_in_domain)
-  CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h                ,str_module,idt_src,cells_in_domain)
-  CALL dbg_print('AdvDifHorz: flux_horz'      ,flux_horz                   ,str_module,idt_src,cells_in_domain)
-  !CALL dbg_print('AdvDifHorz: div_mass_flx_c',p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+  CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h ,str_module,idt_src,edges_in_domain)
+  CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h  ,str_module,idt_src,cells_in_domain)
+  CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h ,str_module,idt_src,cells_in_domain)
+  CALL dbg_print('AdvDifHorz: flux_horz'      ,flux_horz    ,str_module,idt_src,cells_in_domain)
   !---------------------------------------------------------------------
 
 END SUBROUTINE advect_diffuse_flux_horz
