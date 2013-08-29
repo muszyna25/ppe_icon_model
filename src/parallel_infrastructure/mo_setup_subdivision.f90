@@ -819,7 +819,7 @@ CONTAINS
          flag2_v_list(0:n_boundary_rows+1), flag2_e_list(0:2*n_boundary_rows+1)
     INTEGER, DIMENSION(-1:n_boundary_rows) :: n_ilev_c, n_ilev_v, n_ilev_e
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
-         n2_ilev_e(0:2*n_boundary_rows+1), a_idx(2)
+         n2_ilev_e(0:2*n_boundary_rows+1), a_idx(2), loc_index_fill
     LOGICAL, ALLOCATABLE :: promote(:)
     INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
          t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
@@ -1060,11 +1060,12 @@ CONTAINS
       END DO
       n_ilev_e(ilev) = k_e
       n_ilev_v(ilev) = k_v
+      ! ilev single pass application of flag2_[ev] in
+      ! build_patch_start_end requires them to be sorted
+      CALL insertion_sort(flag_c_list(ilev)%idx(1:n_ilev_c(ilev)))
+      CALL insertion_sort(flag_e_list(ilev)%idx(1:n_ilev_e(ilev)))
+      CALL insertion_sort(flag_v_list(ilev)%idx(1:n_ilev_v(ilev)))
     ENDDO
-    ! ilev single pass application of flag2_[ev] in
-    ! build_patch_start_end requires them to be sorted
-    CALL quicksort(flag_e_list(0)%idx(1:n_ilev_e(0)))
-    CALL quicksort(flag_v_list(0)%idx(1:n_ilev_v(0)))
 
     ! Now compute second set of flags
     DO ilev = 1, n_boundary_rows
@@ -1880,10 +1881,12 @@ CONTAINS
 
     LOGICAL, ALLOCATABLE :: lcount(:)
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, n, &
-         exec_sequence, ref_flag, k, loc_index_fill
+         exec_sequence, ref_flag, k, k_start, loc_index_fill
 
     INTEGER, ALLOCATABLE :: cve_loc_index(:), cve_glb_index(:), &
-         flag2_union(:,:)
+         flag2_union(:,:), &
+         cve_start_idx(:, :), cve_start_blk(:, :), &
+         cve_end_idx(:, :), cve_end_blk(:, :)
 
     ALLOCATE(lcount(n_patch_cve_g))
     lcount = .FALSE.
@@ -1974,13 +1977,10 @@ CONTAINS
       CALL finish("", "Uknown order_type_of_halos")
     END SELECT
 
-    IF (ANY(cve_loc_index /= loc_index)) THEN
-      CALL finish(routine, 'cve_loc_index failed')
-    END IF
-    IF (ANY(cve_glb_index(1:loc_index_fill) &
-         /=  glb_index(1:loc_index_fill))) THEN
-      CALL finish(routine, 'cve_glb_index failed')
-    END IF
+    ALLOCATE(cve_start_idx(min_rlcve:max_rlcve,max_childdom), &
+         cve_start_blk(min_rlcve:max_rlcve,max_childdom), &
+         cve_end_idx(min_rlcve:max_rlcve,max_childdom), &
+         cve_end_blk(min_rlcve:max_rlcve,max_childdom))
 
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
@@ -2004,6 +2004,20 @@ CONTAINS
           & end_idx(i,j),               &
           & end_blk(i,j),               &
           & -1 )
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & start_idx_g(i,j),           &
+          & start_blk_g(i,j),           &
+          & cve_start_idx(i,j),             &
+          & cve_start_blk(i,j),             &
+          & +1 )
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & end_idx_g(i,j),             &
+          & end_blk_g(i,j),             &
+          & cve_end_idx(i,j),               &
+          & cve_end_blk(i,j),               &
+          & -1 )
       ENDDO
       ! Preset remaining index sections with dummy values
       start_idx(min_rlcve:min_rlcve_int-1,j) = -9999
@@ -2012,9 +2026,14 @@ CONTAINS
       end_blk(min_rlcve:min_rlcve_int-1,j)   = -9999
     ENDDO
 
+    ! Preset remaining index sections with dummy values
+    cve_start_idx(min_rlcve:min_rlcve_int-1, :) = -9999
+    cve_start_blk(min_rlcve:min_rlcve_int-1, :) = -9999
+    cve_end_idx(min_rlcve:min_rlcve_int-1, :)   = -9999
+    cve_end_blk(min_rlcve:min_rlcve_int-1, :)   = -9999
+
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
-      ! IF(.NOT.l_compute_grid) THEN
       ! processing local parent grid
       !
       ! Gather all halo cells/edges/verts at the end of the patch.
@@ -2034,13 +2053,39 @@ CONTAINS
           ENDIF
         ENDIF
       ENDDO
+
+      j = 1
+      DO ilev = ref_flag + 1, max_ilev
+        flag2_union(j:j+n2_ilev(ilev)-1, 1) &
+             = flag2_list(ilev)%idx(1:n2_ilev(ilev))
+        j = j + n2_ilev(ilev)
+      END DO
+      CALL quicksort(flag2_union(1:j-1, 1))
+      k_start = SUM(n2_ilev(0:ref_flag))
+      IF (cve_start_idx(irlev,1)==-9999 .AND. k_start + 1 <= n_patch_cve) THEN
+        cve_start_idx(irlev,:) = idx_no(k_start + 1) ! line index
+        cve_start_blk(irlev,:) = blk_no(k_start + 1) ! block index
+      ENDIF
+
+      DO k = k_start + 1, n_patch_cve
+        j = flag2_union(k - k_start, 1)
+        cve_glb_index(k) = j
+        cve_loc_index(j) = k
+      END DO
+
       ! Set end index when the last point is processed
       end_idx(min_rlcve:irlev,:) = idx_no(n) ! line index
       end_blk(min_rlcve:irlev,:) = blk_no(n) ! block index
       start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
       start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
+
+      cve_end_idx(min_rlcve:irlev,:) = idx_no(n_patch_cve)
+      cve_end_blk(min_rlcve:irlev,:) = blk_no(n_patch_cve)
+      cve_start_idx(min_rlcve:irlev-1,:) = cve_start_idx(irlev,1)
+      cve_start_blk(min_rlcve:irlev-1,:) = cve_start_blk(irlev,1)
+
     CASE(1)
-      ! ELSE
+      k = loc_index_fill
       ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
       ! at the end. They are sorted by the flag2 value and will be placed at the
       ! index levels between min_rlcve_int-1 and min_rlcve
@@ -2064,6 +2109,25 @@ CONTAINS
             end_blk(irlev,:) = jb
           ENDIF
         ENDDO
+
+        DO j = 1, n2_ilev(ilev)
+          jf = flag2_list(ilev)%idx(j)
+          IF (cve_loc_index(jf) < 0) THEN
+            k = k + 1
+            cve_glb_index(k) = jf
+            cve_loc_index(jf) = k
+            jb = blk_no(k) ! block index
+            jl = idx_no(k) ! line index
+            ! This ensures that just the first point found at this irlev is saved as start point
+            IF (cve_start_idx(irlev,1)==-9999) THEN
+              cve_start_idx(irlev,:) = jl
+              cve_start_blk(irlev,:) = jb
+            ENDIF
+            cve_end_idx(irlev,:) = jl
+            cve_end_blk(irlev,:) = jb
+          END IF
+        END DO
+
         ! Just in case that no grid point is found (may happen for ilev=1)
         IF (.NOT. l_cell_correction .AND. start_idx(irlev,1)==-9999) THEN
           start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
@@ -2071,7 +2135,17 @@ CONTAINS
           end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
           end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
         ENDIF
+        ! Just in case that no grid point is found (may happen for ilev=1)
+        IF (.NOT. l_cell_correction .AND. cve_start_idx(irlev,1)==-9999) THEN
+          cve_start_idx(irlev,:) = cve_end_idx(irlev+1,nchilddom)+1
+          cve_start_blk(irlev,:) = cve_end_blk(irlev+1,nchilddom)
+          cve_end_idx(irlev,:)   = cve_end_idx(irlev+1,nchilddom)
+          cve_end_blk(irlev,:)   = cve_end_blk(irlev+1,nchilddom)
+        ENDIF
+
       ENDDO
+      loc_index_fill = k
+
       ! Fill start and end indices for remaining index sections
       IF (patch_id == 0) THEN
         ilev1 = min_rlcve_int
@@ -2087,6 +2161,10 @@ CONTAINS
           start_blk(irlev,:) = end_blk(irlev+1,1)
           end_idx(irlev,:)   = end_idx(irlev+1,1)
           end_blk(irlev,:)   = end_blk(irlev+1,1)
+          cve_start_idx(irlev,:) = cve_end_idx(irlev+1,1) + 1
+          cve_start_blk(irlev,:) = cve_end_blk(irlev+1,1)
+          cve_end_idx(irlev,:)   = cve_end_idx(irlev+1,1)
+          cve_end_blk(irlev,:)   = cve_end_blk(irlev+1,1)
         ENDDO
       ENDIF
       DO ilev = ilev_st,max_hw_cve
@@ -2095,9 +2173,11 @@ CONTAINS
         start_blk(irlev,:) = end_blk(ilev1,1)
         end_idx(irlev,:)   = end_idx(ilev1,1)
         end_blk(irlev,:)   = end_blk(ilev1,1)
+        cve_start_idx(irlev,:) = cve_end_idx(ilev1,1) + 1
+        cve_start_blk(irlev,:) = cve_end_blk(ilev1,1)
+        cve_end_idx(irlev,:)   = cve_end_idx(ilev1,1)
+        cve_end_blk(irlev,:)   = cve_end_blk(ilev1,1)
       ENDDO
-      ! ENDIF
-
     END SELECT
 
     ! exec_sequence only serves the purpose to retain the execution
@@ -2154,8 +2234,53 @@ CONTAINS
                &   end_blk(min_rlcve_int,nchilddom)
         END IF
       END IF
+
+      IF (exec_sequence == 0 .AND. SUM(n2_ilev(1:)) == 0) THEN
+        cve_end_idx(min_rlcve:min_rlcve_int-1,:) &
+             = cve_end_idx(min_rlcve_int, nchilddom)
+        cve_end_blk(min_rlcve:min_rlcve_int-1,:) &
+             = cve_end_blk(min_rlcve_int, nchilddom)
+        IF (cve_end_idx(min_rlcve_int, nchilddom) == nproma) THEN
+          cve_start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   cve_end_blk(min_rlcve_int, nchilddom) + 1
+          cve_start_idx(min_rlcve:min_rlcve_int-1,:) = 1
+        ELSE
+          cve_start_idx(min_rlcve:min_rlcve_int-1,:) = &
+               &    cve_end_idx(min_rlcve_int, nchilddom) + 1
+          cve_start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   cve_end_blk(min_rlcve_int, nchilddom)
+        END IF
+      END IF
+
     END DO
+
+    IF (ANY(cve_loc_index(:) /= loc_index(:))) THEN
+      CALL finish(routine, 'cve_loc_index failed')
+    END IF
+    IF (ANY(cve_glb_index(:) /= glb_index(:))) THEN
+      CALL finish(routine, 'cve_glb_index failed')
+    END IF
+
+    IF (ANY(cve_end_idx(:, :) &
+         /=  end_idx(:, :))) THEN
+      CALL finish(routine, 'cve_end_idx failed')
+    END IF
+    IF (ANY(cve_end_blk(:, :) &
+         /=  end_blk(:, :))) THEN
+      CALL finish(routine, 'cve_end_blk failed')
+    END IF
+    IF (ANY(cve_start_idx(:, :) &
+         /=  start_idx(:, :))) THEN
+      CALL finish(routine, 'cve_start_idx failed')
+    END IF
+    IF (ANY(cve_start_blk(:, :) &
+         /=  start_blk(:, :))) THEN
+      CALL finish(routine, 'cve_start_blk failed')
+    END IF
+
     DEALLOCATE(lcount)
+
+
 
   END SUBROUTINE build_patch_start_end
 
