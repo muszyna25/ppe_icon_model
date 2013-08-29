@@ -103,7 +103,7 @@ AS_CASE([x"$ac_hostname"],
   [xplogintest1],
   [ac_sitename=dkrz.de],
   [xwizard*],
-  [ac_hostname=wizard],
+  [ac_sitename=dkrz.de; ac_hostname=wizard],
   [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
