@@ -2933,6 +2933,7 @@ CONTAINS
     ! Set the negative values (indicating non local points) in the same way
     ! as during subdivision: To the negative number of the next value to come
     ! This shouldn't be necessary but it also doesn't hurt
+    ! YES it does hurt. TJ
 
     last = 0
     DO i = 1, n_g
