@@ -1019,7 +1019,7 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
-
+    patch%verts%max_connectivity = max_verts_connectivity
     !
     ! calculate and save values for the blocking
     !
@@ -1308,6 +1308,18 @@ CONTAINS
     END DO
     CALL reshape_int( array_v_int(:,1), patch%nblks_v, patch%npromz_v,  &
          & patch%verts%num_edges(:,:) )
+
+    ! patch%edges%cell_idx(:,:,:)
+    ! patch%edges%cell_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
+    WHERE(array_e_int(:, 1:2) < 0) array_e_int(:, 1:2) = 0
+    DO ji = 1, 2
+      CALL reshape_idx( array_e_int(:,ji), patch%nblks_e, patch%npromz_e, &
+           & patch%edges%cell_idx(:,:,ji),  &
+           & patch%edges%cell_blk(:,:,ji) )
+    END DO
+
     ! END NEW SUBDIV
 
 

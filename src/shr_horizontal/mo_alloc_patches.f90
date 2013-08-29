@@ -530,6 +530,8 @@ CONTAINS
     ALLOCATE( p_patch%edges%end_idx(min_rledge:max_rledge,max_childdom) )
     ALLOCATE( p_patch%edges%start_blk(min_rledge:max_rledge,max_childdom) )
     ALLOCATE( p_patch%edges%end_blk(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
 
     !
     ! !grid verts
@@ -639,6 +641,8 @@ CONTAINS
     DEALLOCATE( p_patch%edges%end_idx )
     DEALLOCATE( p_patch%edges%start_blk )
     DEALLOCATE( p_patch%edges%end_blk )
+    ! DEALLOCATE( p_patch%edges%cell_idx )
+    ! DEALLOCATE( p_patch%edges%cell_blk )
     !
     ! !grid verts
     !
@@ -718,7 +722,9 @@ CONTAINS
     !
     IF (iopmode /= 2) THEN
       ALLOCATE( p_patch%edges%phys_id(nproma,p_patch%nblks_e) )
+      IF (ALLOCATED(p_patch%edges%cell_idx)) DEALLOCATE(p_patch%edges%cell_idx)
       ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
+      IF (ALLOCATED(p_patch%edges%cell_blk)) DEALLOCATE(p_patch%edges%cell_blk)
       ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
       ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
       ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )

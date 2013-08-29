@@ -88,6 +88,7 @@ MODULE mo_setup_subdivision
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
+  USE mo_util_sort, ONLY: insertion_sort
 
   IMPLICIT NONE
 
@@ -800,17 +801,26 @@ CONTAINS
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
                jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
-               jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v
+               jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v, &
+               a_iown(2), a_mod_iown(2)
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
+    LOGICAL :: is_outer, swap
 
     TYPE nb_flag_list_elem
       INTEGER, ALLOCATABLE :: idx(:)
     END TYPE nb_flag_list_elem
     TYPE(nb_flag_list_elem), DIMENSION(-1:n_boundary_rows) :: &
          flag_c_list, flag_v_list, flag_e_list
+    TYPE(nb_flag_list_elem) :: flag2_c_list(0:2*n_boundary_rows), &
+         flag2_v_list(0:n_boundary_rows+1), flag2_e_list(0:2*n_boundary_rows+1)
     INTEGER, DIMENSION(-1:n_boundary_rows) :: n_ilev_c, n_ilev_v, n_ilev_e
+    INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
+         n2_ilev_e(0:2*n_boundary_rows+1), a_idx(2)
+    LOGICAL, ALLOCATABLE :: promote(:)
+    INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
+         t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -829,9 +839,14 @@ CONTAINS
     flag_e(:) = -1
     flag_v(:) = -1
 
+    n2_ilev_c(:) = 0
+    n2_ilev_e(:) = 0
+    n2_ilev_v(:) = 0
+
     ! flag inner cells
     WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
     n_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
+    n2_ilev_c(0) = n_ilev_c(0)
     n_ilev_c(1:n_boundary_rows) = 0
     ALLOCATE(flag_c_list(-1)%idx(0), flag_v_list(-1)%idx(0), &
          flag_e_list(-1)%idx(0))
@@ -839,12 +854,13 @@ CONTAINS
     n_ilev_e(-1) = 0
     n_ilev_v(-1) = 0
     n = wrk_p_patch_g%n_patch_cells
-    ALLOCATE(flag_c_list(0)%idx(n))
+    ALLOCATE(flag_c_list(0)%idx(n), flag2_c_list(0)%idx(n))
     j = 0
     DO i = 1, n
       IF (cell_owner(i) == my_proc) THEN
         j = j + 1
         flag_c_list(0)%idx(j) = i
+        flag2_c_list(0)%idx(j) = i
       END IF
     END DO
 
@@ -1037,6 +1053,26 @@ CONTAINS
         ENDIF
       ENDDO
 
+      ALLOCATE(flag2_c_list(2*ilev)%idx(n_ilev_c(ilev)), &
+           flag2_c_list(2*ilev - 1)%idx(n_ilev_c(ilev)))
+      DO j = 1, n_ilev_c(ilev)
+        jg = 2 * ilev
+        jb = blk_no(flag_c_list(ilev)%idx(j)) ! block index
+        jl = idx_no(flag_c_list(ilev)%idx(j)) ! line index
+        DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
+          jl_c = wrk_p_patch_g%cells%neighbor_idx(jl,jb,i)
+          jb_c = wrk_p_patch_g%cells%neighbor_blk(jl,jb,i)
+          jc = idx_1d(jl_c,jb_c)
+          IF (jc < 1 .OR. jc > wrk_p_patch_g%n_patch_cells) CYCLE
+          IF (ANY(flag_c_list(ilev - 1)%idx(1:n_ilev_c(ilev-1)) == jc)) THEN
+            jg = jg - 1
+            EXIT
+          END IF
+        ENDDO
+        n2_ilev_c(jg) = n2_ilev_c(jg) + 1
+        flag2_c_list(jg)%idx(n2_ilev_c(jg)) = flag_c_list(ilev)%idx(j)
+      END DO
+
     ENDDO
 
     ! Preset edges and vertices bordering to interior cells with 0
@@ -1061,6 +1097,40 @@ CONTAINS
       ENDIF
 
     ENDDO
+
+    ALLOCATE(promote(MAX(MAXVAL(n_ilev_e), n_ilev_v(0))))
+    promote(1:n_ilev_e(0)) = .FALSE.
+    IF (n_boundary_rows > 0 .AND. order_type_of_halos /= 0) THEN
+      DO j = 1, n_ilev_e(0)
+        je = flag_e_list(0)%idx(j)
+        jl_e = idx_no(je)
+        jb_e = blk_no(je)
+        a_idx(1:2) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
+             wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
+        ! outer boundary edges always belong to single adjacent cell owner
+        is_outer = ANY(a_idx == 0)
+        a_idx = MERGE(a_idx, 1, a_idx /= 0)
+        a_iown(1:2) = cell_owner(a_idx(1:2))
+        a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
+        ! 50% chance of aquiring an edge, unless inner to flag_c == 0 or is_outer
+        promote(j) = .NOT. is_outer .AND. a_iown(1) /= a_iown(2) &
+             .AND. (MAXVAL(a_iown) == my_proc &
+             &      .NEQV. a_mod_iown(1) == a_mod_iown(2))
+      END DO
+      n2_ilev_e(1) = COUNT(promote(1:n_ilev_e(0)))
+      n2_ilev_e(0) = n_ilev_e(0) - n2_ilev_e(1)
+      ALLOCATE(flag2_e_list(1)%idx(n2_ilev_e(1)))
+      flag2_e_list(1)%idx &
+           = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
+           &      promote(1:n_ilev_e(0)))
+    ELSE
+      n2_ilev_e(0) = n_ilev_e(0)
+      ALLOCATE(flag2_e_list(1)%idx(0))
+    END IF
+    ALLOCATE(flag2_e_list(0)%idx(n2_ilev_e(0)))
+    flag2_e_list(0)%idx &
+         = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
+         &      .NOT. promote(1:n_ilev_e(0)))
 
     DO ilev = 1, n_boundary_rows
       DO j = 1, wrk_p_patch_g%n_patch_cells
@@ -1092,7 +1162,100 @@ CONTAINS
         ENDIF
 
       ENDDO
+
     ENDDO
+
+    IF (n_boundary_rows > 0) THEN
+      promote(1:n_ilev_v(0)) = .FALSE.
+      n2_ilev_v(1) = 0
+      IF (order_type_of_halos /= 0) THEN
+        DO j = 1, n_ilev_v(0)
+          jv = flag_v_list(0)%idx(j)
+          jb_v = blk_no(jv) ! block index
+          jl_v = idx_no(jv) ! line index
+          DO i = 1, wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+            jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
+            jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
+            jc = idx_1d(jl,jb)
+            promote(j) = promote(j) .OR. ANY(flag_c_list(1)%idx == jc)
+          ENDDO
+          n2_ilev_v(1) = n2_ilev_v(1) + MERGE(1, 0, promote(j))
+        END DO
+      END IF
+
+      !===================================================================
+      DO j = 1, n_ilev_v(0)
+        IF (.NOT. promote(j)) CYCLE
+        jv = flag_v_list(0)%idx(j)
+        jb_v = blk_no(jv) ! block index
+        jl_v = idx_no(jv) ! line index
+        n = wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+        DO i = 1, n
+          jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
+          jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
+          jc = idx_1d(jl,jb)
+          t_cells(i) = jc
+        END DO
+        CALL insertion_sort(t_cells(1:n))
+        t_cell_owner(1:n) = cell_owner(t_cells(1:n))
+        a_iown(1) = t_cell_owner(1)
+        a_mod_iown(1) = MOD(a_iown(1), 2)
+        DO i = 2, n
+          a_iown(2) = t_cell_owner(i)
+          a_mod_iown(2) = MOD(a_iown(2), 2)
+          ! 50% chance of aquiring a vertex
+          swap = a_iown(1) > a_iown(2) &
+               .NEQV. a_mod_iown(1) == a_mod_iown(2)
+          a_iown(1) = MERGE(a_iown(2), a_iown(1), swap)
+          a_mod_iown(1) = MERGE(a_mod_iown(2), a_mod_iown(1), swap)
+        END DO
+        promote(j) = a_iown(1) /= my_proc
+        n2_ilev_v(1) = n2_ilev_v(1) - MERGE(0, 1, promote(j))
+      END DO
+
+
+      !===================================================================
+
+      n2_ilev_v(0) = n_ilev_v(0) - n2_ilev_v(1)
+      ALLOCATE(flag2_v_list(1)%idx(n2_ilev_v(1)), &
+           flag2_v_list(0)%idx(n2_ilev_v(0)))
+
+      flag2_v_list(0)%idx(:) = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
+           .NOT. promote(1:n_ilev_v(0)))
+      flag2_v_list(1)%idx(:) = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
+           promote(1:n_ilev_v(0)))
+
+      DO ilev = 1, n_boundary_rows
+        ALLOCATE(flag2_v_list(ilev + 1)%idx(n_ilev_v(ilev)))
+        flag2_v_list(ilev + 1)%idx = flag_v_list(ilev)%idx(1:n_ilev_v(ilev))
+        n2_ilev_v(ilev + 1) = n_ilev_v(ilev)
+      END DO
+
+      DO ilev = 1, n_boundary_rows
+        promote(1:n_ilev_e(ilev)) = .FALSE.
+        DO j = 1, n_ilev_e(ilev)
+          je = flag_e_list(ilev)%idx(j)
+          jl_e = idx_no(je)
+          jb_e = blk_no(je)
+          a_idx(1:2) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
+               wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
+          promote(j) = .NOT. (ANY(a_idx(1) == flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) &
+               .AND. ANY(a_idx(2) == flag_c_list(ilev)%idx(1:n_ilev_c(ilev))))
+        END DO
+        n2_ilev_e(2*ilev) = COUNT(.NOT. promote(1:n_ilev_e(ilev)))
+        n2_ilev_e(2*ilev+1) = n_ilev_e(ilev) - n2_ilev_e(2*ilev)
+        ALLOCATE(flag2_e_list(2*ilev)%idx(n2_ilev_e(2*ilev)), &
+             flag2_e_list(2*ilev+1)%idx(n2_ilev_e(2*ilev+1)))
+        flag2_e_list(2*ilev)%idx &
+             = PACK(flag_e_list(ilev)%idx(1:n_ilev_e(ilev)), &
+             &      .NOT. promote(1:n_ilev_e(ilev)))
+        flag2_e_list(2*ilev + 1)%idx &
+             = PACK(flag_e_list(ilev)%idx(1:n_ilev_e(ilev)), &
+             &      promote(1:n_ilev_e(ilev)))
+
+      END DO
+    END IF
+
 
     !-----------------------------------------------------------------------------------------------
     ! Get the number of cells/edges/verts and other data for patch allocation
@@ -1101,32 +1264,6 @@ CONTAINS
     wrk_p_patch%n_patch_cells = COUNT(flag_c(:)>=0)
     wrk_p_patch%n_patch_edges = COUNT(flag_e(:)>=0)
     wrk_p_patch%n_patch_verts = COUNT(flag_v(:)>=0)
-    IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
-      CALL finish(routine, 'number of cells mismatch')
-    IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
-      CALL finish(routine, 'number of edges mismatch')
-    IF (SUM(n_ilev_v(:)) /= wrk_p_patch%n_patch_verts) &
-      CALL finish(routine, 'number of verts mismatch')
-
-    DO ilev = 0, n_boundary_rows
-      IF (.NOT. (ALL(flag_c(flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) == ilev)) &
-           .OR. COUNT(flag_c == ilev) /= n_ilev_c(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'cells ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-      IF (.NOT. (ALL(flag_e(flag_e_list(ilev)%idx(1:n_ilev_e(ilev))) == ilev)) &
-           .OR. COUNT(flag_e == ilev) /= n_ilev_e(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'edges ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-      IF (.NOT. (ALL(flag_v(flag_v_list(ilev)%idx(1:n_ilev_v(ilev))) == ilev)) &
-           .OR. COUNT(flag_v == ilev) /= n_ilev_v(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'vertices ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-    END DO
-
-    DEALLOCATE(flag_c, flag_e, flag_v)
 
     ! save the number of cells/edges/verts of the global patch
     wrk_p_patch%n_patch_cells_g = wrk_p_patch_g%n_patch_cells
@@ -1227,6 +1364,8 @@ CONTAINS
       ENDDO
     ENDDO
 
+
+
     ! Reset flag2_e/v to 0 at boundary points owned by the current PE
     DO j = 1, wrk_p_patch_g%n_patch_cells
       IF (flag2_c(j) == 0) THEN
@@ -1247,6 +1386,58 @@ CONTAINS
         ENDDO
       ENDIF
     ENDDO
+
+    IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
+      CALL finish(routine, 'number of cells mismatch')
+    IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
+      CALL finish(routine, 'number of edges mismatch')
+    IF (SUM(n_ilev_v(:)) /= wrk_p_patch%n_patch_verts) &
+      CALL finish(routine, 'number of verts mismatch')
+
+    DO ilev = 0, n_boundary_rows
+      IF (.NOT. (ALL(flag_c(flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) == ilev)) &
+           .OR. COUNT(flag_c == ilev) /= n_ilev_c(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'cells ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+      IF (.NOT. (ALL(flag_e(flag_e_list(ilev)%idx(1:n_ilev_e(ilev))) == ilev)) &
+           .OR. COUNT(flag_e == ilev) /= n_ilev_e(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'edges ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+      IF (.NOT. (ALL(flag_v(flag_v_list(ilev)%idx(1:n_ilev_v(ilev))) == ilev)) &
+           .OR. COUNT(flag_v == ilev) /= n_ilev_v(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'vertices ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+    END DO
+
+    DO ilev = 0, 2 * n_boundary_rows
+      IF (.NOT. (ALL(flag2_c(flag2_c_list(ilev)%idx(1:n2_ilev_c(ilev))) == ilev)) &
+           .OR. COUNT(flag2_c == ilev) /= n2_ilev_c(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'second flags cells ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+    END DO
+
+    DEALLOCATE(flag_c, flag_e, flag_v)
+
+    DO ilev = 0, n_boundary_rows + 1
+      IF (.NOT. (ALL(flag2_v(flag2_v_list(ilev)%idx(1:n2_ilev_v(ilev))) == ilev)) &
+           .OR. COUNT(flag2_v == ilev) /= n2_ilev_v(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'second flags verts ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+    END DO
+
+    DO ilev = 0, 2 * n_boundary_rows + 1
+      IF (.NOT. (ALL(flag2_e(flag2_e_list(ilev)%idx(1:n2_ilev_e(ilev))) == ilev)) &
+           .OR. COUNT(flag2_e == ilev) /= n2_ilev_e(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'second flags edges ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+    END DO
+
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
