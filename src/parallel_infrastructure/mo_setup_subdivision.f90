@@ -887,6 +887,31 @@ CONTAINS
     ! flag2_e is the sum of flag_c of the two neighboring cells and 2*flag_c+1 at outer boundary edges
     !-----------------------------------------------------------------------------------------------
 
+    !------------------------------------------------------------------------
+    ! flag2_e_list(0)%idx all edges which are owned by the local process
+    ! flag2_e_list(1)%idx all edges adjacent to cells in flag_c_list(0)
+    !                     but owned by other tasks
+    ! flag2_e_list(2*i)%idx where i > 0, edges in idx are ONLY adjacent
+    !                       to cells in flag_c_list(i)%idx
+    ! flag2_e_list(2*i+1)%idx where i > 0, edges adjacent to one cell in
+    !                         flag_c_list(i) and either
+    !                            one cell in flag_c_list(i+1)
+    !                         or edge is an outer edge,
+    !                            i.e. adjacent to only one cell
+    ! flag2_c_list(0)%idx == flag_c_list(0)%idx
+    ! flag2_c_list(2*j-1)%idx where j > 0, contains all cells from
+    !                         flag_c_list(j) which are
+    !                         adjacent to cells in flag_c_list(j-1)
+    ! flag2_c_list(2*j)%idx   where j > 0, contains all cells from
+    !                         flag_c_list(j) which are NOT
+    !                         adjacent to cells in flag_c_list(j-1)
+    ! flag2_v_list(0)%idx contains all vertices from flag_v_list(0)%idx
+    !                         owned by the current task
+    ! flag2_v_list(1)%idx contains all vertices from flag_v_list(0)%idx
+    !                     NOT owned by the current task
+    ! flag2_v_list(j)%idx for j > 1 == flag_v_list(j-1)%idx
+    !------------------------------------------------------------------------
+
     ALLOCATE(flag2_c(wrk_p_patch_g%n_patch_cells))
     ALLOCATE(flag2_e(wrk_p_patch_g%n_patch_edges))
     ALLOCATE(flag2_v(wrk_p_patch_g%n_patch_verts))
