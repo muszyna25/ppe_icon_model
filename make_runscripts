@@ -197,7 +197,7 @@ check_accept_script()
           accepted_script="false"  
           ;;
        *nat_jww_nwp_mpiomp*)
-          accepted_script="false"
+          [[ $param == "test" ]] && accepted_script="false"
           ;;
        esac
      ;; 
