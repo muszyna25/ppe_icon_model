@@ -71,7 +71,7 @@ MODULE mo_create_ocean_grid
 
   !-------------------------------------------------------------------------
   PUBLIC :: create_ocean_grid
-  PUBLIC :: remove_land_points, remove_inland_cells
+  PUBLIC :: remove_land_cells, remove_inland_cells, remove_vertex_inland_cells
   
   !-------------------------------------------------------------------------
   ! input parameters
@@ -103,13 +103,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE remove_land_points(in_file_name, out_file_name)
+  SUBROUTINE remove_land_cells(in_file_name, out_file_name)
     CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
     
     TYPE(t_integer_list) :: sea_cell_list
     INTEGER :: in_grid_id, out_grid_id
     
-    ! TYPE(t_grid), POINTER :: grid
+!    TYPE(t_grid), POINTER :: grid
 
     in_grid_id = read_new_netcdf_grid(in_file_name)    
 
@@ -120,17 +120,20 @@ CONTAINS
     CALL grid_set_parents_from(in_grid_id, parents_from_parentpointers)
     out_grid_id = get_grid_from_cell_list(in_grid_id, sea_cell_list)
    
-   ! grid  => get_grid(out_grid_id)
-   ! write(0,*) "grid from cell list mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
+!    grid  => get_grid(in_grid_id)
+!    write(0,*) "in grid mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
+!    grid  => get_grid(out_grid_id)
+!    write(0,*) "grid from cell list mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
 
     CALL delete_grid(in_grid_id)
     CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
 !     CALL close_grid_connectivity(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, 0)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
+    CALL check_ocean_grid_mask(out_grid_id)
     CALL delete_grid(out_grid_id)
  
-  END SUBROUTINE remove_land_points
+  END SUBROUTINE remove_land_cells
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -166,7 +169,134 @@ CONTAINS
 
   END SUBROUTINE remove_inland_cells
   !-------------------------------------------------------------------------
-  
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE remove_vertex_inland_cells(in_file_name, out_file_name)
+    CHARACTER(LEN=*), INTENT(in) :: in_file_name, out_file_name
+
+    TYPE(t_integer_list) :: sea_cell_list, cell_sea_land_mask
+    INTEGER :: in_grid_id, out_grid_id
+    INTEGER, POINTER :: new_sea_land_mask(:)
+
+    TYPE(t_grid), POINTER :: grid
+
+    in_grid_id = read_new_netcdf_grid(in_file_name)
+
+    CALL get_vertexbased_cell_sea_land_mask(in_grid_id, cell_sea_land_mask)
+
+    CALL get_conditional_list(cell_sea_land_mask, less_than, land_inner, -1, &
+      & sea_cell_list)
+
+    CALL grid_set_parents_from(in_grid_id, parents_from_parentpointers)
+    out_grid_id = get_grid_from_cell_list(in_grid_id, sea_cell_list)
+    DEALLOCATE(cell_sea_land_mask%value)
+
+   ! grid  => get_grid(out_grid_id)
+   ! write(0,*) "grid from cell list mean_characteristic_length=", grid%geometry_info%mean_characteristic_length
+
+    CALL delete_grid(in_grid_id)
+    CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
+!     CALL close_grid_connectivity(out_grid_id)
+    CALL set_grid_parent_id(out_grid_id, 0)
+    CALL write_netcdf_grid(out_grid_id, out_file_name)
+    CALL delete_grid(out_grid_id)
+
+  END SUBROUTINE remove_vertex_inland_cells
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! returns a cell list mask with cells boundary land marked based on vertex connectivity
+  !! uses the cells%sea_land_mask
+  SUBROUTINE get_vertexbased_cell_sea_land_mask(in_grid_id, cell_sea_land_mask)
+    INTEGER, INTENT(in) :: in_grid_id
+    TYPE(t_integer_list), INTENT(inout) :: cell_sea_land_mask
+
+    TYPE(t_integer_list) :: vertex_sea_land_mask
+    TYPE(t_grid), POINTER :: grid
+    INTEGER :: cell, cell_vertex, vertex
+
+    ! fill the vertex_sea_land_mask
+    CALL get_vertex_sea_land_mask(in_grid_id, vertex_sea_land_mask)
+
+    ! create new cell_sea_land_mask based on vertex_sea_land_mask
+    grid  => get_grid(in_grid_id)
+    cell_sea_land_mask%list_size  =  grid%cells%no_of_existcells
+    ALLOCATE(cell_sea_land_mask%value(grid%cells%no_of_existcells))
+    cell_sea_land_mask%value(:) = grid%cells%sea_land_mask(:)
+
+    ! write(0,*) "vertex_sea_land_mask:", vertex_sea_land_mask%value(:)
+
+    DO  cell = 1, grid%cells%no_of_existcells
+      IF (cell_sea_land_mask%value(cell) == land_inner) THEN
+        DO cell_vertex = 1, grid%cells%max_no_of_vertices
+          vertex = grid%cells%get_vertex_index(cell, cell_vertex)
+          IF (vertex > 0) THEN
+            IF (vertex_sea_land_mask%value(grid%cells%get_vertex_index(cell, cell_vertex)) < land_inner) THEN
+              cell_sea_land_mask%value(cell) = land_boundary
+              ! write(0,*) "cell ", cell, " gets land_boundary:", land_boundary
+            ENDIF
+          ENDIF
+        ENDDO
+      ENDIF
+    ENDDO
+
+    DEALLOCATE(vertex_sea_land_mask%value)
+
+  END SUBROUTINE get_vertexbased_cell_sea_land_mask
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! returns a vertex_sea_land_mask list mask based on cells%sea_land_mask
+  SUBROUTINE get_vertex_sea_land_mask(in_grid_id, vertex_sea_land_mask)
+    INTEGER, INTENT(in) :: in_grid_id
+    TYPE(t_integer_list), INTENT(inout) :: vertex_sea_land_mask
+
+    TYPE(t_grid), POINTER :: grid
+    INTEGER :: vertex, sea_cells, land_cells, vertex_cell, cell
+
+    grid  => get_grid(in_grid_id)
+
+    vertex_sea_land_mask%list_size  =   grid%verts%no_of_existvertices
+    ALLOCATE(vertex_sea_land_mask%value(vertex_sea_land_mask%list_size))
+
+!    write(0,*) grid%cells%sea_land_mask(:)
+!    STOP
+
+    ! fill the vertex_sea_land_mask
+    DO vertex=1, grid%verts%no_of_existvertices
+      ! count sea and land neigboring cells
+      sea_cells = 0
+      land_cells = 0
+      DO vertex_cell = 1, grid%verts%max_connectivity
+        cell = grid%verts%get_cell_index(vertex, vertex_cell)
+        IF (cell > 0) THEN
+        !  write(0,*) " cell_mask=", grid%cells%sea_land_mask(cell)
+          IF (grid%cells%sea_land_mask(cell) >= land_boundary) THEN
+            land_cells = land_cells + 1
+          ELSE
+            sea_cells = sea_cells + 1
+          ENDIF
+        ENDIF
+      ENDDO
+
+      ! write(0,*) "sea_cells=", sea_cells, " land_cells=", land_cells
+      IF (sea_cells * land_cells > 0) THEN
+        vertex_sea_land_mask%value(vertex) = sea_boundary
+      ELSEIF (sea_cells > 0) THEN
+        vertex_sea_land_mask%value(vertex) = sea_inner
+      ELSE
+        vertex_sea_land_mask%value(vertex) = land_inner
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE get_vertex_sea_land_mask
+  !-------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------
   !>
   ! If there are boundaries these are closed by adding an artificial cell
@@ -744,6 +874,8 @@ CONTAINS
     REAL(wp) :: check_min_sea_depth
     LOGICAL :: edge_is_boundary
 
+    CHARACTER(*), PARAMETER :: method_name = "mo_create_ocean_grid:check_ocean_grid_mask"
+
     ! get sea-land for the original file
     in_grid => get_grid(in_grid_id)
     in_cells => in_grid%cells
@@ -759,14 +891,14 @@ CONTAINS
     !  write (*,*) in_cells%elevation(cell), check_min_sea_depth, in_cells%sea_land_mask(cell)
       IF (in_cells%elevation(cell) < check_min_sea_depth) THEN
         IF (in_cells%sea_land_mask(cell) > sea_boundary) THEN
-          CALL finish('check_ocean_grid_mask',&
+          CALL finish(method_name,&
             & 'sea_land_mask(cell) > sea_boundary')
         ELSE
           CYCLE
         ENDIF
       ELSE
         IF (in_cells%sea_land_mask(cell) < land_boundary) THEN
-          CALL finish('check_ocean_grid_mask',&
+          CALL finish(method_name,&
             & 'sea_land_mask(cell)  < land_boundary')
         ENDIF
       ENDIF
@@ -782,7 +914,7 @@ CONTAINS
 
       IF (edge_is_boundary) THEN
         IF (ABS(in_cells%sea_land_mask(cell)) /= 1) THEN
-          CALL finish('check_ocean_grid_mask',&
+          CALL finish(method_name,&
             & 'ABS(in_cells%sea_land_mask(cell)) /= 1')
         ENDIF
       ELSE
@@ -791,7 +923,7 @@ CONTAINS
              in_edges%sea_land_mask(in_cells%get_edge_index(cell,1)), &
              in_edges%sea_land_mask(in_cells%get_edge_index(cell,2)), &
              in_edges%sea_land_mask(in_cells%get_edge_index(cell,3))
-          CALL finish('check_ocean_grid_mask',&
+          CALL finish(method_name,&
             & 'ABS(in_cells%sea_land_mask(cell)) /= 2')
         ENDIF
       ENDIF        
@@ -803,34 +935,46 @@ CONTAINS
     !  write (*,*) in_cells%elevation(cell), check_min_sea_depth, in_cells%sea_land_mask(cell)
       cell1 = in_edges%get_cell_index(edge, 1)
       cell2 = in_edges%get_cell_index(edge, 2)
-      IF (ABS(in_edges%sea_land_mask(edge)) == 2) THEN
-        
-        IF (in_cells%sea_land_mask(cell1) * in_edges%sea_land_mask(edge) <= 0 .OR.&
-            in_cells%sea_land_mask(cell2) * in_edges%sea_land_mask(edge) <= 0) THEN
-            WRITE(0,*) in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell1),&
-               in_cells%sea_land_mask(cell2)
-            CALL finish('check_ocean_grid_mask',&
-            & 'sea_land_mask(cell) * sea_land_mask(edge) <= 0')
+
+      IF (cell1 < 1 .or. cell2 < 1) THEN
+
+        IF (in_edges%sea_land_mask(edge) < 0) THEN
+          WRITE(0,*) edge, in_edges%sea_land_mask(edge)
+          CALL finish(method_name, 'boundary edge is sea')
         ENDIF
+
       ELSE
-        IF (cell1 == 0 .OR. cell2 == 0) THEN
-          cell = MAX(cell1,cell2)
-          IF (ABS(in_cells%sea_land_mask(cell) * in_edges%sea_land_mask(edge)) /= 1) THEN
-            WRITE(0,*) in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell)
-            CALL finish('check_ocean_grid_mask',&
-            & 'sea_land_mask(cell) * sea_land_mask(edge) /= 1')
+
+        IF (ABS(in_edges%sea_land_mask(edge)) == 2) THEN
+
+          IF (in_cells%sea_land_mask(cell1) * in_edges%sea_land_mask(edge) <= 0 .OR.&
+              in_cells%sea_land_mask(cell2) * in_edges%sea_land_mask(edge) <= 0) THEN
+              WRITE(0,*) edge, in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell1),&
+                 in_cells%sea_land_mask(cell2)
+              CALL finish(method_name,&
+              & 'sea_land_mask(cell) * sea_land_mask(edge) <= 0')
           ENDIF
         ELSE
-          IF (in_cells%sea_land_mask(cell1) * in_cells%sea_land_mask(cell2) >= 0) THEN
-            WRITE(0,*) in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell1), &
-              in_cells%sea_land_mask(cell2)
-            CALL finish('check_ocean_grid_mask',&
-            & 'sea_land_mask(cell1) sea_land_mask(cell2) >= 0')
-          ENDIF        
-        ENDIF
-        
-      ENDIF !ABS(in_edges%sea_land_mask(edge)) == 2
-        
+          IF (cell1 == 0 .OR. cell2 == 0) THEN
+            cell = MAX(cell1,cell2)
+            IF (ABS(in_cells%sea_land_mask(cell) * in_edges%sea_land_mask(edge)) /= 1) THEN
+              WRITE(0,*) edge, in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell)
+              CALL finish(method_name,&
+              & 'sea_land_mask(cell) * sea_land_mask(edge) /= 1')
+            ENDIF
+          ELSE
+            IF (in_cells%sea_land_mask(cell1) * in_cells%sea_land_mask(cell2) >= 0) THEN
+              WRITE(0,*) edge, in_edges%sea_land_mask(edge), in_cells%sea_land_mask(cell1), &
+                in_cells%sea_land_mask(cell2)
+              CALL finish(method_name,&
+              & 'sea_land_mask(cell1) sea_land_mask(cell2) >= 0')
+            ENDIF
+          ENDIF
+
+        ENDIF !ABS(in_edges%sea_land_mask(edge)) == 2
+
+      ENDIF ! (cell1 < 1 .or. cell2 < 1)
+
     ENDDO
 
 

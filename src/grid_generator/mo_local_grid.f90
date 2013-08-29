@@ -223,7 +223,7 @@ MODULE mo_local_grid
     INTEGER :: max_connectivity
     ! connectivity number = no of neighboring vertices, edges.
     !> The number of neigbors (vertices, edges)
-    INTEGER, POINTER :: no_of_neigbors(:)
+    INTEGER, POINTER :: no_of_neigbors(:)  ! note that this is not stored or read from file, highly dangerous !
     !> The neigboring vertices indexes
     INTEGER, POINTER :: a_neighbor_index(:,:)
     !> The neigboring cells indexes
@@ -347,7 +347,7 @@ MODULE mo_local_grid
     INTEGER :: max_no_of_vertices
     ! no of cell vertices = no of edges = no of neibgoring cells
     !> The actual number of vertices for each cell
-    INTEGER, POINTER :: no_of_vertices(:)
+    INTEGER, POINTER :: no_of_vertices(:) ! note that this is not stored or read from file, highly dangerous !
     !> The indexes of the cell vetrices.
     INTEGER, POINTER :: a_vertex_index(:,:)
     !> The indexes of the cell edges.
