@@ -1401,28 +1401,6 @@ CONTAINS
     ENDDO
 
 
-
-    ! Reset flag2_e/v to 0 at boundary points owned by the current PE
-    DO j = 1, wrk_p_patch_g%n_patch_cells
-      IF (flag2_c(j) == 0) THEN
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        DO i = 1,wrk_p_patch_g%cells%num_edges(jl,jb)
-          jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
-          jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
-          je = idx_1d(jl_e,jb_e)
-          IF (wrk_p_patch%edges%owner_g(je) == my_proc) flag2_e(je)=0
-          IF (order_type_of_halos == 0 .AND. flag2_e(je)==1) flag2_e(je)=0
-
-          jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-          jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-          jv = idx_1d(jl_v, jb_v)
-          IF (wrk_p_patch%verts%owner_g(jv) == my_proc) flag2_v(jv)=0
-          IF (order_type_of_halos == 0 .AND. flag2_v(jv)==1) flag2_v(jv)=0
-        ENDDO
-      ENDIF
-    ENDDO
-
     IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
       CALL finish(routine, 'number of cells mismatch')
     IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
@@ -1443,31 +1421,7 @@ CONTAINS
       END IF
     END DO
 
-    DO ilev = 0, 2 * n_boundary_rows
-      IF (.NOT. (ALL(flag2_c(flag2_c_list(ilev)%idx(1:n2_ilev_c(ilev))) == ilev)) &
-           .OR. COUNT(flag2_c == ilev) /= n2_ilev_c(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'second flags cells ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-    END DO
-
     DEALLOCATE(flag_c, flag_v)
-
-    DO ilev = 0, n_boundary_rows + 1
-      IF (.NOT. (ALL(flag2_v(flag2_v_list(ilev)%idx(1:n2_ilev_v(ilev))) == ilev)) &
-           .OR. COUNT(flag2_v == ilev) /= n2_ilev_v(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'second flags verts ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-    END DO
-
-    DO ilev = 0, 2 * n_boundary_rows + 1
-      IF (.NOT. (ALL(flag2_e(flag2_e_list(ilev)%idx(1:n2_ilev_e(ilev))) == ilev)) &
-           .OR. COUNT(flag2_e == ilev) /= n2_ilev_e(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'second flags edges ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-    END DO
 
     IF (ANY(cells_owner_g /= wrk_p_patch%cells%owner_g)) THEN
       CALL finish(routine, 'cells owner_g failed')
