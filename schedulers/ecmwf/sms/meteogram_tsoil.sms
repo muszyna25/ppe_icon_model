@@ -65,7 +65,7 @@ set -A iStation 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
 
 set -A varNameSfc \
   t_s      t_g      SHFL      LHFL      T2M     TD2M    U10M    V10M    \
-  w_snow   t_snow   RHO_SNOW  H_SNOW    SOBT    SOBS    THBS    THBT
+  w_snow   t_snow   RHO_SNOW  H_SNOW    SOBT    SOBS    THBS    
 
 set -A varName3D \
   t_so     w_so     w_so_ice                \

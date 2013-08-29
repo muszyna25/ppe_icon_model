@@ -149,7 +149,7 @@ for levtype in ML PL HL ; do
   fi
 done
  for str in so1 so2 ; do
-  if [] -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
+  if [[ -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
     ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
   fi
  done
