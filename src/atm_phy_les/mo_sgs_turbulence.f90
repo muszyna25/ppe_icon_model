@@ -211,8 +211,9 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_WORKSHARE
     END IF
 
-   DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
-              theta, thetav, visc_smag_c, rho_e, DIV_c)
+    
+    DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
+               theta, thetav, visc_smag_c, rho_e, DIV_c)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -1288,7 +1289,8 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: flux_up, flux_dn, inv_dt
     REAL(wp) :: nabla2_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: fac(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(wp) :: fac_conv(nproma,p_patch%nlev,p_patch%nblks_c)
+    REAL(wp) :: exner_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
+    REAL(wp) :: exner_me(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: sflux(nproma,p_patch%nblks_c)
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: a, b, c, rhs
     REAL(wp), ALLOCATABLE, DIMENSION(:)     :: var_new
@@ -1313,26 +1315,48 @@ MODULE mo_sgs_turbulence
 
     diff_smag_ic => prm_diag%tkvh
 
-
-    !multiply by exner to convert from theta tend to temp tend
-    !assuming that exner perturbation are small compared to temp
-    IF(TRIM(scalar_name)=='theta')THEN 
-!ICON_OMP_WORKSHARE
-      fac_conv(:,:,:) = exner(:,:,:)
-!ICON_OMP_END_WORKSHARE
-    ELSE
-!ICON_OMP_WORKSHARE
-      fac_conv(:,:,:) = 1._wp
-!ICON_OMP_END_WORKSHARE
-    END IF
-
-    !Special boundary treatment for different scalars
 !ICON_OMP_PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    !multiply by exner to convert from theta tend to temp tend
+    !assuming that exner perturbation are small compared to temp
+    IF(TRIM(scalar_name)=='theta')THEN 
+
+      !Calculate exner at edge for horizontal diffusion
+      CALL cells2edges_scalar(exner, p_patch, p_int%c_lin_e, exner_me, opt_rlend=min_rledge_int-2)
+
+      !Calculate exner at interface for vertical diffusion
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jk = 2, nlev
+           DO jc = i_startidx, i_endidx
+             exner_ic(jc,jk,jb) = ( p_nh_metrics%wgtfac_c(jc,jk,jb)*exner(jc,jk,jb) + &
+                                  (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*exner(jc,jk-1,jb) )
+           END DO
+         END DO
+         DO jc = i_startidx, i_endidx
+            exner_ic(jc,nlev+1,jb) =                                &
+              p_nh_metrics%wgtfacq_c(jc,1,jb)*exner(jc,nlev  ,jb) + &
+              p_nh_metrics%wgtfacq_c(jc,2,jb)*exner(jc,nlev-1,jb) + &
+              p_nh_metrics%wgtfacq_c(jc,3,jb)*exner(jc,nlev-2,jb)
+         ENDDO
+      END DO
+!ICON_OMP_END_DO
+
+    ELSE 
+
+      exner_me(:,:,:) = 1._wp
+      exner_ic(:,:,:) = 1._wp
+
+    END IF
+
+    !Special boundary treatment for different scalars
 
     IF(TRIM(scalar_name)=='theta')THEN
 !ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
@@ -1401,7 +1425,7 @@ MODULE mo_sgs_turbulence
           ! compute kh_smag_e * grad(var) 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-                nabla2_e(je,jk,jb) = diff_smag_e(je,jk,jb) * &
+                nabla2_e(je,jk,jb) = diff_smag_e(je,jk,jb) * exner_me(je,jk,jb) * &
                                      p_patch%edges%inv_dual_edge_length(je,jb)*   &
                                     (var(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
                                      var(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
@@ -1425,9 +1449,9 @@ MODULE mo_sgs_turbulence
             DO jc = i_startidx, i_endidx
               !horizontal tendency
               tot_tend(jc,jk,jb)  =  fac(jc,jk,jb) * (                                 &
-                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
-                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
-                fac_conv(jc,jk,jb)*nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb) )
+                nabla2_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                nabla2_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb) )
             ENDDO
           ENDDO
         ENDDO
@@ -1459,10 +1483,10 @@ MODULE mo_sgs_turbulence
           DO jk = 2, nlev-1
             DO jc = i_startidx, i_endidx
               flux_up = diff_smag_ic(jc,jk,jb) * (var(jc,jk-1,jb) - var(jc,jk,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * fac_conv(jc,jk,jb)
+                        p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb)
 
               flux_dn = diff_smag_ic(jc,jk+1,jb) * (var(jc,jk,jb) - var(jc,jk+1,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * fac_conv(jc,jk+1,jb) 
+                        p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb) 
 
               tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + (flux_up - flux_dn) *  &
                               p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * fac(jc,jk,jb)
@@ -1486,7 +1510,7 @@ MODULE mo_sgs_turbulence
               flux_up = 0._wp
 
               flux_dn = diff_smag_ic(jc,2,jb) * (var(jc,1,jb) - var(jc,2,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * fac_conv(jc,2,jb)
+                        p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb)
 
               tot_tend(jc,1,jb) = tot_tend(jc,1,jb) + (flux_up- flux_dn) * &
                           p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * fac(jc,1,jb)
@@ -1505,9 +1529,9 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
             DO jc = i_startidx, i_endidx
               flux_up = diff_smag_ic(jc,nlev,jb) * (var(jc,nlev-1,jb) - var(jc,nlev,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * fac_conv(jc,nlev,jb)
+                        p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
 
-              flux_dn  = -sflux(jc,jb)
+              flux_dn  = -sflux(jc,jb) * exner_ic(jc,nlev+1,jb)
 
               tot_tend(jc,nlev,jb) = tot_tend(jc,nlev,jb) + (flux_up - flux_dn) * & 
                       p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
@@ -1533,10 +1557,10 @@ MODULE mo_sgs_turbulence
           DO jk = 2,nlev-1
             DO jc = i_startidx, i_endidx
               a(jc,jk,jb)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * fac_conv(jc,jk,jb) 
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb) 
 
               c(jc,jk,jb)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * fac_conv(jc,jk+1,jb)
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb)
            
               b(jc,jk,jb)   =  inv_dt - a(jc,jk,jb) - c(jc,jk,jb)
 
@@ -1556,7 +1580,7 @@ MODULE mo_sgs_turbulence
           DO jc = i_startidx, i_endidx
             a(jc,1,jb)   = 0._wp
             c(jc,1,jb)   = -diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
-                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * fac_conv(jc,2,jb) 
+                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb) 
             b(jc,1,jb)   = inv_dt - a(jc,1,jb) - c(jc,1,jb)
             rhs(jc,1,jb) = var(jc,1,jb) * inv_dt 
           END DO
@@ -1572,10 +1596,11 @@ MODULE mo_sgs_turbulence
                              i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
             a(jc,nlev,jb)  = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
-                           p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * fac_conv(jc,nlev,jb)
+                           p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
             c(jc,nlev,jb)  = 0._wp
             b(jc,nlev,jb)  = inv_dt - a(jc,nlev,jb) - c(jc,nlev,jb)
-            rhs(jc,nlev,jb)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) 
+            rhs(jc,nlev,jb)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * exner_ic(jc,nlev+1,jb) * &
+                                                        p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) 
           END DO
        END DO
 !ICON_OMP_END_DO
