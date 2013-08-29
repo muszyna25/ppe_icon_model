@@ -1879,14 +1879,17 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
 
     LOGICAL, ALLOCATABLE :: lcount(:)
-    INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jl, n, &
-         exec_sequence, ref_flag, k
+    INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, n, &
+         exec_sequence, ref_flag, k, loc_index_fill
 
-    INTEGER, ALLOCATABLE :: cve_loc_index(:), cve_glb_index(:)
+    INTEGER, ALLOCATABLE :: cve_loc_index(:), cve_glb_index(:), &
+         flag2_union(:,:)
 
     ALLOCATE(lcount(n_patch_cve_g))
     lcount = .FALSE.
     n = 0
+    ALLOCATE(cve_loc_index(n_patch_cve_g), cve_glb_index(n_patch_cve))
+    ALLOCATE(flag2_union(n_patch_cve, 2))
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
       DO j = 1, n_patch_cve_g
@@ -1900,7 +1903,6 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ALLOCATE(cve_loc_index(n_patch_cve_g), cve_glb_index(n_patch_cve))
       cve_glb_index(1:n2_ilev(0)) = flag2_list(0)%idx(1:n2_ilev(0))
       j = 1
       DO k = 1, n2_ilev(0)
@@ -1913,13 +1915,7 @@ CONTAINS
       DO j = j, n_patch_cve_g
         cve_loc_index(j) = -k
       END DO
-
-      IF (ANY(cve_loc_index /= loc_index)) THEN
-        CALL finish(routine, 'cve_loc_index failed')
-      END IF
-      IF (ANY(cve_glb_index(1:n2_ilev(0)) /=  glb_index(1:n2_ilev(0)))) THEN
-        CALL finish(routine, 'cve_glb_index failed')
-      END IF
+      loc_index_fill = n2_ilev(0)
 
     CASE (1)
       DO j = 1, n_patch_cve_g
@@ -1935,9 +1931,56 @@ CONTAINS
           loc_index(j) = -(n+1)
         ENDIF
       ENDDO
+
+      k = 1
+      DO ilev = 0, max_ilev
+        flag2_union(k:k+n2_ilev(ilev)-1, 1) &
+             = flag2_list(ilev)%idx(1:n2_ilev(ilev))
+        flag2_union(k:k+n2_ilev(ilev)-1, 2) &
+             = ilev
+        k = k + n2_ilev(ilev)
+      END DO
+      CALL quicksort(flag2_union(:, 1), flag2_union(:, 2))
+      k = 1
+      jf = 1
+      j = 0
+      DO WHILE (j < n_patch_cve_g)
+        j = j + 1
+        DO WHILE (j < flag2_union(jf, 1))
+          cve_loc_index(j) = -k
+          j = j + 1
+        END DO
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        irl0 = refin_ctrl(jl,jb)
+        IF (refinement_predicate(flag2_union(jf, 2), irl0)) THEN
+          cve_loc_index(j) = k
+          cve_glb_index(k) = j
+          k = k + 1
+        ELSE
+          cve_loc_index(j) = -k
+        END IF
+        jf = jf + 1
+        IF (jf > n_patch_cve) THEN
+          DO WHILE (j < n_patch_cve_g)
+            j = j + 1
+            cve_loc_index(j) = -k
+          END DO
+        END IF
+      END DO
+      loc_index_fill = k - 1
+
     CASE default
       CALL finish("", "Uknown order_type_of_halos")
     END SELECT
+
+    IF (ANY(cve_loc_index /= loc_index)) THEN
+      CALL finish(routine, 'cve_loc_index failed')
+    END IF
+    IF (ANY(cve_glb_index(1:loc_index_fill) &
+         /=  glb_index(1:loc_index_fill))) THEN
+      CALL finish(routine, 'cve_glb_index failed')
+    END IF
 
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
