@@ -1209,8 +1209,7 @@ CONTAINS
         je = idx_1d(jl_e, jb_e)
         IF (wrk_p_patch%edges%owner_g(je) < 0) THEN
           wrk_p_patch%edges%owner_g(je) = iown
-        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==0 .OR. &
-                 mod_iown==1 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==1) THEN
+        ELSE IF (mod_iown == MOD(wrk_p_patch%edges%owner_g(je), 2)) THEN
           wrk_p_patch%edges%owner_g(je) = MAX(iown,wrk_p_patch%edges%owner_g(je))
         ELSE
           wrk_p_patch%edges%owner_g(je) = MIN(iown,wrk_p_patch%edges%owner_g(je))
@@ -1220,8 +1219,7 @@ CONTAINS
         jv = idx_1d(jl_v, jb_v)
         IF (wrk_p_patch%verts%owner_g(jv) < 0) THEN
           wrk_p_patch%verts%owner_g(jv) = iown
-        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==0 .OR. &
-                 mod_iown==1 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==1) THEN
+        ELSE IF (mod_iown == MOD(wrk_p_patch%verts%owner_g(jv), 2)) THEN
           wrk_p_patch%verts%owner_g(jv) = MAX(iown,wrk_p_patch%verts%owner_g(jv))
         ELSE
           wrk_p_patch%verts%owner_g(jv) = MIN(iown,wrk_p_patch%verts%owner_g(jv))
