@@ -134,7 +134,7 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 15
 
   ! maximum number of z axes
-  INTEGER, PARAMETER :: MAX_Z_AXES                = 30
+  INTEGER, PARAMETER :: MAX_Z_AXES                = 33    ! must be >= dim(cdiZaxisID) in mo_name_list_output_types
 
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
