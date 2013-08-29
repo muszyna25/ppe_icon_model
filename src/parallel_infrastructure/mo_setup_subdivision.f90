@@ -1261,64 +1261,8 @@ CONTAINS
     ! Get the number of cells/edges/verts and other data for patch allocation
     !-----------------------------------------------------------------------------------------------
 
-    wrk_p_patch%n_patch_cells = COUNT(flag_c(:)>=0)
-    wrk_p_patch%n_patch_edges = COUNT(flag_e(:)>=0)
-    wrk_p_patch%n_patch_verts = COUNT(flag_v(:)>=0)
-
-    ! save the number of cells/edges/verts of the global patch
-    wrk_p_patch%n_patch_cells_g = wrk_p_patch_g%n_patch_cells
-    wrk_p_patch%n_patch_edges_g = wrk_p_patch_g%n_patch_edges
-    wrk_p_patch%n_patch_verts_g = wrk_p_patch_g%n_patch_verts
-    !
-    ! calculate and save values for the blocking, these are needed for patch allocation.
-    ! NB: Avoid the case nblks=0 for empty patches, this might cause troubles
-    ! if a empty patch is used somewhere (and npromz gets wrong in the formulas below).
-    !
-    ! ... for the cells
-    wrk_p_patch%nblks_c       = blk_no(wrk_p_patch%n_patch_cells)
-    wrk_p_patch%npromz_c      = wrk_p_patch%n_patch_cells - (wrk_p_patch%nblks_c - 1)*nproma
-    wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c
-    IF (use_dummy_cell_closure) THEN
-      IF (wrk_p_patch%npromz_c == nproma) &
-       wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c + 1
-    ENDIF
-
-    ! ... for the edges
-    wrk_p_patch%nblks_e       = blk_no(wrk_p_patch%n_patch_edges)
-    wrk_p_patch%npromz_e      = wrk_p_patch%n_patch_edges - (wrk_p_patch%nblks_e - 1)*nproma
-
-    ! ... for the vertices
-    wrk_p_patch%nblks_v       = blk_no(wrk_p_patch%n_patch_verts)
-    wrk_p_patch%npromz_v      = wrk_p_patch%n_patch_verts - (wrk_p_patch%nblks_v - 1)*nproma
-
-    ! Also needed for patch allocation
-    wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom
-
-    ! Set other scalar members of patch here too ..
-    wrk_p_patch%grid_filename      = wrk_p_patch_g%grid_filename
-    wrk_p_patch%level              = wrk_p_patch_g%level
-    wrk_p_patch%id                 = wrk_p_patch_g%id
-    wrk_p_patch%cells%max_connectivity = wrk_p_patch_g%cells%max_connectivity
-    wrk_p_patch%parent_id          = wrk_p_patch_g%parent_id
-    wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
-    wrk_p_patch%child_id(:)        = wrk_p_patch_g%child_id(:)
-    wrk_p_patch%child_id_list(:)   = wrk_p_patch_g%child_id_list(:)
-    wrk_p_patch%n_childdom         = wrk_p_patch_g%n_childdom
-    wrk_p_patch%n_chd_total        = wrk_p_patch_g%n_chd_total
-    wrk_p_patch%nlev               = wrk_p_patch_g%nlev
-    wrk_p_patch%nlevp1             = wrk_p_patch_g%nlevp1
-    wrk_p_patch%nshift             = wrk_p_patch_g%nshift
-    wrk_p_patch%nshift_total       = wrk_p_patch_g%nshift_total
-    wrk_p_patch%nshift_child       = wrk_p_patch_g%nshift_child
-    wrk_p_patch%grid_uuid          = wrk_p_patch_g%grid_uuid
-
-    !-----------------------------------------------------------------------------------------------
-    ! Allocate the required data arrays in patch
-    !-----------------------------------------------------------------------------------------------
-
-    CALL allocate_basic_patch(wrk_p_patch)
-    CALL allocate_remaining_patch(wrk_p_patch,2) ! 2 = only those needed for parallelization control
-
+    CALL prepare_patch(wrk_p_patch_g, wrk_p_patch, &
+         COUNT(flag_c(:)>=0), COUNT(flag_e(:)>=0), COUNT(flag_v(:)>=0))
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
     ! Please note that opposed to cells, the global owner for edges/verts is
@@ -1695,6 +1639,76 @@ CONTAINS
     DEALLOCATE(flag2_c, flag2_e, flag2_v)
 
   CONTAINS
+
+    SUBROUTINE prepare_patch(wrk_p_patch_g, wrk_p_patch, &
+         n_patch_cells, n_patch_edges, n_patch_verts)
+      !> output patch, designated as INOUT because
+      !! a few attributes are already set
+      TYPE(t_patch), INTENT(inout) :: wrk_p_patch
+      TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
+      INTEGER, INTENT(in) :: n_patch_cells, n_patch_edges, n_patch_verts
+
+      wrk_p_patch%n_patch_cells = n_patch_cells
+      wrk_p_patch%n_patch_edges = n_patch_edges
+      wrk_p_patch%n_patch_verts = n_patch_verts
+
+      ! save the number of cells/edges/verts of the global patch
+      wrk_p_patch%n_patch_cells_g = wrk_p_patch_g%n_patch_cells
+      wrk_p_patch%n_patch_edges_g = wrk_p_patch_g%n_patch_edges
+      wrk_p_patch%n_patch_verts_g = wrk_p_patch_g%n_patch_verts
+      !
+      ! calculate and save values for the blocking, these are needed for patch allocation.
+      ! NB: Avoid the case nblks=0 for empty patches, this might cause troubles
+      ! if a empty patch is used somewhere (and npromz gets wrong in the formulas below).
+      !
+      ! ... for the cells
+      wrk_p_patch%nblks_c       = blk_no(wrk_p_patch%n_patch_cells)
+      wrk_p_patch%npromz_c      = wrk_p_patch%n_patch_cells - (wrk_p_patch%nblks_c - 1)*nproma
+      wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c
+      IF (use_dummy_cell_closure) THEN
+        IF (wrk_p_patch%npromz_c == nproma) &
+             wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c + 1
+      ENDIF
+
+      ! ... for the edges
+      wrk_p_patch%nblks_e       = blk_no(wrk_p_patch%n_patch_edges)
+      wrk_p_patch%npromz_e      = wrk_p_patch%n_patch_edges - (wrk_p_patch%nblks_e - 1)*nproma
+
+      ! ... for the vertices
+      wrk_p_patch%nblks_v       = blk_no(wrk_p_patch%n_patch_verts)
+      wrk_p_patch%npromz_v      = wrk_p_patch%n_patch_verts - (wrk_p_patch%nblks_v - 1)*nproma
+
+      ! Also needed for patch allocation
+      wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom
+
+      ! Set other scalar members of patch here too ..
+      wrk_p_patch%grid_filename      = wrk_p_patch_g%grid_filename
+      wrk_p_patch%level              = wrk_p_patch_g%level
+      wrk_p_patch%id                 = wrk_p_patch_g%id
+      wrk_p_patch%cells%max_connectivity = wrk_p_patch_g%cells%max_connectivity
+      wrk_p_patch%parent_id          = wrk_p_patch_g%parent_id
+      wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
+      wrk_p_patch%child_id(:)        = wrk_p_patch_g%child_id(:)
+      wrk_p_patch%child_id_list(:)   = wrk_p_patch_g%child_id_list(:)
+      wrk_p_patch%n_childdom         = wrk_p_patch_g%n_childdom
+      wrk_p_patch%n_chd_total        = wrk_p_patch_g%n_chd_total
+      wrk_p_patch%nlev               = wrk_p_patch_g%nlev
+      wrk_p_patch%nlevp1             = wrk_p_patch_g%nlevp1
+      wrk_p_patch%nshift             = wrk_p_patch_g%nshift
+      wrk_p_patch%nshift_total       = wrk_p_patch_g%nshift_total
+      wrk_p_patch%nshift_child       = wrk_p_patch_g%nshift_child
+      wrk_p_patch%grid_uuid          = wrk_p_patch_g%grid_uuid
+
+      !-----------------------------------------------------------------------------------------------
+      ! Allocate the required data arrays in patch
+      !-----------------------------------------------------------------------------------------------
+
+      CALL allocate_basic_patch(wrk_p_patch)
+      CALL allocate_remaining_patch(wrk_p_patch,2) ! 2 = only those needed for parallelization control
+
+
+    END SUBROUTINE prepare_patch
+
     FUNCTION is_in_lists(list, lim1, lim2, idx) RESULT(p)
       TYPE(nb_flag_list_elem) :: list(1:2)
       INTEGER, INTENT(in) :: lim1, lim2, idx
