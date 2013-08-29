@@ -1187,39 +1187,6 @@ CONTAINS
       END IF
     END IF
 
-    DO ilev = 1, n_boundary_rows
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-
-        IF (flag_c(j)==ilev) THEN
-
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-
-          DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-            jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
-            jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
-            je = idx_1d(jl_e,jb_e)
-            jl_c = wrk_p_patch_g%cells%neighbor_idx(jl,jb,i)
-            jb_c = wrk_p_patch_g%cells%neighbor_blk(jl,jb,i)
-            jc = idx_1d(jl_c,jb_c)
-            IF (jc < 1 .OR. jc > wrk_p_patch_g%n_patch_cells) THEN
-              flag2_e(je) = 2*ilev+1
-            ELSE IF (flag_c(jc) == -1) THEN
-              flag2_e(je) = 2*ilev+1
-            ELSE
-              flag2_e(je) = ilev + flag_c(jc)
-            ENDIF
-            jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-            jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-            jv = idx_1d(jl_v,jb_v)
-            flag2_v(jv) = flag_v(jv)+1
-          ENDDO
-        ENDIF
-
-      ENDDO
-
-    ENDDO
-
     IF (n_boundary_rows > 0) THEN
       promote(1:n_ilev_v(0)) = .FALSE.
       k_v = 0
