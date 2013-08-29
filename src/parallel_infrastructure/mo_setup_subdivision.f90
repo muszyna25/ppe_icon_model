@@ -796,13 +796,21 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
+    CHARACTER(len=132) :: msg
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
                jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
-               jg, i_nchdom, irl0, mod_iown
+               jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
+
+    TYPE nb_flag_list_elem
+      INTEGER, ALLOCATABLE :: idx(:)
+    END TYPE nb_flag_list_elem
+    TYPE(nb_flag_list_elem), DIMENSION(-1:n_boundary_rows) :: &
+         flag_c_list, flag_v_list, flag_e_list
+    INTEGER, DIMENSION(-1:n_boundary_rows) :: n_ilev_c, n_ilev_v, n_ilev_e
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -823,6 +831,22 @@ CONTAINS
 
     ! flag inner cells
     WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
+    n_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
+    n_ilev_c(1:n_boundary_rows) = 0
+    ALLOCATE(flag_c_list(-1)%idx(0), flag_v_list(-1)%idx(0), &
+         flag_e_list(-1)%idx(0))
+    n_ilev_c(-1) = 0
+    n_ilev_e(-1) = 0
+    n_ilev_v(-1) = 0
+    n = wrk_p_patch_g%n_patch_cells
+    ALLOCATE(flag_c_list(0)%idx(n))
+    j = 0
+    DO i = 1, n
+      IF (cell_owner(i) == my_proc) THEN
+        j = j + 1
+        flag_c_list(0)%idx(j) = i
+      END IF
+    END DO
 
     !-----------------------------------------------------------------------------------------------
     ! The purpose of the second set of flags is to control moving the halo points
@@ -911,7 +935,25 @@ CONTAINS
           ENDIF
         ENDDO
 #endif
-
+        n_ilev_c(ilev) = 2 * n_ilev_e(ilev - 1)
+        ALLOCATE(flag_c_list(ilev)%idx(n_ilev_c(ilev)))
+        k_c = 0
+        k_v = n_ilev_v(ilev - 1)
+        DO j = 1, k_v
+          jv = flag_v_list(ilev - 1)%idx(j)
+          jl_v = idx_no(jv)
+          jb_v = blk_no(jv)
+          DO i = 1, wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+            jc = idx_1d(wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i), &
+                 wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i))
+            IF (.NOT. is_in_lists(flag_c_list(ilev-1:ilev), &
+                 n_ilev_c(ilev-1), k_c, jc)) THEN
+              k_c = k_c + 1
+              flag_c_list(ilev)%idx(k_c) = jc
+            END IF
+          END DO
+        END DO
+        n_ilev_c(ilev) = k_c
       ENDIF
 
       ! Flag edges/verts belongig to this level.
@@ -937,7 +979,37 @@ CONTAINS
           ENDDO
         ENDIF
       ENDDO
-
+      n = n_ilev_c(ilev)
+      n_ilev_v(ilev) = n * wrk_p_patch_g%cell_type
+      n_ilev_e(ilev) = n * wrk_p_patch_g%cell_type
+      ALLOCATE(flag_v_list(ilev)%idx(n_ilev_v(ilev)), &
+           flag_e_list(ilev)%idx(n_ilev_e(ilev)))
+      k_e = 0
+      k_v = 0
+      DO j = 1, n
+        jb = blk_no(flag_c_list(ilev)%idx(j))
+        jl = idx_no(flag_c_list(ilev)%idx(j))
+        DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
+          jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
+          jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
+          je = idx_1d(jl_e, jb_e)
+          IF (.NOT. is_in_lists(flag_e_list(ilev-1:ilev), &
+               &                n_ilev_e(ilev-1), k_e, je)) THEN
+            k_e = k_e + 1
+            flag_e_list(ilev)%idx(k_e) = je
+          END IF
+          jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
+          jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
+          jv = idx_1d(jl_v, jb_v)
+          IF (.NOT. is_in_lists(flag_v_list(ilev-1:ilev), &
+               &                n_ilev_v(ilev-1), k_v, jv)) THEN
+            k_v = k_v + 1
+            flag_v_list(ilev)%idx(k_v) = jv
+          END IF
+        ENDDO
+      END DO
+      n_ilev_e(ilev) = k_e
+      n_ilev_v(ilev) = k_v
     ENDDO ! ilev
 
     ! Now compute second set of flags
@@ -1029,6 +1101,30 @@ CONTAINS
     wrk_p_patch%n_patch_cells = COUNT(flag_c(:)>=0)
     wrk_p_patch%n_patch_edges = COUNT(flag_e(:)>=0)
     wrk_p_patch%n_patch_verts = COUNT(flag_v(:)>=0)
+    IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
+      CALL finish(routine, 'number of cells mismatch')
+    IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
+      CALL finish(routine, 'number of edges mismatch')
+    IF (SUM(n_ilev_v(:)) /= wrk_p_patch%n_patch_verts) &
+      CALL finish(routine, 'number of verts mismatch')
+
+    DO ilev = 0, n_boundary_rows
+      IF (.NOT. (ALL(flag_c(flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) == ilev)) &
+           .OR. COUNT(flag_c == ilev) /= n_ilev_c(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'cells ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+      IF (.NOT. (ALL(flag_e(flag_e_list(ilev)%idx(1:n_ilev_e(ilev))) == ilev)) &
+           .OR. COUNT(flag_e == ilev) /= n_ilev_e(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'edges ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+      IF (.NOT. (ALL(flag_v(flag_v_list(ilev)%idx(1:n_ilev_v(ilev))) == ilev)) &
+           .OR. COUNT(flag_v == ilev) /= n_ilev_v(ilev)) THEN
+        WRITE (msg, '(a,i0)') 'vertices ilev mismatch at ', ilev
+        CALL finish(routine, msg)
+      END IF
+    END DO
 
     DEALLOCATE(flag_c, flag_e, flag_v)
 
@@ -1408,6 +1504,14 @@ CONTAINS
     ENDDO
 
     DEALLOCATE(flag2_c, flag2_e, flag2_v)
+
+  CONTAINS
+    FUNCTION is_in_lists(list, lim1, lim2, idx) RESULT(p)
+      TYPE(nb_flag_list_elem) :: list(1:2)
+      INTEGER, INTENT(in) :: lim1, lim2, idx
+      LOGICAL :: p
+      p = ANY(list(1)%idx(1:lim1) == idx) .OR. ANY(list(2)%idx(1:lim2) == idx)
+    END FUNCTION is_in_lists
 
   END SUBROUTINE divide_patch
 

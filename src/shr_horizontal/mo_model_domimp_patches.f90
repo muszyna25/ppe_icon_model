@@ -1254,7 +1254,7 @@ CONTAINS
     ENDIF
 
     DO ji = 1, 4
-      CALL reshape_idx( array_e_int(:,ji), patch%nblks_e, patch%npromz_e,  &
+      CALL reshape_idx( array_e_int(:,ji), patch%nblks_e, patch%npromz_e, &
         & patch%edges%child_idx(:,:,ji),  &
         & patch%edges%child_blk(:,:,ji) )
     END DO
@@ -1283,6 +1283,33 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
     CALL reshape_int( array_v_int(:,1), patch%nblks_v, patch%npromz_v,  &
       & patch%verts%refin_ctrl(:,:) )
+
+    ! BEGIN NEW SUBDIV
+    CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
+    ! eliminate indices < 0, this should not happen but some older grid files
+    ! seem to contain such indices
+    WHERE(array_v_int < 0) array_v_int = 0
+    ! account for dummy cells arising in case of a pentagon
+    ! Fill dummy cell with existing index to simplify do loops
+    ! Note, however, that related multiplication factors must be zero
+!     IF (global_cell_type == 3) &
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, &
+         max_verts_connectivity, use_duplicated_connectivity)
+    DO ji = 1, max_verts_connectivity
+      CALL reshape_idx(array_v_int(:,ji), patch%nblks_v, patch%npromz_v,  &
+        & patch%verts%cell_idx(:,:,ji),  &
+        & patch%verts%cell_blk(:,:,ji) )
+    END DO
+    !
+    ! Set verts%num_edges (in array_v_int(:,1))
+    DO ji = 1, patch%n_patch_verts
+      array_v_int(ji,1) = COUNT(array_v_int(ji, 1:max_verts_connectivity) /= 0)
+    END DO
+    CALL reshape_int( array_v_int(:,1), patch%nblks_v, patch%npromz_v,  &
+         & patch%verts%num_edges(:,:) )
+    ! END NEW SUBDIV
+
 
     CALL nf(nf_close(ncid))
 
@@ -1827,102 +1854,98 @@ CONTAINS
 
     CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
 
+  END SUBROUTINE read_remaining_patch
   !-------------------------------------------------------------------------
-  CONTAINS
 
-    !-------------------------------------------------------------------------
-    ! Checks for the pentagon case and moves dummy cells to end.
-    ! The dummy entry is either set to 0 or duplicated from the last one
-    SUBROUTINE move_dummies_to_end(array, array_size, max_connectivity, duplicate)
+  !-------------------------------------------------------------------------
+  ! Checks for the pentagon case and moves dummy cells to end.
+  ! The dummy entry is either set to 0 or duplicated from the last one
+  SUBROUTINE move_dummies_to_end(array, array_size, max_connectivity, duplicate)
 
-      INTEGER, INTENT(inout) :: array(:,:)
-      INTEGER, INTENT(in) :: array_size, max_connectivity
-      LOGICAL, INTENT(in) :: duplicate
+    INTEGER, INTENT(inout) :: array(:,:)
+    INTEGER, INTENT(in) :: array_size, max_connectivity
+    LOGICAL, INTENT(in) :: duplicate
 
-      INTEGER :: i, j, je, first_zero, last_no_zero, icount, listlen
-      INTEGER, ALLOCATABLE :: indlist(:)
-      CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:move_dummies_to_end'
+    INTEGER :: i, j, je, first_zero, last_no_zero, icount, listlen
+    INTEGER, ALLOCATABLE :: indlist(:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:move_dummies_to_end'
 
-      IF (array_size > UBOUND(array, 1) ) &
-        & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
+    IF (array_size > UBOUND(array, 1) ) &
+         & CALL finish(method_name, "array_size > UBOUND(array, 1)" )
 
-      ! GZ: this routine is called before executing the domain decomposition; thus, all grid points must be processed
-      ! To save computing time, we first create an index list of grid points with dummy indices
+    ! GZ: this routine is called before executing the domain decomposition; thus, all grid points must be processed
+    ! To save computing time, we first create an index list of grid points with dummy indices
 
-      listlen = MAX(12, UBOUND(array, 1)/25)  ! this is usually sufficient, except for small limited-area domains
-      ALLOCATE (indlist(listlen))
+    listlen = MAX(12, UBOUND(array, 1)/25)  ! this is usually sufficient, except for small limited-area domains
+    ALLOCATE (indlist(listlen))
+    icount = 0
+    DO j = 1,  UBOUND(array, 1)
+      IF (ANY(array(j,1:max_connectivity) == 0)) THEN
+        icount = icount+1
+        IF (icount <= listlen) indlist(icount) = j
+      ENDIF
+    ENDDO
+
+    ! Recompute the list if the number of grid points with dummy indices was too large
+    IF (icount > listlen) THEN
+      DEALLOCATE (indlist)
+      ALLOCATE (indlist(icount))
       icount = 0
       DO j = 1,  UBOUND(array, 1)
         IF (ANY(array(j,1:max_connectivity) == 0)) THEN
           icount = icount+1
-          IF (icount <= listlen) indlist(icount) = j
+          indlist(icount) = j
         ENDIF
       ENDDO
+    ENDIF
 
-      ! Recompute the list if the number of grid points with dummy indices was too large
-      IF (icount > listlen) THEN
-        DEALLOCATE (indlist)
-        ALLOCATE (indlist(icount))
-        icount = 0
-        DO j = 1,  UBOUND(array, 1)
-          IF (ANY(array(j,1:max_connectivity) == 0)) THEN
-            icount = icount+1
-            indlist(icount) = j
+    DO i = 1, icount
+      j = indlist(i)
+      last_no_zero = 0
+      first_zero = 0
+      DO WHILE(last_no_zero >=  first_zero)
+        ! find first zero, last non-zero
+        DO je = 1, max_connectivity
+          IF (array(j,je) /= 0) THEN
+            last_no_zero = je
+          ELSEIF ( first_zero <= 0) THEN
+            first_zero = je
           ENDIF
+        ENDDO
+
+        IF (first_zero == 0) THEN
+          ! no zeros found, exit
+          EXIT
+        ELSEIF ( last_no_zero == 0) THEN
+          CALL warning(method_name, "no connectivity found")
+          EXIT
+        ELSEIF ( first_zero <  last_no_zero) THEN
+          !swap
+          array(j,first_zero) = array(j,last_no_zero)
+          array(j,last_no_zero) = 0
+          ! check again
+          last_no_zero = 0
+          first_zero = 0
+        ENDIF
+      ENDDO ! WHILE(last_no_zero >=  first_zero)
+
+      IF (first_zero == 0)   CYCLE   ! no zeros found, get next one
+      IF (last_no_zero == 0) CYCLE ! no connectivity found"
+
+      IF ( duplicate ) THEN
+        ! fill zero connectivity with last_no_zero
+        DO je = first_zero, max_connectivity
+          IF (array(j,je) /= 0) &
+               CALL finish(method_name, "Error when swapping!")
+          array(j,je) =  array(j,last_no_zero)
         ENDDO
       ENDIF
 
-      DO i = 1, icount
-        j = indlist(i)
-        last_no_zero = 0
-        first_zero = 0
-        DO WHILE(last_no_zero >=  first_zero)
-          ! find first zero, last non-zero
-          DO je = 1, max_connectivity
-            IF (array(j,je) /= 0) THEN
-              last_no_zero = je
-            ELSEIF ( first_zero <= 0) THEN
-              first_zero = je
-            ENDIF
-          ENDDO
+    ENDDO ! j = 1, UBOUND(array,1)
 
-          IF (first_zero == 0) THEN
-            ! no zeros found, exit
-            EXIT
-          ELSEIF ( last_no_zero == 0) THEN
-            CALL warning(method_name, "no connectivity found")
-            EXIT
-          ELSEIF ( first_zero <  last_no_zero) THEN
-            !swap
-            array(j,first_zero) = array(j,last_no_zero)
-            array(j,last_no_zero) = 0
-            ! check again
-            last_no_zero = 0
-            first_zero = 0
-          ENDIF
-        ENDDO ! WHILE(last_no_zero >=  first_zero)
+    DEALLOCATE (indlist)
 
-        IF (first_zero == 0)   CYCLE   ! no zeros found, get next one
-        IF (last_no_zero == 0) CYCLE ! no connectivity found"
-
-        IF ( duplicate ) THEN
-          ! fill zero connectivity with last_no_zero
-          DO je = first_zero, max_verts_connectivity
-            IF (array(j,je) /= 0) &
-              CALL finish(method_name, "Error when swapping!")
-            array(j,je) =  array(j,last_no_zero)
-          ENDDO
-        ENDIF
-
-      ENDDO ! j = 1, UBOUND(array,1)
-
-      DEALLOCATE (indlist)
-
-    END SUBROUTINE move_dummies_to_end
-    !-------------------------------------------------------------------------
-
-  END SUBROUTINE read_remaining_patch
-  !-------------------------------------------------------------------------
+  END SUBROUTINE move_dummies_to_end
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION read_cartesian_positions(ncid, ig, patch, n_lp, id_lp, &
