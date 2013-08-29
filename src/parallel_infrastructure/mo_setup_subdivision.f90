@@ -2039,8 +2039,7 @@ CONTAINS
       ! Gather all halo cells/edges/verts at the end of the patch.
       ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
       irlev = min_rlcve_int-1
-      ref_flag = MERGE(0, 1, l_cell_correction)
-      IF (order_type_of_halos == 2) ref_flag = 0
+      ref_flag = MERGE(0, 1, l_cell_correction .OR. order_type_of_halos == 2)
       DO j = 1, n_patch_cve_g
         IF (flag2(j) > ref_flag) THEN
           n = n + 1
