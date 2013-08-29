@@ -1328,7 +1328,6 @@ CONTAINS
       owned_verts(:) = flag2_v_list(0)%idx(:)
     END IF
 
-
     !-----------------------------------------------------------------------------------------------
     ! Get the number of cells/edges/verts and other data for patch allocation
     !-----------------------------------------------------------------------------------------------
@@ -1343,6 +1342,27 @@ CONTAINS
     ! which is participating at this edge/vert if both PE numbers are even or odd, otherwise
     ! the lowest processor number is chosen
     !-----------------------------------------------------------------------------------------------
+    ALLOCATE(cells_owner_g(wrk_p_patch_g%n_patch_cells), &
+         edges_owner_g(wrk_p_patch_g%n_patch_edges), &
+         verts_owner_g(wrk_p_patch_g%n_patch_verts))
+    cells_owner_g(:) = -1
+    edges_owner_g(:) = -1
+    verts_owner_g(:) = -1
+    cells_owner_g(flag_c_list(0)%idx(1:n_ilev_c(0))) = my_proc
+    edges_owner_g(owned_edges) = my_proc
+    verts_owner_g(owned_verts) = my_proc
+#ifndef NOMPI
+    CALL mpi_allreduce(mpi_in_place, cells_owner_g, SIZE(cells_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+    CALL mpi_allreduce(mpi_in_place, edges_owner_g, SIZE(edges_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+    CALL mpi_allreduce(mpi_in_place, verts_owner_g, SIZE(verts_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+#endif
+
 
     wrk_p_patch%cells%owner_g(:) = cell_owner(:)
 
@@ -1402,27 +1422,6 @@ CONTAINS
         ENDDO
       ENDIF
     ENDDO
-
-    ALLOCATE(cells_owner_g(wrk_p_patch_g%n_patch_cells), &
-         edges_owner_g(wrk_p_patch_g%n_patch_edges), &
-         verts_owner_g(wrk_p_patch_g%n_patch_verts))
-    cells_owner_g(:) = -1
-    edges_owner_g(:) = -1
-    verts_owner_g(:) = -1
-    cells_owner_g(flag_c_list(0)%idx(1:n_ilev_c(0))) = my_proc
-    edges_owner_g(owned_edges) = my_proc
-    verts_owner_g(owned_verts) = my_proc
-#ifndef NOMPI
-    CALL mpi_allreduce(mpi_in_place, cells_owner_g, SIZE(cells_owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, edges_owner_g, SIZE(edges_owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, verts_owner_g, SIZE(verts_owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-#endif
 
     IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
       CALL finish(routine, 'number of cells mismatch')
