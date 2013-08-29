@@ -805,7 +805,7 @@ CONTAINS
                jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v, &
                a_iown(2), a_mod_iown(2)
 
-    INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
+    INTEGER, ALLOCATABLE :: flag_c(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL :: is_outer, swap
 
@@ -828,12 +828,7 @@ CONTAINS
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
-    !-----------------------------------------------------------------------------------------------
-    ! Find inner cells/edges/verts and ghost rows for our patch:
-    ! flag_c/e/v = 0 is set for inner cells/edges/verts
-    ! flag_c/e/v > 0 is set for ghost rows (counting the level of displacement)
-    ! flag_c/e/v = -1 for cells/edges/verts which don't belong to our patch at all
-    !-----------------------------------------------------------------------------------------------
+    !---------------------------------------------------------------------
     ! flag_c_list(-1)%idx empty dummy list
     ! flag_c_list(0)%idx  all cells jg where cell_owner(jg) == my_proc
     ! flag_c_list(j)%idx j in 1..n_boundary_cells all cells bordering
@@ -848,13 +843,12 @@ CONTAINS
     !                    flag_c_list(j)%idx for minimal j,
     !                    i.e. no other cell in list flag_c_list(k)%idx
     !                    with k < j is adjacent to the vertex
+    !---------------------------------------------------------------------
 
     ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(flag_e(wrk_p_patch_g%n_patch_edges))
     ALLOCATE(flag_v(wrk_p_patch_g%n_patch_verts))
 
     flag_c(:) = -1
-    flag_e(:) = -1
     flag_v(:) = -1
 
     n2_ilev_c(:) = 0
@@ -1002,10 +996,6 @@ CONTAINS
           jl = idx_no(j) ! line index
 
           DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-            jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
-            jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
-            je = idx_1d(jl_e, jb_e)
-            IF(flag_e(je)<0) flag_e(je) = ilev
             jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
             jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
             jv = idx_1d(jl_v, jb_v)
@@ -1313,7 +1303,7 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     CALL prepare_patch(wrk_p_patch_g, wrk_p_patch, &
-         COUNT(flag_c(:)>=0), COUNT(flag_e(:)>=0), COUNT(flag_v(:)>=0))
+         COUNT(flag_c(:)>=0), SUM(n_ilev_e(:)), COUNT(flag_v(:)>=0))
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
     ! Please note that opposed to cells, the global owner for edges/verts is
@@ -1416,11 +1406,6 @@ CONTAINS
         WRITE (msg, '(a,i0)') 'cells ilev mismatch at ', ilev
         CALL finish(routine, msg)
       END IF
-      IF (.NOT. (ALL(flag_e(flag_e_list(ilev)%idx(1:n_ilev_e(ilev))) == ilev)) &
-           .OR. COUNT(flag_e == ilev) /= n_ilev_e(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'edges ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
       IF (.NOT. (ALL(flag_v(flag_v_list(ilev)%idx(1:n_ilev_v(ilev))) == ilev)) &
            .OR. COUNT(flag_v == ilev) /= n_ilev_v(ilev)) THEN
         WRITE (msg, '(a,i0)') 'vertices ilev mismatch at ', ilev
@@ -1436,7 +1421,7 @@ CONTAINS
       END IF
     END DO
 
-    DEALLOCATE(flag_c, flag_e, flag_v)
+    DEALLOCATE(flag_c, flag_v)
 
     DO ilev = 0, n_boundary_rows + 1
       IF (.NOT. (ALL(flag2_v(flag2_v_list(ilev)%idx(1:n2_ilev_v(ilev))) == ilev)) &
