@@ -1332,7 +1332,7 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     CALL prepare_patch(wrk_p_patch_g, wrk_p_patch, &
-         COUNT(flag_c(:)>=0), SUM(n_ilev_e(:)), COUNT(flag_v(:)>=0))
+         SUM(n_ilev_c(:)), SUM(n_ilev_e(:)), SUM(n_ilev_v(:)))
     !-----------------------------------------------------------------------------------------------
     ! Set the global ownership for cells, edges and verts (needed for boundary exchange).
     ! Please note that opposed to cells, the global owner for edges/verts is
