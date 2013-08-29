@@ -834,6 +834,20 @@ CONTAINS
     ! flag_c/e/v > 0 is set for ghost rows (counting the level of displacement)
     ! flag_c/e/v = -1 for cells/edges/verts which don't belong to our patch at all
     !-----------------------------------------------------------------------------------------------
+    ! flag_c_list(-1)%idx empty dummy list
+    ! flag_c_list(0)%idx  all cells jg where cell_owner(jg) == my_proc
+    ! flag_c_list(j)%idx j in 1..n_boundary_cells all cells bordering
+    !                    on cells in flag_c_list(j - 1)
+    ! flag_e_list(-1)%idx empty dummy list
+    ! flag_e_list(j)%idx all edges where an adjacent cell is in
+    !                    flag_c_list(j)%idx for minimal j,
+    !                    i.e. no other cell in list flag_c_list(k)%idx
+    !                    with k < j is adjacent to the edge
+    ! flag_v_list(-1)%idx empty dummy list
+    ! flag_v_list(j)%idx all vertices where an adjacent cell is in
+    !                    flag_c_list(j)%idx for minimal j,
+    !                    i.e. no other cell in list flag_c_list(k)%idx
+    !                    with k < j is adjacent to the vertex
 
     ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
     ALLOCATE(flag_e(wrk_p_patch_g%n_patch_edges))
