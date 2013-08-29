@@ -1078,11 +1078,11 @@ CONTAINS
             jb_c = wrk_p_patch_g%cells%neighbor_blk(jl,jb,i)
             jc = idx_1d(jl_c,jb_c)
             IF (jc < 1 .OR. jc > wrk_p_patch_g%n_patch_cells) THEN
-              flag2_e(je) = 2*flag_c(j)+1
+              flag2_e(je) = 2*ilev+1
             ELSE IF (flag_c(jc) == -1) THEN
-              flag2_e(je) = 2*flag_c(j)+1
+              flag2_e(je) = 2*ilev+1
             ELSE
-              flag2_e(je) = flag_c(j)+flag_c(jc)
+              flag2_e(je) = ilev + flag_c(jc)
             ENDIF
             jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
             jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
