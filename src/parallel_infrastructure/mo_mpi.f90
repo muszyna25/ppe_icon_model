@@ -9,33 +9,33 @@
 !
 !  List of MPI communicators:
 !  --------------------------
-!  
+!
 !       global_mpi_communicator
-!       
+!
 !         description  : MPI communicator spanning all PEs running  (= MPI_COMM_WORLD).
 !         size         : global_mpi_size
 !         this PE's ID : my_global_mpi_id (= get_my_global_mpi_id())
-!       
-!       
+!
+!
 !       process_mpi_all_comm  (= get_my_mpi_all_communicator())
-!       
+!
 !         description  : MPI communicator containing all PEs that are running this
 !                        model component. Different from global_mpi_communicator,
 !                        if master_nml::no_of_models > 1
 !         size         : process_mpi_all_size
 !         this PE's ID : my_process_mpi_all_id (= get_my_mpi_all_id())
-!       
-!       
+!
+!
 !       p_comm_work  (=get_my_mpi_work_communicator())
-!       
+!
 !         description  : MPI communicator for work group. On I/O and test PEs this
 !                        defaults to process_mpi_all_comm.
 !         size         : num_work_procs (on worker PEs: num_work_procs==p_n_work)
 !         this PE's ID : p_pe_work (= get_my_mpi_work_id())
-!       
-!       
+!
+!
 !       ... less important MPI communicators ...
-!       
+!
 !       p_comm_work_test (size = 0/1)
 !         description  : MPI communicator spanning work group and test PE
 !                        in verification mode parallel_nml::p_test_run == .TRUE.
@@ -68,7 +68,7 @@
 !         this PE's ID : p_patch%rank
 !
 !       p_patch % proc0
-!         description  : global id of processor with rank 0 (within the 
+!         description  : global id of processor with rank 0 (within the
 !                        working set p_comm_work)
 !
 !       The global communicator which is currently in use is stored by
@@ -275,13 +275,13 @@ MODULE mo_mpi
 !   INTEGER :: process_mpi_local_comm     ! communicator in the work group
 !   INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
 !   INTEGER :: my_process_mpi_local_id
-  
+
   INTEGER :: my_mpi_function  ! test, work, i/o or restart_output
   INTEGER, PARAMETER :: test_mpi_process = 1
   INTEGER, PARAMETER :: work_mpi_process = 2
   INTEGER, PARAMETER :: io_mpi_process = 3
   INTEGER, PARAMETER :: restart_mpi_process = 4
-  
+
   !------------------------------------------------------------
   ! Processor distribution:
   ! num_test_procs:      0 or 1
@@ -743,7 +743,7 @@ CONTAINS
     my_process_is_mpi_all_seq = (process_mpi_all_size <= 1)
   END FUNCTION my_process_is_mpi_all_seq
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
   !>
   !! If is not mpi work parallel or this is a test process
@@ -872,11 +872,11 @@ CONTAINS
       ENDIF
 
     CASE default
-    
+
       IF (my_process_is_io() .OR. my_process_is_restart() ) THEN
         ! I/O PEs and Restart PEs never participate in reading
         p_comm_input_bcast = MPI_COMM_NULL
-      ELSE      
+      ELSE
         IF(is_mpi_test_run) THEN
           ! Test PE reads and broadcasts to workers
           p_comm_input_bcast = p_comm_work_test
@@ -898,7 +898,7 @@ CONTAINS
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
-    
+
 !   !local variables
     INTEGER :: my_color, peer_comm, peer_comm_restart, p_error
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
@@ -950,7 +950,7 @@ CONTAINS
 #else
 
     ! A run on 1 PE is never a verification run,
-    ! correct this if the user should set it differently    
+    ! correct this if the user should set it differently
     IF (process_mpi_all_size < 2) THEN
       IF (p_test_run) THEN
         CALL print_info_stderr(method_name, &
@@ -974,9 +974,9 @@ CONTAINS
         num_restart_procs = 0
       ENDIF
     ENDIF
-    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only  
+    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only
     IF(num_restart_procs < 0) num_restart_procs = 0 ! for safety only
-    
+
     ! -----------------------------------------
     ! Set if test
     IF(p_test_run) THEN
@@ -990,7 +990,7 @@ CONTAINS
     ! -----------------------------------------
     ! how many work processors?
     num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs
-    
+
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
       CALL finish(method_name, &
@@ -1094,7 +1094,7 @@ CONTAINS
       p_comm_work_restart = MPI_COMM_NULL
     ENDIF
 
-    
+
 !     The following is moved to set_comm_input_bcast
 !     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
 !     IF(lrestore_states) THEN
@@ -1174,7 +1174,7 @@ CONTAINS
     IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
     IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
-  
+
 #endif
 
     ! fill some derived variables
@@ -1234,12 +1234,12 @@ CONTAINS
 
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
-!     my_process_mpi_local_id = my_process_mpi_all_id         
+!     my_process_mpi_local_id = my_process_mpi_all_id
 
     ! set some of the old variables
     ! should be removed once the old variables are cleaned
     p_pe           = my_process_mpi_all_id
-    p_io           = 0 
+    p_io           = 0
     num_test_procs = 0
     num_work_procs = process_mpi_all_size
     p_test_pe      = -1
@@ -1291,7 +1291,7 @@ CONTAINS
       STOP
     END IF
     !--------------------------------------------
-    ! split global_mpi_communicator 
+    ! split global_mpi_communicator
     CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
       & new_communicator, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
@@ -1324,7 +1324,7 @@ CONTAINS
 #else
     ! since here we define the process all communicator
     ! the work communicator is identical to the all communicator
-    ! and the no test or i/o processes are present    
+    ! and the no test or i/o processes are present
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
@@ -1339,7 +1339,7 @@ CONTAINS
        STOP
     ENDIF
 
-    IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN   
+    IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN
       ! free original communicator
       CALL MPI_COMM_FREE(process_mpi_all_comm, p_error)
       IF (p_error /= MPI_SUCCESS) THEN
