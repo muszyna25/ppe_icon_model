@@ -823,8 +823,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: promote(:)
     INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
          t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
-    INTEGER, ALLOCATABLE :: cells_owner_g(:), edges_owner_g(:), &
-         verts_owner_g(:), owned_edges(:), owned_verts(:)
+    INTEGER, ALLOCATABLE :: owned_edges(:), owned_verts(:)
     INTEGER :: ierror
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
@@ -1342,63 +1341,26 @@ CONTAINS
     ! which is participating at this edge/vert if both PE numbers are even or odd, otherwise
     ! the lowest processor number is chosen
     !-----------------------------------------------------------------------------------------------
-    ALLOCATE(cells_owner_g(wrk_p_patch_g%n_patch_cells), &
-         edges_owner_g(wrk_p_patch_g%n_patch_edges), &
-         verts_owner_g(wrk_p_patch_g%n_patch_verts))
-    cells_owner_g(:) = -1
-    edges_owner_g(:) = -1
-    verts_owner_g(:) = -1
-    cells_owner_g(flag_c_list(0)%idx(1:n_ilev_c(0))) = my_proc
-    edges_owner_g(owned_edges) = my_proc
-    verts_owner_g(owned_verts) = my_proc
+    wrk_p_patch%cells%owner_g(:) = -1
+    wrk_p_patch%edges%owner_g(:) = -1
+    wrk_p_patch%verts%owner_g(:) = -1
+    wrk_p_patch%cells%owner_g(flag_c_list(0)%idx(1:n_ilev_c(0))) = my_proc
+    wrk_p_patch%edges%owner_g(owned_edges) = my_proc
+    wrk_p_patch%verts%owner_g(owned_verts) = my_proc
 #ifndef NOMPI
-    CALL mpi_allreduce(mpi_in_place, cells_owner_g, SIZE(cells_owner_g), &
+    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%cells%owner_g, &
+         SIZE(wrk_p_patch%cells%owner_g), &
          p_int, mpi_max, p_comm_work, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, edges_owner_g, SIZE(edges_owner_g), &
+    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%edges%owner_g, &
+         SIZE(wrk_p_patch%edges%owner_g), &
          p_int, mpi_max, p_comm_work, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, verts_owner_g, SIZE(verts_owner_g), &
+    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%verts%owner_g, &
+         SIZE(wrk_p_patch%verts%owner_g), &
          p_int, mpi_max, p_comm_work, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
-
-
-    wrk_p_patch%cells%owner_g(:) = cell_owner(:)
-
-    wrk_p_patch%edges%owner_g(:) = -1
-    wrk_p_patch%verts%owner_g(:) = -1
-
-    DO j = 1, wrk_p_patch_g%n_patch_cells
-      iown = wrk_p_patch%cells%owner_g(j)
-      IF(iown<0) CYCLE
-      mod_iown = MOD(iown,2)
-
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-      DO i = 1,wrk_p_patch_g%cells%num_edges(jl,jb)
-        jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
-        jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
-        je = idx_1d(jl_e, jb_e)
-        IF (wrk_p_patch%edges%owner_g(je) < 0) THEN
-          wrk_p_patch%edges%owner_g(je) = iown
-        ELSE IF (mod_iown == MOD(wrk_p_patch%edges%owner_g(je), 2)) THEN
-          wrk_p_patch%edges%owner_g(je) = MAX(iown,wrk_p_patch%edges%owner_g(je))
-        ELSE
-          wrk_p_patch%edges%owner_g(je) = MIN(iown,wrk_p_patch%edges%owner_g(je))
-        ENDIF
-        jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-        jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-        jv = idx_1d(jl_v, jb_v)
-        IF (wrk_p_patch%verts%owner_g(jv) < 0) THEN
-          wrk_p_patch%verts%owner_g(jv) = iown
-        ELSE IF (mod_iown == MOD(wrk_p_patch%verts%owner_g(jv), 2)) THEN
-          wrk_p_patch%verts%owner_g(jv) = MAX(iown,wrk_p_patch%verts%owner_g(jv))
-        ELSE
-          wrk_p_patch%verts%owner_g(jv) = MIN(iown,wrk_p_patch%verts%owner_g(jv))
-        ENDIF
-      ENDDO
-    ENDDO
 
 
     IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
@@ -1422,18 +1384,6 @@ CONTAINS
     END DO
 
     DEALLOCATE(flag_c, flag_v)
-
-    IF (ANY(cells_owner_g /= wrk_p_patch%cells%owner_g)) THEN
-      CALL finish(routine, 'cells owner_g failed')
-    END IF
-
-    IF (ANY(edges_owner_g /= wrk_p_patch%edges%owner_g)) THEN
-      CALL finish(routine, 'edges owner_g failed')
-    END IF
-
-    IF (ANY(verts_owner_g /= wrk_p_patch%verts%owner_g)) THEN
-      CALL finish(routine, 'verts owner_g failed')
-    END IF
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
