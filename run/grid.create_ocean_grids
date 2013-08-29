@@ -43,9 +43,12 @@
 
 #-----------------------------------------------------------------------------
 #create_basin=".true."
-create_aqua_planet=".true."
 #create_etopo_flat=".true."
+
+create_aqua_planet=".true."
 create_etopo_planet=".true."
+
+remove_land_points=".true."
 #-----------------------------------------------------------------------------
 # plot_grid=".true."
 #-----------------------------------------------------------------------------
@@ -497,6 +500,24 @@ if [[ x$create_etopo_planet = "x.true." ]] ; then
   create_ocean_grid
 fi
 
+#-----------------------------------------------------------------------------
+# create etopo with no land cells
+if [[ x$remove_land_points = "x.true." ]] ; then
+  # paths of directories
+  GRIDDIR=grids
+  WRKDIR=${basedir}/$GRIDDIR
+  run_commmand="${start} $bindir/grid_command"
+  commandFile=command.grid
+  cd $WRKDIR
+  #-----------------------------------------------------------------------------
+  command=remove_land_cells
+  ln -s /pool/data/ICON/ocean_data/ocean_grid/iconR2B04-ocean_etopo40_planet.nc .
+  in_grid="iconR2B04-ocean_etopo40_planet.nc"
+  out_grid="iconR2B04-ocean_etopo40_planet_t-noland.nc"
+
+  echo $command $in_grid  $out_grid > $commandFile
+  ${run_commmand}
+fi
 
 #-----------------------------------------------------------------------------
 # exit

@@ -32,18 +32,6 @@
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
-#
-#-----------------------------------------------------------------------------
-# global resolution
-R=2   # nroot
-B=4   # number of bisections applied
-#
-#-----------------------------------------------------------------------------
-# ocean initialization, forcing, and grid file location specifics:
-  LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
-# specific path of input data is set by exec.iconrun
-#
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
 init_oce=0     # 1: use ocean initialization file; 0: init analytically
@@ -89,7 +77,7 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2001-01-10T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -112,11 +100,26 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 ocean_model_equations=-1     # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
-# provide an ocean horizontal grid file
-  grid_ext="aqua_planet"     # global flat bottom bathymetry for aqua planet experiments
 #
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-# 
+LOC='none'
+# grids_folder=/pool/data/ICON/grids/private/leonidas/grids.ocean
+# ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_inland.nc"
+# ocean_grids="iconR2B04-ocean_etopo40_planet_m-noland.nc"
+# ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_vertex_inland.nc"
+#
+grids_folder=""
+ocean_grids="iconR2B04-ocean_etopo40_planet_t-noland.nc"
+
+
+p_test_run=${p_test:=".false."}
+if [ $p_test_run = ".true." ] ; then
+  l_test_openmp=".true."
+#  l_log_checks=".true."
+else
+  l_test_openmp=".false."
+  l_fast_sum=".true."
+fi
+l_log_checks=".false."
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -126,11 +129,15 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
- nproma         = ${nproma}
- l_fast_sum     = .true.
+ nproma       = ${nproma}
+ l_fast_sum   = .true.
+ p_test_run   = .false.
+ division_method = 102
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
+ use_dummy_cell_closure = .true.
+ use_duplicated_connectivity = .false.
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
@@ -141,6 +148,7 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
  msg_timestamp        = .TRUE.
+/
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
@@ -199,7 +207,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  idiag_oce          =    1      !  0: no diagnostics; 1: write diagnostics to stderr
+  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
