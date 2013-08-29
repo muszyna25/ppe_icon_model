@@ -132,7 +132,6 @@ MODULE mo_io_vlist
     &                                 max_outvars, max_gridlevs,   &
     &                                 t_collected_var_ptr, num_output_vars
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                                 ntracer, ltransport, nsteps, dtime,         &
     &                                 dtime_adv, ldynamics, ltestcase,            &
@@ -161,6 +160,7 @@ MODULE mo_io_vlist
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
 
 #ifndef __ICON_OCEAN_ONLY__
+  USE mo_extpar_config,         ONLY: itopo
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
@@ -4057,7 +4057,6 @@ CONTAINS
     CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlist,astatus)
     CALL addGlobAttInt('run_nml:nproma',nproma,vlist,astatus)
     CALL addGlobAttInt('run_nml:nsteps',nsteps,vlist,astatus)
-    CALL addGlobAttInt('run_nml:itopo',itopo,vlist,astatus)
     CALL addGlobAttInt('run_nml:msg_level',msg_level,vlist,astatus)
     !
     ! Parameters of /io_nml/
@@ -4077,6 +4076,10 @@ CONTAINS
     CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlist,astatus)
     CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
                               vlist,astatus)
+
+#ifndef __ICON_OCEAN_ONLY__
+    CALL addGlobAttInt('run_nml:itopo',itopo,vlist,astatus)
+#endif
 
   END SUBROUTINE addGlobAtts
 

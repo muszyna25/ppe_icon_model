@@ -371,7 +371,8 @@ CONTAINS
 
 !           cc_c = gc2cc(p_patch%cells%center(jc,jb))p_op_coeff%cell_position_cc
           !cc_c = p_op_coeff%cell_position_cc(jc,jk,jb)
-          u_v_cc_c(jc,jk,jb)= vector_product(p_op_coeff%cell_position_cc(jc,jk,jb),&
+!          u_v_cc_c(jc,jk,jb)= vector_product(p_op_coeff%cell_position_cc(jc,jk,jb),&
+          u_v_cc_c(jc,jk,jb)= vector_product(p_patch%cells%cartesian_center(jc,jb),&
                                 &p_diag%p_vn(jc,jk,jb))
           u_v_cc_c(jc,jk,jb)%x = p_patch%cells%f_c(jc,jb)*u_v_cc_c(jc,jk,jb)%x
 

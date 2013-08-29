@@ -77,6 +77,9 @@ MODULE mo_io_async
   USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, outvar_desc,    &
     &                               num_output_vars
 #ifndef __ICON_OCEAN_ONLY__
+  ! meteogram output
+  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
    &                                open_output_vlist, close_output_vlist,                       &
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
@@ -88,11 +91,6 @@ MODULE mo_io_async
    &                                get_outvar_ptr_oce
 #endif
   USE mo_grid_config,         ONLY: n_dom
-#ifndef __ICON_OCEAN_ONLY__
-  ! meteogram output
-  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
-  USE mo_meteogram_config,    ONLY: meteogram_output_config
-#endif
 
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs

@@ -158,7 +158,7 @@ MODULE mo_operator_ocean_coeff_3d
     !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
     ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)
+    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:) 
@@ -346,10 +346,10 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
     ENDIF
-    ALLOCATE(p_coeff%cell_position_cc(nproma,nz_lev,nblks_c),stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
-    ENDIF
+!    ALLOCATE(p_coeff%cell_position_cc(nproma,nz_lev,nblks_c),stat=ist)
+!    IF (ist /= success) THEN
+!      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
+!    ENDIF
     !
     !normalizing factors for edge to cell mapping.
     !
@@ -413,17 +413,17 @@ CONTAINS
       END DO
     END DO
 
-    DO jk = 1, nz_lev
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          p_coeff%cell_position_cc(jc,jk,jb) &
-            & = p_patch%cells%cartesian_center(jc,jb)
-!             & = gc2cc(p_patch%cells%center(jc,jb))
-
-        END DO
-      END DO
-    END DO
+!    DO jk = 1, nz_lev
+!      DO jb = all_cells%start_block, all_cells%end_block
+!        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!        DO jc = i_startidx_c, i_endidx_c
+!          p_coeff%cell_position_cc(jc,jk,jb) &
+!            & = p_patch%cells%cartesian_center(jc,jb)
+! !             & = gc2cc(p_patch%cells%center(jc,jb))
+!
+!        END DO
+!      END DO
+!    END DO
 
     p_coeff%edge2edge_viacell_coeff= 0._wp
     p_coeff%edge2edge_viavert_coeff= 0._wp

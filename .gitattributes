@@ -1578,6 +1578,7 @@ src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
 src/testbed/mo_test_netcdf_read.f90 -text
 src/testbed/mo_test_nh_communication.f90 -text
+src/testbed/mo_testbed_ocean_performance.f90 -text
 src/testcases/mo_ape_params.f90 -text
 src/testcases/mo_df_test.f90 -text
 src/testcases/mo_gw_test.f90 -text

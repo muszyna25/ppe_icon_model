@@ -79,7 +79,7 @@ MODULE mo_ocean_model
   !
   USE mo_grid_config,         ONLY: n_dom
   
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, setup_ocean_namelists
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, setup_ocean_namelists, destruct_patch_3D
   USE mo_build_decomposition, ONLY: build_decomposition
   USE mo_complete_subdivision,ONLY: setup_phys_patches
   
@@ -277,6 +277,8 @@ CONTAINS
     CALL destruct_patches( ocean_patch_3d%p_patch_2d )
     CALL destruct_patches( p_patch_local_parent )
     NULLIFY( ocean_patch_3d%p_patch_2d )
+    CALL destruct_patch_3D( ocean_patch_3d )
+
 
     ! Delete variable lists
 

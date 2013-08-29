@@ -48,10 +48,9 @@ MODULE mo_ocean_read_namelists
   USE mo_gribout_nml         ,ONLY: read_gribout_namelist
   USE mo_dbg_nml             ,ONLY: read_dbg_namelist
 
-
   USE mo_grid_nml            ,ONLY: read_grid_namelist
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
-  USE mo_extpar_nml          ,ONLY: read_extpar_namelist
+  ! USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
@@ -121,7 +120,7 @@ CONTAINS
 
     ! Boundary conditions
     !
-    CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
+    ! CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
 
     !
     ! GRIB2 output

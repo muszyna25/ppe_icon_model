@@ -86,7 +86,7 @@ MODULE mo_setup_subdivision
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 #endif
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
-  USE mo_master_control,      ONLY: get_my_process_type, ocean_process
+  USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort, ONLY: quicksort, insertion_sort
 
@@ -139,7 +139,7 @@ CONTAINS
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
     TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
     ! LOGICAL :: l_compute_grid
-    INTEGER :: order_type_of_halos
+    INTEGER :: my_process_type, order_type_of_halos
 
     CALL message(routine, 'start of domain decomposition')
 
@@ -405,11 +405,13 @@ CONTAINS
         ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
         !                       1 order root grid  (l_compute_grid = true)
         !                       2 all halos go to the end, for ocean
-        IF (get_my_process_type() == ocean_process) THEN
-          order_type_of_halos = 2
-        ELSE
+        my_process_type = get_my_process_type()
+        SELECT CASE (my_process_type)
+          CASE (ocean_process, testbed_process)
+             order_type_of_halos = 2
+          CASE default
           order_type_of_halos = 1
-        ENDIF
+        END SELECT
 
         ! CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
         CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)

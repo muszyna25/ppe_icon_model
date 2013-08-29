@@ -76,10 +76,6 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_time_config,                       ONLY: time_config
-  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
-    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
-    &                                             lonlat_grid_list, n_lonlat_grids
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
@@ -114,8 +110,12 @@ MODULE mo_name_list_output_init
   USE mo_vertical_coord_table,              ONLY: vct
   USE mo_dynamics_config,                   ONLY: iequations
   USE mo_nonhydrostatic_config,             ONLY: ivctype
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
+  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
+  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
+    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
+    &                                             lonlat_grid_list, n_lonlat_grids
 
   IMPLICIT NONE
 
@@ -1734,6 +1734,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Sets the reorder_info for lon-lat-grids
   !
+#ifndef __ICON_OCEAN_ONLY__
   SUBROUTINE set_reorder_info_lonlat(grid, intp, p_ri)
     TYPE(t_lon_lat_grid), INTENT(IN)    :: grid
     TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
@@ -1820,6 +1821,7 @@ CONTAINS
     END IF
 
   END SUBROUTINE set_reorder_info_lonlat
+#endif
 
 #ifdef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------

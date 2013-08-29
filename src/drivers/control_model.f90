@@ -67,9 +67,10 @@ PROGRAM control_model
   USE mo_util_signal
 
   USE mo_ocean_model,         ONLY: ocean_model
+  USE mo_icon_testbed,        ONLY: icon_testbed
+
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_atmo_model,          ONLY: atmo_model
-  USE mo_icon_testbed,        ONLY: icon_testbed
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
 
@@ -192,12 +193,13 @@ PROGRAM control_model
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 
-  CASE (testbed_process)
-    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 
 !   CASE (radiation_process)
 !     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
+
+  CASE (testbed_process)
+    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))

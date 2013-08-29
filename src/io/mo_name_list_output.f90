@@ -67,9 +67,6 @@ MODULE mo_name_list_output
   USE mo_run_config,                ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd,        &
     &                                     msg_level, output_mode, ltestcase
   USE mo_datetime,                  ONLY: t_datetime, cly360day_to_date
-  USE mo_lonlat_grid,               ONLY: t_lon_lat_grid, compute_lonlat_specs,                     &
-    &                                     rotate_latlon_grid
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
   USE mo_master_nml,                ONLY: model_base_dir
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword,                        &
     &                                     with_keywords, MAX_STRING_LEN,                            &
@@ -102,6 +99,9 @@ MODULE mo_name_list_output
 ! tool dependencies, maybe restructure
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,          ONLY: meteogram_output_config
+  USE mo_lonlat_grid,               ONLY: t_lon_lat_grid, compute_lonlat_specs,                     &
+    &                                     rotate_latlon_grid
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif 
 ! __ICON_OCEAN_ONLY__
 
@@ -133,6 +133,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Writes the grid information in output file, GRIB2 format.
   !
+#ifndef __ICON_OCEAN_ONLY__
   SUBROUTINE write_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
@@ -175,7 +176,6 @@ CONTAINS
         IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
       END DO
 
-#ifndef __ICON_OCEAN_ONLY__
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
       grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
@@ -194,15 +194,13 @@ CONTAINS
       ! clean up
       DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
-#endif 
-! __ICON_OCEAN_ONLY__
 
     CASE DEFAULT
       CALL finish(routine, "Unsupported grid type.")
     END SELECT
 
   END SUBROUTINE write_grid_info_grb2
-
+#endif
 
   !------------------------------------------------------------------------------------------------
   !> open_output_file:
@@ -405,11 +403,13 @@ CONTAINS
       &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
+#ifndef __ICON_OCEAN_ONLY__
       IF (of%name_list%output_grid .AND. &
         & is_output_process        .AND. &
         & (of%name_list%filetype == FILETYPE_GRB2)) THEN
         CALL write_grid_info_grb2(of)
       END IF
+#endif
 
       CALL streamClose(of%cdiFileID)
 

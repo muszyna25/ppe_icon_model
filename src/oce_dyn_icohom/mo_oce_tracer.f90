@@ -305,105 +305,211 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
+
+
+!  !-------------------------------------------------------------------------
+!  !   Original version
+!  !>
+!  !! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
+!  !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
+!  !!    actual velocity. This information is required by MIURA-scheme and is identical
+!  !!    for all tracers.
+!  !!
+!  !! @par Revision History
+!  !! Developed  by  Peter Korn, MPI-M (2012).
+!  !!
+!  !! mpi parallelized, sync required
+!  SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff)
+!
+!    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+!    TYPE(t_hydro_ocean_state), TARGET    :: p_os
+!    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
+!    !
+!    !Local variables
+!    INTEGER  :: slev, elev
+!    INTEGER  :: i_startidx_c, i_endidx_c
+!    INTEGER  :: i_startidx_e, i_endidx_e
+!    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
+!    INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
+!    INTEGER  :: il_c, ib_c
+!    REAL(wp) :: delta_z
+!    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+!    TYPE(t_cartesian_coordinates):: flux_sum
+!    !-------------------------------------------------------------------------------
+!    TYPE(t_patch), POINTER :: p_patch
+!    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+!    !-------------------------------------------------------------------------------
+!    p_patch         => p_patch_3D%p_patch_2D(1)
+!    cells_in_domain => p_patch%cells%in_domain
+!    edges_in_domain => p_patch%edges%in_domain
+!
+!    slev = 1
+!    elev = n_zlev
+!
+!    p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)&
+!                &=p_os%p_diag%w(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)
 !
 !
-!>
-!! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
-!!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
-!!    actual velocity. This information is required by MIURA-scheme and is identical
-!!    for all tracers.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2012).
-!!
-!! mpi parallelized, sync required
-SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff)
+!    IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN
+!      DO jk = slev, elev
+!        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+!          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+!          DO je = i_startidx_e, i_endidx_e
+!            IF (p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
+!
+!              !Get indices of two adjacent vertices
+!  !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
+!  !             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
+!  !             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
+!  !             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+!              !Get indices of two adjacent cells
+!              il_c1 = p_patch%edges%cell_idx(je,jb,1)
+!              ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+!              il_c2 = p_patch%edges%cell_idx(je,jb,2)
+!              ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+!
+!              !  p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
+!              !    &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
+!              p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
+!                &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
+!
+!              p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
+!                & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
+!                &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
+!
+!              IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
+!                il_c = p_patch%edges%cell_idx(je,jb,1)
+!                ib_c = p_patch%edges%cell_blk(je,jb,1)
+!              ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
+!                il_c = p_patch%edges%cell_idx(je,jb,2)
+!                ib_c = p_patch%edges%cell_blk(je,jb,2)
+!              ENDIF
+!
+!              p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
+!              p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
+!
+!              p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
+!                & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
+!
+!            ENDIF
+!          END DO
+!        END DO
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(1))
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(2))
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(3))
+!      END DO
+!
+!    ENDIF
+!
+!    CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%vn_time_weighted )
+!    CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%w_time_weighted )
+!
+!  END SUBROUTINE prepare_tracer_transport
+!  !-------------------------------------------------------------------------
 
-  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-  TYPE(t_hydro_ocean_state), TARGET    :: p_os
-  TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-  !
-  !Local variables
-  INTEGER  :: slev, elev
-  INTEGER  :: i_startidx_c, i_endidx_c
-  INTEGER  :: i_startidx_e, i_endidx_e
-  INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-  INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
-  INTEGER  :: il_c, ib_c
-  REAL(wp) :: delta_z
-  INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc 
-  TYPE(t_cartesian_coordinates):: flux_sum
-  !-------------------------------------------------------------------------------
-  TYPE(t_patch), POINTER :: p_patch 
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-  !-------------------------------------------------------------------------------
-  p_patch         => p_patch_3D%p_patch_2D(1)
-  cells_in_domain => p_patch%cells%in_domain
-  edges_in_domain => p_patch%edges%in_domain
 
-  slev = 1
-  elev = n_zlev
+  !-------------------------------------------------------------------------
+  ! Optimized version, results are the same
+  !>
+  !!    SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
+  !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
+  !!    actual velocity. This information is required by MIURA-scheme and is identical
+  !!    for all tracers.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2012).
+  SUBROUTINE prepare_tracer_transport(patch_3D, p_os, p_op_coeff)
 
-  p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)&
-              &=p_os%p_diag%w(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET    :: p_os
+    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
+    !
+    !Local variables
+    INTEGER  :: slev, elev
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: i_startidx_e, i_endidx_e
+    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
+    INTEGER  :: edge_cell_index(2), edge_cell_block(2)
+    INTEGER  :: upwind_index
+    REAL(wp) :: delta_z, half_time
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+    TYPE(t_cartesian_coordinates):: flux_sum
+    !-------------------------------------------------------------------------------
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+    !-------------------------------------------------------------------------------
+    patch_2d        => patch_3D%p_patch_2D(1)
+    cells_in_domain => patch_2d%cells%in_domain
+    edges_in_domain => patch_2d%edges%in_domain
 
- 
-  IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN
-    DO jk = slev, elev
+    slev = 1
+    half_time = 0.5_wp * dtime
+
+    ! This should be changed
+    ! just moving data around should not take place
+    p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c) = &
+      &  p_os%p_diag%w(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c)
+    ! p_diag%w is compouted in_domain cells
+    ! CALL sync_patch_array(SYNC_C, patch_2d,p_os%p_diag%w_time_weighted )
+
+    ! This is already synced on edges_in_domain !
+    ! CALL sync_patch_array(SYNC_E, patch_2d,p_os%p_diag%vn_time_weighted )
+
+    IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA) THEN
+
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
-          IF (p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
+          !Get indices of two adjacent cells
+          edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
+          edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
+          edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
+          edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
+          elev  = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
 
-            !Get indices of two adjacent vertices
-!             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-!             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-!             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-!             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-            !Get indices of two adjacent cells
-            il_c1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-            il_c2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+          DO jk = slev, elev
+!            IF (patch_3D%lsm_e(je,jk,jb) /= sea) &
+!              CALL finish("","p_patch_3D%lsm_e(je,jk,jb) /= sea")
 
-            !  p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-            !    &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
-            p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-              &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
+            p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp *                          &
+              & (p_os%p_diag%p_vn(edge_cell_index(1), jk, edge_cell_block(1))%x + &
+              &  p_os%p_diag%p_vn(edge_cell_index(2), jk, edge_cell_block(2))%x)
 
-            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
-              & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
-              &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
+            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x =   &
+              &  p_op_coeff%edge_position_cc(je,jk,jb)%x      &
+              &  - half_time * p_os%p_diag%p_vn_mean(je,jk,jb)%x
 
-            IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
-              il_c = p_patch%edges%cell_idx(je,jb,1)
-              ib_c = p_patch%edges%cell_blk(je,jb,1)
-            ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
-              il_c = p_patch%edges%cell_idx(je,jb,2)
-              ib_c = p_patch%edges%cell_blk(je,jb,2)
-            ENDIF
+          END DO
 
-            p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
-            p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
+          DO jk = slev, elev
+            upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp)
+
+            p_op_coeff%upwind_cell_idx(je,jk,jb) = edge_cell_index(upwind_index)
+            p_op_coeff%upwind_cell_blk(je,jk,jb) = edge_cell_block(upwind_index)
 
             p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-              & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
+              & patch_2d%cells%cartesian_center(edge_cell_index(upwind_index), edge_cell_block(upwind_index))%x
+            ! & p_op_coeff%cell_position_cc(edge_cell_index(upwind_index), jk, edge_cell_block(upwind_index))%x
+          END DO
 
-          ENDIF
         END DO
       END DO
-      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(1))
-      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(2))
-      CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(3))
-    END DO
 
-  ENDIF
+!     ! This will need to be replaced by a faster vector sync method
+!     DO jk = slev, n_zlev
+!       CALL sync_patch_array(SYNC_E,patch_2d, &
+!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(1))
+!       CALL sync_patch_array(SYNC_E,patch_2d, &
+!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(2))
+!       CALL sync_patch_array(SYNC_E,patch_2d, &
+!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(3))
+!     ENDDO
 
-  CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%vn_time_weighted ) 
-  CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%w_time_weighted )
+    ENDIF
 
+  END SUBROUTINE prepare_tracer_transport
+  !-------------------------------------------------------------------------
 
-END SUBROUTINE prepare_tracer_transport
 !-------------------------------------------------------------------------
 !
 !

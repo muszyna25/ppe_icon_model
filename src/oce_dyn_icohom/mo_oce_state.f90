@@ -119,7 +119,7 @@ MODULE mo_oce_state
   PUBLIC :: set_oce_tracer_info
 
   PUBLIC :: init_patch_3D
-  PUBLIC :: construct_patch_3D
+  PUBLIC :: construct_patch_3D, destruct_patch_3D
   !
   ! types
   PUBLIC :: t_hydro_ocean_base
@@ -2810,17 +2810,32 @@ CONTAINS
     del_zlev_m(:) = dzlev_m(1:n_zlev)
   END SUBROUTINE set_del_zlev
 
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!>
-!! Allocation of basic 3-dimensional patch structure. This sbr assumes that
-!! the 2D horizontal patch components is already initialized.
-!
-!
-!! @par Revision History
-!! Developed  by  Peter korn, MPI-M (2012/08).
-!!
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE destruct_patch_3D(patch_3D)
 
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: patch_3D
+
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%del_zlev_m)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%inv_del_zlev_m)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%zlev_m)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%zlev_i)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%del_zlev_i)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%ocean_area)
+    DEALLOCATE(patch_3D%p_patch_1D(n_dom)%ocean_volume)
+    DEALLOCATE(patch_3D%p_patch_1D)
+
+  END SUBROUTINE destruct_patch_3D
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocation of basic 3-dimensional patch structure. This sbr assumes that
+  !! the 2D horizontal patch components is already initialized.
+  !
+  !
+  !! @par Revision History
+  !! Developed  by  Peter korn, MPI-M (2012/08).
+  !!
   SUBROUTINE construct_patch_3D(patch_3D)
 
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)    :: patch_3D
@@ -2851,6 +2866,11 @@ CONTAINS
     ALLOCATE(patch_3D%p_patch_1D(n_dom)%del_zlev_m(n_zlev),STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating del_zlev_m failed')
+    ENDIF
+    ! allocate the inverse of the above
+    ALLOCATE(patch_3D%p_patch_1D(n_dom)%inv_del_zlev_m(n_zlev),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating inv_del_zlev_m failed')
     ENDIF
     ALLOCATE(patch_3D%p_patch_1D(n_dom)%zlev_m(n_zlev),STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -3105,6 +3125,9 @@ CONTAINS
     patch_3D%p_patch_1D(1)%zlev_m = v_base%zlev_m
     patch_3D%p_patch_1D(1)%del_zlev_i = v_base%del_zlev_i
     patch_3D%p_patch_1D(1)%del_zlev_m = v_base%del_zlev_m
+    DO jk=1,n_zlev
+      patch_3D%p_patch_1D(1)%inv_del_zlev_m(jk) = 1.0_wp / v_base%del_zlev_m(jk)
+    ENDDO
 
     patch_3D%p_patch_1D(1)%n_zlev = v_base%n_zlev
     patch_3D%p_patch_1D(1)%n_zlvp = v_base%n_zlvp

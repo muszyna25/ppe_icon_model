@@ -680,7 +680,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
                   sync_error = .TRUE.
                   absmax = MAX(absmax,ABS(arr(jl,n,jb) - arr_g(jl_g,n,jb_g)))
                   IF (l_log_checks) &
-                     WRITE(log_unit,'(a,5i7,3e13.5)') 'sync error location:',&
+                     WRITE(log_unit,'(a,5i7,3e18.10)') 'sync error location:',&
                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
                        ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g))
                ENDIF

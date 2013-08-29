@@ -940,6 +940,9 @@ MODULE mo_model_domain
     !!             thicknesses.  Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_m(:)
 
+    !! the inverse of the above
+    REAL(wp), ALLOCATABLE :: inv_del_zlev_m(:)
+
     !! zlev_m    : position of the vertical cell centers, i.e. below zero surface;
     !!             Numbering starts from surface and increases downwards to bottom.
     !!             Dimension: n_zlev
