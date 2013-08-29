@@ -62,7 +62,8 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split, get_my_global_mpi_id, global_mpi_barrier
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
+  USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL, p_int, &
+       mpi_in_place, mpi_max, mpi_success, process_mpi_all_comm
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
@@ -821,6 +822,9 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: promote(:)
     INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
          t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
+    INTEGER, ALLOCATABLE :: cells_owner_g(:), edges_owner_g(:), &
+         verts_owner_g(:), owned_edges(:), owned_verts(:)
+    INTEGER :: ierror
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -1100,37 +1104,54 @@ CONTAINS
 
     ALLOCATE(promote(MAX(MAXVAL(n_ilev_e), n_ilev_v(0))))
     promote(1:n_ilev_e(0)) = .FALSE.
+    k_e = 0
+    DO j = 1, n_ilev_e(0)
+      je = flag_e_list(0)%idx(j)
+      jl_e = idx_no(je)
+      jb_e = blk_no(je)
+      a_idx(1:2) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
+           wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
+      ! outer boundary edges always belong to single adjacent cell owner
+      is_outer = ANY(a_idx == 0) .OR. a_idx(1) == a_idx(2)
+      a_idx = MERGE(a_idx, 1, a_idx /= 0)
+      is_outer = is_outer .OR. ANY(cell_owner(a_idx(1:2)) < 0)
+      a_iown(1:2) = cell_owner(a_idx(1:2))
+      a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
+      ! 50% chance of aquiring an edge, unless inner to flag_c == 0 or is_outer
+      promote(j) = .NOT. is_outer .AND. a_iown(1) /= a_iown(2) &
+           .AND. (MAXVAL(a_iown) == my_proc &
+           &      .NEQV. a_mod_iown(1) == a_mod_iown(2))
+      k_e = k_e + MERGE(1, 0, promote(j))
+    END DO
     IF (n_boundary_rows > 0 .AND. order_type_of_halos /= 0) THEN
-      DO j = 1, n_ilev_e(0)
-        je = flag_e_list(0)%idx(j)
-        jl_e = idx_no(je)
-        jb_e = blk_no(je)
-        a_idx(1:2) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
-             wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
-        ! outer boundary edges always belong to single adjacent cell owner
-        is_outer = ANY(a_idx == 0)
-        a_idx = MERGE(a_idx, 1, a_idx /= 0)
-        a_iown(1:2) = cell_owner(a_idx(1:2))
-        a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
-        ! 50% chance of aquiring an edge, unless inner to flag_c == 0 or is_outer
-        promote(j) = .NOT. is_outer .AND. a_iown(1) /= a_iown(2) &
-             .AND. (MAXVAL(a_iown) == my_proc &
-             &      .NEQV. a_mod_iown(1) == a_mod_iown(2))
-      END DO
-      n2_ilev_e(1) = COUNT(promote(1:n_ilev_e(0)))
+      n2_ilev_e(1) = k_e
       n2_ilev_e(0) = n_ilev_e(0) - n2_ilev_e(1)
       ALLOCATE(flag2_e_list(1)%idx(n2_ilev_e(1)))
       flag2_e_list(1)%idx &
            = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
            &      promote(1:n_ilev_e(0)))
+      ALLOCATE(flag2_e_list(0)%idx(n2_ilev_e(0)))
+      flag2_e_list(0)%idx &
+           = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
+           &      .NOT. promote(1:n_ilev_e(0)))
+      ALLOCATE(owned_edges(1:n_ilev_e(0) - k_e))
+      owned_edges = flag2_e_list(0)%idx
     ELSE
       n2_ilev_e(0) = n_ilev_e(0)
-      ALLOCATE(flag2_e_list(1)%idx(0))
+      ALLOCATE(flag2_e_list(0)%idx(n2_ilev_e(0)))
+      flag2_e_list(0)%idx = flag_e_list(0)%idx(1:n_ilev_e(0))
+      IF (n_boundary_rows > 0) THEN
+        ALLOCATE(flag2_e_list(1)%idx(0))
+        n2_ilev_e(1) = 0
+        ALLOCATE(owned_edges(1:n_ilev_e(0) - k_e))
+        owned_edges &
+             = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
+             &      .NOT. promote(1:n_ilev_e(0)))
+      ELSE
+        ALLOCATE(owned_edges(1:n2_ilev_e(0)))
+        owned_edges = flag2_e_list(0)%idx
+      END IF
     END IF
-    ALLOCATE(flag2_e_list(0)%idx(n2_ilev_e(0)))
-    flag2_e_list(0)%idx &
-         = PACK(flag_e_list(0)%idx(1:n_ilev_e(0)), &
-         &      .NOT. promote(1:n_ilev_e(0)))
 
     DO ilev = 1, n_boundary_rows
       DO j = 1, wrk_p_patch_g%n_patch_cells
@@ -1167,21 +1188,20 @@ CONTAINS
 
     IF (n_boundary_rows > 0) THEN
       promote(1:n_ilev_v(0)) = .FALSE.
-      n2_ilev_v(1) = 0
-      IF (order_type_of_halos /= 0) THEN
-        DO j = 1, n_ilev_v(0)
-          jv = flag_v_list(0)%idx(j)
-          jb_v = blk_no(jv) ! block index
-          jl_v = idx_no(jv) ! line index
-          DO i = 1, wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
-            jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
-            jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
-            jc = idx_1d(jl,jb)
-            promote(j) = promote(j) .OR. ANY(flag_c_list(1)%idx == jc)
-          ENDDO
-          n2_ilev_v(1) = n2_ilev_v(1) + MERGE(1, 0, promote(j))
-        END DO
-      END IF
+      k_v = 0
+      DO j = 1, n_ilev_v(0)
+        jv = flag_v_list(0)%idx(j)
+        jb_v = blk_no(jv) ! block index
+        jl_v = idx_no(jv) ! line index
+        DO i = 1, wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+          jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
+          jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
+          jc = idx_1d(jl,jb)
+          promote(j) = promote(j) .OR. ANY(flag_c_list(1)%idx == jc)
+        ENDDO
+        k_v = k_v + MERGE(1, 0, promote(j))
+      END DO
+
 
       !===================================================================
       DO j = 1, n_ilev_v(0)
@@ -1198,6 +1218,9 @@ CONTAINS
         END DO
         CALL insertion_sort(t_cells(1:n))
         t_cell_owner(1:n) = cell_owner(t_cells(1:n))
+        jc = COUNT(t_cell_owner >= 0)
+        t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
+        n = jc
         a_iown(1) = t_cell_owner(1)
         a_mod_iown(1) = MOD(a_iown(1), 2)
         DO i = 2, n
@@ -1210,16 +1233,23 @@ CONTAINS
           a_mod_iown(1) = MERGE(a_mod_iown(2), a_mod_iown(1), swap)
         END DO
         promote(j) = a_iown(1) /= my_proc
-        n2_ilev_v(1) = n2_ilev_v(1) - MERGE(0, 1, promote(j))
+        k_v = k_v - MERGE(0, 1, promote(j))
       END DO
 
+      ALLOCATE(owned_verts(1:n_ilev_v(0) - k_v))
+      owned_verts(1:n_ilev_v(0) - k_v) &
+           = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
+           .NOT. promote(1:n_ilev_v(0)))
 
-      !===================================================================
+      IF (order_type_of_halos == 0) THEN
+        promote = .FALSE.
+        k_v = 0
+      END IF
 
+      n2_ilev_v(1) = k_v
       n2_ilev_v(0) = n_ilev_v(0) - n2_ilev_v(1)
       ALLOCATE(flag2_v_list(1)%idx(n2_ilev_v(1)), &
            flag2_v_list(0)%idx(n2_ilev_v(0)))
-
       flag2_v_list(0)%idx(:) = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
            .NOT. promote(1:n_ilev_v(0)))
       flag2_v_list(1)%idx(:) = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
@@ -1254,6 +1284,13 @@ CONTAINS
              &      promote(1:n_ilev_e(ilev)))
 
       END DO
+    ELSE
+      n2_ilev_v(0) = n_ilev_v(0)
+      n2_ilev_v(1) = 0
+      ALLOCATE(flag2_v_list(1)%idx(n2_ilev_v(1)), &
+           flag2_v_list(0)%idx(n2_ilev_v(0)), owned_verts(n_ilev_v(0)))
+      flag2_v_list(0)%idx(:) = flag_v_list(0)%idx(1:n_ilev_v(0))
+      owned_verts(:) = flag2_v_list(0)%idx(:)
     END IF
 
 
@@ -1331,6 +1368,27 @@ CONTAINS
       ENDIF
     ENDDO
 
+    ALLOCATE(cells_owner_g(wrk_p_patch_g%n_patch_cells), &
+         edges_owner_g(wrk_p_patch_g%n_patch_edges), &
+         verts_owner_g(wrk_p_patch_g%n_patch_verts))
+    cells_owner_g(:) = -1
+    edges_owner_g(:) = -1
+    verts_owner_g(:) = -1
+    cells_owner_g(flag_c_list(0)%idx(1:n_ilev_c(0))) = my_proc
+    edges_owner_g(owned_edges) = my_proc
+    verts_owner_g(owned_verts) = my_proc
+#ifndef NOMPI
+    CALL mpi_allreduce(mpi_in_place, cells_owner_g, SIZE(cells_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+    CALL mpi_allreduce(mpi_in_place, edges_owner_g, SIZE(edges_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+    CALL mpi_allreduce(mpi_in_place, verts_owner_g, SIZE(verts_owner_g), &
+         p_int, mpi_max, p_comm_work, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+#endif
+
     IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
       CALL finish(routine, 'number of cells mismatch')
     IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
@@ -1382,6 +1440,17 @@ CONTAINS
       END IF
     END DO
 
+    IF (ANY(cells_owner_g /= wrk_p_patch%cells%owner_g)) THEN
+      CALL finish(routine, 'cells owner_g failed')
+    END IF
+
+    IF (ANY(edges_owner_g /= wrk_p_patch%edges%owner_g)) THEN
+      CALL finish(routine, 'edges owner_g failed')
+    END IF
+
+    IF (ANY(verts_owner_g /= wrk_p_patch%verts%owner_g)) THEN
+      CALL finish(routine, 'verts owner_g failed')
+    END IF
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
