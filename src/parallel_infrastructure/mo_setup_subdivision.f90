@@ -49,25 +49,24 @@ MODULE mo_setup_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,               ONLY: wp, i8
-  USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
+  USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
-    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom
+    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
   USE mo_math_constants,     ONLY: pi
-  USE mo_exception,          ONLY: finish, message, message_text,    &
+  USE mo_exception,          ONLY: finish, message,    &
     &                              get_filename_noext
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
-  USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split, get_my_global_mpi_id, global_mpi_barrier
+  USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL, p_int, &
-       mpi_in_place, mpi_max, mpi_success, process_mpi_all_comm
+  USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
+       mpi_in_place, mpi_max, mpi_success
 #endif
-  USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
-    & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & p_pe_work, p_n_work, get_my_mpi_all_id, my_process_is_mpi_parallel
+  USE mo_mpi,                ONLY: p_comm_work, &
+    & p_pe_work, p_n_work, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
@@ -802,11 +801,9 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    CHARACTER(len=132) :: msg
-
-    INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
-               jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
-               jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v, &
+    INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev,   &
+               jl_c, jb_c, jc, &
+               jg, k_c, k_e, k_v, &
                a_iown(2), a_mod_iown(2)
 
     LOGICAL :: is_outer, swap
@@ -817,7 +814,7 @@ CONTAINS
          flag2_v_list(0:n_boundary_rows+1), flag2_e_list(0:2*n_boundary_rows+1)
     INTEGER, DIMENSION(-1:n_boundary_rows) :: n_ilev_c, n_ilev_v, n_ilev_e
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
-         n2_ilev_e(0:2*n_boundary_rows+1), a_idx(2), loc_index_fill
+         n2_ilev_e(0:2*n_boundary_rows+1), a_idx(2)
     LOGICAL, ALLOCATABLE :: promote(:)
     INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
          t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
@@ -895,8 +892,6 @@ CONTAINS
     !                     NOT owned by the current task
     ! flag2_v_list(j)%idx for j > 1 == flag_v_list(j-1)%idx
     !------------------------------------------------------------------------
-
-    i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
 
     ! find inner edges/verts and ghost cells/edges/verts
 
