@@ -438,7 +438,7 @@ SUBROUTINE sso (                                                       &
 !     (standard deviation, anisotropy, angle and slope)
 !     -------------------------------------------------
       REAL(KIND=ireals), INTENT(IN) :: psso_stdh  (:)  !  (ie)
-      REAL(KIND=ireals), INTENT(IN) :: psso_gamma (:)  !  (ie)
+      REAL(KIND=ireals), INTENT(inout) :: psso_gamma (:)  !  (ie)
       REAL(KIND=ireals), INTENT(IN) :: psso_theta (:)  !  (ie)
       REAL(KIND=ireals), INTENT(IN) :: psso_sigma (:)  !  (ie)
 
