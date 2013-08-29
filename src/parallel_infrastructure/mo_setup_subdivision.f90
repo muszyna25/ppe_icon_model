@@ -1069,28 +1069,6 @@ CONTAINS
     ! Now compute second set of flags
     DO ilev = 1, n_boundary_rows
 
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-
-        IF (flag_c(j) == ilev) THEN
-
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-
-          flag2_c(j) = 2*flag_c(j)
-
-          ! Check if any of the edges borders to a cell with flag_c(j) = ilev-1
-          ! In this case, flag2_c = 2*flag_c-1
-
-          DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-            jl_c = wrk_p_patch_g%cells%neighbor_idx(jl,jb,i)
-            jb_c = wrk_p_patch_g%cells%neighbor_blk(jl,jb,i)
-            jc = idx_1d(jl_c,jb_c)
-            IF (jc < 1 .OR. jc > wrk_p_patch_g%n_patch_cells) CYCLE
-            IF (flag_c(jc) == ilev-1) flag2_c(j) = 2*flag_c(j)-1
-          ENDDO
-        ENDIF
-      ENDDO
-
       ALLOCATE(flag2_c_list(2*ilev)%idx(n_ilev_c(ilev)), &
            flag2_c_list(2*ilev - 1)%idx(n_ilev_c(ilev)))
       DO j = 1, n_ilev_c(ilev)
@@ -1113,6 +1091,7 @@ CONTAINS
 
     ENDDO
 
+    ! Preset edges and vertices bordering to interior cells with 0
     ALLOCATE(promote(MAX(MAXVAL(n_ilev_e), n_ilev_v(0))))
     promote(1:n_ilev_e(0)) = .FALSE.
     k_e = 0
