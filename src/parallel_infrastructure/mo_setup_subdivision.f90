@@ -89,7 +89,7 @@ MODULE mo_setup_subdivision
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
-  USE mo_util_sort, ONLY: insertion_sort
+  USE mo_util_sort, ONLY: quicksort, insertion_sort
 
   IMPLICIT NONE
 
@@ -103,6 +103,10 @@ MODULE mo_setup_subdivision
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
+
+  TYPE nb_flag_list_elem
+    INTEGER, ALLOCATABLE :: idx(:)
+  END TYPE nb_flag_list_elem
 
 CONTAINS
 
@@ -809,9 +813,6 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL :: is_outer, swap
 
-    TYPE nb_flag_list_elem
-      INTEGER, ALLOCATABLE :: idx(:)
-    END TYPE nb_flag_list_elem
     TYPE(nb_flag_list_elem), DIMENSION(-1:n_boundary_rows) :: &
          flag_c_list, flag_v_list, flag_e_list
     TYPE(nb_flag_list_elem) :: flag2_c_list(0:2*n_boundary_rows), &
@@ -1059,7 +1060,11 @@ CONTAINS
       END DO
       n_ilev_e(ilev) = k_e
       n_ilev_v(ilev) = k_v
-    ENDDO ! ilev
+    ENDDO
+    ! ilev single pass application of flag2_[ev] in
+    ! build_patch_start_end requires them to be sorted
+    CALL quicksort(flag_e_list(0)%idx(1:n_ilev_e(0)))
+    CALL quicksort(flag_v_list(0)%idx(1:n_ilev_v(0)))
 
     ! Now compute second set of flags
     DO ilev = 1, n_boundary_rows
@@ -1494,6 +1499,8 @@ CONTAINS
          max_ilev = 2*n_boundary_rows, &
          max_hw_cve = 2*max_hw, &
          flag2 = flag2_c, &
+         flag2_list = flag2_c_list, &
+         n2_ilev = n2_ilev_c, &
          glb_index = wrk_p_patch%cells%glb_index, &
          loc_index = wrk_p_patch%cells%loc_index, &
          start_idx = wrk_p_patch%cells%start_idx, &
@@ -1523,6 +1530,8 @@ CONTAINS
          max_ilev = 2*n_boundary_rows+1, &
          max_hw_cve = 2*max_hw + 1, &
          flag2 = flag2_e, &
+         flag2_list = flag2_e_list, &
+         n2_ilev = n2_ilev_e, &
          glb_index = wrk_p_patch%edges%glb_index, &
          loc_index = wrk_p_patch%edges%loc_index, &
          start_idx = wrk_p_patch%edges%start_idx, &
@@ -1552,6 +1561,8 @@ CONTAINS
          max_ilev = n_boundary_rows+1, &
          max_hw_cve = max_hw + 1, &
          flag2 = flag2_v, &
+         flag2_list = flag2_v_list, &
+         n2_ilev = n2_ilev_v, &
          glb_index = wrk_p_patch%verts%glb_index, &
          loc_index = wrk_p_patch%verts%loc_index, &
          start_idx = wrk_p_patch%verts%start_idx, &
@@ -1842,7 +1853,7 @@ CONTAINS
   SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
        max_childdom, nchilddom, patch_id, nblks, npromz, cell_type, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
-       flag2, glb_index, loc_index, &
+       flag2, flag2_list, n2_ilev, glb_index, loc_index, &
        start_idx, start_blk, end_idx, end_blk, &
        start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
        order_type_of_halos, l_cell_correction, refin_ctrl, refinement_predicate)
@@ -1851,7 +1862,8 @@ CONTAINS
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
     INTEGER, INTENT(in) :: order_type_of_halos
     LOGICAL, INTENT(in) :: l_cell_correction
-    INTEGER, INTENT(in) :: flag2(:), refin_ctrl(:, :)
+    INTEGER, INTENT(in) :: flag2(:), refin_ctrl(:, :), n2_ilev(0:)
+    TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     INTEGER, INTENT(inout) :: glb_index(:), loc_index(:)
     INTEGER, DIMENSION(min_rlcve:, :), INTENT(inout) :: &
          start_idx, start_blk, end_idx, end_blk
@@ -1864,45 +1876,67 @@ CONTAINS
       END FUNCTION refinement_predicate
     END INTERFACE
 
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
+
     LOGICAL, ALLOCATABLE :: lcount(:)
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jl, n, &
-         exec_sequence, ref_flag
+         exec_sequence, ref_flag, k
+
+    INTEGER, ALLOCATABLE :: cve_loc_index(:), cve_glb_index(:)
 
     ALLOCATE(lcount(n_patch_cve_g))
     lcount = .FALSE.
     n = 0
-
     SELECT CASE(order_type_of_halos)
-      CASE (0,2)
-!        IF (.NOT. l_compute_grid) THEN
-          DO j = 1, n_patch_cve_g
-            IF (flag2(j)==0) THEN
-              n = n + 1
-              glb_index(n) = j
-              loc_index(j) = n
-              lcount(j) = .TRUE.
-            ELSE
-              loc_index(j) = -(n+1)
-            ENDIF
-          ENDDO
-      CASE (1)
-!        ELSE
-          DO j = 1, n_patch_cve_g
-            jb = blk_no(j) ! block index
-            jl = idx_no(j) ! line index
-            irl0 = refin_ctrl(jl,jb)
-            IF (refinement_predicate(flag2(j), irl0)) THEN
-              n = n + 1
-              glb_index(n) = j
-              loc_index(j) = n
-              lcount(j) = .TRUE.
-            ELSE
-              loc_index(j) = -(n+1)
-            ENDIF
-          ENDDO
-!        ENDIF
-      CASE default
-        CALL finish("", "Uknown order_type_of_halos")
+    CASE (0,2)
+      DO j = 1, n_patch_cve_g
+        IF (flag2(j)==0) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          lcount(j) = .TRUE.
+        ELSE
+          loc_index(j) = -(n+1)
+        ENDIF
+      ENDDO
+
+      ALLOCATE(cve_loc_index(n_patch_cve_g), cve_glb_index(n_patch_cve))
+      cve_glb_index(1:n2_ilev(0)) = flag2_list(0)%idx(1:n2_ilev(0))
+      j = 1
+      DO k = 1, n2_ilev(0)
+        DO j = j, flag2_list(0)%idx(k) - 1
+          cve_loc_index(j) = -(k)
+        END DO
+        cve_loc_index(j) = k
+        j = j + 1
+      END DO
+      DO j = j, n_patch_cve_g
+        cve_loc_index(j) = -k
+      END DO
+
+      IF (ANY(cve_loc_index /= loc_index)) THEN
+        CALL finish(routine, 'cve_loc_index failed')
+      END IF
+      IF (ANY(cve_glb_index(1:n2_ilev(0)) /=  glb_index(1:n2_ilev(0)))) THEN
+        CALL finish(routine, 'cve_glb_index failed')
+      END IF
+
+    CASE (1)
+      DO j = 1, n_patch_cve_g
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        irl0 = refin_ctrl(jl,jb)
+        IF (refinement_predicate(flag2(j), irl0)) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          lcount(j) = .TRUE.
+        ELSE
+          loc_index(j) = -(n+1)
+        ENDIF
+      ENDDO
+    CASE default
+      CALL finish("", "Uknown order_type_of_halos")
     END SELECT
 
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
@@ -1936,90 +1970,90 @@ CONTAINS
     ENDDO
 
     SELECT CASE(order_type_of_halos)
-      CASE (0,2)
-     ! IF(.NOT.l_compute_grid) THEN
-        ! processing local parent grid
-        !
-        ! Gather all halo cells/edges/verts at the end of the patch.
-        ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
-        irlev = min_rlcve_int-1
-        ref_flag = MERGE(0, 1, l_cell_correction)
-        IF (order_type_of_halos == 2) ref_flag = 0
+    CASE (0,2)
+      ! IF(.NOT.l_compute_grid) THEN
+      ! processing local parent grid
+      !
+      ! Gather all halo cells/edges/verts at the end of the patch.
+      ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
+      irlev = min_rlcve_int-1
+      ref_flag = MERGE(0, 1, l_cell_correction)
+      IF (order_type_of_halos == 2) ref_flag = 0
+      DO j = 1, n_patch_cve_g
+        IF (flag2(j) > ref_flag) THEN
+          n = n + 1
+          glb_index(n) = j
+          loc_index(j) = n
+          ! This ensures that just the first point found at this irlev is saved as start point
+          IF (start_idx(irlev,1)==-9999) THEN
+            start_idx(irlev,:) = idx_no(n) ! line index
+            start_blk(irlev,:) = blk_no(n) ! block index
+          ENDIF
+        ENDIF
+      ENDDO
+      ! Set end index when the last point is processed
+      end_idx(min_rlcve:irlev,:) = idx_no(n) ! line index
+      end_blk(min_rlcve:irlev,:) = blk_no(n) ! block index
+      start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
+      start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
+    CASE(1)
+      ! ELSE
+      ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
+      ! at the end. They are sorted by the flag2 value and will be placed at the
+      ! index levels between min_rlcve_int-1 and min_rlcve
+      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
+      ! cannot be used here
+      DO ilev = 1, max_ilev
+        irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
         DO j = 1, n_patch_cve_g
-          IF (flag2(j) > ref_flag) THEN
+          IF (flag2(j) == ilev .AND. .NOT. lcount(j)) THEN
             n = n + 1
             glb_index(n) = j
             loc_index(j) = n
+            jb = blk_no(n) ! block index
+            jl = idx_no(n) ! line index
             ! This ensures that just the first point found at this irlev is saved as start point
             IF (start_idx(irlev,1)==-9999) THEN
-              start_idx(irlev,:) = idx_no(n) ! line index
-              start_blk(irlev,:) = blk_no(n) ! block index
+              start_idx(irlev,:) = jl
+              start_blk(irlev,:) = jb
             ENDIF
+            end_idx(irlev,:) = jl
+            end_blk(irlev,:) = jb
           ENDIF
         ENDDO
-        ! Set end index when the last point is processed
-        end_idx(min_rlcve:irlev,:) = idx_no(n) ! line index
-        end_blk(min_rlcve:irlev,:) = blk_no(n) ! block index
-        start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
-        start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
-      CASE(1)
-        ! ELSE
-          ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
-          ! at the end. They are sorted by the flag2 value and will be placed at the
-          ! index levels between min_rlcve_int-1 and min_rlcve
-          ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-          ! cannot be used here
-          DO ilev = 1, max_ilev
-            irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-            DO j = 1, n_patch_cve_g
-              IF (flag2(j) == ilev .AND. .NOT. lcount(j)) THEN
-                n = n + 1
-                glb_index(n) = j
-                loc_index(j) = n
-                jb = blk_no(n) ! block index
-                jl = idx_no(n) ! line index
-                ! This ensures that just the first point found at this irlev is saved as start point
-                IF (start_idx(irlev,1)==-9999) THEN
-                  start_idx(irlev,:) = jl
-                  start_blk(irlev,:) = jb
-                ENDIF
-                end_idx(irlev,:) = jl
-                end_blk(irlev,:) = jb
-              ENDIF
-            ENDDO
-            ! Just in case that no grid point is found (may happen for ilev=1)
-            IF (.NOT. l_cell_correction .AND. start_idx(irlev,1)==-9999) THEN
-              start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
-              start_blk(irlev,:) = end_blk(irlev+1,nchilddom)
-              end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
-              end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
-            ENDIF
-          ENDDO
-          ! Fill start and end indices for remaining index sections
-          IF (patch_id == 0) THEN
-            ilev1 = min_rlcve_int
-            ilev_st = 1
-          ELSE
-            ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
-            ilev_st = max_ilev + 1
-          ENDIF
-          IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
-            DO ilev = 2, max_hw_cve, 2
-              irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-              start_idx(irlev,:) = end_idx(irlev+1,1) + 1
-              start_blk(irlev,:) = end_blk(irlev+1,1)
-              end_idx(irlev,:)   = end_idx(irlev+1,1)
-              end_blk(irlev,:)   = end_blk(irlev+1,1)
-            ENDDO
-          ENDIF
-          DO ilev = ilev_st,max_hw_cve
-            irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-            start_idx(irlev,:) = end_idx(ilev1,1) + 1
-            start_blk(irlev,:) = end_blk(ilev1,1)
-            end_idx(irlev,:)   = end_idx(ilev1,1)
-            end_blk(irlev,:)   = end_blk(ilev1,1)
-          ENDDO
-        ! ENDIF
+        ! Just in case that no grid point is found (may happen for ilev=1)
+        IF (.NOT. l_cell_correction .AND. start_idx(irlev,1)==-9999) THEN
+          start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
+          start_blk(irlev,:) = end_blk(irlev+1,nchilddom)
+          end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
+          end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
+        ENDIF
+      ENDDO
+      ! Fill start and end indices for remaining index sections
+      IF (patch_id == 0) THEN
+        ilev1 = min_rlcve_int
+        ilev_st = 1
+      ELSE
+        ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
+        ilev_st = max_ilev + 1
+      ENDIF
+      IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+        DO ilev = 2, max_hw_cve, 2
+          irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+          start_idx(irlev,:) = end_idx(irlev+1,1) + 1
+          start_blk(irlev,:) = end_blk(irlev+1,1)
+          end_idx(irlev,:)   = end_idx(irlev+1,1)
+          end_blk(irlev,:)   = end_blk(irlev+1,1)
+        ENDDO
+      ENDIF
+      DO ilev = ilev_st,max_hw_cve
+        irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+        start_idx(irlev,:) = end_idx(ilev1,1) + 1
+        start_blk(irlev,:) = end_blk(ilev1,1)
+        end_idx(irlev,:)   = end_idx(ilev1,1)
+        end_blk(irlev,:)   = end_blk(ilev1,1)
+      ENDDO
+      ! ENDIF
 
     END SELECT
 
