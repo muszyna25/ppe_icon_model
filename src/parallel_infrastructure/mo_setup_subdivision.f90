@@ -1286,13 +1286,6 @@ CONTAINS
 #endif
 
 
-    IF (SUM(n_ilev_c(:)) /= wrk_p_patch%n_patch_cells) &
-      CALL finish(routine, 'number of cells mismatch')
-    IF (SUM(n_ilev_e(:)) /= wrk_p_patch%n_patch_edges) &
-      CALL finish(routine, 'number of edges mismatch')
-    IF (SUM(n_ilev_v(:)) /= wrk_p_patch%n_patch_verts) &
-      CALL finish(routine, 'number of verts mismatch')
-
     DO ilev = 0, n_boundary_rows
       IF (.NOT. (ALL(flag_c(flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) == ilev)) &
            .OR. COUNT(flag_c == ilev) /= n_ilev_c(ilev)) THEN
