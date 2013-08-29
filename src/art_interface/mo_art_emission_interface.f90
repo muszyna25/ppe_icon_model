@@ -54,7 +54,9 @@ MODULE mo_art_emission_interface
     USE mo_art_emission_volc,     ONLY: art_organize_emission_volc
     USE mo_art_radioactive,       ONLY: art_emiss_radioact
     USE mo_art_emission_seas,     ONLY: art_emission_seas
-    USE mo_art_aerosol,           ONLY: p_art_mode,imode_seasa,imode_seasb,imode_seasc
+    USE mo_art_emission_dust,     ONLY: art_emission_dust
+    USE mo_art_aerosol,           ONLY: p_art_mode,imode_seasa,imode_seasb,imode_seasc, &
+        &                               imode_dusta,imode_dustb,imode_dustc
     USE mo_art_aerosol_utilities, ONLY: art_modal_parameters,art_air_parameters
 #endif
 
@@ -116,13 +118,13 @@ CONTAINS
    jg  = p_patch%id
      
    IF (art_config(jg)%lart .AND. art_config(jg)%lart_emiss) THEN
-   
-   ! ----------------------------------
-   ! --- sea salt emissions
-   ! ----------------------------------
 
      ! First: Modal Parameters 
        CALL art_air_parameters(p_patch)
+       
+   ! ----------------------------------
+   ! --- sea salt emissions
+   ! ----------------------------------
        
        IF (art_config(jg)%lart_seasalt) THEN
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_now,'EMISSION')
@@ -131,7 +133,16 @@ CONTAINS
          CALL art_emission_seas(p_patch,p_dtime,p_rho,p_tracer_now) 
        ENDIF
    
-
+   ! ----------------------------------
+   ! --- mineral dust emissions
+   ! ----------------------------------
+       
+       IF (art_config(jg)%lart_dust) THEN
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dusta),p_tracer_now,'EMISSION')
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dustb),p_tracer_now,'EMISSION')
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dustc),p_tracer_now,'EMISSION')
+         CALL art_emission_dust(p_patch,p_dtime,p_rho,p_tracer_now) 
+       ENDIF
    
    ! ----------------------------------
    ! --- volcano emissions

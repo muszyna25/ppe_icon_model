@@ -53,7 +53,8 @@ MODULE mo_art_washout_interface
     USE mo_art_washout_volc,       ONLY:art_washout_volc
     USE mo_art_radioactive,        ONLY:art_washout_radioact
     USE mo_art_washout_aerosol,    ONLY:art_aerosol_washout
-    USE mo_art_aerosol,            ONLY:p_art_mode,imode_seasa,imode_seasb,imode_seasc
+    USE mo_art_aerosol,            ONLY:p_art_mode,imode_seasa,imode_seasb,imode_seasc, &
+        &                               imode_dusta,imode_dustb,imode_dustc
     USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_parameters
 #endif
 
@@ -128,14 +129,26 @@ IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN
       ! --- First for modal aerosol
       ! ----------------------------------
 
-     ! now sea salt
+     ! sea salt
        IF (art_config(jg)%lart_seasalt) THEN
+         WRITE(0,*) 'WASHOUT of Sea Salt'
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasa),p_tracer_new,'WASHOUT')
          CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasa),p_rho,p_tracer_new,prm_diag)
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasb),p_tracer_new,'WASHOUT')
          CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasb),p_rho,p_tracer_new,prm_diag)
          CALL art_modal_parameters(p_patch,p_art_mode(imode_seasc),p_tracer_new,'WASHOUT')
          CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_seasc),p_rho,p_tracer_new,prm_diag)
+       ENDIF
+       
+     ! mineral dust
+       IF (art_config(jg)%lart_dust) THEN
+         WRITE(0,*) 'WASHOUT of Mineral Dust'
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dusta),p_tracer_new,'WASHOUT')
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_dusta),p_rho,p_tracer_new,prm_diag)
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dustb),p_tracer_new,'WASHOUT')
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_dustb),p_rho,p_tracer_new,prm_diag)
+         CALL art_modal_parameters(p_patch,p_art_mode(imode_dustc),p_tracer_new,'WASHOUT')
+         CALL art_aerosol_washout(p_patch,dt_phy_jg,p_art_mode(imode_dustc),p_rho,p_tracer_new,prm_diag)
        ENDIF
     
       ! ----------------------------------
@@ -169,8 +182,6 @@ IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN
 
           jsp=>info%ncontained
           var_name=>info%name
-
-WRITE(0,*) 'WASHOUT of ', var_name,' with idx= ',jsp
 
           ! ----------------------------------
           ! --- Choose parameterisation
