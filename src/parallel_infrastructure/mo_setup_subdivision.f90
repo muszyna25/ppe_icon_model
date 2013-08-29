@@ -824,7 +824,9 @@ CONTAINS
     INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
          t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
     INTEGER, ALLOCATABLE :: cells_owner_g(:), edges_owner_g(:), &
-         verts_owner_g(:), owned_edges(:), owned_verts(:)
+         verts_owner_g(:), owned_edges(:), owned_verts(:), &
+         cells_decomp_domain(:, :), edges_decomp_domain(:, :), &
+         verts_decomp_domain(:, :)
     INTEGER :: ierror
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
@@ -1699,6 +1701,23 @@ CONTAINS
 
     ENDDO
 
+    ALLOCATE(cells_decomp_domain(nproma, wrk_p_patch%alloc_cell_blocks))
+    cells_decomp_domain(wrk_p_patch%npromz_c+1:nproma, &
+         &              wrk_p_patch%alloc_cell_blocks) = -1
+    DO j = 0, 2 * n_boundary_rows
+      DO i = 1, n2_ilev_c(j)
+        jg = flag2_c_list(j)%idx(i)
+        jc = wrk_p_patch%cells%loc_index(jg)
+        jb = blk_no(jc)
+        jl = idx_no(jc)
+        cells_decomp_domain(jl, jb) = j
+      END DO
+    END DO
+
+    IF (ANY(cells_decomp_domain(:, :) &
+         /= wrk_p_patch%cells%decomp_domain(:, :))) THEN
+      CALL finish(routine, 'cells decomp_domain mismatch')
+    END IF
     !---------------------------------------------------------------------------------------
 
     DO j = 1,wrk_p_patch%n_patch_edges
@@ -1724,6 +1743,24 @@ CONTAINS
 
     ENDDO
 
+    ALLOCATE(edges_decomp_domain(nproma, wrk_p_patch%nblks_e))
+    edges_decomp_domain(wrk_p_patch%npromz_e+1:nproma, &
+         &              wrk_p_patch%nblks_e) = -1
+    DO j = 0, 2 * n_boundary_rows + 1
+      DO i = 1, n2_ilev_e(j)
+        jg = flag2_e_list(j)%idx(i)
+        je = wrk_p_patch%edges%loc_index(jg)
+        jb = blk_no(je)
+        jl = idx_no(je)
+        edges_decomp_domain(jl, jb) = j
+      END DO
+    END DO
+
+    IF (ANY(edges_decomp_domain(:, :) &
+         /= wrk_p_patch%edges%decomp_domain(:, :))) THEN
+      CALL finish(routine, 'edges decomp_domain mismatch')
+    END IF
+
     !---------------------------------------------------------------------------------------
 
     DO j = 1,wrk_p_patch%n_patch_verts
@@ -1740,6 +1777,25 @@ CONTAINS
       wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
     ENDDO
+
+    ALLOCATE(verts_decomp_domain(nproma, wrk_p_patch%nblks_v))
+    verts_decomp_domain(wrk_p_patch%npromz_v+1:nproma, &
+         &              wrk_p_patch%nblks_v) = -1
+    DO j = 0, n_boundary_rows + 1
+      DO i = 1, n2_ilev_v(j)
+        jg = flag2_v_list(j)%idx(i)
+        jv = wrk_p_patch%verts%loc_index(jg)
+        jb = blk_no(jv)
+        jl = idx_no(jv)
+        verts_decomp_domain(jl, jb) = j
+      END DO
+    END DO
+
+    IF (ANY(verts_decomp_domain(:, :) &
+         /= wrk_p_patch%verts%decomp_domain(:, :))) THEN
+      CALL finish(routine, 'verts decomp_domain mismatch')
+    END IF
+
 
     DEALLOCATE(flag2_c, flag2_e, flag2_v)
 
