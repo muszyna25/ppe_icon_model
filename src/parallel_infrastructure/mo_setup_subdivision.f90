@@ -809,8 +809,6 @@ CONTAINS
                jg, i_nchdom, irl0, mod_iown, k_c, k_e, k_v, &
                a_iown(2), a_mod_iown(2)
 
-    INTEGER, ALLOCATABLE :: flag_c(:), flag_v(:)
-    INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL :: is_outer, swap
 
     TYPE(nb_flag_list_elem), DIMENSION(-1:n_boundary_rows) :: &
@@ -845,18 +843,11 @@ CONTAINS
     !                    with k < j is adjacent to the vertex
     !---------------------------------------------------------------------
 
-    ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(flag_v(wrk_p_patch_g%n_patch_verts))
-
-    flag_c(:) = -1
-    flag_v(:) = -1
-
     n2_ilev_c(:) = 0
     n2_ilev_e(:) = 0
     n2_ilev_v(:) = 0
 
     ! flag inner cells
-    WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
     n_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
     n2_ilev_c(0) = n_ilev_c(0)
     n_ilev_c(1:n_boundary_rows) = 0
@@ -876,17 +867,10 @@ CONTAINS
       END IF
     END DO
 
-    !-----------------------------------------------------------------------------------------------
-    ! The purpose of the second set of flags is to control moving the halo points
-    ! to the end of the index vector for nearly all cells even if order_type_of_halos = 1
-    ! flag2_c/e/v = 0 (-1) wherever flag_c/e/v = 0 (-1)
-    ! flag2_c = 2*flag_c-1 if the cell has a common edge with a cell having flag_c-1
-    ! flag2_c = 2*flag_c if the cell has no common edge with a cell having flag_c-1
-    ! flag2_e/v = 1 for boundary edges/vertices not owned by the current PE,
-    !             otherwise flag2_v = flag_v+1
-    ! flag2_e is the sum of flag_c of the two neighboring cells and 2*flag_c+1 at outer boundary edges
-    !-----------------------------------------------------------------------------------------------
-
+    !------------------------------------------------------------------------
+    ! The purpose of the second set of flags is to control moving the
+    ! halo points to the end of the index vector for nearly all cells
+    ! even if order_type_of_halos = 1
     !------------------------------------------------------------------------
     ! flag2_e_list(0)%idx all edges which are owned by the local process
     ! flag2_e_list(1)%idx all edges adjacent to cells in flag_c_list(0)
@@ -912,14 +896,6 @@ CONTAINS
     ! flag2_v_list(j)%idx for j > 1 == flag_v_list(j-1)%idx
     !------------------------------------------------------------------------
 
-    ALLOCATE(flag2_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(flag2_e(wrk_p_patch_g%n_patch_edges))
-    ALLOCATE(flag2_v(wrk_p_patch_g%n_patch_verts))
-
-    flag2_c(:) = flag_c(:)
-    flag2_e(:) = -1
-    flag2_v(:) = -1
-
     i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
 
     ! find inner edges/verts and ghost cells/edges/verts
@@ -933,61 +909,6 @@ CONTAINS
 
       IF(ilev>0) THEN
 
-#ifdef __SX__
-        DO i = 1, wrk_p_patch_g%cell_type
-          DO j = 1, wrk_p_patch_g%n_patch_cells
-
-            IF(flag_c(j)<0) THEN
-
-              jb = blk_no(j) ! block index
-              jl = idx_no(j) ! line index
-
-              IF (i > wrk_p_patch_g%cells%num_edges(jl,jb)) CYCLE
-
-              ! Check if any vertex of this cell is already flagged.
-              ! If this is the case, this cell goes to level ilev
-
-              jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-              jv = idx_1d(jl_v, jb_v)
-
-              IF(flag_v(jv)>=0) flag_c(j) = ilev
-            ENDIF
-          ENDDO
-        ENDDO
-#else
-        DO j = 1, wrk_p_patch_g%n_patch_cells
-
-          IF(flag_c(j)<0) THEN
-
-            jb = blk_no(j) ! block index
-            jl = idx_no(j) ! line index
-
-            ! Check if any vertex of this cell is already flagged.
-            ! If this is the case, this cell goes to level ilev
-
-            DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-              jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-              jv = idx_1d(jl_v, jb_v)
-
-              IF (flag_v(jv)>=0)  flag_c(j) = ilev
-              ! the last line may be replaced by the following:
-              !
-              ! do not set "flag_c" for local_parent_patches, if the
-              ! refin_ctrl flag indicates that we are outside of the
-              ! nesting region.
-              !  IF (flag_v(jv)>=0) THEN
-              !    IF ( (jg > 1) .AND. .NOT. lcompute_grid ) THEN
-              !      IF (wrk_p_patch_g%cells%refin_ctrl(jl,jb) < 0)  flag_c(j) = ilev
-              !    ELSE
-              !      flag_c(j) = ilev
-              !    END IF
-              !  END IF
-            ENDDO
-          ENDIF
-        ENDDO
-#endif
         n_ilev_c(ilev) = 2 * n_ilev_e(ilev - 1)
         ALLOCATE(flag_c_list(ilev)%idx(n_ilev_c(ilev)))
         k_c = 0
@@ -1013,21 +934,6 @@ CONTAINS
       ! An edge/vert is flagged in this level if it belongs to a cell in this level
       ! and is not yet flagged (in which case it already belongs to a lower level).
 
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-
-        IF(flag_c(j)==ilev) THEN
-
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-
-          DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-            jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-            jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-            jv = idx_1d(jl_v, jb_v)
-            IF(flag_v(jv)<0) flag_v(jv) = ilev
-          ENDDO
-        ENDIF
-      ENDDO
       n = n_ilev_c(ilev)
       n_ilev_v(ilev) = n * wrk_p_patch_g%cell_type
       n_ilev_e(ilev) = n * wrk_p_patch_g%cell_type
@@ -1285,21 +1191,6 @@ CONTAINS
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
 
-
-    DO ilev = 0, n_boundary_rows
-      IF (.NOT. (ALL(flag_c(flag_c_list(ilev)%idx(1:n_ilev_c(ilev))) == ilev)) &
-           .OR. COUNT(flag_c == ilev) /= n_ilev_c(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'cells ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-      IF (.NOT. (ALL(flag_v(flag_v_list(ilev)%idx(1:n_ilev_v(ilev))) == ilev)) &
-           .OR. COUNT(flag_v == ilev) /= n_ilev_v(ilev)) THEN
-        WRITE (msg, '(a,i0)') 'vertices ilev mismatch at ', ilev
-        CALL finish(routine, msg)
-      END IF
-    END DO
-
-    DEALLOCATE(flag_c, flag_v)
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
@@ -1580,8 +1471,6 @@ CONTAINS
         wrk_p_patch%verts%decomp_domain(jl,jb) = j
       END DO
     END DO
-
-    DEALLOCATE(flag2_c, flag2_e, flag2_v)
 
   CONTAINS
 
