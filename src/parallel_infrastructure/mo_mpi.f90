@@ -198,7 +198,7 @@ MODULE mo_mpi
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
-            MPI_UNDEFINED
+            MPI_UNDEFINED, mpi_max, mpi_in_place
 #endif
 
   PUBLIC :: MPI_ANY_SOURCE
