@@ -1113,29 +1113,6 @@ CONTAINS
 
     ENDDO
 
-    ! Preset edges and vertices bordering to interior cells with 0
-    DO j = 1, wrk_p_patch_g%n_patch_cells
-
-      IF (flag_c(j)==0) THEN
-
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
-        DO i = 1, wrk_p_patch_g%cells%num_edges(jl,jb)
-          jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
-          jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
-          je = idx_1d(jl_e,jb_e)
-          flag2_e(je) = 0
-
-          jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
-          jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
-          jv = idx_1d(jl_v,jb_v)
-          flag2_v(jv) = 0
-        ENDDO
-      ENDIF
-
-    ENDDO
-
     ALLOCATE(promote(MAX(MAXVAL(n_ilev_e), n_ilev_v(0))))
     promote(1:n_ilev_e(0)) = .FALSE.
     k_e = 0
