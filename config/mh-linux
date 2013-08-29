@@ -93,6 +93,7 @@ case "$fortran_compiler" in
         FC          = nagfor
 #        GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
         GEN_FLAGS   = -float-store -colour -nan -fpp
+        STD_FLAGS   = -Wc,-O3 -Wc,-march=native
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
 	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
