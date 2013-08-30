@@ -569,8 +569,8 @@ CONTAINS
           ! -----
           !
           ! indices and dimensions
-!!$          & jg                       ,&!< in     domain index
-!!$          & jb                       ,&!< in     block index
+          & jg                       ,&!< in     domain index
+          & jb                       ,&!< in     block index
           & jce        = jce         ,&!< in     end   index for loop over block
           & kbdim      = nbdim       ,&!< in     dimension of block over cells
           & klev       = nlev        ,&!< in     number of full levels = number of layers

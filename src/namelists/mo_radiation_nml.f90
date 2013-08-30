@@ -57,6 +57,7 @@ MODULE mo_radiation_nml
                                  & config_irad_cfc11 => irad_cfc11,  &
                                  & config_irad_cfc12 => irad_cfc12,  &
                                  & config_irad_aero  => irad_aero,   &
+                                 & config_lrad_aero_diag => lrad_aero_diag,  &
                                  & config_ighg       => ighg,        &
                                  & config_vmr_co2    => vmr_co2,     &
                                  & config_vmr_ch4    => vmr_ch4,     &
@@ -127,6 +128,7 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_cfc11
   INTEGER  :: irad_cfc12
   INTEGER  :: irad_aero
+  LOGICAL  :: lrad_aero_diag
   !
   ! --- Select dynamic greenhouse gases scenario (read from file)
   !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
@@ -173,6 +175,7 @@ MODULE mo_radiation_nml
     &                      irad_cfc11, vmr_cfc11, &
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
+    &                      lrad_aero_diag,        &
     &                      ighg,                  &
     &                      izenith
 
@@ -221,6 +224,7 @@ CONTAINS
     irad_cfc11  = 2
     irad_cfc12  = 2
     irad_aero   = 2
+    lrad_aero_diag = .FALSE.
 
     ighg        = 0
 
@@ -278,6 +282,7 @@ CONTAINS
     config_irad_cfc11 = irad_cfc11
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
+    config_lrad_aero_diag = lrad_aero_diag
     config_ighg       = ighg
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4

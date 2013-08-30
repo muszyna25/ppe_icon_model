@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -79,6 +79,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
   USE mo_o3,                 ONLY: read_amip_o3
+  USE mo_aero_kinne,         ONLY: read_aero_kinne
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -360,7 +361,10 @@ CONTAINS
                                                  ! for linear interp. of monthly means
     END IF
     IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
-       CALL read_amip_o3(datetime%year, p_patch)
+      CALL read_amip_o3(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 13) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
     END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN

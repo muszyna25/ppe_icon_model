@@ -79,6 +79,7 @@ MODULE mo_netcdf_read
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
 
+  PUBLIC :: netcdf_read_0D
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_oncells_2d
   PUBLIC :: netcdf_read_oncells_2D_time
@@ -105,6 +106,10 @@ MODULE mo_netcdf_read
   INTERFACE read_netcdf_data_single
     MODULE PROCEDURE read_netcdf_3d_single
   END INTERFACE read_netcdf_data_single
+
+  INTERFACE netcdf_read_0D
+    MODULE PROCEDURE netcdf_read_REAL_0D_fileid
+  END INTERFACE netcdf_read_0D
 
   INTERFACE netcdf_read_1D
     MODULE PROCEDURE netcdf_read_REAL_1D_filename
@@ -324,6 +329,55 @@ CONTAINS
     return_status = netcdf_close(file_id)
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_1extdim_filename
+  !-------------------------------------------------------------------------
+  FUNCTION netcdf_read_REAL_0D_filename(filename, variable_name)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_0D_filename
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER                      :: file_id
+
+    file_id = netcdf_open_input(filename)
+    netcdf_read_REAL_0D_filename => netcdf_read_REAL_0D_fileid(file_id, variable_name)
+  END FUNCTION netcdf_read_REAL_0D_filename
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_0D_fileid(file_id, variable_name)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_0D_fileid
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: return_status
+    REAL(wp)     :: zlocal(1)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_0D_fileid'
+
+    ! trivial return value.
+    NULLIFY(netcdf_read_REAL_0D_fileid)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+    ENDIF
+
+
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_double(file_id, varid, zlocal(:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(zlocal)
+    ALLOCATE(netcdf_read_REAL_0D_fileid)
+    netcdf_read_REAL_0D_fileid=zlocal(1)
+
+  END FUNCTION netcdf_read_REAL_0D_fileid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

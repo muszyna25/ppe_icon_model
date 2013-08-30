@@ -641,6 +641,8 @@ CONTAINS
                               ! -----
                               !
                               ! indices and dimensions
+        & jg         =jg                   ,&!< in domain index
+        & jb         =jb                   ,&!< in block index
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -1072,6 +1074,8 @@ CONTAINS
                                 ! -----
                                 !
                                 ! indices and dimensions
+          & jg          =jg                  ,&!< in domain index
+          & jb          =jb                  ,&!< in block index
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
@@ -1247,6 +1251,8 @@ CONTAINS
                                 ! -----
                                 !
                                 ! indices and dimensions
+          & jg         =jg                   ,&!< in domain index
+          & jb         =jb                   ,&!< in block index
           & jce        =i_endidx             ,&!< in  end   index for loop over block
           & kbdim      =nproma               ,&!< in  dimension of block over cells
           & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -1369,6 +1375,8 @@ CONTAINS
                               ! -----
                               !
                               ! indices and dimensions
+        & jg         =jg                     ,&!< in domain index
+        & jb         =jb                     ,&!< in block index
         & jce        = i_endidx              ,&!< in  end   index for loop over block
         & kbdim      = rrtm_data%block_size  ,&!< in  dimension of block over cells
         & klev       = rrtm_data%full_levels ,&!< in  number of full levels =  number of layers

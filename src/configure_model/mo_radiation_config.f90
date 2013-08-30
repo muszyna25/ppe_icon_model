@@ -99,6 +99,7 @@ MODULE mo_radiation_config
     INTEGER  :: irad_cfc11  !< CFC 11
     INTEGER  :: irad_cfc12  !< CFC 12
     INTEGER  :: irad_aero   !< aerosols
+    LOGICAL  :: lrad_aero_diag  !< diagnose aerosols
     !
     ! --- Select dynamic greenhouse gases scenario (read from file)
     !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)

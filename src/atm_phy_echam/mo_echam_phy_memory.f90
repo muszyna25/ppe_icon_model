@@ -199,7 +199,17 @@ MODULE mo_echam_phy_memory
       & emterclr    (:,:,:),  &!< [W/m2] terrestrial emissivity, clear sky, net downward
       & emterall    (:,:,:),  & !< [W/m2] terrestrial emissivity, all   sky, net downward
       & o3          (:,:,:)     !< temporary set ozone mass mixing ratio  
-
+    ! aerosol optical properties
+    REAL(wp), POINTER ::      &
+      & aer_aod_533 (:,:,:),  & !< aerosol optical depth at 533 nm
+      & aer_ssa_533 (:,:,:),  & !< aerosol single scattering albedo at 533 nm
+      & aer_asy_533 (:,:,:),  & !< aerosol asymmetry factor at 533 nm
+      & aer_aod_2325(:,:,:),  & !< aerosol optical depth at 2325 nm
+      & aer_ssa_2325(:,:,:),  & !< aerosol single scattering albedo at 2325 nm
+      & aer_asy_2325(:,:,:),  & !< aerosol asymmetry factor at 2325 nm
+      & aer_aod_9731(:,:,:)       !< effective aerosol optical depth at 9731 nm
+            !< the last quantity is in the thermal wavelength ranch, 
+            !< the first lie in the solar spectrum
     ! Cloud and precipitation
     REAL(wp),POINTER ::     &
       & aclc      (:,:,:),  &!< [m2/m2] cloud area fractional
@@ -673,6 +683,52 @@ CONTAINS
     CALL add_var( field_list, prefix//'o3', field%o3,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! aerosol optical properties
+    ! at 533 nm
+    cf_desc    = t_cf_var('aer_aod_533','-','aerosol optical depth at 533 nm', &
+                & DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_533', field%aer_aod_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_ssa_533','-',                                   &
+                & 'aerosol single scattering albedo at 533 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_ssa_533', field%aer_ssa_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_asy_533','-',                                   &
+                & 'aerosol asymmetry factor at 533 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_asy_533', field%aer_asy_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    ! at 2325 nm
+    cf_desc    = t_cf_var('aer_aod_2325','-',                                  &
+                & 'aerosol optical depth at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_2325', field%aer_aod_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_ssa_2325','-',                                  &
+                & 'aerosol single scattering albedo at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_ssa_2325', field%aer_ssa_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_asy_2325','-',                                  &
+                & 'aerosol asymmetry factor at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_asy_2325', field%aer_asy_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    ! at 9731 nm
+    cf_desc    = t_cf_var('aer_aod_9731','-',                                  &
+                & 'effective aerosol optical depth at 9731 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_9731', field%aer_aod_9731,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'q', field%q,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
