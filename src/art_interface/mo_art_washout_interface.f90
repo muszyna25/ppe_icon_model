@@ -55,7 +55,7 @@ MODULE mo_art_washout_interface
     USE mo_art_washout_aerosol,    ONLY:art_aerosol_washout
     USE mo_art_aerosol,            ONLY:p_art_mode,imode_seasa,imode_seasb,imode_seasc, &
         &                               imode_dusta,imode_dustb,imode_dustc
-    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_parameters
+    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
 #endif
 
   IMPLICIT NONE
@@ -123,7 +123,7 @@ jg  = p_patch%id
 
 IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN 
       
-      CALL art_air_parameters(p_patch)
+      CALL art_air_properties(p_patch)
       
       ! ----------------------------------
       ! --- First for modal aerosol

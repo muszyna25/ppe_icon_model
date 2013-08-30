@@ -57,7 +57,7 @@ MODULE mo_art_emission_interface
     USE mo_art_emission_dust,     ONLY: art_emission_dust
     USE mo_art_aerosol,           ONLY: p_art_mode,imode_seasa,imode_seasb,imode_seasc, &
         &                               imode_dusta,imode_dustb,imode_dustc
-    USE mo_art_aerosol_utilities, ONLY: art_modal_parameters,art_air_parameters
+    USE mo_art_aerosol_utilities, ONLY: art_modal_parameters,art_air_properties
 #endif
 
   IMPLICIT NONE
@@ -120,7 +120,7 @@ CONTAINS
    IF (art_config(jg)%lart .AND. art_config(jg)%lart_emiss) THEN
 
      ! First: Modal Parameters 
-       CALL art_air_parameters(p_patch)
+       CALL art_air_properties(p_patch)
        
    ! ----------------------------------
    ! --- sea salt emissions

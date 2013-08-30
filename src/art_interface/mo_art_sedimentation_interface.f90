@@ -57,7 +57,7 @@ MODULE mo_art_sedi_interface
     USE mo_art_data_volc,       ONLY: p_mflx_contra_vsed
     USE mo_art_aerosol,         ONLY: p_art_mode,nmodes,imode_seasa,imode_seasb,imode_seasc
     USE mo_art_sedi_depo,       ONLY: art_calc_v_sed_dep
-    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_parameters
+    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
 #endif
 
   IMPLICIT NONE
@@ -182,7 +182,7 @@ IF(art_config(jg)%lart) THEN
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     ! First calculation of sedimentation and deposition velocity for the modal aerosol
-    CALL art_air_parameters(p_patch)
+    CALL art_air_properties(p_patch)
     DO n=1, nmodes
       CALL art_modal_parameters(p_patch,p_art_mode(n),p_tracer_new,'SEDIMENTATION')
       WRITE(*,*) 'Calculating sedimentation velocity for ', p_art_mode(n)%zname
