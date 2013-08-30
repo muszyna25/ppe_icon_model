@@ -146,7 +146,6 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   !-------------------------------------------------------------------------------
   !z_vn         (1:nproma,1:n_zlev,1:patch_2d%nblks_e)=0.0_wp
   z_adv_flux_h  (:,:,:) = 0.0_wp
-  z_adv_flux_h2 (:,:,:) = 0.0_wp
   z_div_adv_h   (:,:,:) = 0.0_wp
   z_div_diff_h  (:,:,:) = 0.0_wp
   z_diff_flux_h (:,:,:) = 0.0_wp
@@ -902,16 +901,6 @@ END SUBROUTINE advect_diffuse_flux_horz
             inv_prism_thick_new = patch_3D%p_patch_1D(1)%inv_del_zlev_m(jk)
           ENDIF
           !
-          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
-          !    between the high order fluxes (given by the FFSL-scheme) and the low order
-          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
-          !    - positive for outgoing fluxes
-          !    - negative for incoming fluxes
-          !    this sign convention is related to the definition of the divergence operator.
-         IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-           z_mflx_anti(jc,jk,jb,1) =                                                    &
-             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) *inv_prism_thick_new(jc,jk,jb)&
-             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 
           ! IF( patch_3D%lsm_c(jc,jk,jb) > sea_boundary ) &
             !& CALL finish("","patch_3D%lsm_c(jc,jk,jb) > sea_boundar")
