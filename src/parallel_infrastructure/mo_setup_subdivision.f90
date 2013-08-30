@@ -1101,7 +1101,7 @@ CONTAINS
            = PACK(flag_v_list(0)%idx(1:n_ilev_v(0)), &
            .NOT. promote(1:n_ilev_v(0)))
 
-      IF (order_type_of_halos == 0) THEN
+      IF (order_type_of_halos == 0 .OR. order_type_of_halos == 2 ) THEN
         promote = .FALSE.
         k_v = 0
       END IF
