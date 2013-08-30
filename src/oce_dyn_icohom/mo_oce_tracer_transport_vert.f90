@@ -245,7 +245,7 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        DO k = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+        DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             jkm1 = jk - 1
             ! calculate vertical tracer flux using upwind method
              pupflux_i(jc,jk,jb) =                 &
