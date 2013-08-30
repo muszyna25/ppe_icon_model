@@ -59,6 +59,7 @@ dt_diag=`expr ${nhours} \* 3600` # [s]
 ndays=10
 dt_file=`expr ${ndays} \* 86400` # [s]
 #
+steps_per_file = dt_file/dt_data
 #-----------------------------------------------------------------------------
 # model parameters
 #
@@ -68,6 +69,11 @@ atmo_model_equations=1   # equation system
 #                          2: hydrostatic atm., theta*dp
 #                          3: non-hydrostatic atmosphere
 #                         -1: hydrostatic ocean
+#
+#-----------------------------------------------------------------------------
+# define variable names
+#
+dict_file='dict.r2b4_amip__cmor'
 #
 #-----------------------------------------------------------------------------
 # horizontal grid
@@ -92,6 +98,8 @@ cat > $atmo_namelist << EOF
  nproma          = ${nproma}
  use_icon_comm   = .true.
  max_send_recv_buffer_size = 262144
+ p_test_run      = .false.
+ l_log_checks    = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -107,18 +115,34 @@ cat > $atmo_namelist << EOF
  ltimer          = .TRUE.
  timers_level    = 5
  activate_sync_timers = .TRUE.
- output="vlist",
+ output="nml"
 /
-&testcase_nml
+&ha_testcase_nml
  ctest_name      = 'JWw'            ! test case identifier
 /
 &io_nml
- out_expname     = '${EXPNAME}'     ! file name base
- dt_data         = ${dt_data}       ! [s]
- dt_diag         = ${dt_diag}       ! [s]
- dt_checkpoint   = ${dt_checkpoint} ! [s]
- dt_file         = ${dt_file}       ! [s]
+ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
+! output_nml_dict  = '${dict_file}'
+! netcdf_dict      = '${dict_file}'
 /
+&output_nml
+ output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}"
+!!! ml_varlist       = 'ps'      , 'ta'      ,
+!                    'hus'     , 'clw'     , 'cli'     ,
+!                    'ua'      , 'va'      , 'wap'     ,
+!                    'pfull'   , 'gpfull'
+ ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
+/
+!&io_nml
+! out_expname     = '${EXPNAME}'     ! file name base
+! dt_data         = ${dt_data}       ! [s]
+! dt_diag         = ${dt_diag}       ! [s]
+! dt_checkpoint   = ${dt_checkpoint} ! [s]
+! dt_file         = ${dt_file}       ! [s]
+!/
 &dynamics_nml
  iequations      = ${atmo_model_equations}
 /

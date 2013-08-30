@@ -47,6 +47,7 @@ dt_file=`expr 1 \* 86400 `        # write a data file for every day
 dt_data=21600.                    # write output every 6 hours
 dt_rad=3600.                      # compute radiative transfer every hour
 dt_checkpoint=${dt_checkpoint:=`expr 1 \* 86400 `}  # write restart file every day
+steps_per_file = dt_file/dt_data
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -63,8 +64,10 @@ iforcing=2        # ECHAM physics
 atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
-
-
+# define variable names
+#
+dict_file='dict.r2b4_amip__cmor'
+#
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 #
@@ -79,6 +82,8 @@ cat > ${atmo_namelist} << EOF
  use_icon_comm   = .true.
  icon_comm_debug = .false.
  max_send_recv_buffer_size = 262144
+ p_test_run      = .false.
+ l_log_checks    = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -96,7 +101,7 @@ cat > ${atmo_namelist} << EOF
  ltimer = .TRUE.
  timers_level = 5
  activate_sync_timers = .TRUE.
- output="vlist",
+ output="nml"
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}
@@ -110,14 +115,20 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa    = 0.75    ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! [s] time interval for data output
- dt_file          = ${dt_file}       ! [s] time interval for new output files
- dt_checkpoint    = ${dt_checkpoint} ! [s] time interval for re-start files
- lwrite_tend_phy  = .FALSE.  ! .TRUE.: additional output for physics tendencies
- lwrite_radiation = .FALSE. ! .TRUE.: additional output for radiation
- lwrite_cloud     = .TRUE.  ! .TRUE.: additional output for cloud
- lwrite_precip    = .TRUE.  ! .TRUE.: additional output for precipitation
+ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
+! output_nml_dict  = '${dict_file}'
+! netcdf_dict      = '${dict_file}'
+/
+&output_nml
+ output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}"
+!!! ml_varlist       = 'ps'      , 'ta'      ,
+!                    'hus'     , 'clw'     , 'cli'     ,
+!                    'ua'      , 'va'      , 'wap'     ,
+!                    'pfull'   , 'gpfull'
+ ml_varlist       = 'prm_r','prm_qvi','prm_xlvi','prm_xivi','prm_evap','ha_diag_u','ha_diag_v','ha_diag_rel_vort_c','ha_diag_div','prm_t','prm_omega','prm_vo','prm_aclc','prm_rsfl','prm_rsfc','prm_totprec_avg','prm_lhflx','prm_shflx','prm_swflxsfc','prm_lwflxsfc','prm_tsfc','prm_flxdwswtoa'
 /
 &transport_nml
  ctracer_list='vwi'         ! v: water vapour, w: cloud water, i: cloud ice
