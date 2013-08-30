@@ -129,6 +129,7 @@ CONTAINS
     CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
 !     CALL close_grid_connectivity(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, 0)
+    CALL set_patch_ids(out_grid_id, 1)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
     CALL check_ocean_grid_mask(out_grid_id)
     CALL delete_grid(out_grid_id)
@@ -163,6 +164,7 @@ CONTAINS
     CALL delete_grid(in_grid_id)
     CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
 !     CALL close_grid_connectivity(out_grid_id)
+    CALL set_patch_ids(out_grid_id, 1)
     CALL set_grid_parent_id(out_grid_id, 0)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
     CALL delete_grid(out_grid_id)
@@ -199,6 +201,7 @@ CONTAINS
     CALL create_grid_hierarchy(out_grid_id) ! define the lateral entities to avoid meaningless calculations
 !     CALL close_grid_connectivity(out_grid_id)
     CALL set_grid_parent_id(out_grid_id, 0)
+    CALL set_patch_ids(out_grid_id, 1)
     CALL write_netcdf_grid(out_grid_id, out_file_name)
     CALL delete_grid(out_grid_id)
 
