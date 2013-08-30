@@ -82,7 +82,7 @@ cat > ${atmo_namelist} << EOF
  use_icon_comm   = .true.
  icon_comm_debug = .false.
  max_send_recv_buffer_size = 262144
- p_test_run      = .false.
+ p_test_run      = .true.
  l_log_checks    = .true.
 /
 &grid_nml
