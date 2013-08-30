@@ -620,7 +620,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvFluxDiff:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
