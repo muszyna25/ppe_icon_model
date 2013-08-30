@@ -4387,7 +4387,7 @@ SUBROUTINE turbdiff
             DO i=istartpar,iendpar
                diff_dep(i,k)=hhl(i,k-1)-hhl(i,k)
                expl_mom(i,k)=rhoh(i,k-1)*z1d2*(cur_prof(i,k-1)+cur_prof(i,k))/diff_dep(i,k)
-               impl_mom(i,k)=rhoh(i,k-1)*diff_dep(i,k)*fr_tke
+! DYN.IMPL_WEIGHT:                impl_mom(i,k)=rhoh(i,k-1)*diff_dep(i,k)*fr_tke
             END DO
 !print *,"k=",k," cur_prof=",cur_prof(im,k)," a5=",diff_dep(im,k)
          END DO
@@ -4468,7 +4468,7 @@ SUBROUTINE turbdiff
          CALL prep_impl_vert_diff ( lsflucond=.FALSE.,        &
               i_st=istartpar, i_en=iendpar, k_tp=1, k_sf=ke1, &
               rho_dz_o_dt=dicke, rho_tkv_o_dz=expl_mom,       &
-! JF:               rho_dz_o_dt_fl=impl_mom,                        &
+! DYN.IMPL_WEIGHT:               rho_dz_o_dt_fl=impl_mom,                        &
               a_k=a_k, cp_k=cp_k, i_k=i_k, d_k=d_k )
 
          CALL calc_impl_vert_diff ( itndcon=0,                &
@@ -6634,7 +6634,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      DO k=k_hi+1,k_lw
 !DIR$ IVDEP
         DO i=i_st,i_en
-           impl_mom(i,k)=rhon(i,k)*diff_dep(i,k)*fr_var
+! DYN.IMPL_WEIGHT:            impl_mom(i,k)=rhon(i,k)*diff_dep(i,k)*fr_var
            expl_mom(i,k)=MAX( tkmin, tkv(i,k) ) &
                           *rhon(i,k)/diff_dep(i,k)
         END DO
@@ -6642,7 +6642,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 !DIR$ IVDEP
      DO i=i_st,i_en
         diff_dep(i,k_sf)=dzs(i)
-        impl_mom(i,k_sf)=rhon(i,k_sf)*diff_dep(i,k_sf)*fr_var
+! DYN.IMPL_WEIGHT:         impl_mom(i,k_sf)=rhon(i,k_sf)*diff_dep(i,k_sf)*fr_var
         expl_mom(i,k_sf)=rhon(i,k_sf)*tkv(i,k_sf)/diff_dep(i,k_sf)
      END DO
      !Attention: 'tkmin' should be excluded for the surface level 'k_sf'!
@@ -6658,7 +6658,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      CALL prep_impl_vert_diff ( lsflucond=lsflucond,    &
           i_st=i_st, i_en=i_en, k_tp=k_tp, k_sf=k_sf,   &
           rho_dz_o_dt=disc_mom, rho_tkv_o_dz=expl_mom,  &
-! JF:           rho_dz_o_dt_fl=impl_mom,                      &
+! DYN.IMPL_WEIGHT:           rho_dz_o_dt_fl=impl_mom,                      &
           a_k=a_k, cp_k=cp_k, i_k=i_k, d_k=d_k )
 
   END IF
