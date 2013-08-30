@@ -1057,7 +1057,8 @@ CONTAINS
           jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
           jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
           jc = idx_1d(jl,jb)
-          promote(j) = promote(j) .OR. ANY(flag_c_list(1)%idx == jc)
+          promote(j) = promote(j) .OR. &
+            ANY(flag_c_list(1)%idx(1:n_ilev_c(1)) == jc)
         ENDDO
         k_v = k_v + MERGE(1, 0, promote(j))
       END DO
@@ -1078,7 +1079,7 @@ CONTAINS
         END DO
         CALL insertion_sort(t_cells(1:n))
         t_cell_owner(1:n) = cell_owner(t_cells(1:n))
-        jc = COUNT(t_cell_owner >= 0)
+        jc = COUNT(t_cell_owner(1:n) >= 0)
         t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
         n = jc
         a_iown(1) = t_cell_owner(1)
