@@ -54,7 +54,7 @@ MODULE mo_art_sedi_interface
     USE mo_loopindices,          ONLY: get_indices_c
 #ifdef __ICON_ART
     USE mo_art_sedi_volc,       ONLY: art_sedi_volc
-    USE mo_art_data_volc,       ONLY: p_mflx_contra_vsed
+    USE mo_art_aerosol,         ONLY: p_mflx_contra_vsed
     USE mo_art_aerosol,         ONLY: p_art_mode,nmodes,imode_seasa,imode_seasb,imode_seasc
     USE mo_art_sedi_depo,       ONLY: art_calc_v_sed_dep
     USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
