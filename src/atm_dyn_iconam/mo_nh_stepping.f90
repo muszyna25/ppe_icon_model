@@ -513,8 +513,10 @@ MODULE mo_nh_stepping
     IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
-    WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
-    CALL message(TRIM(routine),message_text)
+    IF (msg_level >= 2 .OR. jstep == 1 .OR. MOD(jstep,100) == 0) THEN
+      WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
+      CALL message(TRIM(routine),message_text)
+    ENDIF
 
     IF ( check_newday(datetime_old,datetime) ) THEN
 
@@ -872,7 +874,7 @@ MODULE mo_nh_stepping
     IF (jg == 1 .AND. l_limited_area) THEN
 
       n_save = nsav2(jg)
-      CALL message(TRIM(routine), TRIM(message_text))
+   !   CALL message(TRIM(routine), TRIM(message_text))
 
       IF (latbc_config%itype_latbc .GT. 0) THEN
         

@@ -34,6 +34,12 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+! (GZ, 2013-08-30): So far, the Cray compiler is the only one for which an OpenMP parallelization
+! of copying data into / back from the MPI-buffer seems to give a benefit. Further compilers may
+! be added here once the OpenMP implementation is sufficiently efficient
+#if (defined(_CRAYFTN) )
+#define __OMPPAR_COPY__
+#endif
 MODULE mo_communication
 !-------------------------------------------------------------------------
 !
@@ -864,10 +870,16 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
        ENDDO
      ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO
+#endif
      DO i = 1, p_pat%n_send
        send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
          &                            p_pat%send_src_blk(i)-lbound3+1)
      ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
    ENDIF
 
@@ -1027,11 +1039,17 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
          ENDDO
        ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO
+#endif
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) =   &
            recv_buf(:,p_pat%recv_src(i)) +                       &
            add(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i))
        ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
      ENDIF
    ELSE
@@ -1051,10 +1069,16 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
          ENDDO
        ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO
+#endif
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
            recv_buf(:,p_pat%recv_src(i))
        ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
      ENDIF
    ENDIF
@@ -1929,6 +1953,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      ENDDO
    ENDIF
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl)
+#endif
    DO i = 1, p_pat%n_send
      jb = p_pat%send_src_blk(i)
      jl = p_pat%send_src_idx(i)
@@ -1946,6 +1973,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        ENDDO
      ENDIF
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
 
 
@@ -2115,6 +2145,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      ENDDO
    ENDIF
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+#endif
    DO i = 1, p_pat%n_pnts
      jb = p_pat%recv_dst_blk(i)
      jl = p_pat%recv_dst_idx(i)
@@ -2133,6 +2166,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        ENDDO
      ENDIF
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
 
 #ifdef __BOUNDCHECK
@@ -2241,6 +2277,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDIF
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl,noffset)
+#endif
    DO i = 1, p_pat%n_send
      jb = p_pat%send_src_blk(i)
      jl = p_pat%send_src_idx(i)
@@ -2260,6 +2299,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
        ENDDO
      ENDIF
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
 
 
@@ -2402,6 +2444,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,noffset)
+#endif
    DO i = 1, p_pat%n_pnts
      jb = p_pat%recv_dst_blk(i)
      jl = p_pat%recv_dst_idx(i)
@@ -2413,6 +2458,9 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
        ENDDO
      ENDDO
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
 #endif
    IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
@@ -3206,7 +3254,13 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL
+#endif
    DO np = 1, npats
+#ifdef __OMPPAR_COPY__
+!$OMP DO PRIVATE(jl)
+#endif
      DO i = 1, p_pat(np)%n_send
        jl = p_pat(np)%send_src_idx(i)
        DO n = 1, nfields
@@ -3216,7 +3270,13 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDDO
        ENDDO
      ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL
+#endif
 #endif
 
    IF (iorder_sendrecv <= 1) THEN
@@ -3363,7 +3423,13 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ENDDO
 #else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL
+#endif
    DO np = 1, npats
+#ifdef __OMPPAR_COPY__
+!$OMP DO PRIVATE(jb,jl,ik)
+#endif
      DO i = 1, p_pat(np)%n_pnts
        jb = p_pat(np)%recv_dst_blk(i)
        jl = p_pat(np)%recv_dst_idx(i)
@@ -3374,7 +3440,13 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDDO
        ENDDO
      ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
    ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL
+#endif
 #endif
 
    IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
