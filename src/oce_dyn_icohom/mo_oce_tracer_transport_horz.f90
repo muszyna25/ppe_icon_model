@@ -131,7 +131,6 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   INTEGER  :: jc, jk, jb, je
 
   REAL(wp) :: z_adv_flux_h (nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
-  REAL(wp) :: z_adv_flux_h2(nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_div_adv_h  (nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)   ! horizontal tracer divergence
   REAL(wp) :: z_div_diff_h (nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! horizontal tracer divergence
   REAL(wp) :: z_diff_flux_h(nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_e) ! horizontal diffusive tracer flux
@@ -287,15 +286,6 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
                             & z_adv_flux_h,           &
                             & p_op_coeff,             & 
                             & h_old,h_new)     
-    !DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-    !  CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-    !  DO jk = 1, n_zlev
-    !    DO je = i_startidx_e, i_endidx_e
-    !      write(123,*)'before after limiter',je,jk,jb, z_adv_flux_h2(je,jk,jb),z_adv_flux_h(je,jk,jb),&
-    !     &z_adv_flux_h2(je,jk,jb)-z_adv_flux_h(je,jk,jb)
-    !    END DO
-    !  END DO
-    !END DO 
   ENDIF
   IF (ltimer) CALL timer_stop(timer_hflx_lim)
 
@@ -322,12 +312,8 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jk = 1, n_zlev
-      delta_z = patch_3D%p_patch_1D(1)%del_zlev_m(jk) !v_base%del_zlev_m(jk)
-
       DO jc = i_startidx_c, i_endidx_c
-        !IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
         flux_horz(jc,jk,jb) = z_div_diff_h(jc,jk,jb)-z_div_adv_h(jc,jk,jb)
-        !ENDIF
       END DO
     END DO
   END DO
@@ -340,7 +326,6 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h  ,str_module,idt_src,cells_in_domain)
   CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h ,str_module,idt_src,cells_in_domain)
   CALL dbg_print('AdvDifHorz: flux_horz'      ,flux_horz    ,str_module,idt_src,cells_in_domain)
-
   !---------------------------------------------------------------------
 
 END SUBROUTINE advect_diffuse_flux_horz
@@ -917,6 +902,16 @@ END SUBROUTINE advect_diffuse_flux_horz
             inv_prism_thick_new = patch_3D%p_patch_1D(1)%inv_del_zlev_m(jk)
           ENDIF
           !
+          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
+          !    between the high order fluxes (given by the FFSL-scheme) and the low order
+          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
+          !    - positive for outgoing fluxes
+          !    - negative for incoming fluxes
+          !    this sign convention is related to the definition of the divergence operator.
+         IF( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+           z_mflx_anti(jc,jk,jb,1) =                                                    &
+             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) *inv_prism_thick_new(jc,jk,jb)&
+             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 
           ! IF( patch_3D%lsm_c(jc,jk,jb) > sea_boundary ) &
             !& CALL finish("","patch_3D%lsm_c(jc,jk,jb) > sea_boundar")
@@ -949,6 +944,8 @@ END SUBROUTINE advect_diffuse_flux_horz
         ENDDO
       ENDDO
     ENDDO
+! !$OMP END DO
+! !$OMP END PARALLEL
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
