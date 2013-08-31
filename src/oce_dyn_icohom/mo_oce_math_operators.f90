@@ -43,6 +43,7 @@ MODULE mo_oce_math_operators
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
+!  USE mo_exception,          ONLY: finish
   USE mo_run_config,         ONLY: ltimer
   USE mo_math_constants
   USE mo_physical_constants
@@ -683,9 +684,18 @@ CONTAINS
         ! compute the normal derivative
         ! by the finite difference approximation
         ! (see Bonaventura and Ringler MWR 2005)
-        grad_norm_psi_e(je,jb) =  &
-          & (psi_c(iidx(je,jb,2),iblk(je,jb,2))-psi_c(iidx(je,jb,1),iblk(je,jb,1)))& 
-          & * grad_coeff(je,jb)
+        IF (iidx(je,jb,1) < 1 .or. iidx(je,jb,2) < 1) THEN
+!          IF (grad_coeff(je,jb) /= 0.0_wp) THEN
+!            CALL finish("grad_fd_norm_oce_2d_3d","grad_coeff(je,jb) /= 0.0_wp")
+!          ELSE
+            grad_norm_psi_e(je,jb) = 0.0_wp
+!          ENDIF
+        ELSE
+          grad_norm_psi_e(je,jb) =  &
+            & (psi_c(iidx(je,jb,2),iblk(je,jb,2))-psi_c(iidx(je,jb,1),iblk(je,jb,1)))&
+            & * grad_coeff(je,jb)
+        ENDIF
+
       END DO
     END DO
 ! !$OMP END DO

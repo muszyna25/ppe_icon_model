@@ -75,6 +75,9 @@ USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_E, sync_patch_array
 USE mo_timer,                     ONLY: timer_start, timer_stop,&
   &                                     timer_dif_vert
+USE mo_statistics,                ONLY: global_minmaxmean
+USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
+
 IMPLICIT NONE
 
 PRIVATE
@@ -119,6 +122,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   REAL(wp) :: zlat, zlon
   REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: minmaxmean(3)
   TYPE(t_subset_range), POINTER :: cells_in_domain
   TYPE(t_patch), POINTER         :: p_patch 
   !-------------------------------------------------------------------------------
@@ -225,68 +229,111 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !!Commented out because of NAG-compiler, PK 
 !TODO review IF statements concerning tracer transport
   IF (no_tracer>=1) THEN
-  DO jk = 1, n_zlev
+    DO jk = 1, n_zlev
 
-    ! Abort if tracer is below or above threshold, read from namelist
+!      ! Abort if tracer is below or above threshold, read from namelist
+!      ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
+!      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<threshold_min_T) THEN
+!        write(0,*) ' TEMPERATURE BELOW THRESHOLD = ', threshold_min_T
+!        iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+!        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+!        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+!        write(0,*) ' too low temperature at jk =', jk, &
+!          &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+!        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+!        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+!        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+!          &              'Temperature below threshold')
+!      ENDIF
+!
+!      ! Temperature: >100 deg C aborts
+!      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))>threshold_max_T) THEN
+!        write(0,*) ' TEMPERATURE ABOVE THRESHOLD = ', threshold_max_T
+!        iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+!        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+!        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+!        write(0,*) ' too high temperature at jk =', jk, &
+!          &        MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
+!        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+!        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+!        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+!          &              'Temperature above threshold')
+!      ENDIF
+!    END DO
 
-    ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
-    IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))<threshold_min_T) THEN
-      write(0,*) ' TEMPERATURE BELOW THRESHOLD = ', threshold_min_T
-      iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-      zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-      zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-      write(0,*) ' too low temperature at jk =', jk, &
-        &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-      write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-      write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-      CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-        &              'Temperature below threshold')
-    ENDIF
+      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,:,:,1), &
+         & range_subset=cells_in_domain, start_level=jk, end_level=jk)
+      IF (my_process_is_stdio()) THEN
+        ! Abort if tracer is below or above threshold, read from namelist
+        ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
+        IF (minmaxmean(1) < threshold_min_T) THEN
+          write(0,*) ' TEMPERATURE BELOW THRESHOLD = ', threshold_min_T
+          write(0,*) ' too low temperature at jk =', jk, minmaxmean(1)
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+            &              'Temperature below threshold')
+        ENDIF
 
-    ! Temperature: >100 deg C aborts
-    IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,1))>threshold_max_T) THEN
-      write(0,*) ' TEMPERATURE ABOVE THRESHOLD = ', threshold_max_T
-      iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-      zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-      zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-      write(0,*) ' too high temperature at jk =', jk, &
-        &        MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,1))
-      write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-      write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-      CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-        &              'Temperature above threshold')
-    ENDIF
-  END DO
+        ! Temperature: >100 deg C aborts
+        IF (minmaxmean(2) > threshold_max_T) THEN
+          write(0,*) ' TEMPERATURE ABOVE THRESHOLD = ', threshold_max_T
+          write(0,*) ' too high temperature at jk =', jk, minmaxmean(2)
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+            &              'Temperature above threshold')
+        ENDIF
+      ENDIF
+
+    END DO
   ENDIF
+
   IF (no_tracer>=2)THEN
     DO jk = 1, n_zlev
 
-      ! Abort if salinity is negative:
-      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<threshold_min_S) THEN
-        write(0,*) ' SALINITY BELOW THRESHOLD = ', threshold_min_S
-        iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-        write(0,*) ' too low salinity at jk =', jk, &
-          &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-          &            'SALINITY NEGATIVE')
-      ENDIF
+!      ! Abort if salinity is negative:
+!      IF (MINVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))<threshold_min_S) THEN
+!        write(0,*) ' SALINITY BELOW THRESHOLD = ', threshold_min_S
+!        iloc(:) = MINLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+!        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+!        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+!        write(0,*) ' too low salinity at jk =', jk, &
+!          &        MINVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+!        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+!        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+!        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+!          &            'SALINITY NEGATIVE')
+!      ENDIF
+!
+!      ! Abort if salinity is >60 psu:
+!      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))>threshold_max_S) THEN
+!        write(0,*) ' SALINITY ABOVE THRESHOLD = ', threshold_max_S
+!        iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+!        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+!        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+!        write(0,*) ' too high salinity at jk =', jk, &
+!        &MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
+!        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+!        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
+!        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+!          &            'TOO LARGE SALINITY')
+!      ENDIF
 
-      ! Abort if salinity is >60 psu:
-      IF (MAXVAL(p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2))>threshold_max_S) THEN
-        write(0,*) ' SALINITY ABOVE THRESHOLD = ', threshold_max_S
-        iloc(:) = MAXLOC(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-        zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
-        zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-        write(0,*) ' too high salinity at jk =', jk, &
-        &MAXVAL(p_os%p_prog(nnew(1))%tracer(:,jk,:,2))
-        write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
-        write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
-        CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-          &            'TOO LARGE SALINITY')
+      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,:,:,2), &
+         & range_subset=cells_in_domain, start_level=jk, end_level=jk)
+
+      IF (my_process_is_stdio()) THEN
+        ! Abort if salinity is negative:
+        IF (minmaxmean(1) < threshold_min_S) THEN
+          write(0,*) ' SALINITY BELOW THRESHOLD = ', threshold_min_S
+          write(0,*) ' too low salinity at jk =', jk, minmaxmean(1)
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+            &            'SALINITY NEGATIVE')
+        ENDIF
+        ! Abort if salinity is >60 psu:
+        IF (minmaxmean(2) > threshold_max_S) THEN
+          write(0,*) ' SALINITY ABOVE THRESHOLD = ', threshold_max_S
+          write(0,*) ' too high salinity at jk =', jk, minmaxmean(2)
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+            &            'TOO LARGE SALINITY')
+        ENDIF
       ENDIF
 
     END DO
@@ -562,12 +609,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   flux_vert   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
-  trac_new(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)  = 0.0_wp
+  trac_new(:,:,:)  = 0.0_wp
 
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=1  ! output print level (1-5, fix)
-  CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src)
+  CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
   !content = tracer_content(p_patch, trac_old, p_os%p_prog(nold(1))%h)
   !content_old=content
@@ -649,7 +696,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
               z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
-               & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))/delta_z_new
+               & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
  
               z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
                 & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))! * dt_inv
@@ -688,6 +735,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src, in_subset=cells_in_domain)
       CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: flux_vert',flux_vert  , str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: flux_horz',flux_horz  , str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
       IF (ltimer) CALL timer_start(timer_dif_vert)

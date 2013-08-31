@@ -339,7 +339,7 @@ CONTAINS
 
       IF (ASSOCIATED(range_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx)
-!ICON_OMP FIRSTPRIVATE(min_in_block, max_in_block, sum_value, number_of_values) &
+!ICON_OMP FIRSTPRIVATE(min_value, max_value, sum_value, number_of_values) &
 !ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value) reduction(sum:number_of_values)
         DO block = range_subset%start_block, range_subset%end_block
           CALL get_index_range(range_subset, block, startidx, endidx)

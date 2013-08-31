@@ -1090,7 +1090,7 @@ CONTAINS
 ! !     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     REAL(wp)                          :: A_v(:,:,:)                                   !vertical mixing coeff
-! !     REAL(wp), INTENT(OUT)             :: trac_out(:,:,:)                              !new tracer
+! !     REAL(wp), INTENT(inout)             :: trac_out(:,:,:)                              !new tracer
 ! !     INTEGER                           :: timestep
 ! !     REAL(wp)                          :: delta_t
 ! !     REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)

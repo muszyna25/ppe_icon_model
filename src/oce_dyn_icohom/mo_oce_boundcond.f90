@@ -104,7 +104,7 @@ CONTAINS
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
     REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
     REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), INTENT(out) :: top_bc_u_cc(:,:)
+    TYPE(t_cartesian_coordinates), INTENT(inout) :: top_bc_u_cc(:,:)
     
     !Local variables
     INTEGER :: jc, jb
@@ -641,7 +641,7 @@ CONTAINS
     TYPE(t_patch)    , TARGET, INTENT(in) :: p_patch              ! patch on which computation is performed
     TYPE(t_hydro_ocean_state), INTENT(in) :: pstate_oce           ! ocean state variable
     INTEGER, INTENT(in)                   :: tracer_id
-    REAL(wp), INTENT(out)                 :: bot_bc_tracer(:,:,:) !Bottom boundary condition at cells for all tracers
+    REAL(wp), INTENT(inout)                 :: bot_bc_tracer(:,:,:) !Bottom boundary condition at cells for all tracers
     
     !Local variables
     INTEGER :: jc, jb

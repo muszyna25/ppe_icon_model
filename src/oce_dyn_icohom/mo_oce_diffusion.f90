@@ -559,14 +559,14 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !CALL rot_vertex_ocean_3D( p_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
     !CALL sync_patch_array(SYNC_V,p_patch,z_rot_v)
     !z_rot_v=vort
-    !
-    !  loop through all patch edges (and blocks)
-    !
+    nabla2_vec_e(:,:,:) = 0.0_wp
+
     IF(PRESENT(k_h))THEN
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
-        DO jk = slev, elev
+        ! DO jk = slev, elev
+        DO jk = slev, p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
 
 !              write(0, *) "==============================="
 !              write(0, *) "0",  je,jk,jb
@@ -580,15 +580,16 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 !              write(0,*)  "8",  z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1))
 !              write(0,*)  "9",  p_patch%edges%inv_dual_edge_length(je,jb)
           !IF(v_base%lsm_e(je,jk,jb) < land_boundary)THEN
-          nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)*&    !v_base%wet_e(je,jk,jb)*&
-            &k_h(je,jk,jb)*(   &
-            & p_patch%edges%system_orientation(je,jb) *     &
-            & ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
-            & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
-            & * p_patch%edges%inv_primal_edge_length(je,jb) &
-            & + &
-            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))     &
-            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )   &
+
+          nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)* &    !v_base%wet_e(je,jk,jb)*&
+            & k_h(je,jk,jb) * (                                &
+            & p_patch%edges%system_orientation(je,jb) *        &
+            & ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))         &
+            & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )       &
+            & * p_patch%edges%inv_primal_edge_length(je,jb)    &
+            & +                                                &
+            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))      &
+            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )    &
             & * p_patch%edges%inv_dual_edge_length(je,jb))
         END DO
       END DO
@@ -752,7 +753,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 ! !   !REAL(wp), INTENT(inout)           :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 ! !   TYPE(t_ho_params), INTENT(in)     :: p_param
 ! !   TYPE(t_hydro_ocean_diag)          :: p_diag
-! !   REAL(wp), INTENT(out)             :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+! !   REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 ! !   !
 ! !   !Local variables
 ! !   INTEGER :: slev, elev
@@ -1169,7 +1170,7 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
   REAL(wp), INTENT(in)              :: trac_c       (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)              :: top_bc_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)              :: A_v(:,:,:) 
-  REAL(wp), INTENT(out)             :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(inout)             :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !
   !Local variables
   INTEGER                       :: slev, elev
@@ -1251,7 +1252,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !   REAL(wp), INTENT(inout)           :: field_column(:,:,:)
 !   REAL(wp), INTENT(IN)              :: h_c(:,:)           !surface height, relevant for thickness of first cell 
 !   REAL(wp), INTENT(in)              :: A_v(:,:,:)
-!   REAL(wp), INTENT(out)             :: diff_column(:,:,:)
+!   REAL(wp), INTENT(inout)             :: diff_column(:,:,:)
 !   !
 !   !Local variables
 !   INTEGER :: slev
@@ -1489,7 +1490,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
   REAL(wp), INTENT(IN)              :: h_e(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   REAL(wp), INTENT(inout)           :: A_v(:,:,:)   
   TYPE(t_operator_coeff), TARGET    :: p_op_coeff
-  REAL(wp), INTENT(out)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+  REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !
   !Local variables
   INTEGER :: slev

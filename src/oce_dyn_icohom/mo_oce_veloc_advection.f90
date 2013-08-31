@@ -1139,7 +1139,7 @@ CONTAINS
 !     !
 !     ! variable in which horizontally advected velocity is stored
 !     !
-!     REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
+!     REAL(wp), INTENT(inout) :: veloc_adv_horz_e(:,:,:)
 !     !
 !     !Interpolation necessary just for testing
 !     TYPE(t_int_state),TARGET,INTENT(in)  :: p_int

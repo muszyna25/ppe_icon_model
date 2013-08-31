@@ -393,7 +393,7 @@ END SUBROUTINE construct_oce_diagnostics
 SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
   INTEGER,  INTENT(IN)  :: jb,jc,max_vertical_level
   REAL(wp), INTENT(IN)  :: prism_area, surface_height, thicknesses(:)
-  REAL(wp), INTENT(OUT) :: volume
+  REAL(wp), INTENT(inout) :: volume
 
   INTEGER :: jk
   REAL(wp) :: surface_height_,prism_vol_
@@ -964,7 +964,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
                                                      ! dims: (nproma,nlev,alloc_cell_blocks)
-  REAL(wp), INTENT(OUT)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
+  REAL(wp), INTENT(inout)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables

@@ -47,7 +47,7 @@ MODULE mo_grid_tools
   USE mo_math_types
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
     & block_no, index_no, index_1d
-  USE mo_impl_constants,     ONLY: on_cells, on_edges, on_vertices
+  USE mo_impl_constants,     ONLY: on_cells, on_edges, on_vertices, land
   USE mo_mpi,                ONLY: get_my_mpi_work_id
   
   IMPLICIT NONE
@@ -504,6 +504,20 @@ CONTAINS
     END DO
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
+
+    ! make dummy land
+    patch_3D%lsm_c(dummy_cell_idx,:,dummy_cell_blk)                       = land
+    patch_3D%surface_cell_sea_land_mask(dummy_cell_idx,dummy_cell_blk)    = land
+    patch_3D%wet_c(dummy_cell_idx,:,dummy_cell_blk)                       = 0.0_wp
+    patch_3D%wet_halo_zero_c(dummy_cell_idx,:,dummy_cell_blk)             = 0.0_wp
+    patch_3D%basin_c(dummy_cell_idx,dummy_cell_blk)                       = 0
+    patch_3D%regio_c(dummy_cell_idx,dummy_cell_blk)                       = 0
+    patch_3D%bottom_thick_c(dummy_cell_idx,dummy_cell_blk)                = 0.0_wp
+    patch_3D%column_thick_c(dummy_cell_idx,dummy_cell_blk)                = 0.0_wp
+
+    patch_3D%p_patch_1D(1)%dolic_c(dummy_cell_idx,dummy_cell_blk)         = 0
+    patch_3D%p_patch_1D(1)%prism_thick_c(dummy_cell_idx,:,dummy_cell_blk) = 0.0_wp
+    patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(dummy_cell_idx,:,dummy_cell_blk) = 0.0_wp
 
   END SUBROUTINE create_dummy_cell_closure
   !-----------------------------------------------------------------------

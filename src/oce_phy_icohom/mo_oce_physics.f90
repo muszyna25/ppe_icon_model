@@ -292,7 +292,7 @@ CONTAINS
   !
   SUBROUTINE calc_lower_bound_veloc_diff(  p_patch, lower_bound_diff )
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-    REAL(wp), INTENT(OUT)              :: lower_bound_diff
+    REAL(wp), INTENT(inout)              :: lower_bound_diff
 
     ! Local variables
     REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp

@@ -286,6 +286,10 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, p_os%p_diag%thick_c)
       CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nold(1))%h)
       
+      CALL dbg_print('bef ocean_gmres: h-old',p_os%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
+      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * p_os%p_prog(nold(1))%h(:,:)
+      CALL dbg_print('bef ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
+
       SELECT CASE (select_solver)
 
       !-----------------------------------------------------------------------------------------
@@ -842,7 +846,7 @@ CONTAINS
         
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src = 5  ! output print level (1-5, fix)
-        CALL dbg_print('Aft fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src)
+        CALL dbg_print('Aft fin term: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
         !---------------------------------------------------------------------
         
       ELSEIF(l_rigid_lid)THEN
@@ -944,6 +948,7 @@ CONTAINS
       ENDIF
     ENDIF
     
+    CALL dbg_print('Bef veloc_diff_vert: vn_pred'      ,p_os%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
     !In 3D case and if implicit vertical velocity diffusion is chosen
     IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
       

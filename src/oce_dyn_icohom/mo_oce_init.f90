@@ -3231,8 +3231,8 @@ stop
     REAL(wp), INTENT(in)  :: p_alpha   ! ROTATION ANGLE
 
 ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(out) :: p_rotlon  ! ROTATED LONGITUDE
-    REAL(wp), INTENT(out) :: p_rotlat  ! ROTATED LATITUDE
+    REAL(wp), INTENT(inout) :: p_rotlon  ! ROTATED LONGITUDE
+    REAL(wp), INTENT(inout) :: p_rotlat  ! ROTATED LATITUDE
 
 ! !LOCAL VARIABLES:
     REAL(wp)              :: z_test    ! checking value

@@ -511,7 +511,7 @@ END SUBROUTINE advect_diffuse_flux_horz
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     REAL(wp), INTENT(IN)              :: pvar_c   (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< advected cell centered variable
     REAL(wp), INTENT(IN)              :: pvn_e    (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)       !< normal velocity on edges
-    REAL(wp), INTENT(OUT)             :: pupflux_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)   !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)             :: pupflux_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL     :: opt_slev    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL     :: opt_elev    ! optional vertical end level
     ! local variables
@@ -820,7 +820,7 @@ END SUBROUTINE advect_diffuse_flux_horz
                                                                                 !< of edges
     INTEGER  :: slev, elev             !< vertical start and end level
     INTEGER  :: i_startidx, i_endidx
-    INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
+    INTEGER  :: je, jk, jb, jc,  cell_connect        !< index of edge, vert level, block, cell
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER         :: patch_2d
 
@@ -978,20 +978,33 @@ END SUBROUTINE advect_diffuse_flux_horz
              &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) * inv_prism_thick_new   &
              &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
 
-!          IF( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-          ! max value of cell and its neighbors
-          ! also look back to previous time step
-          z_max = MAX( z_tracer_max(jc,jk,jb),                          &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
-            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
-          ! min value of cell and its neighbors
-          ! also look back to previous time step
-          z_min = MIN( z_tracer_min(jc,jk,jb),                          &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
-            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
-!          ENDIF
+          IF( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!          ! max value of cell and its neighbors
+!          ! also look back to previous time step
+!          z_max = MAX( z_tracer_max(jc,jk,jb),                          &
+!            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+!            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+!            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+!          ! min value of cell and its neighbors
+!          ! also look back to previous time step
+!          z_min = MIN( z_tracer_min(jc,jk,jb),                          &
+!            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+!            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+!            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
+          ENDIF
+          z_max = z_tracer_max(jc,jk,jb)
+          z_min = z_tracer_min(jc,jk,jb)
+          DO cell_connect = 1, 3
+            IF (neighbor_cell_idx(jc,jb,cell_connect) > 0) THEN
+              IF (patch_3D%p_patch_1D(1)% &
+                & dolic_c(neighbor_cell_idx(jc,jb,cell_connect), neighbor_cell_blk(jc,jb,cell_connect)) >= jk) THEN
+                z_max = MAX(z_max, &
+                  & z_tracer_max(neighbor_cell_idx(jc,jb,cell_connect),jk,neighbor_cell_blk(jc,jb,cell_connect)))
+                z_min = MIN(z_min, &
+                  & z_tracer_min(neighbor_cell_idx(jc,jb,cell_connect),jk,neighbor_cell_blk(jc,jb,cell_connect)))
+              ENDIF
+            ENDIF
+          ENDDO
 
           ! Sum of all incoming antidiffusive fluxes into cell jc
           p_p = - (MIN(0._wp,z_mflx_anti(1))   &
@@ -1094,7 +1107,7 @@ END SUBROUTINE advect_diffuse_flux_horz
 ! ! !
 ! ! TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
 ! ! REAL(wp), INTENT(IN)  :: trac_old(:,:,:)
-! ! REAL(wp), INTENT(OUT) :: trac_new(:,:,:)
+! ! REAL(wp), INTENT(inout) :: trac_new(:,:,:)
 ! ! TYPE(t_operator_coeff), INTENT(IN)        :: p_op_coeff
 ! ! TYPE(t_hydro_ocean_state), TARGET :: p_os
 ! ! !3 arrays for explicit part for tracer in Adams-Bashford  stepping,
