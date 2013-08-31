@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the experiment.
@@ -47,7 +48,7 @@ dt_file=`expr 1 \* 86400 `        # write a data file for every day
 dt_data=21600.                    # write output every 6 hours
 dt_rad=3600.                      # compute radiative transfer every hour
 dt_checkpoint=${dt_checkpoint:=`expr 1 \* 86400 `}  # write restart file every day
-steps_per_file = dt_file/dt_data
+steps_per_file=120
 #
 #-----------------------------------------------------------------------------
 # model parameters

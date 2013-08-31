@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -59,7 +60,7 @@ dt_diag=`expr ${nhours} \* 3600` # [s]
 ndays=10
 dt_file=`expr ${ndays} \* 86400` # [s]
 #
-steps_per_file = dt_file/dt_data
+steps_per_file=120
 #-----------------------------------------------------------------------------
 # model parameters
 #
@@ -134,7 +135,8 @@ cat > $atmo_namelist << EOF
 !                    'hus'     , 'clw'     , 'cli'     ,
 !                    'ua'      , 'va'      , 'wap'     ,
 !                    'pfull'   , 'gpfull'
- ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
+! ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
+ ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div'
 /
 !&io_nml
 ! out_expname     = '${EXPNAME}'     ! file name base
