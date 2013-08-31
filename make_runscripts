@@ -97,11 +97,11 @@ cd $base_folder
 
 #==============================================================================
 # use express queue for builtbot experiments on blizzard
-if [[ $use_target = "blizzard" && $use_mpi = "yes" ]] ; then
-  use_queue="express"
-else
+# if [[ $use_target = "blizzard" && $use_mpi = "yes" ]] ; then
+#  use_queue="express"
+#else
   use_queue="default"
-fi
+# fi
 
 #==============================================================================
 #  Create the grid generator run scripts
@@ -398,12 +398,7 @@ create_restart()
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
 # this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
 #
-# if [[ $use_target = "blizzard" &&  $use_openmp = "yes" ]] ; then
-#   queue="express"
-# else
-queue="$use_queue"
-# fi
-cpu_time="02:00:00"
+cpu_time="04:00:00"
 create_restart test_hat_jww-moist_cld-cnv-vdf 
 
 
