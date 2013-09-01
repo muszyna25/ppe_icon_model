@@ -1496,9 +1496,6 @@ CONTAINS
 
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
           DO je = i_startidx_e, i_endidx_e
 
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1530,9 +1527,6 @@ CONTAINS
     ELSEIF(iswm_oce /= 1 )THEN
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
           DO je = i_startidx_e, i_endidx_e
 
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1568,11 +1562,15 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
+    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
+    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE calc_thickness
   !-------------------------------------------------------------------------
