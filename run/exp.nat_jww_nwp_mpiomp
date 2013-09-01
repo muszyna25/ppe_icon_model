@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script contains the specifications of the experiment.
@@ -121,7 +122,7 @@ cat > ${atmo_namelist} << EOF
  nproma         = ${nproma}
  p_test_run     = .true.
  l_test_openmp  = .true.
- l_log_checks   = .true.
+ ! l_log_checks   = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -151,7 +152,7 @@ cat > ${atmo_namelist} << EOF
  iforcing       = 3            ! diabatic forcing
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
- ltimer         = .false.
+ ltimer         = .true.
  ldump_states   = .false.
  lrestore_states= .false. 
 /

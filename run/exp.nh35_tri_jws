@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the experiment.
@@ -47,7 +48,7 @@ dtime=320
 dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
 dt_file=`expr 30 \* 86400 `  # 30 days per file
 dt_data=`expr 1 \* 86400 `   # output daily
-dt_checkpoint=`expr 6 \* 86400 `  # write restart file every 6 days
+dt_checkpoint=`expr 2 \* 86400 `  # write restart file every 2 days
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -99,6 +100,9 @@ cat > ${atmo_namelist} << EOF
  ntracer     = 0                ! number of tracers - default 0
  msg_level   = 10           ! detailed report during integration
  output="vlist",
+ ltimer = .TRUE.
+ timers_level = 10
+ activate_sync_timers = .TRUE.
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
