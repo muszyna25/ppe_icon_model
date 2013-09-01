@@ -317,7 +317,7 @@ fi
 if [ ${data_file_split} -eq 1 ]; then
    echo
    echo "=== Merging model output ..."
-   cdo copy ${fori}_00??.nc ${ftmp}.nc
+   cdo copy ${fori}*.nc ${ftmp}.nc
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Merging model output'"
 
@@ -325,7 +325,7 @@ if [ ${data_file_split} -eq 1 ]; then
 else
    echo
    echo "=== Copying model output ..."
-   cp ${fori}_00??.nc ${ftmp}.nc
+   cp ${fori}*.nc ${ftmp}.nc
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Copying model output'"
 
@@ -387,6 +387,8 @@ if [ $plot_ps -eq 1 ]; then
    echo "=== $(date)"
    echo "=== Done."
 fi
+
+T_var=""
 
 #------------------------------------------------------------------------
 # interpolate and plot temperature

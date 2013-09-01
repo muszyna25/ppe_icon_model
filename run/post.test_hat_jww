@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section sets up the environment for the proper postprocessing script.
@@ -9,7 +10,8 @@
 #
 EXP="test_hat_jww"
 grid_name="iconR2B04-grid"
-ExpName="${EXP}_${grid_name}"
+# ExpName="${EXP}_${grid_name}"
+ExpName="${EXP}"
 plotBaseName="${EXP}_R2B04L31"
 DOMAIN=""
 output_frequency=4
