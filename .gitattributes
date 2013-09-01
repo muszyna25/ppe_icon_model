@@ -687,7 +687,9 @@ run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
+run/exp.hat_jww-moist_cld-cnv-vdf_ptest -text
 run/exp.hat_jww_echam -text
+run/exp.hat_jww_ptest -text
 run/exp.hat_jww_rescale -text
 run/exp.hom_lsm_flat -text
 run/exp.icon-testbed_communication -text
@@ -740,6 +742,8 @@ run/exp.sl_lsmfl -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
+run/exp.test_hat_jww-moist_cld-cnv-vdf_ptest -text
+run/exp.test_hat_jww_ptest -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text

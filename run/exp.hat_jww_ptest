@@ -38,7 +38,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 # global timing
 #
 start_date=${start_date:="2008-09-01T00:00:00Z"}
-end_date=${end_date:="2008-09-11T00:00:00Z"}
+end_date=${end_date:="2008-09-01T12:00:00Z"}
 #
 ndays=1
 dt_checkpoint=`expr ${ndays} \* 86400` # [s]
@@ -99,7 +99,7 @@ cat > $atmo_namelist << EOF
  nproma          = ${nproma}
  use_icon_comm   = .true.
  max_send_recv_buffer_size = 262144
- ! p_test_run      = .true.
+ p_test_run      = .true.
  ! l_log_checks    = .true.
 /
 &grid_nml

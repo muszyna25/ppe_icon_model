@@ -34,7 +34,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date=${start_date:="2008-09-01T00:00:00Z"}
-end_date=${end_date:="2008-09-03T00:00:00Z"}
+end_date=${end_date:="2008-09-01T03:00:00Z"}
 ndays_restart=60
 dt_restart=${dt_restart:=`expr ${ndays_restart} \* 86400`}
 #
@@ -83,7 +83,7 @@ cat > ${atmo_namelist} << EOF
  use_icon_comm   = .true.
  icon_comm_debug = .false.
  max_send_recv_buffer_size = 262144
- ! p_test_run      = .true.
+ p_test_run      = .true.
  ! l_log_checks    = .true.
 /
 &grid_nml
