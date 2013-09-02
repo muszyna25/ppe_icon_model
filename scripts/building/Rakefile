@@ -283,7 +283,8 @@ def doCheckExp(build,exp)
           echo '#===========================================================================';
           echo " $file";echo
           cdo sinfov  $file
-          cdo -infov -fldmin -subc,16.0 -selname,t_acc $file |  grep -v '0.000'
+          cdo -infov -fldmin -subc,16.0 -div -selname,t_acc $file -selname,wet_c $file |  grep -v '0.000'
+          cdo -infov -fldmin -subc,16.0 -div -selname,t $file     -selname,wet_c $file |  grep -v '0.000'
         fi;
       done
                EOS
