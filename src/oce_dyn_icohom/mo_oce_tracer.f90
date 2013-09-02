@@ -702,13 +702,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         END DO
       END DO
 
-      ! #slo# 2013-08-09 - test: no tracer horz/vert advection/horz diffusion
-      !  this line should not be necessary, since z_temp=z_old if flux_vert, flux_horz and bc_top_tracer are zero?
-      !z_temp(1:nproma,1:n_zlev,1:p_patch%nblks_c) = trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c)
-
-      ! This is not needed, the tracer_diffusion_vert_impl_hom is only column-wise
-      ! CALL sync_patch_array(SYNC_C, p_patch, z_temp)
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src, in_subset=cells_in_domain)
@@ -720,6 +713,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
       !calculate vert diffusion impicit: result is stored in trac_out
+      ! no sync because of columnwise computation
       CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
                                          & z_temp(:,:,:),                   &
                                          & p_os%p_prog(nnew(1))%h(:,:),     &
