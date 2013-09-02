@@ -117,7 +117,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   INTEGER  :: i_no_t, jk
   INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
   REAL(wp) :: z_relax!, delta_z
-  REAL(wp) :: content(1:no_tracer), content_old(1:no_tracer), content_first(1:no_tracer)
   INTEGER  :: iloc(2)
   REAL(wp) :: zlat, zlon
   REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -130,15 +129,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   cells_in_domain => p_patch%cells%in_domain
 
   z_cellthick_intmed = 0.0_wp
-
-  content(1:no_tracer)       = 0.0_wp
-  content_old(1:no_tracer)   = 0.0_wp
-
-!   DO i_no_t = 1,no_tracer
-!     content(i_no_t) = tracer_content(p_patch, p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t), p_os%p_prog(nold(1))%h)
-!     content_old(i_no_t)=content(i_no_t)
-!     write(*,*)'content before transport',content_old 
-!   END DO
 
   CALL prepare_tracer_transport( p_patch_3D, &
                                & p_os,       &
@@ -583,7 +573,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   REAL(wp), INTENT(INOUT)              :: trac_new(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !new tracer
   INTEGER,  INTENT(IN)                 :: tracer_id
   !Local variables
-  REAL(wp) :: delta_t, delta_z,delta_z_new, content, content_old
+  REAL(wp) :: delta_t, delta_z,delta_z_new
   REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -616,9 +606,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   idt_src=1  ! output print level (1-5, fix)
   CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
-  !content = tracer_content(p_patch, trac_old, p_os%p_prog(nold(1))%h)
-  !content_old=content
-  !write(*,*)'content before h-adv',content_old 
 
   IF (l_skip_tracer) THEN
     trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c) = trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c)
@@ -752,11 +739,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       CALL sync_patch_array(SYNC_C, p_patch, trac_new)
       IF (ltimer) CALL timer_stop(timer_dif_vert)
 
-     !content_old=content
-     !content = tracer_content(p_patch, trac_new, p_os%p_prog(nold(1))%h)
-     !write(*,*)'content after v-diff',content_old, content, content/content_old 
-
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('AftImplDiff: z_temp',   z_temp,   str_module, idt_src, in_subset=cells_in_domain)
@@ -824,33 +806,29 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
 END SUBROUTINE advect_individual_tracer_ab
 
-
-!TODO review, currently not used
-function tracer_content(p_patch, tracer, height) RESULT(content)
-  TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
-  REAL(wp), INTENT(IN) :: tracer(nproma,n_zlev, p_patch%alloc_cell_blocks)
-  REAL(wp), INTENT(IN) :: height(nproma, p_patch%alloc_cell_blocks)
+FUNCTION tracer_content(patch_3D, tracer, height) RESULT(content)
+  TYPE(t_patch_3D), TARGET, INTENT(in)    :: patch_3D
+  REAL(wp), INTENT(IN) :: tracer(nproma,n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(IN) :: height(nproma,        patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) content
   REAL(wp) :: delta_z
   INTEGER  :: jc,jk,jb
   INTEGER  :: z_dolic
   INTEGER  :: i_startidx_c, i_endidx_c
   TYPE(t_subset_range), POINTER :: cells_in_domain
+  TYPE(t_patch), POINTER  :: patch
   !-------------------------------------------------------------------------------
-  cells_in_domain => p_patch%cells%in_domain
+  patch => patch_3D%p_patch_2D(1)
+  cells_in_domain => patch%cells%in_domain
   !-------------------------------------------------------------------------------
   content = 0.0_wp 
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
-      DO jk = 1, n_zlev
-!        IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-!         delta_z =v_base%del_zlev_m(jk)
-!         IF(jk==1)delta_z =v_base%del_zlev_m(jk)+height(jc,jb)
-!         content=content + tracer(jc,jk,jb)*p_patch%cells%area(jc,jb)*delta_z
-!        ENDIF
+      DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+        content = content + tracer(jc,jk,jb)*patch%cells%area(jc,jb)*patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
       END DO
     END DO
   END DO
-end function tracer_content
+END FUNCTION tracer_content
 END MODULE mo_oce_tracer
