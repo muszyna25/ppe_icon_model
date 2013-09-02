@@ -79,7 +79,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
   &                                  setup_ocean_namelists, ocean_default_list, ocean_restart_list
-USE mo_oce_math_operators,     ONLY: calc_thickness! , height_related_quantities
+USE mo_oce_math_operators,     ONLY: calc_thickness , height_related_quantities
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
   &                                  update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
@@ -246,7 +246,7 @@ CONTAINS
       IF(.NOT.l_staggered_timestep)THEN
 
         CALL calc_thickness( patch_3D, p_os(jg), p_ext_data(jg))
-        !CALL height_related_quantities( patch_3D, p_os(jg), p_ext_data(jg))
+        CALL height_related_quantities( patch_3D, p_os(jg), p_ext_data(jg))
 
         CALL set_lateral_boundary_values( patch_3D, p_os(jg)%p_prog(nold(1))%vn)
         CALL sync_patch_array(sync_e,  patch_3D%p_patch_2D(jg),  p_os(jg)%p_prog(nold(1))%vn)
@@ -282,27 +282,31 @@ CONTAINS
                                     & p_op_coeff%matrix_vert_diff_e,&
                                     & p_op_coeff%matrix_vert_diff_c)
 
+      !------------------------------------------------------------------------
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
       CALL solve_free_surface_eq_ab (patch_3D, p_os(jg), p_ext_data(jg), &
         &                            p_sfc_flx, p_phys_param, jstep, p_op_coeff)!, p_int(jg))
       IF (ltimer) CALL timer_stop(timer_solve_ab)
 
-      ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
-      !         and updated surface height
+      !------------------------------------------------------------------------
+      ! Step 4: calculate final normal velocity from predicted horizontal
+      ! velocity vn_pred and updated surface height
       IF (ltimer) CALL timer_start(timer_normal_veloc)
       CALL calc_normal_velocity_ab(patch_3D, p_os(jg),&
                                   &p_op_coeff, p_ext_data(jg), p_phys_param)
       IF (ltimer) CALL timer_stop(timer_normal_veloc)
 
-      ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
-      ! in the non-shallow-water case
+      !------------------------------------------------------------------------
+      ! Step 5: calculate vertical velocity from continuity equation under
+      ! incompressiblity condition in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
         IF (ltimer) CALL timer_start(timer_vert_veloc)
         CALL calc_vert_velocity( patch_3D, p_os(jg),p_op_coeff)
         IF (ltimer) CALL timer_stop(timer_vert_veloc)
       ENDIF
 
+      !------------------------------------------------------------------------
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         IF (ltimer) CALL timer_start(timer_tracer_ab)
@@ -313,7 +317,7 @@ CONTAINS
         IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
 
-    ENDIF  ! testcase 28
+    ENDIF
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
