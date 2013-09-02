@@ -110,7 +110,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
     !!  mpi parallelized by LL
-  SUBROUTINE calc_scalar_product_veloc_3d( p_patch_3D, vn_e_old, vn_e_new,&
+  SUBROUTINE calc_scalar_product_veloc_3D( p_patch_3D, vn_e_old, vn_e_new,&
     & p_diag, p_op_coeff)
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
@@ -204,12 +204,11 @@ CONTAINS
   !! Note: vn must habve been synced before this routine
   !! the resulting vort_v is synced,
   !! vort_flux id calculated on edges in_domain
-  SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual,h_e, vort_v, &
+  SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual, vort_v, &
     & p_op_coeff, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: p_patch_3D
     REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(INout)  :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(IN)                       :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(INOUT)                    :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(IN)          :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: vort_flux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1380,13 +1379,12 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
   !>
   !!
   !! mpi parallelized by LL, openmp corrected
-  SUBROUTINE nonlinear_coriolis_3d_old(p_patch_3D, vn, p_vn_dual, h_e, vort_v, &
+  SUBROUTINE nonlinear_coriolis_3d_old(p_patch_3D, vn, p_vn_dual, vort_v, &
     & p_op_coeff, vort_flux)
 
     TYPE(t_patch_3D ),TARGET,INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(inout)                   :: vn       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(inout) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(in)                      :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(inout)                   :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(inout)                   :: vort_flux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)

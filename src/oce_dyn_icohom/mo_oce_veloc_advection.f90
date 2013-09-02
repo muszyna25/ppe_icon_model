@@ -228,7 +228,6 @@ CONTAINS
     CALL nonlinear_coriolis_3d( p_patch_3D, &
       & vn_old,          &
       & p_diag%p_vn_dual,&
-      & p_diag%thick_e,  &
       & p_diag%vort,     &
       & p_op_coeff,      &
       & z_vort_flx)
