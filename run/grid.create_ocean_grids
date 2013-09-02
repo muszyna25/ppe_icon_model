@@ -510,10 +510,10 @@ if [[ x$remove_land_points = "x.true." ]] ; then
   commandFile=command.grid
   cd $WRKDIR
   #-----------------------------------------------------------------------------
-  command=remove_land_cells
+  command=remove_inland_cells
   ln -s /pool/data/ICON/ocean_data/ocean_grid/iconR2B04-ocean_etopo40_planet.nc .
   in_grid="iconR2B04-ocean_etopo40_planet.nc"
-  out_grid="iconR2B04-ocean_etopo40_planet_t-noland.nc"
+  out_grid="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
 
   echo $command $in_grid  $out_grid > $commandFile
   ${run_commmand}

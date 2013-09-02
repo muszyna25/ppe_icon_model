@@ -81,7 +81,7 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=24        # ocean model output interval hours [hours]
+nhours_data=24       # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=360    # stop model for restart [days]
@@ -108,7 +108,7 @@ LOC='none'
 # ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_vertex_inland.nc"
 #
 grids_folder=""
-ocean_grids="iconR2B04-ocean_etopo40_planet_t-noland.nc"
+ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
 
 
 p_test_run=${p_test:=".false."}
