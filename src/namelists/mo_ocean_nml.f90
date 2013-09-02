@@ -274,7 +274,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: CWT                   = 5.0E-4_wp  !   of tracer and velocity
 
   LOGICAL  :: lviscous              = .TRUE.    
-  LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
+  LOGICAL  :: l_rigid_lid           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
   LOGICAL  :: l_max_bottom          = .TRUE.     ! wet cell: true=if bathy deeper than top
