@@ -1480,14 +1480,12 @@ END SUBROUTINE tracer_diffusion_vert_impl_hom
 !!  mpi parallelized LL (no sync required)
 SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
                                         & field_column,  &
-                                        & h_e,           &
                                         & A_v,           &
                                         & p_op_coeff,    &
                                         & diff_column)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !surface height at edges, relevant for thickness of first cell 
-  REAL(wp), INTENT(IN)              :: h_e(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   REAL(wp), INTENT(inout)           :: A_v(:,:,:)   
   TYPE(t_operator_coeff), TARGET    :: p_op_coeff
   REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)

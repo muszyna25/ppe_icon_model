@@ -956,7 +956,6 @@ CONTAINS
       
       CALL veloc_diffusion_vert_impl_hom( patch_3d,             &
         & p_os%p_diag%vn_pred,      &
-        & p_os%p_diag%h_e,          &
         & p_phys_param%a_veloc_v,   &
         & p_op_coeff,               &
         & p_os%p_diag%vn_impl_vert_diff)
