@@ -658,11 +658,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
     CALL dbg_print('aft. AdvFluxDiff:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
-    ! #slo# 2013-08-09 - test: no tracer horz/vert advection/horz diffusion
-    !  - should be controlled by namelist parameter for horz/vert advect/diffuse
-    !flux_vert=0.0_wp
-    !flux_horz=0.0_wp
-
     !Case: Implicit Vertical diffusion
     IF(expl_vertical_tracer_diff==1)THEN
 
@@ -675,8 +670,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            !IF(z_dolic>=MIN_DOLIC)THEN
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
@@ -696,7 +689,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
@@ -759,7 +751,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            !IF(z_dolic>=MIN_DOLIC)THEN
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
@@ -779,7 +770,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            !IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
