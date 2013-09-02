@@ -688,8 +688,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            DO jk = 2, z_dolic
+            DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
@@ -750,7 +749,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
               delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
@@ -769,8 +767,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            DO jk = 2, z_dolic
+            DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
               IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 
