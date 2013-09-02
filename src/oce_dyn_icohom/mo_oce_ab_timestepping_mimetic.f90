@@ -1558,7 +1558,7 @@ CONTAINS
     !------------------------------------------------------------------
     
     ! !-------------------------------------------------------------------------------
-    IF(l_edge_based )THEN
+    IF( l_edge_based )THEN
       ! !-------------------------------------------------------------------------------
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
