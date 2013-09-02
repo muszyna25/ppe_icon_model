@@ -188,13 +188,12 @@ CONTAINS
     CALL sync_patch_array(sync_e, patch_horz, p_os%p_prog(nold(1))%vn)
     
     IF (is_initial_timestep(timestep) ) THEN
-      
-      IF (l_staggered_timestep ) &
-        & CALL calc_scalar_product_veloc_3d( patch_3d,&
-        & p_os%p_prog(nold(1))%vn,&
-        & p_os%p_prog(nold(1))%vn,&
-        & p_os%p_diag,            &
-        & p_op_coeff)
+      IF (l_staggered_timestep ) CALL calc_scalar_product_veloc_3d( patch_3d,&
+                                                                  & p_os%p_prog(nold(1))%vn,&
+                                                                  & p_os%p_prog(nold(1))%vn,&
+                                                                  & p_os%p_diag,            &
+                                                                  & p_op_coeff)
+
     ENDIF
     
     
@@ -1449,7 +1448,7 @@ CONTAINS
         END DO
         
       ELSE
-        CALL finish(method_name,"l_RIGID_LID case has a bug")
+        CALL finish(method_name,"l_rigid_lid case has a bug")
         !p_os%p_prog(nnew(1))%vn(:,:,:) = p_os%p_diag%vn_pred*v_base%wet_e(:,:,:)
       ENDIF
     ENDIF
