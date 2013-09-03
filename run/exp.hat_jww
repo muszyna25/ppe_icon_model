@@ -117,6 +117,7 @@ cat > $atmo_namelist << EOF
  timers_level    = 5
  activate_sync_timers = .TRUE.
  output="nml"
+ msg_level   = 10           ! detailed report during integration 
 /
 &ha_testcase_nml
  ctest_name      = 'JWw'            ! test case identifier
