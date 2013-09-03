@@ -77,8 +77,7 @@ USE mo_netcdf_read,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
 USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3D !, map_edges2cell_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3D !, grad_fd_norm_oce_2D_3D,&
-!  &                              height_related_quantities
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3D
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: update_time_indices! , calc_vert_velocity
 USE mo_master_control,     ONLY: is_restart_run
@@ -1924,7 +1923,6 @@ ELSEIF( iswm_oce == 1 )THEN
          p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !should be test2_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
-!       CALL height_related_quantities( p_patch, p_os)
 !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
 !                  & p_patch,    &
 !                  & p_os%p_diag%grad(:,1,:))
@@ -1965,7 +1963,6 @@ ELSEIF( iswm_oce == 1 )THEN
         p_ext_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
-!       CALL height_related_quantities( p_patch, p_os)
 !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
 !                  & p_patch,    &
 !                  & p_os%p_diag%grad(:,1,:))

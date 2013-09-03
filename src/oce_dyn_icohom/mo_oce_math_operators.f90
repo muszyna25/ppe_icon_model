@@ -80,7 +80,6 @@ MODULE mo_oce_math_operators
   !PUBLIC :: rot_vertex_ocean
   !PUBLIC :: rot_vertex_ocean_rbf
   PUBLIC :: calc_thickness
-  PUBLIC :: height_related_quantities
   PUBLIC :: map_edges2vert_3D
 
 
@@ -1543,13 +1542,8 @@ CONTAINS
                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
                  & /(z_dist_e_c1+z_dist_e_c2)
 
-                !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-                !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
-
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
                 &                          + p_patch_3D%column_thick_e(je,jb)
-
-
             ELSE
               p_os%p_diag%h_e(je,jb)    = 0.0_wp
               p_os%p_diag%thick_e(je,jb)= 0.0_wp
@@ -1562,218 +1556,17 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src, &
+    CALL dbg_print('heightRelQuant: h_e'    ,p_os%p_diag%h_e        ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src, &
+    idt_src=3
+    CALL dbg_print('heightRelQuant: h_c'    ,p_os%p_prog(nold(1))%h ,str_module,idt_src, &
       & in_subset=p_patch%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src, &
+    CALL dbg_print('heightRelQuant: thick_c',p_os%p_diag%thick_c    ,str_module,idt_src, &
       & in_subset=p_patch%cells%owned)
-    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src, &
+    CALL dbg_print('heightRelQuant: thick_e',p_os%p_diag%thick_e    ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE calc_thickness
-  !-------------------------------------------------------------------------
-
-  !---------------------------------------------------------------------------------
-  !>
-  !!
-  !!  Calculation of total fluid thickness at cell centers and surface elevation at
-  !!  cell edges from prognostic surface height at cell centers. We use height at
-  !!  old timelevel "n"
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2010).
-  !!  mpi parallelized LL
-  !!
-  SUBROUTINE height_related_quantities( p_patch_3D, p_os, p_ext_data)
-    !
-    ! Patch on which computation is performed
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    !
-    ! Type containing ocean state
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    !
-    ! Type containing external data
-    TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-
-    !  local variables
-    INTEGER            :: i_startidx_c, i_endidx_c
-    INTEGER            :: i_startidx_e, i_endidx_e
-    INTEGER            :: jc, jb, je
-    INTEGER            :: il_c1, ib_c1, il_c2, ib_c2
-    REAL(wp)           :: z_dist_e_c1, z_dist_e_c2
-
-    TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
-    TYPE(t_patch), POINTER        :: p_patch
-    !-------------------------------------------------------------------------------
-    !CALL message (TRIM(routine), 'start')
-    p_patch => p_patch_3D%p_patch_2D(1)
-    ! sync before run
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-
-    ! #ifndef __SX__
-    ! IF (ltimer) CALL timer_start(timer_height)
-    ! #endif
-    all_cells => p_patch%cells%all
-    edges_in_domain => p_patch%edges%in_domain
-
-    !Step 1: calculate cell-located variables for 2D and 3D case
-    !For 3D and for SWE thick_c contains thickness of fluid column
-    IF ( iswm_oce == 1 ) THEN  !  SWM
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-        !calculate for each fluid colum the total depth, i.e.
-        !from bottom boundary to surface height, i.e. using individual bathymetry for SWM
-        DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-
-            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              &  - p_ext_data%oce%bathymetry_c(jc,jb) ! works fine with williamson 5
-          ELSE
-            p_os%p_diag%thick_c(jc,jb) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-
-    ELSEIF(iswm_oce /= 1 )THEN
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-        !calculate for each fluid colum the total depth, i.e.
-        !from bottom boundary to surface height
-        !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
-        DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            !This corresponds to full cells
-            !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-            !   & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
-            !  prepare for correct partial cells
-            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-            & + p_patch_3D%column_thick_c(jc,jb)
-          ELSE
-            p_os%p_diag%thick_c(jc,jb) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-    ENDIF!IF ( iswm_oce == 1 )
-
-
-    !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
-    !For SWE and for 3D: thick_e = thickness of fluid column at edges
-    !         h_e     = surface elevation at edges, without depth of first layer
-    IF ( iswm_oce == 1 ) THEN  !  SWM
-
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-          DO je = i_startidx_e, i_endidx_e
-
-            il_c1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-            il_c2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-            z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
-            z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
-
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-              p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
-                & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
-                & /(z_dist_e_c1+z_dist_e_c2)
-
-              p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
-                & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
-                & /(z_dist_e_c1+z_dist_e_c2)
-
-              !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
-            ELSE
-              p_os%p_diag%h_e(je,jb) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-
-
-
-    ELSEIF(iswm_oce /= 1 )THEN
-
-
-        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-          DO je = i_startidx_e, i_endidx_e
-
-            il_c1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-            il_c2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-            z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1)
-            z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2)
-
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-
-                p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
-                 & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
-                 & /(z_dist_e_c1+z_dist_e_c2)
-
-              !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-              !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
-              !  prepare for correct partial cells
-              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
-                &                          + p_patch_3D%column_thick_e(je,jb)
-
-            ELSE
-              p_os%p_diag%h_e(je,jb)    = 0.0_wp
-              p_os%p_diag%thick_e(je,jb)= 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-
-    ENDIF
-    ! write(*,*)'max/min thick_c:',maxval(p_os%p_diag%thick_c),minval(p_os%p_diag%thick_c)
-    ! write(*,*)'max/min h_c:',maxval(p_os%p_prog(nold(1))%h),minval(p_os%p_prog(nold(1))%h)
-    ! write(*,*)'max/min bath_c:',maxval(p_ext_data%oce%bathymetry_c),  &
-    !   &        minval(p_ext_data%oce%bathymetry_c)
-    ! write(*,*)'max/min thick_e:',maxval(p_os%p_diag%thick_e),minval(p_os%p_diag%thick_e)
-    ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e)
-    ! !CALL message (TRIM(routine), 'end')
-
-    ! #ifndef __SX__
-    ! IF (ltimer) CALL timer_stop(timer_height)
-    ! #endif
-
-    !sync results, already done
-!     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
-!     CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
-!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
-
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
-    !---------------------------------------------------------------------
-
-
-  END SUBROUTINE height_related_quantities
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
