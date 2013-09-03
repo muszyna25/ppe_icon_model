@@ -776,7 +776,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_base'
 
-    !CALL message(TRIM(routine),' start to destruct hydrostatic ocean basic state')
+    CALL message(TRIM(routine),' start to destruct hydrostatic ocean basic state')
 
     DEALLOCATE(v_base%zlev_m,STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -939,7 +939,7 @@ CONTAINS
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
     !-------------------------------------------------------------------------
-    !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
+    CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
 
     all_cells => p_patch%cells%all
     all_edges => p_patch%edges%all
@@ -1266,7 +1266,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_aux'
     !-------------------------------------------------------------------------
-    !CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
+    CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
 
     ! determine size of arrays
     alloc_cell_blocks = p_patch%alloc_cell_blocks
@@ -1535,15 +1535,12 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_aux'
 
-!-------------------------------------------------------------------------
-
-
     DEALLOCATE(p_os_aux%bc_top_veloc_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation of top boundary cond cc failed')
     END IF
 
-   DEALLOCATE(p_os_aux%bc_bot_veloc_cc, STAT=ist)
+    DEALLOCATE(p_os_aux%bc_bot_veloc_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation of bot boundary cond cc failed')
     END IF
@@ -1570,27 +1567,24 @@ CONTAINS
     INTEGER :: slev,elev
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: p_patch
-!!$    CHARACTER(len=max_char_length), PARAMETER :: &
-!!$      &      routine = 'mo_oce_state: set_lateral_boundary_values'
-!---------------------------------------------------------------
-  p_patch   => patch_3D%p_patch_2D(1)
-  all_edges => p_patch%edges%all
+    !---------------------------------------------------------------
+    p_patch   => patch_3D%p_patch_2D(1)
+    all_edges => p_patch%edges%all
 
-! blocking
-  slev         = 1
-  elev         = n_zlev
+    ! blocking
+    slev         = 1
+    elev         = n_zlev
 
-  DO jb = all_edges%start_block, all_edges%end_block
-    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-    DO jk = slev, elev
-      DO je= i_startidx_e, i_endidx_e
-        IF ( patch_3D%lsm_e(je,jk,jb) >= BOUNDARY ) THEN
-          vn(je,jk,jb) = 0.0_wp
-        ENDIF
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO jk = slev, elev
+        DO je= i_startidx_e, i_endidx_e
+          IF ( patch_3D%lsm_e(je,jk,jb) >= BOUNDARY ) THEN
+            vn(je,jk,jb) = 0.0_wp
+          ENDIF
+        END DO
       END DO
     END DO
-  END DO
-
   END SUBROUTINE  set_lateral_boundary_values
   !-------------------------------------------------------------------------
 
@@ -1844,8 +1838,6 @@ CONTAINS
         END DO
       END DO
     ENDIF
-
-
 
     !---------------------------------------------------------------------------------------------
     ! Correction loop for cells in all levels, similar to surface done in grid generator
@@ -2977,13 +2969,13 @@ CONTAINS
     ! cells
     CALL add_var(ocean_default_list, 'wet_c', patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT32),&
+    &            t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT64),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),isteptype=TSTEP_CONSTANT)
     ! edges
     CALL add_var(ocean_default_list, 'wet_e', patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT32),&
+    &            t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT64),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default"),isteptype=TSTEP_CONSTANT)
     ! 3-dim real land-sea-mask with zero on halos
@@ -3234,7 +3226,7 @@ CONTAINS
         END DO
 
         jk = v_base%dolic_c(jc,jb)
-        IF (jk >= MIN_DOLIC) THEN
+        IF (jk > 0) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_c(jc,jb) = patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
@@ -3318,7 +3310,7 @@ CONTAINS
         END DO
 
         jk = v_base%dolic_e(je,jb)
-        IF (jk >= MIN_DOLIC) THEN
+        IF (jk > 0) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_e(je,jb) = patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
@@ -3327,9 +3319,11 @@ CONTAINS
           ! Preliminary partial cells conform with l_max_bottom=false only
           IF (l_partial_cells) THEN
 
-            ! Partial cell ends at real bathymetry below upper boundary zlev_i(dolic)
-            ! at most one dry cell as neighbor is allowed, therefore bathymetry can be much deeper than corrected dolic
-            ! maximum thickness limited to an additional part of the thickness of the underlying cell
+            ! Partial cell ends at real bathymetry below upper boundary
+            ! zlev_i(dolic) at most one dry cell as neighbor is allowed,
+            ! therefore bathymetry can be much deeper than corrected dolic
+            ! maximum thickness limited to an additional part of the thickness
+            ! of the underlying cell
             IF (jk < n_zlev) THEN
               patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) =             &
                 & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
