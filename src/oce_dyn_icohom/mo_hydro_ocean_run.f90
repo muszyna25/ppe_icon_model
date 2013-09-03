@@ -247,7 +247,7 @@ CONTAINS
         CALL calc_thickness( patch_3D, p_os(jg), p_ext_data(jg))
 
         CALL set_lateral_boundary_values( patch_3D, p_os(jg)%p_prog(nold(1))%vn)
-        CALL sync_patch_array(sync_e,  patch_3D%p_patch_2D(jg),  p_os(jg)%p_prog(nold(1))%vn)
+        CALL sync_patch_array(sync_e, patch_3D%p_patch_2D(jg), p_os(jg)%p_prog(nold(1))%vn)
 
         CALL calc_scalar_product_veloc_3D( patch_3D, &
           & p_os(jg)%p_prog(nold(1))%vn,         &

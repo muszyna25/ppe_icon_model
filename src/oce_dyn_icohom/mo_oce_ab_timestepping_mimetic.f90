@@ -1428,12 +1428,10 @@ CONTAINS
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-          DO jk = 1, n_zlev
-            DO je = edge_start_idx, edge_end_idx
-              IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
-                p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
+          DO je = edge_start_idx, edge_end_idx
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+              p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
                   & - gdt*ab_beta*z_grad_h(je,jb))
-              ENDIF
             END DO
           END DO
         END DO
@@ -1450,13 +1448,11 @@ CONTAINS
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-      DO jk = 1, n_zlev
-        DO je = edge_start_idx, edge_end_idx
-          IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
-            p_os%p_diag%vn_time_weighted(je,jk,jb)      &
-              & = ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb) &
-              & + (1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb)
-          ENDIF
+      DO je = edge_start_idx, edge_end_idx
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+          p_os%p_diag%vn_time_weighted(je,jk,jb)      &
+            & = ab_gam*p_os%p_prog(nnew(1))%vn(je,jk,jb) &
+            & + (1.0_wp -ab_gam)*p_os%p_prog(nold(1))%vn(je,jk,jb)
         END DO
       END DO
     END DO

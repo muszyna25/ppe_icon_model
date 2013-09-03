@@ -3096,6 +3096,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
     REAL(wp), PARAMETER   :: z_fac_limitthick = 0.8_wp  !  limits additional thickness of bottom cell
     REAL(wp) :: global_ocean_volume
+    INTEGER, POINTER :: dolic_c(:,:), dolic_e(:,:)
 
     CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
 
@@ -3113,27 +3114,27 @@ CONTAINS
 
    !Copy indormation from v_base
 
-    patch_3D%p_patch_1D(1)%zlev_i = v_base%zlev_i
-    patch_3D%p_patch_1D(1)%zlev_m = v_base%zlev_m
-    patch_3D%p_patch_1D(1)%del_zlev_i = v_base%del_zlev_i
-    patch_3D%p_patch_1D(1)%del_zlev_m = v_base%del_zlev_m
-    DO jk=1,n_zlev
+    patch_3D%p_patch_1D(1)%zlev_i             = v_base%zlev_i
+    patch_3D%p_patch_1D(1)%zlev_m             = v_base%zlev_m
+    patch_3D%p_patch_1D(1)%del_zlev_i         = v_base%del_zlev_i
+    patch_3D%p_patch_1D(1)%del_zlev_m         = v_base%del_zlev_m
+    DO jk = 1,n_zlev
       patch_3D%p_patch_1D(1)%inv_del_zlev_m(jk) = 1.0_wp / v_base%del_zlev_m(jk)
     ENDDO
 
-    patch_3D%p_patch_1D(1)%n_zlev = v_base%n_zlev
-    patch_3D%p_patch_1D(1)%n_zlvp = v_base%n_zlvp
-    patch_3D%p_patch_1D(1)%n_zlvm = v_base%n_zlvm
+    patch_3D%p_patch_1D(1)%n_zlev            = v_base%n_zlev
+    patch_3D%p_patch_1D(1)%n_zlvp            = v_base%n_zlvp
+    patch_3D%p_patch_1D(1)%n_zlvm            = v_base%n_zlvm
 
-    patch_3D%wet_e = v_base%wet_e
-    patch_3D%wet_c = v_base%wet_c
+    patch_3D%wet_e                           = v_base%wet_e
+    patch_3D%wet_c                           = v_base%wet_c
 
-    patch_3D%lsm_e = v_base%lsm_e
-    patch_3D%lsm_c = v_base%lsm_c
-
+    patch_3D%lsm_e                           = v_base%lsm_e
+    patch_3D%lsm_c                           = v_base%lsm_c
 
     patch_3D%surface_cell_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_c(:,:)
     patch_3D%surface_edge_sea_land_mask(:,:) = p_ext_data%oce%lsm_ctr_e(:,:)
+
     ! calculate surface_vertex_sea_land_mask
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
@@ -3149,16 +3150,14 @@ CONTAINS
           IF (edge_index > 0) THEN ! this should not be necessary
 
             SELECT CASE(patch_3D%lsm_e(edge_index, 1, edge_block))
-
-              CASE(sea, sea_boundary)
-                sea_edges = sea_edges + 1
-              CASE(boundary)
-                boundary_edges = boundary_edges + 1
-              CASE(land, land_boundary)
-                land_edges = land_edges + 1
-              CASE default
-                CALL finish(routine, "Uknown patch_3D%lsm_e" )
-
+            CASE(sea, sea_boundary)
+              sea_edges = sea_edges + 1
+            CASE(boundary)
+              boundary_edges = boundary_edges + 1
+            CASE(land, land_boundary)
+              land_edges = land_edges + 1
+            CASE default
+              CALL finish(routine, "Uknown patch_3D%lsm_e" )
             END SELECT
 
           ENDIF
@@ -3193,40 +3192,33 @@ CONTAINS
     DEALLOCATE(z_sync_v)
     !---------------------------------------
 
-    patch_3D%basin_c  = v_base%basin_c
-    patch_3D%regio_c  = v_base%regio_c
+    patch_3D%basin_c               = v_base%basin_c
+    patch_3D%regio_c               = v_base%regio_c
 
     patch_3D%p_patch_1D(1)%dolic_c = v_base%dolic_c
     patch_3D%p_patch_1D(1)%dolic_e = v_base%dolic_e
+    dolic_c => patch_3D%p_patch_1D(1)%dolic_c
+    dolic_e => patch_3D%p_patch_1D(1)%dolic_e
+
+    !dolic arrys should never contain 1, only 0 for land or values > 1 
+    WHERE (dolic_c(:,:) < MIN_DOLIC) dolic_c(:,:) = 0
+    WHERE (dolic_e(:,:) < MIN_DOLIC) dolic_e(:,:) = 0
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
+        DO jk=1, dolic_c(jc,jb)
+          patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
+          patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
+          patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
 
-        DO jk=1,n_zlev
-          IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
-            patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
-            patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
-
-            patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-
-          ELSE
-
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-            patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = 0.0_wp
-            patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)    = 0.0_wp
-
-            patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-
-          ENDIF
+          patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
 
-        jk = v_base%dolic_c(jc,jb)
-        IF (jk > 0) THEN
+        ! set bottom/columns values
+        jk = dolic_c(jc,jb)
+        IF (jk >= MIN_DOLIC) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_c(jc,jb) = patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
@@ -3263,54 +3255,25 @@ CONTAINS
             patch_3D%column_thick_c(jc,jb) = v_base%zlev_i(jk) + patch_3D%bottom_thick_c(jc,jb)
 
           ENDIF ! l_partial_cells
-        ENDIF ! jk>=MIN_DOLIC
+        ENDIF ! MIN_DOLIC
       END DO
     END DO
-
-    ! If column has not enough wet layers set all 4 depth-arrays to zero
-  ! DO jb = all_cells%start_block, all_cells%end_block
-  !   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-  !   DO jc = i_startidx_c, i_endidx_c
-  !     DO jk=1,n_zlev
-  !       IF ( v_base%dolic_c(jc,jb) < MIN_DOLIC) THEN
-
-  !         patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) = 0.0_wp
-  !         patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)          = 0.0_wp
-
-  !         patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      = 0.0_wp
-  !         patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)= 0.0_wp
-  !       ENDIF
-  !     END DO
-  !   END DO
-  ! END DO
-
 
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
 
-        DO jk=1,n_zlev
-          IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+        DO jk=1, dolic_e(je,jb)
+          patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
+          patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
 
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
-            patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = v_base%del_zlev_m(jk)
-
-            patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-
-          ELSE
-
-            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-            patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
-
-            patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-            patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-
-          ENDIF
+          patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
 
+        ! bottom/columns values
         jk = v_base%dolic_e(je,jb)
-        IF (jk > 0) THEN
+        IF (jk >= MIN_DOLIC) THEN
 
           ! Bottom and column thickness for horizontally constant prism thickness
           patch_3D%bottom_thick_e(je,jb) = patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
@@ -3354,22 +3317,6 @@ CONTAINS
 
       END DO
     END DO
-    !If column has not enough wet layers set all 4 depth-arrays to zero
-   !DO jb = all_edges%start_block, all_edges%end_block
-   !  CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-   !  DO je = i_startidx_e, i_endidx_e
-   !    DO jk=1,n_zlev
-   !      IF ( v_base%dolic_e(je,jb) < MIN_DOLIC) THEN
-
-   !        patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
-   !        patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
-
-   !        patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
-   !        patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
-   !      ENDIF
-   !    END DO
-   !  END DO
-   !END DO
 
     ! set halo values to zero in specific arrays for calculating global sum with respect to lsm
     ! cells

@@ -669,19 +669,19 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       jk=1
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
+        DO jc = i_startidx_c, i_endidx_c
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
-            IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-              delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+          IF ( p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0 ) THEN
+            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-              z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
-               & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
- 
-              z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
-                & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))! * dt_inv
+            z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
+             & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
+   
+            z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
+              & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))! * dt_inv
 
-            ENDIF
+          ENDIF
         END DO
       END DO
 
@@ -689,15 +689,13 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-              IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
-                delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+              delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 
-                z_temp(jc,jk,jb) = &
-                  & (trac_old(jc,jk,jb) - (delta_t/delta_z) *            &
-                  &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))! * dt_inv
+              z_temp(jc,jk,jb) = &
+                & (trac_old(jc,jk,jb) - (delta_t/delta_z) *            &
+                &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))! * dt_inv
 
-              ENDIF
             ENDDO
         END DO
       END DO

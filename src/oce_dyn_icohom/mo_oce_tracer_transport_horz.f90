@@ -310,8 +310,8 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   !Final step: calculate sum of advective and diffusive horizontal fluxes
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 1, n_zlev
-      DO jc = i_startidx_c, i_endidx_c
+    DO jc = i_startidx_c, i_endidx_c
+      DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         flux_horz(jc,jk,jb) = z_div_diff_h(jc,jk,jb)-z_div_adv_h(jc,jk,jb)
       END DO
     END DO
@@ -554,22 +554,16 @@ END SUBROUTINE advect_diffuse_flux_horz
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
+      DO je = i_startidx, i_endidx
+        DO jk = slev, patch_3D%p_patch_1D(1)%dolic_e(je,jb)
           !
           ! compute the first order upwind flux; notice
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          IF ( patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-            pupflux_e(je,jk,jb) =  &
-            &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-!write(*,*)'upwind flux -h',je,jk,jb,pupflux_e(je,jk,jb), pvn_e(je,jk,jb),&
-!&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
-          ELSE
-            pupflux_e(je,jk,jb) = 0.0_wp
-          ENDIF
+          pupflux_e(je,jk,jb) =  &
+          &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
+          &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
