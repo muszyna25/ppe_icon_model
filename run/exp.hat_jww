@@ -131,13 +131,14 @@ cat > $atmo_namelist << EOF
  output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
  steps_per_file   = ${steps_per_file}
  include_last     = .FALSE.
+ output_grid      = .TRUE.
  output_filename  = "${EXPNAME}"
 !!! ml_varlist       = 'ps'      , 'ta'      ,
 !                    'hus'     , 'clw'     , 'cli'     ,
 !                    'ua'      , 'va'      , 'wap'     ,
 !                    'pfull'   , 'gpfull'
 ! ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
- ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div'
+ ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div','ha_diag_geo_mc','ha_diag_wpres_mc'
 /
 !&io_nml
 ! out_expname     = '${EXPNAME}'     ! file name base

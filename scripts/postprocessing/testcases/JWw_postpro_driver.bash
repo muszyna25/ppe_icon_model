@@ -398,15 +398,15 @@ if [ $interp_temp -eq 1 ];then
    echo "=== $(date)"
    echo "=== Interpolating temperature ..."
 
-   cdo selname,T    ${ftmp}".nc" ${ftmp}"_T_hyb.nc"
+   cdo selname,ha_prog_TL01_temp    ${ftmp}".nc" ${ftmp}"_T_hyb.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 1"
 
-   cdo selname,PS   ${ftmp}".nc" ${ftmp}"_PS.nc"
+   cdo selname,ha_prog_TL01_pres_sfc   ${ftmp}".nc" ${ftmp}"_PS.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 2"
 
-   cdo selname,PHIS ${ftmp}".nc" ${ftmp}"_PHIS.nc"
+   cdo selname,ha_diag_geo_mc ${ftmp}".nc" ${ftmp}"_PHIS.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 3"
 
@@ -444,11 +444,11 @@ if [ $interp_div -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating divergence ..."
-   cdo selname,DIV  ${ftmp}".nc" ${ftmp}"_DIV_hyb.nc"
+   cdo selname,ha_diag_div  ${ftmp}".nc" ${ftmp}"_DIV_hyb.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 1"
 
-   cdo selname,PS   ${ftmp}".nc" ${ftmp}"_PS.nc"
+   cdo selname,ha_prog_TL01_pres_sfc   ${ftmp}".nc" ${ftmp}"_PS.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 2"
 
@@ -489,11 +489,11 @@ if [ $interp_omega -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating omega ..."
-   cdo selname,OMEGA  ${ftmp}".nc" ${ftmp}"_OMEGA_hyb.nc"
+   cdo selname,ha_diag_wpres_mc  ${ftmp}".nc" ${ftmp}"_OMEGA_hyb.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 1"
 
-   cdo selname,PS     ${ftmp}".nc" ${ftmp}"_PS.nc"
+   cdo selname,ha_prog_TL01_pres_sfc     ${ftmp}".nc" ${ftmp}"_PS.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 2"
 
@@ -534,14 +534,14 @@ if [ $interp_vor -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating vorticity ..."
-   cdo selname,VOR  ${ftmp}".nc" ${ftmp}"_VOR_hyb.nc"
+   cdo selname,ha_diag_rel_vort_c  ${ftmp}".nc" ${ftmp}"_VOR_hyb.nc"
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 1"
 
    if [ $vorticity_at_corners -eq 1 ]; then
-     cdo remapdis,${ftmp}"_VOR_hyb.nc" -selname,PS ${ftmp}".nc" ${ftmp}"_PS.nc"
+     cdo remapdis,${ftmp}"_VOR_hyb.nc" -selname,ha_prog_TL01_pres_sfc ${ftmp}".nc" ${ftmp}"_PS.nc"
    else
-     cdo selname,PS  ${ftmp}".nc" ${ftmp}"_PS.nc"
+     cdo selname,ha_prog_TL01_pres_sfc  ${ftmp}".nc" ${ftmp}"_PS.nc"
    fi
 
    check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 2"
@@ -603,7 +603,7 @@ if [ ${compute_remap_weights} -eq 1 ]; then
  if [ -e ${ftmp}"_DIV850.nc" ]; then
     echo
     echo "=== Computing remapping weights (ICON to Gaussian) ..."
-    cdo gendis,t${trunc}grid -selname,DIV ${ftmp}"_DIV850.nc" ${weights}
+    cdo gendis,t${trunc}grid -selname,ha_diag_div ${ftmp}"_DIV850.nc" ${weights}
 
     check_error $? "In scripte JWw_postpro_driver.bash: part 'Computing remapping weights (ICON to Gaussian)'"
 
@@ -637,12 +637,12 @@ if [ ${ke_spectrum_diag} -eq 1 ]; then
 
 # Interpolate to Gaussian grid
 
-  cdo -r remap,t${trunc}grid,${weights} -selname,DIV  \
+  cdo -r remap,t${trunc}grid,${weights} -selname,ha_diag_div  \
          ${ftmp}"_DIV850.nc" ${ftmp}"_DIV850_T"${trunc}"_gp.nc"
 
   check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' cdo call 1"
 
-  cdo -r remap,t${trunc}grid,${weights} -selname,VOR  \
+  cdo -r remap,t${trunc}grid,${weights} -selname,ha_diag_rel_vort_c  \
          ${ftmp}"_VOR850.nc" ${ftmp}"_VOR850_T"${trunc}"_gp.nc"
 
   check_error $? "In scripte JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' cdo call 2"
