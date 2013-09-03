@@ -197,8 +197,10 @@ CONTAINS
        &          tracer_info=tracer_info, in_group=in_group                     )
 
     ! Get the number of convection tracers
+    IF(PRESENT(lconv_tracer)) THEN
     IF (lconv_tracer) THEN
       art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
+    ENDIF
     ENDIF
 
   END SUBROUTINE add_var_list_reference_tracer
