@@ -169,8 +169,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells, all_edges, owned_cells, owned_edges
     TYPE(t_patch), POINTER :: patch_horz
     
-    REAL(wp) :: vol_h(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
     patch_horz => patch_3d%p_patch_2d(1)
@@ -235,8 +233,6 @@ CONTAINS
     CALL dbg_print('on entry: vn-old'               ,p_os%p_prog(nold(1))%vn,str_module, idt_src, in_subset=owned_edges)
     idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('on entry: vn-new'               ,p_os%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
-    vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * p_os%p_prog(nnew(1))%h(:,:)
-    CALL dbg_print('before ocean_gmres: vol_new_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
     !---------------------------------------------------------------------
     
     ! abort condition for elevation and vn:
@@ -286,8 +282,6 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nold(1))%h)
       
       CALL dbg_print('bef ocean_gmres: h-old',p_os%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
-      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * p_os%p_prog(nold(1))%h(:,:)
-      CALL dbg_print('bef ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
 
       SELECT CASE (select_solver)
 
@@ -439,8 +433,6 @@ CONTAINS
 
 
       CALL dbg_print('after ocean_gmres: h-new',p_os%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
-      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * p_os%p_prog(nnew(1))%h(:,:)
-      CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
 
       !---------------------------------------------------------------------
       
