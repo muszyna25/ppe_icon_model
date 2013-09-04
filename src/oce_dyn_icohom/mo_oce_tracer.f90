@@ -52,7 +52,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer, l_with_vertical_diffusion
+  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer, l_with_vertical_tracer_diffusion
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -578,7 +578,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  ! REAL(wp) :: dt_inv
 
   INTEGER  :: jc,jk,jb
   INTEGER  :: z_dolic
@@ -592,7 +591,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   p_patch => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
   delta_t = dtime
-  ! dt_inv = 1.0_wp/dtime
 
   z_temp      (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
@@ -672,14 +670,14 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         DO jc = i_startidx_c, i_endidx_c
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
           IF ( p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0 ) THEN
-            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+            delta_z     = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
 
             z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
              & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
    
             z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
-              & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))! * dt_inv
+              & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))
 
           ENDIF
         END DO
@@ -694,7 +692,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
               z_temp(jc,jk,jb) = &
                 & (trac_old(jc,jk,jb) - (delta_t/delta_z) *            &
-                &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))! * dt_inv
+                &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))
 
             ENDDO
         END DO
@@ -712,13 +710,13 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
       !calculate vert diffusion impicit: result is stored in trac_out
       ! no sync because of columnwise computation
-      IF ( l_with_vertical_diffusion ) THEN
-      CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
-        &                                  z_temp(:,:,:),                   &
-        &                                  p_os%p_prog(nnew(1))%h(:,:),     &
-        &                                  A_v,                             &
-        &                                  p_op_coeff,                      &
-        &                                  trac_new(:,:,:))
+      IF ( l_with_vertical_tracer_diffusion ) THEN
+        CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
+          &                                  z_temp(:,:,:),                   &
+          &                                  p_os%p_prog(nnew(1))%h(:,:),     &
+          &                                  A_v,                             &
+          &                                  p_op_coeff,                      &
+          &                                  trac_new(:,:,:))
       ELSE
         trac_new = z_temp
       ENDIF
