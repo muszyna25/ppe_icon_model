@@ -68,7 +68,7 @@ init_rel_suff='20m.nc'  # 20m thickness
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=10
+iforc=11
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
@@ -185,6 +185,7 @@ cat > ${ocean_namelist} << EOF
   solver_tolerance = 1.0E-11              !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
+  l_with_vertical_diffusion = .TRUE.
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = Winton; 2 = Semtner

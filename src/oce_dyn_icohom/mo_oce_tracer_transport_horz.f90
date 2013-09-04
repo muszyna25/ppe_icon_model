@@ -50,7 +50,7 @@ USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based,ab_gam, &
   &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
-  &                                     FLUX_CALCULATION_HORZ  
+  &                                     FLUX_CALCULATION_HORZ
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
