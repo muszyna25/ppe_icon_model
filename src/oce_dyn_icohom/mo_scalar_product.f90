@@ -84,8 +84,8 @@ MODULE mo_scalar_product
   END INTERFACE
 
   INTERFACE map_edges2edges_viacell_3d_const_z 
-    MODULE PROCEDURE map_edges2edges_viacell_3D_1lev_const_z
-    MODULE PROCEDURE map_edges2edges_viacell_3D_mlev_const_z
+    MODULE PROCEDURE map_edges2edges_viacell_3d_1lev_const_z
+    MODULE PROCEDURE map_edges2edges_viacell_3d_mlev_const_z
   END INTERFACE
 
 

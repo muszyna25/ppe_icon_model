@@ -139,7 +139,7 @@ CONTAINS
 
     CASE(UPWIND)
 
-       CALL upwind_vflux_oce( p_patch_3D,                 &
+      CALL upwind_vflux_oce( p_patch_3D,                 &
                             & trac_old,                   &
                             & p_os%p_diag%w_time_weighted,&  ! in
                             & bc_top_tracer,              &
