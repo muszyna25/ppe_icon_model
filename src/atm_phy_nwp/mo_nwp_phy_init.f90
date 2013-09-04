@@ -844,9 +844,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDIF  !operation mode
 
   ! For 3D Smagorinsky turbulence model 
-  ! re-initialization of gz0 also for is_restart_run()=.TRUE.. Is that correct?
-  !
-  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy ) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy .AND. .NOT. is_restart_run() ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
 
@@ -854,13 +852,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       ! for idealized tests
       prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
     ELSE 
-      ! default
-      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+      ! default: these are all set in mo_surface_les 
     ENDIF
 
   ENDIF
-
-
 
 
 

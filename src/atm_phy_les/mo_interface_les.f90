@@ -457,13 +457,40 @@ CONTAINS
 
 
     !Call to turbulent parameterization schemes
-    IF (  lcall_phy_jg(itturb) ) THEN
+    !Subroutine similar to turbtran is called from les_turbulence
+    IF (  lcall_phy_jg(itturb) .OR. linit ) THEN
+
+!     Reset max. gust every 6 hours
+!
+      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itfastphy) ) THEN
+
+        ! exclude boundary interpolation zone of nested domains
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            &             i_startidx, i_endidx, rl_start, rl_end)
+
+            prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
+            prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
+        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      END IF
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
+                            & linit,                            & !in for surface calculation
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
+                            & ext_data,                         & !>input
                             & pt_prog,                          & !>in
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
@@ -605,7 +632,6 @@ CONTAINS
 
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
-
 
     !!-------------------------------------------------------------------------
     !!  slow physics part

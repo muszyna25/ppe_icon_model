@@ -66,8 +66,6 @@ MODULE mo_les_config
     REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
 
     !Some parameters
-    REAL(wp) :: karman_constant
-    REAL(wp) :: rkarman_constant  !inverse karman constant
     REAL(wp) :: smag_constant
     REAL(wp) :: turb_prandtl 
     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number

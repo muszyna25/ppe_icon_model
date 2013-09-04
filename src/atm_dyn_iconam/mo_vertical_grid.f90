@@ -76,6 +76,7 @@ MODULE mo_vertical_grid
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
+  USE mo_data_turbdiff,        ONLY: akt
 
   IMPLICIT NONE
 
@@ -2060,7 +2061,7 @@ MODULE mo_vertical_grid
                       p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
          p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
-                      / ((les_filter*les_config(1)%rkarman_constant)**2+z_me(je,jk,jb)**2)
+                      / ((les_filter/akt)**2+z_me(je,jk,jb)**2)
        END DO
       END DO
     END DO 

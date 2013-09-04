@@ -66,13 +66,11 @@ MODULE mo_les_nml
   REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
 
   !Some parameters
-  REAL(wp) :: karman_constant
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
  
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
-                    karman_constant, smag_constant, &
-                    turb_prandtl, bflux, tran_coeff
+                    smag_constant, turb_prandtl, bflux, tran_coeff
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -111,7 +109,6 @@ CONTAINS
     is_dry_cbl   = .FALSE.
 
     !parameters
-    karman_constant  = 0.4_wp
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
 
@@ -151,8 +148,6 @@ CONTAINS
       les_config(jg)% isrfc_type   =  isrfc_type
       les_config(jg)% ufric        =  ufric
       les_config(jg)% is_dry_cbl   =  is_dry_cbl
-      les_config(jg)% karman_constant   =  karman_constant
-      les_config(jg)% rkarman_constant  =  1._wp/karman_constant
       les_config(jg)% smag_constant     =  smag_constant
       les_config(jg)% turb_prandtl      =  turb_prandtl
       les_config(jg)% rturb_prandtl     =  1._wp/turb_prandtl
