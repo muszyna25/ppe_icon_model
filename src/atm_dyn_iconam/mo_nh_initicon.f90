@@ -911,6 +911,13 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
     TYPE(t_bool_table) :: bool_table
 
+    ! additional list for LOG printout
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default_grib2(SIZE(grp_vars_fg_default))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_default_grib2(SIZE(grp_vars_ana_default))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_grib2(SIZE(grp_vars_fg))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
+
+
     IF(p_pe == p_io) THEN
 
 
@@ -1099,12 +1106,38 @@ MODULE mo_nh_initicon
 
       ! Printout table
       !
+      ! For printout, translate variable names from Netcdf (internal) to GRIB2
+      ! print both GRIB2 (internal)
+      DO ivar = 1,ngrp_vars_fg_default
+        grp_vars_fg_default_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,        &
+          &                               TRIM(grp_vars_fg_default(ivar)),        &
+          &                               linverse=.FALSE.))//" ("//              &
+          &                               TRIM(grp_vars_fg_default(ivar))//")"
+      ENDDO
+      DO ivar = 1,ngrp_vars_fg
+        grp_vars_fg_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,     &
+          &                       TRIM(grp_vars_fg(ivar)),             &
+          &                       linverse=.FALSE.))//" ("//           &
+          &                       TRIM(grp_vars_fg(ivar))//")"
+      ENDDO
+      DO ivar = 1,ngrp_vars_ana_default
+        grp_vars_ana_default_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,       &
+          &                                TRIM(grp_vars_ana_default(ivar)),      &
+          &                                linverse=.FALSE.))//" ("//             &
+          &                                TRIM(grp_vars_ana_default(ivar))//")"
+      ENDDO
+      DO ivar = 1,ngrp_vars_ana
+        grp_vars_ana_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,    &
+          &                        TRIM(grp_vars_ana(ivar)),           &
+          &                        linverse=.FALSE.))//" ("//          &
+          &                        TRIM(grp_vars_ana(ivar))//")"
+      ENDDO
       CALL message("Required surface input fields:",'Source of FG and ANA fields:')
       CALL init_bool_table(bool_table)
-      CALL add_column(bool_table, "FG-SFC (default)", grp_vars_fg_default,  ngrp_vars_fg_default)
-      CALL add_column(bool_table, "FG-SFC",           grp_vars_fg,          ngrp_vars_fg)
-      CALL add_column(bool_table, "ANA-SFC (default)",grp_vars_ana_default, ngrp_vars_ana_default)
-      CALL add_column(bool_table, "ANA-SFC",          grp_vars_ana,         ngrp_vars_ana)
+      CALL add_column(bool_table, "FG-SFC (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
+      CALL add_column(bool_table, "FG-SFC",           grp_vars_fg_grib2,          ngrp_vars_fg)
+      CALL add_column(bool_table, "ANA-SFC (default)",grp_vars_ana_default_grib2, ngrp_vars_ana_default)
+      CALL add_column(bool_table, "ANA-SFC",          grp_vars_ana_grib2,         ngrp_vars_ana)
       CALL print_bool_table(bool_table)
     ENDIF  ! p_pe == p_io
 
