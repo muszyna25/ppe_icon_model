@@ -1530,8 +1530,8 @@ CONTAINS
             il_c2 = p_patch%edges%cell_idx(je,jb,2)
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-            z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
-            z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
+            z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
+            z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
 
             IF ( p_patch_3D%p_patch_1D(1)%dolic_e(je,jb) > 0 ) THEN
 
