@@ -365,7 +365,6 @@ CONTAINS
 !CDIR NOIEXPAND
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
-          &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
           &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
@@ -449,7 +448,6 @@ CONTAINS
 !CDIR NOIEXPAND
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
-          &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
           &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
@@ -623,6 +621,11 @@ CONTAINS
 
           p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
 
+          ! for consistency, set 
+          ! t_so(0) = t_g            if the lake is frozen
+          ! t_so(0) = 273.15         if the lake is not frozen
+          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_now(ic), h_ice_now(ic)>0._wp)
+          p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
 
           ! In addition, initialize prognostic Flake fields at time step 'new'
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
@@ -1040,7 +1043,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< number of child domains
-    INTEGER :: jc, jb, jk, isubs, ic
+    INTEGER :: jc, jb, jk, isubs
 
     REAL(wp) :: tilefrac ! fractional area covered by tile
 
@@ -1056,7 +1059,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,ic,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,jk,tilefrac) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1912,14 +1915,13 @@ CONTAINS
   END SUBROUTINE subsmean_power4
 
 
-  SUBROUTINE diag_snowfrac_tg(istart, iend, z0_lcc, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
+  SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
     & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
     INTEGER, INTENT (IN) :: lc_class(:)  ! list of land-cover classes
     INTEGER, INTENT (IN) :: i_lc_urban   ! land-cover class index for urban / artificial surface
-    REAL(wp), DIMENSION(:), INTENT(IN) :: z0_lcc(:)    ! roughness length
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
       freshsnow, sso_sigma, tai
 

@@ -712,7 +712,6 @@ ENDIF
 if (.true.) then
         CALL diag_snowfrac_tg(                        &
           &  istart = 1, iend = i_count             , & ! start/end indices
-          &  z0_lcc    = ext_data%atm%z0_lcc(:)     , & ! roughness length
           &  lc_class  = lc_class_t        (:,isubs), & ! land-cover class
           &  i_lc_urban = ext_data%atm%i_lc_urban   , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      (:,isubs), & ! snow temp

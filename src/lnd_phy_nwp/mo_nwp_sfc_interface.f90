@@ -579,7 +579,6 @@ CONTAINS
 
         CALL diag_snowfrac_tg(                           &
           &  istart = 1, iend = i_count                , & ! start/end indices
-          &  z0_lcc    = ext_data%atm%z0_lcc(:)        , & ! roughness length
           &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
           &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
           &  t_snow    = t_snow_new_t      (:,jb,isubs), & ! snow temp
@@ -1349,6 +1348,11 @@ CONTAINS
         p_prog_wtr_new%h_b1_lk  (jc,jb)     = h_b1_lk_new  (ic)
 
         lnd_prog_new%t_g_t(jc,jb,isub_lake) = t_scf_lk_new (ic)
+
+        ! for consistency, set 
+        ! t_so(0) = t_g            if the lake is frozen
+        ! t_so(0) = 273.15         if the lake is not frozen
+        lnd_prog_new%t_s_t (jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_new(ic), h_ice_new(ic)>0._wp)
 
         ! surface saturation specific humidity over water/ice 
         !
