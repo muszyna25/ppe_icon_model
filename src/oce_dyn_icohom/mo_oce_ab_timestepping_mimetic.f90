@@ -86,6 +86,8 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
+  USE mo_mpi,                       ONLY: my_process_is_stdio ! my_process_is_mpi_parallel
+  USE mo_statistics,                ONLY: global_minmaxmean
 !  USE mo_parallel_config,           ONLY: p_test_run
   IMPLICIT NONE
   
@@ -168,6 +170,8 @@ CONTAINS
     CHARACTER(LEN=max_char_length) :: string
     TYPE(t_subset_range), POINTER :: all_cells, all_edges, owned_cells, owned_edges
     TYPE(t_patch), POINTER :: patch_horz
+    REAL(wp) ::  minmaxmean(3)
+    REAL(wp), PARAMETER ::  min_top_height = 0.05_wp ! we have to have at least 5cm water on top of sea cells
     
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
@@ -418,6 +422,13 @@ CONTAINS
       
       CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nnew(1))%h)
       
+      minmaxmean(:) = global_minmaxmean(values=p_os%p_prog(nnew(1))%h(:,:), range_subset=owned_cells)
+      IF (my_process_is_stdio()) THEN
+!        write(0,*) "minmaxmean=", minmaxmean
+        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
+          CALL finish(method_name, "height below min_top_height")
+      ENDIF
+
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       !     z_h_c = lhs_surface_height_ab_mim( p_os%p_prog(nnew(1))%h, &
@@ -430,8 +441,6 @@ CONTAINS
       !         & -p_os%p_aux%p_rhs_sfc_eq
       !     CALL dbg_print('SolvSfc: residual h-res'    ,z_h_c                  ,str_module,idt_src)
       idt_src=1  ! output print level (1-5, fix)
-
-
       CALL dbg_print('after ocean_gmres: h-new',p_os%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
 
       !---------------------------------------------------------------------
