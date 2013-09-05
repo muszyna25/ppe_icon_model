@@ -1152,7 +1152,8 @@ CONTAINS
           jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
           jv = idx_1d(jl_v, jb_v)
           IF (wrk_p_patch%verts%owner_g(jv) == my_proc) flag2_v(jv)=0
-          IF (order_type_of_halos == 0 .AND. flag2_v(jv)==1) flag2_v(jv)=0
+          IF ((order_type_of_halos == 0 .OR. order_type_of_halos == 2) &
+              .AND. flag2_v(jv)==1) flag2_v(jv)=0
         ENDDO
       ENDIF
     ENDDO
