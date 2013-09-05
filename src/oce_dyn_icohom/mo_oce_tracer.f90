@@ -669,8 +669,11 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
         DO jc = i_startidx_c, i_endidx_c
 !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
           IF ( p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0 ) THEN
+
             delta_z     = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nold(1))%h(jc,jb)
             delta_z_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
+            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
             z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
              & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
