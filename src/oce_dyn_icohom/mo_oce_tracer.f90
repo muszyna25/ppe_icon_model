@@ -52,7 +52,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer, l_with_vertical_tracer_diffusion
+  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer, l_with_vert_tracer_diffusion
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -712,7 +712,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
 
       !calculate vert diffusion impicit: result is stored in trac_out
       ! no sync because of columnwise computation     
-      IF ( l_with_vertical_tracer_diffusion ) THEN
+      IF ( l_with_vert_tracer_diffusion ) THEN
         CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
           &                                  z_temp(:,:,:),                   &
           &                                  p_os%p_prog(nnew(1))%h(:,:),     &

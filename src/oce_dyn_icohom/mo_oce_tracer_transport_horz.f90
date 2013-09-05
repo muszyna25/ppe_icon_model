@@ -50,7 +50,7 @@ USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based,ab_gam, &
   &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
-  &                                     FLUX_CALCULATION_HORZ, l_with_horizontal_tracer_diffusion
+  &                                     FLUX_CALCULATION_HORZ, l_with_horz_tracer_diffusion
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -289,7 +289,7 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   IF (ltimer) CALL timer_stop(timer_hflx_lim)
 
   !The diffusion part: calculate horizontal diffusive flux
-  IF ( l_with_horizontal_tracer_diffusion ) THEN
+  IF ( l_with_horz_tracer_diffusion ) THEN
     IF (ltimer) CALL timer_start(timer_dif_horz)
     CALL tracer_diffusion_horz( patch_3D,     &
                               & trac_old,     &

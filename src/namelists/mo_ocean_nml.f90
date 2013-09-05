@@ -289,8 +289,8 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
 
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
-  LOGICAL  :: l_with_vertical_tracer_diffusion   = .TRUE.
-  LOGICAL  :: l_with_horizontal_tracer_diffusion = .TRUE.
+  LOGICAL  :: l_with_vert_tracer_diffusion   = .TRUE.
+  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
 
   ! special diagnostics configuration
   !
@@ -333,8 +333,8 @@ MODULE mo_ocean_nml
     &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_veloc, richardson_tracer,                 &
     &                 l_constant_mixing, l_wind_mixing,                    &
-    &                 l_with_vertical_tracer_diffusion,                    &
-    &                 l_with_horizontal_tracer_diffusion
+    &                 l_with_vert_tracer_diffusion,                    &
+    &                 l_with_horz_tracer_diffusion
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
