@@ -475,6 +475,8 @@ set_run_target_wizard()
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --ntasks-per-node=$tasks_per_node
+#SBATCH --cpus-per-task=$use_openmp_threads
+#SBATCH --mem=233472
 #========================================
 EOF
 }
