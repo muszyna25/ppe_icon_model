@@ -1519,7 +1519,6 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
     DO je = i_startidx, i_endidx
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
 
-      !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
       IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 

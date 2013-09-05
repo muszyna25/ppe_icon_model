@@ -5164,7 +5164,8 @@ void cdiPioStreamWriteVarChunk_(int streamID, int varID, int memtype,
 void cdiPioStreamClose(stream_t *streamptr, int recordBufIsToBeDeleted);
 
 #else
-typedef int MPI_Comm;
+//typedef int MPI_Comm;
+#define MPI_Comm int
 #endif
 
 #endif

@@ -576,7 +576,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   REAL(wp) :: delta_t, delta_z,delta_z_new
   REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) 
   REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
   INTEGER  :: jc,jk,jb
@@ -596,7 +596,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
   flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   flux_vert   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
-
   trac_new(:,:,:)  = 0.0_wp
 
 
@@ -678,7 +677,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
    
             z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
               & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))
-
+ 
           ENDIF
         END DO
       END DO
@@ -709,7 +708,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, trac_old,               &
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
       !calculate vert diffusion impicit: result is stored in trac_out
-      ! no sync because of columnwise computation
+      ! no sync because of columnwise computation     
       IF ( l_with_vertical_tracer_diffusion ) THEN
         CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
           &                                  z_temp(:,:,:),                   &

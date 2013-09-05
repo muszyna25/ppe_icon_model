@@ -54,7 +54,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & solver_max_restart_iterations,                    &
     & solver_max_iter_per_restart, dhdtw_abort,         &
     & l_forc_freshw, select_solver, select_restart_gmres,   &
-    & select_gmres
+    & select_gmres, l_vol_corr_of_num_errors
   
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
@@ -417,7 +417,6 @@ CONTAINS
         CALL finish(method_name, "Unknown solver")
 
       END SELECT ! solver
-
       !-------- end of solver ---------------
       
       CALL sync_patch_array(sync_c, patch_horz, p_os%p_prog(nnew(1))%h)
@@ -808,7 +807,7 @@ CONTAINS
               DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
-                  !IF(v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)    &
                     & + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
                     & -p_os%p_diag%press_grad(je,jk,jb)  &
@@ -833,7 +832,7 @@ CONTAINS
               DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
-                  !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
+
                   p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)  &
                     & + dtime*(p_os%p_aux%g_nimd(je,jk,jb) &
                     & - z_gradh_e(je, jb))
@@ -894,17 +893,20 @@ CONTAINS
       !Below is the code that adds surface forcing to explicit term of momentum eq.
       IF(expl_vertical_velocity_diff==1)THEN
         
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-          DO je = edge_start_idx, edge_end_idx
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+        DO je = edge_start_idx, edge_end_idx
             
-            IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
-              p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
+          IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
+          
+            p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
                 & + dtime*p_os%p_aux%bc_top_vn(je,jb)&
-                & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb)
+                & /patch_3d%p_patch_1d(1)%prism_thick_e(je,1,jb)
+                !PK5. Sept. (patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb)+
               
-              dolic_e=patch_3d%p_patch_1d(1)%dolic_e(je,jb)
-              p_os%p_diag%vn_pred(je,dolic_e,jb)    &
+            dolic_e=patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+              
+            p_os%p_diag%vn_pred(je,dolic_e,jb)    &
                 & = p_os%p_diag%vn_pred(je,dolic_e,jb)&
                 & - dtime*p_os%p_aux%bc_bot_vn(je,jb)               &
                 & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,dolic_e,jb)
@@ -912,8 +914,12 @@ CONTAINS
             
           END DO
         END DO
-      ENDIF
+      ELSE
       
+      CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab'), &
+            &            'explicit vertical diffusion no longer supported')
+      ENDIF
+
       !In the SW-case the external forcing is applied as volume force.
       !This force is stored in data type top-boundary-condition.
     ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
@@ -1637,8 +1643,16 @@ CONTAINS
     !  &maxval(p_os%p_diag%div_mass_flx_c(:,jk,:))
     !  END DO
     
-    z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*patch_3d%wet_c(:,1,:)
-    
+     z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*patch_3d%wet_c(:,1,:)
+     
+     !Correction of volume error due to round-off and other numerical errors.
+     !can be switched on/of via namelist.  
+     IF(l_vol_corr_of_num_errors)THEN
+     
+       pw_c(:,1,:)=pw_c(:,1,:) + z_c(:,:)
+     
+       z_c(:,:) = ((p_os%p_prog(nnew(1))%h(:,:)-p_os%p_prog(nold(1))%h(:,:))/dtime - pw_c(:,1,:))*patch_3d%wet_c(:,1,:)     
+     ENDIF     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: d_h/dt-w',z_c                       ,str_module,idt_src)

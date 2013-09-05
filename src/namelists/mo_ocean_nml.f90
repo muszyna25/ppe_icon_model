@@ -191,7 +191,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_gmres = 1
   INTEGER, PARAMETER :: select_restart_gmres = 2
   INTEGER :: select_solver = select_restart_gmres
-
+  LOGICAL :: l_vol_corr_of_num_errors = .false.
 
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
@@ -318,7 +318,8 @@ MODULE mo_ocean_nml
     &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
-    &                 select_solver
+    &                 select_solver,                                      &
+    &                 l_vol_corr_of_num_errors,i_bc_veloc_top,i_bc_veloc_bot
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
