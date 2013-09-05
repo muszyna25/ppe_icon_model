@@ -125,11 +125,9 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   REAL(wp), INTENT(INOUT)                :: flux_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !
   !Local variables
-  REAL(wp) :: h_e_new
   INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: i_startidx_e, i_endidx_e
   INTEGER  :: jc, jk, jb, je
-  INTEGER :: i_c1, i_c2, b_c1, b_c2
 
   REAL(wp) :: z_adv_flux_h (nproma, n_zlev, patch_3D%p_patch_2D(1)%nblks_e)  ! horizontal advective tracer flux
   REAL(wp) :: z_div_adv_h  (nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)   ! horizontal tracer divergence
@@ -205,17 +203,6 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
       DO je = i_startidx_e, i_endidx_e
         DO jk = 1, patch_3D%p_patch_1D(1)%dolic_e(je,jb)
           z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb) * patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
-! IF ( jk == 1) THEN
-!   i_c1 = patch_2d%edges%cell_idx(je,jb,1)
-!   b_c1 = patch_2d%edges%cell_blk(je,jb,1)
-!   i_c2 = patch_2d%edges%cell_idx(je,jb,2)
-!   b_c2 = patch_2d%edges%cell_blk(je,jb,2)
-!
-!   h_e_new = 0.5_wp*p_os%p_prog(nnew(1))%h(i_c1,b_c1)+0.5_wp*p_os%p_prog(nnew(1))%h(i_c2,b_c2)
-!   z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb) * patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) + h_e_new
-! ELSE
-!   z_adv_flux_h(je,jk,jb) = z_adv_flux_h(je,jk,jb) * patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb)
-! ENDIF
         END DO
       END DO
     END DO

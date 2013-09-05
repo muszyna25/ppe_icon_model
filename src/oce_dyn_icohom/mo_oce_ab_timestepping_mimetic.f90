@@ -1546,9 +1546,6 @@ CONTAINS
     REAL(wp) :: z_abort
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: p_patch
-
-    REAL(wp) :: h_e_new
-    INTEGER :: i_c1,i_c2,b_c1,b_c2
     
     !-----------------------------------------------------------------------
     p_patch         => patch_3d%p_patch_2d(1)
@@ -1570,20 +1567,8 @@ CONTAINS
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
         DO jk = 1, n_zlev
           DO je = i_startidx, i_endidx
-! IF ( jk == 1) THEN
-!   i_c1 = p_patch%edges%cell_idx(je,jb,1)
-!   b_c1 = p_patch%edges%cell_blk(je,jb,1)
-!   i_c2 = p_patch%edges%cell_idx(je,jb,2)
-!   b_c2 = p_patch%edges%cell_blk(je,jb,2)
-!
-!   h_e_new = 0.5_wp*p_os%p_prog(nnew(1))%h(i_c1,b_c1)+0.5_wp*p_os%p_prog(nnew(1))%h(i_c2,b_c2)
-!   p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb) + patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) &
-!     & + h_e_new
-! ELSE
-!   p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb) + patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(je,jk,jb) 
-! ENDIF
-            p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb)&
-              & * patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
+            p_os%p_diag%mass_flx_e(je,jk,jb) = p_diag%vn_time_weighted(je,jk,jb) * &
+              &                                patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
           END DO
         END DO
       END DO
