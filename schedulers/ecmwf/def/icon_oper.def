@@ -30,7 +30,7 @@
 set EXPNUM        "001"                #---experiment number---
 set EXPNUM2       "001"                #---experiment number used for score comparison---
 set SUITE2        "deia"               #---suite             used for score comparison---
-set FIRST_DATE    20130615
+set FIRST_DATE    20130723
 set LAST_DATE     20131231
 set MONTHS        000000               #---months to be run (not for oper)
 set INIHOUR       00
