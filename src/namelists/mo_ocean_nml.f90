@@ -319,7 +319,7 @@ MODULE mo_ocean_nml
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
     &                 select_solver,                                      &
-    &                 l_vol_corr_of_num_errors,i_bc_veloc_top,i_bc_veloc_bot
+    &                 l_vol_corr_of_num_errors
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
