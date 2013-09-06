@@ -76,12 +76,12 @@ while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
  
-  set -A vars  W_SO  #T_SO     #W_SO_ICE_tile_1 
+  set -A vars  W_SO  T_SO     #W_SO_ICE_tile_1 
   for var in ${vars[*]}
   do
-    echo${metview} -b ${scriptdir}map.error $expnum $var lnd snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo${metview} -b ${scriptdir}map.error $expnum $var lnd ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo${metview} -b ${scriptdir}map.error $expnum $var lnd diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   
   # -------------------------------------------------------
@@ -89,9 +89,9 @@ while [[ $nt < ${#inidate[*]} ]]; do
   set -A vars  T_SNOW_M  RHO_SNOW_M  DZH_SNOW_M
   for var in ${vars[*]}
   do
-    echo${metview} -b ${scriptdir}map.error $expnum $var 114 snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo${metview} -b ${scriptdir}map.error $expnum $var 114 ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo${metview} -b ${scriptdir}map.error $expnum $var 114 diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var 114 snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var 114 ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var 114 diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   
   # -------------------------------------------------------
