@@ -412,7 +412,7 @@ MODULE mo_oce_state
       & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
       & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
       & vn_time_weighted(:,:,:) ,&  ! predicted normal velocity vector at edges.
-      & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at edges.
+      & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at cells.
       & vort(:,:,:)             ,& ! vorticity at triangle vertices. Unit [1/s]
       & kin(:,:,:)              ,& ! kinetic energy. Unit [m/s].
       & veloc_adv_horz(:,:,:)   ,& ! horizontal velocity advection
@@ -1077,11 +1077,10 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_default_list, 'w_time_weighted', p_os_diag%w_time_weighted, &
-    &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA_HALF, &
-    &            t_cf_var('w_prev','m/s','vertical velocity at edges', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_diag"))
-
+    &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
+    &            t_cf_var('w_time_weighted','m/s','vertical velocity at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
     ! vorticity
     CALL add_var(ocean_restart_list, 'vort', p_os_diag%vort, &
     &            GRID_UNSTRUCTURED_VERT, ZA_DEPTH_BELOW_SEA, &
