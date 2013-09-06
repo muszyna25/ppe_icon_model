@@ -2093,6 +2093,7 @@ MODULE mo_nh_initicon
        ! p_lnd_state(jg)%diag_lnd%qv_s(:,:) = &
        !  &    p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,1)
       END DO
+
         !  tile based fields
       DO jt=1, ntiles_total
 
@@ -2165,6 +2166,51 @@ MODULE mo_nh_initicon
         &                p_patch(jg)%n_patch_cells_g,                                   &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,        &
         &                prm_diag(jg)%gz0(:,:),                                         &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+
+      ! first guess for fresh water lake fields
+      !
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_mnw_lk',              &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk(:,:),    &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_wml_lk',              &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(:,:),    &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_ml_lk',               &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(:,:),     &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_bot_lk',              &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk(:,:),    &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'c_t_lk',                &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk(:,:),      &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 't_b1_lk',               &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk(:,:),     &
+        &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
+
+      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'h_b1_lk',               &
+        &                p_patch(jg)%n_patch_cells_g,                             &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,  &
+        &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk(:,:),     &
         &                opt_checkgroup=initicon(jg)%sfc%grp_vars_fg(1:ngrp_vars_fg) )
 
     ENDDO ! loop over model domains
