@@ -248,7 +248,12 @@ MODULE mo_nh_diffusion
 
       ! enhanced factor for Smagorinsky diffusion above the stratopause in order to
       ! properly damp breaking gravity waves
-      enh_smag_fac(1:nlev) = MIN(1._wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2)
+      !
+      ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
+      enh_smag_fac(1:nlev) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-25000._wp)/500000._wp))
+      ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
+      enh_smag_fac(1:nlev) = MIN(1._wp,MAX(enh_smag_fac(1:nlev),                                &
+                             MAX(0._wp,(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-50000._wp)/40000._wp)**2) )
 
       ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN

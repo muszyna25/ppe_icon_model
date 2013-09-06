@@ -82,6 +82,7 @@ MODULE mo_solve_nonhydro
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_nh_testcases,      ONLY: nh_test_name
   USE mo_nh_dcmip_gw,       ONLY: fcfugal
+  USE mo_vertical_coord_table,ONLY: vct_a
 
   IMPLICIT NONE
 
@@ -761,9 +762,10 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, scal_divdamp, &
-               dt_shift, bdy_divdamp, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,      &
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, &
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,     &
                z_ntdistv_bary(2), distv_bary(2)
+    REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
 
@@ -847,16 +849,21 @@ MODULE mo_solve_nonhydro
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
     IF (divdamp_order == 2) THEN
-      scal_divdamp = divdamp_fac * p_patch%geometry_info%mean_cell_area 
+      scal_divdamp(:) = divdamp_fac * p_patch%geometry_info%mean_cell_area 
     ELSE IF (divdamp_order == 4) THEN
-       scal_divdamp = -divdamp_fac * (p_patch%geometry_info%mean_cell_area**2)
+       ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
+       ! with height to a value of 0.004 (= the namelist default) at 40 km
+       enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
+         MAX(0._wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
+       enh_divdamp_fac(:) = MAX(divdamp_fac,enh_divdamp_fac(:))
+       scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
     ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
     dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
-    bdy_divdamp = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp)
+    bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
 
 
     IF (p_test_run) THEN
@@ -1645,7 +1652,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-                + scal_divdamp*z_graddiv_vn(je,jk,jb)
+                + scal_divdamp(jk)*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
         ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
@@ -1656,8 +1663,8 @@ MODULE mo_solve_nonhydro
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                       &
-                + (scal_divdamp+bdy_divdamp*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk,jb)
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                            &
+                + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk,jb)
             ENDDO
           ENDDO
         ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
@@ -1665,7 +1672,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-                + scal_divdamp*z_graddiv2_vn(je,jk,jb)
+                + scal_divdamp(jk)*z_graddiv2_vn(je,jk,jb)
             ENDDO
           ENDDO
         ENDIF
