@@ -107,6 +107,7 @@ MODULE mo_nh_initicon
     &                               t_bool_table
   USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
   USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
+  USE mo_flake,               ONLY: flake_coldinit
 
   IMPLICIT NONE
 
@@ -186,6 +187,9 @@ MODULE mo_nh_initicon
     TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     INTEGER :: jg, ist
+    INTEGER :: jb              ! block loop index
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:init_icon'
@@ -288,6 +292,44 @@ MODULE mo_nh_initicon
       ! process DWD land/surface analysis
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
+      ! Cold-start initialization of the fresh-water lake model FLake.
+      ! The procedure is the same as in "int2lm".
+      ! Note that no lake ice is assumed at the cold start.
+      !
+      IF (llake) THEN
+        DO jg = 1, n_dom
+          i_rlstart  = 1
+          i_rlend    = min_rlcell
+          i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
+          i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+          DO jb = i_startblk, i_endblk
+            CALL flake_coldinit(                                        &
+              &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &  ! in
+              &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &  ! in
+              &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
+                ! here, a proper estimate of the sea surface temperature is required
+              &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,isub_lake),&  ! in
+              &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
+              &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
+              &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
+              &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
+              &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
+              &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), & 
+              &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
+              &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
+              &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
+              &   t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
+              &   h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
+              &   t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
+          ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+        ENDDO  ! jg
+      ENDIF
+
     CASE DEFAULT
 
       CALL finish(TRIM(routine), "Invalid operation mode!")
@@ -313,9 +355,9 @@ MODULE mo_nh_initicon
 
     ! splitting of sea-points list into open water and sea-ice points could be placed 
     ! here, instead of nwp_phy_init/init_nwp_phy
-    ! however, one needs to make sure that it is called for both restart and non-restart runs
-    ! for both restart and non-restart runs. Could not be included into 
-    ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
+    ! however, one needs to make sure that it is called for both restart and non-restart
+    ! runs. Could not be included into mo_ext_data_state/init_index_lists due to its 
+    ! dependence on p_diag_lnd.
 !DR    CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
   END SUBROUTINE init_icon
@@ -2673,6 +2715,8 @@ MODULE mo_nh_initicon
 !$OMP END DO
 !$OMP END PARALLEL
 
+    ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
+    ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
   END SUBROUTINE create_dwdana_sfc
   !-------------------------------------------------------------------------
@@ -3011,56 +3055,26 @@ MODULE mo_nh_initicon
 !DR       ! At these points, tskin should not be used to initialize the water temperature.
 
           IF (llake) THEN
-            ! Loop over grid boxes with lakes
-            DO ic=1, ext_data(jg)%atm%fp_count(jb)
-              ! Take index from the lake index list
-              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-              ! Mixed-layer depth is set equal to 10 m or to the lake depth, whichever is smaller 
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb) =  & 
-                &  MIN(ext_data(jg)%atm%depth_lk(jc,jb), 10._wp)
-              ! Shape factor is set to its minimum value 
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk(jc,jb)  = C_T_min             
-              ! Mixed-layer temperature is set to the surface temprature
-              ! that should be provided for the cold-start initialization 
-              ! (e.g. skin temperature can be taken as an estimate of t_wml_lk)
-              ! Clearly, the mixed-layer temperature cannot be less than the fresh-water freezing point 
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) =   &
-                &  MAX(initicon(jg)%sfc%tskin(jc,jb), tpl_T_f)
-              ! Bottom temperature is set equal 
-              ! to the mixed-layer temperarture if the water column is mixed
-              ! or to the temperarture of maximum density of fresh water  
-              ! if the mixed-layer depth is less than the depth to the bottom
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk(jc,jb) = MERGE(  &
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb), tpl_T_r,  &
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb) >=          & 
-                &  ext_data(jg)%atm%depth_lk(jc,jb) ) 
-              ! Mean temperature of the water column is computed from the formula
-              ! t_mnw_lk = t_wml_lk - c_t_lk * MAX(0., 1.-h_ml_lk/depth_lk) * (t_wml_lk-t_bot_lk) 
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk(jc,jb) =                        &
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) -                   & 
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk(jc,jb) *                     &
-                &  MAX(0._wp, ( 1._wp-p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk(jc,jb)/  &  
-                &  ext_data(jg)%atm%depth_lk(jc,jb))) *                                       &
-                &  ( p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb) -                 &
-                &    p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk(jc,jb) )
-              ! No ice is assumed at cold-start initilization
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = tpl_T_f  ! Fresh-water freezing point
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp    ! Zero ice thickness
-              ! Snow over lake ice is not considered explicitly
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(jc,jb) =  &     ! Ice surface temperature
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) 
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(jc,jb) = 0._wp  ! Zero snow thickness
-              ! Bottom sediment module of FLake is switched off  
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk(jc,jb) = tpl_T_r            ! Reference value
-              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk(jc,jb) = rflk_depth_bs_ref  ! Reference value
-              ! Set lake-surface temperature equal to the mixed-layer temperature
-              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(jc,jb,isub_lake) =  &
-                &  p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
-            END DO  ! End of loop over grid boxes with lakes
+            CALL flake_coldinit(                                        &
+              &     nflkgb      = ext_data(jg)%atm%fp_count    (jb), &  ! in
+              &     idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb), &  ! in
+              &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb), &  ! in
+              &     tskin       = initicon(jg)%sfc%tskin     (:,jb), &  ! in
+              &     t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
+              &     h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
+              &     t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
+              &     h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
+              &     t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
+              &     t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), & 
+              &     t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
+              &     c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
+              &     h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
+              &     t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
+              &     h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
+              &     t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
           ENDIF  ! llake
 
         ENDIF   ! inwp_surface > 0
-
       ENDDO
 !$OMP END DO NOWAIT
 

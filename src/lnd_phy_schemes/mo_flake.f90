@@ -413,6 +413,7 @@ MODULE mo_flake
 
   ! Entities that should be accessible from outside the present module 
   PUBLIC ::                       &
+         &  flake_coldinit      , & ! procedure (cold start initialization)
          &  flake_init          , & ! procedure (initialization)
          &  flake_interface         ! procedure (time stepping)
 
@@ -759,6 +760,160 @@ CONTAINS
 !===================================================================================================
 !  End of the lake parameterization scheme FLake initialization
 !---------------------------------------------------------------------------------------------------
+
+
+
+
+  !>
+  !! Coldstart for lake parameterization scheme Flake. 
+  !!
+  !! Coldstart for lake parameterization scheme Flake.
+  !! Note that an estimate of the surface temperature is required to initialize the 
+  !! mixed-layer temperature. Also note that no lake ice is assumed at the cold start.
+  !! During cold start, prognostic Flake fields are only initialized at lake-points. 
+  !! Non-lake points are filled with dummy values during the warmstart procedure. 
+  !! 
+  !! 
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2013-07-09)
+  !!
+  !! Modification by <name>, <institution> (<yyyy>-<mm>-<dd>)
+  !!
+  SUBROUTINE flake_coldinit (                                   & 
+                     &  nflkgb, idx_lst_fp,                     &
+                     &  depth_lk,                               &
+                     &  tskin,                                  &
+                     &  t_snow_lk_p, h_snow_lk_p,               & 
+                     &  t_ice_p, h_ice_p,                       & 
+                     &  t_mnw_lk_p, t_wml_lk_p, t_bot_lk_p,     &
+                     &  c_t_lk_p, h_ml_lk_p,                    & 
+                     &  t_b1_lk_p, h_b1_lk_p,                   &
+                     &  t_g_lk_p                                )
+
+
+    IMPLICIT NONE
+
+
+    ! Procedure arguments
+
+    ! Array dimension(s)
+
+    INTEGER, INTENT(IN) ::         &
+                        &  nflkgb    !< array (vector) dimension,
+                                     !< equal to the number of grid boxes within a block 
+                                     !< where lakes are present
+    INTEGER, DIMENSION(:), INTENT(IN) ::  &     !< index list for lake covered points
+                        &  idx_lst_fp           !< within a block 
+
+    ! FLake external parameters
+
+    REAL(KIND = ireals), DIMENSION(:), INTENT(IN) ::  &
+                        &  depth_lk             !< lake depth [m]
+
+
+    ! Additional input fields needed for initialization
+
+    REAL(KIND = ireals), DIMENSION(:), INTENT(IN) ::  &
+                        &  tskin                !< proper estimate of mixed-layer temperature [K]
+                                                !< e.g. skin temperature
+
+
+    ! FLake prognostic variables
+    ! (at the previous time step - "p", and the updated values - "n")
+
+    REAL(KIND = ireals), DIMENSION(:), INTENT(INOUT) ::  &
+                        &  t_snow_lk_p      , & !< temperature of snow upper surface at previous time step [K]
+                        &  h_snow_lk_p      , & !< snow thickness at previous time step [m]
+                        &  t_ice_p          , & !< temperature of ice upper surface at previous time step [K]
+                        &  h_ice_p          , & !< ice thickness at previous time step [m]
+                        &  t_mnw_lk_p       , & !< mean temperature of the water column at previous time step [K]
+                        &  t_wml_lk_p       , & !< mixed-layer temperature at previous time step [K] 
+                        &  t_bot_lk_p       , & !< temperature at the water-bottom sediment interface 
+                                                !< at previous time step [K] 
+                        &  c_t_lk_p         , & !< shape factor with respect to the temperature profile 
+                                                !< in lake thermocline at previous time step [-] 
+                        &  h_ml_lk_p        , & !< thickness of the mixed-layer at previous time step [m] 
+                        &  t_b1_lk_p        , & !< temperature at the bottom of the upper layer
+                                                !< of the sediments at previous time step [K]  
+                        &  h_b1_lk_p        , & !< thickness of the upper layer of bottom sediments 
+                                                !< at previous time step [m] 
+                        &  t_g_lk_p             !< lake surface temperature at previous time [K]
+
+
+
+    INTEGER ::      &
+            &  ic , &  !< DO loop index
+            &  jc      !< icon grid cell index
+
+
+
+    !===============================================================================================
+    !  Start calculations
+    !-----------------------------------------------------------------------------------------------
+
+
+
+
+    ! Loop over grid boxes with lakes
+    !
+    DO ic=1, nflkgb
+      ! Take index from the lake index list
+      jc = idx_lst_fp(ic)
+
+      ! Mixed-layer depth is set equal to 10 m or to the lake depth, whichever is smaller 
+      h_ml_lk_p(jc) = MIN(depth_lk(jc), 10._ireals)
+
+
+      ! Shape factor is set to its minimum value 
+      c_t_lk_p(jc) = C_T_min
+
+
+      ! Mixed-layer temperature is set to the surface temperature
+      ! that should be provided for the cold-start initialization 
+      ! (e.g. skin temperature can be taken as an estimate of t_wml_lk)
+      ! Clearly, the mixed-layer temperature cannot be less than the fresh-water freezing point 
+      t_wml_lk_p(jc) = MAX(tskin(jc), tpl_T_f)
+
+
+      ! Bottom temperature is set equal 
+      ! to the mixed-layer temperarture if the water column is mixed
+      ! or to the temperarture of maximum density of fresh water  
+      ! if the mixed-layer depth is less than the depth to the bottom
+      t_bot_lk_p(jc) = MERGE( t_wml_lk_p(jc), tpl_T_r, h_ml_lk_p(jc)>= depth_lk(jc) )
+
+
+      ! Mean temperature of the water column is computed from the formula
+      ! t_mnw_lk = t_wml_lk - c_t_lk * MAX(0., 1.-h_ml_lk/depth_lk) * (t_wml_lk-t_bot_lk) 
+      t_mnw_lk_p(jc) = t_wml_lk_p(jc) - c_t_lk_p(jc)                  &
+        &            * MAX(0._ireals, (1._ireals - h_ml_lk_p(jc)/depth_lk(jc))) &
+        &            * (t_wml_lk_p(jc) - t_bot_lk_p(jc))
+
+
+      ! No ice is assumed at cold-start initilization
+      t_ice_p(jc) = tpl_T_f      ! Fresh-water freezing point
+      h_ice_p(jc) = 0._ireals    ! Zero ice thickness
+
+
+      ! Snow over lake ice is not considered explicitly
+      t_snow_lk_p(jc) = t_ice_p(jc)                                   ! Ice surface temperature
+      h_snow_lk_p(jc) = 0._ireals                                     ! Zero snow thickness
+
+
+      ! Bottom sediment module of FLake is switched off
+      t_b1_lk_p(jc) = tpl_T_r                                         ! Reference value
+      h_b1_lk_p(jc) = rflk_depth_bs_ref                               ! Reference value
+
+
+      ! Set lake-surface temperature equal to the mixed-layer temperature
+      t_g_lk_p(jc) = t_wml_lk_p(jc)
+
+    END DO  ! End of loop over grid boxes with lakes
+
+
+  END SUBROUTINE flake_coldinit
+
+
+
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 

@@ -843,7 +843,7 @@ CONTAINS
 
       ! Init t_g_t for sea water points
 
-      icount_water = ext_data%atm%spw_count(jb) ! number of sea wate points in block jb
+      icount_water = ext_data%atm%spw_count(jb) ! number of sea water points in block jb
         !
       DO ic = 1, icount_water
         jc = ext_data%atm%idx_lst_spw(ic,jb)
