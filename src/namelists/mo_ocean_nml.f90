@@ -191,7 +191,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_gmres = 1
   INTEGER, PARAMETER :: select_restart_gmres = 2
   INTEGER :: select_solver = select_restart_gmres
-  LOGICAL :: l_vol_corr_of_num_errors = .false.
+  LOGICAL :: use_continuity_correction = .false.
+
 
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
@@ -289,7 +290,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
 
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
-  LOGICAL  :: l_with_vert_tracer_diffusion   = .TRUE.
+  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
   LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
 
   ! special diagnostics configuration
@@ -300,6 +301,10 @@ MODULE mo_ocean_nml
   INTEGER :: drake_passage(100)          = -1
   INTEGER :: indonesian_throughflow(100) = -1
   INTEGER :: scotland_iceland(100)       = -1
+
+  REAL(wp) ::  z_forc_period     = 3.0_wp  ! For the periodic analytic forcing (wind)
+  REAL(wp) ::  y_forc_period     = 3.0_wp
+  REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -318,8 +323,7 @@ MODULE mo_ocean_nml
     &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
-    &                 select_solver,                                      &
-    &                 l_vol_corr_of_num_errors
+    &                 select_solver, use_continuity_correction
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
@@ -344,7 +348,8 @@ MODULE mo_ocean_nml
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
-    &                 oce_t_ref, oce_s_ref
+    &                 oce_t_ref, oce_s_ref, z_forc_period, y_forc_period,  &
+    &                 analytic_wind_amplitude
 
   NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland
