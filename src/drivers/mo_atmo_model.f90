@@ -199,7 +199,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS
 #ifndef NOMPI
-#if defined(__SX__)
+#if defined(__GET_MAXRSS__)
     IF (msg_level >= 16) THEN
       CALL util_get_maxrss(maxrss)
       PRINT  *, "PE #", get_my_mpi_all_id(), &
