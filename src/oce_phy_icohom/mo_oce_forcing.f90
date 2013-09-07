@@ -51,7 +51,8 @@ MODULE mo_oce_forcing
 !
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
-  &                               wstress_coeff, iforc_stat_oce, basin_height_deg
+  &                               wstress_coeff, iforc_stat_oce, basin_height_deg, &
+  & z_forc_period, y_forc_period, analytic_wind_amplitude
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_exception,           ONLY: finish, message
@@ -93,21 +94,18 @@ CONTAINS
   INTEGER :: i_startidx_c, i_endidx_c
 
   REAL(wp) :: z_lat, z_lon, y_length, y_center
-  REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
-                                     !=2.0: double gyre
-                                     !=n.0: n-gyre
 
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:init_ho_sfcflx'
 
   !-------------------------------------------------------------------------
   TYPE(t_subset_range), POINTER :: all_cells
-  TYPE(t_patch), POINTER        :: p_patch 
+  TYPE(t_patch), POINTER        :: patch_2D
   !-----------------------------------------------------------------------
-  p_patch   => p_patch_3D%p_patch_2D(1)
+  patch_2D   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   CALL message(TRIM(routine), 'start' )
 
-  all_cells => p_patch%cells%all
+  all_cells => patch_2D%cells%all
 
   ! analytical forcing
   IF (iforc_oce == ANALYT_FORC) THEN
@@ -123,6 +121,7 @@ CONTAINS
     CASE (1)
       CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
       y_length = basin_height_deg * deg2rad
+      z_forc_period = 1.0_wp
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
@@ -130,8 +129,8 @@ CONTAINS
 
           IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
 
-            z_lat = p_patch%cells%center(jc,jb)%lat
-            z_lon = p_patch%cells%center(jc,jb)%lon
+            z_lat = patch_2D%cells%center(jc,jb)%lat
+            z_lon = patch_2D%cells%center(jc,jb)%lon
 
             p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * &
             & cos(z_forc_period*pi*(z_lat-y_length)/y_length) 
@@ -143,8 +142,8 @@ CONTAINS
           !Init cartesian wind
           CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
                          & p_sfc_flx%forc_wind_v(jc,jb),&
-                         & p_patch%cells%center(jc,jb)%lon,&
-                         & p_patch%cells%center(jc,jb)%lat,&
+                         & patch_2D%cells%center(jc,jb)%lon,&
+                         & patch_2D%cells%center(jc,jb)%lat,&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
@@ -159,11 +158,12 @@ CONTAINS
 
       ! Latitudes vary from -pi/2 to pi/2
       y_length = basin_height_deg * deg2rad
+      z_forc_period = 1.0_wp
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = p_patch%cells%center(jc,jb)%lat
-          z_lon = p_patch%cells%center(jc,jb)%lon
+          z_lat = patch_2D%cells%center(jc,jb)%lat
+          z_lon = patch_2D%cells%center(jc,jb)%lon
           IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
             p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * cos(z_forc_period*pi*(z_lat-y_length)&
               &                                / y_length) 
@@ -177,8 +177,8 @@ CONTAINS
           IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
                            & p_sfc_flx%forc_wind_v(jc,jb),      &
-                           & p_patch%cells%center(jc,jb)%lon,   &
-                           & p_patch%cells%center(jc,jb)%lat,   &
+                           & patch_2D%cells%center(jc,jb)%lon,   &
+                           & patch_2D%cells%center(jc,jb)%lat,   &
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
@@ -202,8 +202,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = p_patch%cells%center(jc,jb)%lat
-          z_lon = p_patch%cells%center(jc,jb)%lon
+          z_lat = patch_2D%cells%center(jc,jb)%lat
+          z_lon = patch_2D%cells%center(jc,jb)%lon
           IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
             p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * cos(z_forc_period*pi*(z_lat-y_center)&
               &                                / y_length) 
@@ -216,8 +216,86 @@ CONTAINS
           IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
                            & p_sfc_flx%forc_wind_v(jc,jb),      &
-                           & p_patch%cells%center(jc,jb)%lon,   &
-                           & p_patch%cells%center(jc,jb)%lat,   &
+                           & patch_2D%cells%center(jc,jb)%lon,   &
+                           & patch_2D%cells%center(jc,jb)%lat,   &
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+          ELSE
+            p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+          ENDIF
+        END DO
+      END DO
+
+    CASE (4)
+      CALL message(TRIM(routine), &
+        &  'iforc_stat_oce=4: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
+
+      ! Forcing for ape
+      z_forc_period     = 3.0_wp
+      y_forc_period     = 3.0_wp
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = patch_2D%cells%center(jc,jb)%lat
+          z_lon = patch_2D%cells%center(jc,jb)%lon
+          IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
+
+            p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * analytic_wind_amplitude * &
+              & cos(z_lat) * cos(z_forc_period * z_lat) * cos(z_lon)
+
+            p_sfc_flx%forc_wind_v(jc,jb) = - wstress_coeff * analytic_wind_amplitude * &
+              & cos(z_lat) * cos(z_forc_period * z_lat) * sin(y_forc_period * z_lon)
+
+          ELSE
+            p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
+            p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
+          ENDIF
+
+          !Init cartesian wind
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
+            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
+                           & p_sfc_flx%forc_wind_v(jc,jb),      &
+                           & patch_2D%cells%center(jc,jb)%lon,   &
+                           & patch_2D%cells%center(jc,jb)%lat,   &
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+          ELSE
+            p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+          ENDIF
+        END DO
+      END DO
+
+   CASE (5)
+      CALL message(TRIM(routine), &
+        &  'iforc_stat_oce=4: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
+
+      ! Forcing for ape
+      z_forc_period     = 3.0_wp
+      y_forc_period     = 3.0_wp
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = patch_2D%cells%center(jc,jb)%lat
+          z_lon = patch_2D%cells%center(jc,jb)%lon
+          IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
+
+            p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * analytic_wind_amplitude * &
+              & cos(z_lat) * cos(z_forc_period * z_lat)
+
+            p_sfc_flx%forc_wind_v(jc,jb) = 0
+          ELSE
+            p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
+            p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
+          ENDIF
+
+          !Init cartesian wind
+          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
+            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
+                           & p_sfc_flx%forc_wind_v(jc,jb),      &
+                           & patch_2D%cells%center(jc,jb)%lon,   &
+                           & patch_2D%cells%center(jc,jb)%lat,   &
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                            & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
@@ -236,8 +314,8 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
-    CALL dbg_print('analytical forcing u'      ,p_sfc_flx%forc_wind_u   ,str_module,idt_src)
-    CALL dbg_print('analytical forcing v'      ,p_sfc_flx%forc_wind_u   ,str_module,idt_src)
+    CALL dbg_print('analytical forcing u'      ,p_sfc_flx%forc_wind_u, str_module,idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('analytical forcing v'      ,p_sfc_flx%forc_wind_v, str_module,idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
 
   END IF

@@ -734,6 +734,7 @@ run/exp.oce_test_numeric -text
 run/exp.oce_test_numeric_noland -text
 run/exp.oce_test_parallel -text
 run/exp.oce_tracer_conservation -text
+run/exp.oce_tracer_conservation_force-5-0 -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.r2b4_amip_blizzard.run -text
