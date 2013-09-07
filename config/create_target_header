@@ -341,7 +341,7 @@ set_run_target_blizzard()
     class="class = bench"
   fi
 
-  if [[ -z "$BB_SYSTEM" ]]; then
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
     # this buildbot, do not use job id
     job_log_name='LOG.$(job_name)'
   else
@@ -512,15 +512,16 @@ set_run_target_thunder()
   start_header
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue="mpi-serial"
+  #  queue="mpi-develop"
     use_nodes=1
     tasks_per_node=1
  else
     job_type=parallel
-    # queue="mpi-develop"
+  #  queue="mpi-develop"
     queue="mpi-compute"
     tasks_per_node=$use_mpi_procs_pernode
   fi
-  if [[ -z "$BB_SYSTEM" ]]; then
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
     # this buildbot, do not use job id
     job_log_name="LOG.$job_name"
   else
