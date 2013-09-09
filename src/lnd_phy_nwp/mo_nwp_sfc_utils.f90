@@ -2305,7 +2305,10 @@ CONTAINS
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
     INTEGER :: n_now, n_new
     INTEGER :: lc_water, lc_snow_ice
+    REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
+
+
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:update_sstice'    
 
@@ -2336,6 +2339,7 @@ CONTAINS
         &  i_startblk, i_endblk,  p_patch(jg)%n_patch_cells_g
       CALL message('', TRIM(message_text))   
 
+
     !renitialized to cero 
     ext_data(jg)%atm%spi_count(i_startblk:i_endblk)=0
     ext_data(jg)%atm%spw_count(i_startblk:i_endblk)=0
@@ -2346,7 +2350,8 @@ CONTAINS
     ! generate sea-ice and open-water index list
     !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,count_sea,count_ice,count_water,fracwater_old,fracice_old), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,ic,jc,count_sea,count_ice,count_water, &
+!$OMP            fracwater_old,fracice_old, t_water), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
 
@@ -2359,8 +2364,10 @@ CONTAINS
       count_sea   = ext_data(jg)%atm%sp_count(jb)
       count_ice   = 0
       count_water = 0
-    
+
+
       IF (count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
+   
 
 
       IF ( ntiles_total == 1 ) THEN  ! no tile approach
@@ -2413,10 +2420,10 @@ CONTAINS
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-
-            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
-             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
-             &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
+            t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                &
+             &                             spec_humi( sat_pres_water(t_water ),   &
+             &                             p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
             
             ! set sai_t
             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
@@ -2507,9 +2514,10 @@ CONTAINS
             ext_data(jg)%atm%lc_class_t(jc,jb,isub_water)= lc_water
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
-             &   spec_humi( sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ),&
-             &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
+            t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                 &
+             &                             spec_humi( sat_pres_water(t_water ),    &
+             &                             p_nh_state(jg)%diag%pres_sfc(jc,jb) ) 
 
             fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)              &
                         & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water) 
@@ -2627,7 +2635,6 @@ CONTAINS
     !Still have to aggregate t_g_t and qv_s_t
     CALL aggregate_t_g_q_v( p_patch(jg), ext_data(jg), p_lnd_state(jg)%prog_lnd(n_now) , &
      &                           p_lnd_state(jg)%diag_lnd )
-
    END DO !jg
   END SUBROUTINE update_sstice
 
