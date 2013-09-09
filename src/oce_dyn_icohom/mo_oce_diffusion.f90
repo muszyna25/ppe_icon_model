@@ -1415,42 +1415,53 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
-      IF ( z_dolic > 0 ) THEN
-        !field_column(jc,1:z_dolic,jb)=field_column(jc,1:z_dolic,jb)*dt_inv
-         a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
-         b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
-         c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
+
+      IF (z_dolic > 0 ) THEN
+      !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
+      !IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+      !  IF ( z_dolic >=MIN_DOLIC ) THEN
+
+          !field_column(jc,1:z_dolic,jb)=field_column(jc,1:z_dolic,jb)*dt_inv
+           a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
+           b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
+           c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
 
 
-        DO jk=slev, z_dolic-1
-          IF(b(jk)/=0.0_wp)THEN
-            a(jk) = a(jk)/b(jk)
-            c(jk) = c(jk)/b(jk)
-            field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
-            b(jk)=1.0_wp
-          ENDIF
-        END DO
+          DO jk=slev, z_dolic-1
+            IF(b(jk)/=0.0_wp)THEN
+              a(jk) = a(jk)/b(jk)
+              c(jk) = c(jk)/b(jk)
+              field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
+              b(jk)=1.0_wp
+            ENDIF
+          END DO
 
-        !Apply the matrix
-        DO jk=slev+1, z_dolic-1
-          b(jk)                  = b(jk)-a(jk)*c(jk-1)
-          field_column(jc,jk,jb) = field_column(jc,jk,jb)&
-                        &-a(jk)*field_column(jc,jk-1,jb)
-          c(jk)                  = c(jk)/b(jk)
-          field_column(jc,jk,jb) = field_column(jc,jk,jb)/b(jk)
-          b(jk)                  = 1.0_wp
-        END DO
+          !Apply the matrix
+          DO jk=slev+1, z_dolic-1
+            b(jk)                  = b(jk)-a(jk)*c(jk-1)
+            field_column(jc,jk,jb) = field_column(jc,jk,jb)&
+                          &-a(jk)*field_column(jc,jk-1,jb)
+            c(jk)                  = c(jk)/b(jk)
+            field_column(jc,jk,jb) = field_column(jc,jk,jb)/b(jk)
+            b(jk)                  = 1.0_wp
+          END DO
 
-        z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-        z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
+          z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
+          z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
 
-        field_column(jc,z_dolic,jb) = z_tmp
-        DO jk = z_dolic-1,1,-1
-          field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
-        END DO
-        DO jk = 1,z_dolic!-1
-          diff_column(jc,jk,jb) = field_column(jc,jk,jb)!*dtime
-        END DO
+          field_column(jc,z_dolic,jb) = z_tmp
+          DO jk = z_dolic-1,1,-1
+            field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
+          END DO
+           DO jk = 1,z_dolic!-1
+             diff_column(jc,jk,jb) = field_column(jc,jk,jb)!*dtime
+           END DO
+        !ELSEIF ( z_dolic < MIN_DOLIC ) THEN
+        !  diff_column(jc,:,jb) = 0.0_wp
+        !  field_column(jc,:,jb)= 0.0_wp
+      !  ENDIF
+      !ELSEIF( v_base%lsm_c(jc,1,jb) > sea_boundary ) THEN
+      !  diff_column(jc,1:z_dolic,jb) = field_column(jc,1:z_dolic,jb)
       ENDIF
     END DO
   END DO
@@ -1519,6 +1530,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
     DO je = i_startidx, i_endidx
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
 
+      !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
       IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
