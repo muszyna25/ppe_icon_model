@@ -1,6 +1,7 @@
 require 'open3'
 require 'jobqueue'
 require 'facets'
+require 'iconPlot'
 require 'rake/clean'
 require 'test/unit/assertions'
 include Test::Unit::Assertions
@@ -31,6 +32,8 @@ SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
 WORKDIR     = File.expand_path('.')
 # remote runscripts
 DEFAULT_EXP = 'test_oce_default'
+#plotter
+@plotter = IconPlot.new
 
 # basic host setup
 $hosts = {
@@ -299,6 +302,9 @@ def doCheckExp(build,exp)
       fi
    EOS
   )) unless ENV['SHOW'].nil?
+#ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
+#varName='matrix_vert_diff_c_1'
+#image = @plotter.plot(ifile,'test_'+exp,'matrix_vert_diff_c_1','scalar',:maskName => 'wet_c',:timeStep => 3)
 end
 def doCheckPost(build,exp,ext)
   pattern = "*_#{exp}_*.#{ext}"
