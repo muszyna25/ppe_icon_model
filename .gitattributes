@@ -1038,6 +1038,7 @@ scripts/postprocessing/tools/rhopot.rb -text
 scripts/postprocessing/tools/scatterPlot.rb -text
 scripts/postprocessing/tools/spectra_uv.ncl -text
 scripts/postprocessing/tools/spectra_vordiv.ncl -text
+scripts/postprocessing/tools/spectra_vordiv_plmean_tmean_res_comp.ncl -text
 scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/postprocessing/tools/tsrhoplot.sh -text
 scripts/postprocessing/tools/xsec.py -text
