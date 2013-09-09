@@ -224,7 +224,7 @@ cat > ${ocean_namelist} << EOF
   l_forc_freshw      = .FALSE.        ! apply freshwater forcing boundary condition (OMIP only)
   iforc_stat_oce     = 5              ! analytic forcing constant westerly
   z_forc_period     = 1.0             ! constant westerly wind
-  analytic_wind_amplitude = -2.0
+  analytic_wind_amplitude = -1.0
 !  oce_t_ref          = 1.0
   temperature_relaxation= 0 
 /
