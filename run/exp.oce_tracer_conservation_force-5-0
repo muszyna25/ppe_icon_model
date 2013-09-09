@@ -87,7 +87,7 @@ iforc=11
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2101-01-01T00:00:00Z"
+  end_date="2002-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -113,7 +113,9 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 # provide an ocean horizontal grid file
 #  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
 #
-ocean_grids="iconR2B04-ocean_etopo40_planet_n-noinland.nc"
+#ocean_grids="iconR2B04-ocean_etopo40_planet_n-noinland.nc"
+# grids_folder="/pool/data/ICON/ocean_data/ocean_grid"
+ocean_grids="iconR2B04-ocean_etopo40_planet_noinland_pool.nc"
 # 
 #-----------------------------------------------------------------------------
 #
@@ -159,25 +161,25 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,
-                        100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0
+!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+!  dzlev_m(1:20)      =  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,
+!                        100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0
 !  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
-! n_zlev             =   40
-! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+ n_zlev             =   40
+ dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+  l_edge_based    = .TRUE.        ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.       ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
-  solver_tolerance = 1.0E-16              !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart = 20        !  outer solver loop with syncing
+  solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart = 24        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
   i_bc_veloc_top = 1
   i_bc_veloc_bot = 1
@@ -217,7 +219,7 @@ cat > ${ocean_namelist} << EOF
   l_forc_freshw      = .FALSE.        ! apply freshwater forcing boundary condition (OMIP only)
   iforc_stat_oce     = 5              ! analytic forcing constant westerly
   z_forc_period     = 1.0             ! constant westerly wind
-  analytic_wind_amplitude = 1.0
+  analytic_wind_amplitude = -2.0
 !  oce_t_ref          = 1.0
 /
 &ocean_diagnostics_nml
