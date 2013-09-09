@@ -14,7 +14,7 @@
 #SBATCH --job-nam=ICON_%TASK%
 #SBATCH --output=%SMSJOBOUT%
 #SBATCH --error=%SMSJOBOUT%
-#SBATCH --mail-type=FAIL
+###SBATCH --mail-type=FAIL
 
 
 #==========================================================================
