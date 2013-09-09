@@ -207,7 +207,7 @@ cat > ${ocean_namelist} << EOF
  k_sal_h            = 0.0       ! [m2/s] constant horizontal diffusion coefficient for salinity
  k_sal_v            = 0.0       ! [m/s]  vertical background diffusion coefficient for salinity
 !
-  richardson_tracer  = 2.0       ! factor for vertical diffusion coefficient in PP scheme
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
   l_with_vert_tracer_diffusion = .false.
   l_with_horz_tracer_diffusion = .false.
