@@ -990,7 +990,7 @@ CONTAINS
      ktop_thicklimit(:) = nlevp1
 
      ! vertical interface height
-     IF (ivctype == 1) THEN ! hybrid Gal-Chen coordinate
+     IF (ivctype == 1 .OR. decay_scale_1 >= 0.5_wp*top_height) THEN ! hybrid Gal-Chen coordinate
        DO jk = 1, nlev
          jk1 = jk + nshift
          z3d_i(1:nlen,jk,jb) = vct_a(jk1) + vct_b(jk1)*z3d_i(1:nlen,nlevp1,jb)
