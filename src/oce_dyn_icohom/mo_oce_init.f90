@@ -61,7 +61,7 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_s
   &                              init_oce_relax, irelax_3d_S, irelax_3d_T, irelax_2d_S,     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation,&
-  &                              oce_t_ref, oce_s_ref
+  &                              oce_t_ref, oce_s_ref, use_tracer_x_height
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
   &                              land_boundary,                                             &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -2095,6 +2095,9 @@ ELSEIF( iswm_oce == 1 )THEN
   END SELECT
 ENDIF  !  iswm_oce
 
+  CALL fill_tracer_x_height(p_patch_3D, p_os)
+
+
 CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE init_ho_testcases
@@ -3570,5 +3573,33 @@ stop
 
    END FUNCTION geostr_balance11
 
+  SUBROUTINE fill_tracer_x_height(patch_3D, ocean_state)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: tracer_idx, jk, jb, jc, start_cell_idx, end_cell_idx
+
+    IF (.not. use_tracer_x_height) RETURN
+
+    all_cells => patch_3D%p_patch_2D(1)%cells%all
+
+    DO  tracer_idx = 1, no_tracer
+      ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(:, :, :) = 0.0_wp
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_idx, end_cell_idx)
+        DO jc = start_cell_idx, end_cell_idx
+          DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
+            ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(jc, jk, jb) = &
+              & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration(jc,jk,jb)   *      &
+              & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(jc, jk, jb)
+
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE fill_tracer_x_height
 
 END MODULE mo_oce_init
