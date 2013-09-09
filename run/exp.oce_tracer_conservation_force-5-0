@@ -32,12 +32,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global resolution
-# R=2   # nroot
-# B=2   # number of bisections applied
+R=2   # nroot
+B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
-  LOC='none'   # all ocean files needed for running are found on pool
+  LOC='POOL'   # all ocean files needed for running are found on pool
 # LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
@@ -87,14 +87,14 @@ iforc=11
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2002-01-01T00:00:00Z"
+  end_date="2002-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=9999999          # ocean model output interval hours [hours]
-ndays_file=3750000      # new output file generation interval [days]
-ndays_checkp=1850000    # write restart file interval [days]
-ndays_restart=1000000      # stop model for restart [days]
+nhours_data=1          # ocean model output interval hours [hours]
+ndays_file=3750      # new output file generation interval [days]
+ndays_checkp=1850    # write restart file interval [days]
+ndays_restart=100      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -116,6 +116,9 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #ocean_grids="iconR2B04-ocean_etopo40_planet_n-noinland.nc"
 # grids_folder="/pool/data/ICON/ocean_data/ocean_grid"
 ocean_grids="iconR2B04-ocean_etopo40_planet_noinland_pool.nc"
+  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
+#
+ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
@@ -142,18 +145,16 @@ cat > ${ocean_namelist} << EOF
  write_timer_files    = .FALSE.
  msg_timestamp        = .FALSE.
 /
-!/
-! no complete sea ice
-!&output_nml
-!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-!  steps_per_file   = ${steps_per_file}
-!  include_last     = .TRUE.
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-!  ml_varlist       = 'wet_c','group:ice_default'
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist       =  't','s','t_acc','s_acc','wet_c'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =-1                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
