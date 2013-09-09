@@ -506,7 +506,7 @@ CONTAINS
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D%p_patch_2D(jg), p_os(jg), p_ice)
 
-    CALL allocate_exp_coeff     ( patch_3D%p_patch_2D(jg), p_op_coeff)
+    CALL allocate_exp_coeff     ( patch_3D%p_patch_2D(jg), p_op_coeff, ocean_default_list)
     CALL par_init_operator_coeff( patch_3D, p_os(jg),p_phys_param, p_op_coeff)
     CALL init_ho_recon_fields   ( patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_op_coeff)
 

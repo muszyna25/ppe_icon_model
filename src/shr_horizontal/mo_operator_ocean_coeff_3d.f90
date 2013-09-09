@@ -65,6 +65,11 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
+  USE mo_var_list,            ONLY: add_var, add_ref, groups
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_cf_convention,       ONLY: t_cf_var
+  USE mo_grib2,               ONLY: t_grib2_var
+  USE mo_cdi_constants
 
   IMPLICIT NONE
 
@@ -95,6 +100,10 @@ MODULE mo_operator_ocean_coeff_3d
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
 
+
+  TYPE t_ptr3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr3d
 
   TYPE t_operator_coeff
 
@@ -163,9 +172,10 @@ MODULE mo_operator_ocean_coeff_3d
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:) 
 
-    REAL(wp), ALLOCATABLE :: matrix_vert_diff_c(:,:,:,:)
-    REAL(wp), ALLOCATABLE :: matrix_vert_diff_e(:,:,:,:)
-
+    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
+    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
 
@@ -179,16 +189,18 @@ CONTAINS
   ! !! @par Revision History
   ! !! Peter Korn (2012-2)
   ! !!
-  SUBROUTINE allocate_exp_coeff( p_patch, p_coeff)
+  SUBROUTINE allocate_exp_coeff( p_patch, p_coeff, var_list)
     ! !
     TYPE(t_patch),TARGET,INTENT(in)       :: p_patch
     TYPE(t_operator_coeff), INTENT(inout) :: p_coeff
+    TYPE(t_var_list)                      :: var_list
 
     INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
-    INTEGER :: ist,ie
+    INTEGER :: ist,ie,i
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: jc,je,jk,jb
+    CHARACTER(len=max_char_length) :: var_suffix
 
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
@@ -361,7 +373,6 @@ CONTAINS
     ENDIF
     ALLOCATE(p_coeff%variable_vol_norm(nproma,nz_lev,nblks_c,1:no_primal_edges),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating variable_vol_norm failed')
     ENDIF
 
     ALLOCATE(p_coeff%variable_dual_vol_norm(nproma,nz_lev,nblks_v,1:no_dual_edges),stat=ist)
@@ -370,19 +381,43 @@ CONTAINS
     ENDIF
 
     !The last index "3" comes from the fact that we use a tridiagonal matrix
-    ALLOCATE(p_coeff%matrix_vert_diff_c(nproma,n_zlev,nblks_c, 3),&
-      & stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d',                 &
-        & 'allocation for matrix_vert_diff_c failed')
-    ENDIF
-    !The last index "3" comes from the fact that we use a tridiagonal matrix
-    ALLOCATE(p_coeff%matrix_vert_diff_e(nproma,n_zlev,nblks_e, 3),&
-      & stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d',                 &
-        & 'allocation for matrix_vert_diff_e failed')
-    ENDIF
+!   ALLOCATE(p_coeff%matrix_vert_diff_c(nproma,n_zlev,nblks_c, 3),&
+!     & stat=ist)
+!   IF (ist /= success) THEN
+!     CALL finish ('mo_operator_ocean_coeff_3d',                 &
+!       & 'allocation for matrix_vert_diff_c failed')
+!   ENDIF
+!   !The last index "3" comes from the fact that we use a tridiagonal matrix
+!   ALLOCATE(p_coeff%matrix_vert_diff_e(nproma,n_zlev,nblks_e, 3),&
+!     & stat=ist)
+!   IF (ist /= success) THEN
+!     CALL finish ('mo_operator_ocean_coeff_3d',                 &
+!       & 'allocation for matrix_vert_diff_e failed')
+!   ENDIF
+    CALL add_var(var_list, 'matrix_vert_diff_c', p_coeff%matrix_vert_diff_c, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('matrix_vert_diff_c','','for each edge',DATATYPE_FLT64),&
+      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,n_zlev,nblks_c,no_primal_edges/), &
+      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+    ALLOCATE(p_coeff%matrix_vert_diff_c_ptr(no_primal_edges))
+    DO i=1,no_primal_edges
+      WRITE(var_suffix,'(a,i1.1)') '_',i
+      CALL add_ref( var_list, 'matrix_vert_diff_c', &
+        &           'matrix_vert_diff_c'//TRIM(var_suffix), &
+        &           p_coeff%matrix_vert_diff_c_ptr(i)%p,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+        &           t_cf_var('matrix_vert_diff_c'//TRIM(var_suffix),'','', DATATYPE_FLT64), &
+        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &           ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_coeffs"))
+    ENDDO
+
+    CALL add_var(var_list, 'matrix_vert_diff_e', p_coeff%matrix_vert_diff_e, &
+      &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('matrix_vert_diff_e','','for each cell',DATATYPE_FLT64),&
+      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+      &          ldims=(/nproma,n_zlev,nblks_e,no_primal_edges/), &
+      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     !
     ! initialize all components
