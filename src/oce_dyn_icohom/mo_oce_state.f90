@@ -131,6 +131,7 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_acc
   PUBLIC :: t_ptr3d
   PUBLIC :: t_oce_config
+  PUBLIC :: t_ocean_tracer
 
   PUBLIC :: t_ocean_regions
   PUBLIC :: t_ocean_region_volumes
