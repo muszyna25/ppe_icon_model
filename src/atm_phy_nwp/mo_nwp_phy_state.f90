@@ -1038,7 +1038,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 4, 2, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'flxdwswtoa', diag%flxdwswtoa,              &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
-          & ldims=shape2d, lrestart=.FALSE.)
+          & ldims=shape2d, lrestart=.FALSE.,in_group=groups("rad_vars"))
 
 
         ! &      diag%swflxsfc(nproma,nblks_c)
@@ -1086,7 +1086,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
-          & ldims=shape2d, isteptype=a_steptype )
+          & ldims=shape2d, isteptype=a_steptype, in_group=groups("rad_vars") )
 
 
         ! &      diag%swflxtoa_a(nproma,nblks_c)
@@ -1099,7 +1099,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name) , diag%swflxtoa_a,                 &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
           & ldims=shape2d,                                                     &
-          & isteptype=a_steptype )
+          & isteptype=a_steptype, in_group=groups("rad_vars") )
 
         
         ! &      diag%lwflxsfc_a(nproma,nblks_c)
