@@ -292,6 +292,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
   LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
   LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
+  LOGICAL  :: use_tracer_x_height = .false.  ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
 
   ! special diagnostics configuration
   !
@@ -337,8 +338,9 @@ MODULE mo_ocean_nml
     &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_veloc, richardson_tracer,                 &
     &                 l_constant_mixing, l_wind_mixing,                    &
-    &                 l_with_vert_tracer_diffusion,                    &
-    &                 l_with_horz_tracer_diffusion
+    &                 l_with_vert_tracer_diffusion,                        &
+    &                 l_with_horz_tracer_diffusion,                        &
+    &                 use_tracer_x_height
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &

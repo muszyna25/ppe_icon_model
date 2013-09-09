@@ -64,7 +64,8 @@ MODULE mo_oce_state
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
-    &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
+    &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg,         &
+    &                               use_tracer_x_height
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, t_grid_cells, t_grid_edges
@@ -239,6 +240,11 @@ MODULE mo_oce_state
   TYPE t_ptr3d
     REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr3d
+
+  TYPE t_ocean_tracer
+    REAL(wp),POINTER :: concentration(:,:,:)
+    REAL(wp),POINTER :: concentration_x_height(:,:,:)
+  END TYPE t_ocean_tracer
 !
 !! prognostic variables
 !
@@ -254,6 +260,8 @@ MODULE mo_oce_state
                                   ! Ordering of tracers:
                                   !   1) pot_temp:= potential temperature, Unit: [deg C]
                                   !   2) salinity:= salinity, Unit [psu]
+
+    TYPE(t_ocean_tracer), ALLOCATABLE :: ocean_tracers(:)
 
     TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_hydro_ocean_prog
@@ -302,8 +310,8 @@ MODULE mo_oce_state
                                   ! dimension: (nproma, n_zlev, nblks_e)
       &  vn_time_weighted(:,:,:),&  ! predicted normal velocity vector at edges.
                                   ! dimension: (nproma, n_zlev, nblks_e)
-      &  w_time_weighted(:,:,:),& ! predicted normal velocity vector at edges.
-                                  ! dimension: (nproma, n_zlev, nblks_e)
+      &  w_time_weighted(:,:,:),& ! predicted normal velocity vector at cells
+                                  ! dimension: (nproma, n_zlev, nblks_c)
       &  vort(:,:,:)           ,& ! vorticity at triangle vertices. Unit [1/s]
                                   ! dimension: (nproma, n_zlev, nblks_v)
       &  vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
@@ -882,7 +890,6 @@ CONTAINS
                     &          oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
                     & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
-
       END DO
       IF (nold(1)==timelevel) THEN
         !Add output with readable variable names
@@ -909,8 +916,33 @@ CONTAINS
             &           ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"))
         END DO
       ENDIF ! single tracer output variables
+
+      ! use of the ocean_tracers structure
+      ALLOCATE(p_os_prog%ocean_tracers(no_tracer))
+      DO jtrc = 1,no_tracer
+        ! point the concentration to the 4D tracer
+        ! this is a tmeporary solution until the whole code is cleaned
+        p_os_prog%ocean_tracers(jtrc)%concentration =>  p_os_prog%tracer(:,:,:,jtrc)
+
+        ! allocate a
+        IF (use_tracer_x_height) THEN
+          !
+          CALL add_var(ocean_restart_list, 'ocean_tracers'//TRIM(var_suffix), &
+            &  p_os_prog%ocean_tracers(jtrc)%concentration_x_height , &
+            &  GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+            &  t_cf_var(TRIM(oce_tracer_names(jtrc))//"_x_height",  &
+            &  oce_tracer_units(jtrc),                            &
+            &  oce_tracer_longnames(jtrc), DATATYPE_FLT64),       &
+            &  t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+            &  ldims=(/nproma,n_zlev,alloc_cell_blocks/))
+
+        ENDIF ! use_tracer_x_height
+      ENDDO
+
     ENDIF ! no_tracer > 0
+
   END SUBROUTINE construct_hydro_ocean_prog
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -1077,10 +1109,11 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_default_list, 'w_time_weighted', p_os_diag%w_time_weighted, &
-    &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
-    &            t_cf_var('w_time_weighted','m/s','vertical velocity at cells', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA_HALF, &
+    &            t_cf_var('w_prev','m/s','vertical velocity at cells', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
     ! vorticity
     CALL add_var(ocean_restart_list, 'vort', p_os_diag%vort, &
     &            GRID_UNSTRUCTURED_VERT, ZA_DEPTH_BELOW_SEA, &
