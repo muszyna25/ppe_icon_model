@@ -2024,6 +2024,7 @@ CONTAINS
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v2 ! < modified lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v3 ! < even less evaporating lookup table landuse class GlobCover2009
 
     LOGICAL :: l_exist
 
@@ -2102,7 +2103,30 @@ CONTAINS
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
-
+! Even more tuned version of gcv2009 by Guenther Zaengl (will be subject to further changes - do not use for production!!!)
+ DATA lu_gcv2009_v3 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 190.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 170.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
+                   &   0.25_wp,  0.8_wp,  3.0_wp, 0.5_wp, 160.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 0.7_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 280.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
+                   &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 225.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
+                   &   0.15_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 270.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.8_wp, 200.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.6_wp, 200.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 265.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.4_wp, 140.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.2_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
+                   &   0.05_wp,  0.8_wp,  2.0_wp, 0.7_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.2_wp, 300.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.05_wp, 300.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+                   &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
+                   &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
+                   &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
 
 
@@ -2230,6 +2254,20 @@ CONTAINS
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v2(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v2(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+          ENDDO
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 3) THEN ! 
+          ext_data(jg)%atm%i_lc_snow_ice = 22
+          ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v3(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v3(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v3(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v3(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v3(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v3(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
 
