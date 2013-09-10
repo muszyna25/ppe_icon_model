@@ -180,6 +180,7 @@ cat > ${atmo_namelist} << EOF
  lflux_avg                    = .FALSE.
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  dt_checkpoint                = ${dt_restart}   
+ lzaxis_reference=.FALSE.
 /
 &run_nml
  num_lev                      = 90

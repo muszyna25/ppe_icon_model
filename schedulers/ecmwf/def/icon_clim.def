@@ -1,4 +1,3 @@
-def
 # -------------------------------------------------
 # ICON.DEF
 # -------------------------------------------------
@@ -55,9 +54,9 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors
-set ICONNODES        32   # R2B6: 32,  R2B7: 32,  R2B8: 64
-set ICONTASKSPERNODE 32   #       32         32         32
-set ICONTHREADS       2   #        2          2          1
+set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
+set ICONTASKSPERNODE 32   #       32         32         32          8
+set ICONTHREADS       2   #        2          2          2          8
 
 # -------------------------------------------------
 
@@ -69,9 +68,9 @@ setenv -i TMPDIR
 
 # HPC environment:
 set SCHOST      c2a
-set WSHOST      ecgate
+set WSHOST      ecgb
 set SCTEMP      /scratch/ms/de/$ICON_ID/icon
-set ECTEMP      /scratch/ms/de/$ICON_ID/icon_data
+set ECTEMP      /scratch/ms/de/$ICON_ID/icon
 set SCPERM      /perm/ms/de/$USER
 set ECPERM      /$SCHOST$SCPERM            # mounted c2a perm on ecgate
 set SCPERMIII   /perm/ms/de/$ICON_ID
@@ -113,23 +112,17 @@ define on_ecgate {
 
 define on_ecgate_submit {
   label host "$WSHOST submit"
-  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID $WSHOST %SMSJOB% %SMSJOBOUT%"
-  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID $WSHOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
-  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
+  edit SMSCMD       "sms_submit $ICON_ID $WSHOST %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "sms_kill   $ICON_ID $WSHOST %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
 }
 
-define on_ecgate_submit_old {
-  label host "$WSHOST submit"
-  edit SMSCMD       "/usr/local/share/sms_submit $ICON_ID $WSHOST %SMSJOB%"
-  edit SMSKILL      "/usr/local/share/sms_kill   $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
-  edit SMSSTATUSCMD "/usr/local/share/sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
-}
 
 define on_hpc_parallel {
   label host "$SCHOST parallel"
-  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
-  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
-  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSCMD       "sms_submit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "sms_kill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "sms_status $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSOUT     ${SCLOGDIR}
   edit SMSLOGHOST ${SCHOST}
   edit SMSLOGPORT ${SCLOGPORT}
@@ -139,9 +132,9 @@ define on_hpc_parallel {
 
 define on_hpc_serial {
   edit SCJOBTYPE serial
-  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
-  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
-  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
+  edit SMSCMD       "sms_submit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
+  edit SMSKILL      "sms_kill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
+  edit SMSSTATUSCMD "sms_status $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
   edit SMSOUT     ${SCLOGDIR}
   edit SMSLOGHOST ${SCHOST}
   edit SMSLOGPORT ${SCLOGPORT}
@@ -150,7 +143,9 @@ define on_hpc_serial {
   on_hpc_parallel
   label host "$SCHOST serial"
 }
-
+#  edit SMSCMD       "/home/ma/emos/bin/smssubmit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
+#  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
+#  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
 
 # -------------------------------------------------
 
@@ -168,18 +163,19 @@ suite $USER
 
     # init local variables:
     set ENABLE_INIT               0 #to avoid running again
-    set     ENABLE_GET_DATA       1
-    set     ENABLE_INIT_DATA      1
+    set     ENABLE_GET_DATA       0
+    set     ENABLE_INIT_DATA      0
     set     ENABLE_BUILD          0
     set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
-    set     ENABLE_MODEL          0
-    set ENABLE_SSTICE             1 #to avoid running again
+    set     ENABLE_MODEL          1
+    set     ENABLE_CHECK          1
+    set ENABLE_SSTICE             0 #to avoid running again
     set ENABLE_POST               1
-    set     ENABLE_METEOGRAM      0
-    set     ENABLE_POST_METVIEW   0
-    set     ENABLE_POST_ARCHIVE   0
+    set     ENABLE_METEOGRAM      1
+    set     ENABLE_POST_METVIEW   1
+    set     ENABLE_POST_ARCHIVE   1
     
     set ENABLE_POST_SEAS          1
     set     ENABLE_SEAS_MEAN      1
@@ -378,14 +374,14 @@ suite $USER
                 trigger (prepare == complete)
                 complete ($ENABLE_MODEL == 0)
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 event model_complete
 	      
               task check_progress
                 trigger  (model == active)
-                complete (model == complete)
+                complete ($ENABLE_CHECK == 0 ) or (model == complete) 
                 on_hpc_serial
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
 
             endfamily

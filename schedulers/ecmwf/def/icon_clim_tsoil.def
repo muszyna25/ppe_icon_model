@@ -55,9 +55,9 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors
-set ICONNODES        32   # R2B6: 32,  R2B7: 32,  R2B8: 64
-set ICONTASKSPERNODE 32   #       32         32         32
-set ICONTHREADS       2   #        2          2          1
+set ICONNODES        16   # R2B05: 16, R2B6: 32,  R2B7: 32,  R2B8: 64
+set ICONTASKSPERNODE 32   #        32        32         32         32
+set ICONTHREADS       2   #         2         2          2          1
 
 # -------------------------------------------------
 
@@ -174,7 +174,7 @@ suite $USER
     set ENABLE_INIT               1 #to avoid running again
     set     ENABLE_GET_DATA       1
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          1
+    set     ENABLE_BUILD          0
     set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
@@ -381,14 +381,14 @@ suite $USER
                 trigger (prepare == complete)
                 complete ($ENABLE_MODEL == 0)
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 event model_complete
 	      
               task check_progress
                 trigger  (model == active)
                 complete ($ENABLE_CHECK == 0 ) or (model == complete )
                 on_hpc_serial
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
 
             endfamily
@@ -449,7 +449,7 @@ suite $USER
          task meteogram_tsoil
             trigger (post_prepare:meteogram_data)
             complete ($ENABLE_METEOGRAM == 0)
-            on_ecgate_submit_old
+            on_ecgate_submit
          endfamily
         endloop
 

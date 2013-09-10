@@ -30,7 +30,7 @@ RADDIR=${basedir}/icon_input/radiation
 SSTICEDIR=${sstice_dir}/icon_input/sstice
 
 # --------------------------------------------------------------------
-case_setup_clim
+#case_setup_clim
 
 #set -x
 
@@ -43,19 +43,27 @@ cd $EXPDIR
 # grid parameters
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
-extpar_filename=extpar_${atmo_dyn_grids}
+#extpar_filename=extpar_${atmo_dyn_grids}
+extpar_filename=icon_extpar_${res}_G.nc
 ifs2icon_filename=ifs2icon_${res}_DOM01.nc
 sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
 ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
 
+#rm -f ${atmo_dyn_grids}
+#rm -f ${atmo_rad_grids}
+#rm -f ${extpar_filename}
+#rm -f ${ifs2icon_filename}
 
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
-ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
+
+rm -f *SST**${res}*
+rm -f *CI**${res}*
 
 ln -sf ${SSTICEDIR}/*/*SST**${res}* .
 ln -sf ${SSTICEDIR}/*/*CI**${res}* .
@@ -135,8 +143,7 @@ ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres','p
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
-'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv',
-'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
+'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv', 't_so', 'w_so', 
 'snowfrac', 'w_snow', 'dzh_snow', 't_snow_mult', 'rho_snow_mult'"
 
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
@@ -176,7 +183,7 @@ cat > ${atmo_namelist} << EOF
 /
 &io_nml
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
- dt_checkpoint                = ${dt_restart}   
+ dt_checkpoint                = ${dt_restart}  
  lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
 /
 &run_nml

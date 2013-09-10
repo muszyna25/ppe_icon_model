@@ -42,6 +42,7 @@ cp ${dir_mtgrm}/mtgrm_plot.s ${dir_mtgrm}/mtgrm_plot.ncl ${dir_mtgrm}/mtgrm_plot
 #export NCARG_ROOT=/usr/local/apps/ncl/5.2.1/LP64
 #./mtgrm_plot.s %YMD%%INIHOUR% %RES% %EXPNUM% ${outdir_mtg} ${outfile_mtg}
 
+module load ncl
 
 # -------------------------------------------------
 # meteogram plots
