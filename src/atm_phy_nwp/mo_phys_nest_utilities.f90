@@ -778,8 +778,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   ! only when passing transmissivity differences, rather than raw transmissivities, into the
   ! routine
 
-  ! Start/End block in the local parent domain
-  i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
+  ! Start/End block in the local parent domain - same extent to nest boundary region as used for radiation calculation
+  i_startblk = p_gcp%start_blk(grf_ovlparea_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
@@ -787,7 +787,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int, i_chidx)
 
     DO jc = i_startidx, i_endidx
       zrg_trdiffsolclr(jc,1,jb) = p_trsolclr(jc,1,jb)
@@ -849,14 +849,14 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   ! Reconstruct solar transmissivities from interpolated transmissivity differences
 
   ! Start/End block in the child domain
-  i_startblk = p_patch(jg)%cells%start_blk(1,1)
+  i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
   i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1, min_rlcell_int)
+                       i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
       trsolall(jc,1,jb) = z_trdiffsolall(jc,1,jb)
@@ -1012,14 +1012,14 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   ! which may be broken by the downscaling correction applied above
 
   ! Start/End block in the child domain
-  i_startblk = p_patch(jg)%cells%start_blk(1,1)
+  i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
   i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1, min_rlcell_int)
+                       i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
     DO jk = nlev, 1, -1
       DO jc = i_startidx, i_endidx
