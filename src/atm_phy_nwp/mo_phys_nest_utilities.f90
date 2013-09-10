@@ -340,6 +340,11 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         cosmu0(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         cosmu0(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
+      ! Limiting positive values of the cosine of the zenith angle to a minimum 
+      ! of 0.05 is taken over from SR pre_radiation_nwp_steps. This avoids numerical
+      ! trouble along the day-night boundary near the model top
+      IF (p_cosmu0(jc,jb) > 1.e-5_wp) p_cosmu0(jc,jb) = MAX(0.05_wp,p_cosmu0(jc,jb))
+
       p_albvisdir(jc,jb) =                                         &
         albvisdir(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         albvisdir(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -475,6 +480,12 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           acdnc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           acdnc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
+        p_clc(jc,jk1,jb) =                                        &
+          clc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+          clc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+          clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+          clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+
 !CDIR EXPAND=3
         p_tot_cld(jc,jk1,jb,1:3) =                                        &
           tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
@@ -482,11 +493,14 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:3)*p_fbkwgt(jc,jb,3) + &
           tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:3)*p_fbkwgt(jc,jb,4)
 
-        p_clc(jc,jk1,jb) =                                        &
-          clc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-          clc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-          clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-          clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+        IF (p_clc(jc,jk1,jb) < 0.95_wp) THEN ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
+!CDIR EXPAND=2
+          p_tot_cld(jc,jk1,jb,2:3) =  0.5_wp*(p_tot_cld(jc,jk1,jb,2:3) + SQRT( &
+            tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),2:3)**2*p_fbkwgt(jc,jb,1) + &
+            tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),2:3)**2*p_fbkwgt(jc,jb,2) + &
+            tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),2:3)**2*p_fbkwgt(jc,jb,3) + &
+            tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),2:3)**2*p_fbkwgt(jc,jb,4)  ))
+        ENDIF
 
       ENDDO
     ENDDO
@@ -615,6 +629,10 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     z_lwflxclr(:,:,:), z_lwflxall(:,:,:), z_trsolclr(:,:,:), z_trsolall(:,:,:), &
     z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
 
+  ! Storage fields needed to downscale transmissitivity differences for solar radiation
+  REAL(wp), ALLOCATABLE, TARGET ::                                                             &
+  zrg_trdiffsolclr(:,:,:), zrg_trdiffsolall(:,:,:), z_trdiffsolclr(:,:,:), z_trdiffsolall(:,:,:)
+
   ! Pointers to output fields (no MPI) or intermediate fields (MPI)
   REAL(wp), POINTER ::                                                          &
     p_lwflxclr(:,:,:), p_lwflxall(:,:,:), p_trsolclr(:,:,:), p_trsolall(:,:,:), &
@@ -652,7 +670,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   INTEGER :: n2dvars, iclcov, itsfc, ialb, iemis, icosmu0
 
   LOGICAL :: l_limit(5)
-  REAL(wp) :: rlimval(5)
 !-----------------------------------------------------------------------
 
   IF (msg_level >= 10) THEN
@@ -692,14 +709,19 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   iemis   = nshift+4
   icosmu0 = nshift+5
 
+  pscal = 1._wp/4000._wp ! pressure scale for longwave downscaling correction
+
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0) THEN
     
-    ALLOCATE( z_lwflxclr(nproma,nlevp1_rg,nblks_c_lp), z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), &
-              z_trsolclr(nproma,nlevp1_rg,nblks_c_lp), z_trsolall(nproma,nlevp1_rg,nblks_c_lp), &
-              z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp), z_tot_cld(nproma,nlev_rg,nblks_c_lp,3),  &
-              zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                   &
-              zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,5,p_patch(jg)%nblks_c)     )
+    ALLOCATE( z_lwflxclr(nproma,nlevp1_rg,nblks_c_lp),           z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),          &
+              z_trsolclr(nproma,nlevp1_rg,nblks_c_lp),           z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
+              z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp),           z_tot_cld(nproma,nlev_rg,nblks_c_lp,3),           &
+              zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                                      &
+              zrg_aux3d(nproma,n2dvars,nblks_c_lp),              z_aux3d(nproma,5,p_patch(jg)%nblks_c),            &
+              zrg_trdiffsolclr(nproma,nlevp1_rg,nblks_c_lp),     zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),    &
+              z_trdiffsolclr(nproma,nlevp1,p_patch(jg)%nblks_c), z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c) )
+
 
     ! Perform communication from parent to local parent grid in the MPI case,
     ! and set pointers such that further processing is the same for MPI / non-MPI cases
@@ -731,7 +753,9 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     p_pres_ifc   => z_pres_ifc
     p_tot_cld    => z_tot_cld
   ELSE
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,5,p_patch(jg)%nblks_c))
+    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),              z_aux3d(nproma,5,p_patch(jg)%nblks_c),           &
+             zrg_trdiffsolclr(nproma,nlevp1_rg,nblks_c_lp),     zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),   &
+             z_trdiffsolclr(nproma,nlevp1,p_patch(jg)%nblks_c), z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c))
 
     p_lwflxclr   => rg_lwflxclr
     p_lwflxall   => rg_lwflxall
@@ -764,41 +788,77 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   END IF
 
   IF (p_test_run) THEN
-    trsolall = 0._wp
-    trsolclr = 0._wp
-    lwflxall = 0._wp
-    lwflxclr = 0._wp
-    z_aux3d  = 0._wp
+    z_trdiffsolall = 0._wp
+    z_trdiffsolclr = 0._wp
+    lwflxall       = 0._wp
+    lwflxclr       = 0._wp
+    z_aux3d        = 0._wp
   ENDIF
 
-  l_limit(1:2) = .TRUE.      ! limit transmissivity to positive values
+  ! Compute transmissivity differences before downscaling
+  ! Note: transmissivities must monotonically decrease from top to bottom in order to obtain
+  ! non-negative solar heating rates. The limiter in interpol_scal_nudging can ensure this
+  ! only when passing transmissivity differences, rather than raw transmissivities, into the
+  ! routine
+!$OMP PARALLEL WORKSHARE
+  zrg_trdiffsolclr(:,1,:) = p_trsolclr(:,1,:)
+  zrg_trdiffsolall(:,1,:) = p_trsolall(:,1,:)
+  zrg_trdiffsolclr(:,2:nlevp1_rg,:) = p_trsolclr(:,1:nlev_rg,:) - p_trsolclr(:,2:nlevp1_rg,:)
+  zrg_trdiffsolall(:,2:nlevp1_rg,:) = p_trsolall(:,1:nlev_rg,:) - p_trsolall(:,2:nlevp1_rg,:)
+!$OMP END PARALLEL WORKSHARE
+
+  l_limit(1:2) = .TRUE.      ! limit transmissivity differences to non-negative values
   l_limit(3:5) = .FALSE.
-  rlimval(:)   = 2.94e-37_wp ! seems to be the lower threshold for SW transmissivity
-                             ! in the RRTM scheme
 
   CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 5, 1, &
-    &                         f3din1=p_trsolall, f3dout1=trsolall,                      &
-    &                         f3din2=p_trsolclr, f3dout2=trsolclr,                      &
-    &                         f3din3=p_lwflxall, f3dout3=lwflxall,                      &
-    &                         f3din4=p_lwflxclr, f3dout4=lwflxclr,                      &
-    &                         f3din5=zrg_aux3d,  f3dout5=z_aux3d,                       &
-    !                              llimit_nneg=l_limit, rlimval=rlimval, overshoot_fac=1.1_wp)
-    &                         llimit_nneg=l_limit, rlimval=rlimval, overshoot_fac=1.1_wp)
+    &                         f3din1=zrg_trdiffsolall, f3dout1=z_trdiffsolall,          &
+    &                         f3din2=zrg_trdiffsolclr, f3dout2=z_trdiffsolclr,          &
+    &                         f3din3=p_lwflxall,       f3dout3=lwflxall,                &
+    &                         f3din4=p_lwflxclr,       f3dout4=lwflxclr,                &
+    &                         f3din5=zrg_aux3d,        f3dout5=z_aux3d,                 &
+    &                         llimit_nneg=l_limit,     overshoot_fac=1.0_wp)
 
   aclcov(:,:)        = z_aux3d(:,1,:)
   tsfc_backintp(:,:) = z_aux3d(:,2,:)
   alb_backintp(:,:)  = z_aux3d(:,3,:)
 
-  ! Finally apply empirical downscaling corrections depending on variations
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+  ! Reconstruct solar transmissivities from interpolated transmissivity differences
+
+  ! Start/End block in the child domain
+  i_startblk = p_patch(jg)%cells%start_blk(1,1)
+  i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1, min_rlcell_int)
+
+    DO jc = i_startidx, i_endidx
+      trsolall(jc,1,jb) = z_trdiffsolall(jc,1,jb)
+      trsolclr(jc,1,jb) = z_trdiffsolclr(jc,1,jb)
+    ENDDO
+
+    DO jk = 2, nlevp1
+      DO jc = i_startidx, i_endidx
+        trsolall(jc,jk,jb) = trsolall(jc,jk-1,jb) - z_trdiffsolall(jc,jk,jb)
+        trsolclr(jc,jk,jb) = trsolclr(jc,jk-1,jb) - z_trdiffsolclr(jc,jk,jb)
+      ENDDO
+    ENDDO
+  ENDDO
+!$OMP END DO
+
+
+  ! Apply empirical downscaling corrections depending on variations
   ! in ground temperature and albedo
 
   ! Start/End block in the parent domain
   i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-  pscal = 1._wp/4000._wp ! pressure scale for longwave correction
-
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswc,pfacswa,     &
 !$OMP            dlwem_o_dtg,swfac1,swfac2,lwfac1,lwfac2,dtrans_o_dalb_clr,dtrans_o_dalb_all,   &
 !$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,&
@@ -885,22 +945,22 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
 #endif
 
         trsolclr(jc1,jk,jb1) = MAX(trsolclr(jc1,jk,jb1) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), rlimval(2))
+          ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)
         trsolclr(jc2,jk,jb2) = MAX(trsolclr(jc2,jk,jb2) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), rlimval(2))
+          ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), 0._wp)
         trsolclr(jc3,jk,jb3) = MAX(trsolclr(jc3,jk,jb3) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), rlimval(2))
+          ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
         trsolclr(jc4,jk,jb4) = MAX(trsolclr(jc4,jk,jb4) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), rlimval(2))
+          ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
 
         trsolall(jc1,jk,jb1) = MAX(trsolall(jc1,jk,jb1) + dtrans_o_dalb_all(jc,jk)* &
-          ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), rlimval(1))
+          ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)
         trsolall(jc2,jk,jb2) = MAX(trsolall(jc2,jk,jb2) + dtrans_o_dalb_all(jc,jk)* &
-          ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), rlimval(1))
+          ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), 0._wp)
         trsolall(jc3,jk,jb3) = MAX(trsolall(jc3,jk,jb3) + dtrans_o_dalb_all(jc,jk)* &
-          ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), rlimval(1))
+          ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
         trsolall(jc4,jk,jb4) = MAX(trsolall(jc4,jk,jb4) + dtrans_o_dalb_all(jc,jk)* &
-          ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), rlimval(1))
+          ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
 
 
         lwflxclr(jc1,jk,jb1) = lwflxclr(jc1,jk,jb1) + dlwflxclr_o_dtg(jc,jk)* &
@@ -925,15 +985,38 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     ENDDO
 
   ENDDO
+!$OMP END DO
+
+  ! Finally ensure again that transmissivities increase monotonically with height,
+  ! which may be broken by the downscaling correction applied above
+
+  ! Start/End block in the child domain
+  i_startblk = p_patch(jg)%cells%start_blk(1,1)
+  i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1, min_rlcell_int)
+
+    DO jk = nlev, 1, -1
+      DO jc = i_startidx, i_endidx
+        trsolall(jc,jk,jb) = MIN(1._wp,MAX(trsolall(jc,jk,jb),trsolall(jc,jk+1,jb)))
+        trsolclr(jc,jk,jb) = MIN(1._wp,MAX(trsolclr(jc,jk,jb),trsolclr(jc,jk+1,jb)))
+      ENDDO
+    ENDDO
+
+  ENDDO
 !$OMP END DO NOWAIT
+
 !$OMP END PARALLEL
 
   IF (jgp == 0) THEN
-    DEALLOCATE(z_lwflxclr, z_lwflxall, z_trsolclr, z_trsolall, z_pres_ifc, &
-      &        z_tot_cld, zpg_aux3d)
+    DEALLOCATE(z_lwflxclr, z_lwflxall, z_trsolclr, z_trsolall, z_pres_ifc, z_tot_cld, zpg_aux3d)
   ENDIF
 
-  DEALLOCATE(zrg_aux3d,z_aux3d)
+  DEALLOCATE(zrg_aux3d, z_aux3d, zrg_trdiffsolclr, zrg_trdiffsolall, z_trdiffsolclr, z_trdiffsolall)
 
 END SUBROUTINE downscale_rad_output
 

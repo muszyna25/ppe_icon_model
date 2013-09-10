@@ -322,7 +322,9 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
+            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid 
+            ! numerical trouble along the day-night boundary near the model top
+            zsmu0(jc,jb) = MAX(0.05_wp,SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)))
           ELSE
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
