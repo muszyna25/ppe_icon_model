@@ -183,11 +183,11 @@ cat > ${ocean_namelist} << EOF
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
+  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
-  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   use_continuity_correction = .true.
+  i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
 /
 &ocean_physics_nml
   !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner

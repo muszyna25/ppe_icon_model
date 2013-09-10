@@ -470,16 +470,16 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  350.0,  400.0,  400.0,  400.0,  400.0,  400.0,
                         500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
-  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
-  l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
+  !l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+  !l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
+  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
-  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   use_continuity_correction = .true.
+  !i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
