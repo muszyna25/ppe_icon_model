@@ -76,7 +76,7 @@ MODULE mo_operator_ocean_coeff_3d
 
   PRIVATE
 
-  PUBLIC  :: t_operator_coeff
+  PUBLIC  :: t_operator_coeff, t_ptr3d
   PUBLIC  :: allocate_exp_coeff
   PUBLIC  :: par_init_operator_coeff
   PUBLIC  :: update_diffusion_matrices
@@ -550,6 +550,11 @@ CONTAINS
      TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:3)
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
+    !
+    !
+    ! matrix_vert_diff_c(:,:,:,1) : lower diagonal term
+    ! matrix_vert_diff_c(:,:,:,2) : diagonal term
+    ! matrix_vert_diff_c(:,:,:,3) : upper diagonal term
     !
     !Local variables
     !
