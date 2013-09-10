@@ -1439,9 +1439,9 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
           !Apply the matrix
           DO jk=slev+1, z_dolic-1
             b(jk)                  = b(jk)-a(jk)*c(jk-1)
-            field_column(jc,jk,jb) = field_column(jc,jk,jb)&
-                          &-a(jk)*field_column(jc,jk-1,jb)
             c(jk)                  = c(jk)/b(jk)
+
+            field_column(jc,jk,jb) = field_column(jc,jk,jb) - a(jk)*field_column(jc,jk-1,jb)
             field_column(jc,jk,jb) = field_column(jc,jk,jb)/b(jk)
             b(jk)                  = 1.0_wp
           END DO

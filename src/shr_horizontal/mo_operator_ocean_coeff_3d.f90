@@ -584,43 +584,26 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= SEA_BOUNDARY ) THEN 
             IF ( z_dolic >=MIN_DOLIC ) THEN
 
-              !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
-              !inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
-               !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_c(jc,:,jb)
-               !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_c(jc,:,jb)
               inv_zinv_i(:) = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
               inv_zinv_m(:) = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
 
+              !first level
+              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
+              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp           
+              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3) 
 
               !Fill triangular matrix
               !b is diagonal a and c are upper and lower band
               !This corresponds to the 4th indices: "2", "1" and "3"
               DO jk = slev+1, z_dolic-1
-                !a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
-                !c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
-                !b(jk) = dt_inv-a(jk)-c(jk)
                 matrix_vert_diff_c(jc,jk,jb,1) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
                 matrix_vert_diff_c(jc,jk,jb,3) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
                 matrix_vert_diff_c(jc,jk,jb,2)  = dt_inv&
                                                & -matrix_vert_diff_c(jc,jk,jb,1)&
                                                & -matrix_vert_diff_c(jc,jk,jb,3)
               END DO
-!write(*,*)'coeff 521',matrix_vert_diff_c(5,2,1,2),matrix_vert_diff_c(5,2,1,1),matrix_vert_diff_c(5,2,1,3),&
-!&-A_v(5,2,1),inv_zinv_m(2) ,inv_zinv_i(2),A_v(5,3,1),inv_zinv_m(2),inv_zinv_i(3)
-              ! The first row
-              !c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-              !a(slev) = 0.0_wp           
-              !b(slev) = dt_inv- c(slev)!! - a(slev) 
-               
-              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp           
-              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3) 
-!write(*,*)'coeff 511',matrix_vert_diff_c(5,1,1,2),matrix_vert_diff_c(5,1,1,1),matrix_vert_diff_c(5,1,1,3),&
-!&-A_v(jc,slev+1,jb),inv_zinv_m(slev),inv_zinv_i(slev+1)
-              ! The last row
-              !a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
-              !c(z_dolic) = 0.0_wp
-              !b(z_dolic) = dt_inv - a(z_dolic)!! - c(z_dolic)
+  
+              !bottom
               matrix_vert_diff_c(jc,z_dolic,jb,1) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
               matrix_vert_diff_c(jc,z_dolic,jb,3) = 0.0_wp
               matrix_vert_diff_c(jc,z_dolic,jb,2) = dt_inv - matrix_vert_diff_c(jc,z_dolic,jb,1)
