@@ -29,7 +29,7 @@ stage=run
 echo "MODEL.SMS" 
 set -x
 module load python
-module swap grib_api grib_api/1.10.4
+module swap grib_api grib_api/1.11.0
 
 # calculate and format starting date of simulation: SMSDATE-  2 days, time: UTC 00 
 #REQUEST_DATE=`python %SCBASEDIR%/gen/date_calc.py -a printdate -d %SMSDATE%00 -s 2`

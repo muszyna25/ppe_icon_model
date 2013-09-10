@@ -49,10 +49,9 @@ cd ${IFSDATADIR}
 
 # Important: ==================================
 # export the DWD GRIB short names:
-dwd_grib_api=/home/ms/de/dwd/grib_api
-# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
-# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.9.16:/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions"
+#dwd_grib_api=/home/ms/de/dwd/grib_api
+dwd_grib_api=/home/ms/de/dei4
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions"
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"

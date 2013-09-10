@@ -24,7 +24,7 @@ echo "INIT_BUILD.SMS"
 
 module swap fortran fortran/xlf/14.1.0.3
 module load subversion
-module swap grib_api grib_api/1.10.4
+module swap grib_api grib_api/1.11.0
 
 arch=rs6000-ibm-aix
 toolstag=icontools-1.3.4      # recent tag - synchronize with init_cp_binary.sms!

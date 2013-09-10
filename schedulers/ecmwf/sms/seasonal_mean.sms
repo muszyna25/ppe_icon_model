@@ -20,12 +20,13 @@
 echo "SEASONAL_MEAN.SMS" 
 
 module load python
-
 module load cdo
-module unload grib_api
-module load grib_api/1.10.4
+module swap grib_api grib_api/1.11.0
 
+#dwd_grib_api=/home/ms/de/dwd/grib_api
+dwd_grib_api=/home/ms/de/dei4
 
+export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
 
 lsplitdata=1
 lseasmean=0
@@ -124,15 +125,9 @@ fi
 
 
 #-----------------------------------------------------------------------------
-dwd_grib_api=/home/ms/de/dwd/grib_api
-
-  export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
 
 if [[ $lsplitdata = 1 ]] ; then
 
- dwd_grib_api=/home/ms/de/dwd/grib_api
-
- export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
  mkdir -p grb_data
  rm -f grb_data/*
  grib_copy  ${basename}_DOM01_HL_0001.grb  \
