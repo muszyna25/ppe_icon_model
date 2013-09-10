@@ -198,9 +198,9 @@ cat > ${ocean_namelist} << EOF
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h       = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_h            = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
