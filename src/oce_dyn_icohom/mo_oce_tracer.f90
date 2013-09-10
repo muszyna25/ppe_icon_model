@@ -252,8 +252,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !      ENDIF
 !    END DO
 
-      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,:,:,1), &
-         & range_subset=cells_in_domain, start_level=jk, end_level=jk)
+      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,1), &
+         & range_subset=cells_in_domain)
       IF (my_process_is_stdio()) THEN
         ! Abort if tracer is below or above threshold, read from namelist
         ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
@@ -307,8 +307,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !          &            'TOO LARGE SALINITY')
 !      ENDIF
 
-      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,:,:,2), &
-         & range_subset=cells_in_domain, start_level=jk, end_level=jk)
+      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,2), &
+         & range_subset=cells_in_domain)
 
       IF (my_process_is_stdio()) THEN
         ! Abort if salinity is negative:
