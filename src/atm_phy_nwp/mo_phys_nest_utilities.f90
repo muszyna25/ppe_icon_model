@@ -772,19 +772,51 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     zrg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
   ENDIF
 
+  ! Compute transmissivity differences before downscaling
+  ! Note: transmissivities must monotonically decrease from top to bottom in order to obtain
+  ! non-negative solar heating rates. The limiter in interpol_scal_nudging can ensure this
+  ! only when passing transmissivity differences, rather than raw transmissivities, into the
+  ! routine
+
+  ! Start/End block in the local parent domain
+  i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
+  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+
+    DO jc = i_startidx, i_endidx
+      zrg_trdiffsolclr(jc,1,jb) = p_trsolclr(jc,1,jb)
+      zrg_trdiffsolall(jc,1,jb) = p_trsolall(jc,1,jb)
+    ENDDO
+
+    DO jk = 2, nlevp1_rg
+      DO jc = i_startidx, i_endidx
+        zrg_trdiffsolclr(jc,jk,jb) = p_trsolclr(jc,jk-1,jb) - p_trsolclr(jc,jk,jb)
+        zrg_trdiffsolall(jc,jk,jb) = p_trsolall(jc,jk-1,jb) - p_trsolall(jc,jk,jb)
+      ENDDO
+    ENDDO
+
+  ENDDO
+!$OMP END DO 
+!$OMP END PARALLEL
+
   ! Interpolate reduced-grid fields to full grid
 
   ! interpol_vec/scal_nudging needs all fields with full boundaries, so the arrays
   ! have to be sync'd before calling these routines.
   ! Please note that we cannot use sync_patch_array here (comparing parallel/non parallel results)
-  ! since the arrays don't start with lower bound 1 in the non paralellel case!
+  ! since the arrays don't start with lower bound 1 in the non parallel case!
 
   nlev_tot = 4*nlevp1_rg + n2dvars
 
   IF (.NOT. my_process_is_mpi_seq()) THEN
-    CALL exchange_data_mult(p_pp%comm_pat_c, 5, nlev_tot, recv1=p_lwflxclr,          &
-      &                     recv2=p_lwflxall, recv3=p_trsolclr, recv4=p_trsolall, &
-      &                     recv5=zrg_aux3d                                       )
+    CALL exchange_data_mult(p_pp%comm_pat_c, 5, nlev_tot, recv1=p_lwflxclr, recv2=p_lwflxall, &
+      &                     recv3=zrg_trdiffsolclr, recv4=zrg_trdiffsolall, recv5=zrg_aux3d   )
   END IF
 
   IF (p_test_run) THEN
@@ -795,17 +827,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     z_aux3d        = 0._wp
   ENDIF
 
-  ! Compute transmissivity differences before downscaling
-  ! Note: transmissivities must monotonically decrease from top to bottom in order to obtain
-  ! non-negative solar heating rates. The limiter in interpol_scal_nudging can ensure this
-  ! only when passing transmissivity differences, rather than raw transmissivities, into the
-  ! routine
-!$OMP PARALLEL WORKSHARE
-  zrg_trdiffsolclr(:,1,:) = p_trsolclr(:,1,:)
-  zrg_trdiffsolall(:,1,:) = p_trsolall(:,1,:)
-  zrg_trdiffsolclr(:,2:nlevp1_rg,:) = p_trsolclr(:,1:nlev_rg,:) - p_trsolclr(:,2:nlevp1_rg,:)
-  zrg_trdiffsolall(:,2:nlevp1_rg,:) = p_trsolall(:,1:nlev_rg,:) - p_trsolall(:,2:nlevp1_rg,:)
-!$OMP END PARALLEL WORKSHARE
 
   l_limit(1:2) = .TRUE.      ! limit transmissivity differences to non-negative values
   l_limit(3:5) = .FALSE.
@@ -855,7 +876,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   ! Apply empirical downscaling corrections depending on variations
   ! in ground temperature and albedo
 
-  ! Start/End block in the parent domain
+  ! Start/End block in the local parent domain
   i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
