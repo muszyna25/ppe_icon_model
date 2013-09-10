@@ -133,8 +133,8 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600         ! model timestep in seconds
- output      = 'nml'      ! We are still using the old output mechanism
+ dtime       = 3600               ! model timestep in seconds
+ output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
  msg_timestamp        = .TRUE.
@@ -182,12 +182,11 @@ cat > ${ocean_namelist} << EOF
   FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
-  solver_max_iter_per_restart   = 30      !  inner solver loop without syncing (default: 200)
-  solver_max_restart_iterations = 50      !  outer (restart solver) loop with syncing (default: 100)
-  solver_tolerance = 1.0E-18              !  absolute (new) or relative (gmres_oce_old) - to be checked
-  select_solver    = 2                    !  1=gmres_oce_old; 2=ocean_restart_gmres
-  i_bc_veloc_top = 1                      !  1=full wind stress forcing; 2=top layer velocity subtracted
-  i_bc_veloc_bot = 1                      !  0/1=bottom friction off/on
+  select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
+  solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
+  solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
+  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
+  i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
