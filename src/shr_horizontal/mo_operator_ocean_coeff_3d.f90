@@ -563,8 +563,8 @@ CONTAINS
     REAL(wp), POINTER :: A_v(:,:,:)
     REAL(wp) :: inv_zinv_i(1:n_zlev)
     REAL(wp) :: inv_zinv_m(1:n_zlev)
-    REAL(wp) :: dt_inv
-    INTEGER  :: je,jc,jb,jk, i_no_t
+    REAL(wp) :: dt_inv,dz_m(1:n_zlev),dz_i(1:n_zlev)
+    INTEGER  :: je,jc,jb,jk,i_no_t
     INTEGER  :: slev,z_dolic
     INTEGER  :: i_startidx_e, i_endidx_e,  i_startidx_c, i_endidx_c
     TYPE(t_patch), POINTER :: patch
@@ -591,6 +591,8 @@ CONTAINS
 
               inv_zinv_i(:) = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
               inv_zinv_m(:) = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
+                    dz_i(:) = p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
+                    dz_m(:) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb)
 
               !first level
               matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp           
