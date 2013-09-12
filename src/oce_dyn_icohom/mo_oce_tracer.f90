@@ -578,7 +578,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   REAL(wp) :: delta_t, delta_z,delta_z_new
   REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: flux_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  REAL(wp) :: z_temp(nproma,n_zlev,    p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) 
   REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
   REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
@@ -599,7 +598,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   cells_in_domain => p_patch%cells%in_domain
   delta_t = dtime
 
-  z_temp      (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   flux_vert   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
@@ -696,14 +694,28 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
 !            delta_z     = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nold(1))%h(jc,jb)
 !            delta_z_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
-            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-            z_temp(jc,jk,jb)= (trac_old(jc,jk,jb)*delta_z &
-             & -delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) /delta_z_new
-   
-            z_temp(jc,jk,jb) = (z_temp(jc,jk,jb) + &
-              & (delta_t  /delta_z_new) * bc_top_tracer(jc,jb))
+            IF (use_tracer_x_height) THEN
+              new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
+                &   old_ocean_tracer%concentration_x_height(jc,jk,jb)          &
+                & - delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)         &
+                &              - bc_top_tracer(jc,jb))
+              new_ocean_tracer%concentration(jc,jk,jb) = &
+                &  new_ocean_tracer%concentration_x_height(jc,jk,jb) / &
+                &  (p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb))
+            ELSE
+              delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+              delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+
+              new_ocean_tracer%concentration(jc,jk,jb)= &
+                & (old_ocean_tracer%concentration(jc,jk,jb) * delta_z &
+                & - delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))) / delta_z_new
+
+              new_ocean_tracer%concentration(jc,jk,jb) =         &
+                & ( new_ocean_tracer%concentration(jc,jk,jb) +   &
+                & (delta_t  / delta_z_new) * bc_top_tracer(jc,jb))
+
+            ENDIF
  
           ENDDO
         END DO
@@ -711,14 +723,22 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
+            IF (use_tracer_x_height) THEN
+              new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
+                &   old_ocean_tracer%concentration_x_height(jc,jk,jb)          &
+                & - delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb))
+              new_ocean_tracer%concentration(jc,jk,jb) = &
+                &  new_ocean_tracer%concentration_x_height(jc,jk,jb) / p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+            ELSE
               delta_z = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 
-              z_temp(jc,jk,jb) = &
-                & (trac_old(jc,jk,jb) - (delta_t/delta_z) *            &
+              new_ocean_tracer%concentration(jc,jk,jb) =                           &
+                & (old_ocean_tracer%concentration(jc,jk,jb) - (delta_t/delta_z) *  &
                 &  (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)))
+            ENDIF
 
             ENDDO
         END DO
@@ -727,7 +747,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('BefImplDiff: z_temp'  ,z_temp  , str_module,idt_src, in_subset=cells_in_domain)
       CALL dbg_print('BefImplDiff: flux_vert',flux_vert  , str_module,idt_src, in_subset=cells_in_domain)
       CALL dbg_print('BefImplDiff: flux_horz',flux_horz  , str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
@@ -738,13 +757,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       ! no sync because of columnwise computation     
       IF ( l_with_vert_tracer_diffusion ) THEN
         CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
-          &                                  z_temp(:,:,:),                   &
-          &                                  p_os%p_prog(nnew(1))%h(:,:),     &
-          &                                  A_v,                             &
-          &                                  p_op_coeff,                      &
-          &                                  trac_new(:,:,:))
-      ELSE
-        trac_new = z_temp
+          &                                  new_ocean_tracer,                   &! p_os%p_prog(nnew(1))%h(:,:),   A_v,                             &
+          &                                  p_op_coeff)!,                      &
+          !&                                  trac_new(:,:,:))
       ENDIF
 
       CALL sync_patch_array(SYNC_C, p_patch, new_ocean_tracer%concentration)
@@ -752,7 +767,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('AftImplDiff: z_temp',   z_temp,   str_module, idt_src, in_subset=cells_in_domain)
       CALL dbg_print('AftImplDiff: trac_new', trac_new, str_module, idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
@@ -768,24 +782,24 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       ! top layer
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            DO jk = 1, MIN(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb),1)  ! this at most should be 1
-              delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-              delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk = 1, MIN(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-              IF (use_tracer_x_height) THEN
-                new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
-                  &   old_ocean_tracer%concentration_x_height(jc,jk,jb)          &
-                  & - delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)         &
-                  &             - div_diff_flx(jc,jk,jb) - bc_top_tracer(jc,jb))
-                new_ocean_tracer%concentration(jc,jk,jb) = &
-                  &  new_ocean_tracer%concentration_x_height(jc,jk,jb) / delta_z_new
-             ELSE
-                new_ocean_tracer%concentration(jc,jk,jb) = (old_ocean_tracer%concentration(jc,jk,jb) * delta_z &
-                  & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)-div_diff_flx(jc,jk,jb)))/delta_z_new
-                new_ocean_tracer%concentration(jc,jk,jb) = new_ocean_tracer%concentration(jc,jk,jb) + &
-                  & (delta_t/delta_z) * bc_top_tracer(jc,jb)
-              ENDIF
+            IF (use_tracer_x_height) THEN
+              new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
+                &   old_ocean_tracer%concentration_x_height(jc,jk,jb)          &
+                & - delta_t * (flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)         &
+                &             - div_diff_flx(jc,jk,jb) - bc_top_tracer(jc,jb))
+              new_ocean_tracer%concentration(jc,jk,jb) = &
+                &  new_ocean_tracer%concentration_x_height(jc,jk,jb) / delta_z_new
+            ELSE
+              new_ocean_tracer%concentration(jc,jk,jb) = (old_ocean_tracer%concentration(jc,jk,jb) * delta_z &
+                & -delta_t*(flux_vert(jc,jk,jb)-flux_horz(jc,jk,jb)-div_diff_flx(jc,jk,jb)))/delta_z_new
+              new_ocean_tracer%concentration(jc,jk,jb) = new_ocean_tracer%concentration(jc,jk,jb) + &
+                & (delta_t/delta_z) * bc_top_tracer(jc,jb)
+            ENDIF
 
             ENDDO
         END DO
