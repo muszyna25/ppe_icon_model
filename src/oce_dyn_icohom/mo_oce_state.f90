@@ -349,7 +349,10 @@ MODULE mo_oce_state
    TYPE(t_cartesian_coordinates), POINTER :: &
       &  p_mass_flux_sfc_cc(:,:)  ! mass flux at surface in cartesian coordinates
                                   ! dimension: (nproma, alloc_cell_blocks).
-
+   !-----------------------------------------------------------------------------------
+   ! dummy pointers for prognostic variables:
+   REAL(wp), POINTER :: h(:,:),vn(:,:,:),t(:,:,:),s(:,:,:) ! dummy pointer for output variabless
+   !-----------------------------------------------------------------------------------
   END TYPE t_hydro_ocean_diag
 
 !
@@ -840,28 +843,13 @@ CONTAINS
       &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/))
- !    IF (nold(1) == timelevel) THEN
- !      CALL add_ref(ocean_default_list,'h'//TRIM(var_suffix), 'h', p_os_prog%h , &
- !        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
- !        &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
- !        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
- !        &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_prog"),loutput=.TRUE., lrestart=.FALSE.)
- !    ENDIF
 
     !! normal velocity component
     CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),p_os_prog%vn,GRID_UNSTRUCTURED_EDGE, &
-    &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-  ! IF (nold(1)==timelevel) THEN
-  !   CALL add_ref(ocean_default_list,'vn'//TRIM(var_suffix),'vn',p_os_prog%vn, &
-  !     &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
-  !     &          t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
-  !     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-  !     &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
-  !     &          loutput=.TRUE.,lrestart=.FALSE.)
-  ! ENDIF
+      &          ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+      &          ldims=(/nproma,n_zlev,nblks_e/))
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
@@ -892,31 +880,6 @@ CONTAINS
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
                     & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
       END DO
- !    IF (nold(1)==timelevel) THEN
- !      !Add output with readable variable names
- !      CALL set_oce_tracer_info(max_oce_tracer      , &
- !          &                    oce_tracer_names    , &
- !          &                    oce_tracer_longnames, &
- !          &                    oce_tracer_codes    , &
- !          &                    oce_tracer_units)
- !      CALL add_var(ocean_default_list, 'tracers', p_os_prog%tracer , &
- !          &        GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
- !          &        t_cf_var('tracers','','1:temperature 2:salinity',DATATYPE_FLT64),&
- !          &        t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
- !          &        ldims=(/nproma,n_zlev,alloc_cell_blocks,no_tracer/), &
- !          &        lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
- !      DO jtrc = 1,no_tracer
- !        CALL add_ref( ocean_default_list, 'tracers', &
- !          &           oce_tracer_names(jtrc),          &
- !          &           p_os_prog%tracer_ptr(jtrc)%p,    &
- !          &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
- !          &           t_cf_var(oce_tracer_names(jtrc), &
- !          &                    oce_tracer_units(jtrc), &
- !          &                    oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
- !          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
- !          &           ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"))
- !      END DO
- !    ENDIF ! single tracer output variables
 
       ! use of the ocean_tracers structure
       ALLOCATE(p_os_prog%ocean_tracers(no_tracer))
@@ -968,6 +931,11 @@ CONTAINS
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     !INTEGER :: jb, jc, jk, je
     !INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
+    INTEGER, PARAMETER             :: max_oce_tracer = 2
+    CHARACTER(len=max_char_length) :: oce_tracer_names(max_oce_tracer),&
+    &                                 oce_tracer_units(max_oce_tracer),&
+    &                                 oce_tracer_longnames(max_oce_tracer)
+    INTEGER                        :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
@@ -1243,6 +1211,41 @@ CONTAINS
       &          t_cf_var('temp_insitu', 'K', 'in situ temperature', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+    CALL add_ref(ocean_restart_list,'h_TL01', 'h', p_os_diag%h , &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('h', 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_prog"),loutput=.TRUE., lrestart=.FALSE.)
+    CALL add_ref(ocean_restart_list,'vn_TL01','vn',p_os_diag%vn, &
+      &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+      &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
+      &          loutput=.TRUE.,lrestart=.FALSE.)
+    !Add output with readable variable names
+    CALL set_oce_tracer_info(max_oce_tracer      , &
+        &                    oce_tracer_names    , &
+        &                    oce_tracer_longnames, &
+        &                    oce_tracer_codes    , &
+        &                    oce_tracer_units)
+      CALL add_ref( ocean_restart_list, 't_TL01', &
+        &           't',          &
+        &           p_os_diag%t,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+        &           t_cf_var('t', &
+        &                    'degC', &
+        &                    'potential temperature', DATATYPE_FLT64), &
+        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &           ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"))
+      CALL add_ref( ocean_restart_list, 's_TL01', &
+        &           's',          &
+        &           p_os_diag%s,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+        &           t_cf_var('s', &
+        &                    'degC', &
+        &                    'salinity', DATATYPE_FLT64), &
+        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &           ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"))
   END SUBROUTINE construct_hydro_ocean_diag
 
 
