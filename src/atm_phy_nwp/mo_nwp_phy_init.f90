@@ -851,8 +851,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF (turbdiff_config(jg)%lconst_z0) THEN
       ! for idealized tests
       prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+      IF(turbdiff_config(jg)%const_z0==0._wp) &
+       CALL finish (TRIM(routine), 'roughness length needs to be set for idealized LES cases!')
     ELSE 
-      ! default: these are all set in mo_surface_les 
+      ! default: these are all set in nwp_turbtrans (AD: 11.09.2013)
     ENDIF
 
   ENDIF
