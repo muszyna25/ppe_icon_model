@@ -67,12 +67,11 @@ MODULE mo_sgs_turbulence
                                     sync_patch_array_mult
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag 
-  USE mo_surface_les,         ONLY: min_wind, surface_conditions 
+  USE mo_surface_les,         ONLY: surface_conditions 
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_pe
-  USE mo_ext_data_types,      ONLY: t_external_data
 
   IMPLICIT NONE
 
@@ -100,8 +99,8 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
   SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics, p_patch, &
-                                     p_int, ext_data, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd,&
-                                     prm_diag, prm_nwp_tend, dt, linit)
+                                     p_int, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd,&
+                                     prm_diag, prm_nwp_tend, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state 
@@ -109,14 +108,12 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch       !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int         !< single interpolation state
-    TYPE(t_external_data), INTENT(in)    :: ext_data     !< external data
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
     TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_new!<land prog state 
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
-    LOGICAL,           INTENT(in)        :: linit        !for mo_surface only
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:)
 
@@ -178,9 +175,8 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
-    CALL surface_conditions(linit, p_nh_metrics, ext_data, p_patch, p_nh_diag, p_int, &
-                            p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, prm_diag,     &
-                            theta, p_nh_prog%tracer(:,:,:,iqv) )
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+                            p_prog_lnd_new, p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv) )
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
 

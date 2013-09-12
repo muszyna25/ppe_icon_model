@@ -59,7 +59,6 @@ MODULE mo_les_turb_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
-  USE mo_ext_data_types,       ONLY: t_external_data
 
   IMPLICIT NONE
 
@@ -74,11 +73,9 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
-                          & linit,                            & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
                           & p_int,                            & !>in
-                          & ext_data,                         & !>in
                           & p_prog,                           & !>in
                           & p_prog_rcf,                       & !>inout
                           & p_diag ,                          & !>inout
@@ -89,10 +86,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-  LOGICAL,                     INTENT(in)   :: linit          !for surface
   TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_external_data), INTENT(in)         :: ext_data     !< external data
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
@@ -137,14 +132,12 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
                                  p_metrics,    & !in
                                  p_patch,      & !in
                                  p_int,        & !in
-                                 ext_data,     & !in
                                  lnd_prog_now, & !in
                                  lnd_prog_new, & !inout only for idealized cases
                                  lnd_diag,     & !inout
                                  prm_diag,     & !inout
                                  prm_nwp_tend, & !inout
-                                 tcall_turb_jg,& !in
-                                 linit         & !in
+                                 tcall_turb_jg & !in
                                  )
   END IF
 

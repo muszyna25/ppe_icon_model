@@ -96,6 +96,7 @@ MODULE mo_interface_les
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
+  USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
 
   IMPLICIT NONE
 
@@ -457,40 +458,13 @@ CONTAINS
 
 
     !Call to turbulent parameterization schemes
-    !Subroutine similar to turbtran is called from les_turbulence
-    IF (  lcall_phy_jg(itturb) .OR. linit ) THEN
-
-!     Reset max. gust every 6 hours
-!
-      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itfastphy) ) THEN
-
-        ! exclude boundary interpolation zone of nested domains
-        rl_start = grf_bdywidth_c+1
-        rl_end   = min_rlcell_int
-
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-            &             i_startidx, i_endidx, rl_start, rl_end)
-
-            prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
-            prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
-        END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-      END IF
+    IF (  lcall_phy_jg(itturb) ) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
-                            & linit,                            & !in for surface calculation
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
-                            & ext_data,                         & !>input
                             & pt_prog,                          & !>in
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
@@ -629,6 +603,55 @@ CONTAINS
         &                      opt_calc_pres     = .TRUE.,        &
         &                      opt_rlend         = min_rlcell_int )
     ENDIF
+
+
+    !Calculate turbulent surface exchange coefficient as in mo_nh_interface_nwp
+    !but called only if nwp_surface is ON. For LES it uses the method used for GME 
+    !turbulence i.e NO tiles. For now check if NO TILES approach work. If it does then 
+    !remove the modifications in mo_surface for tiles approach, and do extra cleaning. 
+    !If it doesn't then try to make that one work- Status as on 11.09.2013 (AD)
+
+    IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. atm_phy_nwp_config(jg)%inwp_surface>0 ) THEN
+!
+!     Reset max. gust every 6 hours
+!
+      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itfastphy) ) THEN
+
+        ! exclude boundary interpolation zone of nested domains
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            &             i_startidx, i_endidx, rl_start, rl_end)
+
+            prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
+            prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
+        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+      END IF
+
+      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+
+      ! compute turbulent transfer coefficients (atmosphere-surface interface)
+      CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
+                          & pt_patch, p_metrics,              & !>in
+                          & ext_data,                         & !>in
+                          & pt_prog_rcf,                      & !>inout
+                          & pt_diag,                          & !>inout
+                          & prm_diag,                         & !>inout
+                          & wtr_prog_new,                     & !>in
+                          & lnd_prog_new,                     & !>inout 
+                          & lnd_diag                          ) !>inout
+  
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
+    ENDIF !lcall(itturb)
 
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
