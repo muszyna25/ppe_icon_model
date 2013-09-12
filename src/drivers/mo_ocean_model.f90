@@ -89,7 +89,8 @@ MODULE mo_ocean_model
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
   
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_integration,&
+    & prepare_ho_stepping, &
+    & construct_ocean_states, &
     & finalise_ho_integration
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
@@ -224,6 +225,8 @@ CONTAINS
       !      END IF
 
     END IF ! (not) is_restart_run()
+
+    CALL prepare_ho_stepping(ocean_state(1),is_restart_run())
 
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
@@ -416,7 +419,7 @@ CONTAINS
 #endif
 
     ! Prepare time integration
-    CALL prepare_ho_integration(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
+    CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
 
 

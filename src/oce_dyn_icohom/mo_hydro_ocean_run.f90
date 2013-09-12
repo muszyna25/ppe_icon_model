@@ -128,7 +128,8 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 !
 ! public subroutines
 PUBLIC :: perform_ho_stepping
-PUBLIC :: prepare_ho_integration
+PUBLIC :: prepare_ho_stepping
+PUBLIC :: construct_ocean_states
 PUBLIC :: finalise_ho_integration
 PRIVATE:: update_intermediate_tracer_vars
 !
@@ -140,6 +141,15 @@ END INTERFACE add_fields
 !-------------------------------------------------------------------------
 
 CONTAINS
+  SUBROUTINE prepare_ho_stepping(ocean_state,is_restart)
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    LOGICAL, INTENT(IN)               :: is_restart
+
+    IF (is_restart) THEN
+      ! calc u and v out of vn
+    ELSE
+    ENDIF
+  END SUBROUTINE prepare_ho_stepping
 
   !-------------------------------------------------------------------------
   !>
@@ -419,7 +429,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  SUBROUTINE prepare_ho_integration(patch_3D, p_os, p_ext_data, p_sfc_flx, &
+  SUBROUTINE construct_ocean_states(patch_3D, p_os, p_ext_data, p_sfc_flx, &
                                   & p_phys_param, p_as,&
                                   & p_atm_f, p_ice, p_op_coeff)
 
@@ -436,7 +446,7 @@ CONTAINS
     ! local variables
     INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      &      routine = 'mo_test_hydro_ocean:prepare_ho_integration'
+      &      routine = 'mo_test_hydro_ocean:construct_ocean_states'
 
     CALL message (TRIM(routine),'start')
     !------------------------------------------------------------------
@@ -516,7 +526,7 @@ CONTAINS
 
     CALL message (TRIM(routine),'end')
 
-  END SUBROUTINE prepare_ho_integration
+  END SUBROUTINE construct_ocean_states
 
   !-------------------------------------------------------------------------
   !>
@@ -717,7 +727,7 @@ CONTAINS
    !-------------------------------------------------------------------------
     WRITE(timelevel,'(a,i2.2)') '_TL',nnew(1)
 
-    CALL print_var_list(ocean_restart_list)
+    !CALL print_var_list(ocean_restart_list)
     prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
     output_var             => find_list_element(ocean_restart_list,'h')
 
