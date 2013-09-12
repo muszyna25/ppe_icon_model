@@ -149,8 +149,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       =
-   'h' 'wet_c' 't' 's' 'rhopot'
+  ml_varlist       = 'group:oce_default'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
