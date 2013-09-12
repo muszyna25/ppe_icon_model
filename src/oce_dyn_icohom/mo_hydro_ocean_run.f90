@@ -353,7 +353,7 @@ CONTAINS
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
       ! set the output variable pointer to the correct timelevel
-!TODO (ram)      CALL set_output_pointers
+      CALL set_output_pointers
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
@@ -717,27 +717,20 @@ CONTAINS
    !-------------------------------------------------------------------------
     WRITE(timelevel,'(a,i2.2)') '_TL',nnew(1)
 
-    !CALL print_var_list(ocean_restart_list)
-    output_var             =  find_list_element(ocean_restart_list,'h')
-    prog_var               =  find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
-    IF (ASSOCIATED (output_var) .AND. ASSOCIATED(prog_var)) THEN
-      output_var%field%r_ptr => prog_var%field%r_ptr
-    ELSE
-      IF (my_process_is_stdio()) THEN
-        CALL finish('set_output_pointers', 'output_var h or h'//TRIM(timelevel)//'not ASSOCIATED')
-      ENDIF
-    ENDIF
+    CALL print_var_list(ocean_restart_list)
+    prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
+    output_var             => find_list_element(ocean_restart_list,'h')
 
-    output_var             =  find_list_element(ocean_restart_list,'vn')
-    prog_var               =  find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
+    output_var             => find_list_element(ocean_restart_list,'vn')
+    prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
     output_var%field%r_ptr => prog_var%field%r_ptr
 
-    output_var             =  find_list_element(ocean_restart_list,'t')
-    prog_var               =  find_list_element(ocean_restart_list,'t'//TRIM(timelevel))
+    output_var             => find_list_element(ocean_restart_list,'t')
+    prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel))
     output_var%field%r_ptr => prog_var%field%r_ptr
 
-    output_var             =  find_list_element(ocean_restart_list,'s')
-    prog_var               =  find_list_element(ocean_restart_list,'s'//TRIM(timelevel))
+    output_var             => find_list_element(ocean_restart_list,'s')
+    prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel))
     output_var%field%r_ptr => prog_var%field%r_ptr
   END SUBROUTINE set_output_pointers
 
