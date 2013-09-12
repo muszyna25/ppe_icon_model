@@ -721,7 +721,6 @@ run/exp.nh_hdcp2_lam_r15000 -text
 run/exp.nh_moist_cbl -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
-run/exp.nh_schaer -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
 run/exp.oce_channel -text
