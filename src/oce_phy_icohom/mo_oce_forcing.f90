@@ -154,7 +154,7 @@ CONTAINS
 
     CASE (2)
       CALL message(TRIM(routine), &
-        &  'iforc_stat_oce=2: stationary wind forcing - u=cos(n*(lat-lat_0)/lat_0)')
+        &  'iforc_stat_oce=2: stationary wind forcing over basin - u=cos(n*(lat-lat_0)/lat_0)')
 
       ! Latitudes vary from -pi/2 to pi/2
       y_length = basin_height_deg * deg2rad
@@ -191,11 +191,9 @@ CONTAINS
 
     CASE (3)
       CALL message(TRIM(routine), &
-        &  'iforc_stat_oce=3: stationary wind forcing - u=cos(n*lat/lat_0)')
+        &  'iforc_stat_oce=3: apply stationary wind forcing globally - u=cos(n*lat/lat_0); v=0')
 
       ! Use here global scale:
-      !y_length = basin_height_deg * deg2rad
-      !y_center = basin_center_lat * deg2rad
       y_length = 180.0_wp * deg2rad
       y_center = -60.0_wp * deg2rad
       z_forc_period = 3.0_wp
@@ -205,7 +203,7 @@ CONTAINS
           z_lat = patch_2D%cells%center(jc,jb)%lat
           z_lon = patch_2D%cells%center(jc,jb)%lon
           IF (p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary) THEN
-            p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * cos(z_forc_period*pi*(z_lat-y_center)&
+            p_sfc_flx%forc_wind_u(jc,jb) =  analytic_wind_amplitude * cos(z_forc_period*pi*(z_lat-y_center) &
               &                                / y_length) 
           ELSE
             p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
