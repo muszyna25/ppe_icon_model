@@ -730,6 +730,7 @@ CONTAINS
     !CALL print_var_list(ocean_restart_list)
     prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
     output_var             => find_list_element(ocean_restart_list,'h')
+    output_var%field%r_ptr => prog_var%field%r_ptr
 
     output_var             => find_list_element(ocean_restart_list,'vn')
     prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
