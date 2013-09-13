@@ -2284,6 +2284,13 @@ cell\_type=3
 \tabularnewline
 
 \hline 
+veladv\_offctr&
+R& 0.25& &
+Off-centering of velocita advection in corrector step &
+cell\_type=3
+\tabularnewline
+
+\hline 
 ivctype&
 I& 2& &
 Type of vertical coordinate:\\
@@ -2334,7 +2341,11 @@ lhdiff\_rcf = .TRUE.
 \hline 
 divdamp\_order&
 I& 4& &
-Order of divergence damping (2 or 4)&
+Order/type of divergence damping: \\ 
+2 = second-order damping acting on 2D divergence \\
+3 = second-order damping acting on 3D divergence \\
+4 = fourth-order damping acting on 2D divergence \\
+5 = fourth-order damping acting on 3D divergence&
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 

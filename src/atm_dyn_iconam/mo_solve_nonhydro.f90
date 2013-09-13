@@ -49,7 +49,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      rayleigh_type, iadv_rcf, rhotheta_offctr, lextra_diffu, &
-                                     lbackward_integr
+                                     lbackward_integr, veladv_offctr
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -709,6 +709,7 @@ MODULE mo_solve_nonhydro
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
+                z_dwdz_dd       (nproma,p_patch%nlev,  p_patch%nblks_c), &
                 z_rth_pr        (nproma,2,p_patch%nlev,p_patch%nblks_c), &
                 z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
@@ -729,7 +730,6 @@ MODULE mo_solve_nonhydro
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c), &
                 z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_graddiv2_vn   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_w_concorr_me  (nproma,p_patch%nlev  ,p_patch%nblks_e)
 
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1),          &
@@ -752,6 +752,7 @@ MODULE mo_solve_nonhydro
                 z_g             (nproma,p_patch%nlev  ),          &
                 z_q             (nproma,p_patch%nlev  ),          &
                 z_w_backtraj    (nproma,p_patch%nlevp1),          &
+                z_graddiv2_vn   (nproma,p_patch%nlev  ),          &
                 z_theta_tavg    (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_mc (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_ic (nproma,p_patch%nlevp1),          &
@@ -848,9 +849,9 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
-    IF (divdamp_order == 2) THEN
+    IF (divdamp_order <= 3) THEN
       scal_divdamp(:) = divdamp_fac * p_patch%geometry_info%mean_cell_area 
-    ELSE IF (divdamp_order == 4) THEN
+    ELSE IF (divdamp_order >= 4) THEN
        ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
        ! with height to a value of 0.004 (= the namelist default) at 40 km
        enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
@@ -869,6 +870,7 @@ MODULE mo_solve_nonhydro
     IF (p_test_run) THEN
       z_rho_e     = 0._wp
       z_theta_v_e = 0._wp
+      z_dwdz_dd   = 0._wp
     ENDIF
 
     ! Set time levels of ddt_adv fields for call to velocity_tendencies
@@ -883,8 +885,8 @@ MODULE mo_solve_nonhydro
     ! Weighting coefficients for velocity advection if tendency averaging is used
     ! The off-centering specified here turned out to be beneficial to numerical
     ! stability in extreme situations
-    wgt_nnow_vel = 0.25_wp
-    wgt_nnew_vel = 1._wp - wgt_nnow_vel
+    wgt_nnow_vel = 0.5_wp - veladv_offctr ! default value for veladv_offctr is 0.25
+    wgt_nnew_vel = 0.5_wp + veladv_offctr
 
     ! Weighting coefficients for rho and theta at interface levels in the corrector step
     ! This empirically determined weighting minimizes the vertical wind off-centering
@@ -1415,8 +1417,41 @@ MODULE mo_solve_nonhydro
         ENDDO
 !$OMP END DO
 
-      ENDIF 
-    ENDIF ! istep = 1
+      ENDIF
+
+    ELSE IF (lhdiff_rcf .AND. (divdamp_order == 3 .OR. divdamp_order == 5)) THEN ! istep = 2 partly 3D div damping
+
+      ! add dw/dz contribution to divergence damping term
+
+      rl_start = 7
+      rl_end   = min_rledge_int-2
+
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=5
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) + p_patch%edges%inv_dual_edge_length(je,jb)* &
+             ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+    ENDIF ! istep = 1/2
 
     ! Remaining computations at edge points
 
@@ -1616,7 +1651,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Update horizontal velocity field: advection (including Coriolis force) and pressure-gradient term
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_graddiv2_vn) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1645,17 +1680,39 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
+      IF (lhdiff_rcf .AND. istep == 2 .AND. divdamp_order >= 4) THEN ! fourth-order divergence damping
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+
+            ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
+            z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
+              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+      ENDIF
+
       IF (lhdiff_rcf .AND. istep == 2) THEN
         ! apply divergence damping if diffusion is not called every sound-wave time step
-        IF (divdamp_order == 2) THEN ! standard second-order divergence damping
+        IF (divdamp_order <= 3) THEN ! second-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) &
                 + scal_divdamp(jk)*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
+        ELSE IF (divdamp_order >= 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
           ! fourth-order divergence damping with reduced damping coefficient along nest boundary
           ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
           ! damping along nest boundaries is beneficial because this reduces the interference
@@ -1663,16 +1720,16 @@ MODULE mo_solve_nonhydro
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                            &
-                + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk,jb)
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
+                + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
+        ELSE IF (divdamp_order >= 4) THEN ! fourth-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-                + scal_divdamp(jk)*z_graddiv2_vn(je,jk,jb)
+                + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
             ENDDO
           ENDDO
         ENDIF
@@ -2002,42 +2059,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
     ENDIF
 
-    IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_order == 4) THEN ! fourth-order divergence damping
-      rl_start = grf_bdywidth_e + 1
-      rl_end   = min_rledge_int
-
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-!DIR$ IVDEP
-          DO jk = 1, nlev
-#else
-!CDIR UNROLL=3
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-#endif
-
-            ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
-            z_graddiv2_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)   &
-              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
-              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
-              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
-              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-
-           ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO
-
-    ENDIF
 
     ! It turned out that it is sufficient to compute the contravariant correction in the
     ! predictor step at time level n+1; repeating the calculation in the corrector step
@@ -2420,6 +2441,17 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
+      ! compute dw/dz for divergence damping term
+      IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
+              ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
+                (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
+          ENDDO
+        ENDDO
+      ENDIF
+
       ! Results for thermodynamic variables
       DO jk = jk_start, nlev
 !DIR$ IVDEP
@@ -2572,6 +2604,18 @@ MODULE mo_solve_nonhydro
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
+
+        ! compute dw/dz for divergence damping term
+        IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
+                ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
+                  (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDDO
 !OMP END DO
 
@@ -2614,6 +2658,18 @@ MODULE mo_solve_nonhydro
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
+
+        ! compute dw/dz for divergence damping term
+        IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
+                ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
+                  (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDDO
 !OMP END DO
 
@@ -2652,7 +2708,11 @@ MODULE mo_solve_nonhydro
           & p_patch%sync_cells_not_owned, name="solve_step2_w")
       ENDIF
     ELSE IF (itype_comm == 1) THEN
-      IF (istep == 1) THEN ! Only w is updated in the predictor step
+      IF (istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5)) THEN
+        ! Synchronize w and vertical contribution to divergence damping
+        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
+      ELSE IF (istep == 1) THEN 
+        ! Only w is updated in the predictor step
         CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
       ELSE IF (istep == 2) THEN
         ! Synchronize all prognostic variables
@@ -2773,6 +2833,7 @@ MODULE mo_solve_nonhydro
           ENDIF
         ENDDO
       ENDDO
+
     ENDDO
 #ifndef __SX__
 !$OMP END DO NOWAIT

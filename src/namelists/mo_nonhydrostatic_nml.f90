@@ -63,6 +63,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
                                     & config_vwind_offctr     => vwind_offctr     , &
                                     & config_rhotheta_offctr  => rhotheta_offctr  , &
+                                    & config_veladv_offctr    => veladv_offctr    , &
                                     & config_iadv_rhotheta    => iadv_rhotheta    , &
                                     & config_igradp_method    => igradp_method    , &
                                     & config_exner_expol      => exner_expol      , &
@@ -120,6 +121,7 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
   REAL(wp):: rhotheta_offctr         ! Off-centering for density and potential temperature at interface levels
+  REAL(wp):: veladv_offctr           ! Off-centering for velocity advection
   INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
   INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
   REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
@@ -153,7 +155,7 @@ MODULE mo_nonhydrostatic_nml
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
                               & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
-                              & rhotheta_offctr, lextra_diffu, lbackward_integr
+                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -232,6 +234,8 @@ CONTAINS
     ! Specifying a negative value here reduces the amount of vertical wind off-centering needed for
     ! stability of sound waves. 
     rhotheta_offctr   = -0.1_wp
+    ! Off-centering of velocity advection in corrector step
+    veladv_offctr = 0.25_wp
     ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
     ! Use truly horizontal pressure-gradient computation to ensure numerical stability
@@ -345,6 +349,7 @@ CONTAINS
        config_iadv_rhotheta     = iadv_rhotheta
        config_vwind_offctr      = vwind_offctr
        config_rhotheta_offctr   = rhotheta_offctr
+       config_veladv_offctr     = veladv_offctr
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
        config_ltheta_up_hori    = ltheta_up_hori
