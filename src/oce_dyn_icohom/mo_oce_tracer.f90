@@ -572,7 +572,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   REAL(wp), INTENT(in)                 :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)                 :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)                 :: K_h(:,:,:)       !horizontal mixing coeff
-  REAL(wp), INTENT(in)                 :: A_v(:,:,:)       !vertical mixing coeff
+  REAL(wp), INTENT(inout)              :: A_v(:,:,:)       !vertical mixing coeff, in
   INTEGER,  INTENT(IN)                 :: tracer_id
   !Local variables
   REAL(wp) :: delta_t, delta_z,delta_z_new
@@ -756,9 +756,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       !calculate vert diffusion impicit: result is stored in trac_out
       ! no sync because of columnwise computation     
       IF ( l_with_vert_tracer_diffusion ) THEN
-        CALL tracer_diffusion_vert_impl_hom( p_patch_3D,                      &
-          &                                  new_ocean_tracer,                   &! p_os%p_prog(nnew(1))%h(:,:),   A_v,                             &
-          &                                  p_op_coeff)!,                      &
+        CALL tracer_diffusion_vert_impl_hom( &
+          & p_patch_3D,                      &
+          & new_ocean_tracer,                &
+          & p_os%p_prog(nnew(1))%h(:,:),     &
+          & A_v,                             &
+          & p_op_coeff)!,                      &
           !&                                  trac_new(:,:,:))
       ENDIF
 
