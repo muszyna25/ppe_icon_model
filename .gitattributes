@@ -1132,6 +1132,7 @@ src/atm_dyn_iconam/mo_pp_scheduler.f90 -text
 src/atm_dyn_iconam/mo_pp_tasks.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
 src/atm_dyn_iconam/mo_vector_operations.f90 -text
+src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_oce_lnd_interface/mo_oce_bulk.f90 -text
 src/atm_oce_lnd_interface/mo_sea_ice.f90 -text
