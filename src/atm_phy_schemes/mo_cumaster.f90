@@ -546,7 +546,7 @@ CONTAINS
     zmfub1  (:)=0.0_JPRB
     zdqcv   (:)=0.0_JPRB
     idtop   (:)=0
-    ictop0  (:)=0
+    ictop0  (:)=klev ! originally 0; change needed to avoid segfaults in cuascn (but otherwise no impact on results)
     ilwmin  (:)=0
     idpl    (:)=0
     zcape   (:)=0.0_JPRB
