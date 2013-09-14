@@ -300,6 +300,7 @@ MODULE mo_nh_initicon
         DO jg = 1, n_dom
           i_rlstart  = 1
           i_rlend    = min_rlcell
+          i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)
           i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
           i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
 

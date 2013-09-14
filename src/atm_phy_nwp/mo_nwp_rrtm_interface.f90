@@ -908,6 +908,8 @@ CONTAINS
         min_albvisdir = 1.e10_wp
         max_albvisdif = 0._wp
         min_albvisdif = 1.e10_wp
+        max_albdif = 0._wp
+        min_albdif = 1.e10_wp
         max_tsfc = 0._wp
         min_tsfc = 1.e10_wp
         max_psfc = 0._wp

@@ -1257,7 +1257,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    ENDIF
 
    ! Get the maximum absolute value of all numbers.
-!$OMP PARALLEL PRIVATE(fact,r_fact,rval)
+!$OMP PARALLEL PRIVATE(rval)
 !$OMP DO PRIVATE(j)
    DO j=1,nblks
       max_aux(j) = MAXVAL(ABS(zfield(:,j)))
@@ -1269,10 +1269,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    abs_max = p_max(rval, comm=p_comm_glob)
 
    ! Get the exponent of abs_max for scaling
-
    iexp = EXPONENT(abs_max)
-!$OMP END MASTER
-!$OMP BARRIER
 
    ! Calculate a factor for scaling the input numbers
    ! so that the maximum absolute value of a scaled number
@@ -1280,6 +1277,9 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
 
    fact = SCALE(1._dp,40-iexp) ! same as 2**(40-iexp)
    r_fact = SCALE(1._dp,iexp-40) ! 1./fact
+
+!$OMP END MASTER
+!$OMP BARRIER
 
    ! Sum up all numbers as scaled integers
 

@@ -468,7 +468,7 @@ ENDDO
         ENDIF
       ENDDO
     ELSE
-      zdrain(jl)=-1.0E5_JPRB ! cloud depth criterion deactivated
+      zdrain(:)=-1.0E5_JPRB ! cloud depth criterion deactivated
     ENDIF
 !ENDIF !present aerosol
 !

@@ -5354,11 +5354,12 @@ SUBROUTINE terra_multlay_init (                &
           ENDIF
 
           t_s_now(i) = t_so_now(i,0)
-          t_s_new(i) = t_so_new(i,0)
+          t_s_new(i) = t_so_now(i,0)
 
 !         Set level 1 to level 0 for t_so for every landpoint
           t_so_now(i,1) = t_so_now(i,0)
           t_so_new(i,1) = t_so_now(i,0)
+          t_so_new(i,0) = t_so_now(i,0)
 
 !        ENDIF    ! llandmask
     END DO

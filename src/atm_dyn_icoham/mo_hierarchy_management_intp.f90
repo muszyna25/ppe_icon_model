@@ -656,7 +656,7 @@ ELSE
 ENDIF
 
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,jt)
 i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
@@ -691,7 +691,7 @@ IF (ltransport) THEN
 
 DO jt = 1, ntracer
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
