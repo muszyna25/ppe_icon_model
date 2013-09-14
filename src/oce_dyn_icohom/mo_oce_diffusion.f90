@@ -1387,7 +1387,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx_c, i_endidx_c
   REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
-  REAL(wp) :: z_tmp
+  REAL(wp) :: fact
   ! REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
   ! REAL(wp) :: inv_prism_thickness(1:n_zlev)
   REAL(wp) :: dt_inv
@@ -1443,6 +1443,27 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
           ENDDO
 
           IF (use_tracer_x_height) THEN
+            ! top level
+            a(1) = 0.0_wp
+            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(2) * inv_prisms_center_distance(2)         * dtime
+            b(1) = 1.0_wp + A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2) * dtime
+            !Fill triangular matrix
+            !b is diagonal a is the lower diagonal, c is the upper
+            DO jk = 2, z_dolic-1
+              a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk-1) * inv_prisms_center_distance(jk)   * dtime
+              c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk+1) * inv_prisms_center_distance(jk+1) * dtime
+              b(jk) = 1.0_wp +                                         &
+                & (A_v(jc,jk,jb)  * inv_prisms_center_distance(jk) +   &
+                &  A_v(jc,jk+1,jb) * inv_prisms_center_distance(jk+1)) * inv_prism_thickness(jk) * dtime
+            END DO
+            !bottom
+            a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic-1) * inv_prisms_center_distance(z_dolic) * dtime
+            c(z_dolic) = 0.0_wp
+            b(z_dolic) = 1.0_wp + A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic) * dtime
+
+            ! get locally the column tracer_x_height
+            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb)
+
           !------------------------------------
           ELSE ! not use_tracer_x_height
             ! top level
@@ -1461,40 +1482,55 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
             c(z_dolic) = 0.0_wp
             b(z_dolic) = dt_inv - a(z_dolic)
 
+            ! get locally the column tracer / dt
+            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
+
           ENDIF ! use_tracer_x_height
           !------------------------------------
 
-          ! get locally the column tracer / dt
-          column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
+!          ! get 1 in the diagonal
+!          DO jk=slev, z_dolic-1
+!            IF(b(jk)/=0.0_wp)THEN
+!              a(jk) = a(jk)/b(jk)
+!              c(jk) = c(jk)/b(jk)
+!              column_tracer(jk) = column_tracer(jk)/ b(jk)
+!              ! b(jk)=1.0_wp
+!            ELSE
+!              CALL finish("","diagonal is 0")
+!            ENDIF
+!          END DO
+!          !Apply the matrix
+!          DO jk=slev+1, z_dolic-1
+!            b(jk) = 1.0_wp - a(jk) * c(jk-1)
+!            c(jk) = c(jk)/b(jk)
+!
+!            column_tracer(jk) = (column_tracer(jk) - a(jk) * column_tracer(jk-1)) / b(jk)
+!            ! column_tracer(jk) = column_tracer(jk)/b(jk)
+!            ! b(jk)                  = 1.0_wp
+!          END DO
+!          ! bottom cell
+!          z_tmp = b(z_dolic) - a(z_dolic) * c(z_dolic-1)
+!          column_tracer(z_dolic) = (column_tracer(z_dolic) - a(z_dolic) * column_tracer(z_dolic-1)) / z_tmp
+!          DO jk = z_dolic-1,1,-1
+!            column_tracer(jk) = column_tracer(jk) - c(jk) * column_tracer(jk+1)
+!          END DO
 
+          ! solver from lapack
+          !
           DO jk=slev, z_dolic-1
-            IF(b(jk)/=0.0_wp)THEN
-              a(jk) = a(jk)/b(jk)
-              c(jk) = c(jk)/b(jk)
-              column_tracer(jk) = column_tracer(jk)/ b(jk)
-              b(jk)=1.0_wp
-            ELSE
-              CALL finish("","diagonal is 0")
-            ENDIF
-          END DO
+            fact = a( jk+1 ) / b( jk )
+            b( jk+1 ) = b( jk+1 ) - fact * c( jk )
+            column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact * column_tracer( jk )
+          ENDDO
+!          DO jk=slev, z_dolic-2
+!            a(jk) = 0.0_wp
+!          ENDDO
 
-          !Apply the matrix
-          DO jk=slev+1, z_dolic-1
-            c(jk) = c(jk)/(1.0_wp - a(jk) * c(jk-1))
-
-            column_tracer(jk) = column_tracer(jk) - a(jk) * column_tracer(jk-1)
-            column_tracer(jk) = column_tracer(jk)/b(jk)
-
-            ! b(jk)                  = 1.0_wp
-          END DO
-
-          ! bottom cell
-          z_tmp = b(z_dolic) - a(z_dolic) * c(z_dolic-1)
-          column_tracer(z_dolic) = (column_tracer(z_dolic)-a(z_dolic)*column_tracer(z_dolic-1))/z_tmp
-
-          DO jk = z_dolic-1,1,-1
-            column_tracer(jk) = column_tracer(jk) - c(jk) * column_tracer(jk+1)
-          END DO
+          !     Back solve with the matrix U from the factorization.
+          column_tracer( z_dolic ) = column_tracer( z_dolic ) / b( z_dolic )
+          DO jk =  z_dolic-1, 1, -1
+            column_tracer( jk ) = ( column_tracer( jk ) - c( jk ) * column_tracer( jk+1 ) ) / b( jk )
+          ENDDO
 
           IF (use_tracer_x_height) THEN
             DO jk = 1, z_dolic
