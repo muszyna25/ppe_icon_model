@@ -1434,11 +1434,12 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
          ! c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
 
           ! recalculate coefficients
-          prism_thickness(1) = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + h_c(jc,jb)
+          prism_thickness(1)     = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + h_c(jc,jb)
           inv_prism_thickness(1) = 1.0_wp / prism_thickness(1)
           DO jk=2,z_dolic
             prism_thickness(jk)            = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-            inv_prism_thickness(jk)        = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
+            ! inv_prism_thickness(jk)        = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
+            inv_prism_thickness(jk)        = 1.0_wp / p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
             inv_prisms_center_distance(jk) = 2.0_wp / (prism_thickness(jk-1) + prism_thickness(jk))
           ENDDO
 
