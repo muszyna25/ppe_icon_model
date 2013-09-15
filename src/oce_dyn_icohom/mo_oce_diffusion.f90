@@ -1518,12 +1518,13 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
 
           ! solver from lapack
           !
+          ! eliminate lower diagonal
           DO jk=slev, z_dolic-1
             fact = a( jk+1 ) / b( jk )
             b( jk+1 ) = b( jk+1 ) - fact * c( jk )
             column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact * column_tracer( jk )
           ENDDO
-!          DO jk=slev, z_dolic-2
+!          DO jk=slev+1, z_dolic
 !            a(jk) = 0.0_wp
 !          ENDDO
 
