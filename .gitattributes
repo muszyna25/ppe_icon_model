@@ -1355,7 +1355,6 @@ src/drivers/mo_atmo_model.f90 -text
 src/drivers/mo_atmo_nonhydrostatic.f90 -text
 src/drivers/mo_icon_testbed.f90 -text
 src/drivers/mo_master_control.f90 -text
-src/drivers/mo_ocean_model.f90 -text
 src/grid_generator/grid_command.f90 -text
 src/grid_generator/grid_definitions.inc -text
 src/grid_generator/mo_base_datatypes.f90 -text
@@ -1475,7 +1474,8 @@ src/ocean/boundary/mo_sea_ice_winton.f90 -text
 src/ocean/boundary/mo_sea_ice_zerolayer.f90 -text
 src/ocean/config/mo_ocean_config.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
-src/ocean/dynamics/mo_hydro_ocean_run.f90 -text
+src/ocean/drivers/mo_hydro_ocean_run.f90 -text
+src/ocean/drivers/mo_ocean_model.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping_mimetic.f90 -text
 src/ocean/dynamics/mo_oce_boundcond.f90 -text
