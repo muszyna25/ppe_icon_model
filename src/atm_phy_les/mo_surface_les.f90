@@ -286,7 +286,7 @@ MODULE mo_surface_les
 !           END DO !jt
 !
 !         ELSE
-!            CALL finish( TRIM(routine),'only itype_z0=2 works for moment with inwp_surface=true! ')
+!            CALL finish( TRIM(routine),'only itype_z0=2 works for moment with isrfc_type=1! ')
 !         ENDIF
 !
 !      END DO !for jb
