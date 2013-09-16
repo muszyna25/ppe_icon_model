@@ -25,28 +25,31 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
 # ==============================================================================
 # ==============================================================================
 # we supppose, that all files belong to the same experiment
-         expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
-         expIdent='xmpiom.r12088.relice'                                             # experiment identifier
          expIdent='xmpiom.r12088.norunoff'                                           # experiment identifier
-         expIdent='xmpiom.r12690.miu.d400'                                           # experiment identifier
+         expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
+         expIdent='xmpiom.r13694'                                                    # experiment identifier
           expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
      fileListPath="$expPath/$expIdent/Output"                                        # output data path
      fileListPath="$expPath/$expIdent"                                               # output data path
   fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"           # 'nml' naming convention
   fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"                       # 'vlist' naming convention
       outputIdent='r12088.relice'                                                    # output file name appendix
-      outputIdent='r12690.miu'                                                       # output file name appendix
+      outputIdent='r13694'                                                           # output file name appendix
           Tempvar='T'                                                                # temperature variable name
            Salvar='S'                                                                # salinity variable name
+           Rhovar='rhopot'                                                           # density variable name
           Tempvar='t_acc'                                                            # temperature variable name
            Salvar='s_acc'                                                            # salinity variable name
+           Rhovar='rhopot_acc'                                                       # density variable name
    outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
        PlotScript='ncl'               #  ncl-script, see below - not yet
        PlotScript='icon'              #  script icon_plot_ncl using ncl, see above
+       PlotScript='none'              #  no plots
 # ==============================================================================
 # these variable names must not necessarily be changed
-           Rhovar='rhopot'                                                               # density variable name
       MaskVarName='wet_c'
+          ScrDatN='tsrho'
+          ScrDatN='scr_tsrho'
 # ==============================================================================
 #declare a fileListArray
 fileList=$(ls $fileListPath/$fileListPattern)
@@ -60,7 +63,7 @@ echo "$numberOfFiles number of files"
 echo $fileList
 # ==============================================================================
 # handing of the initial values
-# get the initial values before any averading is done
+# get the initial values before any averaging is done
 #initFile='init-phc.r2b4.20L.ts_acc.nc'     #  orig PHC T/S data
 # include rhopot in PHC data:
 # cdo chname,rhopoto,rhopot_acc -rhopot -adisit -chname,t_acc,tho,s_acc,sao init-phc.r2b4.20L.ts_acc.nc xx
@@ -82,18 +85,18 @@ for file in $fileList; do
   if [[ -f fldmean_${pattern_num} ]]; then
     echo  "fldmean_${pattern_num} already exists!"
   else
-    if [[ -f tsrho_${pattern_num} ]]; then
-      echo  "tsrho_${pattern_num} already exists!"
+    if [[ -f ${ScrDatN}_${pattern_num} ]]; then
+      echo  "${ScrDatN}_${pattern_num} already exists!"
     else
       if [[ ! -f "$maskFile" ]]; then 
         # create maskFile
         $CDO selvar,$MaskVarName $file $maskFile
       fi
       # select variables, mask out land points - takes some time
-      $CDO -div -selname,$Tempvar,$Salvar,$Rhovar $file $maskFile tsrho_${pattern_num}
+      $CDO -div -selname,$Tempvar,$Salvar,$Rhovar $file $maskFile ${ScrDatN}_${pattern_num}
     fi
     # compute the fldmean using masked values only
-    $CDO fldmean tsrho_${pattern_num} fldmean_${pattern_num}
+    $CDO fldmean ${ScrDatN}_${pattern_num} fldmean_${pattern_num}
 
     # special treatment of first file "*0001.nc": contains zero!
     #  - for _acc accumulated variables only
