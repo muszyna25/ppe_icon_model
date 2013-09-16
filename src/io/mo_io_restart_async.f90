@@ -1112,13 +1112,12 @@ CONTAINS
   !  Get a message array to transfer all dynamical restart arguments
   !  between compute and restart PEs.
   !
-  FUNCTION get_message_array (subname)
-
+  FUNCTION get_message_array (subname) 
+    REAL(wp), POINTER             :: get_message_array(:)
     CHARACTER(LEN=*), INTENT(in)  :: subname
 
     INTEGER                       :: ierrstat, n_msg
     TYPE(t_patch_data), POINTER   :: p_pd
-    REAL(wp), POINTER             :: get_message_array(:)
 
     ! set minimum size to transfer patch data
     n_msg = MIN_DYN_RESTART_PDATA
@@ -1140,6 +1139,7 @@ CONTAINS
     ! allocate memory
     ALLOCATE (get_message_array(n_msg), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
+    get_message_array = 0._wp ! initialize array to avoid Cray compiler warning
 
   END FUNCTION get_message_array
 
