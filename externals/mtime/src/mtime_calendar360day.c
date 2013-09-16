@@ -20,14 +20,6 @@
 #include "mtime_date.h"
 #include "mtime_time.h"
 
-#define NO_OF_MS_IN_A_DAY 86400000
-#define NO_OF_MS_IN_HALF_DAY 43200000
-#define NO_OF_MS_IN_A_HOUR 3600000
-#define NO_OF_MS_IN_A_MINUTE 60000
-#define NO_OF_MS_IN_A_SECOND 1000
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 360
-#define NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 30
-#define NO_OF_MONTHS_IN_A_YEAR 12
 
 /**
  * @brief Convert Julian Date to Calendar-with-360-days date.
@@ -68,22 +60,24 @@ getDate360FromJulian(struct _julianday *jd, struct _datetime* d360)
       jms = jms - NO_OF_MS_IN_A_DAY;
     }
 
-  /* Handle skew due to the fact that Julian is symmetric about 0.0 JD while d360 is not. */
+  /* Julian is symmetric about 0.0 JD while d360 is not. */
   if (jday >= 0)
     {
       d360->date.year = (jday) / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360;
 
       days = jday % NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360;
-      d360->date.month = days / NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 + 1;
-      d360->date.day = days % NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 + 1;
+      d360->date.month = (days / NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360) + 1;
+      d360->date.day = (days % NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360) + 1;
     }
   else
     {
-      d360->date.year = (jday) / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 - 1;
+      d360->date.year = (jday / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360) - 1;
+
       days = -jday % NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360;
-      d360->date.month = NO_OF_MONTHS_IN_A_YEAR - days / NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360;
+      d360->date.month = NO_OF_MONTHS_IN_A_YEAR - (days / NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360);
       d360->date.day = NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 - (days % NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 - 1);
 
+      /* This will be true whenever days is divisible by NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 */
       if (d360->date.day == (NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 + 1))
         {
           d360->date.month = d360->date.month + 1;
@@ -92,10 +86,11 @@ getDate360FromJulian(struct _julianday *jd, struct _datetime* d360)
               d360->date.year = d360->date.year + 1;
               d360->date.month = 1;
             }
-
           d360->date.day = 1;
         }
     }
+
+  /* Santize for range. */
   if((d360->date.year > YEAR_UPPER_BOUND) || (d360->date.year < YEAR_LOWER_BOUND))
     {
       /* ERROR: Exceeds allowed year range. */
@@ -136,31 +131,35 @@ getJulianFromDate360(struct _datetime *d360, struct _julianday *jd)
 {
   /* Check for malformed parameters */
   if ((d360 != NULL) && (jd != NULL)){
-  /* Handle skew due to the fact that Julian is symmetric about 0.0 JD while d360 is not. */
+
+  /* Julian is symmetric about 0.0 JD while d360 is not. */
   if (d360->date.year < 0)
     {
-      jd->day = d360->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 + (d360->date.month) * NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 + (d360->date.day - NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360) - 1;
+      jd->day =    d360->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 
+		+ (d360->date.month) * NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 
+		+ (d360->date.day - NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360) - 1;
     }
   else
     {
-      jd->day = d360->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 + (d360->date.month - 1) * NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 + d360->date.day - 1;
+      jd->day =    d360->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 
+		+ (d360->date.month - 1) * NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 
+		+ (d360->date.day - 1);
     }
 
   /* Handle the 12 hour skew between two time axis. */
   if (d360->time.hour < 12)
     {
-      jd->ms = NO_OF_MS_IN_HALF_DAY;
-      jd->ms = jd->ms + NO_OF_MS_IN_A_HOUR * (d360->time.hour);
-      jd->day = jd->day - 1;
+      jd->ms 	= NO_OF_MS_IN_HALF_DAY + (NO_OF_MS_IN_A_HOUR * d360->time.hour);
+      jd->day 	= jd->day - 1;
     }
   else
     {
       jd->ms = NO_OF_MS_IN_A_HOUR * (d360->time.hour - 12);
     }
 
-  jd->ms = jd->ms + NO_OF_MS_IN_A_MINUTE * d360->time.minute;
-  jd->ms = jd->ms + NO_OF_MS_IN_A_SECOND * d360->time.second;
-  jd->ms = jd->ms + d360->time.ms;
+  jd->ms = jd->ms + NO_OF_MS_IN_A_MINUTE * d360->time.minute 
+		  + NO_OF_MS_IN_A_SECOND * d360->time.second 
+		  + d360->time.ms;
 
   return jd;
 }

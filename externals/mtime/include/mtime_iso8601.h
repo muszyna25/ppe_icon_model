@@ -22,7 +22,9 @@
 
 typedef enum
 {
-  FAILURE = 0, DATETIME_MATCH = 1, DURATION_MATCH = 2
+  FAILURE = 0, 
+  DATETIME_MATCH = 1, 
+  DURATION_MATCH = 2
 } ISO8601_STATUS;
 
 struct iso8601_duration

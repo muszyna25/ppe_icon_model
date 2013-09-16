@@ -23,27 +23,9 @@
 #include "mtime_iso8601.h"
 
 
-#define NO_OF_MS_IN_A_DAY 86400000
-#define NO_OF_MS_IN_HALF_DAY 43200000
-#define NO_OF_MS_IN_A_HOUR 3600000
-#define NO_OF_MS_IN_A_MINUTE 60000
-#define NO_OF_MS_IN_A_SECOND 1000
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 360
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 365
-#define NO_OF_DAYS_IN_A_LEAP_YEAR 366
-#define NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 30
-#define NO_OF_MONTHS_IN_A_YEAR 12
-
-#define NIXTYPESTRING_DAY_LOWER_BOUND 15
-#define NIXTYPESTRING_MONTH_LOWER_BOUND 10
-#define NIXTYPESTRING_YEAR_LOWER_BOUND 1582
-#define NIXTYPESTRING_YEAR_UPPER_BOUND 9999
-
-
-
-// MIN allowed year : -2147483648
-// MAX allowed year :  2147483647
-// Upto MilliSecond resolution supported.
+/* MIN allowed year : -2147483648
+   MAX allowed year :  2147483647
+   Upto MilliSecond resolution supported. */
 
 
 /**
@@ -56,14 +38,15 @@
  * @return dt
  *         A pointer to a filled datetime. 
  */
+
 struct _datetime*
 newDateTime(const char* dts)
 {
-  if (dts != NULL )
+  if ((dts != NULL) && (getCalendarType()))
     {
       /* Intialize a dummy ISO8601 object. */
       struct iso8601_datetime* isoDt = new_iso8601_datetime('+', 0, 0, 0, 0, 0, 0, 0, 'Z');
-      if (isoDt == NULL )
+      if (isoDt == NULL)
         return NULL ;
 
       /* Check ISO8601 compliance. */
@@ -81,8 +64,6 @@ newDateTime(const char* dts)
         }
 
       dt->date.year 	= isoDt->year;
-      //if (isoDt->sign_of_year == '-')
-        //dt->date.year 	= (-1) * dt->date.year;
       dt->date.month 	= isoDt->month;
       dt->date.day 	= isoDt->day;
       dt->time.hour 	= isoDt->hour;
@@ -121,6 +102,7 @@ newDateTime(const char* dts)
  * @return dt
  *         A pointer to a filled DateTime. 
  */
+
 struct _datetime*
 newRawDateTime(int64_t _year, int _month, int _day, int _hour, int _minute, int _second, int _ms)
 {
@@ -152,6 +134,7 @@ newRawDateTime(int64_t _year, int _month, int _day, int _hour, int _minute, int 
  * @return _dt
  *         A pointer to an initialized DateTime. 
  */
+
 struct _datetime*
 constructAndCopyDateTime(struct _datetime* dt)
 {
@@ -160,7 +143,6 @@ constructAndCopyDateTime(struct _datetime* dt)
   else
     return NULL;
 }
-
 
 
 /**
@@ -180,6 +162,7 @@ deallocateDateTime(struct _datetime* dt)
     }
 }
 
+
 /**
  * @brief Get the TimeDelta between two DateTimes dt1 and dt2 as (dt1-dt2).
  *
@@ -187,7 +170,7 @@ deallocateDateTime(struct _datetime* dt)
  * them. Each datetime is converted to an equivalent Julian Date. Substraction is then performed
  * on Julian axis. The "Julian delta" is finally converted back to normal calendar delta. 
  * 
- * This routine  handles all supported Calendar types; i.e. the translation from Calendar date 
+ * This routine handles all supported Calendar types; i.e. the translation from Calendar date 
  * to Julian date and conversion from Julian Delta to normal TimeDetla is Calendar-type dependent. 
  * For eg. for Calendar type Gregorian, the TimeDelta between 2001-02-01T00:00:00.000 and 
  * 2001-01-01T00:00:00.000 will be 1 month. Similarly, for Calendar of type 360-Day-Calendar, 
@@ -215,7 +198,7 @@ getTimeDeltaFromDateTime(struct _datetime* dt1, struct _datetime* dt2, struct _t
   /* Convert dt1 to Julian. */
   struct _julianday* jd1 = newJulianDay(0, 0);
   if (jd1 == NULL)
-  return NULL;
+    return NULL;
   jd1 = date2julian(dt1, jd1);
 
   /* Convert dt2 to Julian. */
@@ -242,6 +225,7 @@ getTimeDeltaFromDateTime(struct _datetime* dt1, struct _datetime* dt2, struct _t
   /* Convert Julian-delta to TimeDelta. */
   td_return = julianDeltaToTimeDelta(jd, dt1, td_return);
 
+  /* Cleanup. */
   deallocateJulianDay(jd1);
   deallocateJulianDay(jd2);
   deallocateJulianDelta(jd);
@@ -249,8 +233,9 @@ getTimeDeltaFromDateTime(struct _datetime* dt1, struct _datetime* dt2, struct _t
   return td_return;
 }
 else
-return NULL;
+  return NULL;
 }
+
 
 /**
  * @brief Compare two datetimes and return (dt1 > dt2) OR (dt1 = dt2) OR (dt1 < dt2).
@@ -265,10 +250,13 @@ return NULL;
  *         if (dt1 > dt2), return greater_than. If (dt1 == dt2), return equal_to. If (dt1 < dt2), return less_than. 
  *	   Return compare_error indicating error.
  */
+
 compare_return_val
 compareDatetime(struct _datetime* dt1, struct _datetime* dt2)
 {
   if ((dt1 != NULL) && (dt2 != NULL)){
+
+  /* Initialize. */
   compare_return_val boolean = compare_error;
 
   if (dt1->date.year == dt2->date.year)
@@ -353,32 +341,33 @@ compareDatetime(struct _datetime* dt1, struct _datetime* dt2)
       boolean = less_than;
     }
 
-
   return boolean;
 }
 else
-return compare_error;
+  return compare_error;
 }
 
-  /**
-   * @brief COPY a DateTime object.
-   *
-   * Routine replaceDateTime copies the contents of source DateTime into a Destination DateTime object.
-   *
-   * @param  dtsrc         
-   *         A pointer to struct _datetime. Copy "FROM" DateTime object.
-   *
-   * @param  dtdest
-   *         A pointer to struct _datetime. Copy "TO" DateTime object.
-   *
-   * @return dtdest
-   *         A pointer to 'copied' DateTime Object.
-   */
+
+/**
+ * @brief COPY a DateTime object.
+ *
+ * Routine replaceDateTime copies the contents of source DateTime into a Destination DateTime object.
+ *
+ * @param  dtsrc         
+ *         A pointer to struct _datetime. Copy "FROM" DateTime object.
+ *
+ * @param  dtdest
+ *         A pointer to struct _datetime. Copy "TO" DateTime object.
+ *
+ * @return dtdest
+ *         A pointer to 'copied' DateTime Object.
+ */
 
 struct _datetime*
 replaceDatetime(struct _datetime* dtsrc, struct _datetime* dtdest)
 {
   if ((dtdest != NULL) && (dtsrc != NULL)){
+
   dtdest->date.year 	= dtsrc->date.year;
   dtdest->date.month 	= dtsrc->date.month;
   dtdest->date.day 	= dtsrc->date.day;
@@ -390,24 +379,25 @@ replaceDatetime(struct _datetime* dtsrc, struct _datetime* dtdest)
   return dtdest;
 }
 else
-return NULL;
+  return NULL;
 }
 
-  /**
-   * @brief Get the 'day-of-year' value of a DateTime.
-   *
-   * Routine getDayOfYearFromDateTime returns Day of Year for the DateTime. This routine supports
-   * all Calendar types.
-   *
-   * For eg. the day of year value for 2001-10-15T00:00:00.000 will be 288 for Gregorian Calendar. 
-   * Similarly, this value will be 285 for Calendar of type 360 day-Calendar.
-   *
-   * @param  dt
-   *         A pointer to struct _datetime. Retrieve the 'day-of-year' from this DT object.
-   *
-   * @return doy
-   *         Integer value of doy. The value depends on the calendar type. Zero indicates error.
-   */
+
+/**
+ * @brief Get the 'day-of-year' value of a DateTime.
+ *
+ * Routine getDayOfYearFromDateTime returns Day of Year for the DateTime. This routine supports
+ * all Calendar types.
+ *
+ * For eg. the day of year value for 2001-10-15T00:00:00.000 will be 288 for Gregorian Calendar. 
+ * Similarly, this value will be 285 for Calendar of type 360 day-Calendar.
+ *
+ * @param  dt
+ *         A pointer to struct _datetime. Retrieve the 'day-of-year' from this DT object.
+ *
+ * @return doy
+ *         Integer value of doy. The value depends on the calendar type. Zero indicates error.
+ */
 
 int
 getDayOfYearFromDateTime(struct _datetime* dt)
@@ -416,6 +406,7 @@ getDayOfYearFromDateTime(struct _datetime* dt)
     {
       int doy = 0;
 
+      /* Get current Calendar type. */
       calendarType ct = getCalendarType();
 
       if (ct == PROLEPTIC_GREGORIAN)
@@ -423,19 +414,19 @@ getDayOfYearFromDateTime(struct _datetime* dt)
           if (testYearIsLeapYear(dt->date.year))
             {
 	      /* Leap year. */
-              doy = nDaysLeap[dt->date.month - 1] + dt->date.day;
+              doy = nofDaysAfterARGMonthsInLeapYear[dt->date.month - 1] + dt->date.day;
             }
           else
             {
 	      /* Non-leap year. */
-              doy = nDaysNonLeap[dt->date.month - 1] + dt->date.day;
+              doy = nofDaysAfterARGMonthsInNonLeapYear[dt->date.month - 1] + dt->date.day;
             }
 
         }
       else if (ct == YEAR_OF_365_DAYS)
         {
 	  /* Non-leap year characteristics. */
-          doy = nDaysNonLeap[dt->date.month - 1] + dt->date.day;
+          doy = nofDaysAfterARGMonthsInNonLeapYear[dt->date.month - 1] + dt->date.day;
         }
       else if (ct == YEAR_OF_360_DAYS)
         {
@@ -448,6 +439,7 @@ getDayOfYearFromDateTime(struct _datetime* dt)
   else
     return 0;
 }
+
 
 /**
  * @brief Get nod (number of Days) in the month of DateTime.
@@ -465,6 +457,7 @@ getDayOfYearFromDateTime(struct _datetime* dt)
  *         Integer value of nod. The value depends on the month and the calendar type. Zero indicates error.
  */
 //TODO on Luis: Is this function doing the right thing?
+
 int
 getNoOfDaysInMonthDateTime(struct _datetime* dt)
 {
@@ -472,6 +465,7 @@ getNoOfDaysInMonthDateTime(struct _datetime* dt)
     {
       int nod = 0;
 
+      /* Get current Calendar type. */
       calendarType ct = getCalendarType();
 
       if (ct == PROLEPTIC_GREGORIAN)
@@ -479,19 +473,19 @@ getNoOfDaysInMonthDateTime(struct _datetime* dt)
           if (testYearIsLeapYear(dt->date.year))
             {
 	      /* Leap year. */
-              nod = nDaysLeap[dt->date.month] - nDaysLeap[dt->date.month - 1];
+              nod = nofDaysAfterARGMonthsInLeapYear[dt->date.month] - nofDaysAfterARGMonthsInLeapYear[dt->date.month - 1];
             }
           else
             {
 	      /* Non leap year. */
-              nod = nDaysNonLeap[dt->date.month] - nDaysNonLeap[dt->date.month - 1];
+              nod = nofDaysAfterARGMonthsInNonLeapYear[dt->date.month] - nofDaysAfterARGMonthsInNonLeapYear[dt->date.month - 1];
             }
 
         }
       else if (ct == YEAR_OF_365_DAYS)
         {
-	  /* Non-leap characteristics. */
-          nod = nDaysNonLeap[dt->date.month] - nDaysNonLeap[dt->date.month - 1];
+	  /* Non-leap year. */
+          nod = nofDaysAfterARGMonthsInNonLeapYear[dt->date.month] - nofDaysAfterARGMonthsInNonLeapYear[dt->date.month - 1];
         }
       else if (ct == YEAR_OF_360_DAYS)
         {
@@ -504,6 +498,7 @@ getNoOfDaysInMonthDateTime(struct _datetime* dt)
   else
     return 0;
 }
+
 
 /**
  * @brief Get number of days in the Year of DateTime.
@@ -519,7 +514,7 @@ getNoOfDaysInMonthDateTime(struct _datetime* dt)
  * @return nod
  *         Integer value of nod. The value depends on the year and the calendar type. Zero indicates error.
  */
-
+//TODO on Luis: Is this function doing the right thing?
 int
 getNoOfDaysInYearDateTime(struct _datetime* dt)
 {
@@ -527,6 +522,7 @@ getNoOfDaysInYearDateTime(struct _datetime* dt)
     {
       int nod = 0;
 
+      /* Get current Calendar type. */
       calendarType ct = getCalendarType();
 
       if (ct == PROLEPTIC_GREGORIAN)
@@ -541,11 +537,10 @@ getNoOfDaysInYearDateTime(struct _datetime* dt)
 	      /* Non leap year. */
               nod = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
             }
-
         }
       else if (ct == YEAR_OF_365_DAYS)
         {
-	  /* Leap year characteristics. */
+	  /* Non Leap year. */
           nod = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
         }
       else if (ct == YEAR_OF_360_DAYS)
@@ -559,6 +554,7 @@ getNoOfDaysInYearDateTime(struct _datetime* dt)
   else
     return 0;
 }
+
 
 /**
  * @brief Get number of seconds elapsed in the month of DateTime.
@@ -574,7 +570,11 @@ int64_t
 getNoOfSecondsElapsedInMonthDateTime(struct _datetime* dt)
 {
   if ( dt != NULL )
-    return ((dt->date.day-1) * (NO_OF_MS_IN_A_DAY/NO_OF_MS_IN_A_SECOND) + dt->time.hour * (NO_OF_MS_IN_A_HOUR/NO_OF_MS_IN_A_SECOND) + dt->time.minute * (NO_OF_MS_IN_A_MINUTE/NO_OF_MS_IN_A_SECOND) + dt->time.second);
+    return (	(dt->date.day-1) 	* (NO_OF_MS_IN_A_DAY / NO_OF_MS_IN_A_SECOND) 
+		+ dt->time.hour 	* (NO_OF_MS_IN_A_HOUR / NO_OF_MS_IN_A_SECOND) 
+		+ dt->time.minute 	* (NO_OF_MS_IN_A_MINUTE / NO_OF_MS_IN_A_SECOND) 
+		+ dt->time.second
+	   );
   else
     return -1;
 }
@@ -594,7 +594,10 @@ int64_t
 getNoOfSecondsElapsedInDayDateTime(struct _datetime* dt)
 {
   if ( dt != NULL )
-    return  (dt->time.hour * (NO_OF_MS_IN_A_HOUR/NO_OF_MS_IN_A_SECOND) + dt->time.minute * (NO_OF_MS_IN_A_MINUTE/NO_OF_MS_IN_A_SECOND) + dt->time.second);
+    return  (	  dt->time.hour 	* (NO_OF_MS_IN_A_HOUR / NO_OF_MS_IN_A_SECOND) 
+		+ dt->time.minute 	* (NO_OF_MS_IN_A_MINUTE / NO_OF_MS_IN_A_SECOND) 
+		+ dt->time.second
+	    );
   else
     return -1;
 }
@@ -619,6 +622,7 @@ getNoOfSecondsElapsedInDayDateTime(struct _datetime* dt)
 struct _julianday*
 getJulianDayFromDateTime(struct _datetime* dt, struct _julianday* jd)
 {
+  /* Function pointer date2julian points to the correct translation routine. */
   return date2julian(dt,jd);
 }
 
@@ -642,7 +646,9 @@ char*
 datetimeToString(struct _datetime* dt, char* toStr)
 {
   if ((dt != NULL )&& (toStr != NULL)){
+
     memset(toStr,'\0',MAX_DATETIME_STR_LEN);
+
     snprintf(toStr,MAX_DATETIME_STR_LEN,"%" PRIi64 "-%02d-%02dT%02d:%02d:%02d.%03dZ",
       dt->date.year, dt->date.month, dt->date.day,
       dt->time.hour, dt->time.minute, dt->time.second, dt->time.ms);
@@ -650,7 +656,7 @@ datetimeToString(struct _datetime* dt, char* toStr)
   return toStr;
 }
 else
-return NULL;
+  return NULL;
 }
 
 
@@ -670,20 +676,32 @@ return NULL;
 char *
 datetimeToPosixString(struct _datetime* dt, char* toStr)
 {
-  if ((dt != NULL )&& (toStr != NULL))
+  if ((dt != NULL ) && (toStr != NULL))
   {
     struct tm tm_info;
 
-    /*Range check.*/
-    if ( dt->date.year < NIXTYPESTRING_YEAR_LOWER_BOUND)
+    /*Range check. Return with NULL indicating Error */
+    if ( dt->date.year < POSIXSTRING_YEAR_LOWER_BOUND)
       {
         return NULL;
       }
-    else if ( dt->date.year > NIXTYPESTRING_YEAR_UPPER_BOUND )
+    else if ( 
+		(	(dt->date.year == POSIXSTRING_YEAR_LOWER_BOUND) 
+			&& 
+			(dt->date.month < POSIXSTRING_MONTH_LOWER_BOUND)
+		) 
+		||  
+		(	(dt->date.year == POSIXSTRING_YEAR_LOWER_BOUND) 
+			&& 
+			(dt->date.month == POSIXSTRING_MONTH_LOWER_BOUND) 
+			&& 	
+			(dt->date.day <POSIXSTRING_DAY_LOWER_BOUND) 
+		) 
+	    )
       {
         return NULL;
       }
-    else if ( ((dt->date.year == NIXTYPESTRING_YEAR_LOWER_BOUND) && (dt->date.month < NIXTYPESTRING_MONTH_LOWER_BOUND)) ||  ((dt->date.year == NIXTYPESTRING_YEAR_LOWER_BOUND) && (dt->date.month == NIXTYPESTRING_MONTH_LOWER_BOUND) && (dt->date.day <NIXTYPESTRING_DAY_LOWER_BOUND) ) )
+    else if ( dt->date.year > POSIXSTRING_YEAR_UPPER_BOUND )
       {
         return NULL;
       }
@@ -707,4 +725,3 @@ datetimeToPosixString(struct _datetime* dt, char* toStr)
   else
     return NULL;
 }
-

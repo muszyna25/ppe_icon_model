@@ -25,21 +25,9 @@
 
 
 
-#define NO_OF_MS_IN_A_DAY 86400000
-#define NO_OF_MS_IN_HALF_DAY 43200000
-#define NO_OF_MS_IN_A_HOUR 3600000
-#define NO_OF_MS_IN_A_MINUTE 60000
-#define NO_OF_MS_IN_A_SECOND 1000
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 360
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 365
-#define NO_OF_DAYS_IN_A_LEAP_YEAR 366
-#define NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 30
-#define NO_OF_MONTHS_IN_A_YEAR 12
-#define NO_OF_HOURS_IN_A_DAY 24
-
-// MIN allowed year : -2147483648
-// MAX allowed year :  2147483647
-// Upto MilliSecond resolution supported.
+/* MIN allowed year : -2147483648
+   MAX allowed year :  2147483647
+   Upto MilliSecond resolution supported. */
 
 
 /**
@@ -51,10 +39,11 @@
  * @return td
  *         A pointer to a filled TimeDelta. 
  */
+
 struct _timedelta*
 newTimeDelta(const char* tds)
 {
-  if (tds != NULL )
+  if ((tds != NULL) && (getCalendarType()))
     {
       /* Verify string is ISO8601 compliant. */
       struct iso8601_duration* isoDuration = new_iso8601_duration('+', 0, 0, 0, 0, 0, 0, 0);
@@ -64,6 +53,7 @@ newTimeDelta(const char* tds)
       if (verify_string_duration(tds, isoDuration) != DURATION_MATCH)
         {
           deallocate_iso8601_duration(isoDuration);
+	  isoDuration = NULL;
           return NULL ;
         }
 
@@ -72,27 +62,30 @@ newTimeDelta(const char* tds)
       if (td == NULL )
         {
           deallocate_iso8601_duration(isoDuration);
+	  isoDuration = NULL;
           return NULL ;
         }
 
-      /* IMPORTANT: Negative/Positive time delta is indicated using sign (-/+). year,month,day..etc are always positive integers or 0. */
-      td->sign 	= isoDuration->sign;
-      td->year 	= isoDuration->year;
-      td->month = isoDuration->month;
-      td->day 	= isoDuration->day;
-      td->hour 	= isoDuration->hour;
-      td->minute = isoDuration->minute;
-      td->second = isoDuration->second;
-      td->ms 	= isoDuration->ms;
+      /* IMPORTANT: Negative/Positive time delta is indicated using td->sign (-/+). year,month,day..etc are always positive integers or 0. */
+      td->sign 		= isoDuration->sign;
+      td->year 		= isoDuration->year;
+      td->month 	= isoDuration->month;
+      td->day 		= isoDuration->day;
+      td->hour 		= isoDuration->hour;
+      td->minute 	= isoDuration->minute;
+      td->second 	= isoDuration->second;
+      td->ms 		= isoDuration->ms;
 
       //Cleanup.
       deallocate_iso8601_duration(isoDuration);
+      isoDuration = NULL;	
 
       return td;
     }
   else
     return NULL ;
 }
+
 
 /**
  * @brief Construct new TimeDelta using 'raw' numerical values.
@@ -123,9 +116,7 @@ newRawTimeDelta(char _sign, int64_t _year, int _month, int _day, int _hour, int 
 {
   char* tds = (char*)calloc(MAX_TIMEDELTA_STR_LEN,sizeof(char));
   if (tds == NULL )
-    {
-      return NULL ;
-    }
+    return NULL ;
 
   snprintf(tds, MAX_TIMEDELTA_STR_LEN, "%cP%" PRIi64 "Y%02dM%02dDT%02dH%02dM%02d.%03dS", _sign, _year, _month, _day, _hour, _minute,
       _second, _ms);
@@ -138,7 +129,6 @@ newRawTimeDelta(char _sign, int64_t _year, int _month, int _day, int _hour, int 
 
   return td;
 }
-
 
 
 /**
@@ -181,27 +171,20 @@ deallocateTimeDelta(struct _timedelta* td)
 
 /*! \cond PRIVATE */
 /* Internal function. Test is year is a leap year. */
+
 bool
 testYearIsLeapYear(int64_t year)
 {
   bool flag = false;
 
   if (!(year % 400))
-    {
-      flag = true;
-    }
+    flag = true;
   else if (!(year % 100))
-    {
-      flag = false;
-    }
+    flag = false;
   else if (!(year % 4))
-    {
-      flag = true;
-    }
+    flag = true;
   else
-    {
-      flag = false;
-    }
+    flag = false;
 
   return flag;
 }
@@ -209,7 +192,8 @@ testYearIsLeapYear(int64_t year)
 
 /* Internal function. */
 /* Converts TimeDelta value to a lib defined juliandelta value. Juliadelta depends on the calendar type. 
- Notice that TimeDelta is not uniquely defined but depends on the definition of corresponding DateTime.
+ Notice that TimeDelta is not uniquely defined but depends on the definition of corresponding DateTime 
+ (Referred to as Anchor date in the following).
 
  The library assumes the following definition: Let A denote an anchor date and P a timedelta. For a 
  positive P, A + P = B where date B > A. Consequently, for a negative P, A + P = B where A > B. 
@@ -226,7 +210,8 @@ testYearIsLeapYear(int64_t year)
  DateTime of 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31 days 
  ( #days in January ) and 0 ms. Likewise, TimeDelta of -P02M with 'Anchor' DateTime of 
  2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31+31 days ( #days in January
- PLUS #days in December) and 0 ms.
+ PLUS #days in December) and 0 ms. The same logic is used for all calendar types (with corresponding 
+ days in months according to current calendar type.)
  */
 
 struct _juliandelta*
@@ -234,7 +219,7 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
 {
   if ((td != NULL) && (base_dt != NULL) && (jd_return != NULL)){
 
-  /* Reset initial delta to 0.*/
+  /* Initialize delta to 0.*/
   jd_return->day = 0;
   jd_return->ms = 0;
 
@@ -249,61 +234,69 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
     {
       case YEAR_OF_365_DAYS:
 
-      msdinm = month_specific_delta_in_months_365;
+      msdinm = monthSpecificDeltaInMonths365;
       ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
       break;
 
       case YEAR_OF_360_DAYS:
 
-      msdinm = month_specific_delta_in_months_360;
+      msdinm = monthSpecificDeltaInMonths360;
       ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360;
       break;
 
       case PROLEPTIC_GREGORIAN:
-      /* Handle Gregorian here. */
+      /* Handle all Gregorian related code here. */
 
-      /* Gregorian will have 366 days and 365 days depending on Leap year. */
+      /* Gregorian will have 366 days or 365 days depending on Leap year or Non-Leap year. */
 
       if ( td->sign == '+' )
         {
           jd_return->sign = '+';
 
-          /* In final year. The crucial point is the month of february. */
+          /* In final year, the crucial point is the month of february. */
           if (
-              ( (testYearIsLeapYear(base_dt->date.year + td->year + 1) ) && (base_dt->date.month >= 3) )
-              ||
-              ( (testYearIsLeapYear(base_dt->date.year + td->year) ) && (base_dt->date.month < 3) )
-          )
+              	( 
+			(testYearIsLeapYear(base_dt->date.year + td->year + 1) ) 
+			&& 
+			(base_dt->date.month >= 3) 
+	      	)
+              	||
+              	( 
+			(testYearIsLeapYear(base_dt->date.year + td->year)) 
+	      		&& 
+			(base_dt->date.month < 3) 
+	      	)
+            )
             {
-              /* If the base year + delta year is a year before a leap year and base month is >= 3 
+              /* If the (base year + delta year) is a year before a leap year and base month is >= 3 
                OR 
                base year + delta year is a leap year and month is < 3
                => An addition of leap-year specific delta for each month.
-               */
-              msdinm = month_specific_delta_in_months_leapyear;
+              */
+              msdinm = monthSpecificDeltaInMonthsLeapyear;
               ndiny = NO_OF_DAYS_IN_A_LEAP_YEAR;
             }
           else
             {
-              /*Otherwise addition of non-leap year specific month.*/
-              msdinm = month_specific_delta_in_months_365;
+              /* Otherwise addition of non-leap year specific month. */
+              msdinm = monthSpecificDeltaInMonths365;
               ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
             }
 
           int i = 0;
-          /* The year from base date to base_date + delta years -1 */
+          /* The year from base date to base_date + delta years - 1 */
           for (i = base_dt->date.year; i < base_dt->date.year + td->year; i++)
             {
               if (
-                  ((testYearIsLeapYear(i + 1)) && (base_dt->date.month >= 3))
-                  ||
-                  ((testYearIsLeapYear(i)) && (base_dt->date.month < 3))
-              )
+                  	((testYearIsLeapYear(i + 1)) && (base_dt->date.month >= 3))
+                  	||
+                  	((testYearIsLeapYear(i)) && (base_dt->date.month < 3))
+                 )
                 {
                   /* If the next year is a leap year and month is >= 3 OR 
                    this year is a leap year and month is less than 3 
                    => delta of 1 year corresponds to 366 day julian delta. 
-                   */
+                  */
                   jd_return->day = jd_return->day + NO_OF_DAYS_IN_A_LEAP_YEAR;
                 }
               else
@@ -313,32 +306,39 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
                 }
             }
 
-          jd_return->day = jd_return->day + (msdinm[base_dt->date.month - 1][td->month]);
-          jd_return->day = jd_return->day + td->day;
-          jd_return->ms = td->hour * NO_OF_MS_IN_A_HOUR + td->minute * NO_OF_MS_IN_A_MINUTE + td->second * NO_OF_MS_IN_A_SECOND + td->ms;
+          jd_return->day = jd_return->day + msdinm[base_dt->date.month - 1][td->month] 
+					  + td->day;
+
+          jd_return->ms = td->hour * NO_OF_MS_IN_A_HOUR 
+			+ td->minute * NO_OF_MS_IN_A_MINUTE 
+			+ td->second * NO_OF_MS_IN_A_SECOND 
+			+ td->ms;
         }
       else if ( td->sign == '-' )
         {
+	  /* A negative juliandelta is represented in the following way: 
+	     -P01DT00.500S  = jd2->sign = '-', jd2->day = -30, jd2->ms = -500.  */
+
           jd_return->sign = '-';
 
-          /* In final year. The crucial point is the month of february. */
+          /* In final year, the crucial point is the month of february. */
           if (
-              ((testYearIsLeapYear(base_dt->date.year - td->year - 1)) && (base_dt->date.month < 3))
-              ||
-              ((testYearIsLeapYear(base_dt->date.year - td->year)) && (base_dt->date.month >= 3)))
+              	((testYearIsLeapYear(base_dt->date.year - td->year - 1)) && (base_dt->date.month < 3))
+              	||
+              	((testYearIsLeapYear(base_dt->date.year - td->year)) && (base_dt->date.month >= 3)))
             {
-              /* If the base year - delta year is a year after leap year and base month is < 3 
+              /* If the (base year - delta year) is a year after leap year and base month is < 3 
                OR 
                base year - delta year is a leap year and month is >= 3
                => A substraction of leap-year specific delta for each month.
-               */
-              msdinm = month_specific_delta_in_months_leapyear;
+              */
+              msdinm = monthSpecificDeltaInMonthsLeapyear;
               ndiny = NO_OF_DAYS_IN_A_LEAP_YEAR;
             }
           else
             {
               /* Otherwise. */
-              msdinm = month_specific_delta_in_months_365;
+              msdinm = monthSpecificDeltaInMonths365;
               ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
             }
 
@@ -347,10 +347,10 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
           for (i = base_dt->date.year; i > base_dt->date.year - td->year; i--)
             {
               if (
-                  ( (testYearIsLeapYear(i - 1)) && (base_dt->date.month < 3) )
-                  ||
-                  ( (testYearIsLeapYear(i)) && (base_dt->date.month >= 3) )
-              )
+                  	((testYearIsLeapYear(i - 1)) && (base_dt->date.month < 3))
+                  	||
+                  	((testYearIsLeapYear(i)) && (base_dt->date.month >= 3))
+                 )
                 {
                   /* If the previous year is a leap year and month is < 3 OR 
                    this year is a leap year and month is >= 3 
@@ -364,18 +364,22 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
                   jd_return->day = jd_return->day - NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
                 }
             }
-          jd_return->day = jd_return->day - (ndiny - msdinm[base_dt->date.month - 1][NO_OF_MONTHS_IN_A_YEAR - td->month]);
-          jd_return->day = jd_return->day - td->day;
-          jd_return->ms = (-1)*td->hour * NO_OF_MS_IN_A_HOUR - td->minute * NO_OF_MS_IN_A_MINUTE - td->second * NO_OF_MS_IN_A_SECOND - td->ms;
+          jd_return->day = jd_return->day + (-1) * (ndiny - msdinm[base_dt->date.month - 1][NO_OF_MONTHS_IN_A_YEAR - td->month])
+          				  + (-1) * td->day;
+
+          jd_return->ms = (-1) * td->hour * NO_OF_MS_IN_A_HOUR 
+			+ (-1) * td->minute * NO_OF_MS_IN_A_MINUTE 
+			+ (-1) * td->second * NO_OF_MS_IN_A_SECOND 
+			+ (-1) * td->ms;
 
         }
       else
-        return NULL; /* ERROR: Sign not set. */
+        return NULL; /* ERROR: Sign not set. Should never happen. */
       //break;
       return jd_return;
 
       default:
-      return NULL /* Calendar type not set. */;
+        return NULL /* Calendar type not set. */;
     }
 
   /* Handle 360 and 365 calendar type here as they are similar. */
@@ -383,17 +387,21 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
   /* Calender type is 360 or 365.*/
   if ( td->sign == '-' )
     {
-      /* Negative TimeDelta. */
+      /* Negative TimeDelta.  A negative juliandelta is represented in the following 
+	 way: -P01DT00.500S  = jd2->sign = '-', jd2->day = -30, jd2->ms = -500. */
 
       jd_return->sign = '-';
       /* Year. */
       jd_return->day = (-1) * td->year * ndiny;
       /* Month. */
-      jd_return->day = jd_return->day - (ndiny - msdinm[base_dt->date.month - 1][NO_OF_MONTHS_IN_A_YEAR - td->month]);
+      jd_return->day = jd_return->day + (-1) * ( ndiny - (msdinm[base_dt->date.month - 1][NO_OF_MONTHS_IN_A_YEAR - td->month]) );
       /* Day. */
       jd_return->day = jd_return->day + (-1) * td->day;
       /* Rest. */
-      jd_return->ms = (-1) * td->hour * NO_OF_MS_IN_A_HOUR + (-1) * td->minute * NO_OF_MS_IN_A_MINUTE + (-1) * td->second * NO_OF_MS_IN_A_SECOND + (-1) * td->ms;
+      jd_return->ms = (-1) * td->hour * NO_OF_MS_IN_A_HOUR 
+			+ (-1) * td->minute * NO_OF_MS_IN_A_MINUTE 
+			+ (-1) * td->second * NO_OF_MS_IN_A_SECOND 
+			+ (-1) * td->ms;
     }
   else if ( td->sign == '+' )
     {
@@ -403,42 +411,48 @@ timeDeltaToJulianDelta(struct _timedelta* td, struct _datetime* base_dt, struct 
       /* Year.  */
       jd_return->day = td->year * ndiny;
       /* Month. No of days in a TimeDelta depends on Base date.*/
-      jd_return->day = jd_return->day + (msdinm[base_dt->date.month - 1][ td->month ]);
+      jd_return->day = jd_return->day + msdinm[base_dt->date.month - 1][ td->month ] ;
       /* Day. */
       jd_return->day = jd_return->day + td->day;
       /* Rest. */
-      jd_return->ms = td->hour * NO_OF_MS_IN_A_HOUR + td->minute * NO_OF_MS_IN_A_MINUTE + td->second * NO_OF_MS_IN_A_SECOND + td->ms;
+      jd_return->ms = td->hour * NO_OF_MS_IN_A_HOUR 
+			+ td->minute * NO_OF_MS_IN_A_MINUTE 
+			+ td->second * NO_OF_MS_IN_A_SECOND 
+			+ td->ms;
     }
   else
-  return NULL; /* ERROR: TD sign not defined. */
+    return NULL; /* ERROR: TD sign not defined. Should never happen. */
 
   return jd_return;
 }
 else
-return NULL;
+  return NULL;
 }
 
-  /* Internal function. */
-  /* Converts a lib defined Julian delta value to a TimeDelta value. TimeDelta depends on the calendar type. 
-   Notice that TimeDelta is not uniquely defined but depends on the definition of corresponding DateTime.
 
-   The library assumes the following definition: Let A denote an anchor date and P a timedelta. For a 
-   positive P, A + P = B where date B > A. Consequently, for a negative P, A + P = B where A > B. 
-   Also, when P is positive, a delta of 1 month has as many days as in the month of anchor DateTime;
-   a delta of 2 months corresponds to the number of days in the anchor date month and the next month and 
-   so on. When P is negative, a delta of 1 month corresponds to as many days as in the month before the
-   anchor date month; a delta of 2 month corresponds to as many days as in the month before the
-   anchor date month and the month before that and so on. 
-   
-   For eg, TimeDelta of P01M, when the 'Anchor' DateTime is 2001-02-01T00:00:00.000 is equivalent to a
-   Julian Delta of positive 28 days ( #days in February ) and 0 ms. Also, TimeDelta of P02M, when the 
-   'Anchor' DateTime is 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of positive 28+31 days
-   ( #days in February PLUS #days in March) and 0 ms. Similarly, a TimeDelta of -P01M with 'Anchor' 
-   DateTime of 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31 days 
-   ( #days in January ) and 0 ms. Likewise, TimeDelta of -P02M with 'Anchor' DateTime of 
-   2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31+31 days ( #days in January
-   PLUS #days in December) and 0 ms.
-   */
+/* Internal function. */
+/* Converts a lib defined Julian delta value to a TimeDelta value. TimeDelta depends on the calendar type. 
+ Notice that TimeDelta is not uniquely defined but depends on the definition of corresponding DateTime 
+ (Referred to as Anchor date in the following).
+
+ The library assumes the following definition: Let A denote an anchor date and P a timedelta. For a 
+ positive P, A + P = B where date B > A. Consequently, for a negative P, A + P = B where A > B. 
+ Also, when P is positive, a delta of 1 month has as many days as in the month of anchor DateTime;
+ a delta of 2 months corresponds to the number of days in the anchor date month and the next month and 
+ so on. When P is negative, a delta of 1 month corresponds to as many days as in the month before the
+ anchor date month; a delta of 2 month corresponds to as many days as in the month before the
+ anchor date month and the month before that and so on. 
+
+ For eg, TimeDelta of P01M, when the 'Anchor' DateTime is 2001-02-01T00:00:00.000 is equivalent to a
+ Julian Delta of positive 28 days ( #days in February ) and 0 ms. Also, TimeDelta of P02M, when the 
+ 'Anchor' DateTime is 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of positive 28+31 days
+ ( #days in February PLUS #days in March) and 0 ms. Similarly, a TimeDelta of -P01M with 'Anchor' 
+ DateTime of 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31 days 
+ ( #days in January ) and 0 ms. Likewise, TimeDelta of -P02M with 'Anchor' DateTime of 
+ 2001-02-01T00:00:00.000 is equivalent to a Julian Delta of negative 31+31 days ( #days in January
+ PLUS #days in December) and 0 ms. The same logic is used for all calendar types (with corresponding 
+ days in months according to current calendar type).
+*/
 
 struct _timedelta*
 julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struct _timedelta* td_return)
@@ -459,24 +473,28 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
     {
       case YEAR_OF_365_DAYS:
 
-      month_days = month_days_365;
-      msdinm = month_specific_delta_in_months_365;
+      month_days = nofDaysInARGMonthIn365DayYear;
+      msdinm = monthSpecificDeltaInMonths365;
       ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
       break;
 
       case YEAR_OF_360_DAYS:
 
-      month_days = month_days_360;
-      msdinm = month_specific_delta_in_months_360;
+      month_days = nofDaysInARGMonthIn360DayYear;
+      msdinm = monthSpecificDeltaInMonths360;
       ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360;
       break;
 
       case PROLEPTIC_GREGORIAN:
-      /* Handle Gregorian here. */
+      /* Handle all Gregorian related code here. */
+  
       /* Gregorian will have 366 days and 365 days depending on Leap year. */
 
       if ( jd->sign == '-' )
         {
+	  /* Negative TimeDelta.  A negative juliandelta is represented in the following 
+             way: -P01DT00.500S  = jd2->sign = '-', jd2->day = -30, jd2->ms = -500. */	
+
           td_return->sign = '-';
 
           /* No of days in the final year */
@@ -486,7 +504,7 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
            For each loop forward, increment year by 1.
            */
           int j = base_dt->date.year;
-          /* Reset. */
+          /* Initialize to 0. */
           td_return->year = 0;
           while (days >= 0)
             {
@@ -498,10 +516,10 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
               /* The crucial point is month of february. */
               delta_final_year = days;
               if (
-                  ( (testYearIsLeapYear(j + 1)) && (base_dt->date.month >= 3) )
-                  ||
-                  ( (testYearIsLeapYear(j)) && (base_dt->date.month < 3) )
-              )
+                  	( (testYearIsLeapYear(j + 1)) && (base_dt->date.month >= 3) )
+                  	||
+                  	( (testYearIsLeapYear(j)) && (base_dt->date.month < 3) )
+                 )
                 {
                   /* If next year is leap year and base month is >= 3 
                    OR 
@@ -525,27 +543,27 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
               j--;
             }
 
-          /* In final year. The crucial point is the month of february. */
+          /* In final year, the crucial point is the month of february. */
           if (
-              ( (testYearIsLeapYear(j + 1)) && (base_dt->date.month >= 3) )
-              ||
-              ( (testYearIsLeapYear(j)) && (base_dt->date.month < 3) )
-          )
+              	((testYearIsLeapYear(j + 1)) && (base_dt->date.month >= 3))
+              	||
+              	((testYearIsLeapYear(j)) && (base_dt->date.month < 3))
+             )
             {
               /* If final year's next year is a leap year and base month is >= 3 
                OR 
                final year is a leap year and month is < 3
                => An addition of leap-year specific delta for each month.
                */
-              month_days = month_days_leapyear;
-              msdinm = month_specific_delta_in_months_leapyear;
+              month_days = nofDaysInARGMonthInLeapYear;
+              msdinm = monthSpecificDeltaInMonthsLeapyear;
               ndiny = NO_OF_DAYS_IN_A_LEAP_YEAR;
             }
           else
             {
               /* Otherwise. */
-              month_days = month_days_365;
-              msdinm = month_specific_delta_in_months_365;
+              month_days = nofDaysInARGMonthIn365DayYear;
+              msdinm = monthSpecificDeltaInMonths365;
               ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
             }
 
@@ -562,10 +580,10 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
             }
 
           /* Time. */
-          td_return->hour = ( (-1)* jd->ms ) / NO_OF_MS_IN_A_HOUR;
-          td_return->minute = ( (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
-          td_return->second = ( (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
-          td_return->ms = (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
+          td_return->hour 	= ((-1)* jd->ms) / NO_OF_MS_IN_A_HOUR;
+          td_return->minute 	= ((-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
+          td_return->second 	= ((-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
+          td_return->ms 	=  (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
         }
       else if (jd->sign == '+')
         {
@@ -576,29 +594,29 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
           int64_t days = jd->day;
           /* Set counter to base year and then loop back to get to the final year.
            For each loop back, increment year by 1.
-           */
+          */
           int j = base_dt->date.year;
-          /* Reset */
+          /* Initialize. */
           td_return->year = 0;
           while (days >= 0)
             {
               /* Loop over and get the year by substracting 366/365 days depending
                on leap/non-leap year. For each substraction, increment year by 1.  
-               */
+              */
 
               /* The crucial point is month of february. */
               delta_final_year = days;
               if (
-                  ( (testYearIsLeapYear(j - 1)) && (base_dt->date.month < 3) )
-                  ||
-                  ( (testYearIsLeapYear(j)) && (base_dt->date.month >= 3) )
-              )
+                  	((testYearIsLeapYear(j - 1)) && (base_dt->date.month < 3))
+                  	||
+                  	((testYearIsLeapYear(j)) && (base_dt->date.month >= 3))
+                 )
                 {
                   /* If previous year is leap year and base month is < 3 
                    OR 
                    this year is a leap year and month is >= 3
                    => delta of 1 year corresponds to 366 day julian delta.  
-                   */
+                  */
                   days = days - NO_OF_DAYS_IN_A_LEAP_YEAR;
                 }
               else
@@ -617,27 +635,27 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
               j++;
             }
 
-          /* In final year. The crucial point is the month of february. */
+          /* In final year, the crucial point is the month of february. */
           if (
-              ( (testYearIsLeapYear(j - 1)) && (base_dt->date.month < 3) )
-              ||
-              ( (testYearIsLeapYear(j)) && (base_dt->date.month >= 3) )
-          )
+              	((testYearIsLeapYear(j - 1)) && (base_dt->date.month < 3))
+              	||
+              	((testYearIsLeapYear(j)) && (base_dt->date.month >= 3))
+             )
             {
               /* If final year is a leap year and base month is >= 3 
                OR 
                final year's previous year is a leap year and month is < 3
                => An addition of leap-year specific delta for each month.
-               */
-              month_days = month_days_leapyear;
-              msdinm = month_specific_delta_in_months_leapyear;
+              */
+              month_days = nofDaysInARGMonthInLeapYear;
+              msdinm = monthSpecificDeltaInMonthsLeapyear;
               ndiny = NO_OF_DAYS_IN_A_LEAP_YEAR;
             }
           else
             {
               /* Otherwise. */
-              month_days = month_days_365;
-              msdinm = month_specific_delta_in_months_365;
+              month_days = nofDaysInARGMonthIn365DayYear;
+              msdinm = monthSpecificDeltaInMonths365;
               ndiny = NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
             }
 
@@ -654,10 +672,10 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
             }
 
           /* Time */
-          td_return->hour = jd->ms / NO_OF_MS_IN_A_HOUR;
-          td_return->minute = (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
-          td_return->second = (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
-          td_return->ms = jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
+          td_return->hour 	=  jd->ms / NO_OF_MS_IN_A_HOUR;
+          td_return->minute 	= (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
+          td_return->second 	= (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
+          td_return->ms 	=  jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
         }
 
       return td_return;
@@ -671,7 +689,7 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
   /* 360 and 365 day calendars */
   if (jd->sign == '+')
     {
-      /* Positive delta.*/
+      /* Positive delta. */
       td_return->sign = '+';
 
       /* Year. */
@@ -692,13 +710,16 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
         }
 
       /* Time. */
-      td_return->hour = jd->ms / NO_OF_MS_IN_A_HOUR;
+      td_return->hour 	= jd->ms / NO_OF_MS_IN_A_HOUR;
       td_return->minute = (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
       td_return->second = (jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
-      td_return->ms = jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
+      td_return->ms 	=  jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
     }
   else if (jd->sign == '-')
     {
+      /* Negative TimeDelta.  A negative juliandelta is represented in the following 
+         way: -P01DT00.500S  = jd2->sign = '-', jd2->day = -30, jd2->ms = -500. */
+
       /* Negative delta. */
       td_return->sign = '-';
 
@@ -720,20 +741,21 @@ julianDeltaToTimeDelta(struct _juliandelta* jd, struct _datetime* base_dt, struc
         }
 
       /* Time. */
-      td_return->hour = (-1)*jd->ms / NO_OF_MS_IN_A_HOUR;
+      td_return->hour 	=  (-1)*jd->ms / NO_OF_MS_IN_A_HOUR;
       td_return->minute = ((-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR) / NO_OF_MS_IN_A_MINUTE;
       td_return->second = ((-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE) / NO_OF_MS_IN_A_SECOND;
-      td_return->ms = (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
-    }
+      td_return->ms 	=  (-1)*jd->ms - td_return->hour * NO_OF_MS_IN_A_HOUR - td_return->minute * NO_OF_MS_IN_A_MINUTE - td_return->second * NO_OF_MS_IN_A_SECOND;
+    } 
   else
   return NULL; /* ERROR: Sign of julian delta not defined. */
 
   return td_return;
 }
 else
-return NULL;
+  return NULL;
 }
 /*! \endcond */
+
 
 /**
  * @brief Get the TimeDelta between two Dates d1 and d2 as (d1-d2).
@@ -765,6 +787,7 @@ struct _timedelta*
 getTimeDeltaFromDate(struct _date* d1, struct _date* d2, struct _timedelta* td_return)
 {
   if ((d1 != NULL )&& (d2 != NULL) && (td_return != NULL) ){
+
   /* Convert Date to datetime and resuse the DateTime interface to calculate time delta. */
   struct _datetime *dt1 = newDateTime("0-01-01T00:00:00.000");
   if (dt1 == NULL)
@@ -789,11 +812,12 @@ getTimeDeltaFromDate(struct _date* d1, struct _date* d2, struct _timedelta* td_r
   return td_return;
 }
 else
-return NULL;
+  return NULL;
 }
 
+
 /**
- * @brief Get total number of milliseconds in timedelta (Absolute value).
+ * @brief Get total number of milliseconds in timedelta.
  *
  * Routine getTotalMilliSecondsTimeDelta returns the total number of milliseconds in TimeDelta. 
  * Notice that TimeDelta is not uniquely defined but depends on the definition of corresponding 
@@ -809,10 +833,12 @@ return NULL;
  * @return totalmilliSeconds
  *         Integer value of totalmilliSeconds. 0 indicates error. TODO on Luis: Is this ok?
  */
+
 int64_t
 getTotalMilliSecondsTimeDelta(struct _timedelta* td, struct _datetime* base_dt)
 {
   if ((td != NULL )&& (base_dt != NULL) ){
+
   int64_t totalmilliSeconds = 0;
 
   struct _juliandelta* jd = newJulianDelta('+', 0, 0);
@@ -824,6 +850,7 @@ getTotalMilliSecondsTimeDelta(struct _timedelta* td, struct _datetime* base_dt)
       deallocateJulianDelta(jd);
       return 0;
     }
+
   totalmilliSeconds = jd->day * NO_OF_MS_IN_A_DAY + jd->ms;
 
   deallocateJulianDelta(jd);
@@ -831,110 +858,101 @@ getTotalMilliSecondsTimeDelta(struct _timedelta* td, struct _datetime* base_dt)
   return totalmilliSeconds;
 }
 else
-return 0;
+  return 0;
 }
 
-  /**
-   * @brief Get total number of seconds in timedelta (Absolute value).
-   *
-   * Routine getTotalSecondsTimeDelta returns the total number of seconds in TimeDelta. Notice that TimeDelta 
-   * is not uniquely defined but depends on the definition of corresponding DateTime. Internally, number of seconds
-   * is calculated by calling the routine function_totalmilliSeconds and then converting the millisecond value 
-   * to seconds by dividing it by 1000.
-   *
-   * @param  td
-   *         A pointer to struct _timedelta. Retrieve the number of seconds in this TD object.
-   *
-   * @param  base_dt
-   *         A pointer to struct _datetime. Reference Datetime for the TD.
-   *
-   * @return totalSeconds
-   *         Integer value of totalSeconds. 0 indicates error.
-   */
+
+/**
+ * @brief Get total number of seconds in timedelta.
+ *
+ * Routine getTotalSecondsTimeDelta returns the total number of seconds in TimeDelta. Notice that TimeDelta 
+ * is not uniquely defined but depends on the definition of corresponding DateTime. Internally, number of seconds
+ * is calculated by calling the routine getTotalMilliSecondsTimeDelta() and then converting the millisecond value 
+ * to seconds by dividing it by 1000.
+ *
+ * @param  td
+ *         A pointer to struct _timedelta. Retrieve the number of seconds in this TD object.
+ *
+ * @param  base_dt
+ *         A pointer to struct _datetime. Reference Datetime for the TD.
+ *
+ * @return totalSeconds
+ *         Integer value of totalSeconds. 0 indicates error.
+ */
 
 int64_t
 getTotalSecondsTimeDelta(struct _timedelta* td, struct _datetime* base_dt)
 {
-  if ((td != NULL )&& (base_dt != NULL) ){
-  return getTotalMilliSecondsTimeDelta(td, base_dt)/NO_OF_MS_IN_A_SECOND;
-}
-else
-return 0;
+  if ((td != NULL ) && (base_dt != NULL))
+    return getTotalMilliSecondsTimeDelta(td, base_dt) / NO_OF_MS_IN_A_SECOND;
+  else
+    return 0;
 }
 
+
 /**
-* @brief Get TimeDelta as a string.
-*
-* timedeltaToString returns a string in IS08601 compliant (and extended) format.
-*
-* @param  td
-*         A pointer to struct _timedelta. The timedelta to be converted to string.
-*
-* @param  toStr
-*         A pointer to char. String where timedelta is to be written.
-*
-* @return toStr
-*         A pointer to the string containing timedelta.
-*/
+ * @brief Get TimeDelta as a string.
+ *
+ * timedeltaToString returns a string in IS08601 compliant (and extended) format.
+ *
+ * @param  td
+ *         A pointer to struct _timedelta. The timedelta to be converted to string.
+ *
+ * @param  toStr
+ *         A pointer to char. String where timedelta is to be written.
+ *
+ * @return toStr
+ *         A pointer to the string containing timedelta.
+ */
+
 char *
 timedeltaToString(struct _timedelta* td, char* toStr)
 {
-if ((td != NULL )&& (toStr != NULL) ){
-/* Return only non-negative values. */
+  if ((td != NULL )&& (toStr != NULL) ){
 
-memset(toStr,'\0',MAX_TIMEDELTA_STR_LEN);
+  memset(toStr,'\0',MAX_TIMEDELTA_STR_LEN);
 
-if (td->sign == '-')
-sprintf(toStr,"%cP",td->sign);
-else if (td->sign == '+')
-strcpy (toStr,"P");
-else
-return NULL; /*ERROR: TD sign not set. */
+  if (td->sign == '-')
+    sprintf(toStr,"%cP",td->sign);
+  else if (td->sign == '+')
+    strcpy (toStr,"P");
+  else
+    return NULL; /*ERROR: TD sign not set. Should never happen. */
 
-if (td->year != 0)
-{
-sprintf(&(toStr[strlen(toStr)]),"%" PRIi64 "Y",td->year);
-}
-if (td->month != 0)
-{
-sprintf(&(toStr[strlen(toStr)]),"%02dM",td->month);
-}
-if (td->day != 0)
-{
-sprintf(&(toStr[strlen(toStr)]),"%02dD",td->day);
-}
+  if (td->year != 0)
+    sprintf(&(toStr[strlen(toStr)]),"%" PRIi64 "Y",td->year);
 
-sprintf(&(toStr[strlen(toStr)]),"T");
+  if (td->month != 0)
+    sprintf(&(toStr[strlen(toStr)]),"%02dM",td->month);
 
-if (td->hour != 0)
-{
-sprintf(&(toStr[strlen(toStr)]),"%02dH",td->hour);
-}
-if (td->minute != 0)
-{
-sprintf(&(toStr[strlen(toStr)]),"%02dM",td->minute);
-}
-if ((td->second != 0) || (td->ms != 0))
-{
-sprintf(&(toStr[strlen(toStr)]),"%02d.%03dS",td->second,td->ms);
-}
+  if (td->day != 0)
+    sprintf(&(toStr[strlen(toStr)]),"%02dD",td->day);
 
-//Discard T if all time values are 0.
-if(toStr[strlen(toStr)-1] == 'T')
-{
-toStr[strlen(toStr)-1] = '\0';
-}
-//Return P00.000S if all delta values are 0.
-if(toStr[strlen(toStr)-1] == 'P')
-{
-strcat(toStr,"00.000S");
-}
+  sprintf(&(toStr[strlen(toStr)]),"T");
 
-return toStr;
+  if (td->hour != 0)
+    sprintf(&(toStr[strlen(toStr)]),"%02dH",td->hour);
+
+  if (td->minute != 0)
+    sprintf(&(toStr[strlen(toStr)]),"%02dM",td->minute);
+
+  if ((td->second != 0) || (td->ms != 0))
+    sprintf(&(toStr[strlen(toStr)]),"%02d.%03dS",td->second,td->ms);
+
+  //Discard T if all time values are 0.
+  if(toStr[strlen(toStr)-1] == 'T')
+    toStr[strlen(toStr)-1] = '\0';
+
+  //Return P00.000S if all delta values are 0.
+  if(toStr[strlen(toStr)-1] == 'P')
+    strcat(toStr,"00.000S");
+
+  return toStr;
 }
 else
-return NULL;
+  return NULL;
 }
+
 
 /**
 * @brief Add timedelta to Date.
@@ -967,65 +985,71 @@ return NULL;
 struct _date *
 addTimeDeltaToDate(struct _date* d, struct _timedelta* td, struct _date* d_return)
 {
-if ((d != NULL )&& (td != NULL) && (d_return != NULL) ){
-/* Convert Date to Datetime and reuse the DateTime interface for Calculating the sum.*/
-struct _datetime *dt = newDateTime("0-01-01T00:00:00.000");
-if ( dt == NULL )
-return NULL;
+  if ((d != NULL )&& (td != NULL) && (d_return != NULL) ){
 
-dt = convertDateToDateTime(d, dt);
+  /* Convert Date to Datetime and reuse the DateTime interface for Calculating the sum.*/
+  struct _datetime *dt = newDateTime("0-01-01T00:00:00.000");
+  if ( dt == NULL )
+    return NULL;
 
-struct _datetime *dt_return = newDateTime("0-01-01T00:00:00.000");
-if ( dt_return == NULL )
-return NULL;
+  dt = convertDateToDateTime(d, dt);
 
-/* Call the DateTime interface to calculate the new Datetime. */
-dt_return = addTimeDeltaToDateTime(dt,td, dt_return);
+  struct _datetime *dt_return = newDateTime("0-01-01T00:00:00.000");
+  if ( dt_return == NULL )
+  {
+    deallocateDateTime(dt);
+    return NULL;
+  }
 
-/* Get Date from Datetime. */
-d_return = convertDateTimeToDate(dt_return, d_return);
+  /* Call the DateTime interface to calculate the new Datetime. */
+  dt_return = addTimeDeltaToDateTime(dt,td, dt_return);
 
-deallocateDateTime(dt);
-deallocateDateTime(dt_return);
+  /* Get Date from Datetime. */
+  d_return = convertDateTimeToDate(dt_return, d_return);
 
-return d_return;
+  deallocateDateTime(dt);
+  deallocateDateTime(dt_return);
+
+  return d_return;
+  }
+  else
+    return NULL;
 }
-else
-return NULL;
-}
+
 
 /**
-* @brief Add timedelta to DateTime.
-*
-* Routine addTimeDeltaToDateTime adds a timedelta to a DateTime and returns the new DateTime. Both DateTime 
-* and TimeDetla are first converted to corresponding values on the Julian axis. Addition is performed on
-* the julian axis and the resulting Julian Date is converted back to the corrsponding DateTime.
-*
-* The library assumes the following definition: Let A denote an anchor date and P a timedelta. For a 
-* positive P, A + P = B where date B > A. Consequently, for a negative P, A + P = B where A > B. 
-* Also, when P is positive, a delta of 1 month has as many days as in the month of anchor DateTime;
-* a delta of 2 months corresponds to the number of days in the anchor date month and the next month and 
-* so on. When P is negative, a delta of 1 month corresponds to as many days as in the month before the
-* anchor date month; a delta of 2 month corresponds to as many days as in the month before the
-* anchor date month and the month before that and so on.
-*
-* @param  dt
-*         A pointer to struct _datetime. The base datetime.
-*
-* @param  td
-*         A pointer to struct _timedelta. The time delta to be added to dt.
-*
-* @param  dt_return
-*         A pointer to struct _datetime. The result of addition is copied here.
-*
-* @return dt_return
-*         A pointer to the struct _datetime contianing the result of addition.
-*/
+ * @brief Add timedelta to DateTime.
+ *
+ * Routine addTimeDeltaToDateTime adds a timedelta to a DateTime and returns the new DateTime. Both DateTime 
+ * and TimeDetla are first converted to corresponding values on the Julian axis. Addition is performed on
+ * the julian axis and the resulting Julian Date is converted back to the corrsponding DateTime.
+ *
+ * The library assumes the following definition: Let A denote an anchor date and P a timedelta. For a 
+ * positive P, A + P = B where date B > A. Consequently, for a negative P, A + P = B where A > B. 
+ * Also, when P is positive, a delta of 1 month has as many days as in the month of anchor DateTime;
+ * a delta of 2 months corresponds to the number of days in the anchor date month and the next month and 
+ * so on. When P is negative, a delta of 1 month corresponds to as many days as in the month before the
+ * anchor date month; a delta of 2 month corresponds to as many days as in the month before the
+ * anchor date month and the month before that and so on.
+ *
+ * @param  dt
+ *         A pointer to struct _datetime. The base datetime.
+ *
+ * @param  td
+ *         A pointer to struct _timedelta. The time delta to be added to dt.
+ *
+ * @param  dt_return
+ *         A pointer to struct _datetime. The result of addition is copied here.
+ *
+ * @return dt_return
+ *         A pointer to the struct _datetime contianing the result of addition.
+ */
 
 struct _datetime*
 addTimeDeltaToDateTime(struct _datetime* dt, struct _timedelta* td, struct _datetime* dt_return)
 {
   if ((dt != NULL )&& (td != NULL) && (dt_return != NULL) ){
+
     /* Convert base datetime to Julian. */
     struct _julianday* jd1 = newJulianDay(0, 0);
     if ( jd1 == NULL)
@@ -1039,7 +1063,6 @@ addTimeDeltaToDateTime(struct _datetime* dt, struct _timedelta* td, struct _date
         deallocateJulianDay(jd1);
         return NULL;
       }
-
     jd2 = timeDeltaToJulianDelta(td, dt, jd2);
 
     struct _julianday* jd = newJulianDay(0, 0);
@@ -1059,7 +1082,7 @@ addTimeDeltaToDateTime(struct _datetime* dt, struct _timedelta* td, struct _date
         jd = substractJulianDelta(jd1, jd2, jd);
       }
     else
-      return NULL; /* ERROR: Sign of timedelta is not defined. */
+      return NULL; /* ERROR: Sign of timedelta is not defined. Should never happen. */
 
     /* Get the Datetime */
     dt_return = julian2date(jd, dt_return);
@@ -1074,39 +1097,42 @@ addTimeDeltaToDateTime(struct _datetime* dt, struct _timedelta* td, struct _date
     return NULL;
 }
 
+
 /**
-* @brief Get the timedelta between current_dt and start_dt plus next integral-multiple-of-timestep (timedelta).
-*
-* Routine moduloTimeDeltaFromDateTime returns the timedelta between the current DateTime (current_dt) and the event's next-trigger time.
-* The next trigger time is defined as the the Anchor DateTime (start_dt) + N * TimeDelta(timestep) 
-* where N is the minimum positive integer for which this sum is >= Current DateTime. In case 
-* Anchor DateTime > Current DateTime, TimeDelta is calculated as start_dt - current_dt.
-* 
-* Notice that this TimeDelta will always be positive.
-*
-* @param  start_dt
-*         A pointer to struct _datetime. The base datetime.
-*
-* @param  timestep
-*         A pointer to struct _timedelta. delta between two consecutive triggers.
-*
-* @param  current_dt
-*         A pointer to struct _datetime. The Current Date time.
-*
-* @param  modulo_td
-*         A pointer to struct _timedelta. The timedelta between 'current datetime' and 'Start Datetime plus next integral-multiple-of-timestep' is copied here.
-*
-* @return modulo_td
-*         A pointer to the struct _timedelta contianing the modulo timedelta. If Start time is in the future, returns on start_time - current_time.
-*/
+ * @brief Get the timedelta between current_dt and start_dt plus next integral-multiple-of-timestep (timedelta).
+ *
+ * Routine moduloTimeDeltaFromDateTime returns the timedelta between the current DateTime (current_dt) and the event's next-trigger time.
+ * The next trigger time is defined as the the Anchor DateTime (start_dt) + N * TimeDelta(timestep) 
+ * where N is the minimum positive integer for which this sum is >= Current DateTime. In case 
+ * Anchor DateTime > Current DateTime, TimeDelta is calculated as start_dt - current_dt.
+ * 
+ * Notice that this TimeDelta will always be positive.
+ *
+ * @param  start_dt
+ *         A pointer to struct _datetime. The base datetime.
+ *
+ * @param  timestep
+ *         A pointer to struct _timedelta. delta between two consecutive triggers.
+ *
+ * @param  current_dt
+ *         A pointer to struct _datetime. The Current Date time.
+ *
+ * @param  modulo_td
+ *         A pointer to struct _timedelta. The timedelta between 'current datetime' and 'Start Datetime plus next 
+ *         integral-multiple-of-timestep' is copied here.
+ *
+ * @return modulo_td
+ *         A pointer to the struct _timedelta contianing the modulo timedelta. If Start time is in the future, returns on start_time - current_time.
+ */
 
 struct _timedelta*
 moduloTimeDeltaFromDateTime(struct _datetime* start_dt, struct _timedelta* timestep, struct _datetime* current_dt, struct _timedelta* modulo_td)
 {
   if ((start_dt != NULL )&& (timestep != NULL) && (current_dt != NULL) && (modulo_td != NULL) ){
+
   struct _datetime* dt_tmp = newDateTime("0-01-01T00:00:00.000");
   if ( dt_tmp == NULL )
-  return NULL;
+    return NULL;
 
   if (compareDatetime(start_dt,current_dt)==(less_than))
     {
@@ -1133,26 +1159,26 @@ moduloTimeDeltaFromDateTime(struct _datetime* start_dt, struct _timedelta* times
 
 
 /**
-* @brief Return the element-wise product of a scalar and a timedelta.
-*
-* elementwiseScalarMultiplyTimeDelta multiplies scalar lambda with each element of timedelta and returns the result in scaled_td.
-* Scalar can be both positive and negative and so can the timedelta. The timedelta can not have days,months or years however: Only
-* Timedeltas upto hours should call this routine. Also scaled_td->hour >= 24 will lead to an error.
-*
-*
-* @param  base_td
-*         A pointer to struct _timedelta. The base timedelta.
-*
-* @param  lambda
-*         A scalar to be multiplied.
-*
-* @param  scaled_td
-*         A pointer to struct _timedelta. The element-wise product of lambda and base_td is stored here.
-*
-* @return scaled_td
-*	  A pointer to struct _timedelta. The filled structure containing the scaled timedelta values.	  
-*/
-
+ * @brief Return the element-wise product of a scalar and a timedelta.
+ *
+ * elementwiseScalarMultiplyTimeDelta multiplies scalar lambda with each element of timedelta and returns the result in scaled_td.
+ * Scalar can be both positive and negative and so can the timedelta. The timedelta can not have days,months or years however: Only
+ * Timedeltas upto hours should call this routine. Also scaled_td->hour >= 24 will lead to an error.
+ *
+ *
+ * @param  base_td
+ *         A pointer to struct _timedelta. The base timedelta.
+ *
+ * @param  lambda
+ *         A scalar to be multiplied.
+ *
+ * @param  scaled_td
+ *         A pointer to struct _timedelta. The element-wise product of lambda and base_td is stored here.
+ *
+ * @return scaled_td
+ *	  A pointer to struct _timedelta. The filled structure containing the scaled timedelta values.	  
+ */
+//TODO on Luis: Is this function doing the right thing?
 struct _timedelta*
 elementwiseScalarMultiplyTimeDelta(struct _timedelta* base_td, int64_t lambda, struct _timedelta* scaled_td)
 {
@@ -1220,35 +1246,33 @@ elementwiseScalarMultiplyTimeDelta(struct _timedelta* base_td, int64_t lambda, s
 }
 
 
-
 /**
-* @brief Return the element-wise sum of two timedeltas.
-*
-* elementwiseAddTimeDeltatoTimeDelta adds two timedeltas elementwise and returns the result.
-* Timedeltas beind added must be of the same sign; Substraction is not supported. 
-* The timedelta can not have days,months or years however: Only Timedeltas upto hours should call this routine. 
-* Also td_return->hour >= 24 will lead to an error.
-*
-*
-* @param  td1
-*         A pointer to struct _timedelta.
-*
-* @param  td2
-*         A pointer to struct _timedelta.
-*
-* @param  td_return
-*         A pointer to struct _timedelta. The element-wise sum of td1 and td2 is stored here.
-*
-* @return td_return
-*         A pointer to struct _timedelta. The filled structure containing the added timedelta values.   
-*/
-
+ * @brief Return the element-wise sum of two timedeltas.
+ *
+ * elementwiseAddTimeDeltatoTimeDelta adds two timedeltas elementwise and returns the result.
+ * Timedeltas beind added must be of the same sign; Substraction is not supported. 
+ * The timedelta can not have days,months or years however: Only Timedeltas upto hours should call this routine. 
+ * Also td_return->hour >= 24 will lead to an error.
+ *
+ *
+ * @param  td1
+ *         A pointer to struct _timedelta.
+ *
+ * @param  td2
+ *         A pointer to struct _timedelta.
+ *
+ * @param  td_return
+ *         A pointer to struct _timedelta. The element-wise sum of td1 and td2 is stored here.
+ *
+ * @return td_return
+ *         A pointer to struct _timedelta. The filled structure containing the added timedelta values.   
+ */
+//TODO on Luis: Is this function doing the right thing?
 struct _timedelta*
 elementwiseAddTimeDeltatoTimeDelta(struct _timedelta* td1, struct _timedelta* td2,  struct _timedelta* td_return)
 {
   if ( (td1 != NULL) && (td2 != NULL) && (td_return != NULL) )
     {
-
       /* TD addition not supported for TimeDeltas consisting of day/month/year. */
       if ( td1->day > 0 || td1->month > 0 || td1->year > 0 || td2->day > 0 || td2->month > 0 || td2->year > 0)
         return NULL;
@@ -1306,3 +1330,120 @@ elementwiseAddTimeDeltatoTimeDelta(struct _timedelta* td1, struct _timedelta* td
 
 }
 
+
+/**
+ * @brief Return a PT String corresponding to arbitrary number of milliseconds.
+ *
+ * getPTStringFromMS() translates ms values to ISO 8601 compliant timedelta string. 
+ * Conversion of ms >= 86400000 and  ms <= -86400000 not supported.
+ *
+ * @param  _ms
+ *         An int64_t value to be translated.
+ *
+ * @param  PTstr
+ *         A pointer to char. Translated string is written here.
+ *
+ * @return PTstr
+ *         A pointer to char. The translated TimeDelta string.   
+ */
+
+char*
+getPTStringFromMS(int64_t _ms, char* PTstr)
+{
+   /* Reuse the juliandelta to TimeDelta conversion routine. */
+   
+   /* Create a _juliandelta object and copy the _ms to the jd->ms. */
+   struct _juliandelta* jd = NULL; 
+   if ((_ms >= NO_OF_MS_IN_A_DAY) || (_ms <= ((-1)*NO_OF_MS_IN_A_DAY)))
+     {
+       /* ERROR: Conversion greater than 23:59:59:999 not supported. */
+       return NULL;
+     }
+   else if (_ms > 0)
+     jd = newJulianDelta('+', 0, _ms); 
+   else
+     jd = newJulianDelta('-', 0, _ms);
+
+   /* Create dummy variables for julianDeltaToTimeDelta() */
+   struct _datetime* dumm_base_dt 	= newDateTime("0-01-01T00:00:00.000");
+   struct _timedelta* dummy_td_return	= newTimeDelta("PT00.000S");
+   
+   /* Get the translated TimeDelta and return the corresponding string. */
+   PTstr = timedeltaToString(julianDeltaToTimeDelta(jd, dumm_base_dt, dummy_td_return), PTstr);
+     
+   deallocateDateTime(dumm_base_dt);
+   deallocateTimeDelta(dummy_td_return);
+   if(jd)
+     deallocateJulianDelta(jd);
+
+   return PTstr;
+}
+
+
+/**
+ * @brief Return a PT String corresponding to arbitrary number of seconds.
+ *
+ * getPTStringFromSeconds() translates second values to ISO 8601 compliant timedelta string. 
+ * Conversion of s >= 86400 and  s <= -86400 not supported.
+ *
+ * @param  _s
+ *         An int64_t value to be translated.
+ *
+ * @param  PTstr
+ *         A pointer to char. Translated string is written here.
+ *
+ * @return PTstr
+ *         A pointer to char. The translated TimeDelta string.   
+ */
+
+char*
+getPTStringFromSeconds(int64_t _s, char* PTstr)
+{
+  return getPTStringFromMS( _s * NO_OF_MS_IN_A_SECOND, PTstr);
+}
+
+
+/**
+ * @brief Return a PT String corresponding to arbitrary number of minutes.
+ *
+ * getPTStringFromMinutes() translates minutes values to ISO 8601 compliant timedelta string. 
+ * Conversion of m >= 1440 and  m <= -1440 not supported.
+ *
+ * @param  _m
+ *         An int64_t value to be translated.
+ *
+ * @param  PTstr
+ *         A pointer to char. Translated string is written here.
+ *
+ * @return PTstr
+ *         A pointer to char. The translated TimeDelta string.   
+ */
+
+char*
+getPTStringFromMinutes(int64_t _m, char* PTstr)
+{
+  return getPTStringFromMS( _m * NO_OF_MS_IN_A_MINUTE, PTstr);
+}
+
+
+/**
+ * @brief Return a PT String corresponding to arbitrary number of Hours.
+ *
+ * getPTStringFromHours() translates hour values to ISO 8601 compliant timedelta string. 
+ * Conversion of h >= 24 and  ms <= -24 not supported.
+ *
+ * @param  _h
+ *         An int64_t value to be translated.
+ *
+ * @param  PTstr
+ *         A pointer to char. Translated string is written here.
+ *
+ * @return PTstr
+ *         A pointer to char. The translated TimeDelta string.   
+ */
+
+char*
+getPTStringFromHours(int64_t _h, char* PTstr)
+{
+  return getPTStringFromMS( _h * NO_OF_MS_IN_A_HOUR, PTstr);
+}

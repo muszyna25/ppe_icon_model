@@ -25,7 +25,6 @@
 #include "mtime_eventList.h"
 #include "mtime_iso8601.h"
 
-//TODO: Need to handle cases where some parameters are left out in the init. Discuss each value independently.
 
 // The IDs are unique only when they are live. Once a group/event has been deleted, the IDs will be reused.
 // Currently, the IDs are generated but not used.
@@ -47,7 +46,7 @@ static int64_t EVENTID = 0;
 struct _eventGroup*
 newEventGroup(char* egn)
 {
-if ( egn != NULL )
+if ((egn != NULL) && (getCalendarType()))
 {
   struct _eventGroup* eg = (struct _eventGroup*)calloc(1,sizeof(struct _eventGroup));
   if (eg == NULL )
@@ -191,13 +190,15 @@ getEventGroupRootEvent(struct _eventGroup* eg)
    * @param  _en
    *         A pointer to char. This string contains the name of event.
    * @param  _eventReferenceDT
-   *         A pointer to char. This string contains the First Reference date.
+   *         A pointer to char. This string contains the First Reference date also called anchor date. 
+   *         This can be NULL, but if defined acts as the true starting datetime overriding e->eventFirstDateTime.
    * @param  _eventFirstDT
-   *         A pointer to char. This string contains the Starting time.
+   *         A pointer to char. This string contains the Starting datetime. This must be defined for every Event.
    * @param  _eventLastDT
-   *         A pointer to char. This string contains the Ending time.
+   *         A pointer to char. This string contains the Ending datetime.
+   *         This can be NULL. If defined, events will not trigger beyond this point.
    * @param  _eventInterval
-   *         A pointer to char. This string contains the timestep.
+   *         A pointer to char. This string contains the timestep. This must be defined for every event.
    * @return e
    *         A pointer to an initialized event. 
    *
@@ -206,6 +207,8 @@ getEventGroupRootEvent(struct _eventGroup* eg)
 struct _event*
 newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLastDT, char* _eventInterval)
 {
+  if (getCalendarType())
+  {
   struct _event* e = (struct _event*)calloc(1,sizeof(struct _event));
   if (e == NULL )
     return NULL ;
@@ -242,7 +245,16 @@ newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLa
     }
   else
     {
-      //TODO:
+      /* _eventReferenceDT can be NULL. In this case, _eventFirstDT is treated as the _eventReferenceDT (anchor date) and copied. */
+      e->eventReferenceDateTime = newDateTime(_eventFirstDT);
+      if(e->eventReferenceDateTime == NULL)
+        {
+          free(e->eventName);
+          e->eventName = NULL;
+          free(e);
+          e = NULL;
+          return NULL ;
+        }
     }
 
   if (_eventFirstDT)
@@ -260,7 +272,14 @@ newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLa
     }
   else
     {
-      //TODO:
+      /* _eventFirstDT can not be NULL. Return on NULL indicating Error. */
+      free(e->eventName);
+      e->eventName = NULL;
+      deallocateDateTime(e->eventReferenceDateTime);
+      e->eventReferenceDateTime = NULL;
+      free(e);
+      e = NULL;
+      return NULL;
     }
 
   if (_eventLastDT)
@@ -277,10 +296,10 @@ newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLa
           return NULL ;
         }
     }
-  else
+  /*else
     {
-      //TODO:
-    }
+      ; //Do nothing. _eventLastDT is allowed to be NULL. 
+    }*/
 
   if (_eventInterval)
     {
@@ -290,8 +309,11 @@ newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLa
           free(e->eventName);
           e->eventName = NULL;
           deallocateDateTime(e->eventReferenceDateTime);
+          e->eventReferenceDateTime = NULL;
           deallocateDateTime(e->eventFirstDateTime);
+          e->eventFirstDateTime = NULL;
           deallocateDateTime(e->eventLastDateTime);
+          e->eventLastDateTime = NULL;
           free(e);
           e = NULL;
           return NULL ;
@@ -299,27 +321,41 @@ newEvent(char* _en, char* _eventReferenceDT, char* _eventFirstDT, char* _eventLa
     }
   else
     {
-      //TODO:
+      /* _eventInterval can not be NULL. Return on NULL indicating error. */
+      free(e->eventName);
+      e->eventName = NULL;
+      deallocateDateTime(e->eventReferenceDateTime);
+      e->eventReferenceDateTime = NULL;
+      deallocateDateTime(e->eventFirstDateTime);
+      e->eventFirstDateTime = NULL;
+      deallocateDateTime(e->eventLastDateTime);
+      e->eventLastDateTime = NULL;
+      free(e);
+      e = NULL;
+      return NULL ;
     }
 
   /* Initialize with 'some' value. */
-  e->triggerNextEventDateTime = newDateTime("0-01-01T00:00:00.000");
   e->triggeredPreviousEventDateTime = newDateTime("0-01-01T00:00:00.000");
 
-  /* Intialize the next trigger to be the first trigger. */
-  e->triggerNextEventDateTime = replaceDatetime(e->eventFirstDateTime, e->triggerNextEventDateTime);
+  /* Intialize the next trigger to be the first trigger. First Trigger is the Anchor Date. 
+     If not specified, it is the e->eventFirstDateTime. */
+  e->triggerNextEventDateTime = constructAndCopyDateTime(e->eventReferenceDateTime);
 
-  e->triggerCurrentEvent = false;
-  e->nextEventIsFirst = true;
+  e->triggerCurrentEvent 	= false;
+  e->nextEventIsFirst 		= true;
 
-  e->eventisFirstInDay = false;
-  e->eventisFirstInMonth = false;
-  e->eventisFirstInYear = false;
-  e->eventisLastInDay = false;
-  e->eventisLastInMonth  = false;
-  e->eventisLastInYear = false;
+  e->eventisFirstInDay 		= false;
+  e->eventisFirstInMonth 	= false;
+  e->eventisFirstInYear 	= false;
+  e->eventisLastInDay 		= false;
+  e->eventisLastInMonth  	= false;
+  e->eventisLastInYear 		= false;
 
   return e;
+  }
+  else
+    return NULL;
 }
 
 
@@ -348,6 +384,7 @@ deallocateEvent(struct _event* e)
 
       deallocateTimeDelta(e->eventInterval);
 
+      /* Warning: Do not free this. That's not your job. */
       e->nextEventInGroup = NULL;
 
       free(e);
@@ -370,6 +407,8 @@ setEvent(struct _event* e)
 /**
  * @brief Check if this event is active by comparing event's trigger time with current_dt.
  *
+ *        The current_dt must exactly match event's trigger time.
+ *
  * @param  event
  *         A pointer to struct _event. This is the event being tested.
  *
@@ -384,9 +423,40 @@ bool
 isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
 {
   if ((event != NULL )&& (current_dt != NULL) ){
-  if(compareDatetime(current_dt,event->triggerNextEventDateTime) >= equal_to)
+ 
+  /* In case the current_dt starts ahead of event->eventReferenceDateTime, we need to update the event->triggerNextEventDateTime  
+     or else the events will never trigger. 
+  */
+  if (
+	event->nextEventIsFirst 
+	&& 
+	(compareDatetime(current_dt,event->eventReferenceDateTime) == greater_than) 
+	&& 
+	(compareDatetime(current_dt,event->triggerNextEventDateTime) == greater_than)
+     )
     {
-      /* If current Datetime is ahead of next trigger datetime, Event is active. */
+      /* If last date is defined, check if current_dt is ahead of event->eventLastDateTime and do not execute this step */
+      if (!(event->eventLastDateTime && (compareDatetime(current_dt,event->eventLastDateTime) == greater_than)))
+      	{
+	  struct _timedelta* modulo_td = newTimeDelta("PT00.000S"); 
+          /* Get the first trigger time and update.*/
+      	  moduloTimeDeltaFromDateTime(event->eventReferenceDateTime, event->eventInterval, current_dt, modulo_td);
+      	  addTimeDeltaToDateTime(current_dt,modulo_td,event->triggerNextEventDateTime);
+          deallocateTimeDelta(modulo_td);
+        }
+    }
+
+  if(compareDatetime(current_dt,event->triggerNextEventDateTime) == equal_to)
+    {
+      /* If current Datetime is equal to next trigger datetime, Event is active. */
+
+
+      if ((event->eventLastDateTime) && (compareDatetime(current_dt,event->eventLastDateTime) == greater_than))
+        {
+	  /* If event->eventLastDateTime is defined and current_dt > event->eventLastDateTime, event has expired. 
+	  Clear all flags and return false. */
+	  goto return_on_false;
+        }
 
 
       /* If the event being triggred is the first event to be triggered, it is all of FirstIn*  */
@@ -408,11 +478,11 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
 
       /* Set the new next-trigger datetime and the new previous-triggered-datetime. */
       replaceDatetime(event->triggerNextEventDateTime, event->triggeredPreviousEventDateTime);
-      event->triggerNextEventDateTime = addTimeDeltaToDateTime(event->triggerNextEventDateTime,event->eventInterval,event->triggerNextEventDateTime);
+      addTimeDeltaToDateTime(event->triggerNextEventDateTime,event->eventInterval,event->triggerNextEventDateTime);
 
-      /* Set event. */
-      setEvent(event);
-
+      /* Set event.*/
+      event->triggerCurrentEvent = true;      
+     
 
 
       /* If the future event (not the current event being triggered) has a different day/month/year, current event must be LastIn* */
@@ -430,27 +500,29 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
 	  event->eventisLastInYear = true;
 	}
 
+      /* Reset indicating this is no longer true. */
+      event->nextEventIsFirst = false;
+
       return true;
     }
   else if ((event->triggerCurrentEvent == true) && (compareDatetime(current_dt,event->triggerNextEventDateTime) == less_than))
     {
+      return_on_false:
       /* This is the next iteration after event was set in last call. Reset event. Return false. */
-      event->triggerCurrentEvent = false;
+      event->triggerCurrentEvent 	= false;
 
-      event->eventisFirstInDay = false;
-      event->eventisFirstInMonth = false;
-      event->eventisFirstInYear = false;
-      event->eventisLastInDay = false;
-      event->eventisLastInMonth	 = false;
-      event->eventisLastInYear = false;
-      
-      event->nextEventIsFirst = false;
+      event->eventisFirstInDay 		= false;
+      event->eventisFirstInMonth 	= false;
+      event->eventisFirstInYear 	= false;
+      event->eventisLastInDay 		= false;
+      event->eventisLastInMonth	 	= false;
+      event->eventisLastInYear 		= false;
     }
 
   return false;
 }
 else
-return false;
+  return false;
 }
 
 
@@ -657,7 +729,7 @@ getEventId(struct _event* e)
   if (e != NULL)
     return e->eventId;
   else
-    return NULL;
+    return 0;
 }
 
 char*
@@ -714,7 +786,7 @@ getNextEventIsFirst(struct _event* e)
   if (e != NULL)
     return e->nextEventIsFirst;
   else
-    return NULL;
+    return false;
 }
 
 bool
@@ -723,7 +795,7 @@ getEventisFirstInDay(struct _event* e)
   if (e != NULL)
     return e->eventisFirstInDay;
   else
-    return NULL;
+    return false;
 }
 
 bool
@@ -732,7 +804,7 @@ getEventisFirstInMonth(struct _event* e)
   if (e != NULL)
     return e->eventisFirstInMonth;
   else
-    return NULL;
+    return false;
 }
 
 bool
@@ -741,15 +813,16 @@ getEventisFirstInYear(struct _event* e)
   if (e != NULL)
     return e->eventisFirstInYear;
   else
-    return NULL;
+    return false;
 }
+
 bool
 getEventisLastInDay(struct _event* e)
 {
   if (e != NULL)
     return e->eventisLastInDay;
   else
-    return NULL;
+    return false;
 }
 
 bool
@@ -758,7 +831,7 @@ getEventisLastInMonth(struct _event* e)
   if (e != NULL)
     return e->eventisLastInMonth;
   else
-    return NULL;
+    return false;
 }
 
 bool
@@ -767,5 +840,5 @@ getEventisLastInYear(struct _event* e)
   if (e != NULL)
     return e->eventisLastInYear;
   else
-    return NULL;
+    return false;
 }

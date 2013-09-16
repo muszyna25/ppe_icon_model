@@ -19,18 +19,14 @@
 #include"mtime_calendar.h"
 #include"mtime_julianDay.h"
 
-#define NO_OF_MS_IN_A_DAY 			86400000
-#define NO_OF_MS_IN_HALF_DAY 			43200000
-#define NO_OF_MS_IN_A_HOUR 			3600000
-#define NO_OF_MS_IN_A_MINUTE 			60000
-#define NO_OF_MS_IN_A_SECOND 			1000
-
-#define JULIAN_DAY_UPPER_BOUND_360 		773094113279
-#define JULIAN_DAY_UPPER_BOUND_365 		783831531519
-#define JULIAN_DAY_UPPER_BOUND_GREGORIAN 	784354017364
-#define JULIAN_DAY_LOWER_BOUND_360 		-773094113281
-#define JULIAN_DAY_LOWER_BOUND_365 		-783831531521
+#define JULIAN_DAY_UPPER_BOUND_360 		 773094113279
+#define JULIAN_DAY_LOWER_BOUND_360              -773094113281
+#define JULIAN_DAY_UPPER_BOUND_365 		 783831531519
+#define JULIAN_DAY_LOWER_BOUND_365              -783831531521
+#define JULIAN_DAY_UPPER_BOUND_GREGORIAN 	 784354017364
 #define JULIAN_DAY_LOWER_BOUND_GREGORIAN 	-784350575246
+
+
 /**
  * @brief Construct new Julian-Date object.
  *
@@ -45,68 +41,132 @@
 struct _julianday*
 newJulianDay(int64_t _day, int64_t _ms)
 {
+  /* Get Calendar type. */
+  calendarType ct = getCalendarType();
+  if(ct)
+  {
   struct _julianday* jd = (struct _julianday*)calloc(1,sizeof(struct _julianday));
   if (jd == NULL )
     return NULL ;
 
-  /* Return on NULL if out of bound. Bounds are defined according to bounds on year; i.e, (year > 2147483647) and (year < -2147483648). */
-  calendarType ct = getCalendarType();
+  /* Return on NULL if out of bound. Bounds are defined according to calendar type 
+     and common bound on year; i.e, (year > 2147483647) and (year < -2147483648). 
+  */
   switch (ct)
     {
       case PROLEPTIC_GREGORIAN:
         if(   
-            ((_day > JULIAN_DAY_UPPER_BOUND_GREGORIAN) || ((_day == JULIAN_DAY_UPPER_BOUND_GREGORIAN) && (_ms >= NO_OF_MS_IN_HALF_DAY)))
+            (	
+		(_day > JULIAN_DAY_UPPER_BOUND_GREGORIAN) 
+		|| 
+		(	
+			(_day == JULIAN_DAY_UPPER_BOUND_GREGORIAN) 
+			&& 
+			(_ms >= NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
             || 
-            ((_day < JULIAN_DAY_LOWER_BOUND_GREGORIAN) || ((_day == JULIAN_DAY_LOWER_BOUND_GREGORIAN) && (_ms < NO_OF_MS_IN_HALF_DAY)))
+            (
+		(_day < JULIAN_DAY_LOWER_BOUND_GREGORIAN) 
+		|| 
+		(
+			(_day == JULIAN_DAY_LOWER_BOUND_GREGORIAN) 
+			&& 
+			(_ms < NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
           )
           return NULL;
         break;
       case YEAR_OF_365_DAYS:
         if( 
-            ((_day > JULIAN_DAY_UPPER_BOUND_365) || ((_day == JULIAN_DAY_UPPER_BOUND_365)&&(_ms >= NO_OF_MS_IN_HALF_DAY)))
+            (
+		(_day > JULIAN_DAY_UPPER_BOUND_365) 
+		|| 
+		(
+			(_day == JULIAN_DAY_UPPER_BOUND_365)
+			&&
+			(_ms >= NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
             ||
-            ((_day < JULIAN_DAY_LOWER_BOUND_365) || ((_day == JULIAN_DAY_LOWER_BOUND_365) && (_ms < NO_OF_MS_IN_HALF_DAY)))
+            (
+		(_day < JULIAN_DAY_LOWER_BOUND_365) 
+		|| 
+		(	
+			(_day == JULIAN_DAY_LOWER_BOUND_365) 
+			&& 
+			(_ms < NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
           ) 
 	  return NULL;
         break;
       case YEAR_OF_360_DAYS:
         if( 
-            ((_day > JULIAN_DAY_UPPER_BOUND_360) || ((_day == JULIAN_DAY_UPPER_BOUND_360) && (_ms >= NO_OF_MS_IN_HALF_DAY)))
+            (
+		(_day > JULIAN_DAY_UPPER_BOUND_360) 
+		|| 
+		(
+			(_day == JULIAN_DAY_UPPER_BOUND_360) 
+			&& 
+			(_ms >= NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
             ||
-	    ((_day < JULIAN_DAY_LOWER_BOUND_360) || ((_day == JULIAN_DAY_LOWER_BOUND_360) && (_ms < NO_OF_MS_IN_HALF_DAY)))
+	    (
+		(_day < JULIAN_DAY_LOWER_BOUND_360) 
+		|| 
+		(
+			(_day == JULIAN_DAY_LOWER_BOUND_360) 
+			&& 
+			(_ms < NO_OF_MS_IN_HALF_DAY)
+		)
+	    )
           )
           return NULL;
         break;
       case CALENDAR_NOT_SET:
       default:
+        //Should never be here.
         return NULL;
-        //break;
     }
 
   jd->day = _day;
   jd->ms = _ms;
 
   return jd;
+  }
+  else
+    return NULL;
 }
+
 
 /*! \cond PRIVATE */
 /* Internal data structure. */
 /* Create a new Julian Delta. */
-/* Note: A negative juliandelta is represented in the following way: -P01DT00.500S  = jd2->sign = -, jd2->day = -30, jd2->ms = -500. */
+/* Note: A negative juliandelta is represented in the following way: -P01DT00.500S  = jd2->sign = '-', jd2->day = -30, jd2->ms = -500. */
+
 struct _juliandelta*
 newJulianDelta(char _sign, int64_t _day, int64_t _ms)
 {
-  struct _juliandelta* jd = (struct _juliandelta *)calloc(1,sizeof(struct _juliandelta));
-  if (jd == NULL )
-    return NULL ;
+  if (getCalendarType())
+    {
+      struct _juliandelta* jd = (struct _juliandelta *)calloc(1,sizeof(struct _juliandelta));
+      if (jd == NULL )
+        return NULL ;
 
-  jd->sign = _sign;
-  jd->day = _day;
-  jd->ms = _ms;
+      jd->sign = _sign;
+      jd->day = _day;
+      jd->ms = _ms;
 
-  return jd;
+      return jd;
+    }
+  else
+    return NULL;
 }
 /*! \endcond */
+
 
 /**
  * @brief Destructor of Julian-Date.
@@ -122,8 +182,6 @@ deallocateJulianDay(struct _julianday* jd)
     {
       free(jd);
       jd = NULL;
-
-      return;
     }
 }
 
@@ -131,6 +189,7 @@ deallocateJulianDay(struct _julianday* jd)
 /*! \cond PRIVATE */
 /*Internal function.*/
 /* Destructor of JulianDelta.*/
+
 void
 deallocateJulianDelta(struct _juliandelta* jd)
 {
@@ -138,17 +197,18 @@ deallocateJulianDelta(struct _juliandelta* jd)
     {
       free(jd);
       jd = NULL;
-
-      return;
     }
 }
 
+
 /* Internal Function. */
 /* Add a lib defined julian delta to a Julian Day. */
+
 struct _julianday*
 addJulianDelta(struct _julianday* jd1, struct _juliandelta* jd2, struct _julianday* jd)
 {
-  if ((jd1 != NULL )&& (jd2 != NULL) && (jd != NULL) ){
+  if ((jd1 != NULL ) && (jd2 != NULL) && (jd != NULL) ){
+
   jd->day = jd1->day + jd2->day;
   jd->ms = jd1->ms + jd2->ms;
 
@@ -163,13 +223,19 @@ else
 return NULL;
 }
 
-  /* Internal Function. */
-  /* Substract a lib defined julian delta from a Julian Day. */
+
+/* Internal Function. */
+/* Substract a lib defined julian delta from a Julian Day. */
 
 struct _julianday*
 substractJulianDelta(struct _julianday* jd1, struct _juliandelta* jd2, struct _julianday* jd)
 {
   if ((jd1 != NULL )&& (jd2 != NULL) && (jd != NULL) ){
+
+  /* substractJulianDelta 'looks like' addJulianDelta but it is not. 
+     Usually, when substractJulianDelta is called, jd2 will have every element with a negative sign. 
+     This will ensure substraction in the proper sense. */
+
   jd->day = jd1->day + jd2->day;
   jd->ms = jd1->ms + jd2->ms;
 
@@ -182,34 +248,26 @@ substractJulianDelta(struct _julianday* jd1, struct _juliandelta* jd2, struct _j
   return jd;
 }
 else
-return NULL;
+  return NULL;
 }
 
-  /* Internal function. */
-  /* Return jd1 >= jd2 */
+
+/* Internal function. */
+/* Return jd1 >= jd2 */
+
 bool
 compareJulianDay(struct _julianday* jd1, struct _julianday* jd2)
 {
   if (jd1->day > jd2->day)
-    {
-      return true;
-    }
+    return true;
   else if (jd2->day > jd1->day)
-    {
-      return false;
-    }
+    return false;
   else if (jd1->ms > jd2->ms)
-    {
-      return true;
-    }
+    return true;
   else if (jd2->ms > jd1->ms)
-    {
-      return false;
-    }
+    return false;
   else
-    {
-      return true;
-    }
+    return true;
 }
 /*! \endcond */
 
@@ -234,6 +292,7 @@ struct _juliandelta*
 substractJulianDay(struct _julianday* jd1, struct _julianday* jd2, struct _juliandelta* jd)
 {
   if ((jd1 != NULL )&& (jd2 != NULL) && (jd != NULL) ){
+
   if ( compareJulianDay(jd1,jd2) == true )
     {
       /*JD1 >= JD2*/
@@ -263,7 +322,7 @@ substractJulianDay(struct _julianday* jd1, struct _julianday* jd2, struct _julia
   return jd;
 }
 else
-return NULL;
+  return NULL;
 }
 
 
@@ -284,14 +343,16 @@ return NULL;
 
 char*
 juliandayToString(struct _julianday* jd, char* toStr)
-{
+  {
     if ((jd != NULL )&& ( toStr != NULL ) ){
-	memset(toStr,'\0',MAX_JULIANDAY_STR_LEN);
-        snprintf(toStr,MAX_JULIANDAY_STR_LEN,"%" PRIi64 ".%" PRIi64, jd->day, jd->ms );
 
-	  return toStr;
+      memset(toStr,'\0',MAX_JULIANDAY_STR_LEN);
+ 
+      snprintf(toStr,MAX_JULIANDAY_STR_LEN,"%" PRIi64 ".%" PRIi64, jd->day, jd->ms );
+
+      return toStr;
     }
     else
       return NULL;
-}
+  }
 

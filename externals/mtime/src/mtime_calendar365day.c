@@ -21,15 +21,6 @@
 #include "mtime_date.h"
 #include "mtime_time.h"
 
-#define NO_OF_MS_IN_A_DAY 86400000
-#define NO_OF_MS_IN_HALF_DAY 43200000
-#define NO_OF_MS_IN_A_HOUR 3600000
-#define NO_OF_MS_IN_A_MINUTE 60000
-#define NO_OF_MS_IN_A_SECOND 1000
-#define NO_OF_MONTHS_IN_A_YEAR 12
-
-#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 365
-
 
 /**
  * @brief Convert Julian Date to Calendar-with-365-days date.
@@ -56,8 +47,7 @@ getDate365FromJulian(struct _julianday *jd, struct _datetime* d365)
   /* Check for malformed parameters */
   if ((jd != NULL) && (d365 != NULL)){
 
-  int i;
-  int64_t days;
+  int i, days;
   int64_t jday, jms;
 
   jday = jd->day;
@@ -71,7 +61,7 @@ getDate365FromJulian(struct _julianday *jd, struct _datetime* d365)
       jms = jms - NO_OF_MS_IN_A_DAY;
     }
 
-  /* Handle skew due to the fact that Julian is symmetric about 0.0 JD while d360 is not. */
+  /* Julian is symmetric about 0.0 JD while d360 is not. */
   if (jday >= 0)
     {
       d365->date.year = (jday) / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
@@ -79,10 +69,10 @@ getDate365FromJulian(struct _julianday *jd, struct _datetime* d365)
       days = jday % NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
       for (i = (NO_OF_MONTHS_IN_A_YEAR - 1); i >= 0; i--)
         {
-          if (days >= nDaysNonLeap[i])
+          if (days >= nofDaysAfterARGMonthsInNonLeapYear[i])
             {
               d365->date.month = i + 1;
-              d365->date.day = days - nDaysNonLeap[i] + 1;
+              d365->date.day = days - nofDaysAfterARGMonthsInNonLeapYear[i] + 1;
 
               break;
             }
@@ -90,24 +80,25 @@ getDate365FromJulian(struct _julianday *jd, struct _datetime* d365)
     }
   else
     {
-      d365->date.year = (jday) / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - 1;
+      d365->date.year = (jday / NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365) - 1;
       days = -jday % NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365;
       for (i = (NO_OF_MONTHS_IN_A_YEAR -1); i >= 0; i--)
         {
-          if (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1 > nDaysNonLeap[i])
+          if ( (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1) > nofDaysAfterARGMonthsInNonLeapYear[i])
             {
               d365->date.month = i + 1;
               // Avoid divide by zero.
-              if (nDaysNonLeap[i] == 0)
-              d365->date.day = (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1);
+              if (nofDaysAfterARGMonthsInNonLeapYear[i] == 0)
+                d365->date.day = (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1);
               else
-              d365->date.day = (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1) % nDaysNonLeap[i];
+                d365->date.day = (NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 - days + 1) % nofDaysAfterARGMonthsInNonLeapYear[i];
 
               break;
             }
         }
 
-      if (d365->date.day == (month_days_365[i] + 1))
+      /* This will be true whenever days is 0 */
+      if (d365->date.day == (nofDaysInARGMonthIn365DayYear[i] + 1))
         {
           d365->date.month = d365->date.month + 1;
           if (d365->date.month == NO_OF_MONTHS_IN_A_YEAR + 1)
@@ -119,6 +110,7 @@ getDate365FromJulian(struct _julianday *jd, struct _datetime* d365)
         }
     }
 
+  /* Santize for range. */
   if((d365->date.year > YEAR_UPPER_BOUND) || (d365->date.year < YEAR_LOWER_BOUND))
     {
       /* ERROR: Exceeds allowed year range. */
@@ -162,23 +154,22 @@ getJulianFromDate365(struct _datetime *d365, struct _julianday* jd)
   /* Check for malformed parameters */
   if ((d365 != NULL) && (jd != NULL)){
 
-  /* Handle skew due to the fact that Julian is symmetric about 0.0 JD while d365 is not. 
-   The code looks exactly the same but it can be instructive to see how the two execution
+  /* Julian is symmetric about 0.0 JD while d365 is not. 
+   The code looks exactly the same in both if and else but it can be instructive to see how the two execution
    paths calculate the respective values. */
   if (d365->date.year < 0)
     {
-      jd->day = d365->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 + nDaysNonLeap[d365->date.month - 1] + d365->date.day - 1;
+      jd->day = d365->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 + nofDaysAfterARGMonthsInNonLeapYear[d365->date.month - 1] + d365->date.day - 1;
     }
   else
     {
-      jd->day = d365->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 + nDaysNonLeap[d365->date.month - 1] + d365->date.day - 1;
+      jd->day = d365->date.year * NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 + nofDaysAfterARGMonthsInNonLeapYear[d365->date.month - 1] + d365->date.day - 1;
     }
 
   /* Handle the 12 hour skew between two time axis. */
   if (d365->time.hour < 12)
     {
-      jd->ms = NO_OF_MS_IN_HALF_DAY;
-      jd->ms = jd->ms + NO_OF_MS_IN_A_HOUR * (d365->time.hour);
+      jd->ms = NO_OF_MS_IN_HALF_DAY + (NO_OF_MS_IN_A_HOUR * d365->time.hour);
       jd->day = jd->day - 1;
     }
   else
@@ -186,9 +177,7 @@ getJulianFromDate365(struct _datetime *d365, struct _julianday* jd)
       jd->ms = NO_OF_MS_IN_A_HOUR * (d365->time.hour - 12);
     }
 
-  jd->ms = jd->ms + NO_OF_MS_IN_A_MINUTE * d365->time.minute;
-  jd->ms = jd->ms + NO_OF_MS_IN_A_SECOND * d365->time.second;
-  jd->ms = jd->ms + d365->time.ms;
+  jd->ms = jd->ms + NO_OF_MS_IN_A_MINUTE * d365->time.minute + NO_OF_MS_IN_A_SECOND * d365->time.second + d365->time.ms;
 
   return jd;
 }

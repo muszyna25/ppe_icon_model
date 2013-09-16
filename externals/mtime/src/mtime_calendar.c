@@ -25,27 +25,28 @@
 struct _datetime;
 struct _julianday;
 
-/* Number of days after 0,1,2...12 months in a non-Leap year*/
-const int nDaysNonLeap[13] =
-  { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
 
 /* Number of days after 0,1,2...12 months in a Leap year.*/
-const int nDaysLeap[13] =
+const int nofDaysAfterARGMonthsInLeapYear[13] =
   { 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 };
+
+/* Number of days after 0,1,2...12 months in a non-Leap year*/
+const int nofDaysAfterARGMonthsInNonLeapYear[13] =
+  { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
 
 
 /* #days in each month: Jan = 31, Feb = 28 ... */
-const int month_days_leapyear[] =
+const int nofDaysInARGMonthInLeapYear[] =
   { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-const int month_days_365[] =
+const int nofDaysInARGMonthIn365DayYear[] =
   { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-const int month_days_360[] =
+const int nofDaysInARGMonthIn360DayYear[] =
   { 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30 };
 
 
 /* Each row represents months 1,2,3..12; Each column entry is the number
  of days after 0,1,2,3...12 months from the corresponding month. */
-const int month_specific_delta_in_months_leapyear[12][13] =
+const int monthSpecificDeltaInMonthsLeapyear[12][13] =
   {
     { 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 },
     { 0, 29, 60, 90, 121, 151, 182, 213, 243, 274, 304, 335, 366 },
@@ -60,7 +61,7 @@ const int month_specific_delta_in_months_leapyear[12][13] =
     { 0, 30, 61, 92, 121, 152, 183, 213, 243, 274, 305, 335, 366 },
     { 0, 31, 62, 91, 122, 152, 183, 213, 244, 275, 305, 336, 366 } };
 
-const int month_specific_delta_in_months_365[12][13] =
+const int monthSpecificDeltaInMonths365[12][13] =
   {
     { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 },
     { 0, 28, 59, 89, 120, 150, 181, 212, 242, 273, 303, 334, 365 },
@@ -75,7 +76,7 @@ const int month_specific_delta_in_months_365[12][13] =
     { 0, 30, 61, 92, 120, 151, 182, 212, 242, 273, 304, 334, 365 },
     { 0, 31, 62, 90, 121, 151, 182, 212, 243, 274, 304, 335, 365 } };
 
-const int month_specific_delta_in_months_360[12][13] =
+const int monthSpecificDeltaInMonths360[12][13] =
   {
     { 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360 },
     { 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360 },
@@ -91,14 +92,15 @@ const int month_specific_delta_in_months_360[12][13] =
     { 0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360 } };
 
 
-
+/* Function pointers connecting translation routines according to calendarType. */
 struct _julianday *
 (*date2julian)(struct _datetime *date, struct _julianday *julian);
 struct _datetime *
 (*julian2date)(struct _julianday *julian, struct _datetime *date);
 
+/* Static variable describing the calendar type. */
 static calendarType _calendar_type = CALENDAR_NOT_SET;
-
+/* Flag to disallow change in calendar type.  */
 static bool calendar_initialized = false;
 
 /**
@@ -111,9 +113,9 @@ static bool calendar_initialized = false;
  * - OR YEAR_OF_360_DAYS Calendar.
  * 
  * The calendar type and hence it's behaviour (Calendar to Julian conversion and vice versa) is fixed for the lifetime of the calendar object.
- * Attempts to change the calendar type on the fly is discouraged. The lib has built-in checks to reject change attempts at run time. 
- * However, calendar can be "re-initialized" after calling freeCalendar() but is not advised. MANTRA: Know what you are doing before you do it 
- * and do it right the first time.
+ * Attempts to change the calendar type at runtime is discouraged. The lib has built-in checks to reject change attempts.
+ * Calendar can be "re-initialized" after calling freeCalendar() but is not advised. 
+ * MANTRA: Know what you are doing before you do it and do it right the first time.
  *
  * @param  ct
  *         An object of struct calendarType. 
@@ -161,7 +163,7 @@ initCalendar(calendarType ct)
 /** 
  * @brief called to discard the selected calendar type.
  *
- * RESETs the calendar. Should be performed at exit! 
+ * RESETs the calendar. Should be performed ONLY at exit! 
  * WARNING: Freeing the calendar and re-assigning a new calendar type not supported.
  */
 void
@@ -174,11 +176,11 @@ freeCalendar(void)
 
 
 /**
- * @brief to get an idea, which calendar type is selected.
+ * @brief To query the current calendar type.
  * 
  * Gets the calendarType. 
  *
- * @return ct
+ * @return _calendar_type
  *         A member of enum calendarType. Denotes the currently set calendar type.
  */
 calendarType
@@ -215,7 +217,7 @@ calendarToString(char *calendar)
             strcpy(calendar, "Year of 360 days");
             break;
           case CALENDAR_NOT_SET:
-            default:
+          default:
             strcpy(calendar, "Not defined");
             break;
         } 

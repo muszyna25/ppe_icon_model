@@ -2,15 +2,17 @@
 #line 1 "mtime_iso8601.rl"
 /*! \cond PRIVATE */
 /**
-  * @brief ISO 8601_2004 complaint Time.
-  *
-  * @author Luis Kornblueh, Rahul Sinha. MPIM.
-  * @date March 2013
-  *
-  * @note USAGE: Compile this rl file and generate iso8601.c file. Compile the iso8601.c file using gcc. iso8601.h file needs to be edited seperately. match_found = 1 => DATE/DATETIME. match_found = 2 => Duration. Else malformed string and hence REJECT.
-  */
+ * @brief ISO 8601_2004 complaint Time.
+ *
+ * @author Luis Kornblueh, Rahul Sinha. MPIM.
+ * @date March 2013
+ *
+ * @note USAGE: Compile this rl file and generate iso8601.c file. 
+	  Compile the iso8601.c file using gcc. iso8601.h file needs to be edited seperately. 
+          match_found = 1 => DATE/DATETIME. match_found = 2 => Duration. Else non-compliant string and hence REJECT.
+	  Due to application requirements, current implementation allows year in the range 2147483647 and -2147483648 only!
+ */
 
-//file iso8601.rl
 
 #include <stdlib.h>
 #include <string.h>
@@ -22,13 +24,17 @@
 #include "mtime_iso8601.h"
 
 #define MAX_BUFFER_LENGTH 132
+
 #define YEAR_UPPER_BOUND 2147483647
 #define YEAR_LOWER_BOUND -2147483648
 
-//Range check in julian during add.
+/* Allowed year range = 2147483647 TO -2147483648  */
+bool RAISE_YEAR_OUT_OF_BOUND_EXCEPTION = false;
 
 
-#line 32 "mtime_iso8601.c"
+
+
+#line 38 "mtime_iso8601.c"
 static const char _date_machine_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1, 
 	5, 1, 6, 1, 7, 1, 8, 1, 
@@ -599,10 +605,9 @@ static const int date_machine_error = 0;
 static const int date_machine_en_main = 1;
 
 
-#line 31 "mtime_iso8601.rl"
+#line 37 "mtime_iso8601.rl"
 
 
-bool RAISE_OUT_OF_BOUND_EXCEPTION = false;
 
 struct internal_datetime
   {
@@ -618,6 +623,7 @@ struct internal_datetime
     char	    timeZoneOffSet;
   };
 
+
 static 
 void 
 date_machine( char *str, ISO8601_STATUS* stat, struct internal_datetime* dtObj, struct iso8601_duration* duObj)
@@ -627,12 +633,12 @@ date_machine( char *str, ISO8601_STATUS* stat, struct internal_datetime* dtObj, 
     int cs;
 
     
-#line 631 "mtime_iso8601.c"
+#line 637 "mtime_iso8601.c"
 	{
 	cs = date_machine_start;
 	}
 
-#line 636 "mtime_iso8601.c"
+#line 642 "mtime_iso8601.c"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -707,37 +713,37 @@ _match:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 59 "mtime_iso8601.rl"
+#line 65 "mtime_iso8601.rl"
 	{
 	    ts = p;
 	  }
 	break;
 	case 1:
-#line 64 "mtime_iso8601.rl"
+#line 70 "mtime_iso8601.rl"
 	{
 	    *stat = DATETIME_MATCH;
 	  }
 	break;
 	case 2:
-#line 69 "mtime_iso8601.rl"
+#line 75 "mtime_iso8601.rl"
 	{
 	    *stat = DURATION_MATCH;
 	  }
 	break;
 	case 3:
-#line 74 "mtime_iso8601.rl"
+#line 80 "mtime_iso8601.rl"
 	{
 	    dtObj->sign_of_year = (*p);
 	  }
 	break;
 	case 4:
-#line 79 "mtime_iso8601.rl"
+#line 85 "mtime_iso8601.rl"
 	{
 	    duObj->sign = (*p);
 	  }
 	break;
 	case 5:
-#line 84 "mtime_iso8601.rl"
+#line 90 "mtime_iso8601.rl"
 	{
 	    te = p+1; 
 	    /* Reset ts to point to begining of string. */
@@ -757,12 +763,12 @@ _match:
 	    /* Year might be too large. */
 	    if ((errno == ERANGE) || (dtObj->year > YEAR_UPPER_BOUND) || (dtObj->year < YEAR_LOWER_BOUND))
 	      {
-		RAISE_OUT_OF_BOUND_EXCEPTION = true;
+		RAISE_YEAR_OUT_OF_BOUND_EXCEPTION = true;
 	      }
 	  }
 	break;
 	case 6:
-#line 108 "mtime_iso8601.rl"
+#line 114 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _month[3] = {0};
@@ -772,7 +778,7 @@ _match:
 	  }
 	break;
 	case 7:
-#line 117 "mtime_iso8601.rl"
+#line 123 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _day[3] = {0};
@@ -783,7 +789,7 @@ _match:
 	  }
 	break;
 	case 8:
-#line 127 "mtime_iso8601.rl"
+#line 133 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _day[4] = {0};
@@ -794,7 +800,7 @@ _match:
 	  }
 	break;
 	case 9:
-#line 137 "mtime_iso8601.rl"
+#line 143 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _hour[3] = {0};
@@ -804,7 +810,7 @@ _match:
 	  }
 	break;
 	case 10:
-#line 146 "mtime_iso8601.rl"
+#line 152 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _minute[3] = {0};
@@ -814,7 +820,7 @@ _match:
 	  }
 	break;
 	case 11:
-#line 155 "mtime_iso8601.rl"
+#line 161 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _second[3] = {0};
@@ -824,7 +830,7 @@ _match:
 	  }
 	break;
 	case 12:
-#line 164 "mtime_iso8601.rl"
+#line 170 "mtime_iso8601.rl"
 	{
 	    te = p+1;
 	    char _ms[4] = {0};
@@ -834,13 +840,13 @@ _match:
 	  }
 	break;
 	case 13:
-#line 173 "mtime_iso8601.rl"
+#line 179 "mtime_iso8601.rl"
 	{
 	    dtObj->timeZoneOffSet = (*p);
 	  }
 	break;
 	case 14:
-#line 178 "mtime_iso8601.rl"
+#line 184 "mtime_iso8601.rl"
 	{
 	    te = p;                 
 	    char _du_year[MAX_BUFFER_LENGTH] = {'\0'};
@@ -851,12 +857,12 @@ _match:
             duObj->year = strtol(_du_year,&end, 10);
 
             if ((errno == ERANGE) || ((duObj->sign == '$') && (duObj->year > (-1*YEAR_LOWER_BOUND))) || ((duObj->year > YEAR_UPPER_BOUND) && (duObj->sign != '$')))
-                RAISE_OUT_OF_BOUND_EXCEPTION = true;
+                RAISE_YEAR_OUT_OF_BOUND_EXCEPTION = true;
 
 	  }
 	break;
 	case 15:
-#line 193 "mtime_iso8601.rl"
+#line 199 "mtime_iso8601.rl"
 	{
 	    te = p;
 	    char _du_month[3] = {0};
@@ -866,7 +872,7 @@ _match:
 	  }
 	break;
 	case 16:
-#line 202 "mtime_iso8601.rl"
+#line 208 "mtime_iso8601.rl"
 	{
 	    te = p;
 	    char _du_day[3] = {0};
@@ -876,7 +882,7 @@ _match:
 	  }
 	break;
 	case 17:
-#line 211 "mtime_iso8601.rl"
+#line 217 "mtime_iso8601.rl"
 	{
 	    te = p;
 	    char _du_hour[3] = {0};
@@ -886,7 +892,7 @@ _match:
 	  }
 	break;
 	case 18:
-#line 220 "mtime_iso8601.rl"
+#line 226 "mtime_iso8601.rl"
 	{
 	    te = p;
 	    char _du_minute[3] = {0};
@@ -896,7 +902,7 @@ _match:
 	  }
 	break;
 	case 19:
-#line 229 "mtime_iso8601.rl"
+#line 235 "mtime_iso8601.rl"
 	{
 	    te = p;
 	    char _du_second[13] = {0};
@@ -924,7 +930,7 @@ _match:
 	      }               
 	  }
 	break;
-#line 928 "mtime_iso8601.c"
+#line 934 "mtime_iso8601.c"
 		}
 	}
 
@@ -937,22 +943,22 @@ _again:
 	_out: {}
 	}
 
-#line 543 "mtime_iso8601.rl"
+#line 549 "mtime_iso8601.rl"
 
     
-};
+}
 
-/* Internal Function. */
+/* Internal function which calls the state machine. */
 static 
 ISO8601_STATUS 
 get_date_time(const char* buffer, struct iso8601_datetime* datetimeObj, struct iso8601_duration* durationObj)
   {
-    /* Create a local buffer. */
+    /* Create a local buffer and copy the string to be tested. */
     char buf[MAX_BUFFER_LENGTH] = {'\0'};
     strncpy(buf,buffer,MAX_BUFFER_LENGTH);
     buf[MAX_BUFFER_LENGTH-1] = '\0';
 
-    /* Success or Failure flag. */
+    /* Initialize Success or Failure flag. */
     ISO8601_STATUS stat = FAILURE;
 
     /* Placeholder for values of DateTime and Duration. */
@@ -966,7 +972,7 @@ get_date_time(const char* buffer, struct iso8601_datetime* datetimeObj, struct i
     dtObj.month = 1;
     dtObj.day = 1;
 
-    /*Ragel expects \n at the end of the string.*/
+    /* Ragel expects \n at the end of the string. */
     char* replace = strchr(buf, '\0');
     *replace = '\n';
 
@@ -983,7 +989,7 @@ get_date_time(const char* buffer, struct iso8601_datetime* datetimeObj, struct i
 
    
     /* stat contains the type of match. */
-    if((stat == DATETIME_MATCH) && (RAISE_OUT_OF_BOUND_EXCEPTION == false))
+    if((stat == DATETIME_MATCH) && (RAISE_YEAR_OUT_OF_BOUND_EXCEPTION == false))
       {       
 	/* Set sign of year. */
 	if(dtObj.sign_of_year == '$')
@@ -1005,14 +1011,14 @@ get_date_time(const char* buffer, struct iso8601_datetime* datetimeObj, struct i
 	  }
 
 	/* Set rest. */
-	datetimeObj->day = dtObj.day;               
-	datetimeObj->hour = dtObj.hour;
-	datetimeObj->minute = dtObj.minute;
-	datetimeObj->second = dtObj.second;
-	datetimeObj->ms = dtObj.ms;
+	datetimeObj->day 	= dtObj.day;               
+	datetimeObj->hour 	= dtObj.hour;
+	datetimeObj->minute 	= dtObj.minute;
+	datetimeObj->second 	= dtObj.second;
+	datetimeObj->ms 	= dtObj.ms;
 	datetimeObj->timeZoneOffSet = dtObj.timeZoneOffSet;
       }               
-    else if  ((stat == DURATION_MATCH) && (RAISE_OUT_OF_BOUND_EXCEPTION == false))
+    else if((stat == DURATION_MATCH) && (RAISE_YEAR_OUT_OF_BOUND_EXCEPTION == false))
       {
 	/* Set sign of duration. */
 	if (duObj.sign == '$')
@@ -1074,21 +1080,19 @@ verify_string_duration(const char* test_string, struct iso8601_duration* dummy_i
 struct iso8601_datetime* 
 new_iso8601_datetime( char _sign_of_year, int64_t _year, int _month, int _day, int _hour, int _minute, int _second, int _ms, char _timeZoneOffSet )
   {
-    struct iso8601_datetime* isoDtObj = NULL;
-    isoDtObj = (struct iso8601_datetime*)calloc(1,sizeof(struct iso8601_datetime));
+    struct iso8601_datetime* isoDtObj = (struct iso8601_datetime*)calloc(1,sizeof(struct iso8601_datetime));
     if (isoDtObj == NULL)
-	    return NULL;
+      return NULL;
 
-
-    isoDtObj->sign_of_year = _sign_of_year;
-    isoDtObj->year = _year;
-    isoDtObj->month = _month;
-    isoDtObj->day = _day;
-    isoDtObj->hour = _hour;
-    isoDtObj->minute = _minute;
-    isoDtObj->second = _second;
-    isoDtObj->ms = _ms;
-    isoDtObj->timeZoneOffSet = _timeZoneOffSet;
+    isoDtObj->sign_of_year 	= _sign_of_year;
+    isoDtObj->year 		= _year;
+    isoDtObj->month 		= _month;
+    isoDtObj->day 		= _day;
+    isoDtObj->hour 		= _hour;
+    isoDtObj->minute 		= _minute;
+    isoDtObj->second 		= _second;
+    isoDtObj->ms 		= _ms;
+    isoDtObj->timeZoneOffSet 	= _timeZoneOffSet;
 
     return isoDtObj;
   }
@@ -1107,19 +1111,18 @@ deallocate_iso8601_datetime(struct iso8601_datetime* iso8601_datetimeObj)
 struct iso8601_duration* 
 new_iso8601_duration( char _sign, int64_t _year, int _month, int _day, int _hour, int _minute, int _second, int _ms )
   {
-    struct iso8601_duration* isoDObj = NULL;
-    isoDObj = (struct iso8601_duration*)calloc(1,sizeof(struct iso8601_duration));
+    struct iso8601_duration* isoDObj = (struct iso8601_duration*)calloc(1,sizeof(struct iso8601_duration));
     if (isoDObj == NULL)
-	    return NULL;
+      return NULL;
 
-    isoDObj->sign = _sign;
-    isoDObj->year = _year;
-    isoDObj->month = _month;
-    isoDObj->day = _day;
-    isoDObj->hour = _hour;
-    isoDObj->minute = _minute;
-    isoDObj->second = _second;
-    isoDObj->ms = _ms;
+    isoDObj->sign 	= _sign;
+    isoDObj->year 	= _year;
+    isoDObj->month 	= _month;
+    isoDObj->day 	= _day;
+    isoDObj->hour 	= _hour;
+    isoDObj->minute 	= _minute;
+    isoDObj->second 	= _second;
+    isoDObj->ms 	= _ms;
 
     return isoDObj;
   }

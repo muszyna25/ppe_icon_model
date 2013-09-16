@@ -32,23 +32,47 @@
 #ifndef _MTIME_CALENDAR_H
 #define _MTIME_CALENDAR_H
 
-///provides a string length for toString.
-#define MAX_CALENDAR_STR_LEN 32
+
+#define NO_OF_MS_IN_A_DAY 86400000
+#define NO_OF_MS_IN_HALF_DAY 43200000
+#define NO_OF_MS_IN_A_HOUR 3600000
+#define NO_OF_MS_IN_A_MINUTE 60000
+#define NO_OF_MS_IN_A_SECOND 1000
+
+#define NO_OF_DAYS_IN_A_MONTH_FOR_CAL_TYPE360 30
+#define NO_OF_MONTHS_IN_A_YEAR 12
+#define NO_OF_HOURS_IN_A_DAY 24
+
+#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE360 360
+#define NO_OF_DAYS_IN_A_YEAR_FOR_CAL_TYPE365 365
+#define NO_OF_DAYS_IN_A_LEAP_YEAR 366
 
 #define YEAR_UPPER_BOUND 2147483647
 #define YEAR_LOWER_BOUND -2147483648
 
+#define POSIXSTRING_DAY_LOWER_BOUND 15
+#define POSIXSTRING_MONTH_LOWER_BOUND 10
+#define POSIXSTRING_YEAR_LOWER_BOUND 1582
+#define POSIXSTRING_YEAR_UPPER_BOUND 9999
+
+
+///provides a string length for toString.
+#define MAX_CALENDAR_STR_LEN 32
+
+
 struct _datetime;
 struct _julianday;
 
-extern const int nDaysNonLeap[13];
-extern const int nDaysLeap[13]; 
-extern const int month_days_leapyear[];
-extern const int month_days_365[];
-extern const int month_days_360[];
-extern const int month_specific_delta_in_months_leapyear[12][13];
-extern const int month_specific_delta_in_months_365[12][13];
-extern const int month_specific_delta_in_months_360[12][13];
+extern const int nofDaysAfterARGMonthsInLeapYear[13];
+extern const int nofDaysAfterARGMonthsInNonLeapYear[13];
+
+extern const int nofDaysInARGMonthInLeapYear[];
+extern const int nofDaysInARGMonthIn365DayYear[];
+extern const int nofDaysInARGMonthIn360DayYear[];
+
+extern const int monthSpecificDeltaInMonthsLeapyear[12][13];
+extern const int monthSpecificDeltaInMonths365[12][13];
+extern const int monthSpecificDeltaInMonths360[12][13];
 
 typedef enum
 {

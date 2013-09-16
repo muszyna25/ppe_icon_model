@@ -96,6 +96,18 @@ elementwiseScalarMultiplyTimeDelta(struct _timedelta* base_td, int64_t lambda, s
 struct _timedelta*
 elementwiseAddTimeDeltatoTimeDelta(struct _timedelta* td1, struct _timedelta* td2,  struct _timedelta* td_return);
 
+char*
+getPTStringFromMS(int64_t _ms, char* PTstr);
+
+char*
+getPTStringFromSeconds(int64_t _s, char* PTstr);
+
+char*
+getPTStringFromMinutes(int64_t _m, char* PTstr);
+
+char*
+getPTStringFromHours(int64_t _h, char* PTstr);
+
 /*! \cond PRIVATE */
 bool
 testYearIsLeapYear(int64_t year);

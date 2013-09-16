@@ -10,6 +10,7 @@
  *
  */
 
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -20,7 +21,8 @@
 #include"mtime_iso8601.h"
 #include"mtime_datetime.h"
 
-// Upto MilliSecond resolution supported.
+/* Upto MilliSecond resolution supported. */
+
 
 /**
  * @brief Construct new Time using an ISO 8601 conforming string.
@@ -31,15 +33,16 @@
  * @return t
  *         A pointer to a filled Time. 
  */
+
 struct _time*
 newTime(const char* ts)
 {
-  if (ts != NULL )
+  if ((ts != NULL) && (getCalendarType()))
     {
       /* Convert ts to dts by appending dummy Date 0-01-01 for testing with verify_string_datetime(). */
       char* dts = (char*)calloc(MAX_DATETIME_STR_LEN,sizeof(char));
       if (dts == NULL )
-        return NULL ;
+        return NULL;
 
       strcpy(dts, "0-01-01");
       strncat(dts, ts, MAX_DATETIME_STR_LEN - 8);
@@ -52,12 +55,14 @@ newTime(const char* ts)
           return NULL ;
         }
 
+
       /* Verify ISO 8601 compliance. */
       if (verify_string_datetime(dts, isoDt) != DATETIME_MATCH)
         {
           free(dts);
           dts = NULL;
           deallocate_iso8601_datetime(isoDt);
+	  isoDt = NULL;
           return NULL ;
         }
 
@@ -67,6 +72,7 @@ newTime(const char* ts)
           free(dts);
           dts = NULL;
           deallocate_iso8601_datetime(isoDt);
+	  isoDt = NULL;
           return NULL ;
         }
 
@@ -85,6 +91,7 @@ newTime(const char* ts)
   else
     return NULL ;
 }
+
 
 /**
  * @brief Construct new Time using 'raw' numerical values.
@@ -107,9 +114,7 @@ newRawTime(int _hour, int _minute, int _second, int _ms)
 {
   char* ts = (char*)calloc(MAX_TIME_STR_LEN,sizeof(char));
   if (ts == NULL )
-    {
-      return NULL ;
-    }
+    return NULL ;
 
   snprintf(ts, MAX_TIME_STR_LEN, "%02d:%02d:%02d.%03d", _hour, _minute, _second, _ms);
 
@@ -132,6 +137,7 @@ newRawTime(int _hour, int _minute, int _second, int _ms)
  * @return _t
  *         A pointer to an initialized Time object. 
  */
+
 struct _time*
 constructAndCopyTime(struct _time* t)
 {
@@ -148,10 +154,11 @@ constructAndCopyTime(struct _time* t)
  * @param  t
  *         A pointer to struct _time. t is deallocated.
  */
+
 void
 deallocateTime(struct _time* t)
 {
-  if (t != NULL )
+  if ( t != NULL )
     {
       free(t);
       t = NULL;
@@ -159,9 +166,7 @@ deallocateTime(struct _time* t)
 }
 
 
-/*
- * Internal and not doxyfied.
- *
+/**
  * @brief COPY a time object.
  *
  * Routine replaceTime copies the contents of source Time into a Destination Time object.
@@ -175,21 +180,21 @@ deallocateTime(struct _time* t)
  * @return tdest
  *         A pointer to 'copied' time Object.
  */
+
 struct _time*
 replaceTime(struct _time* tsrc, struct _time* tdest)
 {
   if ((tdest != NULL )&& (tsrc != NULL) ){
+
   tdest->hour = tsrc->hour;
   tdest->minute = tsrc->minute;
   tdest->second = tsrc->second;
   tdest->ms = tsrc->ms;
 
   return tdest;
-}
-else
-{
-  return NULL;
-}
+  }
+  else
+    return NULL;
 }
 
 
@@ -214,6 +219,7 @@ timeToString(struct _time* t, char* toStr)
   if ((t != NULL )&& ( toStr != NULL ) )
   {
     memset(toStr,'\0',MAX_TIME_STR_LEN);
+
     snprintf(toStr,MAX_TIME_STR_LEN,"%02d:%02d:%02d.%03dZ", t->hour, t->minute, t->second, t->ms);
 
     return toStr;
@@ -221,7 +227,6 @@ timeToString(struct _time* t, char* toStr)
   else 
     return NULL;
 }
-
 
 
 /**
@@ -256,4 +261,3 @@ timeToPosixString(struct _time* t, char* toStr)
   else
     return NULL;
 }
-

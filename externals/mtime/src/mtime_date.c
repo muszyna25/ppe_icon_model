@@ -7,7 +7,6 @@
  *
  * @author Luis Kornblueh, Rahul Sinha. MPIM.
  * @date March 2013
- *
  */
 
 #include <stdio.h>
@@ -26,17 +25,14 @@
 #include "mtime_datetime.h"
 #include "mtime_iso8601.h"
 
+/* MIN allowed year : -2147483648
+   MAX allowed year :  2147483647 */
 
-#define NIXTYPESTRING_DAY_LOWER_BOUND 15
-#define NIXTYPESTRING_MONTH_LOWER_BOUND 10
-#define NIXTYPESTRING_YEAR_LOWER_BOUND 1582
-#define NIXTYPESTRING_YEAR_UPPER_BOUND 9999
-
-// MIN allowed year : -2147483648
-// MAX allowed year :  2147483647
 
 /**
- * @brief Construct new Date using an ISO 8601 conforming string.
+ * @brief Construct new Date using an ISO 8601 conforming string. 
+ *
+ * MAX allowed year = 2147483647 and MIN allowed year = -2147483648.
  *
  * @param  ds
  *         A pointer to char. The string should contain parameters with which Date object is to be created.
@@ -48,11 +44,11 @@
 struct _date *
 newDate(const char* ds)
 {
-  if (ds != NULL )
+  if ((ds != NULL) && (getCalendarType()))
     {
       /* Intialize a dummy ISO8601 object. */
       struct iso8601_datetime* isoDt = new_iso8601_datetime('+', 0, 0, 0, 0, 0, 0, 0, 'Z');
-      if (isoDt == NULL )
+      if (isoDt == NULL)
         return NULL ;
 
       /* Check ISO8601 compliance. */
@@ -82,8 +78,11 @@ newDate(const char* ds)
     return NULL ;
 }
 
+
 /**
  * @brief Construct new Date using 'raw' numerical values.
+ *
+ * MAX allowed year = 2147483647 and MIN allowed year = -2147483648.
  *
  * @param  _year
  *         An "int64_t" value denoting the year part of Date. 
@@ -118,7 +117,6 @@ newRawDate(int64_t _year, int _month, int _day)
 }
 
 
-
 /**
  * @brief Copy the values and construct a new date.
  *
@@ -139,7 +137,6 @@ constructAndCopyDate(struct _date* d)
 }
 
 
-
 /**
  * @brief Destructor of Date. Free the Date object.
  *
@@ -157,8 +154,9 @@ deallocateDate(struct _date* d)
     }
 }
 
+
 /*
- * Internal and not doxyfied.
+ * NOTE: Internal and not doxyfied.
  *
  * @brief Copy the contents of Date into a DateTime object.
  * 
@@ -181,23 +179,25 @@ struct _datetime *
 convertDateToDateTime(struct _date* d, struct _datetime* dt_return)
 {
   if ((d != NULL) && (dt_return != NULL)){
-  dt_return->date.year = d->year;
-  dt_return->date.month = d->month;
-  dt_return->date.day = d->day;
 
-  dt_return->time.hour = 0;
-  dt_return->time.minute = 0;
-  dt_return->time.second = 0;
-  dt_return->time.ms = 0;
+    dt_return->date.year 	= d->year;
+    dt_return->date.month 	= d->month;
+    dt_return->date.day 	= d->day;
 
-  return dt_return;
-}
-else
-return NULL;
+    /* Add dummy time. */
+    dt_return->time.hour 	= 0;
+    dt_return->time.minute 	= 0;
+    dt_return->time.second 	= 0;
+    dt_return->time.ms 		= 0;
+
+    return dt_return;
+  }
+  else
+    return NULL;
 }
 
 /*
- * Internal and not doxyfied. 
+ * Note: Internal and not doxyfied. 
  *
  * @brief Copy the contents of DateTime into a Date object.
  *
@@ -222,20 +222,20 @@ struct _date *
 convertDateTimeToDate(struct _datetime* dt, struct _date* d_return)
 {
   if ((dt != NULL) && (d_return != NULL)){
-  /* Copy Date elements. Discard Time elements. */
-  d_return->year = dt->date.year;
-  d_return->month = dt->date.month;
-  d_return->day = dt->date.day;
 
-  return d_return;
-}
-else
-return NULL;
+    /* Copy Date elements. Discard Time elements. */
+    d_return->year = dt->date.year;
+    d_return->month = dt->date.month;
+    d_return->day = dt->date.day;
+
+    return d_return;
+  }
+  else
+    return NULL;
 }
 
-/*
- * Internal and not doxyfied.
- *
+
+/**
  * @brief Compare two dates and return (d1 > d2) OR (d1 = d2) OR (d1 < d2).
  *
  * @param  d1
@@ -252,53 +252,54 @@ compare_return_val
 compareDate(struct _date* d1, struct _date* d2)
 {
   if ((d1 != NULL )&& (d2 != NULL) ){
-  compare_return_val boolean = compare_error;
 
-  if (d1->year == d2->year)
-    {
-      if (d1->month == d2->month)
-        {
-          if (d1->day == d2->day)
-            {
-              boolean = equal_to;
-            }
-          else if (d1->day > d2->day)
-            {
-              boolean = greater_than;
-            }
-          else
-            {
-              boolean = less_than;
-            }
-        }
-      else if (d1->month > d2->month)
-        {
-          boolean = greater_than;
-        }
-      else
-        {
-          boolean = less_than;
-        }
+    /* Initialize */
+    compare_return_val boolean = compare_error;
 
-    }
-  else if (d1->year > d2->year)
-    {
-      boolean = greater_than;
-    }
+    if (d1->year == d2->year)
+      {
+        if (d1->month == d2->month)
+	  {
+	    if (d1->day == d2->day)
+	      {
+	        boolean = equal_to;
+	      }
+	    else if (d1->day > d2->day)
+	      {
+	        boolean = greater_than;
+	      }
+	    else
+	      {
+	        boolean = less_than;
+	      }
+	  }
+        else if (d1->month > d2->month)
+	  {
+	    boolean = greater_than;
+	  }
+        else
+	  {
+	    boolean = less_than;
+  	  }
+
+      }
+    else if (d1->year > d2->year)
+      {
+        boolean = greater_than;
+      }
+    else
+      {
+        boolean = less_than;
+      }
+
+    return boolean;
+  }
   else
-    {
-      boolean = less_than;
-    }
-
-  return boolean;
-}
-else
-return compare_error;
+    return compare_error;
 }
 
-/*
- * Internal and not doxyfied.
- *
+
+/**
  * @brief COPY a Date object.
  *
  * Routine replaceDate copies the contents of source Date into a Destination Date object.
@@ -317,15 +318,18 @@ struct _date*
 replaceDate(struct _date* dsrc, struct _date* ddest)
 {
   if ((ddest != NULL )&& ( dsrc!=NULL ) ){
-  ddest->year = dsrc->year;
-  ddest->month = dsrc->month;
-  ddest->day = dsrc->day;
 
-  return ddest;
+    /* Copy. */
+    ddest->year = dsrc->year;
+    ddest->month = dsrc->month;
+    ddest->day = dsrc->day;
+
+    return ddest;
+  }
+  else
+    return NULL;
 }
-else
-return NULL;
-}
+
 
 /**
  * @brief Get Date as a string.
@@ -341,24 +345,26 @@ return NULL;
  * @return toStr
  *         A pointer to the string containing date.
  */
+
 char*
 dateToString(struct _date* d, char* toStr)
 {
   if ((d != NULL )&& ( toStr!=NULL ) ){
-  memset(toStr,'\0',MAX_DATE_STR_LEN);
-  snprintf(toStr,MAX_DATE_STR_LEN,"%" PRIi64 "-%02d-%02d", d->year, d->month, d->day);
 
-  return toStr;
+    memset(toStr,'\0',MAX_DATE_STR_LEN);
+    snprintf(toStr,MAX_DATE_STR_LEN,"%" PRIi64 "-%02d-%02d", d->year, d->month, d->day);
+
+    return toStr;
+  }
+  else
+    return NULL;
 }
-else
-return NULL;
-}
-
-
 
 
 /**
  * @brief Get Date in 'struct tm' format and return as a string.
+ *
+ * Only dates between and including 1582-10-15 TO 9999-12-31 supported.
  *
  * @param  d
  *         A pointer to struct _date. The date to be converted to string.
@@ -373,21 +379,25 @@ return NULL;
 char *
 dateToPosixString(struct _date* d, char* toStr)
 {
-  if ((d != NULL )&& ( toStr!=NULL ) )
-  {
+  if ((d != NULL )&& ( toStr!=NULL ) ){
+
     struct tm tm_info;
 
-    /*Range check. Return with NULL indicating Error*/
-    if ( d->year < NIXTYPESTRING_YEAR_LOWER_BOUND )
+    /* Range check. Return with NULL indicating Error */
+    if ( d->year < POSIXSTRING_YEAR_LOWER_BOUND )
       {
         return NULL;
       }
-    else if ( d->year > NIXTYPESTRING_YEAR_UPPER_BOUND )
-      {
-        return NULL;
-      }
-    else if ( ((d->year == NIXTYPESTRING_YEAR_LOWER_BOUND) && (d->month < NIXTYPESTRING_MONTH_LOWER_BOUND)) ||  ((d->year == NIXTYPESTRING_YEAR_LOWER_BOUND) && (d->month == NIXTYPESTRING_MONTH_LOWER_BOUND) && (d->day < NIXTYPESTRING_DAY_LOWER_BOUND) ) )
+    else if ( 
+		((d->year == POSIXSTRING_YEAR_LOWER_BOUND) && (d->month < POSIXSTRING_MONTH_LOWER_BOUND)) 
+		||  
+		((d->year == POSIXSTRING_YEAR_LOWER_BOUND) && (d->month == POSIXSTRING_MONTH_LOWER_BOUND) && (d->day < POSIXSTRING_DAY_LOWER_BOUND) ) 
+	    )
       { 
+        return NULL;
+      }
+    else if ( d->year > POSIXSTRING_YEAR_UPPER_BOUND )
+      {
         return NULL;
       }
 
@@ -406,6 +416,3 @@ dateToPosixString(struct _date* d, char* toStr)
   else
     return NULL;
 }
-
-
-
