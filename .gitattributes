@@ -1331,8 +1331,6 @@ src/configure_model/mo_name_list_output_config.f90 -text
 src/configure_model/mo_nh_pzlev_config.f90 -text
 src/configure_model/mo_nml_crosscheck.f90 -text
 src/configure_model/mo_nonhydrostatic_config.f90 -text
-src/configure_model/mo_ocean_config.f90 -text
-src/configure_model/mo_ocean_nml_crosscheck.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
@@ -1474,6 +1472,8 @@ src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
+src/ocean/config/mo_ocean_config.f90 -text
+src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/dynamics/mo_hydro_ocean_run.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping_mimetic.f90 -text
