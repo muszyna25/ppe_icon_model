@@ -656,15 +656,17 @@ CONTAINS
         CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
 
 
-!      CASE(9)  ! Kessler scheme (warm rain scheme)  
-!        ntracer = 3
-!        iqv     = 1     !> water vapour
-!        iqc     = 2     !! cloud water
-!        iqr     = 3     !! rain water
-!        iqtvar  = 4     !! qt variance
-!        iqt     = 4     !! start index of other tracers than hydrometeors
-!        nqtendphy = 1   !! number of water species for which convective and turbulent 
-!                        !! tendencies are stored
+      CASE(9)  ! Kessler scheme (warm rain scheme)  
+        ntracer = 5   ! 3 would in principle be sufficient, but the physics-dynamics interface produces a segfault otherwise
+        iqv    = 1     !> water vapour
+        iqc    = 2     !! cloud water
+        iqi    = 3     !! ice (actually unused, but the code doesn't work otherwise)
+        iqr    = 4     !! rain water
+        iqs    = 5     !! snow (actually unused, but the code doesn't work otherwise)
+        iqtvar  = 6     !! qt variance
+        iqt     = 6     !! start index of other tracers than hydrometeors
+        nqtendphy = 3   !! number of water species for which convective and turbulent 
+                        !! tendencies are stored
 
       END SELECT
 !CK<  
