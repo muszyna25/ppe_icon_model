@@ -317,10 +317,6 @@ src/atm_dyn_iconam/*.settings
 src/atm_dyn_iconam/.cproject
 src/atm_dyn_iconam/.project
 src/atm_dyn_iconam/icon-dev
-src/atm_oce_lnd_interface/*.settings
-src/atm_oce_lnd_interface/.cproject
-src/atm_oce_lnd_interface/.project
-src/atm_oce_lnd_interface/icon-dev
 src/atm_phy_echam/*.settings
 src/atm_phy_echam/.cproject
 src/atm_phy_echam/.project
@@ -386,6 +382,10 @@ src/namelists/*.settings
 src/namelists/.cproject
 src/namelists/.project
 src/namelists/icon-dev
+src/ocean/atm_oce_lnd_interface/*.settings
+src/ocean/atm_oce_lnd_interface/.cproject
+src/ocean/atm_oce_lnd_interface/.project
+src/ocean/atm_oce_lnd_interface/icon-dev
 src/ocean/dynamics/*.settings
 src/ocean/dynamics/.cproject
 src/ocean/dynamics/.project
