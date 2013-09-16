@@ -137,7 +137,7 @@ CONTAINS
 
     CALL update_delp_e( p_patch, p_int_state, p_delp_mc_now, z_delp_me_now)
 
-    nblks_e = p_patch%nblks_int_e
+    nblks_e = p_patch%nblks_e
     jbs     = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
@@ -226,7 +226,7 @@ CONTAINS
       CALL finish('prepare_tracer','ALLOCATE z_aux_me failed')
     ENDIF
     
-    nblks_e  = p_patch%nblks_int_e
+    nblks_e  = p_patch%nblks_e
     z1ma     = 1._wp - palpha
 
     ! Diagnose pressure-related quantities of time step n, including
@@ -430,7 +430,7 @@ CONTAINS
 
     IF (timers_level > 1) CALL timer_start(timer_prep_phy)
     
-    nblks_c   = p_patch%nblks_int_c
+    nblks_c   = p_patch%nblks_c
 
     ! Pressure at half- and full-levels;
     ! auxiliary variables %delp_c, %rdelp_c, %lnp_ic, %rdalpha_c
@@ -503,7 +503,7 @@ CONTAINS
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
     !------------
-    nblks_c = p_patch%nblks_int_c
+    nblks_c = p_patch%nblks_c
 
     ! Pressure at half- and full-levels;
     ! auxiliary variables %delp_c, %rdelp_c, %lnp_ic, %rdalpha_c

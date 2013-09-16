@@ -45,6 +45,8 @@ MODULE mo_ls_forcing_nml
   USE mo_run_config,          ONLY: ltestcase
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_grid_config,         ONLY: is_plane_torus
+  USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -84,7 +86,7 @@ CONTAINS
   SUBROUTINE read_ls_forcing_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
-    INTEGER :: istat, funit, jg
+    INTEGER :: istat, funit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_ls_forcing_nml: read_ls_forcing_namelist'
@@ -117,9 +119,11 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('ls_forcing_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), ls_forcing_nml)   ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, ls_forcing_nml)
+      READ (nnml, ls_forcing_nml, iostat=istat)                           ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), ls_forcing_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -134,6 +138,9 @@ CONTAINS
     !Check for testcases with large-scale forcing
     IF(is_rad_forcing .AND. atm_phy_nwp_config(1)%inwp_radiation>0) &
         CALL finish(TRIM(routine),'both inwp_rad and rad_forcing are turned on!')
+
+    IF(is_geowind .AND. .NOT.is_plane_torus) & 
+         CALL finish(TRIM(routine),'is_geowind is only applicable if is_plane_torus is turned on!')  
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

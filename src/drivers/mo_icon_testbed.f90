@@ -39,14 +39,17 @@ MODULE mo_icon_testbed
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
     & test_jitter_model, test_halo_communication,test_radiation_communication,     &
-    & test_netcdf_read_model
+    & test_netcdf_read_model, testbed_ocean_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
+  USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
+
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_test_coupler,        ONLY: test_coupler
   USE mo_test_communication,  ONLY: test_communication
   USE mo_test_jitter,         ONLY: test_jitter
   USE mo_test_netcdf_read,    ONLY: test_netcdf_read
-
+#endif
 !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -74,6 +77,12 @@ CONTAINS
       ! do nothing
       RETURN
 
+    CASE(testbed_ocean_model)
+      ! do nothing
+      CALL test_ocean_performance(testbed_namelist_filename,shr_namelist_filename)
+
+
+#ifndef __ICON_OCEAN_ONLY__
     CASE(test_coupler_model)
       CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
 
@@ -85,6 +94,7 @@ CONTAINS
 
     CASE(test_netcdf_read_model)
       CALL test_netcdf_read(testbed_namelist_filename,shr_namelist_filename)
+#endif
 
     CASE default
       CALL finish(method_name, "Unrecognized testbed_model")

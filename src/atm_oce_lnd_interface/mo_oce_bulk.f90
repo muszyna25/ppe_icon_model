@@ -145,9 +145,8 @@ CONTAINS
     INTEGER  :: jc, jb, i, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
-    !REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     ! Local declarations for coupling:
@@ -576,6 +575,7 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
+        CALL dbg_print('UpdSfc: ice albedo (bef. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -597,6 +597,7 @@ CONTAINS
             &   Qatm%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
+        CALL dbg_print('UpdSfc: ice albedo (aft. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         ! Ocean albedo model
         Qatm%albvisdirw = albedoW
@@ -616,13 +617,26 @@ CONTAINS
         !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
+        CALL dbg_print('UpdSfc: hi before slow'    ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. before slow' ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
         !   - no energy balance correction
         !   - number of ice classes currently kice=1 - sum of classes must be limited
         !   - only sea ice, no snow is considered
-
         IF (seaice_limit < 0.999999_wp) THEN
           z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
           DO jb = all_cells%start_block, all_cells%end_block
@@ -634,13 +648,11 @@ CONTAINS
         END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: hi aft. limitter'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. aft. limitter'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum aft. limitter',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 aft. limitter'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 aft. limitter'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
       ELSE   !  no sea ice
@@ -699,7 +711,6 @@ CONTAINS
       CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
@@ -952,8 +963,8 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
+      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
@@ -1257,8 +1268,8 @@ CONTAINS
 
     INTEGER :: jc, jb, i
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_evap        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_Q_freshwater(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1389,7 +1400,7 @@ CONTAINS
                                      !=2.0: double gyre
                                      !=n.0: n-gyre
   REAL(wp) :: y_length               !basin extension in y direction in degrees
-  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
@@ -1728,7 +1739,7 @@ CONTAINS
   SUBROUTINE balance_elevation (p_patch_3D, h_old)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
-    REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(INOUT)                 :: h_old(1:nproma,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     TYPE(t_patch), POINTER                  :: p_patch
     TYPE(t_subset_range), POINTER           :: all_cells
@@ -1745,7 +1756,8 @@ CONTAINS
     glob_slev = global_sum_array(p_patch%cells%area(:,:)*h_old(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
     corr_slev = glob_slev/ocean_are
 
-    IF(my_process_is_stdio()) &
+    idt_src=2
+    IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
       & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
 
     DO jb = all_cells%start_block, all_cells%end_block
@@ -1789,8 +1801,8 @@ CONTAINS
     INTEGER :: ncid, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
-    REAL(wp):: z_flux(nproma,p_patch%nblks_c,iforc_len)  ! set length is iforc_len, 3rd dimension
-    REAL(wp):: z_c   (nproma,iforc_len,p_patch%nblks_c)  ! 2nd dimension is iforc_len
+    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,iforc_len)  ! set length is iforc_len, 3rd dimension
+    REAL(wp):: z_c   (nproma,iforc_len,p_patch%alloc_cell_blocks)  ! 2nd dimension is iforc_len
     !TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------

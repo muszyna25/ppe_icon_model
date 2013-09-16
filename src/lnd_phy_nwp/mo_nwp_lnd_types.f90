@@ -70,7 +70,11 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_lnd_prog
 
-    REAL(wp), POINTER :: &
+    REAL(wp), POINTER             &
+#ifdef _CRAYFTN
+    , CONTIGUOUS                  &
+#endif
+    &  ::                         &
     &  t_snow_t       (:,:,:)   , & ! temperature of the snow-surface               (  K  )
     &  t_snow_mult_t  (:,:,:,:) , & ! temperature of snow                           (  K  )
     &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
@@ -114,12 +118,27 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_wtr_prog
 
-    REAL(wp), POINTER :: &
-    &  t_ice        (:,:)   , & ! temperature of the sea ice          (  K  )
-    &  h_ice        (:,:)   , & ! depth of the sea ice                (  m  )
-    &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice  (  K  )
-    &  h_snow_si    (:,:)       ! depth of the snow on sea ice        (  m  )
-
+    REAL(wp), POINTER         &
+#ifdef _CRAYFTN
+    , CONTIGUOUS              &
+#endif
+    &  ::                     &
+    &  t_ice        (:,:)   , & ! temperature of the sea ice             (  K  )
+    &  h_ice        (:,:)   , & ! depth of the sea ice                   (  m  )
+    &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice     (  K  )
+    &  h_snow_si    (:,:)   , & ! depth of the snow on sea ice           (  m  )
+    &  t_snow_lk    (:,:)   , & ! temperature of snow on lake ice        (  K  )
+    &  h_snow_lk    (:,:)   , & ! depth of snow on lake ice              (  K  )
+    &  t_mnw_lk     (:,:)   , & ! mean temperature of the water column   (  K  )
+    &  t_wml_lk     (:,:)   , & ! temperature of the mixed-layer         (  K  )
+    &  h_ml_lk      (:,:)   , & ! thickness of the mixed-layer           (  m  )
+    &  t_bot_lk     (:,:)   , & ! temperature at the water-bottom sediment interface  (  K  ) 
+    &  c_t_lk       (:,:)   , & ! shape factor with respect to the       (  -  )
+                                ! temperature profile in lake thermocline
+    &  t_b1_lk      (:,:)   , & ! temperature at the bottom of the       (  K  ) 
+                                ! upper layer of the sediments 
+    &  h_b1_lk      (:,:)       ! thickness of the upper layer of the    (  K  )
+                                ! sediments
   END TYPE t_wtr_prog
 
   !
@@ -127,7 +146,11 @@ MODULE mo_nwp_lnd_types
   !
   TYPE t_lnd_diag
 
-    REAL(wp), POINTER ::   &
+    REAL(wp), POINTER         &
+#ifdef _CRAYFTN
+    , CONTIGUOUS              &
+#endif
+    &  ::                     &
     &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
     &  t_snow       (:,:)   , & ! temperature of the snow-surface               (  K  )
     &  t_snow_mult  (:,:,:) , & ! temperature of snow                           (  K  )

@@ -95,7 +95,7 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
-    INTEGER :: model_no, jg, ierr
+    INTEGER :: model_no, jg
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------

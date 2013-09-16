@@ -795,11 +795,11 @@ CONTAINS
     INTEGER, INTENT(in) :: it1, timer_file_id, &
                            nd              ! nesting depth (determines the print indention)
     INTEGER :: tid
-#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(_OPENMP)
     INTEGER :: itid
 #endif
     ! order omp:
-#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(_OPENMP)
 !$OMP PARALLEL PRIVATE(itid,tid)
 !$OMP DO ORDERED
     DO itid = 1, omp_get_num_threads()
@@ -808,11 +808,9 @@ CONTAINS
       tid = 1
 #endif
 
-#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP ORDERED
-#endif
       CALL print_reportline(it1, timer_file_id, nd)
-#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(_OPENMP)
 !$OMP FLUSH
 !$OMP END ORDERED
     ENDDO
@@ -833,7 +831,7 @@ CONTAINS
     INTEGER             :: tid                  ! actual OMP thread ID
 
   !------------------------------------------------------------------------------------------------
-#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(_OPENMP)
     tid = omp_get_thread_num()
 #else
     tid = 0

@@ -331,7 +331,6 @@ USE data_runcontrol , ONLY :   &
 
 ! 3. controlling the physics
 ! --------------------------
-    itype_gscp,   & ! type of grid-scale precipitation physics
     itype_trvg,   & ! type of vegetation transpiration parameterization
     itype_evsl,   & ! type of parameterization of bare soil evaporation
     itype_tran,   & ! type of surface to atmospher transfer
@@ -404,8 +403,8 @@ USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m
 USE mo_phyparam_soil   
 !
 USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
-  &                              itype_gscp, itype_trvg, itype_evsl,     &
-  &                              itype_tran, itype_root, itype_heatcond, &
+  &                              itype_trvg, itype_evsl,         &
+  &                              itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, max_toplaydepth,itype_interception
 !
@@ -413,6 +412,8 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+USE mo_impl_constants,     ONLY: iedmf
+USE mo_data_turbdiff,      ONLY: itype_tran
 #endif
 
 
@@ -442,6 +443,11 @@ PUBLIC :: terra_multlay,terra_multlay_init
 
 #ifdef COSMO
 CHARACTER(132) :: message_text = ''
+
+!AD:Setting this identifier as global in this module
+!   was the only way for now. In case iedmf is redefined
+!   in mo_impl_constants, it should be chagned in here too
+INTEGER, PARAMETER :: iedmf   =  3
 #endif
 
 
@@ -488,6 +494,7 @@ END SUBROUTINE message
                   ke_soil, ke_snow , &
                   czmls            , & ! processing soil level structure 
                   inwp_turb        , & ! turbulence scheme number
+                  nclass_gscp      , & ! number of hydrometeor classes of grid scale microphysics
                   dt               , & ! time step
 !
                   soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
@@ -612,6 +619,8 @@ END SUBROUTINE message
   LOGICAL, INTENT(IN) :: ldiag_tg      ! if .TRUE., use tgcom to diagnose t_g and snow-cover fraction
   INTEGER (KIND=iintegers), INTENT(IN)  :: &
                   inwp_turb            ! turbulence scheme number
+  INTEGER (KIND=iintegers), INTENT(IN)  :: &
+                  nclass_gscp          ! number of hydrometeor classes of grid scale microphysics
   REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                   ! time step
 
@@ -1708,7 +1717,7 @@ END SUBROUTINE message
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
-        IF ( inwp_turb /= 3 ) THEN
+        IF ( inwp_turb /= iedmf ) THEN
           LIM: IF (ztchv(i) > ztchv_max(i)) THEN
             tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
 !           IF (ntstep > 10) THEN          ! control print only after initial adaptation
@@ -1758,7 +1767,7 @@ END SUBROUTINE message
         ! if no snow exists, reinitialize age indicator
         freshsnow(i) = 1.0_ireals
       ELSE
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zsnow_rate = prs_gsp(i)+prs_con(i)+prg_gsp(i) ! [kg/m**2 s]
         ELSE
           zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
@@ -2555,7 +2564,7 @@ END IF
         ! add grid scale and convective precipitation (and graupel, if present)
         ! to dew and rime
         zrr(i) = zrr(i) + prr_con(i) + prr_gsp(i)
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i)
         ELSE
           zrs(i) = zrs(i) + prs_con(i) + prs_gsp(i)
@@ -2666,7 +2675,7 @@ ELSE   IF (itype_interception == 2) THEN
 !       add grid scale and convective precipitation (and graupel, if present) to dew and rime
         zrr(i) = zdrr(i) + prr_con(i) + prr_gsp(i)
 
-        IF ( itype_gscp == 4 ) THEN
+        IF ( nclass_gscp >= 6 ) THEN
           zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i) + prg_gsp(i)
         ELSE
           zrs(i) = zrrs(i) + prs_con(i) + prs_gsp(i)
@@ -2724,6 +2733,8 @@ ELSE   IF (itype_interception == 2) THEN
         zwinstr(i)  = MAX(0.0_ireals, zwinstr(i))                 ! avoid negative values (security)
         zwinstr(i)  = MIN(zwinstr(i),zwimax(i))                 ! correction of interc. store due to runoff
         zdwidt(i)   = zdwidtt - zro_wi
+
+        zuv        = SQRT ( u(i)**2 + v(i)**2 )
 
 !       SNOW Interception Model (Roesch et al., 2001)
 ! Need forest_fraction 
@@ -4656,7 +4667,7 @@ ENDIF
 !
 !     c) new snow density is weighted average of existing and new snow
 !
-         IF ( itype_gscp == 4 ) THEN
+         IF ( nclass_gscp >= 6 ) THEN
            znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
                      *zdtdrhw,zepsi)
            rho_snow_new(i)  = ( zrho_snowe*w_snow_now(i) + &
@@ -4855,7 +4866,7 @@ ENDIF
 !       i=melt_list(ic) 
       DO i = istarts, iends
 
-	IF (t_snow_new(i) > 355._ireals) THEN
+        IF (t_snow_new(i) > 355._ireals) THEN
 !        IF (i == 182 .AND. soiltyp_subs(i).eq.3 .AND. plcov(i).GT.0.0499 .AND. plcov(i).LT.0.0501) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
@@ -4924,7 +4935,8 @@ ENDIF
 END SUBROUTINE terra_multlay
 
 
-SUBROUTINE terra_multlay_init (                &   
+SUBROUTINE terra_multlay_init (                & 
+                  is_coldstart, & ! coldstart initialization (TRUE/FALSE)  
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
                   iendpar,      & ! end index for computations in the parallel program
@@ -4963,6 +4975,8 @@ SUBROUTINE terra_multlay_init (                &
   IMPLICIT NONE
 
 
+  LOGICAL                 , INTENT(IN)  ::  &
+                  is_coldstart    ! coldstart initialization (TRUE/FALSE)
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
@@ -5340,55 +5354,16 @@ SUBROUTINE terra_multlay_init (                &
           ENDIF
 
           t_s_now(i) = t_so_now(i,0)
-          t_s_new(i) = t_so_new(i,0)
+          t_s_new(i) = t_so_now(i,0)
 
 !         Set level 1 to level 0 for t_so for every landpoint
           t_so_now(i,1) = t_so_now(i,0)
           t_so_new(i,1) = t_so_now(i,0)
+          t_so_new(i,0) = t_so_now(i,0)
 
 !        ENDIF    ! llandmask
     END DO
 
-
-!   Initialization of soil ice content
-!   ----------------------------------
-!   Generally the combination lmelt=.true., lemlt_var=.true. has to be used.
-!   lmelt_var=.false. (soil water freezing at 273.15K) should be used only
-!   for special investigations because at model start a partial frozen layer
-!   is only considered if the soil ice water content is read in from
-!   a pre run.
-!   ----------------------------------
-    IF (lmelt .AND. .NOT. lmelt_var) THEN
-      DO kso   = 1,ke_soil+1
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN             ! for land-points only
-              w_so_ice_now(i,kso) = 0.0_ireals
-              w_so_ice_new(i,kso) = 0.0_ireals
-
-              IF (t_so_now(i,kso) < t0_melt) THEN
-                w_so_ice_now(i,kso) = w_so_now(i,kso)
-                w_so_ice_new(i,kso) = w_so_now(i,kso)
-              END IF ! t_so(kso) < t0_melt
-!            END IF   ! land-points
-          END DO
-      END DO
-    END IF           ! lmelt .AND. .NOT. lmelt_var
-    IF(lmelt .AND. lmelt_var) THEN
-      DO kso   = 1,ke_soil+1
-          DO i = istarts, iends
-!            IF (llandmask(i)) THEN             ! for land-points only
-              IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN
-                zaa    = g*zpsis(i)/lh_f
-                zw_m(i)     = zporv(i)*zdzhs(kso)
-                zw_m(i)   = zw_m(i)*                                          &
-                  ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
-                w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
-                w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
-              END IF
-!            END IF   ! land-points
-          END DO
-      END DO
-    END IF           ! lmelt .AND. lmelt_var
 
 
 !   Initialization of snow density, if necessary
@@ -5481,9 +5456,52 @@ SUBROUTINE terra_multlay_init (                &
     ENDIF
 
 
-!   Initialization of the local array of the grid in snow
-!   -----------------------------------------------------
-    IF(lmulti_snow) THEN
+    IF ( is_coldstart ) THEN
+
+!     Initialization of soil ice content
+!     ----------------------------------
+!     Generally the combination lmelt=.true., lemlt_var=.true. has to be used.
+!     lmelt_var=.false. (soil water freezing at 273.15K) should be used only
+!     for special investigations because at model start a partial frozen layer
+!     is only considered if the soil ice water content is read in from
+!     a pre run.
+!     ----------------------------------
+      IF (lmelt .AND. .NOT. lmelt_var) THEN
+        DO kso   = 1,ke_soil+1
+          DO i = istarts, iends
+!            IF (llandmask(i)) THEN             ! for land-points only
+              w_so_ice_now(i,kso) = 0.0_ireals
+              w_so_ice_new(i,kso) = 0.0_ireals
+
+              IF (t_so_now(i,kso) < t0_melt) THEN
+                w_so_ice_now(i,kso) = w_so_now(i,kso)
+                w_so_ice_new(i,kso) = w_so_now(i,kso)
+              END IF ! t_so(kso) < t0_melt
+!            END IF   ! land-points
+          END DO
+        END DO
+      END IF           ! lmelt .AND. .NOT. lmelt_var
+      IF(lmelt .AND. lmelt_var) THEN
+        DO kso   = 1,ke_soil+1
+          DO i = istarts, iends
+!            IF (llandmask(i)) THEN             ! for land-points only
+              IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN
+                zaa    = g*zpsis(i)/lh_f
+                zw_m(i)     = zporv(i)*zdzhs(kso)
+                zw_m(i)   = zw_m(i)*                                          &
+                  ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+                w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+                w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+              END IF
+!            END IF   ! land-points
+          END DO
+        END DO
+      END IF           ! lmelt .AND. lmelt_var
+
+
+!     Initialization of the local array of the grid in snow
+!     -----------------------------------------------------
+      IF(lmulti_snow) THEN
         DO i = istarts, iends
 !          IF(llandmask(i)) THEN   ! for land-points only
             h_snow(i) = 0.0_ireals
@@ -5503,11 +5521,13 @@ SUBROUTINE terra_multlay_init (                &
             END DO
 !          ENDIF    ! llandmask
         END DO
-    ELSE
-      DO i = istarts, iends
-        h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
-      END DO
-    END IF
+      ELSE
+        DO i = istarts, iends
+          h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
+        END DO
+      END IF
+
+    ENDIF  ! is_coldstart
 
 !!$ ENDIF             ! ntstep = 0
 

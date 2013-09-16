@@ -598,12 +598,12 @@ CONTAINS
     p%cells%end_idx(1:max_rlcell,1:max_childdom)   = 0
     p%cells%end_idx(min_rlcell:0,1:max_childdom)   = p%ncells
 
-    ! Reorder cell index list according to refin_ctrl variable
-    ! (effective only if refined meshes exist)
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     k = 0
     irv = 0
     DO i = 1, p%ncells
-      IF (g%cells%refin_ctrl(i) == irv) THEN
+      IF (g%cells%refin_ctrl(i) <= irv) THEN
         k = k + 1
         list(k) = i
         p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),k)
@@ -612,31 +612,6 @@ CONTAINS
         p%cells%end_idx(irv,1:max_childdom) = k
       ENDIF
     ENDDO
-
-    DO icd = 1, n_childdom(1)
-      nest_id = child_id(1,icd)
-      DO irv = -1, min_rlcell_int, -1
-        DO i = 1, p%ncells
-          IF ((g%cells%refin_ctrl(i) == irv) .and. (g%cells%child_id(i) == nest_id)) THEN
-            k = k + 1
-            list(k) = i
-            p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),k)
-            p%cells%indlist(irv,2) = k
-            p%cells%start_idx(irv,icd) = MIN(p%cells%start_idx(irv,icd),k)
-            p%cells%end_idx(irv,icd) = k
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-
-    IF (n_childdom(1) > 1) THEN
-      DO icd = 1, n_childdom(1) -1
-        DO irv = min_rlcell, min_rlcell_int-1
-          p%cells%start_idx(irv,icd) = p%cells%end_idx(min_rlcell_int,icd) + 1
-          p%cells%end_idx(irv,icd)   = p%cells%end_idx(min_rlcell_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF (k /= p%ncells) CALL finish ('create_global_domain', &
       & 'Error in reordering global cell index list')
@@ -655,11 +630,12 @@ CONTAINS
     p%edges%end_idx(1:max_rledge,1:max_childdom) = 0
     p%edges%end_idx(min_rledge:0,1:max_childdom) = p%nedges
 
-    ! Reorder edge index list according to refin_ctrl variable
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     k = 0
     irv = 0
     DO i = 1, p%nedges
-      IF (g%edges%refin_ctrl(i) == irv) THEN
+      IF (g%edges%refin_ctrl(i) <= irv) THEN
         k = k + 1
         itmpe(k) = i
         p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),k)
@@ -668,31 +644,6 @@ CONTAINS
         p%edges%end_idx(irv,1:max_childdom) = k
       ENDIF
     ENDDO
-
-    DO icd = 1, n_childdom(1)
-      nest_id = child_id(1,icd)
-      DO irv = -1, min_rledge_int, -1
-        DO i = 1, p%nedges
-          IF ((g%edges%refin_ctrl(i) == irv) .and. (g%edges%child_id(i) == nest_id)) THEN
-            k = k + 1
-            itmpe(k) = i
-            p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),k)
-            p%edges%indlist(irv,2) = k
-            p%edges%start_idx(irv,icd) = MIN(p%edges%start_idx(irv,icd),k)
-            p%edges%end_idx(irv,icd) = k
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-
-    IF (n_childdom(1) > 1) THEN
-      DO icd = 1, n_childdom(1) -1
-        DO irv = min_rledge, min_rledge_int-1
-          p%edges%start_idx(irv,icd) = p%edges%end_idx(min_rledge_int,icd) + 1
-          p%edges%end_idx(irv,icd)   = p%edges%end_idx(min_rledge_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF (k /= p%nedges) CALL finish ('create_global_domain', &
       & 'Error in reordering global edge index list')
@@ -711,11 +662,12 @@ CONTAINS
     p%verts%end_idx(1:max_rlvert,1:max_childdom) = 0
     p%verts%end_idx(min_rlvert:0,1:max_childdom) = p%nverts
 
-    ! Reorder vertex index list according to refin_ctrl variable
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     k = 0
     irv = 0
     DO i = 1, p%nverts
-      IF (g%verts%refin_ctrl(i) == irv) THEN
+      IF (g%verts%refin_ctrl(i) <= irv) THEN
         k = k + 1
         itmpv(k) = i
         p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),k)
@@ -724,31 +676,6 @@ CONTAINS
         p%verts%end_idx(irv,1:max_childdom) = k
       ENDIF
     ENDDO
-
-    DO icd = 1, n_childdom(1)
-      nest_id = child_id(1,icd)
-      DO irv = -1, min_rlvert_int, -1
-        DO i = 1, p%nverts
-          IF ((g%verts%refin_ctrl(i) == irv) .and. (g%verts%child_id(i) == nest_id)) THEN
-            k = k + 1
-            itmpv(k) = i
-            p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),k)
-            p%verts%indlist(irv,2) = k
-            p%verts%start_idx(irv,icd) = MIN(p%verts%start_idx(irv,icd),k)
-            p%verts%end_idx(irv,icd) = k
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-
-    IF (n_childdom(1) > 1) THEN
-      DO icd = 1, n_childdom(1) -1
-        DO irv = min_rlvert, min_rlvert_int-1
-          p%verts%start_idx(irv,icd) = p%verts%end_idx(min_rlvert_int,icd) + 1
-          p%verts%end_idx(irv,icd)   = p%verts%end_idx(min_rlvert_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF (k /= p%nverts) CALL finish ('create_global_domain', &
       & 'Error in reordering global vertex index list')
@@ -1272,10 +1199,12 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     irv = 0
     DO ji = 1, p%nedges
       jj = itmpe(ji)
-      IF (g%edges%refin_ctrl(jj) == irv .OR. g%edges%refin_ctrl(jj) > max_rledge) THEN
+      IF (g%edges%refin_ctrl(jj) <= irv .OR. g%edges%refin_ctrl(jj) > max_rledge) THEN
         jj1 = jj1 + 1
         itmpe2(jj1) = jj
         p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),jj1)
@@ -1285,39 +1214,6 @@ CONTAINS
       ENDIF
     ENDDO
 
-    ! It might happen that there is no grid point with refin_ctrl=0
-    IF (jj1 == p%edges%end_idx(max_rledge,1)) THEN
-      p%edges%indlist(0,1) = p%edges%indlist(max_rledge,2) +1
-      p%edges%indlist(0,2) = p%edges%indlist(max_rledge,2)
-      p%edges%start_idx(0,1:max_childdom) = p%edges%end_idx(max_rledge,1) +1
-      p%edges%end_idx(0,1:max_childdom) = p%edges%end_idx(max_rledge,1)
-    ENDIF
-
-    DO icd = 1, n_childdom(idom)
-      nest_id = child_id(idom,icd)
-      DO irv = -1, min_rledge_int, -1
-        DO ji = 1, p%nedges
-          jj = itmpe(ji)
-          IF ((g%edges%refin_ctrl(jj) == irv) .and. (g%edges%child_id(jj) == nest_id)) THEN
-            jj1 = jj1 + 1
-            itmpe2(jj1) = jj
-            p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),jj1)
-            p%edges%indlist(irv,2) = jj1
-            p%edges%start_idx(irv,icd) = MIN(p%edges%start_idx(irv,icd),jj1)
-            p%edges%end_idx(irv,icd) = jj1
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-
-    IF (n_childdom(idom) > 1) THEN
-      DO icd = 1, n_childdom(idom) -1
-        DO irv = min_rledge, min_rledge_int-1
-          p%edges%start_idx(irv,icd) = p%edges%end_idx(min_rledge_int,icd) + 1
-          p%edges%end_idx(irv,icd)   = p%edges%end_idx(min_rledge_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF (jj1 /= p%nedges) CALL finish ('create_local_domain', &
       & 'Error in restructuring edge index list')
@@ -1409,10 +1305,12 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     irv = 0
     DO ji = 1, p%nverts
       jj = itmpv(ji)
-      IF (g%verts%refin_ctrl(jj) == irv .OR. g%verts%refin_ctrl(jj) > max_rlvert) THEN
+      IF (g%verts%refin_ctrl(jj) <= irv .OR. g%verts%refin_ctrl(jj) > max_rlvert) THEN
         jj1 = jj1 + 1
         itmpv2(jj1) = jj
         p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),jj1)
@@ -1422,39 +1320,6 @@ CONTAINS
       ENDIF
     ENDDO
 
-    ! It might happen that there is no grid point with refin_ctrl=0
-    IF (jj1 == p%verts%end_idx(max_rlvert,1)) THEN
-      p%verts%indlist(0,1) = p%verts%indlist(max_rlvert,2) +1
-      p%verts%indlist(0,2) = p%verts%indlist(max_rlvert,2)
-      p%verts%start_idx(0,1:max_childdom) = p%verts%end_idx(max_rlvert,1) +1
-      p%verts%end_idx(0,1:max_childdom) = p%verts%end_idx(max_rlvert,1)
-    ENDIF
-
-    DO icd = 1, n_childdom(idom)
-      nest_id = child_id(idom,icd)
-      DO irv = -1, min_rlvert_int, -1
-        DO ji = 1, p%nverts
-          jj = itmpv(ji)
-          IF ((g%verts%refin_ctrl(jj) == irv) .and. (g%verts%child_id(jj) == nest_id)) THEN
-            jj1 = jj1 + 1
-            itmpv2(jj1) = jj
-            p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),jj1)
-            p%verts%indlist(irv,2) = jj1
-            p%verts%start_idx(irv,icd) = MIN(p%verts%start_idx(irv,icd),jj1)
-            p%verts%end_idx(irv,icd) = jj1
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-
-    IF (n_childdom(idom) > 1) THEN
-      DO icd = 1, n_childdom(idom) -1
-        DO irv = min_rlvert, min_rlvert_int-1
-          p%verts%start_idx(irv,icd) = p%verts%end_idx(min_rlvert_int,icd) + 1
-          p%verts%end_idx(irv,icd)   = p%verts%end_idx(min_rlvert_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF (jj1 /= p%nverts)  CALL finish ('create_local_domain', &
       & 'Error in restructuring vertex index list')
@@ -1495,10 +1360,12 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! The following loop used to accomplish the reordering of nest overlap points
+    ! (deactivated since Aug. 2013 for restructured nesting flow control)
     irv = 0
     DO ji = 1, p%ncells
       jj = listc(ji)
-      IF (g%cells%refin_ctrl(jj) == irv .OR. g%cells%refin_ctrl(jj) > max_rlcell) THEN
+      IF (g%cells%refin_ctrl(jj) <= irv .OR. g%cells%refin_ctrl(jj) > max_rlcell) THEN
         jj1 = jj1 + 1
         itmpc(jj1) = jj
         p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),jj1)
@@ -1507,44 +1374,6 @@ CONTAINS
         p%cells%end_idx(irv,1:max_childdom) = jj1
       ENDIF
     ENDDO
-
-    ! It might happen that there is no grid point with refin_ctrl=0
-    IF (jj1 == p%cells%end_idx(max_rlcell,1)) THEN
-      p%cells%indlist(0,1) = p%cells%indlist(max_rlcell,2) +1
-      p%cells%indlist(0,2) = p%cells%indlist(max_rlcell,2)
-      p%cells%start_idx(0,1:max_childdom) = p%cells%end_idx(max_rlcell,1) +1
-      p%cells%end_idx(0,1:max_childdom) = p%cells%end_idx(max_rlcell,1)
-    ENDIF
-
-    DO icd = 1, n_childdom(idom)
-      nest_id = child_id(idom,icd)
-      DO irv = -1, min_rlcell_int, -1
-        DO ji = 1, p%ncells
-          jj = listc(ji)
-          IF ((g%cells%refin_ctrl(jj) == irv) .and. (g%cells%child_id(jj) == nest_id)) THEN
-            jj1 = jj1 + 1
-            itmpc(jj1) = jj
-            p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),jj1)
-            p%cells%indlist(irv,2) = jj1
-            p%cells%start_idx(irv,icd) = MIN(p%cells%start_idx(irv,icd),jj1)
-            p%cells%end_idx(irv,icd) = jj1
-          ENDIF
-        ENDDO
-      ENDDO
-      IF (p%cells%end_idx(min_rlcell_int,icd) < p%cells%start_idx(min_rlcell_int,icd) + 20) THEN
-        CALL finish ('create_local_domain', &
-          & 'Unreasonably small size of nested domain')
-      ENDIF
-    ENDDO
-
-    IF (n_childdom(idom) > 1) THEN
-      DO icd = 1, n_childdom(idom) -1
-        DO irv = min_rlcell, min_rlcell_int-1
-          p%cells%start_idx(irv,icd) = p%cells%end_idx(min_rlcell_int,icd) + 1
-          p%cells%end_idx(irv,icd)   = p%cells%end_idx(min_rlcell_int,icd)
-        ENDDO
-      ENDDO
-    ENDIF
 
     !
     !  allocate final  global index arrays for edges, cells, vertices

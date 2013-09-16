@@ -537,6 +537,22 @@ CONTAINS
 !        ENDWHERE
 !      ENDDO
 !      hi(:,:) = max( hi(:,:), 0._wp )
+! Let it snow in AMIP
+      IF ( phy_config%lamip ) THEN
+        DO k=1,kice
+          ! Snowfall on ice - no ice => no snow
+          WHERE ( hi(:,k) > 0._wp )
+            ! Snow only falls when it's below freezing
+            WHERE ( Tsurf(:,k) < 0._wp )
+              hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos 
+            ENDWHERE
+            ! Snow melt
+            hs(:,k) = hs(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
+          ELSEWHERE
+            hs(:,k) = 0._wp
+          ENDWHERE
+        ENDDO
+      ENDIF
 ! Average the albedo.
       IF ( idx_lnd <= nsfc_type ) THEN
 

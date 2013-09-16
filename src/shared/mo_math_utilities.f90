@@ -603,8 +603,6 @@ CONTAINS
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
-    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
-    REAL(wp)            :: z_cc           ! cos of angle between endpoints
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------
@@ -707,8 +705,6 @@ CONTAINS
     
     REAL(wp)            :: p_arc          ! length of geodesic arc
     
-    REAL(wp)            :: z_lx,  z_ly    ! length of vector p_x and p_y
-    REAL(wp)            :: z_cc           ! cos of angle between endpoints
     INTEGER             :: geometry_type
     CHARACTER(LEN=*), PARAMETER :: method_name='mo_math_utils:arc_length'
     !-----------------------------------------------------------------------

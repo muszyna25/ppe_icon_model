@@ -150,13 +150,9 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
   jgc    =  p_patch(jg)%child_id(jcd)
   p_pc   => p_patch(jgc)
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp   => p_patch_local_parent(jgc)
-    p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
-  ELSE
-    p_pp   => p_patch(jg)
-    p_grfs => p_grf(jg)%p_dom(jcd)
-  ENDIF
+
+  p_pp   => p_patch_local_parent(jgc)
+  p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
 
   p_cp   => p_pp%cells
   p_cc   => p_pc%cells
@@ -282,13 +278,9 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
   jgc    =  p_patch(jg)%child_id(jcd)
   p_pc   => p_patch(jgc)
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp   => p_patch_local_parent(jgc)
-    p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
-  ELSE
-    p_pp   => p_patch(jg)
-    p_grfs => p_grf(jg)%p_dom(jcd)
-  ENDIF
+
+  p_pp   => p_patch_local_parent(jgc)
+  p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
 
   p_ep   => p_pp%edges
   p_ec   => p_pc%edges
@@ -363,12 +355,8 @@ TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf  (n_dom_start:)
 TYPE(t_grid_cells), POINTER :: p_gcp => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 
-INTEGER :: jb, jc, je, jg, jgp, ji, i_startblk, i_endblk,         &
-           i_startidx, i_endidx, iic, ibc, i_nchdom
-
-#ifdef  __SX__
-INTEGER :: i_child_id
-#endif
+INTEGER :: jb, jc, jg, ji, i_startblk, i_endblk,         &
+           i_startidx, i_endidx, i_nchdom, icid
 
 
 REAL(wp), ALLOCATABLE :: z_area(:,:)
@@ -387,22 +375,24 @@ DO jg = n_dom_start, n_dom-1
 ! c) Compute area of feedback domains
   DO ji = 1, i_nchdom
 
+    icid = p_pp%child_id(ji)
     p_grf(jg)%fbk_dom_area(ji) = 0._wp
 
     ALLOCATE(z_area(nproma,p_pp%nblks_c))
     z_area = 0._wp
 
-    i_startblk = p_gcp%start_blk(grf_fbk_start_c,ji)
-    i_endblk   = p_gcp%end_blk(min_rlcell_int,ji)
+    i_startblk = p_gcp%start_blk(1,1)
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_nchdom)
 
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, ji)
+                         i_startidx, i_endidx, 1, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
-        if(p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
+        IF (p_gcp%refin_ctrl(jc,jb) <= grf_fbk_start_c .AND. p_gcp%child_id(jc,jb) == icid .AND. &
+           p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
 
       ENDDO
     ENDDO
@@ -472,13 +462,9 @@ DO jg = n_dom_start+1, n_dom
 
   jgp  = p_patch(jg)%parent_id
   p_pc => p_patch(jg)
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp   => p_patch_local_parent(jg)
-    p_grfp => p_grf_state_local_parent(jg)
-  ELSE
-    p_pp   => p_patch(jgp)
-    p_grfp => p_grf(jgp)
-  ENDIF
+
+  p_pp   => p_patch_local_parent(jg)
+  p_grfp => p_grf_state_local_parent(jg)
 
   i_chidx = p_pc%parent_child_index
 
@@ -940,13 +926,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     jgc  = ptr_patch(jg)%child_id(jcd)
     p_pc => p_patch(jgc)
 
-    IF(my_process_is_mpi_parallel()) THEN
-      p_pp    => p_patch_local_parent(jgc)
-      ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-    ELSE
-      p_pp    => p_patch(jg)
-      ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-    ENDIF
+    p_pp    => p_patch_local_parent(jgc)
+    ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
 
     ptr_ep   => p_pp%edges
     ptr_ec   => p_pc%edges
@@ -1055,7 +1036,9 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ! At the boundary row, we have to take the one which is included in the child boundary
         iicc = ptr_ec%cell_idx(iice,ibce,1)
         ibcc = ptr_ec%cell_blk(iice,ibce,1)
-        IF(iicc < 0) THEN
+        IF ( .NOT. (ptr_cc%edge_idx(iicc,ibcc,1) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,1) == ibce .OR. &
+                    ptr_cc%edge_idx(iicc,ibcc,2) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,2) == ibce .OR. &
+                    ptr_cc%edge_idx(iicc,ibcc,3) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,3) == ibce )) THEN
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
@@ -1151,7 +1134,9 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ! At the boundary row, we have to take the one which is included in the child boundary
         iicc = ptr_ec%cell_idx(iice,ibce,1)
         ibcc = ptr_ec%cell_blk(iice,ibce,1)
-        IF(iicc < 0) THEN
+        IF ( .NOT. (ptr_cc%edge_idx(iicc,ibcc,1) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,1) == ibce .OR. &
+                    ptr_cc%edge_idx(iicc,ibcc,2) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,2) == ibce .OR. &
+                    ptr_cc%edge_idx(iicc,ibcc,3) == iice .AND. ptr_cc%edge_blk(iicc,ibcc,3) == ibce )) THEN
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
@@ -1327,13 +1312,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   jgc  = ptr_patch(jg)%child_id(jcd)
   p_pc => p_patch(jgc)
 
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp    => p_patch_local_parent(jgc)
-    ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-  ELSE
-    p_pp    => p_patch(jg)
-    ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-  ENDIF
+  p_pp    => p_patch_local_parent(jgc)
+  ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
 
   ptr_ep   => p_pp%edges
   ptr_ec   => p_pc%edges
@@ -1647,13 +1627,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   jgc  = ptr_patch(jg)%child_id(jcd)
   p_pc => p_patch(jgc)
 
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp    => p_patch_local_parent(jgc)
-    ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-  ELSE
-    p_pp    => p_patch(jg)
-    ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-  ENDIF
+  p_pp    => p_patch_local_parent(jgc)
+  ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
 
   ptr_ep   => p_pp%edges
   ptr_ec   => p_pc%edges

@@ -38,6 +38,7 @@ MODULE mo_read_namelists
 
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_namelist            ,ONLY: open_nml_output, close_nml_output
+  USE mo_nml_annotate        ,ONLY: log_nml_settings
 
   USE mo_time_nml            ,ONLY: read_time_namelist
 
@@ -80,9 +81,10 @@ MODULE mo_read_namelists
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
-  USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
+  USE mo_name_list_output_init ,ONLY: read_name_list_output_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
+  USE mo_limarea_nml         ,ONLY: read_limarea_namelist
   IMPLICIT NONE
 
   PRIVATE
@@ -173,6 +175,7 @@ CONTAINS
     ! Boundary conditions
     !
     CALL read_extpar_namelist         (TRIM(atm_namelist_filename))
+    CALL read_limarea_namelist        (TRIM(atm_namelist_filename))
 
     !
     ! GRIB output
@@ -187,6 +190,9 @@ CONTAINS
     !-----------------------------------------------------------------
 
     IF (my_process_is_stdio()) CALL close_nml_output
+
+    ! write an annotate table of all namelist settings to a text file
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.atmo.log")
 
   END SUBROUTINE read_atmo_namelists
   !-------------------------------------------------------------------------
@@ -278,6 +284,9 @@ CONTAINS
     !-----------------------------------------------------------------
 
     IF (my_process_is_stdio()) CALL close_nml_output
+
+    ! write an annotate table of all namelist settings to a text file
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.cpl.log")
 
   END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------

@@ -139,12 +139,13 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: idx(:)
 
     INTEGER :: size
-    INTEGER :: allocated_size
     INTEGER :: recommended_stride  ! in case of parallelization/vectorization
 
     TYPE(t_patch), POINTER :: patch
     TYPE(t_patch_3D), POINTER :: patch_3D
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
+
+    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
 
     LOGICAL :: is_in_domain
 
@@ -167,6 +168,8 @@ MODULE mo_model_domain
 
     TYPE(t_patch), POINTER :: patch
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
+
+    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
@@ -316,7 +319,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: owner_g(:)
 
     ! The owner when running the radiation
-    ! only used with redistriuted radiation
+    ! only used with redistributed radiation
     INTEGER, POINTER :: radiation_owner(:)
 
     ! Please note that the following array is only needed on local parent patches
@@ -327,7 +330,7 @@ MODULE mo_model_domain
 
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-    ! 0=owned, 1=shared edge with owned, 2=shared vertex with ownded
+    ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
     ! index1=nproma, index2=1,nblks_c
     INTEGER, POINTER :: decomp_domain(:,:)
 
@@ -340,6 +343,9 @@ MODULE mo_model_domain
     TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
     TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned
     TYPE(t_subset_range) :: one_edge_in_domain ! cells with exactly one edge in domain. these are always halo cells
+
+    INTEGER :: dummy_cell_block, dummy_cell_index     ! in case of existing a dummy cell for closing the
+      ! local domain, these point to the dummy cell. This cell does not actually "exist"! =0 if no dummy cell
 
   END TYPE t_grid_cells
 
@@ -760,7 +766,7 @@ MODULE mo_model_domain
     !
     ! ! values for the blocking
     !
-    ! total...
+    INTEGER :: alloc_cell_blocks  ! number of allocated cell blocks
     ! number of blocks and chunk length in last block
     ! ... for the cells
     INTEGER :: nblks_c
@@ -788,20 +794,6 @@ MODULE mo_model_domain
     ! the same information seen from the parent level (duplication needed to simplify flow control)
     INTEGER :: nshift_child
 
-    ! internal...
-    ! LL: these numbers are the same as nblks_c, etc.
-    !     See mo_subdivision, line 1100
-    !     They are confusing and should be removed.
-    ! number of blocks and chunk length in last block
-    ! ... for the cells
-    INTEGER :: nblks_int_c
-    INTEGER :: npromz_int_c
-    ! ... for the edges
-    INTEGER :: nblks_int_e
-    INTEGER :: npromz_int_e
-    ! ... for the vertices
-    INTEGER :: nblks_int_v
-    INTEGER :: npromz_int_v
 
     !
     ! ! Mask and bathymetry for ocean patch
@@ -907,7 +899,18 @@ MODULE mo_model_domain
 
   END TYPE t_phys_patch
 
-  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:), p_patch_local_parent(:)
+  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:)
+
+
+  ! Definition of local parent patches
+  ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
+  ! p_patch_local_parent(jg) has the same resolution as p_patch(jgp)
+  ! but it covers only the area of p_patch(jgp) which is covered by its child p_patch(jg)
+  ! and it is divided in the same manner as p_patch(jg).
+  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
+
+  TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_local_parent(:)
+
 
   ! Please note: There is currently no means of determining the number
   ! of physical patches until they are actually assembled
@@ -936,6 +939,9 @@ MODULE mo_model_domain
     !!             vertical information is calculated from this array of
     !!             thicknesses.  Dimension: n_zlev
     REAL(wp), ALLOCATABLE :: del_zlev_m(:)
+
+    !! the inverse of the above
+    REAL(wp), ALLOCATABLE :: inv_del_zlev_m(:)
 
     !! zlev_m    : position of the vertical cell centers, i.e. below zero surface;
     !!             Numbering starts from surface and increases downwards to bottom.

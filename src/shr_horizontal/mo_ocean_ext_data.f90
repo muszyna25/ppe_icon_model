@@ -154,7 +154,7 @@ CONTAINS
       &                          'external data started')
 
 
-    write(0,*) 'create new external data list for ocean'
+    ! write(0,*) 'create new external data list for ocean'
     ! Build external data list for constant-in-time fields for the ocean model
     DO jg = 1, n_dom
       WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
@@ -223,7 +223,7 @@ CONTAINS
     !--------------------------------------------------------------
 
     !determine size of arrays
-    nblks_c = p_patch%nblks_c
+    nblks_c = p_patch%alloc_cell_blocks
     nblks_e = p_patch%nblks_e
 
 

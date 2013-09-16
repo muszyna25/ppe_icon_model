@@ -59,9 +59,8 @@ MODULE mo_setup_subdivision
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch,   &
-    &                              p_patch_local_parent
-  USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
+  USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split, get_my_global_mpi_id, global_mpi_barrier
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
@@ -69,25 +68,27 @@ MODULE mo_setup_subdivision
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
     & p_pe_work, p_n_work, get_my_mpi_all_id, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,       ONLY:  nproma, p_test_run, ldiv_phys_dom, &
+  USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
-    & ext_div_medial_redrad_cluster, redrad_split_factor
-    
+    & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
+
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis
 #endif
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
-  USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
-    & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
-    & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_basic_patch, deallocate_patch
+  USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
+    & read_ascii_decomposition
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 #endif
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
+  USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
+                                    testbed_process
+  USE mo_grid_config,         ONLY: use_dummy_cell_closure
 
   IMPLICIT NONE
 
@@ -98,80 +99,77 @@ MODULE mo_setup_subdivision
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: decompose_domain
-  PUBLIC :: decompose_domain_oce
-
-  ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
-  TYPE(t_patch), POINTER :: wrk_divide_patch
-
-  !-------------------------------------------------------------------------
-  ! Definition of local parent patches
-  ! For any given patch p_patch(jg) and jgp = p_patch(jg)%parent_id,
-  ! p_patch_local_parent(jg) has the same resolution as p_patch(jgp)
-  ! but it covers only the area of p_patch(jgp) which is covered by its child p_patch(jg)
-  ! and it is divided in the same manner as p_patch(jg).
-  ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
-
-  ! Please note: The definitions of the local parents are now at the same locations
-  ! as the definitions of the respective patch or state
-  !-------------------------------------------------------------------------
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
-
-  ! number of grid points of different categories:
-  ! lateral points, interior points, nested points, halo points
-  INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
 
 CONTAINS
 
   !------------------------------------------------------------------
   !>
-  !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE decompose_domain( p_patch_global, opt_n_procs )
+  !!  Divide patches and interpolation states.
+  !!
+  !!  If the parameter @p opt_n_procs is given, a domain decomposition
+  !!  for @p opt_n_procsprocessors is done (called from a single
+  !!  processor run).
+  !!
+  !!  @note Despite its name, this subroutine is also called in
+  !!        sequential runs where it simply copies (and initializes)
+  !!        the patch data structure.
+  !!
+  SUBROUTINE decompose_domain( p_patch, p_patch_global, opt_n_procs )
 
+    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
     INTEGER, INTENT(IN), OPTIONAL :: opt_n_procs
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
 
-    CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
-      & (/ "lateral grid points " , &
-      &    "interior grid points", &
-      &    "nested grid points  ",   &
-      &    "halo grid points    " /)
-
     ! Local variables:
     INTEGER :: jg, jgp, jc, jgc, n, &
-      &        l1, i_nchdom, n_procs_decomp
+      &        n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
-    INTEGER(i8) :: npts_global(4)
-    ! (Optional:) Print a detailed summary on model grid points
-    LOGICAL :: l_detailed_summary
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
+    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
+    ! LOGICAL :: l_compute_grid
+    INTEGER :: my_process_type, order_type_of_halos
 
     CALL message(routine, 'start of domain decomposition')
 
-    ! If opt_n_procs is set, this routine should be called from a single processor run
-    ! and it splits the domain into opt_n_procs parts.
-    ! Otherwise, the call should be from a parallel run and the domain is split
-    ! according to the number of processors
-
-    IF(present(opt_n_procs)) THEN
+    ! This subroutine has 3 different operating modes:
+    !
+    ! - If opt_n_procs is set, this routine should be called from a
+    !   single processor run and it splits the domain into opt_n_procs
+    !   parts.
+    !
+    ! - Otherwise, if the subroutine is called from a parallel run
+    !   then the domain is split according to the number of processors
+    !
+    ! - Third, when called from a single processor run, the domain is
+    !   not split but simply copied (and the p_patch_local_parent is
+    !   initialized properly).
+    !
+    n_procs_decomp = p_n_work
+    IF (PRESENT(opt_n_procs)) THEN
       n_procs_decomp = opt_n_procs
-      IF(my_process_is_mpi_parallel()) &
+      IF (my_process_is_mpi_parallel()) &
         CALL finish(routine, 'Call with opt_n_procs in parallel mode')
-    ELSE
-      n_procs_decomp = p_n_work
+
+      ! Allocate p_patch_out, p_patch_lp_out so that they can keep
+      ! all domain decompositions for one patch
+      ALLOCATE(p_patch_out(opt_n_procs))
+      ALLOCATE(p_patch_lp_out(opt_n_procs))
     ENDIF
 
+    ! -----------------------------------------------------------------------------
+    ! Check for processor splitting
 
     ! Check if the processor set should be split for patches of the 1st generation.
     ! This is the case if patch_weight > 0 for at least one of the root's childs.
-    ! For clearness, we require that patch_weight=0 for any other patch
+    ! For clarity, we require that patch_weight=0 for any other patch
 
     ! Get weights for 1st generation patches
     proc_split = .FALSE.
@@ -181,7 +179,7 @@ CONTAINS
       IF(weight(jc) > 0._wp) proc_split = .TRUE.
     ENDDO
 
-    ! Check if weights for other patches are 0 (for clearness only)
+    ! Check if weights for other patches are 0 (for clarity only)
     IF(patch_weight(1) /= 0._wp) &
       CALL finish(routine,'Weight for root patch must be 0')
     DO jg = 2, n_dom
@@ -189,8 +187,13 @@ CONTAINS
       IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
         CALL finish(routine,'Weight for higher level patch must be 0')
     ENDDO
+    ! -----------------------------------------------------------------------------
 
     IF(proc_split) THEN
+
+      ! -----------------------------------------------------------------------------
+      ! CASE 1: DECOMPOSE WITH PROCESSOR SPLITTING
+      ! -----------------------------------------------------------------------------
 
       IF(p_pe_work==0) WRITE(0,*) 'Splitting processor grid for first level patches'
       IF(p_pe_work==0) WRITE(0,'(a,10f12.3)') 'Weights for first level patches:',weight(:)
@@ -255,6 +258,9 @@ CONTAINS
 
     ELSE
 
+      ! -----------------------------------------------------------------------------
+      ! CASE 2: STANDARD DECOMPOSITION, NO SPLITTING
+      ! -----------------------------------------------------------------------------
       ! No splitting, proc0, n_proc are identical for all patches
 
       IF(p_pe_work==0) WRITE(0,*) 'No splitting of processor grid'
@@ -270,18 +276,9 @@ CONTAINS
 #endif
     p_patch(:)%rank = -1
 
-
-    IF(PRESENT(opt_n_procs)) THEN
-      ! Allocate p_patch_out, p_patch_lp_out so that they can keep
-      ! all domain decompositions for one patch
-      ALLOCATE(p_patch_out(opt_n_procs))
-      ALLOCATE(p_patch_lp_out(opt_n_procs))
-    ELSE
-      ! p_patch is already allocated, p_patch_local_parent needs allocation
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-    ENDIF
-
+    ! -----------------------------------------------------------------------------
     ! Divide patches
+    ! -----------------------------------------------------------------------------
 
     DO jg = n_dom_start, n_dom
 
@@ -293,8 +290,6 @@ CONTAINS
         wrk_p_parent_patch_g => p_patch_global(jgp)
       ENDIF
 
-      wrk_p_patch_g => p_patch_global(jg)
-
       ! Set division method, divide_for_radiation is only used for patch 0
 
       divide_for_radiation = (jg == 0)
@@ -303,16 +298,25 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(jg, p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+      IF(jg > n_dom_start) THEN
+        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+      END IF
 
-      DEALLOCATE(p_patch_global(jg)%cells%phys_id)
+      IF (my_process_is_mpi_parallel()) THEN
+        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, &
+             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_g, &
+             p_patch(jg)%cells%radiation_owner)
+      ELSE
+        cell_owner(:) = 0 ! trivial "decomposition"
+      END IF
 
       IF(jg > n_dom_start) THEN
         ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent:
-        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+        ! for the construction of the local parent, set "-1" elsewhere.
         CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
-      ENDIF
+      END IF
+
+      DEALLOCATE(p_patch_global(jg)%cells%phys_id)
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
@@ -320,6 +324,11 @@ CONTAINS
       ! if this is not the case, the ghost rows can be dropped again.
 
       IF(PRESENT(opt_n_procs)) THEN
+
+        ! ----------------------------------------------
+        ! operation mode 1: "opt_n_proc" present
+        ! ----------------------------------------------
+
 
         ! Calculate all basic patches and output them at once.
         ! This is done in this way (calculating all before output) since
@@ -333,8 +342,6 @@ CONTAINS
 
         ! Do all domain decompositions
 
-        wrk_p_patch_g => p_patch_global(jg)
-
 #ifndef __xlC__
 !$OMP PARALLEL DO PRIVATE(n)
 #endif
@@ -343,28 +350,31 @@ CONTAINS
           WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
           p_patch_out(n)%n_proc = p_patch(jg)%n_proc
           p_patch_out(n)%proc0  = p_patch(jg)%proc0
-          CALL divide_patch(p_patch_out(n), cell_owner, n_ghost_rows, .TRUE., n-1)
+          order_type_of_halos = 1
+          ! CALL divide_patch(p_patch_out(n), p_patch_global(jg), cell_owner, n_ghost_rows, .TRUE., n-1)
+          CALL divide_patch(p_patch_out(n), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, n-1)
           CALL discard_large_arrays(p_patch_out(n), n)
 
         ENDDO
 #ifndef __xlC__
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 #endif
 
         IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
 #ifndef __xlC__
 !$OMP PARALLEL DO PRIVATE(n)
 #endif
           DO n = 1, opt_n_procs
 
             ! Divide local parent
-            CALL divide_patch(p_patch_lp_out(n), cell_owner_p, 1, .FALSE., n-1)
+            order_type_of_halos = 0
+            ! CALL divide_patch(p_patch_lp_out(n), p_patch_global(jgp), cell_owner_p, 1, .FALSE., n-1)
+            CALL divide_patch(p_patch_lp_out(n), p_patch_global(jgp), cell_owner_p, 1, order_type_of_halos, n-1)
             CALL discard_large_arrays(p_patch_lp_out(n), n)
 
           ENDDO
 #ifndef __xlC__
-!$OMP END PARALLEL DO 
+!$OMP END PARALLEL DO
 #endif
         ENDIF
 
@@ -385,84 +395,44 @@ CONTAINS
 
       ELSE
 
-        wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(p_patch(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+        ! ----------------------------------------------
+        ! operation modes 2,3: "opt_n_procs" not present
+        ! ----------------------------------------------
+        ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
+        !                       1 order root grid  (l_compute_grid = true)
+        !                       2 all halos go to the end, for ocean
+        my_process_type = get_my_process_type()
+        SELECT CASE (my_process_type)
+          CASE (ocean_process, testbed_process)
+             order_type_of_halos = 2
+          CASE default
+           order_type_of_halos = 1
+        END SELECT
+
+        ! CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
+        CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
 
         IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
-          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
+          order_type_of_halos = 0
+          ! CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
+          CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, &
+            & order_type_of_halos,  p_pe_work)
         ENDIF
 
-      ENDIF
+      ENDIF ! IF (PRESENT(opt_n_procs))
 
       DEALLOCATE(cell_owner)
       IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
 
     ENDDO
 
-
     ! The global patches may be discarded now
-
     DO jg = n_dom_start, n_dom
       CALL deallocate_basic_patch( p_patch_global(jg) )
     ENDDO
 
-    ! (Optional:)
-    ! Print a detailed summary on model grid points
-    l_detailed_summary = (msg_level >= 16) .AND. .NOT.PRESENT(opt_n_procs)
-
-    IF (l_detailed_summary) THEN
-      WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
-        &                    "Detailed grid summary (cells)"
-      CALL message(routine, TRIM(message_text))
-
-      DO jg = n_dom_start, n_dom
-        ! count grid points for this PE:
-        i_nchdom     = MAX(1,p_patch(jg)%n_childdom)
-        ! local, lateral grid points
-        npts_local(jg,1)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(1,1),         &
-          &                   p_patch(jg)%cells%start_idx(1,1),         &
-          &                   p_patch(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   p_patch(jg)%cells%end_idx(max_rlcell,1) )
-        ! local, interior grid points
-        npts_local(jg,2)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(0,1), &
-          &                   p_patch(jg)%cells%start_idx(0,1), &
-          &                   p_patch(jg)%cells%end_blk(0,1),   &
-          &                   p_patch(jg)%cells%end_idx(0,1) )
-        ! local, nested grid points:
-        npts_local(jg,3)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(-1,1), &
-          &                   p_patch(jg)%cells%start_idx(-1,1), &
-          &                   p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   p_patch(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
-        ! local, halo grid points:
-        npts_local(jg,4)    = count_entries(  &
-          &                   p_patch(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   p_patch(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   p_patch(jg)%cells%end_idx(min_rlcell,i_nchdom) )
-        ! sum up over all PEs (collective operation):
-        npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
-
-        WRITE (message_text,'(A8,i4)') "patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(jg,l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-        WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_global(l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-
-      END DO
-    END IF
-
   END SUBROUTINE decompose_domain
+
 
   !-----------------------------------------------------------------------------
   !> discard_large_arrays:
@@ -497,7 +467,6 @@ CONTAINS
 
   END SUBROUTINE discard_large_arrays
 
-
   !-----------------------------------------------------------------------------
   !>
   !! Divides the cells of a global patch (in wrk_p_patch_g) for parallelization.
@@ -513,14 +482,20 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(patch_no, n_proc, proc0, cell_owner)
+  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner, &
+                                wrk_p_parent_patch_g, radiation_owner)
 
+    TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch_g
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
-    
+    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
+    INTEGER, POINTER :: radiation_owner(:)
+
+    TYPE(t_decomposition_structure)  :: decomposition_struct
+
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
@@ -530,53 +505,130 @@ CONTAINS
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
-    
-    IF (division_method(patch_no) == div_from_file) THEN
+    NULLIFY(radiation_owner)
 
-      ! Area subdivision is read from file
+    IF (division_method(patch_no) == div_from_file     .OR. &
+        division_method(patch_no) == ext_div_from_file .OR. &
+        division_method(patch_no) > 100) THEN
 
-      IF(p_pe_work == 0) THEN
+      ! only procs 0 will decompose and then broadcast
+      IF (p_pe_work == 0) THEN
 
-        IF (division_file_name(patch_no) == "") THEN
-          use_division_file_name = &
-            & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+        IF (division_method(patch_no) == div_from_file) THEN
+
+          ! Area subdivision is read from file
+
+          IF (division_file_name(patch_no) == "") THEN
+            use_division_file_name = &
+              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+          ELSE
+            use_division_file_name = division_file_name(patch_no)
+          ENDIF
+
+          WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
+          n = find_next_free_unit(10,99)
+
+          OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
+          IF(i /= 0) CALL finish('divide_patch',&
+            & 'Unable to open input file: '//TRIM(use_division_file_name))
+
+          DO j = 1, wrk_p_patch_g%n_patch_cells
+            READ(n,*,IOSTAT=i) cell_owner(j)
+            IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
+          ENDDO
+          CLOSE(n)
+
+        ELSEIF (division_method(patch_no) == ext_div_from_file) THEN
+
+          IF (division_file_name(patch_no) == "") THEN
+            use_division_file_name = &
+              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+          ELSE
+            use_division_file_name = division_file_name(patch_no)
+          ENDIF
+
+          CALL read_ascii_decomposition(use_division_file_name, cell_owner, wrk_p_patch_g%n_patch_cells)
+
         ELSE
-          use_division_file_name = division_file_name(patch_no)
-        ENDIF
-        
-        WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
-        n = find_next_free_unit(10,99)
 
-        OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
-        IF(i /= 0) CALL finish('divide_patch',&
-          & 'Unable to open input file: '//TRIM(use_division_file_name))
+          !----------------------------------------------------------
+          ! external decompositions
+          ! just to make sure that the radiation onwer is not acitve
 
-        DO j = 1, wrk_p_patch_g%n_patch_cells
-          READ(n,*,IOSTAT=i) cell_owner(j)
-          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
-        ENDDO
-        CLOSE(n)
+          ! fill decomposition_structure
+          CALL fill_wrk_decomposition_struct(decomposition_struct, wrk_p_patch_g)
+
+          SELECT CASE (division_method(patch_no))
+
+          CASE (ext_div_medial)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .false.,           &
+              & cells_owner = cell_owner)
+
+          CASE (ext_div_medial_cluster)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .true.,            &
+              & cells_owner = cell_owner)
+
+          CASE (ext_div_medial_redrad)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .false.,           &
+              & cells_owner = cell_owner,    &
+              & radiation_onwer = radiation_owner,      &
+              & radiation_split_factor = redrad_split_factor)
+
+          CASE (ext_div_medial_redrad_cluster)
+            CALL divide_geometric_medial(decomposition_struct, &
+              & decomposition_size = n_proc, &
+              & cluster = .true.,            &
+              & cells_owner = cell_owner,    &
+              & radiation_onwer = radiation_owner,      &
+              & radiation_split_factor = redrad_split_factor)
+
+
+          CASE DEFAULT
+            CALL finish('divide_patch_cells', 'Unkown division_method')
+
+          END SELECT
+
+          ! clean decomposition_struct
+          CALL clean_wrk_decomposition_struct(decomposition_struct)
+
+        ENDIF ! subddivision_method(patch_no)
 
         ! Quick check for correct values
-
-        IF(MINVAL(cell_owner(:)) < 0 .or. MAXVAL(cell_owner(:)) >= n_proc) THEN
+        IF(MINVAL(cell_owner(:)) < 0 .or. &
+           MAXVAL(cell_owner(:)) >= n_proc) THEN
           WRITE(0,*) "n_porc=",n_proc, " MINAVAL=", MINVAL(cell_owner(:)), &
             " MAXVAL=", MAXVAL(cell_owner(:))
           CALL finish('divide_patch','Illegal subdivision in input file')
         ENDIF
 
-      ENDIF
+      ENDIF ! IF (p_pe_work == 0)
 
+      ! broadcast cell_owner array to other processes
       CALL p_bcast(cell_owner, 0, comm=p_comm_work)
 
-      IF(p_pe_work==0) WRITE(0,*) 'Successfully read: '//TRIM(division_file_name(patch_no))
+      IF (division_method(patch_no) == ext_div_medial_redrad_cluster .OR. &
+        & division_method(patch_no) == ext_div_medial_redrad) THEN
+        ! distribute the radiation owner
+        IF (p_pe_work /= 0) &
+            ALLOCATE(radiation_owner(wrk_p_patch_g%n_patch_cells))
 
-    ELSE IF (division_method(patch_no) > 100) THEN
+        CALL p_bcast(radiation_owner, 0, comm=p_comm_work)
+        wrk_p_patch_g%cells%radiation_owner => radiation_owner
 
-      CALL finish('mo_setup_subdivision', "external decompositions cannot be used from this module")
-        
-    ELSE    
-      ! Built in subdivison methods
+      ENDIF
+
+    ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
+         !     division_method(patch_no) == ext_div_from_file .OR. &
+         !     division_method(patch_no) > 100)
+
+
+      ! Built-in subdivison methods
 
       IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
 
@@ -606,12 +658,10 @@ CONTAINS
         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
 
         IF(division_method(patch_no) == div_geometric) THEN
-          wrk_divide_patch => wrk_p_parent_patch_g
-          CALL divide_subset_geometric( flag_c, n_proc, tmp)
+          CALL divide_subset_geometric( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          wrk_divide_patch => wrk_p_parent_patch_g
-          CALL divide_subset_metis( flag_c, n_proc, tmp)
+          CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
@@ -645,12 +695,10 @@ CONTAINS
         ! Divide complete patch
 
         IF(division_method(patch_no) == div_geometric) THEN
-          wrk_divide_patch => wrk_p_patch_g
-          CALL divide_subset_geometric(flag_c, n_proc, cell_owner)
+          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_g, cell_owner)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          wrk_divide_patch => wrk_p_patch_g
-          CALL divide_subset_metis(flag_c, n_proc, cell_owner)
+          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_g, cell_owner)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
@@ -660,7 +708,7 @@ CONTAINS
 
       ENDIF
 
-    ENDIF
+    ENDIF ! division_method
 
     ! Set processor offset
     cell_owner(:) = cell_owner(:) + proc0
@@ -677,7 +725,7 @@ CONTAINS
 
   END SUBROUTINE divide_patch_cells
 
-  
+
   !-------------------------------------------------------------------------------------------------
   !>
   !! Sets the owner for the division of the cells of the parent patch
@@ -724,10 +772,13 @@ CONTAINS
   !! Parameters:
   !! cell_owner          owner PE numbers of the global cells
   !! n_boundary_rows     number of boundary rows to be added
-  !! l_compute_grid      if true, a "normal" grid for prognstic computations is processed,
-  !!                     if false, a local parent grid is processed
-  !!                     in the first case, a finer distinction between different halo
-  !!                     cell/edge/vertex levels is made to optimize communication
+  !! order_type_of_halos 1= a "normal" grid for prognostic computations is processed,
+  !!                     0= a local parent grid is processed
+  !!                       in the first case, a finer distinction between different halo
+  !!                       cell/edge/vertex levels is made to optimize communication
+  !!                     2=move all halos to the end (for ocean)
+
+
   !!
   !! On exit, the entries of wrk_p_patch are set.
   !!
@@ -735,15 +786,19 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch(wrk_p_patch, cell_owner, n_boundary_rows, l_compute_grid, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_g, cell_owner, n_boundary_rows, order_type_of_halos, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
+    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
 
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
-    LOGICAL, INTENT(IN) :: l_compute_grid
+    INTEGER, INTENT(IN) :: order_type_of_halos
     INTEGER, INTENT(IN) :: my_proc
+
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
                jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
@@ -751,7 +806,8 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
-    LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
+
+    IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
     !-----------------------------------------------------------------------------------------------
     ! Find inner cells/edges/verts and ghost rows for our patch:
@@ -773,7 +829,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------------------------------
     ! The purpose of the second set of flags is to control moving the halo points
-    ! to the end of the index vector for nearly all cells even if l_compute_grid = true
+    ! to the end of the index vector for nearly all cells even if order_type_of_halos = 1
     ! flag2_c/e/v = 0 (-1) wherever flag_c/e/v = 0 (-1)
     ! flag2_c = 2*flag_c-1 if the cell has a common edge with a cell having flag_c-1
     ! flag2_c = 2*flag_c if the cell has no common edge with a cell having flag_c-1
@@ -790,7 +846,6 @@ CONTAINS
     flag2_e(:) = -1
     flag2_v(:) = -1
 
-    jg = wrk_p_patch_g%id
     i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
 
     ! find inner edges/verts and ghost cells/edges/verts
@@ -821,6 +876,7 @@ CONTAINS
               jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
               jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
               jv = idx_1d(jl_v, jb_v)
+
               IF(flag_v(jv)>=0) flag_c(j) = ilev
             ENDIF
           ENDDO
@@ -840,7 +896,20 @@ CONTAINS
               jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
               jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
               jv = idx_1d(jl_v, jb_v)
-              IF(flag_v(jv)>=0) flag_c(j) = ilev
+
+              IF (flag_v(jv)>=0)  flag_c(j) = ilev
+              ! the last line may be replaced by the following:
+              !
+              ! do not set "flag_c" for local_parent_patches, if the
+              ! refin_ctrl flag indicates that we are outside of the
+              ! nesting region.
+              !  IF (flag_v(jv)>=0) THEN
+              !    IF ( (jg > 1) .AND. .NOT. lcompute_grid ) THEN
+              !      IF (wrk_p_patch_g%cells%refin_ctrl(jl,jb) < 0)  flag_c(j) = ilev
+              !    ELSE
+              !      flag_c(j) = ilev
+              !    END IF
+              !  END IF
             ENDDO
           ENDIF
         ENDDO
@@ -872,7 +941,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-    ENDDO
+    ENDDO ! ilev
 
     ! Now compute second set of flags
     DO ilev = 1, n_boundary_rows
@@ -977,41 +1046,41 @@ CONTAINS
     !
     ! ... for the cells
     wrk_p_patch%nblks_c       = blk_no(wrk_p_patch%n_patch_cells)
-    wrk_p_patch%nblks_int_c   = wrk_p_patch%nblks_c
     wrk_p_patch%npromz_c      = wrk_p_patch%n_patch_cells - (wrk_p_patch%nblks_c - 1)*nproma
-    wrk_p_patch%npromz_int_c  = wrk_p_patch%npromz_c
+    wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c
+    IF (use_dummy_cell_closure) THEN
+      IF (wrk_p_patch%npromz_c == nproma) &
+       wrk_p_patch%alloc_cell_blocks = wrk_p_patch%nblks_c + 1
+    ENDIF
 
     ! ... for the edges
     wrk_p_patch%nblks_e       = blk_no(wrk_p_patch%n_patch_edges)
-    wrk_p_patch%nblks_int_e   = wrk_p_patch%nblks_e
     wrk_p_patch%npromz_e      = wrk_p_patch%n_patch_edges - (wrk_p_patch%nblks_e - 1)*nproma
-    wrk_p_patch%npromz_int_e  = wrk_p_patch%npromz_e
 
     ! ... for the vertices
     wrk_p_patch%nblks_v       = blk_no(wrk_p_patch%n_patch_verts)
-    wrk_p_patch%nblks_int_v   = wrk_p_patch%nblks_v
     wrk_p_patch%npromz_v      = wrk_p_patch%n_patch_verts - (wrk_p_patch%nblks_v - 1)*nproma
-    wrk_p_patch%npromz_int_v  = wrk_p_patch%npromz_v
 
     ! Also needed for patch allocation
     wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom
 
     ! Set other scalar members of patch here too ..
-    wrk_p_patch%grid_filename = wrk_p_patch_g%grid_filename
-    wrk_p_patch%level = wrk_p_patch_g%level
-    wrk_p_patch%id    = wrk_p_patch_g%id
-    wrk_p_patch%parent_id = wrk_p_patch_g%parent_id
+    wrk_p_patch%grid_filename      = wrk_p_patch_g%grid_filename
+    wrk_p_patch%level              = wrk_p_patch_g%level
+    wrk_p_patch%id                 = wrk_p_patch_g%id
+    wrk_p_patch%cells%max_connectivity = wrk_p_patch_g%cells%max_connectivity
+    wrk_p_patch%parent_id          = wrk_p_patch_g%parent_id
     wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
-    wrk_p_patch%child_id(:) = wrk_p_patch_g%child_id(:)
-    wrk_p_patch%child_id_list(:) = wrk_p_patch_g%child_id_list(:)
-    wrk_p_patch%n_childdom = wrk_p_patch_g%n_childdom
-    wrk_p_patch%n_chd_total = wrk_p_patch_g%n_chd_total
-    wrk_p_patch%nlev   = wrk_p_patch_g%nlev
-    wrk_p_patch%nlevp1 = wrk_p_patch_g%nlevp1
-    wrk_p_patch%nshift = wrk_p_patch_g%nshift
-    wrk_p_patch%nshift_total = wrk_p_patch_g%nshift_total
-    wrk_p_patch%nshift_child = wrk_p_patch_g%nshift_child
-    wrk_p_patch%grid_uuid = wrk_p_patch_g%grid_uuid
+    wrk_p_patch%child_id(:)        = wrk_p_patch_g%child_id(:)
+    wrk_p_patch%child_id_list(:)   = wrk_p_patch_g%child_id_list(:)
+    wrk_p_patch%n_childdom         = wrk_p_patch_g%n_childdom
+    wrk_p_patch%n_chd_total        = wrk_p_patch_g%n_chd_total
+    wrk_p_patch%nlev               = wrk_p_patch_g%nlev
+    wrk_p_patch%nlevp1             = wrk_p_patch_g%nlevp1
+    wrk_p_patch%nshift             = wrk_p_patch_g%nshift
+    wrk_p_patch%nshift_total       = wrk_p_patch_g%nshift_total
+    wrk_p_patch%nshift_child       = wrk_p_patch_g%nshift_child
+    wrk_p_patch%grid_uuid          = wrk_p_patch_g%grid_uuid
 
     !-----------------------------------------------------------------------------------------------
     ! Allocate the required data arrays in patch
@@ -1077,522 +1146,108 @@ CONTAINS
           jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
           je = idx_1d(jl_e,jb_e)
           IF (wrk_p_patch%edges%owner_g(je) == my_proc) flag2_e(je)=0
-          IF (.NOT.l_compute_grid .AND. flag2_e(je)==1) flag2_e(je)=0
+          IF (order_type_of_halos == 0 .AND. flag2_e(je)==1) flag2_e(je)=0
 
           jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
           jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
           jv = idx_1d(jl_v, jb_v)
           IF (wrk_p_patch%verts%owner_g(jv) == my_proc) flag2_v(jv)=0
-          IF (.NOT.l_compute_grid .AND. flag2_v(jv)==1) flag2_v(jv)=0
+          IF ((order_type_of_halos == 0 .OR. order_type_of_halos == 2) &
+              .AND. flag2_v(jv)==1) flag2_v(jv)=0
         ENDDO
       ENDIF
     ENDDO
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
-    !-----------------------------------------------------------------------------------------------
-
-    ALLOCATE(lcount_c(wrk_p_patch_g%n_patch_cells))
-    ALLOCATE(lcount_e(wrk_p_patch_g%n_patch_edges))
-    ALLOCATE(lcount_v(wrk_p_patch_g%n_patch_verts))
-
-    lcount_c(:) = .FALSE.
-    lcount_e(:) = .FALSE.
-    lcount_v(:) = .FALSE.
-
-
-    n = 0
-    IF (.NOT. l_compute_grid) THEN
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-        IF (flag2_c(j)==0) THEN
-          n = n + 1
-          wrk_p_patch%cells%glb_index(n) = j
-          wrk_p_patch%cells%loc_index(j) = n
-          lcount_c(j) = .TRUE.
-        ELSE
-          wrk_p_patch%cells%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ELSE
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = wrk_p_patch_g%cells%refin_ctrl(jl,jb)
-        IF (flag2_c(j)==0 .OR. flag2_c(j)>=1 .AND. irl0==1 .OR. &
-          & flag2_c(j)==1 .AND. irl0==2) THEN
-          n = n + 1
-          wrk_p_patch%cells%glb_index(n) = j
-          wrk_p_patch%cells%loc_index(j) = n
-          lcount_c(j) = .TRUE.
-        ELSE
-          wrk_p_patch%cells%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Set start_idx/blk ... end_idx/blk for cells.
-    ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
-
-    DO j=1,wrk_p_patch%max_childdom
-      ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
-      ! halo cells; they are set below
-      DO i=min_rlcell_int,max_rlcell
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch_g%cells%start_idx(i,j),           &
-          & wrk_p_patch_g%cells%start_blk(i,j),           &
-          & wrk_p_patch%cells%start_idx(i,j),             &
-          & wrk_p_patch%cells%start_blk(i,j),             &
-          & +1 )
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch_g%cells%end_idx(i,j),             &
-          & wrk_p_patch_g%cells%end_blk(i,j),             &
-          & wrk_p_patch%cells%end_idx(i,j),               &
-          & wrk_p_patch%cells%end_blk(i,j),               &
-          & -1 )
-      ENDDO
-      ! Preset remaining index sections with dummy values
-      wrk_p_patch%cells%start_idx(min_rlcell:min_rlcell_int-1,j) = -9999
-      wrk_p_patch%cells%start_blk(min_rlcell:min_rlcell_int-1,j) = -9999
-      wrk_p_patch%cells%end_idx(min_rlcell:min_rlcell_int-1,j)   = -9999
-      wrk_p_patch%cells%end_blk(min_rlcell:min_rlcell_int-1,j)   = -9999
-    ENDDO
-
-    IF(.NOT.l_compute_grid) THEN
-      ! Gather all halo cells at the end of the patch.
-      ! They do not undergo further ordering and will be placed at index level min_rlcell_int-1
-      irlev = min_rlcell_int-1
-      DO j = 1, wrk_p_patch_g%n_patch_cells
-        IF(flag2_c(j)>0) THEN
-          n = n + 1
-          wrk_p_patch%cells%glb_index(n) = j
-          wrk_p_patch%cells%loc_index(j) = n
-          jb_c = blk_no(n) ! block index
-          jl_c = idx_no(n) ! line index
-          ! This ensures that just the first point found at this irlev is saved as start point
-          IF (wrk_p_patch%cells%start_idx(irlev,1)==-9999) THEN
-            wrk_p_patch%cells%start_idx(irlev,:) = jl_c
-            wrk_p_patch%cells%start_blk(irlev,:) = jb_c
-          ENDIF
-        ENDIF
-      ENDDO
-      ! Set end index when the last point is processed
-      jb_c = blk_no(n) ! block index
-      jl_c = idx_no(n) ! line index
-      wrk_p_patch%cells%end_idx(min_rlcell:irlev,:) = jl_c
-      wrk_p_patch%cells%end_blk(min_rlcell:irlev,:) = jb_c
-      wrk_p_patch%cells%start_idx(min_rlcell:irlev-1,:) = wrk_p_patch%cells%start_idx(irlev,1)
-      wrk_p_patch%cells%start_blk(min_rlcell:irlev-1,:) = wrk_p_patch%cells%start_blk(irlev,1)
-    ELSE
-      ! Gather all halo cells except those lying in the lateral boundary interpolation zone
-      ! at the end. They are sorted by the flag2_c value and will be placed at the
-      ! index levels between min_rlcell_int-1 and min_rlcell
-      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-      ! cannot be used here
-      DO ilev = 1, 2*n_boundary_rows
-        irlev = MAX(min_rlcell, min_rlcell_int - ilev)  ! index section into which the halo points are put
-        DO j = 1, wrk_p_patch_g%n_patch_cells
-          IF (flag2_c(j)==ilev .AND. .NOT. lcount_c(j)) THEN
-            n = n + 1
-            wrk_p_patch%cells%glb_index(n) = j
-            wrk_p_patch%cells%loc_index(j) = n
-            jb_c = blk_no(n) ! block index
-            jl_c = idx_no(n) ! line index
-            ! This ensures that just the first point found at this irlev is saved as start point
-            IF (wrk_p_patch%cells%start_idx(irlev,1)==-9999) THEN
-              wrk_p_patch%cells%start_idx(irlev,:) = jl_c
-              wrk_p_patch%cells%start_blk(irlev,:) = jb_c
-            ENDIF
-            wrk_p_patch%cells%end_idx(irlev,:) = jl_c
-            wrk_p_patch%cells%end_blk(irlev,:) = jb_c
-          ENDIF
-        ENDDO
-      ENDDO
-      ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
-        ilev1 = min_rlcell_int
-        ilev_st = 1
-      ELSE
-        ilev1 = MAX(min_rlcell, min_rlcell_int -2*n_boundary_rows)
-        ilev_st = 2*n_boundary_rows+1
-      ENDIF
-      IF (wrk_p_patch%cell_type==6) THEN ! for hexagons, there are no even-order halo cells
-        DO ilev = 2,2*max_hw,2
-          irlev = MAX(min_rlcell, min_rlcell_int - ilev)  ! index section into which the halo points are put
-          wrk_p_patch%cells%start_idx(irlev,:) = wrk_p_patch%cells%end_idx(irlev+1,1) + 1
-          wrk_p_patch%cells%start_blk(irlev,:) = wrk_p_patch%cells%end_blk(irlev+1,1)
-          wrk_p_patch%cells%end_idx(irlev,:)   = wrk_p_patch%cells%end_idx(irlev+1,1)
-          wrk_p_patch%cells%end_blk(irlev,:)   = wrk_p_patch%cells%end_blk(irlev+1,1)
-        ENDDO
-      ENDIF
-      DO ilev = ilev_st,2*max_hw
-        irlev = MAX(min_rlcell, min_rlcell_int - ilev)  ! index section into which the halo points are put
-        wrk_p_patch%cells%start_idx(irlev,:) = wrk_p_patch%cells%end_idx(ilev1,1) + 1
-        wrk_p_patch%cells%start_blk(irlev,:) = wrk_p_patch%cells%end_blk(ilev1,1)
-        wrk_p_patch%cells%end_idx(irlev,:)   = wrk_p_patch%cells%end_idx(ilev1,1)
-        wrk_p_patch%cells%end_blk(irlev,:)   = wrk_p_patch%cells%end_blk(ilev1,1)
-      ENDDO
-    ENDIF
-
-    ! If a PE owns only nest boundary points, it may happen that one or more index
-    ! sections of halo cells are empty. These are filled here
-    IF (wrk_p_patch%cells%start_blk(0,1)     > wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom) &
-      .OR. wrk_p_patch%cells%start_blk(0,1) == wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom) &
-      .AND. wrk_p_patch%cells%start_idx(0,1) > wrk_p_patch%cells%end_idx(min_rlcell_int,i_nchdom) &
-      ) THEN
-      DO i = min_rlcell_int-1, min_rlcell, -1
-        IF (wrk_p_patch%cells%start_idx(i,1) == -9999 .OR. &
-            wrk_p_patch%cells%start_blk(i,1) == -9999 .OR. &
-            wrk_p_patch%cells%end_idx(i,1)   == -9999 .OR. &
-            wrk_p_patch%cells%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%cells%start_idx(i,:) = wrk_p_patch%cells%start_idx(i+1,1) 
-          wrk_p_patch%cells%start_blk(i,:) = wrk_p_patch%cells%start_blk(i+1,1) 
-          wrk_p_patch%cells%end_idx(i,:)   = wrk_p_patch%cells%end_idx(i+1,1) 
-          wrk_p_patch%cells%end_blk(i,:)   = wrk_p_patch%cells%end_blk(i+1,1) 
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Finally, fill start indices of halo rows with meaningful values for empty patches
-    ! (which occur when processor splitting is applied)
-    IF (wrk_p_patch%nblks_c <= 0 .OR. wrk_p_patch%npromz_c <= 0) THEN
-      DO i=min_rlcell,min_rlcell_int-1
-        wrk_p_patch%cells%start_idx(i,:) = wrk_p_patch%cells%start_idx(min_rlcell_int,1)
-        wrk_p_patch%cells%start_blk(i,:) = wrk_p_patch%cells%start_blk(min_rlcell_int,1)
-        wrk_p_patch%cells%end_idx(i,:)   = wrk_p_patch%cells%end_idx(min_rlcell_int,1)
-        wrk_p_patch%cells%end_blk(i,:)   = wrk_p_patch%cells%end_blk(min_rlcell_int,1)
-      ENDDO
-    ENDIF
 
     !---------------------------------------------------------------------------------------
-
-    n = 0
-    IF (.NOT. l_compute_grid) THEN
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        IF (flag2_e(j)==0) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          lcount_e(j) = .TRUE.
-        ELSE
-          wrk_p_patch%edges%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ELSE
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = wrk_p_patch_g%edges%refin_ctrl(jl,jb)
-        IF (flag2_e(j)==0 .OR. ((irl0==1 .OR. irl0==2) .AND. flag2_e(j)>=1) .OR. &
-          & (irl0==3 .OR. irl0==4) .AND. (flag2_e(j)==1 .OR. flag2_e(j)==2) .OR. &
-          & (irl0==5 .OR. irl0==6 .OR. irl0<0) .AND. flag2_e(j)==1 ) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          lcount_e(j) = .TRUE.
-        ELSE
-          wrk_p_patch%edges%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Set start_idx/blk ... end_idx/blk for edges.
-    ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
-
-    DO j=1,wrk_p_patch%max_childdom
-      DO i=min_rledge_int,max_rledge
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%edges%start_idx(i,j),           &
-          & wrk_p_patch_g%edges%start_blk(i,j),           &
-          & wrk_p_patch%edges%start_idx(i,j),             &
-          & wrk_p_patch%edges%start_blk(i,j),             &
-          & +1 )
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%edges%end_idx(i,j),             &
-          & wrk_p_patch_g%edges%end_blk(i,j),             &
-          & wrk_p_patch%edges%end_idx(i,j),               &
-          & wrk_p_patch%edges%end_blk(i,j),               &
-          & -1 )
-      ENDDO
-      ! Preset remaining index sections with dummy values
-      wrk_p_patch%edges%start_idx(min_rledge:min_rledge_int-1,j) = -9999
-      wrk_p_patch%edges%start_blk(min_rledge:min_rledge_int-1,j) = -9999
-      wrk_p_patch%edges%end_idx(min_rledge:min_rledge_int-1,j)   = -9999
-      wrk_p_patch%edges%end_blk(min_rledge:min_rledge_int-1,j)   = -9999
-    ENDDO
-
-    IF(.NOT.l_compute_grid) THEN
-      ! Gather all halo edges at the end of the patch.
-      ! They do not undergo further ordering and will be placed at index level min_rledge_int-1
-      irlev = min_rledge_int-1
-      DO j = 1, wrk_p_patch_g%n_patch_edges
-        IF(flag2_e(j)>1) THEN
-          n = n + 1
-          wrk_p_patch%edges%glb_index(n) = j
-          wrk_p_patch%edges%loc_index(j) = n
-          jb_e = blk_no(n) ! block index
-          jl_e = idx_no(n) ! line index
-          ! This ensures that just the first point found at this irlev is saved as start point
-          IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-            wrk_p_patch%edges%start_idx(irlev,:) = jl_e
-            wrk_p_patch%edges%start_blk(irlev,:) = jb_e
-          ENDIF
-        ENDIF
-      ENDDO
-      ! Set end index when the last point is processed
-      jb_e = blk_no(n) ! block index
-      jl_e = idx_no(n) ! line index
-      wrk_p_patch%edges%end_idx(min_rledge:irlev,:) = jl_e
-      wrk_p_patch%edges%end_blk(min_rledge:irlev,:) = jb_e
-      wrk_p_patch%edges%start_idx(min_rledge:irlev-1,:) = wrk_p_patch%edges%start_idx(irlev,1)
-      wrk_p_patch%edges%start_blk(min_rledge:irlev-1,:) = wrk_p_patch%edges%start_blk(irlev,1)
-    ELSE
-      ! Gather all halo edges except those lying in the lateral boundary interpolation zone
-      ! at the end. They are sorted by the flag2_e value and will be placed at the
-      ! index levels between min_rledge_int-1 and min_rledge
-      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-      ! cannot be used here
-      DO ilev = 1, 2*n_boundary_rows+1
-        irlev = MAX(min_rledge, min_rledge_int - ilev)  ! index section into which the halo points are put
-        DO j = 1, wrk_p_patch_g%n_patch_edges
-          IF (flag2_e(j)==ilev .AND. .NOT. lcount_e(j)) THEN
-            n = n + 1
-            wrk_p_patch%edges%glb_index(n) = j
-            wrk_p_patch%edges%loc_index(j) = n
-            jb_e = blk_no(n) ! block index
-            jl_e = idx_no(n) ! line index
-            ! This ensures that just the first point found at this irlev is saved as start point
-            IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-              wrk_p_patch%edges%start_idx(irlev,:) = jl_e
-              wrk_p_patch%edges%start_blk(irlev,:) = jb_e
-            ENDIF
-            wrk_p_patch%edges%end_idx(irlev,:) = jl_e
-            wrk_p_patch%edges%end_blk(irlev,:) = jb_e
-          ENDIF
-        ENDDO
-        ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (wrk_p_patch%edges%start_idx(irlev,1)==-9999) THEN
-          wrk_p_patch%edges%start_idx(irlev,:) = wrk_p_patch%edges%end_idx(irlev+1,i_nchdom)+1
-          wrk_p_patch%edges%start_blk(irlev,:) = wrk_p_patch%edges%end_blk(irlev+1,i_nchdom)
-          wrk_p_patch%edges%end_idx(irlev,:)   = wrk_p_patch%edges%end_idx(irlev+1,i_nchdom)
-          wrk_p_patch%edges%end_blk(irlev,:)   = wrk_p_patch%edges%end_blk(irlev+1,i_nchdom)
-        ENDIF
-      ENDDO
-      ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
-        ilev1 = min_rledge_int
-        ilev_st = 1
-      ELSE
-        ilev1 = MAX(min_rledge, min_rledge_int -(2*n_boundary_rows+1))
-        ilev_st = 2*n_boundary_rows+2
-      ENDIF
-      DO ilev = ilev_st,2*max_hw+1
-        irlev = MAX(min_rledge, min_rledge_int - ilev)  ! index section into which the halo points are put
-        wrk_p_patch%edges%start_idx(irlev,:) = wrk_p_patch%edges%end_idx(ilev1,1) + 1
-        wrk_p_patch%edges%start_blk(irlev,:) = wrk_p_patch%edges%end_blk(ilev1,1)
-        wrk_p_patch%edges%end_idx(irlev,:)   = wrk_p_patch%edges%end_idx(ilev1,1)
-        wrk_p_patch%edges%end_blk(irlev,:)   = wrk_p_patch%edges%end_blk(ilev1,1)
-      ENDDO
-    ENDIF
-
-    ! If a PE owns only nest boundary points, it may happen that one or more index
-    ! sections of halo edges are empty. These are filled here
-    IF (wrk_p_patch%edges%start_blk(0,1)     > wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
-      .OR. wrk_p_patch%edges%start_blk(0,1) == wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
-      .AND. wrk_p_patch%edges%start_idx(0,1) > wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) &
-      ) THEN
-      DO i = min_rledge_int-1, min_rledge, -1
-        IF (wrk_p_patch%edges%start_idx(i,1) == -9999 .OR. &
-            wrk_p_patch%edges%start_blk(i,1) == -9999 .OR. &
-            wrk_p_patch%edges%end_idx(i,1)   == -9999 .OR. &
-            wrk_p_patch%edges%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(i+1,1) 
-          wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(i+1,1) 
-          wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(i+1,1) 
-          wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(i+1,1) 
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Finally, fill start indices of halo rows with meaningful values for empty patches
-    ! (which occur when processor splitting is applied)
-    IF (wrk_p_patch%nblks_e <= 0 .OR. wrk_p_patch%npromz_e <= 0) THEN
-      DO i=min_rledge,min_rledge_int-1
-        wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(min_rledge_int,1)
-        wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(min_rledge_int,1)
-        wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(min_rledge_int,1)
-        wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(min_rledge_int,1)
-      ENDDO
-    ENDIF
-
+    CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_cells, &
+         n_patch_cve_g = wrk_p_patch_g%n_patch_cells, &
+         max_childdom = wrk_p_patch%max_childdom, &
+         nchilddom = MAX(1,wrk_p_patch%n_childdom), &
+         patch_id = wrk_p_patch_g%id, &
+         nblks = wrk_p_patch%nblks_c, &
+         npromz = wrk_p_patch%npromz_c, &
+         cell_type = wrk_p_patch%cell_type, &
+         min_rlcve = min_rlcell, &
+         min_rlcve_int = min_rlcell_int, &
+         max_rlcve = max_rlcell, &
+         max_ilev = 2*n_boundary_rows, &
+         max_hw_cve = 2*max_hw, &
+         flag2 = flag2_c, &
+         glb_index = wrk_p_patch%cells%glb_index, &
+         loc_index = wrk_p_patch%cells%loc_index, &
+         start_idx = wrk_p_patch%cells%start_idx, &
+         start_blk = wrk_p_patch%cells%start_blk, &
+         end_idx = wrk_p_patch%cells%end_idx, &
+         end_blk = wrk_p_patch%cells%end_blk, &
+         start_idx_g = wrk_p_patch_g%cells%start_idx, &
+         start_blk_g = wrk_p_patch_g%cells%start_blk, &
+         end_idx_g = wrk_p_patch_g%cells%end_idx, &
+         end_blk_g = wrk_p_patch_g%cells%end_blk, &
+         order_type_of_halos = order_type_of_halos, &
+         l_cell_correction = .TRUE., &
+         refin_ctrl = wrk_p_patch_g%cells%refin_ctrl, &
+         refinement_predicate = refine_cells)
     !---------------------------------------------------------------------------------------
-
-    n = 0
-    IF (.NOT. l_compute_grid) THEN
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        IF (flag2_v(j)==0 ) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          lcount_v(j) = .TRUE.
-        ELSE
-          wrk_p_patch%verts%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ELSE
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = wrk_p_patch_g%verts%refin_ctrl(jl,jb)
-        IF (flag2_v(j)==0 .OR. irl0==1 .AND. flag2_v(j)>0 .OR. &
-          & (irl0==2 .OR. irl0<0) .AND. flag2_v(j)==1 ) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          lcount_v(j) = .TRUE.
-        ELSE
-          wrk_p_patch%verts%loc_index(j) = -(n+1)
-        ENDIF
-      ENDDO
-    ENDIF
-
-
-    ! Set start_idx/blk ... end_idx/blk for verts.
-    ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
-
-    DO j=1,wrk_p_patch%max_childdom
-      DO i=min_rlvert_int,max_rlvert
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%verts%start_idx(i,j),           &
-          & wrk_p_patch_g%verts%start_blk(i,j),           &
-          & wrk_p_patch%verts%start_idx(i,j),             &
-          & wrk_p_patch%verts%start_blk(i,j),             &
-          & +1 )
-!CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%verts%end_idx(i,j),             &
-          & wrk_p_patch_g%verts%end_blk(i,j),             &
-          & wrk_p_patch%verts%end_idx(i,j),               &
-          & wrk_p_patch%verts%end_blk(i,j),               &
-          & -1 )
-      ENDDO
-      ! Preset remaining index sections with dummy values
-      wrk_p_patch%verts%start_idx(min_rlvert:min_rlvert_int-1,j) = -9999
-      wrk_p_patch%verts%start_blk(min_rlvert:min_rlvert_int-1,j) = -9999
-      wrk_p_patch%verts%end_idx(min_rlvert:min_rlvert_int-1,j)   = -9999
-      wrk_p_patch%verts%end_blk(min_rlvert:min_rlvert_int-1,j)   = -9999
-    ENDDO
-
-    IF(.NOT.l_compute_grid) THEN
-      ! Gather all halo vertices at the end of the patch.
-      ! They do not undergo further ordering and will be placed at index level min_rlvert_int-1
-      irlev = min_rlvert_int-1
-      DO j = 1, wrk_p_patch_g%n_patch_verts
-        IF(flag2_v(j)>1) THEN
-          n = n + 1
-          wrk_p_patch%verts%glb_index(n) = j
-          wrk_p_patch%verts%loc_index(j) = n
-          jb_v = blk_no(n) ! block index
-          jl_v = idx_no(n) ! line index
-          ! This ensures that just the first point found at this irlev is saved as start point
-          IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-            wrk_p_patch%verts%start_idx(irlev,:) = jl_v
-            wrk_p_patch%verts%start_blk(irlev,:) = jb_v
-          ENDIF
-        ENDIF
-      ENDDO
-      ! Set end index when the last point is processed
-      jb_v = blk_no(n) ! block index
-      jl_v = idx_no(n) ! line index
-      wrk_p_patch%verts%end_idx(min_rlvert:irlev,:) = jl_v
-      wrk_p_patch%verts%end_blk(min_rlvert:irlev,:) = jb_v
-      wrk_p_patch%verts%start_idx(min_rlvert:irlev-1,:) = wrk_p_patch%verts%start_idx(irlev,1)
-      wrk_p_patch%verts%start_blk(min_rlvert:irlev-1,:) = wrk_p_patch%verts%start_blk(irlev,1)
-    ELSE
-      ! Gather all halo vertices except those lying in the lateral boundary interpolation zone
-      ! at the end. They are sorted by the flag2_v value and will be placed at the
-      ! index levels between min_rlvert_int-1 and min_rlvert
-      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
-      ! cannot be used here
-      DO ilev = 1, n_boundary_rows+1
-        irlev = MAX(min_rlvert, min_rlvert_int - ilev)  ! index section into which the halo points are put
-        DO j = 1, wrk_p_patch_g%n_patch_verts
-          IF (flag2_v(j)==ilev .AND. .NOT. lcount_v(j)) THEN
-            n = n + 1
-            wrk_p_patch%verts%glb_index(n) = j
-            wrk_p_patch%verts%loc_index(j) = n
-            jb_v = blk_no(n) ! block index
-            jl_v = idx_no(n) ! line index
-            ! This ensures that just the first point found at this irlev is saved as start point
-            IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-              wrk_p_patch%verts%start_idx(irlev,:) = jl_v
-              wrk_p_patch%verts%start_blk(irlev,:) = jb_v
-            ENDIF
-            wrk_p_patch%verts%end_idx(irlev,:) = jl_v
-            wrk_p_patch%verts%end_blk(irlev,:) = jb_v
-          ENDIF
-        ENDDO
-        ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (wrk_p_patch%verts%start_idx(irlev,1)==-9999) THEN
-          wrk_p_patch%verts%start_idx(irlev,:) = wrk_p_patch%verts%end_idx(irlev+1,i_nchdom)+1
-          wrk_p_patch%verts%start_blk(irlev,:) = wrk_p_patch%verts%end_blk(irlev+1,i_nchdom)
-          wrk_p_patch%verts%end_idx(irlev,:)   = wrk_p_patch%verts%end_idx(irlev+1,i_nchdom)
-          wrk_p_patch%verts%end_blk(irlev,:)   = wrk_p_patch%verts%end_blk(irlev+1,i_nchdom)
-        ENDIF
-      ENDDO
-      ! Fill start and end indices for remaining index sections
-      IF (jg == 0) THEN
-        ilev1 = min_rlvert_int
-        ilev_st = 1
-      ELSE
-        ilev1 = MAX(min_rlvert, min_rlvert_int -(n_boundary_rows+1))
-        ilev_st = n_boundary_rows+2
-      ENDIF
-      DO ilev = ilev_st,max_hw+1
-        irlev = MAX(min_rlvert, min_rlvert_int - ilev)  ! index section into which the halo points are put
-        wrk_p_patch%verts%start_idx(irlev,:) = wrk_p_patch%verts%end_idx(ilev1,1) + 1
-        wrk_p_patch%verts%start_blk(irlev,:) = wrk_p_patch%verts%end_blk(ilev1,1)
-        wrk_p_patch%verts%end_idx(irlev,:)   = wrk_p_patch%verts%end_idx(ilev1,1)
-        wrk_p_patch%verts%end_blk(irlev,:)   = wrk_p_patch%verts%end_blk(ilev1,1)
-      ENDDO
-    ENDIF
-
-    ! If a PE owns only nest boundary points, it may happen that one or more index
-    ! sections of halo vertices are empty. These are filled here
-    IF (wrk_p_patch%verts%start_blk(0,1)     > wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
-      .OR. wrk_p_patch%verts%start_blk(0,1) == wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
-      .AND. wrk_p_patch%verts%start_idx(0,1) > wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) &
-      ) THEN
-      DO i = min_rlvert_int-1, min_rlvert, -1
-        IF (wrk_p_patch%verts%start_idx(i,1) == -9999 .OR. &
-            wrk_p_patch%verts%start_blk(i,1) == -9999 .OR. &
-            wrk_p_patch%verts%end_idx(i,1)   == -9999 .OR. &
-            wrk_p_patch%verts%end_blk(i,1)   == -9999 ) THEN
-          wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(i+1,1) 
-          wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(i+1,1) 
-          wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(i+1,1) 
-          wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(i+1,1) 
-        ENDIF
-      ENDDO
-    ENDIF
-
-    ! Finally, fill start indices of halo rows with meaningful values for empty patches
-    ! (which occur when processor splitting is applied)
-    IF (wrk_p_patch%nblks_v <= 0 .OR. wrk_p_patch%npromz_v <= 0) THEN
-      DO i=min_rlvert,min_rlvert_int-1
-        wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(min_rlvert_int,1)
-        wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(min_rlvert_int,1)
-        wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(min_rlvert_int,1)
-        wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(min_rlvert_int,1)
-      ENDDO
-    ENDIF
+    CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_edges, &
+         n_patch_cve_g = wrk_p_patch_g%n_patch_edges, &
+         max_childdom = wrk_p_patch%max_childdom, &
+         nchilddom = MAX(1,wrk_p_patch%n_childdom), &
+         patch_id = wrk_p_patch_g%id, &
+         nblks = wrk_p_patch%nblks_e, &
+         npromz = wrk_p_patch%npromz_e, &
+         cell_type = wrk_p_patch%cell_type, &
+         min_rlcve = min_rledge, &
+         min_rlcve_int = min_rledge_int, &
+         max_rlcve = max_rledge, &
+         max_ilev = 2*n_boundary_rows+1, &
+         max_hw_cve = 2*max_hw + 1, &
+         flag2 = flag2_e, &
+         glb_index = wrk_p_patch%edges%glb_index, &
+         loc_index = wrk_p_patch%edges%loc_index, &
+         start_idx = wrk_p_patch%edges%start_idx, &
+         start_blk = wrk_p_patch%edges%start_blk, &
+         end_idx = wrk_p_patch%edges%end_idx, &
+         end_blk = wrk_p_patch%edges%end_blk, &
+         start_idx_g = wrk_p_patch_g%edges%start_idx, &
+         start_blk_g = wrk_p_patch_g%edges%start_blk, &
+         end_idx_g = wrk_p_patch_g%edges%end_idx, &
+         end_blk_g = wrk_p_patch_g%edges%end_blk, &
+         order_type_of_halos = order_type_of_halos, &
+         l_cell_correction = .FALSE., &
+         refin_ctrl = wrk_p_patch_g%edges%refin_ctrl, &
+         refinement_predicate = refine_edges)
+    !---------------------------------------------------------------------------------------
+    CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
+         n_patch_cve_g = wrk_p_patch_g%n_patch_verts, &
+         max_childdom = wrk_p_patch%max_childdom, &
+         nchilddom = MAX(1,wrk_p_patch%n_childdom), &
+         patch_id = wrk_p_patch_g%id, &
+         nblks = wrk_p_patch%nblks_v, &
+         npromz = wrk_p_patch%npromz_v, &
+         cell_type = wrk_p_patch%cell_type, &
+         min_rlcve = min_rlvert, &
+         min_rlcve_int = min_rlvert_int, &
+         max_rlcve = max_rlvert, &
+         max_ilev = n_boundary_rows+1, &
+         max_hw_cve = max_hw + 1, &
+         flag2 = flag2_v, &
+         glb_index = wrk_p_patch%verts%glb_index, &
+         loc_index = wrk_p_patch%verts%loc_index, &
+         start_idx = wrk_p_patch%verts%start_idx, &
+         start_blk = wrk_p_patch%verts%start_blk, &
+         end_idx = wrk_p_patch%verts%end_idx, &
+         end_blk = wrk_p_patch%verts%end_blk, &
+         start_idx_g = wrk_p_patch_g%verts%start_idx, &
+         start_blk_g = wrk_p_patch_g%verts%start_blk, &
+         end_idx_g = wrk_p_patch_g%verts%end_idx, &
+         end_blk_g = wrk_p_patch_g%verts%end_blk, &
+         order_type_of_halos = order_type_of_halos, &
+         l_cell_correction = .FALSE., &
+         refin_ctrl = wrk_p_patch_g%verts%refin_ctrl, &
+         refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
     ! Note: the use of write(0,*) instead of CALL message is intended here
@@ -1601,7 +1256,7 @@ CONTAINS
         ANY(wrk_p_patch%cells%end_idx(:,:)  <0) .OR. ANY(wrk_p_patch%cells%end_blk(:,:)  <0)) THEN
       DO j = 1, MAX(1,wrk_p_patch%n_childdom)
         DO i = min_rlcell, max_rlcell
-          write(0,'(a,2i5,2i4,4i7)') 'cells',my_proc,wrk_p_patch%id,i,j,     &
+          WRITE(0,'(a,2i5,2i4,4i7)') 'cells',my_proc,wrk_p_patch%id,i,j,     &
             wrk_p_patch%cells%start_blk(i,j),wrk_p_patch%cells%start_idx(i,j), &
             wrk_p_patch%cells%end_blk(i,j),  wrk_p_patch%cells%end_idx(i,j)
         ENDDO
@@ -1632,6 +1287,7 @@ CONTAINS
       ENDDO
       CALL finish('divide_patch','Error in vertex start/end indices')
     ENDIF
+
 
     !-----------------------------------------------------------------------------------------------
     ! Set arrays of divided patch
@@ -1754,10 +1410,281 @@ CONTAINS
       wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
     ENDDO
-            
-    DEALLOCATE(flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
+
+    DEALLOCATE(flag2_c, flag2_e, flag2_v)
 
   END SUBROUTINE divide_patch
+
+  FUNCTION refine_cells(flag, irl0) RESULT(p)
+    INTEGER, INTENT(in) :: flag, irl0
+    LOGICAL :: p
+
+    p = flag == 0 &
+         .OR. ( flag >= 1 .AND. irl0 == 1 ) &
+         .OR. ( flag == 1 .AND. irl0 == 2 )
+  END FUNCTION refine_cells
+
+  FUNCTION refine_edges(flag, irl0) RESULT(p)
+    INTEGER, INTENT(in) :: flag, irl0
+    LOGICAL :: p
+
+    p = flag==0 &
+         .OR. ((irl0==1 .OR. irl0==2) .AND. flag>=1) &
+         .OR. ((irl0==3 .OR. irl0==4) .AND. (flag==1 .OR. flag==2)) &
+         .OR. ((irl0==5 .OR. irl0==6 .OR. irl0<0) .AND. flag==1)
+  END FUNCTION refine_edges
+
+  FUNCTION refine_verts(flag, irl0) RESULT(p)
+    INTEGER, INTENT(in) :: flag, irl0
+    LOGICAL :: p
+
+    p = flag == 0 &
+         .OR.  (irl0 == 1                .AND. flag  > 0) &
+         .OR. ((irl0 == 2 .OR. irl0 < 0) .AND. flag == 1)
+  END FUNCTION refine_verts
+
+  SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
+       max_childdom, nchilddom, patch_id, nblks, npromz, cell_type, &
+       min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
+       flag2, glb_index, loc_index, &
+       start_idx, start_blk, end_idx, end_blk, &
+       start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+       order_type_of_halos, l_cell_correction, refin_ctrl, refinement_predicate)
+    INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, max_childdom, &
+         nchilddom, patch_id, nblks, npromz, cell_type, &
+         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
+    INTEGER, INTENT(in) :: order_type_of_halos
+    LOGICAL, INTENT(in) :: l_cell_correction
+    INTEGER, INTENT(in) :: flag2(:), refin_ctrl(:, :)
+    INTEGER, INTENT(inout) :: glb_index(:), loc_index(:)
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(inout) :: &
+         start_idx, start_blk, end_idx, end_blk
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(in) :: &
+         start_idx_g, start_blk_g, end_idx_g, end_blk_g
+    INTERFACE
+      FUNCTION refinement_predicate(flag, irl0) RESULT(p)
+        INTEGER, INTENT(in) :: flag, irl0
+        LOGICAL :: p
+      END FUNCTION refinement_predicate
+    END INTERFACE
+
+    LOGICAL, ALLOCATABLE :: lcount(:)
+    INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jl, n, &
+         exec_sequence, ref_flag
+
+    ALLOCATE(lcount(n_patch_cve_g))
+    lcount = .FALSE.
+    n = 0
+
+    SELECT CASE(order_type_of_halos)
+      CASE (0,2)
+!        IF (.NOT. l_compute_grid) THEN
+          DO j = 1, n_patch_cve_g
+            IF (flag2(j)==0) THEN
+              n = n + 1
+              glb_index(n) = j
+              loc_index(j) = n
+              lcount(j) = .TRUE.
+            ELSE
+              loc_index(j) = -(n+1)
+            ENDIF
+          ENDDO
+      CASE (1)
+!        ELSE
+          DO j = 1, n_patch_cve_g
+            jb = blk_no(j) ! block index
+            jl = idx_no(j) ! line index
+            irl0 = refin_ctrl(jl,jb)
+            IF (refinement_predicate(flag2(j), irl0)) THEN
+              n = n + 1
+              glb_index(n) = j
+              loc_index(j) = n
+              lcount(j) = .TRUE.
+            ELSE
+              loc_index(j) = -(n+1)
+            ENDIF
+          ENDDO
+!        ENDIF
+      CASE default
+        CALL finish("", "Uknown order_type_of_halos")
+    END SELECT
+
+    ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
+    ! This must be done here since it depends on the special (monotonic)
+    ! setting of the loc_index array.
+
+    DO j=1,max_childdom
+      ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
+      ! halo cells; they are set below
+      DO i=min_rlcve_int,max_rlcve
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & start_idx_g(i,j),           &
+          & start_blk_g(i,j),           &
+          & start_idx(i,j),             &
+          & start_blk(i,j),             &
+          & +1 )
+!CDIR IEXPAND
+        CALL get_local_index(loc_index, &
+          & end_idx_g(i,j),             &
+          & end_blk_g(i,j),             &
+          & end_idx(i,j),               &
+          & end_blk(i,j),               &
+          & -1 )
+      ENDDO
+      ! Preset remaining index sections with dummy values
+      start_idx(min_rlcve:min_rlcve_int-1,j) = -9999
+      start_blk(min_rlcve:min_rlcve_int-1,j) = -9999
+      end_idx(min_rlcve:min_rlcve_int-1,j)   = -9999
+      end_blk(min_rlcve:min_rlcve_int-1,j)   = -9999
+    ENDDO
+
+    SELECT CASE(order_type_of_halos)
+      CASE (0,2)
+     ! IF(.NOT.l_compute_grid) THEN
+        ! processing local parent grid
+        !
+        ! Gather all halo cells/edges/verts at the end of the patch.
+        ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
+        irlev = min_rlcve_int-1
+        ref_flag = MERGE(0, 1, l_cell_correction)
+        IF (order_type_of_halos == 2) ref_flag = 0
+        DO j = 1, n_patch_cve_g
+          IF (flag2(j) > ref_flag) THEN
+            n = n + 1
+            glb_index(n) = j
+            loc_index(j) = n
+            ! This ensures that just the first point found at this irlev is saved as start point
+            IF (start_idx(irlev,1)==-9999) THEN
+              start_idx(irlev,:) = idx_no(n) ! line index
+              start_blk(irlev,:) = blk_no(n) ! block index
+            ENDIF
+          ENDIF
+        ENDDO
+        ! Set end index when the last point is processed
+        end_idx(min_rlcve:irlev,:) = idx_no(n) ! line index
+        end_blk(min_rlcve:irlev,:) = blk_no(n) ! block index
+        start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
+        start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
+      CASE(1)
+        ! ELSE
+          ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
+          ! at the end. They are sorted by the flag2 value and will be placed at the
+          ! index levels between min_rlcve_int-1 and min_rlcve
+          ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
+          ! cannot be used here
+          DO ilev = 1, max_ilev
+            irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+            DO j = 1, n_patch_cve_g
+              IF (flag2(j) == ilev .AND. .NOT. lcount(j)) THEN
+                n = n + 1
+                glb_index(n) = j
+                loc_index(j) = n
+                jb = blk_no(n) ! block index
+                jl = idx_no(n) ! line index
+                ! This ensures that just the first point found at this irlev is saved as start point
+                IF (start_idx(irlev,1)==-9999) THEN
+                  start_idx(irlev,:) = jl
+                  start_blk(irlev,:) = jb
+                ENDIF
+                end_idx(irlev,:) = jl
+                end_blk(irlev,:) = jb
+              ENDIF
+            ENDDO
+            ! Just in case that no grid point is found (may happen for ilev=1)
+            IF (.NOT. l_cell_correction .AND. start_idx(irlev,1)==-9999) THEN
+              start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
+              start_blk(irlev,:) = end_blk(irlev+1,nchilddom)
+              end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
+              end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
+            ENDIF
+          ENDDO
+          ! Fill start and end indices for remaining index sections
+          IF (patch_id == 0) THEN
+            ilev1 = min_rlcve_int
+            ilev_st = 1
+          ELSE
+            ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
+            ilev_st = max_ilev + 1
+          ENDIF
+          IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+            DO ilev = 2, max_hw_cve, 2
+              irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+              start_idx(irlev,:) = end_idx(irlev+1,1) + 1
+              start_blk(irlev,:) = end_blk(irlev+1,1)
+              end_idx(irlev,:)   = end_idx(irlev+1,1)
+              end_blk(irlev,:)   = end_blk(irlev+1,1)
+            ENDDO
+          ENDIF
+          DO ilev = ilev_st,max_hw_cve
+            irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+            start_idx(irlev,:) = end_idx(ilev1,1) + 1
+            start_blk(irlev,:) = end_blk(ilev1,1)
+            end_idx(irlev,:)   = end_idx(ilev1,1)
+            end_blk(irlev,:)   = end_blk(ilev1,1)
+          ENDDO
+        ! ENDIF
+
+    END SELECT
+
+    ! exec_sequence only serves the purpose to retain the execution
+    ! sequence for these three correction as it was in the previous
+    ! code version, it might be irrelevant.
+    ! see redmine issue #3924
+    DO exec_sequence = 0, 1
+      IF (.NOT. l_cell_correction .AND. exec_sequence == 0 &
+           .OR. l_cell_correction .AND. exec_sequence == 1) THEN
+        ! If a PE owns only nest boundary points, it may happen that
+        ! one or more index sections of halo cells/verts/edges are
+        ! empty. These are filled here
+        IF (start_blk(0,1)     > end_blk(min_rlcve_int,nchilddom) &
+             .OR. start_blk(0,1) == end_blk(min_rlcve_int,nchilddom) &
+             .AND. start_idx(0,1) > end_idx(min_rlcve_int,nchilddom) ) THEN
+          DO i = min_rlcve_int-1, min_rlcve, -1
+            IF (start_idx(i,1) == -9999 .OR. &
+                 start_blk(i,1) == -9999 .OR. &
+                 end_idx(i,1)   == -9999 .OR. &
+                 end_blk(i,1)   == -9999 ) THEN
+              start_idx(i,:) = start_idx(i+1,1)
+              start_blk(i,:) = start_blk(i+1,1)
+              end_idx(i,:)   = end_idx(i+1,1)
+              end_blk(i,:)   = end_blk(i+1,1)
+            ENDIF
+          ENDDO
+        ENDIF
+
+        ! Finally, fill start indices of halo rows with meaningful
+        ! values for empty patches (which occur when processor
+        ! splitting is applied)
+        IF (nblks <= 0 .OR. npromz <= 0) THEN
+          DO i=min_rlcve,min_rlcve_int-1
+            start_idx(i,:) = start_idx(min_rlcve_int,1)
+            start_blk(i,:) = start_blk(min_rlcve_int,1)
+            end_idx(i,:)   = end_idx(min_rlcve_int,1)
+            end_blk(i,:)   = end_blk(min_rlcve_int,1)
+          ENDDO
+        ENDIF
+      END IF
+      ! special treatment for sequential runs with trivial decomposition
+      IF (exec_sequence == 0 .AND. MAXVAL(flag2) == 0) THEN
+        end_idx(min_rlcve:min_rlcve_int-1,:) = end_idx(min_rlcve_int,nchilddom)
+        end_blk(min_rlcve:min_rlcve_int-1,:) = end_blk(min_rlcve_int,nchilddom)
+
+        IF (end_idx(min_rlcve_int,nchilddom) == nproma) THEN
+          start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   end_blk(min_rlcve_int,nchilddom) + 1
+          start_idx(min_rlcve:min_rlcve_int-1,:) = 1
+        ELSE
+          start_idx(min_rlcve:min_rlcve_int-1,:) = &
+               &    end_idx(min_rlcve_int,nchilddom) + 1
+          start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   end_blk(min_rlcve_int,nchilddom)
+        END IF
+      END IF
+    END DO
+    DEALLOCATE(lcount)
+
+  END SUBROUTINE build_patch_start_end
 
   !-------------------------------------------------------------------------
   !>
@@ -1832,14 +1759,16 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
+                                     owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
-    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1), js, np
+    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
@@ -1967,8 +1896,8 @@ CONTAINS
         ! Patch division for radiation calculations:
         ! To minimize load imbalance, every patch contains 10 areas
         ! distributed in a way similar as the "diamonds" in GME
-        ! This is accomplished by mapping all cells to one section  
-        ! lying in the NH and having a width of 0.4*pi (72 deg) 
+        ! This is accomplished by mapping all cells to one section
+        ! lying in the NH and having a width of 0.4*pi (72 deg)
 
         cclat = wrk_divide_patch%cells%center(jl,jb)%lat
         cclon = wrk_divide_patch%cells%center(jl,jb)%lon
@@ -2367,10 +2296,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_metis(subset_flag, n_proc, owner)
+  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_divide_patch, &
+                                 owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
+    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
@@ -2463,344 +2394,68 @@ CONTAINS
   END SUBROUTINE divide_subset_metis
 #endif
 
-  !------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
-  !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE decompose_domain_oce( p_patch_2D, p_patch_global, opt_n_procs )
-    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_2D(n_dom_start:)
-    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
-    INTEGER, INTENT(IN), OPTIONAL :: opt_n_procs
+  SUBROUTINE fill_wrk_decomposition_struct(decomposition_struct, patch)
+    TYPE(t_decomposition_structure) :: decomposition_struct
+    TYPE(t_patch) :: patch
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
+    INTEGER :: no_of_cells, no_of_verts, cell, vertex
+    INTEGER :: jb, jl, i, jl_v, jb_v, return_status
 
-    CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
-      & (/ "lateral grid points " , &
-      &    "interior grid points", &
-      &    "nested grid points  ",   &
-      &    "halo grid points    " /)
+    CHARACTER(*), PARAMETER :: method_name = "fill_wrk_decomposition_struct"
 
-    ! Local variables:
-    INTEGER :: jg, jgp, jc, jgc, n, &
-      &        l1, i_nchdom, n_procs_decomp
-    INTEGER :: nprocs(p_patch_global(1)%n_childdom)
-    INTEGER, POINTER :: cell_owner(:), cell_owner_p(:)
-    REAL(wp) :: weight(p_patch_global(1)%n_childdom)
-    INTEGER(i8) :: npts_global(4)
-    ! (Optional:) Print a detailed summary on model grid points
-    LOGICAL :: l_detailed_summary
-    TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
+    decomposition_struct%no_of_cells = patch%n_patch_cells
+    decomposition_struct%no_of_edges = patch%n_patch_edges
+    decomposition_struct%no_of_verts = patch%n_patch_verts
+    no_of_cells = decomposition_struct%no_of_cells
+    no_of_verts = decomposition_struct%no_of_verts
 
-    CALL message(routine, 'start of domain decomposition')
+    ALLOCATE( decomposition_struct%cell_geo_center(no_of_cells), &
+      &  decomposition_struct%cells_vertex(3,no_of_cells), &
+      &  decomposition_struct%vertex_geo_coord(no_of_verts),  &
+      &  stat=return_status)
+    IF (return_status > 0) &
+      & CALL finish (method_name, "ALLOCATE(decomposition_struct")
 
-    ! If opt_n_procs is set, this routine should be called from a single processor run
-    ! and it splits the domain into opt_n_procs parts.
-    ! Otherwise, the call should be from a parallel run and the domain is split
-    ! according to the number of processors
-
-    IF(present(opt_n_procs)) THEN
-      n_procs_decomp = opt_n_procs
-      IF(my_process_is_mpi_parallel()) &
-        CALL finish(routine, 'Call with opt_n_procs in parallel mode')
-    ELSE
-      n_procs_decomp = p_n_work
-    ENDIF
-
-
-    ! Check if the processor set should be split for patches of the 1st generation.
-    ! This is the case if patch_weight > 0 for at least one of the root's childs.
-    ! For clearness, we require that patch_weight=0 for any other patch
-
-    ! Get weights for 1st generation patches
-    proc_split = .FALSE.
-    DO jc = 1, p_patch_global(1)%n_childdom
-      jgc = p_patch_global(1)%child_id(jc)
-      weight(jc) = patch_weight(jgc)
-      IF(weight(jc) > 0._wp) proc_split = .TRUE.
-    ENDDO
-
-    ! Check if weights for other patches are 0 (for clearness only)
-    IF(patch_weight(1) /= 0._wp) &
-      CALL finish(routine,'Weight for root patch must be 0')
-    DO jg = 2, n_dom
-      jgp = p_patch_global(jg)%parent_id
-      IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
-        CALL finish(routine,'Weight for higher level patch must be 0')
-    ENDDO
-
-    IF(proc_split) THEN
-
-      IF(p_pe_work==0) WRITE(0,*) 'Splitting processor grid for first level patches'
-      IF(p_pe_work==0) WRITE(0,'(a,10f12.3)') 'Weights for first level patches:',weight(:)
-
-      ! In this case, the working processor set must be at least as big
-      ! as the number of childs of the root patch
-      IF(p_patch_global(1)%n_childdom > n_procs_decomp) &
-        CALL finish(routine,'Too few procs for processor grid splitting')
-
-      ! Get the number of procs per patch according to weight(:).
-      ! Every patch gets at least 1 proc (of course!):
-      nprocs(:) = 1
-
-      ! The remaining procs are divided among patches similar to
-      ! the d'Hondt method for elections
-
-      DO n = p_patch_global(1)%n_childdom+1, n_procs_decomp
-        jg = MAXLOC(weight(:)/REAL(nprocs(:)+1,wp),1)
-        nprocs(jg) = nprocs(jg)+1
+    DO cell = 1, no_of_cells
+      jb = blk_no(cell) ! block index
+      jl = idx_no(cell) ! line index
+      decomposition_struct%cell_geo_center(cell)%lat = patch%cells%center(jl,jb)%lat
+      decomposition_struct%cell_geo_center(cell)%lon = patch%cells%center(jl,jb)%lon
+      DO i = 1, 3
+        jl_v = patch%cells%vertex_idx(jl,jb,i)
+        jb_v = patch%cells%vertex_blk(jl,jb,i)
+        vertex = idx_1d(jl_v, jb_v)
+        decomposition_struct%cells_vertex(i, cell) = vertex
       ENDDO
-
-      IF(p_pe_work==0) THEN
-        WRITE(0,*) 'Processor splitting:'
-        DO jc = 1, p_patch_global(1)%n_childdom
-          jgc =  p_patch_global(1)%child_id(jc)
-          WRITE(0,'(a,i0,a,f10.3,a,i0,a,i0)')                                              &
-            &   'Patch ',jgc,' weight ',weight(jc),' gets ',nprocs(jc),' of ',n_procs_decomp
-          IF (nprocs(jc) <= 1) &
-            CALL finish(routine,'Processor splitting requires at least 2 PEs per patch')
-        ENDDO
-      ENDIF
-
-      ! Set proc0, n_proc for all patches ...
-
-      ! ... for the root patch and patch 0 if it exists
-
-      p_patch_2D(n_dom_start:1)%n_proc = n_procs_decomp
-      p_patch_2D(n_dom_start:1)%proc0  = 0
-
-      ! ... for 1st generation childs
-
-      n = 0
-      DO jc = 1, p_patch_global(1)%n_childdom
-        jgc = p_patch_global(1)%child_id(jc)
-        p_patch_2D(jgc)%proc0  = n
-        p_patch_2D(jgc)%n_proc = nprocs(jc)
-        n = n + nprocs(jc)
-      ENDDO
-
-      ! ... for deeper level descandants
-
-      DO jg = 2, n_dom
-
-        jgp = p_patch_global(jg)%parent_id
-
-        IF(jgp /= 1) THEN
-          p_patch_2D(jg)%n_proc = p_patch_2D(jgp)%n_proc
-          p_patch_2D(jg)%proc0  = p_patch_2D(jgp)%proc0
-        ENDIF
-
-      ENDDO
-
-    ELSE
-
-      ! No splitting, proc0, n_proc are identical for all patches
-
-      IF(p_pe_work==0) PRINT *,'No splitting of processor grid'
-      p_patch_2D(:)%n_proc = n_procs_decomp
-      p_patch_2D(:)%proc0  = 0
-
-    ENDIF
-
-#ifdef NOMPI
-    p_patch_2D(:)%comm = 0
-#else
-    p_patch_2D(:)%comm = MPI_COMM_NULL
-#endif
-    p_patch_2D(:)%rank = -1
-
-
-    IF(PRESENT(opt_n_procs)) THEN
-      ! Allocate p_patch_out, p_patch_lp_out so that they can keep
-      ! all domain decompositions for one patch
-      ALLOCATE(p_patch_out(opt_n_procs))
-      ALLOCATE(p_patch_lp_out(opt_n_procs))
-    ELSE
-      ! p_patch is already allocated, p_patch_local_parent needs allocation
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
-    ENDIF
-
-    ! Divide patches
-
-    DO jg = n_dom_start, n_dom
-
-      jgp = p_patch_global(jg)%parent_id
-
-      IF(jg == n_dom_start) THEN
-        NULLIFY(wrk_p_parent_patch_g) ! Must be NULL for global patch
-      ELSE
-        wrk_p_parent_patch_g => p_patch_global(jgp)
-      ENDIF
-
-      wrk_p_patch_g => p_patch_global(jg)
-
-      ! Set division method, divide_for_radiation is only used for patch 0
-
-      divide_for_radiation = (jg == 0)
-
-      ! Here comes the actual domain decomposition:
-      ! Every cells gets assigned an owner.
-
-      ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(jg,p_patch_2D(jg)%n_proc, p_patch_2D(jg)%proc0, cell_owner)
-
-      IF(jg > n_dom_start) THEN
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent:
-        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
-        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
-      ENDIF
-
-      ! Please note: Previously, for jg==0 no ghost rows were set.
-      ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
-      ! Have still to check if int state/grf state is needed at all for jg==0,
-      ! if this is not the case, the ghost rows can be dropped again.
-
-      IF(PRESENT(opt_n_procs)) THEN
-
-        ! Calculate all basic patches and output them at once.
-        ! This is done in this way (calculating all before output) since
-        ! we need the biggest dimension of all patches before real NetCDF output starts.
-        ! All arrays in the patch which are not scaling (i.e. having global dimensions)
-        ! are discarded so that the stored patches shouldn't need much more space
-        ! than the global patch descriptions.
-
-        ! If the storage for the patches should get a problem nontheless, there has to be found
-        ! a way to output them before all are calculated.
-
-        ! Do all domain decompositions
-
-        wrk_p_patch_g => p_patch_global(jg)
-
-#ifndef __xlC__
-!$OMP PARALLEL DO PRIVATE(n)
-#endif
-        DO n = 1, opt_n_procs
-
-          WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
-          p_patch_out(n)%n_proc = p_patch_2D(jg)%n_proc
-          p_patch_out(n)%proc0  = p_patch_2D(jg)%proc0
-          CALL divide_patch(p_patch_out(n), cell_owner, n_ghost_rows, .TRUE., n-1)
-          CALL discard_large_arrays(p_patch_out(n), n)
-
-        ENDDO
-#ifndef __xlC__
-!$OMP END PARALLEL DO 
-#endif
-
-        IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
-#ifndef __xlC__
-!$OMP PARALLEL DO PRIVATE(n)
-#endif
-          DO n = 1, opt_n_procs
-
-            ! Divide local parent
-            CALL divide_patch(p_patch_lp_out(n), cell_owner_p, 1, .FALSE., n-1)
-            CALL discard_large_arrays(p_patch_lp_out(n), n)
-
-          ENDDO
-#ifndef __xlC__
-!$OMP END PARALLEL DO 
-#endif
-        ENDIF
-
-#ifndef __ICON_OCEAN_ONLY__
-        ! Dump domain decompositions to NetCDF
-        IF(jg > n_dom_start) THEN
-          CALL dump_all_domain_decompositions(p_patch_out, p_patch_lp_out)
-        ELSE
-          CALL dump_all_domain_decompositions(p_patch_out)
-        ENDIF
-#endif
-
-        ! Deallocate patch arrays
-        DO n = 1, opt_n_procs
-          CALL deallocate_patch(p_patch_out(n),lddmode=.TRUE.)
-          IF(jg > n_dom_start) CALL deallocate_patch(p_patch_lp_out(n),lddmode=.TRUE.)
-        ENDDO
-
-      ELSE
-
-        wrk_p_patch_g => p_patch_global(jg)
-        CALL divide_patch(p_patch_2D(jg), cell_owner, n_ghost_rows, .TRUE., p_pe_work)
-
-        IF(jg > n_dom_start) THEN
-          wrk_p_patch_g => p_patch_global(jgp)
-          CALL divide_patch(p_patch_local_parent(jg), cell_owner_p, 1, .FALSE., p_pe_work)
-        ENDIF
-
-      ENDIF
-
-      DEALLOCATE(cell_owner)
-      IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
-
     ENDDO
 
-
-    ! The global patches may be discarded now
-
-    DO jg = n_dom_start, n_dom
-      CALL deallocate_basic_patch( p_patch_global(jg) )
+    DO vertex = 1, no_of_verts
+      jb = blk_no(vertex) ! block index
+      jl = idx_no(vertex) ! line index
+      decomposition_struct%vertex_geo_coord(vertex)%lat = patch%verts%vertex(jl,jb)%lat
+      decomposition_struct%vertex_geo_coord(vertex)%lon = patch%verts%vertex(jl,jb)%lon
     ENDDO
 
-    ! (Optional:)
-    ! Print a detailed summary on model grid points
-    l_detailed_summary = (msg_level >= 16) .AND. .NOT.PRESENT(opt_n_procs)
+    NULLIFY(decomposition_struct%cell_cartesian_center)
+    CALL geographical_to_cartesian(decomposition_struct%cell_geo_center, no_of_cells, &
+      & decomposition_struct%cell_cartesian_center)
 
-    IF (l_detailed_summary) THEN
-      WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
-        &                    "Detailed grid summary (cells)"
-      CALL message(routine, TRIM(message_text))
+  END SUBROUTINE fill_wrk_decomposition_struct
+  !-------------------------------------------------------------------------
 
-      DO jg = n_dom_start, n_dom
-        ! count grid points for this PE:
-        i_nchdom     = MAX(1,p_patch_2D(jg)%n_childdom)
-        ! local, lateral grid points
-        npts_local(jg,1)    = count_entries(  &
-          &                   p_patch_2D(jg)%cells%start_blk(1,1),         &
-          &                   p_patch_2D(jg)%cells%start_idx(1,1),         &
-          &                   p_patch_2D(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   p_patch_2D(jg)%cells%end_idx(max_rlcell,1) )
-        ! local, interior grid points
-        npts_local(jg,2)    = count_entries(  &
-          &                   p_patch_2D(jg)%cells%start_blk(0,1), &
-          &                   p_patch_2D(jg)%cells%start_idx(0,1), &
-          &                   p_patch_2D(jg)%cells%end_blk(0,1),   &
-          &                   p_patch_2D(jg)%cells%end_idx(0,1) )
-        ! local, nested grid points:
-        npts_local(jg,3)    = count_entries(  &
-          &                   p_patch_2D(jg)%cells%start_blk(-1,1), &
-          &                   p_patch_2D(jg)%cells%start_idx(-1,1), &
-          &                   p_patch_2D(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   p_patch_2D(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
-        ! local, halo grid points:
-        npts_local(jg,4)    = count_entries(  &
-          &                   p_patch_2D(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   p_patch_2D(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   p_patch_2D(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   p_patch_2D(jg)%cells%end_idx(min_rlcell,i_nchdom) )
-        ! sum up over all PEs (collective operation):
-        npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE clean_wrk_decomposition_struct(decomposition_struct)
+    TYPE(t_decomposition_structure) :: decomposition_struct
 
-        WRITE (message_text,'(A8,i4)') "patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(jg,l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
-        WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
-        CALL message(routine, TRIM(message_text))
-        DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_global(l1)
-          CALL message(routine, TRIM(message_text))
-        END DO
+    DEALLOCATE( decomposition_struct%cell_geo_center, &
+      &  decomposition_struct%cells_vertex,           &
+      &  decomposition_struct%vertex_geo_coord,       &
+      &  decomposition_struct%cell_cartesian_center)
 
-      END DO
-    END IF
-
-  END SUBROUTINE decompose_domain_oce
-
-  !-----------------------------------------------------------------------------
-
+  END SUBROUTINE clean_wrk_decomposition_struct
+  !-------------------------------------------------------------------------
 
 END MODULE mo_setup_subdivision
-

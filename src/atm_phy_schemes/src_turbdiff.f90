@@ -790,7 +790,7 @@ SUBROUTINE turbtran(iini,ltkeinp,lgz0inp, dt_tke, nprv, ntur, ntim, &
           tke, tkvm, tkvh, rcld, edr, &
 !    
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
-          shfl_s, lhfl_s, qhfl_s, &
+          shfl_s, lhfl_s, qhfl_s, umfl_s, vmfl_s, &
 !
           ierrstat, errormsg, eroutine)
 
@@ -1210,17 +1210,17 @@ REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) :: &
                      ! fractional cloud cover (in turbdiff)            --
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(INOUT) :: &  ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), INTENT(INOUT) :: &                ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), INTENT(INOUT) :: &                 ! OUT
 #endif
 !
 ! Diagnostic near surface variables:
@@ -1234,14 +1234,16 @@ REAL (KIND=ireals), DIMENSION(:), INTENT(OUT) :: &
      v_10m           ! meridional wind in 10m                        ( m/s )
  
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &      ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive downward)
      lhfl_s,       & ! latent   heat flux at the surface             (W/m2) (positive downward)
-     qhfl_s          ! moisture      flux at the surface          (kg/m2/s) (positive downward)
+     qhfl_s,       & ! moisture      flux at the surface          (kg/m2/s) (positive downward)
+     umfl_s,       & ! u-momentum flux at the surface                (N/m2) (positive downward)
+     vmfl_s          ! v-momentum flux at the surface                (N/m2) (positive downward)
 
 INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
@@ -1508,8 +1510,8 @@ REAL (KIND=ireals) :: &
                tke(i,ke,nvor)=SQRT(d_m*l_turb*wert) 
             END IF
 
-            tkvm(i,ke)=lm*tke(i,ke,nvor)
-            tkvh(i,ke)=lh*tke(i,ke,nvor)
+            tkvm(i,ke)=MAX(tkmmin,lm*tke(i,ke,nvor))
+            tkvh(i,ke)=MAX(tkhmin,lh*tke(i,ke,nvor))
 
             wert=MAX( epsi,tkvm(i,ke)*SQRT(fm2) ) !estimate of U_star**2
 
@@ -1925,6 +1927,16 @@ REAL (KIND=ireals) :: &
             qhfl_s(i)=rho_2d(i)*tkvh(i,ke1)*grad(i,h2o_g)
          END DO
       END IF
+      IF (PRESENT(umfl_s)) THEN
+         DO i=istartpar,iendpar
+            umfl_s(i)=rho_2d(i)*tkvm(i,ke1)*grad(i,u_m)
+         END DO
+      END IF
+      IF (PRESENT(vmfl_s)) THEN
+         DO i=istartpar,iendpar
+            vmfl_s(i)=rho_2d(i)*tkvm(i,ke1)*grad(i,v_m)
+         END DO
+      END IF
 
       IF (PRESENT(edr)) THEN
          DO i=i_st,i_en
@@ -2164,7 +2176,7 @@ SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en)
 
    INTEGER (KIND=iintegers) :: i !loop indices
 
-   REAL (KIND=ireals)        , INTENT(OUT) :: &
+   REAL (KIND=ireals)        , INTENT(INOUT) :: &        ! OUT
         sm(:),  & !stablility function for momentum             [1] 
         sh(:)     !stablility function for scalars (heat)       [1] 
 
@@ -2795,9 +2807,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      vt_sso          ! v-tendency due to the SSO-Scheme              ( 1/s )
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, INTENT(INOUT) :: &  ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
@@ -2811,9 +2823,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
 
 #ifdef  __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(INOUT) :: &   ! OUT
 #else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
      tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
@@ -3376,6 +3388,7 @@ REAL (KIND=ireals) :: &
 
       DO k=1,ke1
          IF (k.LT.ke1) THEN
+!DIR$ IVDEP
             DO i=istartpar,iendpar    
                tp(i)=t(i,k)+zlhocp*hlp(i,k)
                qd(i)=qv(i,k)-hlp(i,k)
@@ -3484,6 +3497,7 @@ REAL (KIND=ireals) :: &
 !     Berechnung der Modellschichtdicken:
         
       DO k=1,ke
+!DIR$ IVDEP
          DO i=istartpar,iendpar    
             dicke(i,k)=hhl(i,k)-hhl(i,k+1)
          END DO
@@ -3493,6 +3507,7 @@ REAL (KIND=ireals) :: &
 !     der Wolkendichte und der Luftdichte auf Nebenflaechen:
 
       DO k=ke,2,-1
+!DIR$ IVDEP
          DO i=istartpar,iendpar
             hlp(i,k)=dp0(i,k)+dp0(i,k-1)
          END DO
@@ -3728,7 +3743,7 @@ REAL (KIND=ireals) :: &
          IF (.NOT.ltkeinp) THEN !TKE not present as input
             DO k=2,kem
                DO i=istartpar,iendpar
-                  tke(i,k,ntur)=MAX( vel_min, SQRT(d_m*len*hlp(i,k) )) !Initialwert fuer SQRT(2TKE)
+                  tke(i,k,ntur)=MAX( vel_min, SQRT(d_m*len_scale(i,k)*hlp(i,k) )) !Initialwert fuer SQRT(2TKE)
                END DO
             END DO
          END IF    
@@ -4026,7 +4041,7 @@ REAL (KIND=ireals) :: &
                      lay(i)=SQRT(vel1**2+vel2**2+w(i,k)**2)
                   END DO
                END If
-
+!DIR$ IVDEP
                DO i=istartpar,iendpar
 
 !                 Hilfsgroesse zur Berechn. der reduzierten Konstanten:
@@ -4188,7 +4203,7 @@ REAL (KIND=ireals) :: &
               DO i=istartpar, iendpar
 
                 IF (ltkeinp) THEN
-                   gama=1/dd(i,0) !TKE-equilibrium
+                   gama=1._ireals/dd(i,0) !TKE-equilibrium
                 ELSE
                    gama=len_scale(i,k)*frc(i)/tke(i,k,ntur)**2 !entspr. 1/d_m im Gleichgewicht
                                                                !und ausserh. des Bestandes
@@ -4303,7 +4318,7 @@ REAL (KIND=ireals) :: &
                tkvm(i,k)=MAX( con_m, tkmmin, tkvm(i,k)*tke(i,k,ntur) )
             END DO
          END DO
- 
+
          RETURN !finish this subroutine
 
       END IF   
@@ -4558,12 +4573,14 @@ REAL (KIND=ireals) :: &
 !     tendenzen ausser der Divergenz des Drucktransportes:
 
       IF (ltmpcor) THEN
+!DIR$ IVDEP
          DO i=istart,iend
             ttens(i,1)=ttens(i,1)+tinc(tem)*tketens(i,2) &
                          /(len_scale(i,1)+len_scale(i,2))
 
          END DO
          DO k=2,ke
+!DIR$ IVDEP
             DO i=istart,iend
                ttens(i,k)=ttens(i,k)+tinc(tem)*(tketens(i,k)+tketens(i,k+1)) &
                             /(len_scale(i,k)+len_scale(i,k+1))
@@ -4577,7 +4594,7 @@ REAL (KIND=ireals) :: &
       lcircterm=(pat_len.GT.z0)
 
       IF (lcircterm) THEN !Der Zirculationsterm (Drucktransportterm muss berechnet werden)
-
+!DIR$ IVDEP
          DO i=istartpar,iendpar
            IF (dpat(i).GT.z0) THEN
              l_pat(i)=pat_len*dpat(i) 
@@ -4673,6 +4690,7 @@ REAL (KIND=ireals) :: &
             lays(i,ku)=z0
          END DO
          DO k=ke,kcm,-1   
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                lays(i,ko)=w(i,k)
                wert=z1d2*(cbig(i,k)  +csml(i,k) &
@@ -4713,11 +4731,13 @@ REAL (KIND=ireals) :: &
 
             DO k=ke,kcm,-1
                IF (kcm.EQ.1) THEN
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      lays(i,ku)=lays(i,ku)*z1d2 &
                          *(rair(i,k)-rair(i,k+1))/dicke(i,k)
                   END DO
                ELSE   
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      lays(i,ko)=-rhon(i,k)*tkvh(i,k)*vari(i,k,n)
                      lays(i,ku)=(lays(i,ko)+lays(i,ku))*z1d2 &
@@ -4729,14 +4749,17 @@ REAL (KIND=ireals) :: &
                      wind(i,k,n)=wind(i,k,n)-lays(i,ku)*tinc(n)
                   END DO
                ELSEIF (n.EQ.tem) THEN
+!DIR$ IVDEP
                   DO i=istart,iend
                      ttens(i,k)=ttens(i,k)-lays(i,ku)*tinc(tem)
                   END DO
                ELSEIF (n.EQ.vap) THEN
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qvtens(i,k)=qvtens(i,k)-lays(i,ku)*tinc(vap)
                   END DO
                ELSEIF (n.EQ.liq) THEN
+!DIR$ IVDEP
                   DO i=istart,iend
                      qctens(i,k)=qctens(i,k)-lays(i,ku)*tinc(liq)
                   END DO
@@ -4835,6 +4858,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.tem) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      hlp(i,k)=t(i,k)/exner(i,k)
                   END DO
@@ -4926,6 +4950,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.tem) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      ttens(i,k)=ttens(i,k) &
                                   +exner(i,k)*(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -4933,6 +4958,7 @@ REAL (KIND=ireals) :: &
                END DO
             ELSEIF (n.EQ.vap) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qvtens(i,k)=qvtens(i,k) &
                                   +(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -4947,6 +4973,7 @@ REAL (KIND=ireals) :: &
                END IF
             ELSEIF (n.EQ.liq) THEN
                DO k=1,ke
+!DIR$ IVDEP
                   DO i=istartpar,iendpar
                      qctens(i,k)=qctens(i,k) &
                                   +(a(i,k,4)-hlp(i,k))*tinv(n)
@@ -5042,11 +5069,10 @@ REAL (KIND=ireals) :: &
          END IF
 
          DO k=kk,ke   
+!DIR$ IVDEP
             DO i=istart,iend 
                utens(i,k)=utens(i,k) &
-                           +(wind(i,k,u_m)+wind(i,k,u_m))*z1d2
-            END DO
-            DO i=istart,iend  
+                           +(wind(i,k,u_m)+wind(i,k,u_m))*z1d2  
                vtens(i,k)=vtens(i,k) &
                            +(wind(i,k,v_m)+wind(i,k,v_m))*z1d2
             END DO
@@ -5176,6 +5202,7 @@ REAL (KIND=ireals) :: &
 !           Zirkulationstermes explizit behandelt werden:
 
             DO k=2,ke
+!DIR$ IVDEP
                DO i=istartpar,iendpar
                   hlp(i,k)=tketens(i,k-1)-tketens(i,k) 
                END DO
@@ -5186,6 +5213,7 @@ REAL (KIND=ireals) :: &
 !        Volumenkorrektur in der Rauhigkeitsschicht:
 
          DO k=MAX( 2, kcm ), ke
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                hlp(i,k)=hlp(i,k) &
                   +z1d2*(tketens(i,k)*dp0(i,k-1)+tketens(i,k-1)*dp0(i,k)) &
@@ -5314,7 +5342,7 @@ REAL (KIND=ireals), INTENT(INOUT) :: &
    impl_mom(:,:)    !in : discretis momentum (rho*dz/dt) on flux levels
                       !out: (negative) implicit part of diffusion momentum
 
-REAL (KIND=ireals), INTENT(OUT) :: &
+REAL (KIND=ireals), INTENT(INOUT) :: & ! OUT
 !
    invs_mom(:,:)    !inversion momentum
 
@@ -5392,11 +5420,11 @@ REAL (KIND=ireals), INTENT(IN) :: &
 !
    cur_prof(:,:)    !current vertical variable profile
 
-REAL (KIND=ireals), INTENT(OUT) :: &
+REAL (KIND=ireals), INTENT(INOUT) :: &   ! OUT
 !
    upd_prof(:,:)    !updated vertical variable profile
 
-REAL (KIND=ireals), INTENT(OUT), OPTIONAL :: &
+REAL (KIND=ireals), INTENT(INOUT), OPTIONAL :: &! OUT
 !
    srf_flux(:)      !effective upward vertical surface flux density
 
@@ -5418,6 +5446,7 @@ REAL (KIND=ireals) :: &
 
    l=1; k=k_tp+l; kp1=k+1; l0=1; l1=0
 
+!DIR$ IVDEP
    DO i=i_st, i_en
       expl_mom(i,l1)= diff_mom(i,kp1)+ impl_mom(i,kp1) 
       diff_tnd        = disc_mom(i,k  )* cur_prof(i,k  ) &
@@ -5431,7 +5460,7 @@ REAL (KIND=ireals) :: &
  
    DO l=2, n-1
       k=k_tp+l; kp1=k+1; km1=k-1; l0=MOD(l,2); l1=MOD(l+1,2)
-
+!DIR$ IVDEP
       DO i=i_st, i_en
          expl_mom(i,l1)= diff_mom(i,kp1)+ impl_mom(i,kp1)
          diff_tnd        = disc_mom(i,k  )* cur_prof(i,k  )                  &
@@ -5456,6 +5485,7 @@ REAL (KIND=ireals) :: &
    END DO
 
    IF (PRESENT(srf_flux)) THEN
+!DIR$ IVDEP
       DO i=i_st, i_en
          srf_flux(i)=expl_sfl(i)-impl_mom(i,kp1)*(cur_prof(i,kp1)-upd_prof(i,k))
       END DO
@@ -5467,7 +5497,7 @@ REAL (KIND=ireals) :: &
 
    DO l=n-1, 1, -1
       k=k_tp+l; kp1=k+1
-
+!DIR$ IVDEP
       DO i=i_st, i_en
          upd_prof(i,k) = upd_prof(i,k)-impl_mom(i,kp1)*upd_prof(i,kp1)*invs_mom(i,k)
       END DO
@@ -5679,8 +5709,8 @@ REAL (KIND=ireals) :: &
 
      DO i = istart, iend
 !mod_2011/09/28: zpres=patm -> zpres=pdry {
-        pres=(z1-qt(i))/(z1-rvd_m_o*qt(i))*prs(i,k)        ! part. pressure of dry air
-        qs(i) = zqvap( zpsat_w( tl(i) ), pres )              ! saturation mixing ratio
+        pres=(z1-qt(i))/(z1+rvd_m_o*qt(i))*prs(i,k)        ! part. pressure of dry air
+        qs(i) = zqvap( zpsat_w( tl(i) ), pres )            ! saturation mixing ratio
 !mod_2011/09/28: zpres=patm -> zpres=pdry }
        gam(i) = z1 / ( z1 + lhocp*zdqsdt( tl(i), qs(i) ) ) ! slope factor
      END DO

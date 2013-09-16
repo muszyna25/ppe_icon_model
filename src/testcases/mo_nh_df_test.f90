@@ -163,8 +163,8 @@ CONTAINS
     ctracer_list = advection_config(pid)%ctracer_list
 
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
@@ -297,9 +297,9 @@ CONTAINS
     u3  = (5._wp*grid_sphere_radius)/(tottime)     !< for case 3 (divergent flow)
     u4  = (10._wp*grid_sphere_radius)/(tottime)    !< flow field amplitude [m/s]
     ! values for the blocking
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
-    nblks_v  = ptr_patch%nblks_int_v
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
+    nblks_v  = ptr_patch%nblks_v
 
    ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -596,8 +596,8 @@ CONTAINS
     ! constants
     bell_radius = 0.5_wp * grid_sphere_radius  !< tracer distribution
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -1032,7 +1032,7 @@ CONTAINS
     REAL(wp) :: xloc, yloc
     REAL(wp) :: z_dist_g(2)
     REAL(wp) ::   &                 !< geographical coordinates of departure region
-     &  z_barycenter(nproma,ptr_patch%nlev,ptr_patch%nblks_int_e,2) !< barycenter
+     &  z_barycenter(nproma,ptr_patch%nlev,ptr_patch%nblks_e,2) !< barycenter
 
     REAL(wp) :: u0, u3, u4      !< flow field amplitude [m/s]
     !---------------------------------------------------------------------------
@@ -1042,8 +1042,8 @@ CONTAINS
     u4  = (10._wp*grid_sphere_radius)/(tottime)    !< flow field amplitude [m/s]
 
     ! values for the blocking
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -1408,8 +1408,8 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! values for the blocking
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev

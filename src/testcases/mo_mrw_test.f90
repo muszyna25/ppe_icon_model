@@ -110,10 +110,10 @@ MODULE mo_mrw_test
   zlon_mc     = mountctr_lon_deg*pi/180._wp
   zlat_mc     = mountctr_lat_deg*pi/180._wp
 
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
-  nblks_e   = pt_patch%nblks_int_e
-  npromz_e  = pt_patch%npromz_int_e
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
+  nblks_e   = pt_patch%nblks_e
+  npromz_e  = pt_patch%npromz_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,nlen,zlat,zlon,zr,zexp,zcoslat)
@@ -211,10 +211,10 @@ MODULE mo_mrw_test
   zlon_mc     = mountctr_lon_deg*pi/180._wp
   zlat_mc     = mountctr_lat_deg*pi/180._wp
 
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
-  nblks_e   = pt_patch%nblks_int_e
-  npromz_e  = pt_patch%npromz_int_e
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
+  nblks_e   = pt_patch%nblks_e
+  npromz_e  = pt_patch%npromz_e
 
   nlev = pt_patch%nlev
 

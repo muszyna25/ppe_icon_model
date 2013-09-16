@@ -120,12 +120,12 @@ MODULE mo_sw_test
     ! set topography
     pt_ext_data%atm%topography_c(:,:) = 0.0_wp
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
-    nblks_v   = pt_patch%nblks_int_v
-    npromz_v  = pt_patch%npromz_int_v
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
+    nblks_v   = pt_patch%nblks_v
+    npromz_v  = pt_patch%npromz_v
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -235,12 +235,12 @@ MODULE mo_sw_test
 
     pt_ext_data%atm%topography_c(:,:)=0.0_wp
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
-    nblks_v   = pt_patch%nblks_int_v
-    npromz_v  = pt_patch%npromz_int_v
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
+    nblks_v   = pt_patch%nblks_v
+    npromz_v  = pt_patch%npromz_v
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -352,10 +352,10 @@ MODULE mo_sw_test
     z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -458,10 +458,10 @@ MODULE mo_sw_test
 
     pt_ext_data%atm%topography_c(:,:)=0.0_wp
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -599,10 +599,10 @@ MODULE mo_sw_test
 
     pt_ext_data%atm%topography_c(:,:)=0.0_wp
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -673,10 +673,10 @@ MODULE mo_sw_test
     ! set reference height
     sw_ref_height =  d0 *rgrav
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
-    nblks_e   = pt_patch%nblks_int_e
-    npromz_e  = pt_patch%npromz_int_e
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
+    nblks_e   = pt_patch%nblks_e
+    npromz_e  = pt_patch%npromz_e
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN

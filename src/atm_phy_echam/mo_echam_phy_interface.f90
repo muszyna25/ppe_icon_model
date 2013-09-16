@@ -61,7 +61,7 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -70,6 +70,7 @@ MODULE mo_echam_phy_interface
   USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,  &
     & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
     & timer_echam_sync_temp , timer_echam_sync_tracers
+  USE mo_time_interpolation,ONLY: time_weights_limm
                                 
   USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
@@ -78,6 +79,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
   USE mo_o3,                 ONLY: read_amip_o3
+  USE mo_aero_kinne,         ONLY: read_aero_kinne
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -170,6 +172,12 @@ CONTAINS
     INTEGER:: return_status
     CHARACTER(*), PARAMETER :: method_name = "echam_phy_interface"
 
+!++jsr
+!temporary local variables
+!    INTEGER:: inm1, inm2
+!    REAL(wp):: wgt1, wgt2
+!--jsr
+
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
@@ -181,7 +189,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 
     !-------------------------------------------------------------------------
     ! Dynamics to physics: remap dynamics variables to physics grid
@@ -239,7 +247,7 @@ CONTAINS
     ! Additional diagnostic variables
 
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -348,8 +356,15 @@ CONTAINS
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
-    IF (irad_o3 == io3_amip) THEN
-       CALL read_amip_o3(datetime%year, p_patch)
+    IF (ltrig_rad) THEN
+      CALL time_weights_limm(datetime_radtran)   ! Calculate interpolation weights 
+                                                 ! for linear interp. of monthly means
+    END IF
+    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
+      CALL read_amip_o3(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 13) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
     END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
@@ -375,7 +390,7 @@ CONTAINS
     ! For each block, call "physc" to compute various parameterised processes
     !-------------------------------------------------------------------------
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_int_c
+!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -644,7 +659,7 @@ CONTAINS
       ! Accumulate wind tendencies contributed by various parameterized processes.
 
 !       jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!       nblks = p_patch%nblks_int_c
+!       nblks = p_patch%nblks_c
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -669,11 +684,11 @@ CONTAINS
       ENDIF
       
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!       nblks = p_patch%nblks_int_e
+!       nblks = p_patch%nblks_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,p_patch%nblks_int_e
-        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_int_e, &
+      DO jb = jbs,p_patch%nblks_e
+        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_e, &
           & jcs,jce, grf_bdywidth_e+1)
         DO jk = 1,nlev
           DO jc = jcs,jce

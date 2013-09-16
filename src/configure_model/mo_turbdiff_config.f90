@@ -60,6 +60,9 @@ MODULE mo_turbdiff_config
 
     ! namelist variables
 
+    REAL(wp), DIMENSION(:), POINTER :: &
+      &  impl_weight    ! implicit weights for tridiagonal solver
+
     INTEGER :: &   ! type of surface-atmosphere transfer
       &  itype_tran
     INTEGER :: &   ! mode of surface-atmosphere transfer
@@ -88,6 +91,8 @@ MODULE mo_turbdiff_config
       &  lnonloc 
     LOGICAL :: &   ! consideration of fluctuations of the heat capacity of air
       &  lcpfluc
+    LOGICAL :: &   ! lower flux condition for vertical diffusion calculation
+      &  lsflcnd
     LOGICAL :: &   ! use semi-implicit TKE diffusion
       &  limpltkediff
 
@@ -114,6 +119,10 @@ MODULE mo_turbdiff_config
       &  rat_sea   ! 
     REAL(wp):: &   ! time smoothing factor for TKE
       &  tkesmot   ! 
+    REAL(wp):: &   ! implicit weight near the surface (maximal value)
+      &  impl_s    ! 
+    REAL(wp):: &   ! implicit weight near top of the atmosphere (maximal value)
+      &  impl_t    ! 
 
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)

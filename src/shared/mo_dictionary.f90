@@ -57,7 +57,7 @@ MODULE mo_dictionary
   !--------------------------------------------------------------------------
   ! definition of constants:
 
-  CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_dictionary')  
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_dictionary'
 
   INTEGER, PARAMETER :: DICT_MAX_STRLEN = 100    !< maximum string length
   INTEGER, PARAMETER :: NINITIAL        = 100    !< initial dictionary size
@@ -100,8 +100,7 @@ CONTAINS
     LOGICAL,            INTENT(IN)    :: lcase_sensitive !< Flag. If .TRUE. key strings are handled case-sensitively
     INTEGER,            INTENT(IN), OPTIONAL :: new_size !< New dictionary size
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_init')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_init'
     INTEGER :: new_nmax_entries
     
     new_nmax_entries = NINITIAL
@@ -118,8 +117,7 @@ CONTAINS
   SUBROUTINE dict_finalize(dict)
     TYPE(t_dictionary), INTENT(INOUT) :: dict !< dictionary data structure
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_finalize')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_finalize'
     INTEGER :: ierrstat
 
     IF (ALLOCATED(dict%array)) THEN
@@ -140,8 +138,7 @@ CONTAINS
     TYPE(t_dictionary), INTENT(INOUT) :: dict !< dictionary data structure
     INTEGER,            INTENT(IN), OPTIONAL :: new_size !< New dictionary size.
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_resize')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_resize'
     CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: tmp(:,:)
     INTEGER :: new_nmax_entries, ierrstat
     
@@ -182,8 +179,7 @@ CONTAINS
     CHARACTER(LEN=*),   INTENT(IN)    :: key  !< new search key
     CHARACTER(LEN=*),   INTENT(IN)    :: val  !< new value associated with key
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_set')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_set'
     INTEGER :: idx
 
     IF ((LEN(TRIM(key)) > DICT_MAX_STRLEN)  .OR.  &
@@ -207,21 +203,39 @@ CONTAINS
   !> Retrieve a value from the given dictionary which is assciated
   !  with @p key.
   !
+  !  @param[in] linverse   optional flag: If .TRUE., the dictionary is queried in inverse order.
+  !
   !  @return If the key is not found, this function returns the
   !          "default" value. If this optional argument has not been
   !          provided, this function throws an error message.
   !
-  FUNCTION dict_get(dict, key, default)
+  !  @note   Future implementation of the dictionary module may
+  !          utilize sorting or hashing to improve performance. In 
+  !          this case, the @p linverse parameter may be prohibitively
+  !          expensive!
+  !
+  FUNCTION dict_get(dict, key, default, linverse)
     CHARACTER(LEN=DICT_MAX_STRLEN) dict_get !< return value.
     TYPE(t_dictionary), INTENT(IN)    :: dict !< dictionary data structure
     CHARACTER(LEN=*),   INTENT(IN)    :: key  !< new search key
-    CHARACTER(LEN=*),   INTENT(IN), OPTIONAL :: default !< default value
+    CHARACTER(LEN=*),   INTENT(IN), OPTIONAL :: default  !< default value
+    LOGICAL,            INTENT(IN), OPTIONAL :: linverse !< Flag. If .TRUE., the dictionary is queried in inverse order.
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_get')
-    INTEGER :: idx
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_get'
+    INTEGER :: idx, key_column, val_column, tmp
 
-    idx = dict_find(dict, key)
+    key_column = 1
+    val_column = 2
+    IF (PRESENT(linverse)) THEN
+      IF (linverse) THEN
+        ! linverse=.TRUE.: swap key and value
+        tmp        = key_column 
+        key_column = val_column
+        val_column = tmp
+      END IF
+    END IF
+
+    idx = dict_find(dict, key, opt_key_column=key_column)
     IF (idx == DICT_UNDEFID) THEN
       IF (PRESENT(default)) THEN
         dict_get = TRIM(default)
@@ -229,7 +243,7 @@ CONTAINS
         CALL finish(routine, "Requested dictionary key not found!")
       END IF
     ELSE
-      dict_get = TRIM(dict%array(2,idx))
+      dict_get = TRIM(dict%array(val_column,idx))
     END IF
   END FUNCTION dict_get
 
@@ -248,8 +262,7 @@ CONTAINS
     CHARACTER(LEN=*),   INTENT(IN)    :: filename  !< text file name
     LOGICAL, OPTIONAL,  INTENT(IN)    :: linverse  !< Flag. If .TRUE., dictionary columns are read in inverse order.
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_loadfile')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_loadfile'
     INTEGER                        :: iunit, ist
     CHARACTER(LEN=256)             :: line
     CHARACTER(LEN=DICT_MAX_STRLEN) :: key, val
@@ -290,25 +303,32 @@ CONTAINS
   !  @return Array position index or, if the key has not been found,
   !          DICT_UNDEFID.
   !
-  FUNCTION dict_find(dict, key)
+  FUNCTION dict_find(dict, key, opt_key_column)
     INTEGER :: dict_find
     TYPE(t_dictionary), INTENT(IN) :: dict      !< dictionary data structure
     CHARACTER(LEN=*),   INTENT(IN) :: key
+    ! (optional:) explicit definition of key and value in array:
+    INTEGER, OPTIONAL,  INTENT(IN) :: opt_key_column
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::dict_find')
-    INTEGER :: idx
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_find'
+    INTEGER :: idx, key_column
+
+    IF (PRESENT(opt_key_column)) THEN
+      key_column = opt_key_column
+    ELSE
+      key_column = 1
+    END IF
 
     ! simply loop over all dictionary entries
     dict_find = DICT_UNDEFID
     LOOP_IDX : DO idx=1,dict%nentries
       IF (.NOT. dict%lcase_sensitive) THEN
-        IF (TRIM(tolower(TRIM(key))) == TRIM(tolower(TRIM(dict%array(1,idx))))) THEN
+        IF (TRIM(tolower(TRIM(key))) == TRIM(tolower(TRIM(dict%array(key_column,idx))))) THEN
           dict_find = idx
           EXIT LOOP_IDX
         END IF
       ELSE
-        IF (TRIM(key) ==TRIM(dict%array(1,idx))) THEN
+        IF (TRIM(key) ==TRIM(dict%array(key_column,idx))) THEN
           dict_find = idx
           EXIT LOOP_IDX
         END IF
@@ -329,8 +349,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(OUT) :: key, val
     LOGICAL,          INTENT(OUT) :: valid
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: &
-      &  routine    = TRIM(TRIM(modname)//'::parse_line')
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::parse_line'
     INTEGER :: ipos1, ipos2
 
     valid = .FALSE.

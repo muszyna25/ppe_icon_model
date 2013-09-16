@@ -53,7 +53,7 @@ MODULE mo_o3
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
   PUBLIC                            :: read_amip_o3
 
-  REAL(wp), POINTER                 :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
+  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
   INTEGER                           :: nplev_o3
 
@@ -69,14 +69,40 @@ CONTAINS
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=18)                 :: subprog_name
     INTEGER                           :: ncid, varid, mpi_comm,i
+    REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
   
     IF (year > pre_year) THEN
 
-      write(cyear,'(i4)') year
-      fname='ozone'//TRIM(cyear)//'.nc'
-      write(0,*) 'Read ozone from file: ',fname 
-      o3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
-      o3_plev=vmr2mmr_o3*o3_plev
+      IF (ALLOCATED(o3_plev)) THEN
+        o3_plev(:,:,:,0)=o3_plev(:,:,:,12)
+        write(cyear,'(i4)') year
+        fname='ozone'//TRIM(cyear)//'.nc'
+        write(0,*) 'Read ozone from file: ',fname 
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
+        o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
+        write(cyear,'(i4)') year+1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3d_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=1, end_timestep=1)
+        o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+      ELSE
+        write(cyear,'(i4)') year
+        fname='ozone'//TRIM(cyear)//'.nc'
+        write(0,*) 'Read ozone from file: ',fname 
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
+        ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
+        o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
+        write(cyear,'(i4)') year-1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=12,end_timestep=12)
+        o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+        write(cyear,'(i4)') year+1
+        fname='ozone'//TRIM(cyear)//'.nc'
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+                  start_timestep=1,end_timestep=1)
+        o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
+      END IF
 
       subprog_name='mo_o3:read_amip_o3'
       nplev_o3=SIZE(o3_plev,2)
@@ -112,4 +138,15 @@ CONTAINS
     END IF
 
   END SUBROUTINE read_amip_o3
+
+  !>
+  !! Subroutine to calculate interpolation indices and weights
+  !! Given: Monthly mean values valid at the middle of a month for months 0 to 13
+  !! The December of the previous year has index 0, January of next year, index 13
+  !! inm1, inm2 are the indices of the months between the middles of which the event_days
+  !! is located. Linear interpolation between these values with weights wgt1 and wgt2 resp.
+  !! 
+  !! @par Revision History
+  !! Rewritten after echam6 by J.S. Rast, MPI-M Hamburg (2013-07-31)
+  !!
 END MODULE mo_o3

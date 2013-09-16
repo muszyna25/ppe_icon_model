@@ -160,8 +160,8 @@ MODULE mo_meteogram_output
   USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
-  USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
-    &                                 gnat_query_containing_triangles,        &
+  USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree, &
+    &                                 gnat_query_containing_triangles,           &
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
@@ -423,7 +423,7 @@ CONTAINS
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
-    IF (ltestcase .and. .not. is_plane_torus) RETURN
+    IF (ltestcase .AND. .NOT. is_plane_torus) RETURN
 
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
@@ -584,6 +584,7 @@ CONTAINS
       qv   = station%var(i_QV(jg))%values(ilev, i_tstep)
       p_ex = station%var(i_PEXNER(jg))%values(ilev, i_tstep)
       !-- compute relative humidity as r = e/e_s:
+!CDIR NEXPAND
       station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = rel_hum(temp, qv, p_ex)
     END DO
     
@@ -643,6 +644,7 @@ CONTAINS
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
+    TYPE(t_gnat_tree)                  :: gnat
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -721,7 +723,7 @@ CONTAINS
       END DO
 
       ! build GNAT data structure
-      CALL gnat_init_grid(ptr_patch)
+      CALL gnat_init_grid(gnat, ptr_patch)
       ! perform proximity query
 
       IF (is_plane_torus) THEN
@@ -730,7 +732,7 @@ CONTAINS
         grid_sphere_radius_mtg = grid_sphere_radius
       END IF
 
-      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),        &
+      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),             &
         &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
@@ -743,7 +745,7 @@ CONTAINS
       meteogram_data%npromz    = npromz
 
       ! clean up
-      CALL gnat_destroy()
+      CALL gnat_destroy(gnat)
     END IF
 
     CALL p_barrier
@@ -992,7 +994,8 @@ CONTAINS
 
     ! Flag. True, if this PE sends data to a collector via MPI
     l_is_sender   = (.NOT. meteogram_output_config%ldistributed) .AND.  &
-      &              .NOT. l_is_collecting_pe
+      &              .NOT. l_is_collecting_pe                    .AND.  &
+      &              .NOT. my_process_is_mpi_test()
 
     ! Flag. True, if this PE writes data to file
     l_is_writer         = (meteogram_output_config%ldistributed .AND.       &
@@ -1037,17 +1040,20 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
+  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step, &
+    &                               jsteps_adv_ntsteps, iadv_rcf)
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
+    INTEGER,          INTENT(IN)  :: jsteps_adv_ntsteps, iadv_rcf
 
     meteogram_is_sample_step = &
       &  meteogram_output_config%lenabled               .AND. &
       &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
       &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
-      &       meteogram_output_config%ninc_mtgrm) == 0)
+      &       meteogram_output_config%ninc_mtgrm) == 0) .AND. &
+      &  (MOD(jsteps_adv_ntsteps,iadv_rcf)==0)
     
   END FUNCTION meteogram_is_sample_step
 

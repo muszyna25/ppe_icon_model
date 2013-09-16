@@ -44,7 +44,7 @@ MODULE mo_nwp_phy_init
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt, &
-    &                               dtdz_standardatm
+    &                               dtdz_standardatm, lh_v=>alv
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -52,28 +52,30 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish,message_text
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape, &
-    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
+    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
+                                    igme, iedmf, ivdiff, SUCCESS, MAX_CHAR_LENGTH   
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
+    &                               cldopt_filename
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi, tsi,irad_o3, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
-  USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,      &
-    &                               init_aerosol_props_tanre_rg,   &
-    &                               init_aerosol_props_tanre_rrtm, &
-    &                               init_aerosol_props_tegen_rg,   &
-    &                               init_aerosol_props_tegen_rrtm, &
-    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
+  USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
+    &                               init_aerosol_props_tanre_rg,                    &
+    &                               init_aerosol_props_tanre_rrtm,                  &
+    &                               init_aerosol_props_tegen_rg,                    &
+    &                               init_aerosol_props_tegen_rrtm,                  &
+    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
@@ -91,7 +93,10 @@ MODULE mo_nwp_phy_init
   USE mo_edmf_param,          ONLY: suct0, su0phy, susekf, susveg, sussoil
   ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
-  USE mo_data_turbdiff,       ONLY: get_turbdiff_param
+  USE mo_data_turbdiff,       ONLY: get_turbdiff_param, lsflcnd, &
+                                    impl_s, impl_t,              &
+                                    impl_weight
+  USE src_turbdiff_new,       ONLY: organize_turbdiff
   USE src_turbdiff,           ONLY: turbtran, turbdiff
 
   ! air-sea-land interface
@@ -173,7 +178,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
 
   INTEGER :: jb,ic,jc,jt,jg,ist
-  INTEGER :: nlev, nlevp1            !< number of full and half levels
+  INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
   INTEGER :: nshift                  !< shift with respect to global grid
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
@@ -187,6 +192,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   INTEGER :: khydromet, ktrac
 
+  INTEGER :: k1500m                  ! index of first half level above 1500m
+  INTEGER :: istatus=0
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+     routine = 'mo_nwp_phy_init:init_nwp_phy'
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -386,7 +396,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       DO jc = i_startidx, i_endidx
         p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
       ENDDO
-      IF (.NOT. ltestcase) THEN ! the t_g_t does not exist for inwp_surface=0
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN ! the t_g_t does not exist for inwp_surface=0
         DO jt = 1, ntiles_total+ntiles_water
           DO jc = i_startidx, i_endidx
             p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
@@ -411,6 +421,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !   write(0,*) "=============================================="
 
 
+  ! index of first half level with height >= 1500 m (above boundary layer)
+  k1500m = 1
+  
   !--------------------------------------------------------------
   !>reference pressure according to U.S. standard atmosphere
   ! (with the caveat that the stratosphere is assumed isothermal, which does not hurt
@@ -421,6 +434,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_standardatm))
   DO jk = nlev, 1, -1
     jk1 = jk + nshift
+    IF ( vct_a(jk1) >= 1500.0_wp .AND. vct_a(jk1+1) < 1500.0_wp ) THEN
+      k1500m = jk  ! not jk1 (may result in out-of-bounds)!
+    END IF
     zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
     IF (zfull < htropo) THEN
       temp = t00 + dtdz_standardatm*zfull
@@ -489,9 +505,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
     CALL setup_srtm
 
-    CALL lrtm_setup
+    CALL lrtm_setup(lrtm_filename)
 
-    CALL setup_newcld_optics
+    CALL setup_newcld_optics(cldopt_filename)
     
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -692,7 +708,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_cldcover == 1   .OR. &
     &  atm_phy_nwp_config(jg)%inwp_surface == 1    .OR. &
-    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
+    &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
     
     !This has to be done here because not only convection, but also inwp_cldcover == 1 
     !uses mo_cufunctions's foealfa. Therefore, the parameters of the function foealfa
@@ -714,7 +730,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
-    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
+    &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 
@@ -755,16 +771,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   END IF
 
 
-
-
   !------------------------------------------
   !< setup for turbulence
   !------------------------------------------
 
-
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY((/1,2/)==atm_phy_nwp_config(jg)%inwp_turb) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
@@ -831,33 +844,57 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDIF  !operation mode
 
   ! For 3D Smagorinsky turbulence model 
-  ! re-initialization of gz0 also for is_restart_run()=.TRUE.. Is that correct?
-  !
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 5 ) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy .AND. .NOT. is_restart_run() ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
 
     IF (turbdiff_config(jg)%lconst_z0) THEN
       ! for idealized tests
       prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+      IF(turbdiff_config(jg)%const_z0==0._wp) &
+       CALL finish (TRIM(routine), 'roughness length needs to be set for idealized LES cases!')
     ELSE 
-      ! default
-      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+      ! default: these are all set in nwp_turbtrans (AD: 11.09.2013)
     ENDIF
 
   ENDIF
 
 
 
-
-
   ! Initialize turbulence models
   !
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
   
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
+    ! allocate and init implicit weights for tridiagonal solver
+    ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
+              STAT=istatus )
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of impl_weight failed')
+    ENDIF
+
     CALL get_turbdiff_param(jg)
+
+    ! using an over implicit value (impl_s) near surface,
+    ! reduced to in general slightly off-centered value (impl_t)
+    ! in about 1500 m height      
+    DO jk = 1, k1500m
+      impl_weight(jk) = impl_t
+    END DO
+    DO jk = k1500m+1, nlev
+      impl_weight(jk) = impl_t &
+                      + (impl_s-impl_t) * (jk-k1500m) / REAL(nlev-k1500m, wp)
+    END DO
+    impl_weight(nlevp1) = impl_s
+
+    ! using constant implicit value      
+! JF:     impl_weight(:) = impl_t
+
+! JF:     DO jk = 1, nlevp1
+! JF:       PRINT *, "JF:  jg:", jg, " k:", jk, "   impl_weight(k): ", impl_weight(jk)
+! JF:     END DO
 
 
     rl_start = 1 ! Initialization is done also for nest boundary points
@@ -868,14 +905,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
-!$OMP            ltkeinp_loc,lgz0inp_loc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
-
-
-
+      
       IF (ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
 
         ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
@@ -898,96 +933,157 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ENDDO
       ENDIF
 
+      IF ( ANY( (/10,11/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
-!!$      IF (ANY((/MODE_DWDANA/) == init_mode) ) THEN
-!!$        !
-!!$        ! TKE and gz0 are not re-initialized, but re-used from the first guess
-!!$        !
-!!$        ltkeinp_loc = .TRUE.   ! do NOT re-initialize TKE field (read from FG)
-!!$        lgz0inp_loc = .TRUE.   ! do NOT re-initialize gz0 field (read from FG)
-!!$
-!!$
-!!$        ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
-!!$        ! TVS=SQRT(2*TKE)
-!!$        !
-!!$        DO jk =1,nlevp1
-!!$          p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
-!!$            &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
-!!$        ENDDO
-!!$      ELSE
-!!$        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
-!!$        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
-!!$      ENDIF
+        nlevcm = nlevp1
 
+        CALL organize_turbdiff( lstfnct=.TRUE., &
+          &  lturatm=.FALSE., ltursrf=.TRUE., iini=1, &
+          &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
+          &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
+          &  dt_var=pdtime, dt_tke=pdtime, &
+          &  nprv=1, ntur=1, ntim=1, &
+          &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
+          &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
+          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+          &  dp0=p_diag%dpres_mc(:,:,jb), &
+          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+          &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
+          &  sai=ext_data%atm%sai(:,jb), &
+          &  t_g=p_prog_lnd_now%t_g(:,jb), ps=p_diag%pres_sfc(:,jb), &
+          &  qv_s=p_diag_lnd%qv_s(:,jb), &
+          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), &
+          &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
+          &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
+          &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+          &  tke=p_prog_now%tke(:,:,jb), &
+          &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+          &  rcld=prm_diag%rcld(:,:,jb), &
+          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
+          &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
+          &  u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
+          &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
+          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
-      CALL turbtran(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
-!
-         &  dt_tke=pdtime, nprv=1, ntur=1, ntim=1,                    &
-!
-         &  ie=nproma, ke=nlev, ke1=nlevp1,                                           &
-         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx, &
-!
-         &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
-!
-         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  sai=ext_data%atm%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
-!
-         &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
-!
-         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), T=p_diag%temp(:,:,jb),   &
-         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
-!
-         &  prs=p_diag%pres(:,:,jb),  &
-!
-         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
-         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
-!
-         &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
-         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
-         &  rcld=prm_diag%rcld(:,:,jb),                                             &
-!
-         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
-         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
-         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),&
-         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+        prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
+          &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
+        
+      ELSE
 
+        CALL turbtran(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
+!
+           &  dt_tke=pdtime, nprv=1, ntur=1, ntim=1,                    &
+!
+           &  ie=nproma, ke=nlev, ke1=nlevp1,                                           &
+           &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx, &
+!
+           &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
+!
+           &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+           &  sai=ext_data%atm%sai(:,jb), h_ice=p_prog_wtr_now%h_ice (:,jb), &
+!
+           &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
+!
+           &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), T=p_diag%temp(:,:,jb),   &
+           &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
+!
+           &  prs=p_diag%pres(:,:,jb),  &
+!
+           &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+           &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!
+           &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
+           &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
+           &  rcld=prm_diag%rcld(:,:,jb),                                             &
+!
+           &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m (:,jb), &
+           &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m (:,jb), &
+           &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb),&
+           &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
+      END IF
 
-      CALL turbdiff(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, lstfnct=.TRUE., &
-!
-         &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
-!
-         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
-         &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  &
-!
-         &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
-         &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
-!
-         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-         &  h_ice=p_prog_wtr_now%h_ice (:,jb),                                        &
-!
-         &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
-!
-         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog_now%w(:,:,jb), T=p_diag%temp(:,:,jb), &
-         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
-!
-         &  prs=p_diag%pres(:,:,jb), rho=p_prog_now%rho(:,:,jb), epr=p_prog_now%exner(:,:,jb), &
-!
-         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
-         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
-!
-         &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
-         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
-         &  rcld=prm_diag%rcld(:,:,jb),                                             &
-!
-         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
-         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
-         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
-!
-         &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb), &
-!
-         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+      IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
+        nlevcm = nlevp1
+
+        CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
+          &  lturatm=.TRUE., ltursrf=.FALSE., iini=1, &
+          &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
+          &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
+          &  dt_var=pdtime, dt_tke=pdtime, &
+          &  nprv=1, ntur=1, ntim=1, &
+          &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
+          &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
+          &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+          &  dp0=p_diag%dpres_mc(:,:,jb), &
+          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+          &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
+          &  sai=ext_data%atm%sai(:,jb), &
+          &  t_g=p_prog_lnd_now%t_g(:,jb), ps=p_diag%pres_sfc(:,jb), &
+          &  qv_s=p_diag_lnd%qv_s(:,jb), &
+          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), &
+          &  w=p_prog_now%w(:,:,jb), &
+          &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
+          &  rho=p_prog_now%rho(:,:,jb), epr=p_prog_now%exner(:,:,jb), &
+          &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
+!         &  ptr=???, &  ! for the diffusion of additional tracer variables!
+          &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+          &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+          &  tke=p_prog_now%tke(:,:,jb), &
+          &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+          &  rcld=prm_diag%rcld(:,:,jb), &
+          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
+          &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
+          &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
+          &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
+          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+        IF ( .NOT. lsflcnd ) THEN
+          prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
+            &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
+        END IF
+        
+      ELSE
+
+        CALL turbdiff(iini=1, ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, lstfnct=.TRUE., &
+!
+           &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
+!
+           &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
+           &  istart=i_startidx, iend=i_endidx, istartpar=i_startidx, iendpar=i_endidx,  &
+!
+           &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
+           &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
+!
+           &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+           &  h_ice=p_prog_wtr_now%h_ice (:,jb),                                        &
+!
+           &  ps=p_diag%pres_sfc(:,jb), t_g=p_prog_lnd_now%t_g(:,jb), qv_s=p_diag_lnd%qv_s(:,jb), &
+!
+           &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog_now%w(:,:,jb), T=p_diag%temp(:,:,jb), &
+           &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
+!
+           &  prs=p_diag%pres(:,:,jb), rho=p_prog_now%rho(:,:,jb), epr=p_prog_now%exner(:,:,jb), &
+!
+           &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+           &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!
+           &  tke=p_prog_now%tke(:,:,jb), & !  edr=prm_diag%edr(:,:,jb), &
+           &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh (:,2:nlevp1,jb),  &
+           &  rcld=prm_diag%rcld(:,:,jb),                                             &
+!
+           &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
+           &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+           &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
+!
+           &  shfl_s=prm_diag%shfl_s(:,jb), qhfl_s=prm_diag%qhfl_s(:,jb), &
+!
+           &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+      END IF
 
       ! tile-specific quantities needed by turbtran
       ! 
@@ -1014,7 +1110,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 
 
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == igme) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init GME turbulence')
 
@@ -1043,7 +1139,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL
 
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN  !EDMF DUALM
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN  !EDMF DUALM
     CALL suct0
     CALL su0phy
     CALL susekf
@@ -1056,7 +1152,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !$OMP END PARALLEL WORKSHARE
 
 
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 4) THEN  !ECHAM vdiff
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == ivdiff) THEN  !ECHAM vdiff
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init ECHAM turbulence')
       ! Currently the tracer indices are sorted such that we count

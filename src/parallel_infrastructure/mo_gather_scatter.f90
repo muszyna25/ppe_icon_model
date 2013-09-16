@@ -1078,7 +1078,7 @@ CONTAINS
     REAL(wp), TARGET  :: in(:,:)
     REAL(wp), TARGET  :: out(:)
 
-    INTEGER :: in_block_size, in_blocks, out_size, in_levels, out_levels
+    INTEGER :: in_block_size, in_blocks, out_size
     INTEGER :: block, blk_index, out_index, end_index
 
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_gather_scatter:reshape_2D_block_2noblock'

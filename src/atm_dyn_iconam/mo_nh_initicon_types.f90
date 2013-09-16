@@ -46,7 +46,7 @@
 MODULE mo_nh_initicon_types
 
   USE mo_kind,                 ONLY: wp
-
+  USE mo_var_metadata,         ONLY: VARNAME_LEN
 
   IMPLICIT NONE
   PRIVATE
@@ -68,6 +68,9 @@ MODULE mo_nh_initicon_types
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
                       ! atmospheric variable here because the atmospheric fields cannot be processed without it
 
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, omega, &
       &                                         w, vn, qv, qc, qi, qr, qs
@@ -77,6 +80,9 @@ MODULE mo_nh_initicon_types
 
   ! surface input variables
   TYPE :: t_pi_sfc_in
+
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst, snowalb,snowweq, snowdens, &
                                               skinres, ls_mask, seaice, phi
@@ -101,6 +107,11 @@ MODULE mo_nh_initicon_types
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg_default, grp_vars_ana_default
+
+    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_fg_default, ngrp_vars_ana_default
+
   END TYPE t_pi_sfc
 
 
@@ -108,7 +119,7 @@ MODULE mo_nh_initicon_types
   ! complete state vector type
   !
   TYPE :: t_initicon_state
-
+    
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc

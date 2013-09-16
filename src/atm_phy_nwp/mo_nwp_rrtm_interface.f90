@@ -55,7 +55,6 @@ MODULE mo_nwp_rrtm_interface
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
-  USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
@@ -585,8 +584,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
 
@@ -635,18 +632,6 @@ CONTAINS
       IF (i_startidx > i_endidx) CYCLE
 
 
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = i_startidx,i_endidx
-        albvisdir(jc,jb) =  ( 1.0_wp                                                           &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-      ! no distiction between vis and nir albedo
-      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
 
@@ -656,6 +641,8 @@ CONTAINS
                               ! -----
                               !
                               ! indices and dimensions
+        & jg         =jg                   ,&!< in domain index
+        & jb         =jb                   ,&!< in block index
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -668,8 +655,8 @@ CONTAINS
         & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
                               !
         & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-        & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
-        & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
         & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
@@ -738,8 +725,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -799,7 +784,6 @@ CONTAINS
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
-    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -825,15 +809,9 @@ CONTAINS
       IF (msg_level >= 12) &
         &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
 
-      IF (my_process_is_mpi_seq()) THEN
-        l_parallel = .FALSE.
-      ELSE
-        l_parallel = .TRUE.
-      ENDIF
-
       i_chidx     =  pt_patch%parent_child_index
 
-      IF (jg == 1 .OR. .NOT. l_parallel) THEN
+      IF (jg == 1) THEN
         ptr_pp => pt_par_patch
         nblks_par_c = pt_par_patch%nblks_c
       ELSE ! Nested domain with MPI parallelization
@@ -896,17 +874,6 @@ CONTAINS
 
       ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
 
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = 1,i_endidx
-        albvisdir(jc,jb) = ( 1.0_wp                                                             &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-
-      ! no distiction between vis and nir albedo
-      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
       ENDDO ! blocks
@@ -916,8 +883,8 @@ CONTAINS
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
-        & ext_data%atm%emis_rad,                                        &
-        & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
+        & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
+        & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
         & pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
@@ -941,6 +908,8 @@ CONTAINS
         min_albvisdir = 1.e10_wp
         max_albvisdif = 0._wp
         min_albvisdif = 1.e10_wp
+        max_albdif = 0._wp
+        min_albdif = 1.e10_wp
         max_tsfc = 0._wp
         min_tsfc = 1.e10_wp
         max_psfc = 0._wp
@@ -1107,6 +1076,8 @@ CONTAINS
                                 ! -----
                                 !
                                 ! indices and dimensions
+          & jg          =jg                  ,&!< in domain index
+          & jb          =jb                  ,&!< in block index
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
@@ -1200,8 +1171,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp), POINTER:: albvisdir(:,:), albnirdir(:,:)
-
 
     ! Local scalars:
     INTEGER:: jc,jb
@@ -1256,8 +1225,6 @@ CONTAINS
       ! from the direct radiation call and the redistributed
       ! radiation call
       ALLOCATE( &
-        & albvisdir    (nproma,         pt_patch%nblks_c),  &
-        & albnirdir    (nproma,         pt_patch%nblks_c),  &
         & test_aclcov  (nproma,         pt_patch%nblks_c),  &
         & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
         & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
@@ -1278,19 +1245,6 @@ CONTAINS
         ! In this case, no action is needed
         IF (i_startidx > i_endidx) CYCLE
 
-
-        !Calculate direct albedo from diffuse albedo and solar zenith angle
-        !formula as in Ritter-Geleyn's fesft
-        DO jc = i_startidx,i_endidx
-          albvisdir(jc,jb) =  ( 1.0_wp                                                           &
-            &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-            & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
-        ENDDO
-        IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-        ! no distiction between vis and nir albedo
-        albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
         CALL radiation(               &
@@ -1299,6 +1253,8 @@ CONTAINS
                                 ! -----
                                 !
                                 ! indices and dimensions
+          & jg         =jg                   ,&!< in domain index
+          & jb         =jb                   ,&!< in block index
           & jce        =i_endidx             ,&!< in  end   index for loop over block
           & kbdim      =nproma               ,&!< in  dimension of block over cells
           & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -1311,12 +1267,12 @@ CONTAINS
           & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
                                 !
           & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-          & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
-          & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
-          & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
+          & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
+          & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
+          & alb_vis_dif=prm_diag%albvisdif(:,jb) ,&!< in surface albedo for visible range, diffuse
+          & alb_nir_dif=prm_diag%albnirdif(:,jb) ,&!< in surface albedo for near IR range, diffuse
+          & emis_rad=ext_data%atm%emis_rad(:,jb) ,&!< in longwave surface emissivity
+          & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
           & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
@@ -1421,6 +1377,8 @@ CONTAINS
                               ! -----
                               !
                               ! indices and dimensions
+        & jg         =jg                     ,&!< in domain index
+        & jb         =jb                     ,&!< in block index
         & jce        = i_endidx              ,&!< in  end   index for loop over block
         & kbdim      = rrtm_data%block_size  ,&!< in  dimension of block over cells
         & klev       = rrtm_data%full_levels ,&!< in  number of full levels =  number of layers
@@ -1529,8 +1487,7 @@ CONTAINS
        ENDDO
      ENDDO
 
-     DEALLOCATE(albvisdir, albnirdir, &  
-      & test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
+     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
 
    ENDIF ! test_parallel_radiation
       

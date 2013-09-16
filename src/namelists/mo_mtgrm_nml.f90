@@ -46,6 +46,7 @@ MODULE mo_meteogram_nml
   USE mo_meteogram_config,   ONLY: t_station_list, t_meteogram_output_config, &
     &                              meteogram_output_config, &
     &                              MAX_NAME_LENGTH, MAX_NUM_STATIONS, FTYPE_NETCDF
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PUBLIC :: read_meteogram_namelist
@@ -132,9 +133,11 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('meteogram_output_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), meteogram_output_nml)   ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, meteogram_output_nml)
+      READ (nnml, meteogram_output_nml, iostat=istat)                           ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), meteogram_output_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml
 

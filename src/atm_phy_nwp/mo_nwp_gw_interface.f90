@@ -87,7 +87,7 @@ CONTAINS
 
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch         !<grid/patch info.
-    TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
+    TYPE(t_external_data),       INTENT(inout):: ext_data        !< external data, inout only for accomodating ext_data%atm%sso_gamma
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars

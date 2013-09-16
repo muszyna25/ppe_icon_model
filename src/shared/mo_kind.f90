@@ -72,7 +72,13 @@ MODULE mo_kind
   INTEGER, PARAMETER :: sp = SELECTED_REAL_KIND(ps,rs) !< single precision
   INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(pd,rd) !< double precision
   !
-  INTEGER, PARAMETER :: wp = dp                        !< selected working precission
+  INTEGER, PARAMETER :: wp = dp                        !< selected working precision
+  !
+#ifdef __MIXED_PRECISION
+  INTEGER, PARAMETER :: vp = sp
+#else
+  INTEGER, PARAMETER :: vp = wp
+#endif
   !
   ! Integer section
   ! ---------------
@@ -90,7 +96,7 @@ MODULE mo_kind
   !
   INTEGER, PARAMETER :: wi = i4                       !< selected working precission
   !
-  PUBLIC :: sp, dp, wp, i4, i8
+  PUBLIC :: sp, dp, wp, vp, i4, i8
   !
   !--------------------------------------------------------------------
 

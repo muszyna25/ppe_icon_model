@@ -50,6 +50,7 @@ MODULE mo_sea_ice_winton
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
 
@@ -232,10 +233,10 @@ CONTAINS
   !!
 
   SUBROUTINE ice_growth_winton(p_patch, p_os, ice, rpreci)!, lat)
-    TYPE(t_patch),             INTENT(IN), TARGET    :: p_patch 
+    TYPE(t_patch)            , INTENT(IN), TARGET    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(IN)            :: p_os
-    TYPE (t_sea_ice),          INTENT(INOUT)         :: ice
-    REAL(wp),                  INTENT(IN)            :: rpreci(:,:) 
+    TYPE(t_sea_ice)          , INTENT(INOUT)         :: ice
+    REAL(wp)                 , INTENT(IN)            :: rpreci(:, :)
                                    ! water equiv. solid precipitation rate [m/s] DIMENSION (ie,je)
     !REAL(wp),                  INTENT(IN)    :: lat(:,:,:) 
                                    !! lat. heat flux  [W/m^2] DIMENSION (ie,je,kice)
@@ -288,6 +289,8 @@ CONTAINS
 
     ! Heat flux from ocean into ice
     CALL oce_ice_heatflx(p_os,ice,Tfw,zHeatOceI)
+  CALL dbg_print('GrowWinton: Tfw', Tfw, 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: zHeatOceI', zHeatOceI, 'ice_growth_winton',5)
 
     !-------------------------------------------------------------------------------
     DO jb = 1,p_patch%nblks_c
@@ -499,23 +502,13 @@ CONTAINS
       END DO
     END DO
 
-!!$    CALL print_cells(Q_surplus(:,1,:),'Q_surplus')
-!!$    CALL print_cells(ice%hi(:,1,:),'ice%hi')
-!!$    CALL print_cells(ice%Qtop(:,1,:),'ice%Qtop')
-!!$    CALL print_cells(ice%Qbot(:,1,:),'ice%Qbot')
-!!$    CALL print_cells(ice%hi(:,1,:)-ice%hiold(:,1,:),'new ice')
-!!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
-!!$
-!!$    CALL print_cells(ice%Tsurf(:,1,:),'ice%Tsurf')
-
-!!$! !---------DEBUG DIAGNOSTICS-------------------------------------------
-!!$    idt_src=1 !3  ! output print level (1-5, fix)
-!!$    CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Qbot'        ,ice%Qbot                 ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Tsurf'       ,ice%Tsurf                ,str_module,idt_src)
-!!$! !---------------------------------------------------------------------
+!---------DEBUG DIAGNOSTICS-------------------------------------------
+  CALL dbg_print('GrowWinton: Q_surplus', Q_surplus, 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: ice%hi'   , ice%hi   , 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: ice%Qtop' , ice%Qtop , 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: ice%Qbot' , ice%Qbot , 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: ice%Tsurf', ice%Tsurf, 'ice_growth_winton',5)
+!---------------------------------------------------------------------
     
   END SUBROUTINE ice_growth_winton
 

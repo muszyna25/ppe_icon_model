@@ -72,6 +72,7 @@ MODULE mo_nonhydrostatic_config
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
     LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
                                         ! to the CFL stability limit for vertical advection
+    LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
     REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping (if lhdiff_rcf = true)
     INTEGER :: divdamp_order            ! Order of divergence damping
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
@@ -94,6 +95,7 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
     REAL(wp):: vwind_offctr     ! Off-centering in vertical wind solver
     REAL(wp):: rhotheta_offctr  ! Off-centering for density and potential temperature at interface levels
+    REAL(wp):: veladv_offctr    ! Off-centering for velocity advection
     INTEGER :: iadv_rhotheta    ! Advection scheme used for density and pot. temperature
     INTEGER :: igradp_method    ! Method for computing the horizontal presure gradient
     REAL(wp):: exner_expol      ! Temporal extrapolation of Exner for computation of

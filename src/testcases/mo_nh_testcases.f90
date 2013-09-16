@@ -47,7 +47,7 @@ MODULE mo_nh_testcases
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,             ONLY: nnml
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, icosmo, iedmf
   USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -111,7 +111,8 @@ MODULE mo_nh_testcases
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, u_cbl, v_cbl, th_cbl
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico,          &
+                                   & init_nh_state_gate, u_cbl, v_cbl, th_cbl
   
   IMPLICIT NONE  
   
@@ -133,12 +134,13 @@ MODULE mo_nh_testcases
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
   REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
-
+   
   LOGICAL  :: linit_tracer_fv  !< finite volume initialization for tracer fields
                                !< if .TRUE.
 
   LOGICAL  :: lcoupled_rho     !< re-integrate mass equation in PA test cases (TRUE/FALSE)
 
+  REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
@@ -166,7 +168,7 @@ MODULE mo_nh_testcases
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
-                            u_cbl, v_cbl, th_cbl                  
+                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb                  
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name,                    &
@@ -332,6 +334,8 @@ MODULE mo_nh_testcases
     v_cbl(1:2) = 0._wp 
     th_cbl(1)  = 290._wp
     th_cbl(2)  = 0.006_wp
+    w_perturb  = 0.05_wp    
+    th_perturb = 0.2_wp    
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -382,8 +386,8 @@ MODULE mo_nh_testcases
   ! Initialize topography to zero if idealized topo is used
   IF ( itopo == 0 ) THEN
     DO jg = 1, n_dom
-      ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_int_c) = 0.0_wp
-      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_int_v) = 0.0_wp
+      ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_c) = 0.0_wp
+      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_v) = 0.0_wp
     ENDDO
   ENDIF
 
@@ -402,8 +406,8 @@ MODULE mo_nh_testcases
     z_x2_geo%lat = 0.0_wp
 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_c
-        IF (jb /=  p_patch(jg)%nblks_int_c) THEN
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_c
@@ -421,8 +425,8 @@ MODULE mo_nh_testcases
       ENDDO 
     ENDDO 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_v
-        IF (jb /=  p_patch(jg)%nblks_int_v) THEN
+      DO jb = 1, p_patch(jg)%nblks_v
+        IF (jb /=  p_patch(jg)%nblks_v) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_v
@@ -447,8 +451,8 @@ MODULE mo_nh_testcases
     z_x2_geo%lat = 0.0_wp
 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_c
-        IF (jb /=  p_patch(jg)%nblks_int_c) THEN
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_c
@@ -469,8 +473,8 @@ MODULE mo_nh_testcases
       ENDDO 
     ENDDO 
     DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_int_v
-        IF (jb /=  p_patch(jg)%nblks_int_v) THEN
+      DO jb = 1, p_patch(jg)%nblks_v
+        IF (jb /=  p_patch(jg)%nblks_v) THEN
           nlen = nproma
         ELSE
           nlen =  p_patch(jg)%npromz_v
@@ -494,9 +498,9 @@ MODULE mo_nh_testcases
   CASE ('jabw', 'jabw_s')
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -507,9 +511,9 @@ MODULE mo_nh_testcases
   CASE ('jabw_m')  
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -529,9 +533,9 @@ MODULE mo_nh_testcases
    ENDIF
 
    DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -544,9 +548,9 @@ MODULE mo_nh_testcases
   CASE ('wk82')  
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
@@ -585,9 +589,9 @@ MODULE mo_nh_testcases
   CASE ('g_lim_area')
 
     DO jg = 1, n_dom 
-     nblks_c   = p_patch(jg)%nblks_int_c
+     nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_int_v
+     nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c,  &
@@ -641,6 +645,14 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
+
+  CASE ('GATE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running GATE Experiment')
 
   CASE DEFAULT
 
@@ -849,8 +861,8 @@ MODULE mo_nh_testcases
 
   DO jg = 1, n_dom
     p_nhdom   => p_nh_state(jg)
-    nblks_e   = p_patch(jg)%nblks_int_e
-    npromz_e  = p_patch(jg)%npromz_int_e
+    nblks_e   = p_patch(jg)%nblks_e
+    npromz_e  = p_patch(jg)%npromz_e
 
     ! number of vertical levels
     nlev   = p_patch(jg)%nlev
@@ -877,8 +889,8 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO
     ENDDO
-    nblks_c   = p_patch(jg)%nblks_int_c
-    npromz_c  = p_patch(jg)%npromz_int_c
+    nblks_c   = p_patch(jg)%nblks_c
+    npromz_c  = p_patch(jg)%npromz_c
     ! scalars (all is dry!)
     DO jt = 1, ntl 
       DO jb = 1, nblks_c
@@ -1227,12 +1239,12 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
-
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+                      
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", 0.05_wp, nlev-3, nlev ) 
+                               "cell", w_perturb, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", 0.2_wp, nlev-3, nlev ) 
+                               "cell", th_perturb, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1247,30 +1259,56 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", 0.05_wp, nlev-3, nlev ) 
+                               "cell", w_perturb, nlev-3, nlev ) 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", 0.2_wp, nlev-3, nlev ) 
+                               "cell", th_perturb, nlev-3, nlev ) 
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
     CALL message(TRIM(routine),'End setup RICO test')
 
+  CASE ('GATE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+
+    DO jg = 1, n_dom
+      nlev   = p_patch(1)%nlev
+      CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+                      
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
+                               "cell", w_perturb, nlev-3, nlev ) 
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
+                               "cell", th_perturb, nlev-3, nlev ) 
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End setup GATE test')
+
 
   END SELECT
 
 
-  IF( atm_phy_nwp_config(1)%inwp_turb==3 .AND. &
-      (nh_test_name=='APE_nh' .or. nh_test_name=='CBL') )THEN
+  IF ( ANY( (/icosmo,iedmf,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
+       (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
-    !Snow and sea ice initialization to avoid problems in EDMF
-      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = 300._wp   !snow
-      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = 300._wp   !sea ice
-      p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = 300._wp   !sea ice
+      p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
     END DO !jg
+    IF (atm_phy_nwp_config(1)%inwp_surface > 0) THEN ! Fields are not allocated otherwise
+      DO jg = 1, n_dom
+        !Snow and sea ice initialization to avoid problems in EDMF
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t                  = th_cbl(1)
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_snow_t(:,:,:)        = th_cbl(1) !snow
+        p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g_t(:,:,isub_seaice) = th_cbl(1) !sea ice
+        p_lnd_state(jg)%prog_wtr(nnow(jg))%t_ice(:,:)             = th_cbl(1) !sea ice
+      END DO !jg
+    ENDIF
   END IF
 
  END SUBROUTINE init_nh_testcase

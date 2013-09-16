@@ -81,7 +81,7 @@
     USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
       &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
       &                               l_mono_c2l
-    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,              &
+    USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,            &
       &                               gnat_query_containing_triangles,                      &
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
       &                               INVALID_NODE, gnat_recursive_proximity_query
@@ -240,6 +240,7 @@
         &                     ist, glb_idx, my_id, nthis_local_pts
       INTEGER, ALLOCATABLE :: glb_owner(:), local_index(:)
       TYPE(t_lon_lat_grid), POINTER  :: grid
+      TYPE(t_gnat_tree)    :: gnat
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
@@ -258,13 +259,14 @@
 
         ! build GNAT data structure
         IF (dbg_level > 1) CALL message(routine, "build GNAT data structure")
-        CALL gnat_init_grid(p_patch(jg))
+        CALL gnat_init_grid(gnat, p_patch(jg))
 
         DO i=1, n_lonlat_grids
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
             IF (ltimer) CALL timer_start(timer_lonlat_setup)
             CALL rbf_setup_interpol_lonlat_grid(      &
               &         lonlat_grid_list(i)%grid,     &
+              &         gnat,                         &
               &         p_patch(jg),                  &
               &         lonlat_grid_list(i)%intp(jg), &
               &         p_int_state(jg) )
@@ -274,7 +276,7 @@
         END DO ! i
 
         ! clean up
-        CALL gnat_destroy()
+        CALL gnat_destroy(gnat)
       END DO ! jg
 
       DO i=1, n_lonlat_grids
@@ -582,7 +584,7 @@
         ptr_int_lonlat%rbf_c2l_idx(:,:,:) = 0
 
         ! values for the blocking
-        nblks_c  = ptr_patch%nblks_int_c
+        nblks_c  = ptr_patch%nblks_c
 
         ! The start block depends on the width of the stencil
         i_nchdom   = MAX(1,ptr_patch%n_childdom)
@@ -1258,11 +1260,12 @@
     !  the triangular grid.
     !
     RECURSIVE SUBROUTINE flag_ll_points(rotated_pts, s_lon, e_lon, s_lat, e_lat, &
-      &                                 pts_flags, recursion_depth, max_recursion)
+      &                                 pts_flags, recursion_depth, max_recursion, gnat)
       REAL(wp), INTENT(IN)    :: rotated_pts(:,:,:)  ! dim (lon,lat,1:2)
       INTEGER,  INTENT(IN)    :: s_lon, e_lon, s_lat, e_lat
       INTEGER,  INTENT(INOUT) :: pts_flags(:,:)
       INTEGER,  INTENT(IN)    :: recursion_depth, max_recursion
+      TYPE(t_gnat_tree), INTENT(IN) :: gnat
       ! local variables
       INTEGER  :: m_lon, m_lat, c_lon(4), c_lat(4), v_lon(4,4), v_lat(4,4), &
         &         s_lon2(4), s_lat2(4), e_lon2(4), e_lat2(4), icirc, ivert, &
@@ -1318,7 +1321,7 @@
       ! test, if there exists a triangle center inside the circles:
       DO icirc=1,4
         is_pt_inside(icirc) = .FALSE.
-        CALL gnat_recursive_proximity_query(gnat_tree, p1(icirc,1:2), radius(icirc), is_pt_inside(icirc))
+        CALL gnat_recursive_proximity_query(gnat, gnat%gnat_tree, p1(icirc,1:2), radius(icirc), is_pt_inside(icirc))
       END DO
       ! for each of the four subblocks:
       DO icirc=1,4
@@ -1334,7 +1337,7 @@
           ! if patch of triangular grid does intersect circle:
           ! recursion and further subdivision:
           CALL flag_ll_points(rotated_pts, s_lon2(icirc), e_lon2(icirc), s_lat2(icirc), e_lat2(icirc), &
-            &                 pts_flags, (recursion_depth+1), max_recursion)          
+            &                 pts_flags, (recursion_depth+1), max_recursion, gnat)          
         END IF
       END DO
     END SUBROUTINE flag_ll_points
@@ -1363,9 +1366,10 @@
     !         result should be copied on to the other points with
     !         +-90deg.
     !
-    SUBROUTINE rbf_setup_interpol_lonlat_grid(grid, ptr_patch, ptr_int_lonlat, ptr_int)
+    SUBROUTINE rbf_setup_interpol_lonlat_grid(grid, gnat, ptr_patch, ptr_int_lonlat, ptr_int)
 
       TYPE (t_lon_lat_grid), INTENT(INOUT)         :: grid
+      TYPE (t_gnat_tree),    INTENT(INOUT)         :: gnat
       ! data structure containing grid info:
       TYPE(t_patch), TARGET, INTENT(IN)            :: ptr_patch
       ! Indices of source points and interpolation coefficients
@@ -1472,7 +1476,7 @@
       ! --------------------------------------------------------------
 
       pts_flags(:,:) = INVALID_NODE
-      call flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5)
+      CALL flag_ll_points(rotated_pts, 1,grid%lon_dim, 1,grid%lat_dim, pts_flags, 1,5, gnat)
 
       !-- if we have a global, unrotated grid: skip all points of the
       !   first and last latitude row (except one):
@@ -1501,9 +1505,10 @@
       ! local list of "in_points" actually located on this portion of the
       ! domain.
       IF (dbg_level > 1) CALL message(routine, "proximity query")
-      CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:),       &
+      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),            &
         &                 nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,       &
         &                 p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
+
 !$    IF (l_measure_time) WRITE (0,*) "elapsed time (query): ",  REAL(omp_get_wtime()) - time1
 
       !-- if we have a global, unrotated grid: copy the distance
@@ -1520,14 +1525,22 @@
           ! copy indices and distances:
           DO j=1,2
             tri_idx_pole = ptr_int_lonlat%tri_idx(j,ibeg_idx,ibeg_blk)
-            ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
-            ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
-            ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+            IF (iend_blk > ibeg_blk) THEN
+              ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):nproma,                  ibeg_blk) = tri_idx_pole
+              ptr_int_lonlat%tri_idx(j,                   :, (ibeg_blk+1):(iend_blk-1)) = tri_idx_pole
+              ptr_int_lonlat%tri_idx(j,          1:iend_idx,                  iend_blk) = tri_idx_pole
+            ELSE
+              ptr_int_lonlat%tri_idx(j, (ibeg_idx+1):iend_idx, ibeg_blk) = tri_idx_pole
+            END IF
           END DO
           min_dist_pole = min_dist(ibeg_idx,ibeg_blk)
-          min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
-          min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
-          min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+          IF (iend_blk > ibeg_blk) THEN
+            min_dist((ibeg_idx+1):nproma,                  ibeg_blk) = min_dist_pole
+            min_dist(                  :, (ibeg_blk+1):(iend_blk-1)) = min_dist_pole
+            min_dist(         1:iend_idx,                  iend_blk) = min_dist_pole
+          ELSE
+            min_dist((ibeg_idx+1):iend_idx, ibeg_blk) = min_dist_pole
+          END IF
         END DO
       END IF
 

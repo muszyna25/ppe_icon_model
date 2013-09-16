@@ -85,6 +85,7 @@ CONTAINS
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
 
     ! LOCAL VARIABLES
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
     INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
     INTEGER  :: nlen, nlev
@@ -94,6 +95,10 @@ CONTAINS
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
 !-------------------------------------------------------------------------
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
 
     nlev = p_patch%nlev
     jg   = p_patch%id

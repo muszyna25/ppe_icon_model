@@ -70,7 +70,7 @@ MODULE mo_hierarchy_management
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_ct
-  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
+  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_dynamics_config,     ONLY: ltwotime, lshallow_water,            &
                                     nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
@@ -187,6 +187,7 @@ CONTAINS
     REAL(wp) :: dt_sub, zdtime, rdt_loc
 
     REAL(wp),DIMENSION ( nproma, nlev, p_patch(jg)%nblks_c ) :: temp_save
+    REAL(wp), ALLOCATABLE :: z_pres_sfc(:,:,:)
 
     REAL(wp),DIMENSION(:,:),    POINTER :: p_psfc     => NULL()
     REAL(wp),DIMENSION(:,:),    POINTER :: p_psfc_sv  => NULL()
@@ -745,12 +746,12 @@ CONTAINS
               p_temp => p_hydro_state(jg)%prog(n_new)%temp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
-              DO jb = 1,p_patch(jg)%nblks_int_c
+              DO jb = 1,p_patch(jg)%nblks_c
 
-                IF (jb /= p_patch(jg)%nblks_int_c) THEN
+                IF (jb /= p_patch(jg)%nblks_c) THEN
                   nlen = nproma
                 ELSE
-                  nlen = p_patch(jg)%npromz_int_c
+                  nlen = p_patch(jg)%npromz_c
                 ENDIF
 
                 temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)
@@ -1021,26 +1022,26 @@ CONTAINS
           IF (grf_intmethod_c == 2) THEN
 
             IF (ha_dyn_config%ltheta_dyn) THEN
-              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),           &
-                &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
+              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc),                        &
+                &    p_grf_state(jg)%p_dom(jn), 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
                 &    p_hydro_state(jgc)%prog(nnow(jgc))%theta)
             ELSE IF (.NOT. lshallow_water) THEN
-              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),          &
-                &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
+              CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc),                       &
+                &    p_grf_state(jg)%p_dom(jn), 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
                 &    p_hydro_state(jgc)%prog(nnow(jgc))%temp)
             ENDIF
 
-            CALL interpol_scal2d_grf (p_patch(jg), p_patch(jgc), &
-              &  p_int_state(jg), p_grf_state(jg)%p_dom(jn), jn, &
-              &  p_hydro_state(jg)%prog(n_sav1)%pres_sfc,        &
-              &  p_hydro_state(jgc)%prog(nnow(jgc))%pres_sfc)
+            ALLOCATE (z_pres_sfc(nproma,1,p_patch(jgc)%nblks_c))
+            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 1,                  &
+              &  RESHAPE(p_hydro_state(jg)%prog(n_sav1)%pres_sfc,(/nproma,1,p_patch(jg)%nblks_c/)), z_pres_sfc)
 
+            p_hydro_state(jgc)%prog(nnow(jgc))%pres_sfc(:,:) = z_pres_sfc(:,1,:)
+            DEALLOCATE (z_pres_sfc)
           ENDIF
 
           IF(ltransport .AND. grf_intmethod_ct == 2) THEN
-            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg), &
-              &  p_grf_state(jg)%p_dom(jn), jn, ntracer,                        &
-              &  f4din1=p_hydro_state(jg)%prog(n_sav1)%tracer,                  &
+            CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), ntracer,                        &
+              &  f4din1=p_hydro_state(jg)%prog(n_sav1)%tracer,                                   &
               &  f4dout1=p_hydro_state(jgc)%prog(nnow(jgc))%tracer)
           ENDIF
 
@@ -1569,12 +1570,12 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = 1,p_patch(jg)%nblks_int_c
+          DO jb = 1,p_patch(jg)%nblks_c
 
-            IF (jb /= p_patch(jg)%nblks_int_c) THEN
+            IF (jb /= p_patch(jg)%nblks_c) THEN
               nlen = nproma
             ELSE
-              nlen = p_patch(jg)%npromz_int_c
+              nlen = p_patch(jg)%npromz_c
             ENDIF
 
             temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)

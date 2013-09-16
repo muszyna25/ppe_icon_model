@@ -350,8 +350,8 @@ CASE (6) ! (cell_type == 6)
                           slev, elev)
 
   ! no grid refinement in hexagonal model
-  nblks_e   = ptr_patch%nblks_int_e
-  npromz_e  = ptr_patch%npromz_int_e
+  nblks_e   = ptr_patch%nblks_e
+  npromz_e  = ptr_patch%npromz_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1306,8 +1306,8 @@ END SUBROUTINE nabla4_scalar
     iidx => pt_patch%edges%cell_idx
     iblk => pt_patch%edges%cell_blk
 
-    nblks_e  = pt_patch%nblks_int_e
-    npromz_e = pt_patch%npromz_int_e
+    nblks_e  = pt_patch%nblks_e
+    npromz_e = pt_patch%npromz_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,je,z_sign) ICON_OMP_DEFAULT_SCHEDULE

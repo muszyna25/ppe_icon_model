@@ -60,7 +60,7 @@ MODULE mo_nh_init_utils
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel !,p_pe
   USE mo_communication,         ONLY: exchange_data
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C, SYNC_V
-  USE mo_intp_data_strc,        ONLY: t_int_state, p_int_state_local_parent
+  USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: cells2verts_scalar, edges2cells_scalar
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
@@ -990,7 +990,7 @@ CONTAINS
      ktop_thicklimit(:) = nlevp1
 
      ! vertical interface height
-     IF (ivctype == 1) THEN ! hybrid Gal-Chen coordinate
+     IF (ivctype == 1 .OR. decay_scale_1 >= 0.5_wp*top_height) THEN ! hybrid Gal-Chen coordinate
        DO jk = 1, nlev
          jk1 = jk + nshift
          z3d_i(1:nlen,jk,jb) = vct_a(jk1) + vct_b(jk1)*z3d_i(1:nlen,nlevp1,jb)

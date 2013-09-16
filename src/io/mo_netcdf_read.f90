@@ -79,6 +79,7 @@ MODULE mo_netcdf_read
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
 
+  PUBLIC :: netcdf_read_0D
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_oncells_2d
   PUBLIC :: netcdf_read_oncells_2D_time
@@ -105,6 +106,10 @@ MODULE mo_netcdf_read
   INTERFACE read_netcdf_data_single
     MODULE PROCEDURE read_netcdf_3d_single
   END INTERFACE read_netcdf_data_single
+
+  INTERFACE netcdf_read_0D
+    MODULE PROCEDURE netcdf_read_REAL_0D_fileid
+  END INTERFACE netcdf_read_0D
 
   INTERFACE netcdf_read_1D
     MODULE PROCEDURE netcdf_read_REAL_1D_filename
@@ -325,6 +330,55 @@ CONTAINS
 
   END FUNCTION netcdf_read_REAL_ONCELLS_3D_1extdim_filename
   !-------------------------------------------------------------------------
+  FUNCTION netcdf_read_REAL_0D_filename(filename, variable_name)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_0D_filename
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER                      :: file_id
+
+    file_id = netcdf_open_input(filename)
+    netcdf_read_REAL_0D_filename => netcdf_read_REAL_0D_fileid(file_id, variable_name)
+  END FUNCTION netcdf_read_REAL_0D_filename
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_0D_fileid(file_id, variable_name)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_0D_fileid
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: return_status
+    REAL(wp)     :: zlocal(1)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_0D_fileid'
+
+    ! trivial return value.
+    NULLIFY(netcdf_read_REAL_0D_fileid)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+    ENDIF
+
+
+
+    IF( my_process_is_mpi_workroot()) THEN
+      CALL nf(nf_get_var_double(file_id, varid, zlocal(:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(zlocal)
+    ALLOCATE(netcdf_read_REAL_0D_fileid)
+    netcdf_read_REAL_0D_fileid=zlocal(1)
+
+  END FUNCTION netcdf_read_REAL_0D_fileid
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -447,16 +501,18 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_2D_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
         ENDIF
+        netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%nblks_c), stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
     ENDIF
 
     CALL scatter_cells_2D(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, patch)
@@ -583,16 +639,18 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid )')
         ENDIF
+       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%nblks_c, time_steps), stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:) = 0.0_wp
     ENDIF
     start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, 3)
     end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, 3)
@@ -751,18 +809,22 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_3D_1extdim_fileid => fill_array
       IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid)) THEN
         CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
+        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
+          & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &
           & stat=return_status )
         IF (return_status /= success) THEN
           CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid )')
         ENDIF
+        netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:) = 0.0_wp
       ENDIF
     ELSE
-      ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(nproma, file_vertical_levels, patch%nblks_c, time_steps), &
-      & stat=return_status )
+      ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
+        & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &
+        & stat=return_status )
       IF (return_status /= success) THEN
         CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid )')
       ENDIF
+      netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:) = 0.0_wp
     ENDIF
     start_allocated_step = LBOUND(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, 4)
     end_allocated_step   = UBOUND(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, 4)
@@ -1647,12 +1709,11 @@ CONTAINS
     TYPE(t_patch), TARGET        :: patch
 
     REAL(wp), POINTER            :: output_array(:,:)
-    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
-    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: total_number_of_cells, array_time_steps
+    INTEGER :: dim_number_of_cells, dim_array_time_steps
     INTEGER :: output_shape(2), dim_write_shape(2), diff_shape(2)
     INTEGER :: variable_id
 
-    INTEGER                      :: return_status
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
@@ -1716,7 +1777,6 @@ CONTAINS
     INTEGER :: output_shape(3), dim_write_shape(3), diff_shape(3)
     INTEGER :: variable_id
 
-    INTEGER                      :: return_status
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 

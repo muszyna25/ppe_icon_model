@@ -76,20 +76,21 @@ MODULE mo_io_async
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, outvar_desc,    &
     &                               num_output_vars
-  USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
-   &                                open_output_vlist, close_output_vlist,                       &
-   &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
-#ifndef __ICON_OCEAN_ONLY__
-   &                                get_outvar_ptr_ha, get_outvar_ptr_nh, get_outvar_ptr_oce
-#else
-   &                                get_outvar_ptr_oce
-#endif
-  USE mo_grid_config,         ONLY: n_dom
 #ifndef __ICON_OCEAN_ONLY__
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
+  USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
+   &                                open_output_vlist, close_output_vlist,                       &
+   &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
+   &                                get_outvar_ptr_ha, get_outvar_ptr_nh, get_outvar_ptr_oce
+#else
+  USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
+   &                                open_output_vlist, close_output_vlist,                       &
+   &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
+   &                                get_outvar_ptr_oce
 #endif
+  USE mo_grid_config,         ONLY: n_dom
 
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
@@ -374,7 +375,7 @@ CONTAINS
     END DO
 #endif
 
-    IF(use_pio) CALL pioFinalize
+!DR    IF(use_pio) CALL pioFinalize
 
     ! Shut down MPI
     !
@@ -426,11 +427,12 @@ CONTAINS
 
       use_pio = .TRUE.
 
-      res = pioInit ( pio_type, p_comm_work, my_io_task_no, num_io_tasks, pio_comm )
+!DR      res = pioInit ( pio_type, p_comm_work, my_io_task_no, num_io_tasks, pio_comm )
+      res = 0  !DR new
 
       IF(res==0) THEN
         ! This is the return of the writer PEs at the very end
-        CALL pioFinalize
+!DR        CALL pioFinalize
         CALL p_stop
         STOP
       ENDIF

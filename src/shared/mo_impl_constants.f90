@@ -312,6 +312,13 @@ MODULE mo_impl_constants
                                             ! as a combined process
 
 
+  ! identifiers for different NWP turbulent schemes
+  INTEGER, PARAMETER :: icosmo  =  1
+  INTEGER, PARAMETER :: igme    =  2
+  INTEGER, PARAMETER :: iedmf   =  3
+  INTEGER, PARAMETER :: ivdiff  =  4
+  INTEGER, PARAMETER :: ismag   =  5
+
 
   ! external parameter for radiation
 
@@ -473,6 +480,12 @@ MODULE mo_impl_constants
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
     PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
     PRES_MSL_METHOD_IFS = 3       ! current IFS method
+
+  ! Method for computation of relative humidity:
+  INTEGER, PARAMETER :: &
+    RH_METHOD_WMO      = 1,  &   ! WMO-type: e_s=e_s_water (water only)
+    RH_METHOD_IFS      = 2,  &   ! IFS-type: (mixed phases, water and ice)
+    RH_METHOD_IFS_CLIP = 3       ! IFS-type + clipping to rh<=100%
 
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5

@@ -581,8 +581,8 @@ IF (ltimer) CALL timer_start(timer_intp)
 IF (ptr_patch%cell_type == 6) THEN
 
   ! no grid refinement in hexagonal model
-  nblks_v   = ptr_patch%nblks_int_v
-  npromz_v  = ptr_patch%npromz_int_v
+  nblks_v   = ptr_patch%nblks_v
+  npromz_v  = ptr_patch%npromz_v
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_v
@@ -1121,8 +1121,8 @@ iidx => ptr_patch%cells%vertex_idx
 iblk => ptr_patch%cells%vertex_blk
 
 ! values for the blocking
-nblks_c  = ptr_patch%nblks_int_c
-npromz_c = ptr_patch%npromz_int_c
+nblks_c  = ptr_patch%nblks_c
+npromz_c = ptr_patch%npromz_c
 
 
 IF (ltimer) CALL timer_start(timer_intp)
@@ -1257,8 +1257,8 @@ iidx => ptr_patch%edges%quad_idx
 iblk => ptr_patch%edges%quad_blk
 
 ! values for the blocking
-nblks_e  = ptr_patch%nblks_int_e
-npromz_e = ptr_patch%npromz_int_e
+nblks_e  = ptr_patch%nblks_e
+npromz_e = ptr_patch%npromz_e
 
 
 IF (ltimer) CALL timer_start(timer_intp)

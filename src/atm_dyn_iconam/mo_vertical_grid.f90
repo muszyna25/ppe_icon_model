@@ -76,6 +76,7 @@ MODULE mo_vertical_grid
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
+  USE mo_data_turbdiff,        ONLY: akt
 
   IMPLICIT NONE
 
@@ -153,8 +154,8 @@ MODULE mo_vertical_grid
         l_half_lev_centr = .FALSE.
       END SELECT
 
-      nblks_c   = p_patch(jg)%nblks_int_c
-      npromz_c  = p_patch(jg)%npromz_int_c
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
 
       i_nchdom   = MAX(1,p_patch(jg)%n_childdom)
 
@@ -242,12 +243,16 @@ MODULE mo_vertical_grid
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
         IF (p_patch(jg)%cell_type==3) THEN
-          ! layer distance between jk+1 and jk-1
-          p_nh(jg)%metrics%inv_ddqz_z_half2(:,1,jb) = 0._wp
+          ! coefficients for second-order acurate dw/dz term
+          p_nh(jg)%metrics%coeff1_dwdz(:,1,jb) = 0._wp
+          p_nh(jg)%metrics%coeff2_dwdz(:,1,jb) = 0._wp
           DO jk = 2, nlev
-            p_nh(jg)%metrics%inv_ddqz_z_half2(1:nlen,jk,jb) = 1._wp / &
-              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) -              &
-                p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff1_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+            p_nh(jg)%metrics%coeff2_dwdz(1:nlen,jk,jb) = &
+              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) / &
+              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
           ENDDO
         ENDIF
 
@@ -301,8 +306,8 @@ MODULE mo_vertical_grid
       ! at the vertices
       ALLOCATE(z_ifv(nproma,nlevp1,p_patch(jg)%nblks_v))
       ALLOCATE(z_mfv(nproma,nlev  ,p_patch(jg)%nblks_v))
-      nblks_v   = p_patch(jg)%nblks_int_v
-      npromz_v  = p_patch(jg)%npromz_int_v
+      nblks_v   = p_patch(jg)%nblks_v
+      npromz_v  = p_patch(jg)%npromz_v
 
       ! Initialize vertical coordinate for vertex points
       CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
@@ -351,8 +356,8 @@ MODULE mo_vertical_grid
                                  p_nh(jg)%metrics%ddxn_z_half,p_nh(jg)%metrics%ddxn_z_full)
 
       ! vertically averaged metrics
-      nblks_e   = p_patch(jg)%nblks_int_e
-      npromz_e  = p_patch(jg)%npromz_int_e
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_e
@@ -581,7 +586,7 @@ MODULE mo_vertical_grid
         z_maxhgtd(:,:,:) = 0._wp
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, z_maxslope, z_offctr) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_c
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -1426,8 +1431,8 @@ MODULE mo_vertical_grid
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, &
-!$OMP z_aux2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2, &
+!$OMP z0, z1, z2, z3, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,nblks_e
 
           CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
@@ -1685,7 +1690,7 @@ MODULE mo_vertical_grid
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
-      IF(atm_phy_nwp_config(jg)%inwp_turb == 5)  &
+      IF(atm_phy_nwp_config(jg)%is_les_phy)  &
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
     END DO
 
@@ -2024,10 +2029,10 @@ MODULE mo_vertical_grid
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
 
     IF (p_test_run) THEN
 !$OMP PARALLEL WORKSHARE
@@ -2056,7 +2061,7 @@ MODULE mo_vertical_grid
                       p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
          p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
-                      / ((les_filter*les_config(1)%rkarman_constant)**2+z_me(je,jk,jb)**2)
+                      / ((les_filter/akt)**2+z_me(je,jk,jb)**2)
        END DO
       END DO
     END DO 

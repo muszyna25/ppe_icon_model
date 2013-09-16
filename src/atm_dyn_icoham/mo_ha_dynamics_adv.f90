@@ -111,7 +111,7 @@ CONTAINS
 
 ! Dimension parameter
 
-   nblks_e  = pt_patch%nblks_int_e
+   nblks_e  = pt_patch%nblks_e
 
 ! Interpolate vertical velocity (rho*eta-dot) from cell centers to edges
 
@@ -189,7 +189,7 @@ CONTAINS
 
 ! Dimension parameter
 
-  nblks_c = pt_patch%nblks_int_c
+  nblks_c = pt_patch%nblks_c
 
 ! Vertical advection
 
@@ -249,8 +249,8 @@ CONTAINS
           :: z_temp_e, z_flux_e, z_tmdiv
 
 ! Dimension parameters
-  nblks_e = pt_patch%nblks_int_e
-  nblks_c = pt_patch%nblks_int_c
+  nblks_e = pt_patch%nblks_e
+  nblks_c = pt_patch%nblks_c
 
 ! Interpolate temperature from cells to edges
   CALL cells2edges_scalar( p_temp, pt_patch, pt_int_state%c_lin_e, z_temp_e )
@@ -350,10 +350,10 @@ CONTAINS
 
 ! Dimension parameters
 
-  nblks_e  = pt_patch%nblks_int_e
-  npromz_e = pt_patch%npromz_int_e
-  nblks_c  = pt_patch%nblks_int_c
-  npromz_c = pt_patch%npromz_int_c
+  nblks_e  = pt_patch%nblks_e
+  npromz_e = pt_patch%npromz_e
+  nblks_c  = pt_patch%nblks_c
+  npromz_c = pt_patch%npromz_c
 
   i_nchdom = MAX(1,pt_patch%n_childdom)
 

@@ -38,6 +38,7 @@ MODULE mo_ocean_read_namelists
 
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_namelist            ,ONLY: open_nml_output, close_nml_output
+  USE mo_nml_annotate        ,ONLY: log_nml_settings
 
   USE mo_time_nml            ,ONLY: read_time_namelist
 
@@ -47,16 +48,15 @@ MODULE mo_ocean_read_namelists
   USE mo_gribout_nml         ,ONLY: read_gribout_namelist
   USE mo_dbg_nml             ,ONLY: read_dbg_namelist
 
-
   USE mo_grid_nml            ,ONLY: read_grid_namelist
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
-  USE mo_extpar_nml          ,ONLY: read_extpar_namelist
+  ! USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
-  USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
+  USE mo_name_list_output_init,ONLY: read_name_list_output_namelists
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
 #endif
@@ -120,7 +120,7 @@ CONTAINS
 
     ! Boundary conditions
     !
-    CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
+    ! CALL read_extpar_namelist         (TRIM(oce_namelist_filename))
 
     !
     ! GRIB2 output
@@ -146,6 +146,9 @@ CONTAINS
     !-----------------------------------------------------------------
 
     IF (my_process_is_stdio()) CALL close_nml_output
+
+    ! write an annotate table of all namelist settings to a text file
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.ocean.log")
 
   END SUBROUTINE read_ocean_namelists
   !-------------------------------------------------------------------------

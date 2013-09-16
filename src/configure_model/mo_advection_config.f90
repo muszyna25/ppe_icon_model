@@ -227,9 +227,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations,         &
-    &                            iforcing, iqc, iqi, iqr, iqs, kstart_moist,  &
-    &                            kend_qvsubstep, lvert_nest, l_open_ubc,      &
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
+    &                            iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg,              &
+    &                            kstart_moist, kend_qvsubstep, lvert_nest, l_open_ubc, &
     &                            ntracer )
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
@@ -237,7 +237,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: num_lev_1    !< vertical levels of global patch
     INTEGER, INTENT(IN) :: iequations
     INTEGER, INTENT(IN) :: iforcing
-    INTEGER, INTENT(IN) :: iqc, iqi, iqr, iqs !< hydrometeor indices
+    INTEGER, INTENT(IN) :: iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg !< hydrometeor indices
     INTEGER, INTENT(IN) :: kstart_moist
     INTEGER, INTENT(IN) :: kend_qvsubstep
     INTEGER, INTENT(IN) :: ntracer
@@ -286,6 +286,9 @@ CONTAINS
       advection_config(jg)%iadv_slev(iqi) = kstart_moist
       advection_config(jg)%iadv_slev(iqr) = kstart_moist
       advection_config(jg)%iadv_slev(iqs) = kstart_moist
+      advection_config(jg)%iadv_slev(iqg) = kstart_moist
+      advection_config(jg)%iadv_slev(iqni) = kstart_moist
+      advection_config(jg)%iadv_slev(iqni_nuc) = kstart_moist
       advection_config(jg)%iadv_qvsubstep_elev = kend_qvsubstep
     ENDIF
 

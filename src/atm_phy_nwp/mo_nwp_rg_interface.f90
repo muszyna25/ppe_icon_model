@@ -49,7 +49,6 @@ MODULE mo_nwp_rg_interface
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
-  USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
@@ -343,8 +342,6 @@ MODULE mo_nwp_rg_interface
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
-    LOGICAL:: l_parallel
-
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -381,15 +378,9 @@ MODULE mo_nwp_rg_interface
       &  CALL message('mo_nwp_rg_interface:nwp_rg_radiation_reduced', &
       &               'Ritter-Geleyn radiation on reduced grid')
 
-    IF (my_process_is_mpi_seq()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
-
     i_chidx     =  pt_patch%parent_child_index
 
-    IF (jg == 1 .OR. .NOT. l_parallel) THEN
+    IF (jg == 1) THEN
       ptr_pp => pt_par_patch
       nblks_par_c = pt_par_patch%nblks_c
 

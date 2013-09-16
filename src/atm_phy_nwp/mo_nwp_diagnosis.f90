@@ -53,7 +53,8 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int
+  USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int, &
+                                   icosmo, igme, iedmf, ivdiff, ismag
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_intp_data_strc,     ONLY: t_int_state
@@ -66,10 +67,11 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_lnd_nwp_config,     ONLY: nlev_soil
   USE mo_physical_constants, ONLY: lh_v     => alv, &      !! latent heat of vapourization
-                                   rd, cpd, rcvd, tmelt
+                                   rd, cpd, rcvd, tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
+  USE mo_satad,              ONLY: sat_pres_water, spec_humi
 
   IMPLICIT NONE
 
@@ -147,6 +149,13 @@ CONTAINS
 !h  INTEGER :: ioverlap(nproma)
 !h  REAL(wp):: cld_cov(nproma)
     REAL(wp):: clearsky(nproma)
+
+    REAL(wp):: zbuoy, zqsat, zcond
+    INTEGER :: mtop_min
+    REAL(wp):: ztp(nproma), zqp(nproma)
+    INTEGER :: mlab(nproma)
+    REAL, PARAMETER :: grav_o_cpd = grav/cpd
+
     REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
     REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
@@ -327,6 +336,55 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
+! height of the top of dry convection
+ 
+      mtop_min = (ih_clch+ih_clcm)/2     ! minimum top index for dry convection
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk, mlab,ztp,zqp, zbuoy, zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx 
+          prm_diag%htop_dc(jc,jb) = zundef
+          mlab(jc) = 1
+          ztp (jc) = pt_diag%temp(jc,nlev,jb) + 0.25_wp
+          zqp (jc) = pt_prog_rcf%tracer(jc,nlev,jb,iqv)
+        ENDDO
+
+        DO jk = nlev-1, mtop_min, -1
+          DO jc = i_startidx, i_endidx 
+            IF ( mlab(jc) == 1) THEN
+              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
+             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
+              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - pt_diag%tempv(jc,jk,jb)
+              zqsat = spec_humi( sat_pres_water(ztp(jc)), pt_diag%pres(jc,jk,jb) )
+              zcond = zqp(jc) - zqsat
+
+              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
+                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
+              ELSE
+                mlab(jc) = 0
+              END IF
+            END IF
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
+            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
+           &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+            IF ( prm_diag%locum(jc,jb)) THEN
+              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
+             &                               prm_diag%hbas_con(jc,jb) )
+            END IF
+          ELSE
+            prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+          END IF
+        ENDDO
+
+      ENDDO ! nblks   
+!$OMP END DO
 
     END IF !cloud cover
 
@@ -469,7 +527,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3)
+        CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -496,7 +554,7 @@ CONTAINS
                                & * r_sim_time
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (4)
+        CASE (ivdiff)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -529,7 +587,7 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-        CASE (1, 2, 3)
+        CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
@@ -548,7 +606,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy)                 !must be positive downwards 
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (4)
+        CASE (ivdiff)
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
@@ -563,6 +621,7 @@ CONTAINS
           prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
                              &  + prm_diag%qhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                              &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+
         ENDDO
 
       ENDDO ! nblks     
@@ -570,6 +629,41 @@ CONTAINS
 
     END IF
 
+!  Compute average/accumulated u and v stresses for les turbulence case only- for 
+!  othercases it is calculated in nwp_interface after radheat is called. Though it 
+!  doesn't make sense to couple this calculation with radheat.(Anurag Dipankar, MPI Sept 2013)
+
+    IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
+                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
+                                 & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
+                                 &  * r_sim_time
+          prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
+                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
+                                 & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
+                                 &  * r_sim_time
+        ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+    ELSEIF (.NOT. lflux_avg .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
+                                & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
+          prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)                          &
+                                & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)
+        ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+    END IF
 
  
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
@@ -871,7 +965,7 @@ CONTAINS
     cflmax = MAXVAL(maxcfl)
     cflmax = global_max(cflmax) ! maximum over all PEs
     WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
-    CALL message('nwp_nh_interface: ', TRIM(message_text))
+    CALL message('nwp_diag_output_2: ', TRIM(message_text))
 
 
     IF (msg_level >= 18 .AND. lcall_turb) THEN ! extended turbulence diagnostic
@@ -891,7 +985,7 @@ CONTAINS
       vturbmax = global_max(vturbmax)
 
       WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
-      CALL message('nwp_nh_interface: ', TRIM(message_text))
+      CALL message('nwp_diag_output_2: ', TRIM(message_text))
       WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
       CALL message('', TRIM(message_text))
 

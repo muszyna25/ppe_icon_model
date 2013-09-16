@@ -108,8 +108,8 @@ MODULE mo_vector_operations
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_q, z_fac) ICON_OMP_DEFAULT_SCHEDULE
@@ -186,10 +186,10 @@ MODULE mo_vector_operations
     !! afterwards it is averaged horizontally. Last, it is multiplyied with
     !! the slope
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -272,10 +272,10 @@ MODULE mo_vector_operations
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
-    nblks_e  = p_patch%nblks_int_e
-    npromz_e = p_patch%npromz_int_e
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
 
     !> @par Contravariant vertical component
     !! @f$ \dot{q}^z = (w-\dot{x}_nJ_n)/\sqrt(\gamma) @f$
@@ -374,10 +374,10 @@ MODULE mo_vector_operations
 
     iidx    => p_patch%verts%edge_idx
     iblk    => p_patch%verts%edge_blk
-    nblks_e =  p_patch%nblks_int_e
-    npromz_e=  p_patch%npromz_int_e
-    nblks_v =  p_patch%nblks_int_v
-    npromz_v=  p_patch%npromz_int_v
+    nblks_e =  p_patch%nblks_e
+    npromz_e=  p_patch%npromz_e
+    nblks_v =  p_patch%nblks_v
+    npromz_v=  p_patch%npromz_v
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -487,8 +487,8 @@ MODULE mo_vector_operations
 
     CALL sync_patch_array(SYNC_E,p_patch,p_vi)
 
-    nblks_e  = p_patch%nblks_int_e
-    npromz_e = p_patch%npromz_int_e
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_e
@@ -551,12 +551,12 @@ MODULE mo_vector_operations
     ! number of vertical levels
     nlev = p_patch%nlev
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
-    nblks_v   = p_patch%nblks_int_v
-    npromz_v  = p_patch%npromz_int_v
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
+    nblks_v   = p_patch%nblks_v
+    npromz_v  = p_patch%npromz_v
 
     IF (l_predictor) THEN
 !$OMP PARALLEL
@@ -708,12 +708,12 @@ MODULE mo_vector_operations
 
     IF(p_test_run) z_ddt_w_e_l(:,:,:)=0.0_wp
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
-    nblks_v   = p_patch%nblks_int_v
-    npromz_v  = p_patch%npromz_int_v
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
+    nblks_v   = p_patch%nblks_v
+    npromz_v  = p_patch%npromz_v
 
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlevp1

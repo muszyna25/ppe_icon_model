@@ -69,7 +69,8 @@ MODULE mo_ext_data_state
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
-                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename
+                                   isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
+                                   llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
     &                              generate_td_filename
   USE mo_time_config,        ONLY: time_config
@@ -109,8 +110,9 @@ MODULE mo_ext_data_state
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+    &                              ZA_LAKE_BOTTOM, DATATYPE_FLT32, DATATYPE_PACK16,&
+    &                              FILETYPE_NC2, TSTEP_CONSTANT, TSTEP_MAX,        &
+    &                              TSTEP_AVG
 
   USE mo_master_control,        ONLY: is_restart_run
 
@@ -608,7 +610,7 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
       &           isteptype=TSTEP_CONSTANT,                       &
-      &           in_group=groups("dwd_ana_vars") )
+      &           in_group=groups("dwd_fg_sfc_vars") )
 
 
     ! glacier fraction
@@ -672,6 +674,9 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      !
+      ! fr_lake and lake depth are needed, even if the lake model is switched off
+      !
 
       ! fraction lake
       !
@@ -680,20 +685,63 @@ CONTAINS
       grib2_desc = t_grib2_var( 1, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,   &
         &           isteptype=TSTEP_CONSTANT )
 
 
       ! lake depth
       !
       ! depth_lk     p_ext_atm%depth_lk(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake_depth', '-', 'lake depth', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('lake_depth', 'm', 'lake depth', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 1, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc,&
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      IF (llake) THEN
+
+        ! fetch_lk     p_ext_atm%fetch_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('fetch_lk', 'm', 'wind fetch over lake', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 2, 33, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'fetch_lk', p_ext_atm%fetch_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! dp_bs_lk     p_ext_atm%dp_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('dp_bs_lk', 'm', &
+          &          'depth of thermally active layer of bot. sediments.', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'dp_bs_lk', p_ext_atm%dp_bs_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! t_bs_lk     p_ext_atm%t_bs_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('t_bs_lk', 'm', &
+          &          'clim. temp. at bottom of thermally active layer of sediments', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 4, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't_bs_lk', p_ext_atm%t_bs_lk,   &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+
+        ! gamso_lk     p_ext_atm%gamso_lk(nproma,nblks_c)
+        cf_desc    = t_cf_var('gamso_lk', 'm', &
+          &          'attenuation coefficient of lake water with respect to sol. rad.', &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 1, 2, 11, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'gamso_lk', p_ext_atm%gamso_lk, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+          &           isteptype=TSTEP_CONSTANT )
+
+      ENDIF
 
 
 
@@ -1179,7 +1227,7 @@ CONTAINS
         grib2_desc = t_grib2_var(0, 19, 18, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'alb_dif', p_ext_atm%alb_dif,               &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                            )
+          &           ldims=shape2d_c, loutput=.TRUE.                            )
 
         ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 �m)
         !
@@ -1189,7 +1237,7 @@ CONTAINS
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
 
         ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 �m)
         !
@@ -1199,7 +1247,7 @@ CONTAINS
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-          &           ldims=shape3d_c, loutput=.TRUE.                             )
+          &           ldims=shape2d_c, loutput=.TRUE.                             )
 
       ENDIF  ! albedo_type
 
@@ -1975,6 +2023,8 @@ CONTAINS
 
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
     REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v2 ! < modified lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v3 ! < even less evaporating lookup table landuse class GlobCover2009
 
     LOGICAL :: l_exist
 
@@ -2029,30 +2079,54 @@ CONTAINS
                  &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
 
 ! Tuned version of gcv2009 based on IFS values (Juergen Helmert und Martin Koehler)
-! DATA lu_gcv2009 /   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
-!                 &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
-!                 &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
-!                 &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
-!                 &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
-!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
-!                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
-!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
-!                 &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
-!                 &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
-!                 &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
-!                 &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
-!                 &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
-!                 &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
-!                 &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
-!                 &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
-!                 &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
-!                 &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
-!                 &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / !undefined                                  
+ DATA lu_gcv2009_v2 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 180.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
+                   &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
+                   &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
+                   &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 225.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp,  80.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
+                   &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+                   &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
+                   &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
+                   &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
-
+! Even more tuned version of gcv2009 by Guenther Zaengl (will be subject to further changes - do not use for production!!!)
+ DATA lu_gcv2009_v3 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 190.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 170.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
+                   &   0.25_wp,  0.8_wp,  3.0_wp, 0.5_wp, 160.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 0.7_wp, 150.0_wp,  -1.0_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 280.0_wp,  0.38_wp,-1._wp, & ! closed broadleaved evergreen forest           
+                   &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 225.0_wp,  0.31_wp,-1._wp, & ! closed broadleaved deciduous forest           
+                   &   0.15_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp,-1._wp, & ! open broadleaved deciduous forest             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp,-1._wp, & ! closed needleleaved evergreen forest          
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp,-1._wp, & ! open needleleaved deciduous forest            
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 270.0_wp,  0.29_wp,-1._wp, & ! mixed broadleaved and needleleaved forest     
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.8_wp, 200.0_wp,  -1.0_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.6_wp, 200.0_wp,  -1.0_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 265.0_wp,  -1.0_wp, 1._wp, & ! closed to open shrubland                      
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.4_wp, 140.0_wp,  -1.0_wp, 1._wp, & ! closed to open herbaceous vegetation          
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.2_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! sparse vegetation                             
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  -1.0_wp,-1._wp, & ! closed to open forest regulary flooded        
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
+                   &   0.05_wp,  0.8_wp,  2.0_wp, 0.7_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.2_wp, 300.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.05_wp, 300.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+                   &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
+                   &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
+                   &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
 
 
@@ -2153,8 +2227,7 @@ CONTAINS
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == 2) THEN
-          i_lctype(jg) = 2
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -2167,6 +2240,34 @@ CONTAINS
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+          ENDDO
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 2) THEN ! 
+          ext_data(jg)%atm%i_lc_snow_ice = 22
+          ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v2(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v2(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v2(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v2(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v2(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v2(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+          ENDDO
+        ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 3) THEN ! 
+          ext_data(jg)%atm%i_lc_snow_ice = 22
+          ext_data(jg)%atm%i_lc_water    = 21
+          ext_data(jg)%atm%i_lc_urban    = 19
+          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
+            ilu=ilu+1
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v3(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v3(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v3(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v3(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v3(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v3(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
 
@@ -2712,10 +2813,11 @@ CONTAINS
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
       
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! GZ, 2013-08-07: The OpenMP parallelization of the following loop causes a race condition on the Cray compiler.
+!!                 The reason is not clear to me, thus the directives are commented out for the time being
+!! !$OMP PARALLEL
+!! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
+!! !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -2988,8 +3090,8 @@ CONTAINS
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!! !$OMP END DO NOWAIT
+!! !$OMP END PARALLEL
 
          ! Some useful diagnostics
        npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))

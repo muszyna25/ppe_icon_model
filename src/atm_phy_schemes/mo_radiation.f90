@@ -80,14 +80,15 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
+    &                                lrad_aero_diag,          &
     &                                ighg, izenith
-  USE mo_lnd_nwp_config,       ONLY: isub_seaice
+  USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
 !!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr
 !!$  USE mo_o3clim,               ONLY: o3clim
 
   USE mo_newcld_optics,        ONLY: newcld_optics
-!!$  USE mo_aero_kinne,           ONLY: set_aop_kinne
+  USE mo_aero_kinne,           ONLY: set_aop_kinne
 !!$  USE mo_aero_volc,            ONLY: add_aop_volc
 
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
@@ -100,7 +101,7 @@ MODULE mo_radiation
 
   USE mo_mpi,                  ONLY: work_mpi_barrier
 
-!!$  USE mo_echam_phy_memory,     ONLY: prm_field
+  USE mo_echam_phy_memory,     ONLY: prm_field
 
 !!$  USE mo_radiation_forcing,    ONLY: prepare_forcing
 
@@ -321,7 +322,9 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
+            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid 
+            ! numerical trouble along the day-night boundary near the model top
+            zsmu0(jc,jb) = MAX(0.05_wp,SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)))
           ELSE
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
@@ -479,7 +482,7 @@ CONTAINS
   !
   SUBROUTINE radiation(                                                    &
     ! input
-!!$    &  jg, jb,                                                             &
+    &  jg, jb,                                                             &
     &  jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -501,8 +504,8 @@ CONTAINS
     ! -----
     !
     INTEGER, INTENT(in)   :: &
-!!$      &  jg,                 & !< domain index
-!!$      &  jb,                 & !< block index
+      &  jg,                 & !< domain index
+      &  jb,                 & !< block index
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
       &  klev,               & !< number of full levels = number of layers
@@ -562,7 +565,7 @@ CONTAINS
     &    cos_mu0_mod(kbdim)           !< modified cos(zenith angle)
 
     REAL(wp) ::                     &
-      &  ppd_hl(kbdim,klev),        & !< pressure diff between half levels [Pa]
+!!$      &  ppd_hl(kbdim,klev),        & !< pressure diff between half levels [Pa]
       &  pp_sfc(kbdim),             & !< surface pressure [Pa}
       &  tk_hl(kbdim,klevp1),       & !< Tempeature at half levels [Pa]
       &  xq_vap(kbdim,klev),        & !< Water vapor mixing ratio
@@ -636,7 +639,7 @@ CONTAINS
     ! --- Pressure (surface and distance between half levels)
     !
     pp_sfc(1:jce)        = pp_hl(1:jce,klevp1)
-    ppd_hl(1:jce,1:klev) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
+!!$    ppd_hl(1:jce,1:klev) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
     !
     ! --- temperature at half levels
     !
@@ -714,7 +717,7 @@ CONTAINS
     CALL rrtm_interface(                                                    &
       ! input
 !!$      & irad_aero                                                          ,&
-!!$      & jg              ,jb                                                ,&
+      & jg              ,jb                                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
@@ -881,7 +884,7 @@ CONTAINS
   SUBROUTINE rrtm_interface(                                              &
     ! input
 !!$    & irad_aero                                                          ,&
-!!$    & jg              ,jb                                                ,&
+    & jg              ,jb                                                ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
@@ -906,8 +909,8 @@ CONTAINS
 
     INTEGER,INTENT(in)  ::                &
 !!$      &  irad_aero,                       & !< aerosol control
-!!$      &  jg,                              & !< domain index
-!!$      &  jb,                              & !< block index
+      &  jg,                              & !< domain index
+      &  jb,                              & !< block index
       &  jce,                             & !< number of columns
       &  kbdim,                           & !< first dimension of 2-d arrays
       &  klev                               !< number of levels
@@ -974,7 +977,7 @@ CONTAINS
 
     REAL(wp) ::                           &
       &  zsemiss(kbdim,jpband),           & !< LW surface emissivity by band
-!!$      &  ppd_hl(kbdim,klev),              & !< pressure thickness in Pa
+      &  ppd_hl(kbdim,klev),              & !< pressure thickness in Pa
       &  pm_sfc(kbdim),                   & !< surface pressure in hPa
 !!$      &  dnir_sfc(kbdim),                 & !< surf. NIR downw.
 !!$      &  unir_toa(kbdim),                 & !< top NIR upw.
@@ -1026,6 +1029,7 @@ CONTAINS
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
 
+    CHARACTER(LEN=3)     :: c_irad_aero
 !!$    ! for debugging
 !!$    REAL(wp) :: rloland(kbdim) ,rloglac(kbdim)
 
@@ -1129,8 +1133,8 @@ CONTAINS
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
-!!$    ppd_hl(1:jce,:) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
-!!$
+    ppd_hl(1:jce,:) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
+
     SELECT CASE (irad_aero)
     CASE (0,2)
 !       write(0,*) "kbdim,klev,jpband:",kbdim,klev,jpband
@@ -1142,26 +1146,6 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-!!$    CASE (3)
-!!$      CALL set_aop_kinne( &
-!!$        & jce              ,kbdim                 ,klev             ,&
-!!$        & krow             ,jpband                ,jpsw             ,&
-!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$        & tk_fl            ,pgeom1 )
-!!$    CASE (5)
-!!$      CALL set_aop_kinne( &
-!!$        & jce              ,kbdim                 ,klev             ,&
-!!$        & krow             ,jpband                ,jpsw             ,&
-!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$        & tk_fl            ,pgeom1 )
-!!$      CALL add_aop_volc( &
-!!$        & jce              ,kbdim                 ,klev             ,&
-!!$        & krow             ,jpband                ,jpsw             ,&
-!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$        & tk_fl )
     CASE (5,6)
       DO jspec=1,jpband
         DO jk=1,klev
@@ -1209,8 +1193,42 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+    CASE (13)
+      aer_tau_lw_vr(:,:,:) = 0.0_wp
+      aer_tau_sw_vr(:,:,:) = 0.0_wp
+      aer_piz_sw_vr(:,:,:) = 1.0_wp
+      aer_cg_sw_vr(:,:,:)  = 0.0_wp
+      CALL set_aop_kinne( jg,                                        &
+        & jce              ,kbdim                 ,klev             ,&
+        & jb               ,jpband                ,jpsw             ,&
+        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+        & tk_fl                                                      )
+!!$    CASE (15)
+!!$      CALL set_aop_kinne( &
+!!$        & jce              ,kbdim                 ,klev             ,&
+!!$        & krow             ,jpband                ,jpsw             ,&
+!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+!!$        & tk_fl            ,pgeom1 )
+!!$      CALL add_aop_volc( &
+!!$        & jce              ,kbdim                 ,klev             ,&
+!!$        & krow             ,jpband                ,jpsw             ,&
+!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+!!$        & tk_fl )
     CASE DEFAULT
+      WRITE (c_irad_aero,'(i3)') irad_aero
+      CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
+                   TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
+    IF (lrad_aero_diag) THEN
+      CALL rad_aero_diag (                                  &
+      & jg              ,jb              ,jce             , &
+      & kbdim           ,klev            ,jpband          , &
+      & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
+    END IF
 
 !!$    ! debug newcldin
 !!$    ! --------------
@@ -1325,9 +1343,11 @@ CONTAINS
     &                 lp_count,        & ! optional: number of land points
     &                 gp_count_t,      & ! optional: number of land points per tile
     &                 spi_count,       & ! optional: number of seaice points
+    &                 fp_count,        & ! optional: number of lake points
     &                 idx_lst_lp,      & ! optional: index list of land points
     &                 idx_lst_t,       & ! optional: index list of land points per tile
     &                 idx_lst_spi,     & ! optional: index list of seaice points
+    &                 idx_lst_fp,      & ! optional: index list of (f)lake points
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 ptrmsw        ,  &
@@ -1372,8 +1392,10 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL  ::     &
       &     lp_count, gp_count_t(ntiles), &  ! number of land points
       &     spi_count,                    &  ! number of seaice points
+      &     fp_count,                     &  ! number of lake points
       &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles),& ! corresponding index lists
-      &     idx_lst_spi(kbdim)
+      &     idx_lst_spi(kbdim),           &  ! sea-ice point index list
+      &     idx_lst_fp(kbdim)                ! (f)lake point index list
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, opt_use_cv
@@ -1534,6 +1556,17 @@ CONTAINS
             &                  * (ptsfc_t(jc,isub_seaice)-ptsfc(jc))
         ENDDO
 
+        ! lake points
+        !
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, fp_count
+          jc = idx_lst_fp(ic)
+          pflxsfcsw_t(jc,isub_lake) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
+            &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_lake)-albedo(jc)))
+          pflxsfclw_t(jc,isub_lake) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
+            &                  * (ptsfc_t(jc,isub_lake)-ptsfc(jc))
+        ENDDO
+
         ! (open) water points
         ! not needed, yet
 
@@ -1549,6 +1582,13 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, spi_count
           jc = idx_lst_spi(ic)
+          pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
+          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
+        ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, fp_count
+          jc = idx_lst_fp(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
@@ -1605,4 +1645,72 @@ CONTAINS
     
   END SUBROUTINE radheat
 
+!>
+!! SUBROUTINE rad_aero_diag writes actual aerosol optical properties to output stream
+!!
+!! @author J.S.Rast, MPI-Met Hamburg
+!!
+!! @par Revision History
+!! Origianl Source by J.S.Rast, MPI-Met Hamburg, (2013-08-30)
+!!
+!! @par Copyright
+!! 2002-2011 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+SUBROUTINE rad_aero_diag (                                  &
+      & kg              ,kb              ,kce             , &
+      & kbdim           ,klev            ,kpband          , &
+      & kpsw            ,paer_tau_lw_vr  ,paer_tau_sw_vr  , &
+      & paer_piz_sw_vr  ,paer_cg_sw_vr                      )
+      
+      INTEGER, INTENT(in)    :: kg      ! domain index
+      INTEGER, INTENT(in)    :: kb      ! block index
+      INTEGER, INTENT(in)    :: kce     ! actual block length
+      INTEGER, INTENT(in)    :: kbdim   ! declaration block length
+      INTEGER, INTENT(in)    :: klev    ! levels
+      INTEGER, INTENT(in)    :: kpband  ! number of lw bands
+      INTEGER, INTENT(in)    :: kpsw    ! number of sw bands
+      REAL(wp), INTENT(in)   :: paer_tau_lw_vr(kbdim,klev,kpband) ! aod thermal wavelengths
+      REAL(wp), INTENT(in)   :: paer_tau_sw_vr(kbdim,klev,kpsw)   ! aod solar wavelengths
+      REAL(wp), INTENT(in)   :: paer_piz_sw_vr(kbdim,klev,kpsw)   ! ssa solar wavelengths
+      REAL(wp), INTENT(in)   :: paer_cg_sw_vr(kbdim,klev,kpsw)    ! asy solar wavelengths
+
+      prm_field(kg)%aer_aod_9731(1:kce,1:klev,kb) = &
+                   paer_tau_lw_vr(1:kce,klev:1:-1,7)
+      prm_field(kg)%aer_aod_533 (1:kce,1:klev,kb) = &
+                   paer_tau_sw_vr(1:kce,klev:1:-1,10)
+      prm_field(kg)%aer_ssa_533 (1:kce,1:klev,kb) = &
+                   paer_piz_sw_vr(1:kce,klev:1:-1,10)
+      prm_field(kg)%aer_asy_533 (1:kce,1:klev,kb) = &
+                   paer_cg_sw_vr(1:kce,klev:1:-1,10)
+      prm_field(kg)%aer_aod_2325(1:kce,1:klev,kb) = &
+                   paer_tau_sw_vr(1:kce,klev:1:-1,3)
+      prm_field(kg)%aer_ssa_2325(1:kce,1:klev,kb) = &
+                   paer_piz_sw_vr(1:kce,klev:1:-1,3)
+      prm_field(kg)%aer_asy_2325(1:kce,1:klev,kb) = &
+                   paer_cg_sw_vr(1:kce,klev:1:-1,3)
+END SUBROUTINE rad_aero_diag
 END MODULE mo_radiation

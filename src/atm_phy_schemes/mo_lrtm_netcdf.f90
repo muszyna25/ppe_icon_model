@@ -81,12 +81,16 @@ CONTAINS
 
   !=============================================================================
 
-  SUBROUTINE lrtm_read
+  SUBROUTINE lrtm_read(data_filename)
 
-    nf_status = p_nf_open('rrtmg_lw.nc', nf_read, fileid)
+    !> NetCDF file containing longwave absorption coefficients and other data
+    !> for RRTMG_LW k-distribution model
+    CHARACTER (LEN=*), INTENT(IN) :: data_filename
+
+    nf_status = p_nf_open(TRIM(data_filename), nf_read, fileid)
 
     IF (nf_status /= nf_noerr) THEN
-      CALL finish('mo_lrtm_netcdf/lrtm_read', 'File rrtmg_lw.nc cannot be opened')
+      CALL finish('mo_lrtm_netcdf/lrtm_read', 'File '//TRIM(data_filename)//' cannot be opened')
     END IF
 
     CALL lw_kgb01  ! molecular absorption coefficients

@@ -2286,8 +2286,8 @@ CASE (3) ! (cell_type == 3)
 CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
-  nblks_c   = ptr_patch%nblks_int_c
-  npromz_c  = ptr_patch%npromz_int_c
+  nblks_c   = ptr_patch%nblks_c
+  npromz_c  = ptr_patch%npromz_c
 
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
@@ -2457,8 +2457,8 @@ CASE (3) ! (cell_type == 3)
 CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
-  nblks_c   = ptr_patch%nblks_int_c
-  npromz_c  = ptr_patch%npromz_int_c
+  nblks_c   = ptr_patch%nblks_c
+  npromz_c  = ptr_patch%npromz_c
 
 !$OMP DO PRIVATE(jb,nlen,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
@@ -3067,8 +3067,8 @@ CASE (6) ! (cell_type == 6)
 
   ! values for the blocking
   ! no grid refinement in hexagonal model
-  nblks_v   = ptr_patch%nblks_int_v
-  npromz_v  = ptr_patch%npromz_int_v
+  nblks_v   = ptr_patch%nblks_v
+  npromz_v  = ptr_patch%npromz_v
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE

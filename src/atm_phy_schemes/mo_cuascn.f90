@@ -297,7 +297,7 @@ REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
  & zbuo(klon,klev),    zluold(klon),&
  & zprecip(klon)  
 REAL(KIND=jprb) ::     zdpmean(klon)
-REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon)
+REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon)
 REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
@@ -322,7 +322,13 @@ REAL(KIND=jprb) :: zhook_handle
     REAL(KIND=jprb) :: zrhosfc
     !REAL(KIND=jprb) :: zrcorr
 
+    REAL(KIND=jprb) :: exp_detr
+
 LOGICAL :: llklab(klon)
+
+! GZ, 2013-09-13: set this parameter to .TRUE. in order to test set of tuning changes
+! to reduce the tendency of drizzling and to reduce the humidity bias in the tropics
+LOGICAL, PARAMETER :: ltuning_test = .FALSE.
 
 !#include "cuadjtq.intfb.h"
 !#include "cubasmcn.intfb.h"
@@ -344,6 +350,13 @@ z_cldmax=5.e-3_JPRB
 z_cwifrac=0.5_JPRB
 z_cprc2=0.5_JPRB
 z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
+
+! for tuning cloud water detrainment (original value 0.5)
+IF (ltuning_test) THEN
+  exp_detr = 0.25_jprb
+ELSE
+  exp_detr = 0.5_jprb
+ENDIF
 
 !!----------------------------------------------------------------------
 
@@ -446,13 +459,17 @@ ENDDO
 !        !KF
 !      ENDDO
 !ELSEIF (.NOT. PRESENT (paer_ss)) THEN
-!      DO jl=kidia,kfdia
-!        IF(ldland(jl)) THEN
-!          zdrain(jl)=3.0E4_JPRB
-!        ELSE
-!          zdrain(jl)=1.5E4_JPRB
-!        ENDIF
-!      ENDDO
+    IF (ltuning_test) THEN
+      DO jl=kidia,kfdia
+        IF(ldland(jl)) THEN
+          zdrain(jl)=1.0E4_JPRB  ! minimum cloud depth for generating precip: 100 hPa over land
+        ELSE
+          zdrain(jl)=0.4E4_JPRB  ! minimum cloud depth for generating precip: 40 hPa over water
+        ENDIF
+      ENDDO
+    ELSE
+      zdrain(:)=-1.0E5_JPRB ! cloud depth criterion deactivated
+    ENDIF
 !ENDIF !present aerosol
 !
 ! !KF needed for density correction
@@ -587,6 +604,7 @@ DO jk=klev-1,ktdia+2,-1
       IF(ldcum(jl)) THEN
         ik=MAX(1,kcbot(jl))
         zpbase(jl)=paph(jl,ik)
+        zptop0(jl) = paph(jl,kctop0(jl))
       ENDIF
     ENDDO
 
@@ -636,13 +654,14 @@ DO jk=klev-1,ktdia+2,-1
           zxs=MAX(pmfu(jl,jk+1)-zmfmax,0.0_JPRB)
           pwmean(jl)=pwmean(jl)+pkineu(jl,jk+1)*(pap(jl,jk+1)-pap(jl,jk))
           zdpmean(jl)=zdpmean(jl)+pap(jl,jk+1)-pap(jl,jk)
-        ! IF(KTYPE(JL)>=2)ZOENTR(JL)=0.0_JPRB
-        ! ZDMFEN(JL)=ZDMFEN(JL)+ZOENTR(JL)
           zdmfen(jl)=zoentr(jl)
           IF(ktype(jl)>=2)THEN
              zdmfen(jl)=2.0_JPRB*zdmfen(jl)
              zdmfde(jl)=zdmfen(jl)
           ENDIF
+          ! update by P. Bechtold, Sep. 2013
+          ZDMFDE(JL)=ZDMFDE(JL)*(1.6_JPRB-MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)))
+          !
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
           zchange=MAX(zmftest-zmfmax,0.0_JPRB)
           zxe=MAX(zchange-zxs,0.0_JPRB)
@@ -787,7 +806,7 @@ DO jk=klev-1,ktdia+2,-1
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
             zkedke=MAX(0.0_JPRB,MIN(1.0_JPRB,zkedke))
-            zmfun=SQRT(zkedke)*pmfu(jl,jk+1)
+            zmfun=EXP(exp_detr*LOG(zkedke))*pmfu(jl,jk+1)
             zdmfde(jl)=MAX(zdmfde(jl),pmfu(jl,jk+1)-zmfun)
             plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
             pmfu(jl,jk)=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
@@ -850,19 +869,28 @@ DO jk=klev-1,ktdia+2,-1
 
     DO jl=kidia,kfdia
       IF(llo1(jl)) THEN
-        IF(ldland(jl)) THEN
-          zdnoprc=5.e-4_JPRB
-        ELSE
-          zdnoprc=3.e-4_JPRB
+        IF (ltuning_test) THEN
+          IF(ldland(jl)) THEN ! Note: the following autoconversion thresholds are only reasonable when 
+                              ! combined with a cloud thickness criterion (zdrain)
+            zdnoprc=2.25e-4_JPRB ! autoconversion threshold: 0.225 g/kg over land
+          ELSE
+            zdnoprc=1.0e-4_JPRB ! autoconversion threshold: 0.1 g/kg over water
+          ENDIF
+        ELSE ! standard implementation: use autoconversion thresholds without cloud depth limit
+          IF(ldland(jl)) THEN
+            zdnoprc=5.e-4_JPRB ! 0.5 g/kg over land
+          ELSE
+            zdnoprc=3.e-4_JPRB ! 0.3 g/kg over water
+          ENDIF
         ENDIF
-        IF(plu(jl,jk) > zdnoprc) THEN
+  !      IF(plu(jl,jk) > zdnoprc) THEN
 
         !> KF combine two conditions
         !!  RECOMMENDED!! apply the aerosol condition to clouddepth
         !
         ! zdnoprc = zdrain(jl)
         !  
-        ! IF((plu(jl,jk)) > 2.e-4_jprb .AND. (zpbase(jl)-paph(jl,jk)) > zdnoprc ) THEN
+        IF (plu(jl,jk) > zdnoprc .AND. (zpbase(jl)-MIN(zptop0(jl),paph(jl,jk))) > zdrain(jl)) THEN
         !KF
 
           zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk+1))))

@@ -75,10 +75,13 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
   &                               delete_var_list,          &
   &                               default_var_list_settings,&
-  &                               add_ref
+  &                               add_ref, groups
 USE mo_cf_convention
 USE mo_grib2
-USE mo_cdi_constants
+USE mo_cdi_constants,       ONLY: GRID_CELL, GRID_EDGE, GRID_REFERENCE,           &
+  &                               GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL, &
+  &                               ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF,    &
+  &                               datatype_pack16, datatype_flt32, filetype_nc2
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, global_max
 IMPLICIT NONE
@@ -289,7 +292,7 @@ CONTAINS
   !
   SUBROUTINE calc_lower_bound_veloc_diff(  p_patch, lower_bound_diff )
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
-    REAL(wp), INTENT(OUT)              :: lower_bound_diff
+    REAL(wp), INTENT(inout)              :: lower_bound_diff
 
     ! Local variables
     REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
@@ -412,7 +415,7 @@ CONTAINS
 
     ! Local variables
     INTEGER   :: ist, i,jtrc
-    INTEGER   :: nblks_c, nblks_e
+    INTEGER   :: alloc_cell_blocks, nblks_e
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = this_mod_name//':construct_ho_physics'
@@ -426,20 +429,20 @@ CONTAINS
       &                             model_type='oce' )
 
     ! determine size of arrays
-    nblks_c = p_patch%nblks_c
+    alloc_cell_blocks = p_patch%alloc_cell_blocks
     nblks_e = p_patch%nblks_e
 
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
+    &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev+1,nblks_e/))
+    &            ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics"))
 
 
     !! Tracers
@@ -454,7 +457,7 @@ CONTAINS
       &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
       &            t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
       &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &            ldims=(/nproma,n_zlev+1,nblks_c,no_tracer/), &
+      &            ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
       &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ! Reference to individual tracer, for I/O
@@ -471,7 +474,7 @@ CONTAINS
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-                    & ldims=(/nproma,n_zlev,nblks_e/))
+                    & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
                     & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
                     & params_oce%tracer_h_ptr(jtrc)%p,                             &
@@ -481,7 +484,7 @@ CONTAINS
                     &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
                     &          DATATYPE_FLT32), &
                     & t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=(/nproma,n_zlev+1,nblks_c/))
+                    & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_physics"))
 
       END DO
 !TODO     use the following code, if add_var support 1d arrays:
@@ -596,11 +599,11 @@ CONTAINS
     INTEGER  :: z_dolic
 
     REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
-    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     REAL(wp) :: dz_inv, z_lambda_frac
 

@@ -130,6 +130,22 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< lake depth                              [m]
       &  depth_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< wind fetch over lake                    [m]
+      &  fetch_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< depth of the thermally active layer of  [m]
+      &  dp_bs_lk(:,:)         !< bottom sediments
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< climatological temperature at the       [K]
+      &  t_bs_lk(:,:)          !< bottom of the thermally active layer of sediments
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< attenuation coefficient of the lake     [m^-1]
+      &  gamso_lk(:,:)         !< water with respect to solar radiation
+                               ! index1=1,nproma, index2=1,nblks_c
+
+
 
     !
     ! *** subgrid scale orography ***

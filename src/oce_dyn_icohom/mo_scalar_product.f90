@@ -84,8 +84,8 @@ MODULE mo_scalar_product
   END INTERFACE
 
   INTERFACE map_edges2edges_viacell_3d_const_z 
-    MODULE PROCEDURE map_edges2edges_viacell_3D_1lev_const_z
-    MODULE PROCEDURE map_edges2edges_viacell_3D_mlev_const_z
+    MODULE PROCEDURE map_edges2edges_viacell_3d_1lev_const_z
+    MODULE PROCEDURE map_edges2edges_viacell_3d_mlev_const_z
   END INTERFACE
 
 
@@ -201,13 +201,14 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  !! mpi parallelized by LL, openmp corrected
-  SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual,h_e, vort_v, &
+  !! Note: vn must habve been synced before this routine
+  !! the resulting vort_v is synced,
+  !! vort_flux id calculated on edges in_domain
+  SUBROUTINE nonlinear_coriolis_3d(p_patch_3D, vn, p_vn_dual, vort_v, &
     & p_op_coeff, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: p_patch_3D
     REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(INout)  :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(IN)                       :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(INOUT)                    :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(IN)          :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: vort_flux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -221,11 +222,11 @@ CONTAINS
     INTEGER :: ictr, neighbor, vertex_edge
     INTEGER :: il_v, ib_v
     REAL(wp) :: vort_global
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
-    all_edges => p_patch%edges%all
+    edges_in_domain => p_patch%edges%in_domain
     !-----------------------------------------------------------------------
     slev    = 1
     elev    = n_zlev
@@ -236,8 +237,8 @@ CONTAINS
 
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e)
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 
       level_loop: DO jk = slev, elev
 
@@ -275,7 +276,7 @@ CONTAINS
     END DO ! jb = all_edges%start_block, all_edges%end_block
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
-  ! LL: no sync required
+
 
   END SUBROUTINE nonlinear_coriolis_3d
   !-------------------------------------------------------------------------
@@ -292,7 +293,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
-    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)                       :: h_e(:,:)       ! SW-case: h_e is thickness at edges
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
@@ -435,7 +436,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
-    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,nblks_c)
+    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,alloc_cell_blocks)
                                                                  ! intent(inout) for nag compiler
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
@@ -504,7 +505,7 @@ CONTAINS
     REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     INTEGER, INTENT(in), OPTIONAL              :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL              :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
@@ -648,7 +649,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL             :: scalar(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(IN), OPTIONAL             :: scalar_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)  
     INTEGER, INTENT(in), OPTIONAL              :: level       ! optional vertical start level
     TYPE(t_subset_range), TARGET,  OPTIONAL    :: subset_range
@@ -772,7 +773,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(IN)                 :: vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(IN)   :: p_op_coeff
     REAL(wp), INTENT(INOUT)              :: p_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN), OPTIONAL       :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN), OPTIONAL       :: scalar(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !Local variables
     INTEGER :: slev, elev
     INTEGER :: i_startidx_e, i_endidx_e
@@ -972,7 +973,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
     REAL(wp), INTENT(in)                       :: vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(INOUT)                    :: p_vn_e(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN),OPTIONAL              :: scalar(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  
+    REAL(wp), INTENT(IN),OPTIONAL              :: scalar(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !Local variables
     INTEGER :: slev, elev
     INTEGER :: i_startidx_e, i_endidx_e
@@ -1244,8 +1245,8 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
                                    & opt_slev, opt_elev, subset_range )
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
-    REAL(wp), INTENT(out)                      :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), INTENT(inout)                      :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL              :: opt_slev        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL              :: opt_elev        ! optional vertical end level
@@ -1325,8 +1326,8 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
   SUBROUTINE map_cell2edges_3D_1level( p_patch_3D, p_vn_c, ptp_vn,p_op_coeff, level, subset_range )
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
-    REAL(wp), INTENT(out)                      :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), INTENT(inout)                      :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in) :: level          ! vertical level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
@@ -1378,13 +1379,12 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
   !>
   !!
   !! mpi parallelized by LL, openmp corrected
-  SUBROUTINE nonlinear_coriolis_3d_old(p_patch_3D, vn, p_vn_dual, h_e, vort_v, &
+  SUBROUTINE nonlinear_coriolis_3d_old(p_patch_3D, vn, p_vn_dual, vort_v, &
     & p_op_coeff, vort_flux)
 
     TYPE(t_patch_3D ),TARGET,INTENT(IN):: p_patch_3D
     REAL(wp), INTENT(inout)                   :: vn       (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(inout) :: p_vn_dual(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
-    REAL(wp), INTENT(in)                      :: h_e      (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(inout)                   :: vort_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_operator_coeff),INTENT(in)         :: p_op_coeff
     REAL(wp), INTENT(inout)                   :: vort_flux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1461,7 +1461,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( p_patch_3D, vn_e, p_op_coeff, p_vn_e
 ! !   SUBROUTINE map_cell2edges_2d( p_patch_3D, p_vn_c, ptp_vn, p_op_coeff)
 ! !     
 ! !     TYPE(t_patch_3D ),TARGET, INTENT(IN):: p_patch_3D
-! !     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c) 
+! !     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
 ! !     REAL(wp), INTENT(inout)                    :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
 ! !     TYPE(t_operator_coeff)                     :: p_op_coeff
 ! ! 

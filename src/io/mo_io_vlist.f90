@@ -107,7 +107,8 @@ MODULE mo_io_vlist
     &                                 modelversion, zml_soil, max_ntracer,        &
     &                                 ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
-    &                                 inwp, iecham,ildf_echam, ihs_ocean
+    &                                 inwp, iecham,ildf_echam, ihs_ocean,         &
+    &                                 icosmo, igme, ismag, ivdiff
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S, l_forc_freshw
@@ -131,7 +132,6 @@ MODULE mo_io_vlist
     &                                 max_outvars, max_gridlevs,   &
     &                                 t_collected_var_ptr, num_output_vars
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                                 ntracer, ltransport, nsteps, dtime,         &
     &                                 dtime_adv, ldynamics, ltestcase,            &
@@ -147,7 +147,6 @@ MODULE mo_io_vlist
     &                                 num_work_procs, get_my_mpi_all_id
   USE mo_math_constants,        ONLY: pi
   USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_intp,                  ONLY: verts2cells_scalar
   USE mo_mpi,                   ONLY: p_pe
   USE mo_util_string,           ONLY: string_contains_word, toupper
   USE mo_oce_physics,           ONLY: t_ho_params, v_params
@@ -161,6 +160,7 @@ MODULE mo_io_vlist
   USE mo_sea_ice_types,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
 
 #ifndef __ICON_OCEAN_ONLY__
+  USE mo_extpar_config,         ONLY: itopo
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
@@ -2700,7 +2700,6 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
-    INTEGER            :: n_tot
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 
@@ -3064,17 +3063,17 @@ CONTAINS
       CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%ashfl_s 
       CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%alhfl_s
       CASE ('SHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%shfl_s
        ELSE
          ptr2 => prm_diag(jg)%shfl_s
        ENDIF
       CASE ('LHFL_S')
-       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo) THEN  
          ptr2 =>  dup2(-1.*prm_diag(jg)%lhfl_s(:,:)); delete = .TRUE.
-       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.4) THEN 
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.ivdiff) THEN 
          ptr2 => prm_diag(jg)%lhfl_s
        ELSE
          ptr2 => prm_diag(jg)%lhfl_s
@@ -3093,9 +3092,9 @@ CONTAINS
       CASE ('TKVH');            ptr3 => prm_diag(jg)%tkvh      
       !AD> 
       CASE ('Z0')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.2 .OR.  &
-         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.5 ) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.icosmo .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.igme .OR.  &
+         &  atm_phy_nwp_config(jg)%inwp_turb.EQ.ismag ) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)
@@ -4059,7 +4058,6 @@ CONTAINS
     CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlist,astatus)
     CALL addGlobAttInt('run_nml:nproma',nproma,vlist,astatus)
     CALL addGlobAttInt('run_nml:nsteps',nsteps,vlist,astatus)
-    CALL addGlobAttInt('run_nml:itopo',itopo,vlist,astatus)
     CALL addGlobAttInt('run_nml:msg_level',msg_level,vlist,astatus)
     !
     ! Parameters of /io_nml/
@@ -4079,6 +4077,10 @@ CONTAINS
     CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlist,astatus)
     CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
                               vlist,astatus)
+
+#ifndef __ICON_OCEAN_ONLY__
+    CALL addGlobAttInt('run_nml:itopo',itopo,vlist,astatus)
+#endif
 
   END SUBROUTINE addGlobAtts
 

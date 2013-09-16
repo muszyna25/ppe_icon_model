@@ -164,10 +164,10 @@ MODULE mo_divergent_modes
 
     !-------------------------------------------------------------------
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlevp1
 
@@ -664,10 +664,10 @@ MODULE mo_divergent_modes
 
     p_lhs=0.0_wp
 
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -758,8 +758,8 @@ MODULE mo_divergent_modes
     INTEGER :: nlev            !< number of full levels
     !--------------------------------------------------------------------------
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -839,8 +839,8 @@ MODULE mo_divergent_modes
     INTEGER :: nlev,nlevp1
     !--------------------------------------------------------------------------
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlevp1
 
@@ -978,10 +978,10 @@ MODULE mo_divergent_modes
                z_lapl_terrain_e(nproma,p_patch%nlev  ,p_patch%nblks_e)
     !--------------------------------------------------------------------------
 
-    nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_c
+    npromz_c  = p_patch%npromz_c
+    nblks_e   = p_patch%nblks_e
+    npromz_e  = p_patch%npromz_e
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlevp1
 

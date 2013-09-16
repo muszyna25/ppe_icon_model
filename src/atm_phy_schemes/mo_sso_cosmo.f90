@@ -100,9 +100,9 @@ USE data_modelconfig, ONLY :   &
 
 ! 3. start- and end-indices for the computations in the horizontal layers
 ! -----------------------------------------------------------------------
-!    These variables give the start- and the end-indices of the 
+!    These variables give the start- and the end-indices of the
 !    forecast for the prognostic variables in a horizontal layer.
-!    
+!
 !   zonal direction
     istart     ,    & ! start index for the forecast of w, t, qd, qw and pp
     iend       ,    & ! end index for the forecast of w, t, qd, qw and pp
@@ -284,7 +284,7 @@ SUBROUTINE organize_sso
     zfif (ie,je,ke),    & ! geopotential at full levels
     zpf  (ie,je,ke),    & ! pressure at full levels
     zph  (ie,je,ke1),   & ! pressure at half levels
-    zdt                   ! actual timestep for 2 or 3 TL-scheme     
+    zdt                   ! actual timestep for 2 or 3 TL-scheme
   LOGICAL   ::  &
     ldebug                ! debug indicator
 
@@ -321,7 +321,7 @@ SUBROUTINE organize_sso
   ! steps. The time increment nincsso can be set on NAMELIST input.
 
   ! Prepare the input arrays for the SSO scheme.
-  DO k = 1, ke 
+  DO k = 1, ke
     km1 = MAX ( 1, k-1 )
     DO j = jstart, jend
       DO i = istart, iend
@@ -385,7 +385,7 @@ SUBROUTINE sso (                                                       &
 !               the sub-grid scale orography
 !             - the gravity wave stress and
 !             - the stress profile in the vertical
-!            The stress is computed based on the low level wind, the 
+!            The stress is computed based on the low level wind, the
 !            static stability and subgrid orographic parameters (i.e.
 !            standard deviation of height, angle of the main orographic
 !            axis relative to east, anisotropy and slope of the orography).
@@ -438,7 +438,7 @@ SUBROUTINE sso (                                                       &
 !     (standard deviation, anisotropy, angle and slope)
 !     -------------------------------------------------
       REAL(KIND=ireals), INTENT(IN) :: psso_stdh  (:)  !  (ie)
-      REAL(KIND=ireals), INTENT(IN) :: psso_gamma (:)  !  (ie)
+      REAL(KIND=ireals), INTENT(inout) :: psso_gamma (:)  !  (ie)
       REAL(KIND=ireals), INTENT(IN) :: psso_theta (:)  !  (ie)
       REAL(KIND=ireals), INTENT(IN) :: psso_sigma (:)  !  (ie)
 
@@ -470,22 +470,22 @@ SUBROUTINE sso (                                                       &
 !     -----------------------------
 
 !     Indicators of significant levels for the operation of the scheme
-      INTEGER  mcrit  (ie) 
-      INTEGER  mkcrith(ie) 
-      INTEGER  mkenvh (ie) 
-      INTEGER  mknu   (ie) 
-      INTEGER  mknu2  (ie) 
+      INTEGER  mcrit  (ie)
+      INTEGER  mkcrith(ie)
+      INTEGER  mkenvh (ie)
+      INTEGER  mknu   (ie)
+      INTEGER  mknu2  (ie)
 
       LOGICAL  lo_sso (ie)
 
-      REAL(KIND=ireals) :: zfi    (ie,ke) 
+      REAL(KIND=ireals) :: zfi    (ie,ke)
       ! geopotential minus surface geopotential (m**2/s**2)
-      REAL(KIND=ireals) :: ztau   (ie,ke1) 
+      REAL(KIND=ireals) :: ztau   (ie,ke1)
       ! gravity wave stress               (Pa)
       REAL(KIND=ireals) :: zstrdu (ie,ke1)
       ! flux of u-momentum (GWD and Blocking)
       REAL(KIND=ireals) :: zstrdv (ie,ke1)
-      ! flux of v-momentum (GWD and Blocking) 
+      ! flux of v-momentum (GWD and Blocking)
       REAL(KIND=ireals) :: zstab  (ie,ke1)
       ! squared Brunt-vaisala frequency   (1/s**2)
       REAL(KIND=ireals) :: zvph   (ie,ke1)
@@ -493,7 +493,7 @@ SUBROUTINE sso (                                                       &
       REAL(KIND=ireals) :: zrho   (ie,ke1)
       ! density at half levels            (kg/m**3)
       REAL(KIND=ireals) :: zri    (ie,ke1)
-      ! mean flow Richardson number       (-) 
+      ! mean flow Richardson number       (-)
       REAL(KIND=ireals) :: zpsi   (ie,ke1)
       ! angle between flow and main axis of orography
       !
@@ -511,8 +511,8 @@ SUBROUTINE sso (                                                       &
       ! v-component of low level wind  (m/s)
       ! directional parameters (see *sso_setup*)
       REAL(KIND=ireals) :: zvidis (ie)
-      REAL(KIND=ireals) :: zd1    (ie) 
-      REAL(KIND=ireals) :: zd2    (ie) 
+      REAL(KIND=ireals) :: zd1    (ie)
+      REAL(KIND=ireals) :: zd2    (ie)
       REAL(KIND=ireals) :: zdmod  (ie)
 !
 !     Utility variables
@@ -606,7 +606,7 @@ SUBROUTINE sso (                                                       &
         zdvdt  (j1)=0.0_ireals
         zdtdt  (j1)=0.0_ireals
       END DO
- 
+
 !     Compute and add low level drag tendencies to the GWD ones
 !     ---------------------------------------------------------
       DO j3=1,ke
@@ -642,8 +642,8 @@ SUBROUTINE sso (                                                       &
          zbet  =MAX(0._ireals,2._ireals-1._ireals/zratio)*zconb*zzdep(j1,j3)*zzd1*zabsv
 !        Partially implicit tendency calculation
 !        ---------------------------------------
-         zdudt(j1)=-pu(j1,j3)/zdt2*(zbet/(1._ireals+zbet)) 
-         zdvdt(j1)=-pv(j1,j3)/zdt2*(zbet/(1._ireals+zbet)) 
+         zdudt(j1)=-pu(j1,j3)/zdt2*(zbet/(1._ireals+zbet))
+         zdvdt(j1)=-pv(j1,j3)/zdt2*(zbet/(1._ireals+zbet))
         END IF
 
         pdu_sso(j1,j3)=zdudt(j1)
@@ -732,7 +732,7 @@ SUBROUTINE sso (                                                       &
            'dv_sss     dt_sso'
           ENDIF
         ENDDO
-  
+
         DO j1=istart,iend
           IF (j1.EQ.55) THEN
             DO j3=1,ke
@@ -808,8 +808,8 @@ SUBROUTINE sso_setup (                                      &
 
 !     subgrid scale orography parameters
       REAL(KIND=ireals) :: psso_stdh (:) ! (ie)
-      REAL(KIND=ireals) :: psso_theta(:) ! (ie) 
-      REAL(KIND=ireals) :: psso_gamma(:) ! (ie) 
+      REAL(KIND=ireals) :: psso_theta(:) ! (ie)
+      REAL(KIND=ireals) :: psso_gamma(:) ! (ie)
 
       LOGICAL lo_sso(ie)
 
@@ -824,14 +824,14 @@ SUBROUTINE sso_setup (                                      &
 !     squared Brunt-Vaisala frequency (1/s**2)
       REAL(KIND=ireals) :: ptau (:,:) ! (ie,ke1)
 !     gravity wave stress profile     (Pa)
-      REAL(KIND=ireals) :: pvph (:,:) ! (ie,ke1) 
+      REAL(KIND=ireals) :: pvph (:,:) ! (ie,ke1)
 !     projected flow on half levels   (m/s)
       REAL(KIND=ireals) :: ppsi (:,:) ! (ie,ke1)
 !     angle between orography and blocked flow (1:ke)
 !                            or low level flow (ke1)
       REAL(KIND=ireals) :: pzdep(:,:) ! (ie,ke)
 !     height dependency factor for 'blocking' tendency
-      REAL(KIND=ireals) :: pulow(:) ! (ie) 
+      REAL(KIND=ireals) :: pulow(:) ! (ie)
 !     low level zonal wind            (m/s)
       REAL(KIND=ireals) :: pvlow(:) ! (ie)
 !     low level meridional wind       (m/s)
@@ -844,10 +844,10 @@ SUBROUTINE sso_setup (                                      &
       INTEGER kkcrith(:) ! (ie)
 !     maximum level for wave breaking
 
-      INTEGER kcrit  (:) ! (ie) 
+      INTEGER kcrit  (:) ! (ie)
 !     critical level
 
-      INTEGER kkenvh (:) ! (ie) 
+      INTEGER kkenvh (:) ! (ie)
 !     index of top of 'envelope' / blocking level
 
       INTEGER kknu   (:) ! (ie)
@@ -867,7 +867,7 @@ SUBROUTINE sso_setup (                                      &
       REAL(KIND=ireals) :: znorm  (ie)
       REAL(KIND=ireals) :: znup   (ie)
       REAL(KIND=ireals) :: znum   (ie)
-      REAL(KIND=ireals) :: znu    (ie) 
+      REAL(KIND=ireals) :: znu    (ie)
 
       REAL(KIND=ireals) :: zcons1, zcons2 ! utility constants
       REAL(KIND=ireals) :: zu             ! security for low level zonal wind
@@ -879,13 +879,13 @@ SUBROUTINE sso_setup (                                      &
       REAL(KIND=ireals) :: zdwind         ! utility variable for wind shear calculation
       REAL(KIND=ireals) :: zwind          ! utility variable for proj. wind calculation
       REAL(KIND=ireals) :: zggeenv,zggeo,zgvar ! geopotential utility variables
-      REAL(KIND=ireals) :: zhcrit 
+      REAL(KIND=ireals) :: zhcrit
 
       INTEGER mknub(ie)
       INTEGER mknul(ie)
 
       INTEGER mi3h              ! vertical loop limit
-      INTEGER j1,j3             ! loop variables   
+      INTEGER j1,j3             ! loop variables
 
       LOGICAL lo1  (ie,ke1)
       LOGICAL llo               ! utility switch
@@ -894,7 +894,7 @@ SUBROUTINE sso_setup (                                      &
 !     orography scheme
 !     ================
 
-      INTEGER (KIND=iintegers) :: Nktopg                    
+      INTEGER (KIND=iintegers) :: Nktopg
                                 ! number of topmost layer used to define low level
                                 ! flow in case of high vertical model resolution
 
@@ -912,7 +912,7 @@ SUBROUTINE sso_setup (                                      &
 
       zcons1=1._ireals/R_d
       zcons2=G**2/Cp_d
- 
+
 !C*         2.1     DEFINE LOW LEVEL WIND, PROJECT WINDS IN PLANE OF
 !C*                 LOW LEVEL WIND, DETERMINE SECTOR IN WHICH TO TAKE
 !C*                 THE VARIANCE AND SET INDICATOR FOR CRITICAL LEVELS.
@@ -933,7 +933,7 @@ SUBROUTINE sso_setup (                                      &
 !     and other critical levels
 !     ============================================================
 !
-      DO j3=ke,mi3h,-1     ! vertical loop   
+      DO j3=ke,mi3h,-1     ! vertical loop
         DO j1=istart,iend
           zhcrit = 4._ireals*psso_stdh(j1)
           lo1(j1,j3)=((pfi(j1,j3)/G).GT.zhcrit)
@@ -972,7 +972,7 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     Confine critical level indices to be less or equal to Nktopg
 !     ============================================================
       DO j1=istart,iend
@@ -1001,7 +1001,7 @@ SUBROUTINE sso_setup (                                      &
         znum (j1)     = 0.0_ireals
         lo1  (j1,ke1) = .FALSE.
       END DO
- 
+
 !     pressure thickness, density and Brunt-Vaisala frequency (squared)
 !     =================================================================
       DO j3=ke,2,-1        ! vertical loop
@@ -1022,14 +1022,14 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     Definition of blocked flow
 !     ==========================
       DO j3=ke,mi3h,-1          ! vertical loop
         DO j1=istart,iend
           IF(lo_sso(j1)) THEN
           IF(j3.GE.mknub(j1).AND.j3.LE.mknul(j1)) THEN
-!         only layers with height between one and two stdh contribute 
+!         only layers with height between one and two stdh contribute
           pulow(j1) = pulow(j1)                                     &
      &                  +pu   (j1,j3)*(pph(j1,j3+1)-pph(j1,j3))
           pvlow(j1) = pvlow(j1)                                     &
@@ -1038,7 +1038,7 @@ SUBROUTINE sso_setup (                                      &
           END IF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     Division by pressure thickness of contributing layers and
 !     determination of wind speed of blocked flow
       DO j1=istart,iend
@@ -1051,10 +1051,10 @@ SUBROUTINE sso_setup (                                      &
         pvph(j1,ke1)=znorm(j1)  ! projected flow at lower boundary
         END IF
       END DO
- 
-!     Axes of subgrid scale orography and plane of profiles 
+
+!     Axes of subgrid scale orography and plane of profiles
 !     =====================================================
-      DO j1=istart,iend   
+      DO j1=istart,iend
         IF (lo_sso(j1)) THEN
         llo=(pulow(j1).LT.Gvsec).AND.(pulow(j1).GE.-Gvsec)
           IF(llo) THEN
@@ -1077,7 +1077,7 @@ SUBROUTINE sso_setup (                                      &
         pdmod(j1) = SQRT(pd1(j1)**2+pd2(j1)**2)
         END IF
       END DO
- 
+
 !     projection of flow into plane of low level stress  (eq.4.7)
 !     ===========================================================
       DO j3=1,ke                  ! vertical loop
@@ -1116,7 +1116,7 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     Brunt-Vaisala frequency and density for lowest level
 !     ====================================================
       DO j3=mi3h,ke   ! vertical loop
@@ -1134,7 +1134,7 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     normalization
 !     -------------
       DO j1=istart,iend
@@ -1146,7 +1146,7 @@ SUBROUTINE sso_setup (                                      &
      &      /(ppf(j1,mknul(j1))-ppf(j1,mknub(j1)))
         END IF
       END DO
- 
+
 !     mean flow Richardson number on half levels
 !     ==========================================
       DO j3=2,ke     ! vertical loop
@@ -1178,7 +1178,7 @@ SUBROUTINE sso_setup (                                      &
      &                +zsqst(j1,j3  )/prho(j1,j3  ) )/2._ireals)/zwind
             IF((znum(j1).LE.gfrcrit).AND.(znu(j1).GT.gfrcrit)          &
      &                          .AND.(kkenvh(j1).EQ.ke))                &
-     &      kkenvh(j1)=j3     
+     &      kkenvh(j1)=j3
             ENDIF
           ENDIF
         END DO
@@ -1211,11 +1211,11 @@ SUBROUTINE sso_setup (                                      &
         END DO
       END DO                ! end of vertical loop
 
-!     allow low level wave breaking only above height of 4*stdh 
+!     allow low level wave breaking only above height of 4*stdh
       DO j1=istart,iend
         kkcrith(j1)=MIN(kkcrith(j1),kknu(j1))
       END DO
- 
+
 !     directional information for flow blocking
 !     =========================================
       DO j3=mi3h,ke     ! vertical loop
@@ -1233,7 +1233,7 @@ SUBROUTINE sso_setup (                                      &
           ENDIF
         END DO
       END DO                ! end of vertical loop
- 
+
 !     assumed vertical profile of sso for blocking calculations
 !     =========================================================
       DO j3=mi3h,ke     ! vertical loop
@@ -1301,7 +1301,7 @@ SUBROUTINE gw_stress (                                  &
       ! projection parameter = SQRT(D1**2+D2**2)    cf. eq.4.7
 
       LOGICAL lo_sso(:) ! (ie)
-      ! 
+      !
 
 !     Output
 !     ======
@@ -1323,7 +1323,7 @@ SUBROUTINE gw_stress (                                  &
 
       DO j1=istart,iend
         IF(lo_sso(j1)) THEN
-          zblock=0.0_ireals 
+          zblock=0.0_ireals
           zeff=MAX(0._ireals,2._ireals*psso_stdh(j1)-zblock)
           ptau(j1,ke1)=Gkdrag*prho(j1,ke1)*psso_sigma(j1)  &
      &                     *zeff**2/4._ireals                         &
@@ -1391,7 +1391,7 @@ SUBROUTINE gw_profil(                                    &
       REAL(KIND=ireals) :: pstab(:,:) ! (ie,ke1)
       ! squared Brunt-Vaisala frequency  (1/s**2)
       REAL(KIND=ireals) :: pri  (:,:) ! (ie,ke1)
-      ! mean flow Richardson number      ( - )    
+      ! mean flow Richardson number      ( - )
       REAL(KIND=ireals) :: pvph (:,:) ! (ie,ke1)
       ! wind on half levels projected on plane of low level wind (m/s)
       REAL(KIND=ireals) :: ptau (:,:) ! (ie,ke1)
@@ -1411,7 +1411,7 @@ SUBROUTINE gw_profil(                                    &
       INTEGER kknu2  (:) ! (ie)
 
       LOGICAL lo_sso (:) ! (ie)
-     
+
 !     local arrays and variables
 !     ==========================
 
@@ -1432,7 +1432,7 @@ SUBROUTINE gw_profil(                                    &
 !HF  &               /4._ireals/MAX(psso_stdh(j1),1.0_ireals)
         ztau(j1,kknu(j1)+1) = ptau(j1,kknu(j1)+1)
         ztau(j1,ke1          ) = ptau(j1,ke1          )
-        ENDIF   
+        ENDIF
       END DO
 
       DO j3=ke,2,-1     ! vertical loop
@@ -1444,7 +1444,7 @@ SUBROUTINE gw_profil(                                    &
             IF(j3.GE.kknu2(j1)) THEN
             ptau(j1,j3)=ztau(j1,ke1)
             ENDIF
-          ENDIF   
+          ENDIF
         END DO
 
 !     wave displacement at next level
@@ -1456,7 +1456,7 @@ SUBROUTINE gw_profil(                                    &
                       *pvph(j1,j3)*zoro(j1)
             zdz2(j1,j3)=ptau(j1,j3+1)/MAX(znorm(j1),Gssec)
             ENDIF
-          ENDIF   
+          ENDIF
         END DO
 
 !     wave Richardson number, new wave displacement and stress
@@ -1484,7 +1484,7 @@ SUBROUTINE gw_profil(                                    &
             ptau(j1,j3)=MIN(ptau(j1,j3),ptau(j1,j3+1))
             ENDIF
           ENDIF
-          ENDIF    
+          ENDIF
         END DO
 
       END DO       ! end of vertical loop
@@ -1495,7 +1495,7 @@ SUBROUTINE gw_profil(                                    &
         IF(lo_sso(j1)) THEN
         ztau(j1,kkenvh(j1)) =ptau(j1,kkenvh(j1))
         ztau(j1,kkcrith(j1))=ptau(j1,kkcrith(j1))
-        ENDIF   
+        ENDIF
       END DO
 
 !     linear decrease between kkenvh and kkcrith
@@ -1509,7 +1509,7 @@ SUBROUTINE gw_profil(                                    &
      &        (ztau(j1,kkcrith(j1))-ztau(j1,kkenvh(j1)) )*  &
      &            zdelp/zdelpt
           ENDIF
-          ENDIF            
+          ENDIF
         END DO
       END DO       ! end of vertical loop
 

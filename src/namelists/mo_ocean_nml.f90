@@ -55,6 +55,7 @@ MODULE mo_ocean_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_coupling_config,    ONLY: is_coupled_run
 #endif
@@ -178,14 +179,27 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_const              = 0.1_wp     ! Adams-Bashforth constant
   REAL(wp) :: ab_beta               = 0.6_wp     ! Parameter in semi-implicit timestepping
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
+
+
   ! parameters for gmres solver
-  REAL(wp) :: solver_tolerance                 = 1.e-6_wp   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: solver_start_tolerance           = -1.0_wp
+  REAL(wp) :: solver_tolerance                 = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+!  REAL(wp) :: solver_start_tolerance           = -1.0_wp
   INTEGER  :: solver_max_restart_iterations    = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
-  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
-  LOGICAL  :: use_absolute_solver_tolerance    = .false.   ! Maximum value allowed for solver tolerance
-  REAL(wp) :: dhdtw_abort           = 3.2e-11_wp ! abort criterion for gmres solution (~1mm/year)
+!  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
+  LOGICAL  :: use_absolute_solver_tolerance    = .true.   ! Maximum value allowed for solver tolerance
+  INTEGER, PARAMETER :: select_gmres = 1
+  INTEGER, PARAMETER :: select_restart_gmres = 2
+  INTEGER :: select_solver = select_restart_gmres
+  LOGICAL :: use_continuity_correction = .false.
+
+
+  ! physical parameters for  aborting the ocean model
+  REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
+  REAL(wp) :: threshold_min_T       = -4.0_wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_max_T       = 100._wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_min_S       =  0.0_wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
 
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
@@ -228,8 +242,8 @@ MODULE mo_ocean_nml
                                                  ! keep constant over time and are set to the background values; no convection
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
 
-  REAL(wp) :: t_ref                 = 15.0_wp    ! reference temperature for initialization
-  REAL(wp) :: s_ref                 = 35.0_wp    ! reference salinity for initialization
+  REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
+  REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
@@ -260,9 +274,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: CWA                   = 5.0E-4_wp  ! Tuning parameters for vertical mixing
   REAL(wp) :: CWT                   = 5.0E-4_wp  !   of tracer and velocity
 
-
   LOGICAL  :: lviscous              = .TRUE.    
-  LOGICAL  :: l_RIGID_LID           = .FALSE.    ! include friction or not
+  LOGICAL  :: l_rigid_lid           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
   LOGICAL  :: l_max_bottom          = .TRUE.     ! wet cell: true=if bathy deeper than top
@@ -277,12 +290,23 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! true  = relax salinity below sea ice proportional to open water
                                                  ! false = salinity is relaxed under sea ice completely
 
+  LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
+  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
+  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
+  LOGICAL  :: use_tracer_x_height = .false.  ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+
   ! special diagnostics configuration
   !
   ! vertex list of throughflows
-  INTEGER :: denmark_strait(100) = -1
-  INTEGER :: gibraltar(100)      = -1
-  INTEGER :: drake_passage(100)  = -1
+  INTEGER :: denmark_strait(100)         = -1
+  INTEGER :: gibraltar(100)              = -1
+  INTEGER :: drake_passage(100)          = -1
+  INTEGER :: indonesian_throughflow(100) = -1
+  INTEGER :: scotland_iceland(100)       = -1
+
+  REAL(wp) ::  z_forc_period     = 3.0_wp  ! For the periodic analytic forcing (wind)
+  REAL(wp) ::  y_forc_period     = 3.0_wp
+  REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -290,7 +314,7 @@ MODULE mo_ocean_nml
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
     &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
-    &                 l_partial_cells,                                     &
+    &                 l_partial_cells, l_skip_tracer,                      &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
@@ -298,11 +322,10 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
     &                 dhdtw_abort,                                         &
-    &                 use_absolute_solver_tolerance, solver_start_tolerance, &
-    &                 solver_tolerance_decrease_ratio,                     &
+    &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
     &                 solver_max_restart_iterations,                       &
-    &                 solver_max_iter_per_restart
-
+    &                 solver_max_iter_per_restart,                         &
+    &                 select_solver, use_continuity_correction
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
@@ -315,7 +338,10 @@ MODULE mo_ocean_nml
     &                 biharmonic_diffusion_factor,                         &
     &                 l_smooth_veloc_diffusion,                            &
     &                 richardson_veloc, richardson_tracer,                 &
-    &                 l_constant_mixing, l_wind_mixing
+    &                 l_constant_mixing, l_wind_mixing,                    &
+    &                 l_with_vert_tracer_diffusion,                        &
+    &                 l_with_horz_tracer_diffusion,                        &
+    &                 use_tracer_x_height
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
@@ -324,9 +350,12 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 l_forc_freshw, limit_elevation, seaice_limit 
+    &                 l_forc_freshw, limit_elevation, seaice_limit,        &
+    &                 oce_t_ref, oce_s_ref, z_forc_period, y_forc_period,  &
+    &                 analytic_wind_amplitude
 
-  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar
+  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
+    &                 indonesian_throughflow, scotland_iceland
 
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
@@ -374,7 +403,7 @@ MODULE mo_ocean_nml
 
     NAMELIST/ocean_run_nml/ ignore_land_points
 
-    INTEGER :: i_status
+    INTEGER :: i_status, istat
 
     CHARACTER(len=max_char_length), PARAMETER :: &
             routine = 'mo_ocean_nml/setup_ocean_nml:'
@@ -409,34 +438,44 @@ MODULE mo_ocean_nml
      ! setup for the ocean_run_nml
      ignore_land_points = config_ignore_land_points
      CALL position_nml ('ocean_run_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_run_nml)   ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_run_nml)
+       READ (nnml, ocean_run_nml, iostat=istat)                           ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_run_nml)   ! write settings to temporary text file
      END SELECT
      config_ignore_land_points = ignore_land_points
 
      CALL position_nml ('ocean_dynamics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_dynamics_nml) ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_dynamics_nml)
+       READ (nnml, ocean_dynamics_nml, iostat=istat)                         ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_dynamics_nml) ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_physics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_physics_nml)    ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_physics_nml)
+       READ (nnml, ocean_physics_nml, iostat=istat)                            ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_physics_nml)    ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_forcing_and_init_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_forcing_and_init_nml)  ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_forcing_and_init_nml)
+       READ (nnml, ocean_forcing_and_init_nml, iostat=istat)                          ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_forcing_and_init_nml)  ! write settings to temporary text file
      END SELECT
 
      CALL position_nml ('ocean_diagnostics_nml', status=i_status)
+     IF (my_process_is_stdio()) WRITE(temp_defaults(), ocean_diagnostics_nml)   ! write defaults to temporary text file
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_diagnostics_nml)
+       READ (nnml, ocean_diagnostics_nml, iostat=istat)                           ! overwrite default settings
+       IF (my_process_is_stdio()) WRITE(temp_settings(), ocean_diagnostics_nml)   ! write settings to temporary text file
      END SELECT
 
      !------------------------------------------------------------
@@ -471,10 +510,10 @@ MODULE mo_ocean_nml
      ENDIF
 
 
-     IF (solver_start_tolerance <= 0.0_wp) THEN
-       solver_start_tolerance = solver_tolerance
-       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
-     ENDIF
+!     IF (solver_start_tolerance <= 0.0_wp) THEN
+!       solver_start_tolerance = solver_tolerance
+!       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
+!     ENDIF
 
      IF (l_forc_freshw) THEN
        limit_elevation = .TRUE.

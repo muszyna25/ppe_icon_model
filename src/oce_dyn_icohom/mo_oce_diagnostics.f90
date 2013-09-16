@@ -46,14 +46,15 @@ MODULE mo_oce_diagnostics
     &                              min_rlcell, min_rledge, min_rlcell, &
     &                              max_char_length, MIN_DOLIC
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
-    &                              gibraltar, denmark_strait,drake_passage,&
+    &                              gibraltar, denmark_strait,drake_passage, indonesian_throughflow,&
+    &                              scotland_iceland, &
     &                              ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
   USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                              set_lateral_boundary_values
+    &                              set_lateral_boundary_values, t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert, t_grid_edges
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
@@ -62,14 +63,6 @@ MODULE mo_oce_diagnostics
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
   USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: add_var,                  &
-    &                              new_var_list,             &
-    &                              delete_var_list,          &
-    &                              default_var_list_settings,&
-    &                              add_ref
-  USE mo_cf_convention
-  USE mo_grib2
-  USE mo_cdi_constants
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -82,9 +75,9 @@ IMPLICIT NONE
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
-INTEGER :: moc_unit = -1 ! file handle for the global timeseries output
-CHARACTER(len=max_char_length)  :: diag_fname, moc_fname
+INTEGER                        :: diag_unit = -1 ! file handle for the global timeseries output
+INTEGER                        :: moc_unit  = -1 ! file handle for the global timeseries output
+CHARACTER(len=max_char_length) :: diag_fname, moc_fname
 
 !
 ! PUBLIC INTERFACE
@@ -127,6 +120,10 @@ TYPE t_oce_monitor
     REAL(wp) :: gibraltar     ! though flow                                               [Sv]
     REAL(wp) :: denmark_strait! though flow                                               [Sv]
     REAL(wp) :: drake_passage ! though flow                                               [Sv]
+    REAL(wp) :: indonesian_throughflow !                                                  [Sv]
+    REAL(wp) :: scotland_iceland !                                                        [Sv]
+    REAL(wp) :: t_mean_NA_200m !                                                        [degC]
+    REAL(wp) :: t_mean_NA_800m !                                                        [degC]
     REAL(wp), ALLOCATABLE :: tracer_content(:)
 
 END TYPE t_oce_monitor
@@ -134,37 +131,41 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(30)  :: names = (/ &
-    & "volume                                  ", &
-    & "kin_energy                              ", &
-    & "pot_energy                              ", &
-    & "total_energy                            ", &
-    & "vorticity                               ", &
-    & "enstrophy                               ", &
-    & "potential_enstrophy                     ", &
-    & "absolute_vertical_velocity              ", &
-    & "forc_swflx                              ", &
-    & "forc_lwflx                              ", &
-    & "forc_ssflx                              ", &
-    & "forc_slflx                              ", &
-    & "forc_precip                             ", &
-    & "forc_evap                               ", &
-    & "forc_runoff                             ", &
-    & "forc_fwbc                               ", &
-    & "forc_fwrelax                            ", &
-    & "forc_fwsice                             ", &
-    & "forc_fwfx                               ", &
-    & "forc_hfrelax                            ", &
-    & "forc_hflx                               ", &
-    & "ice_volume_nh                           ", &
-    & "ice_volume_sh                           ", &
-    & "ice_extent_nh                           ", &
-    & "ice_extent_sh                           ", &
-    & "gibraltar                               ", &
-    & "denmark_strait                          ", &
-    & "drake_passage                           ", &
-    & "total_temperature                       ", &
-    & "total_salinity                          "/)
+    CHARACTER(len=40), DIMENSION(34)  :: names = (/ &
+      & "volume                                  ", &
+      & "kin_energy                              ", &
+      & "pot_energy                              ", &
+      & "total_energy                            ", &
+      & "vorticity                               ", &
+      & "enstrophy                               ", &
+      & "potential_enstrophy                     ", &
+      & "absolute_vertical_velocity              ", &
+      & "forc_swflx                              ", &
+      & "forc_lwflx                              ", &
+      & "forc_ssflx                              ", &
+      & "forc_slflx                              ", &
+      & "forc_precip                             ", &
+      & "forc_evap                               ", &
+      & "forc_runoff                             ", &
+      & "forc_fwbc                               ", &
+      & "forc_fwrelax                            ", &
+      & "forc_fwsice                             ", &
+      & "forc_fwfx                               ", &
+      & "forc_hfrelax                            ", &
+      & "forc_hflx                               ", &
+      & "ice_volume_nh                           ", &
+      & "ice_volume_sh                           ", &
+      & "ice_extent_nh                           ", &
+      & "ice_extent_sh                           ", &
+      & "gibraltar                               ", &
+      & "denmark_strait                          ", &
+      & "drake_passage                           ", &
+      & "indonesian_throughflow                  ", &
+      & "scotland_iceland                        ", &
+      & "t_mean_NA_200m                          ", &
+      & "t_mean_NA_800m                          ", &
+      & "total_temperature                       ", &
+      & "total_salinity                          "/)
 
 END TYPE t_oce_timeseries
 
@@ -173,8 +174,15 @@ TYPE t_oce_section
   REAL(wp), POINTER  :: orientation(:)
 END TYPE t_oce_section
 
-TYPE(t_oce_section) :: oce_sections(3)
-PRIVATE :: oce_sections
+INTEGER, PARAMETER  :: oce_section_count = 5
+PRIVATE             :: oce_section_count
+TYPE(t_oce_section) :: oce_sections(oce_section_count)
+PRIVATE             :: oce_sections
+
+TYPE(t_ocean_region_volumes),SAVE :: ocean_region_volumes
+PRIVATE                           :: ocean_region_volumes
+TYPE(t_ocean_region_areas),SAVE   :: ocean_region_areas
+PRIVATE                           :: ocean_region_areas
 
 CONTAINS
 !-------------------------------------------------------------------------
@@ -188,7 +196,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
 SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
-  TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
+  TYPE(t_patch_3D),TARGET, INTENT(INOUT) :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
   TYPE(t_oce_timeseries),POINTER          :: oce_ts
   CHARACTER(len=32)                       :: datestring
@@ -198,12 +206,21 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   CHARACTER(len=max_char_length), PARAMETER :: &
     & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
   !-----------------------------------------------------------------------
-  CHARACTER(len=max_char_length)      :: headerLine
-  TYPE(t_patch), POINTER              :: p_patch
-  CHARACTER(len=max_char_length)      :: listname
-  INTEGER :: nblks_c,nblks_e,nblks_v
+  CHARACTER(len=max_char_length) :: headerLine
+  CHARACTER(len=max_char_length) :: listname
+  INTEGER                        :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
+  REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, column_volume
+
+  TYPE(t_patch), POINTER         :: p_patch
+  TYPE(t_subset_range), POINTER  :: owned_cells
+  INTEGER, POINTER               :: regions(:,:)
+  TYPE(t_ocean_regions)          :: ocean_regions
   !-----------------------------------------------------------------------
-  p_patch   => p_patch_3D%p_patch_2D(1)
+  p_patch => p_patch_3D%p_patch_2D(1)
+  regions => p_patch_3D%regio_c
+  !-----------------------------------------------------------------------
+  owned_cells => p_patch%cells%owned
+  !-----------------------------------------------------------------------
 
   CALL message (TRIM(routine), 'start')
   ALLOCATE(oce_ts)
@@ -242,6 +259,10 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%gibraltar                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%denmark_strait             = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%indonesian_throughflow     = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%t_mean_NA_200m             = 0.0_wp
+  oce_ts%oce_diagnostics(0:nsteps)%t_mean_NA_800m             = 0.0_wp
 
   DO i=0,nsteps
     ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -270,8 +291,6 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   CALL message (TRIM(routine), message_text)
 
   ! compute subsets for given sections path allong edges
-
-  CALL message (TRIM(routine), 'end')
   CALL get_oriented_edges_from_global_vertices(    &
      &  edge_subset = oce_sections(1)%subset,      &
      &  orientation = oce_sections(1)%orientation, &
@@ -288,9 +307,110 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      &  edge_subset = oce_sections(3)%subset,      &
      &  orientation = oce_sections(3)%orientation, &
      &  patch_3D = p_patch_3D,                     &
-     & global_vertex_array =drake_passage,        &
+     & global_vertex_array =drake_passage,         &
      & subset_name = 'drake_passage')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(4)%subset,      &
+     &  orientation = oce_sections(4)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array =indonesian_throughflow,&
+     & subset_name = 'indonesian_throughflow')
+  CALL get_oriented_edges_from_global_vertices(    &
+     &  edge_subset = oce_sections(5)%subset,      &
+     &  orientation = oce_sections(5)%orientation, &
+     &  patch_3D = p_patch_3D,                     &
+     & global_vertex_array =scotland_iceland,      &
+     & subset_name = 'scotland_iceland')
+
+   surface_area   = 0.0_wp
+   surface_height = 0.0_wp
+   prism_vol      = 0.0_wp
+   prism_area     = 0.0_wp
+   ! compute regional ocean volumes
+   DO jb = owned_cells%start_block, owned_cells%end_block
+   CALL get_index_range(owned_cells, jb, start_index, end_index)
+     DO jc = start_index, end_index
+
+       ! area
+       prism_area               = p_patch%cells%area(jc,jb)
+       ocean_region_areas%total = ocean_region_areas%total + prism_area
+
+       ! volume
+       CALL compute_vertical_volume(jb,jc, &
+         &                          prism_area, &
+         &                          p_os%p_prog(nnew(1))%h(jc,jb), &
+         &                          p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb), &
+         &                          p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb), &
+         &                          column_volume)
+       ocean_region_volumes%total = ocean_region_volumes%total + column_volume
+
+       region_index = regions(jc,jb)
+       IF     (ocean_regions%greenland_iceland_norwegian_sea == region_index) THEN
+         ocean_region_volumes%greenland_iceland_norwegian_sea = ocean_region_volumes%greenland_iceland_norwegian_sea + column_volume
+         ocean_region_areas%greenland_iceland_norwegian_sea   = ocean_region_areas%greenland_iceland_norwegian_sea + prism_area
+
+       ELSEIF (ocean_regions%arctic_ocean == region_index) THEN
+         ocean_region_volumes%arctic_ocean                    = ocean_region_volumes%arctic_ocean + column_volume
+         ocean_region_areas%arctic_ocean                      = ocean_region_areas%arctic_ocean + prism_area
+
+       ELSEIF (ocean_regions%labrador_sea == region_index) THEN
+         ocean_region_volumes%labrador_sea                    = ocean_region_volumes%labrador_sea + column_volume
+         ocean_region_areas%labrador_sea                      = ocean_region_areas%labrador_sea + prism_area
+
+       ELSEIF (ocean_regions%north_atlantic == region_index) THEN
+         ocean_region_volumes%north_atlantic                  = ocean_region_volumes%north_atlantic + column_volume
+         ocean_region_areas%north_atlantic                    = ocean_region_areas%north_atlantic + prism_area
+
+       ELSEIF (ocean_regions%tropical_atlantic == region_index) THEN
+         ocean_region_volumes%tropical_atlantic               = ocean_region_volumes%tropical_atlantic + column_volume
+         ocean_region_areas%tropical_atlantic                 = ocean_region_areas%tropical_atlantic + prism_area
+
+       ELSEIF (ocean_regions%southern_ocean == region_index) THEN
+         ocean_region_volumes%southern_ocean                  = ocean_region_volumes%southern_ocean + column_volume
+         ocean_region_areas%southern_ocean                    = ocean_region_areas%southern_ocean + prism_area
+
+       ELSEIF (ocean_regions%indian_ocean == region_index) THEN
+         ocean_region_volumes%indian_ocean                    = ocean_region_volumes%indian_ocean + column_volume
+         ocean_region_areas%indian_ocean                      = ocean_region_areas%indian_ocean + prism_area
+
+       ELSEIF (ocean_regions%tropical_pacific == region_index) THEN
+         ocean_region_volumes%tropical_pacific                = ocean_region_volumes%tropical_pacific + column_volume
+         ocean_region_areas%tropical_pacific                  = ocean_region_areas%tropical_pacific + prism_area
+
+       ELSEIF (ocean_regions%north_pacific == region_index) THEN
+         ocean_region_volumes%north_pacific                   = ocean_region_volumes%north_pacific + column_volume
+         ocean_region_areas%north_pacific                     = ocean_region_areas%north_pacific + prism_area
+
+       ELSEIF (ocean_regions%caribbean == region_index) THEN
+         ocean_region_volumes%caribbean                       = ocean_region_volumes%caribbean + column_volume
+         ocean_region_areas%caribbean                         = ocean_region_areas%caribbean + prism_area
+       END IF
+
+     END DO
+   END DO
+   ! compute global values
+   ocean_region_volumes%total = global_sum_array(ocean_region_volumes%total)
+   ocean_region_areas%total   = global_sum_array(ocean_region_areas%total)
+
+   CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
+SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
+  INTEGER,  INTENT(IN)  :: jb,jc,max_vertical_level
+  REAL(wp), INTENT(IN)  :: prism_area, surface_height, thicknesses(:)
+  REAL(wp), INTENT(inout) :: volume
+
+  INTEGER :: jk
+  REAL(wp) :: surface_height_,prism_vol_
+
+  volume  = 0.0_wp
+  DO jk = 1,max_vertical_level
+    !local volume
+    surface_height_ = merge(surface_height,0.0_wp, 1 == jk)
+    prism_vol_      = prism_area * (thicknesses(jk) + surface_height_)
+    !Fluid volume wrt lsm
+    volume          = volume + prism_vol_
+  END DO
+END SUBROUTINE compute_vertical_volume
 !-------------------------------------------------------------------------
 !
 !
@@ -365,6 +485,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   CHARACTER(len=1024)           :: fmt_string, real_fmt
   CHARACTER(len=date_len)       :: datestring
   REAL(wp), PARAMETER           :: equator = 0.00001_wp
+  TYPE(t_ocean_regions)         :: ocean_regions
 
   !-----------------------------------------------------------------------
   p_patch        => p_patch_3D%p_patch_2D(1)
@@ -387,16 +508,14 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
 
       DO jc =  i_startidx_c, i_endidx_c
         IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-          prism_vol = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
-            !prism_vol = p_op_coeff%fixed_vol_norm(jc,1,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)!p_os%p_prog(nold(1))%h(jc,jb)
+          prism_vol      = p_patch%cells%area(jc,jb)*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
           monitor%volume = monitor%volume + prism_vol
 
 
           monitor%pot_energy = monitor%pot_energy &
             &+ 0.5_wp*grav* prism_vol*p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
 
-          monitor%kin_energy = monitor%kin_energy &
-            &+p_os%p_diag%kin(jc,1,jb)*prism_vol!p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)
+          monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,1,jb)*prism_vol
 
           monitor%total_energy=monitor%kin_energy+monitor%pot_energy
           DO i_no_t=1, no_tracer
@@ -513,23 +632,29 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   ! fluxes through given paths
   IF (my_process_is_stdio()) &
     & write(0,*) "---------------  fluxes --------------------------------"
-  DO i_no_t=1,3
-    sflux = section_flux(oce_sections(i_no_t), p_os%p_prog(nnew(1))%vn)
-#ifdef NOMPI
+  DO i=1,oce_section_count
+    sflux = section_flux(oce_sections(i), p_os%p_prog(nnew(1))%vn)
+!
+! #slo# disabled since subset%block is not allocated (#3759, HPC_sun_debug)
+! #ifdef NOMPI
+!     IF (my_process_is_stdio()) &
+!       & write(0,*) oce_sections(i)%subset%name, ":", sflux, 'at edges:',oce_sections(i)%subset%block
+! #else
     IF (my_process_is_stdio()) &
-      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux, 'at edges:',oce_sections(i_no_t)%subset%block
-#else
-    IF (my_process_is_stdio()) &
-      & write(0,*) oce_sections(i_no_t)%subset%name, ":", sflux
-#endif
+      & write(0,*) oce_sections(i)%subset%name, ":", sflux
+! #endif
 
-    SELECT CASE (i_no_t)
+    SELECT CASE (i)
     CASE (1)
       monitor%gibraltar              = sflux*rho_ref
     CASE (2)
       monitor%denmark_strait         = sflux*rho_ref
     CASE (3)
       monitor%drake_passage          = sflux*rho_ref
+    CASE (4)
+      monitor%indonesian_throughflow = sflux*rho_ref
+    CASE (5)
+      monitor%scotland_iceland       = sflux*rho_ref
     END SELECT
   ENDDO
   IF (my_process_is_stdio()) &
@@ -537,50 +662,56 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   ! } dbg_print
 
 
-  ! write things to diagnostics output file
-  real_fmt   = 'es26.18'
-  ! * number of non-tracer diag. variables
-  write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
-  write(fmt_string,'(a)') '(i5.5,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
-  ! create date and time string
-  ! * non-tracer diags
-  write(line,fmt_string) &
-    & timestep, &
-    & TRIM(datestring), &
-    & monitor%volume, &
-    & monitor%kin_energy, &
-    & monitor%pot_energy, &
-    & monitor%total_energy, &
-    & monitor%vorticity, &
-    & monitor%enstrophy, &
-    & monitor%potential_enstrophy, &
-    & monitor%absolute_vertical_velocity, &
-    & monitor%forc_swflx, &
-    & monitor%forc_lwflx, &
-    & monitor%forc_ssflx, &
-    & monitor%forc_slflx, &
-    & monitor%forc_precip, &
-    & monitor%forc_evap, &
-    & monitor%forc_runoff, &
-    & monitor%forc_fwbc, &
-    & monitor%forc_fwrelax, &
-    & monitor%forc_fwsice,  &
-    & monitor%forc_fwfx, &
-    & monitor%forc_hfrelax, &
-    & monitor%forc_hflx, &
-    & monitor%ice_volume_nh, &
-    & monitor%ice_volume_sh, &
-    & monitor%ice_extent_nh, &
-    & monitor%ice_extent_sh, &
-    & monitor%gibraltar, &
-    & monitor%denmark_strait, &
-    & monitor%drake_passage
-  ! * tracers
-  DO i_no_t=1,no_tracer
+  IF (my_process_is_stdio()) THEN
+    ! write things to diagnostics output file
+    real_fmt   = 'es26.18'
+    ! * number of non-tracer diag. variables
+    write(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
+    write(fmt_string,'(a)') '(i5.5,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+    ! create date and time string
+    ! * non-tracer diags
+    write(line,fmt_string) &
+      & timestep, &
+      & TRIM(datestring), &
+      & monitor%volume, &
+      & monitor%kin_energy, &
+      & monitor%pot_energy, &
+      & monitor%total_energy, &
+      & monitor%vorticity, &
+      & monitor%enstrophy, &
+      & monitor%potential_enstrophy, &
+      & monitor%absolute_vertical_velocity, &
+      & monitor%forc_swflx, &
+      & monitor%forc_lwflx, &
+      & monitor%forc_ssflx, &
+      & monitor%forc_slflx, &
+      & monitor%forc_precip, &
+      & monitor%forc_evap, &
+      & monitor%forc_runoff, &
+      & monitor%forc_fwbc, &
+      & monitor%forc_fwrelax, &
+      & monitor%forc_fwsice,  &
+      & monitor%forc_fwfx, &
+      & monitor%forc_hfrelax, &
+      & monitor%forc_hflx, &
+      & monitor%ice_volume_nh, &
+      & monitor%ice_volume_sh, &
+      & monitor%ice_extent_nh, &
+      & monitor%ice_extent_sh, &
+      & monitor%gibraltar, &
+      & monitor%denmark_strait, &
+      & monitor%drake_passage,  &
+      & monitor%indonesian_throughflow, &
+      & monitor%scotland_iceland, &
+      & monitor%t_mean_NA_200m, &
+      & monitor%t_mean_NA_800m
+    ! * tracers
+    DO i_no_t=1,no_tracer
     write(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
-  END DO
+    END DO
 
-  write(diag_unit,'(a)') TRIM(line)
+    write(diag_unit,'(a)') TRIM(line)
+  END IF
 
 END SUBROUTINE calculate_oce_diagnostics
 !-------------------------------------------------------------------------
@@ -659,7 +790,7 @@ SUBROUTINE calc_moc (p_patch, p_patch_3D, w, datetime)
   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
-                                                   ! dims: (nproma,nlev+1,nblks_c)
+                                                   ! dims: (nproma,nlev+1,alloc_cell_blocks)
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
@@ -839,8 +970,8 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)  :: p_patch_3D
   REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
-                                                     ! dims: (nproma,nlev,nblks_c)
-  REAL(wp), INTENT(OUT)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
+                                                     ! dims: (nproma,nlev,alloc_cell_blocks)
+  REAL(wp), INTENT(inout)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables

@@ -57,6 +57,7 @@ MODULE mo_radiation_nml
                                  & config_irad_cfc11 => irad_cfc11,  &
                                  & config_irad_cfc12 => irad_cfc12,  &
                                  & config_irad_aero  => irad_aero,   &
+                                 & config_lrad_aero_diag => lrad_aero_diag,  &
                                  & config_ighg       => ighg,        &
                                  & config_vmr_co2    => vmr_co2,     &
                                  & config_vmr_ch4    => vmr_ch4,     &
@@ -78,6 +79,7 @@ MODULE mo_radiation_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
   PRIVATE
@@ -126,6 +128,7 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_cfc11
   INTEGER  :: irad_cfc12
   INTEGER  :: irad_aero
+  LOGICAL  :: lrad_aero_diag
   !
   ! --- Select dynamic greenhouse gases scenario (read from file)
   !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
@@ -172,6 +175,7 @@ MODULE mo_radiation_nml
     &                      irad_cfc11, vmr_cfc11, &
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
+    &                      lrad_aero_diag,        &
     &                      ighg,                  &
     &                      izenith
 
@@ -220,6 +224,7 @@ CONTAINS
     irad_cfc11  = 2
     irad_cfc12  = 2
     irad_aero   = 2
+    lrad_aero_diag = .FALSE.
 
     ighg        = 0
 
@@ -250,9 +255,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('radiation_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), radiation_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, radiation_nml)
+      READ (nnml, radiation_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), radiation_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -275,6 +282,7 @@ CONTAINS
     config_irad_cfc11 = irad_cfc11
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
+    config_lrad_aero_diag = lrad_aero_diag
     config_ighg       = ighg
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4

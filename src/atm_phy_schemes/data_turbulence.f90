@@ -175,6 +175,15 @@ REAL (KIND=ireals) ::         &
   wichfakt   =  0.15_ireals,  & ! vertical smoothing factor for explicit diffusion tendencies
   securi     =  0.50_ireals     ! security factor for maximal diffusion coefficients
 
+REAL (KIND=ireals) ::         &
+!
+  frcsmot    =  0.00_ireals,  &
+  tndsmot    =  0.00_ireals,  &
+  stbsmot    =  0.00_ireals,  &
+  frcsecu    =  1.00_ireals,  &
+  tkesecu    =  1.00_ireals,  &
+  stbsecu    =  0.00_ireals
+  
 INTEGER (KIND=iintegers) :: &
 !
   it_end     =  1                ! number of initialization iterations (>=0)

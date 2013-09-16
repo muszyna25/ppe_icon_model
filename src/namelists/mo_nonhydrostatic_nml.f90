@@ -44,6 +44,7 @@ MODULE mo_nonhydrostatic_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
                                     & open_and_restore_namelist, close_tmpfile
+  USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
 
   USE mo_nonhydrostatic_config, ONLY: &
                                     ! from namelist
@@ -51,6 +52,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_iadv_rcf         => iadv_rcf         , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_lextra_diffu     => lextra_diffu     , &
+                                    & config_lbackward_integr => lbackward_integr , &
                                     & config_divdamp_fac      => divdamp_fac      , &
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_ivctype          => ivctype          , &
@@ -61,6 +63,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
                                     & config_vwind_offctr     => vwind_offctr     , &
                                     & config_rhotheta_offctr  => rhotheta_offctr  , &
+                                    & config_veladv_offctr    => veladv_offctr    , &
                                     & config_iadv_rhotheta    => iadv_rhotheta    , &
                                     & config_igradp_method    => igradp_method    , &
                                     & config_exner_expol      => exner_expol      , &
@@ -102,6 +105,7 @@ MODULE mo_nonhydrostatic_nml
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
   LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
                                      ! to the CFL stability limit for vertical advection
+  LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: divdamp_order           ! Order of divergence damping
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
@@ -117,6 +121,7 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
   REAL(wp):: rhotheta_offctr         ! Off-centering for density and potential temperature at interface levels
+  REAL(wp):: veladv_offctr           ! Off-centering for velocity advection
   INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
   INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
   REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
@@ -150,7 +155,7 @@ MODULE mo_nonhydrostatic_nml
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
                               & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
-                              & rhotheta_offctr, lextra_diffu
+                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -196,6 +201,9 @@ CONTAINS
     ! limit for vertical advection
     lextra_diffu = .TRUE.
 
+    ! switch for testing a digital filter initialization (DFI), which includes a backward-in-time integration
+    lbackward_integr = .FALSE.
+
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
     divdamp_fac = 0.004_wp
 
@@ -213,7 +221,7 @@ CONTAINS
     hbot_qvsubstep  = 24000._wp
 
     ! type of Rayleigh damping
-    rayleigh_type     = 2           ! Klemp-type Rayleigh damping
+    rayleigh_type     = 2._wp           ! Klemp-type Rayleigh damping
     ! Rayleigh damping of w above 45 km
     damp_height(1)    = 45000.0_wp
     ! Corresponding damping coefficient
@@ -226,6 +234,8 @@ CONTAINS
     ! Specifying a negative value here reduces the amount of vertical wind off-centering needed for
     ! stability of sound waves. 
     rhotheta_offctr   = -0.1_wp
+    ! Off-centering of velocity advection in corrector step
+    veladv_offctr = 0.25_wp
     ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
     ! Use truly horizontal pressure-gradient computation to ensure numerical stability
@@ -278,9 +288,11 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nonhydrostatic_nml', status=istat)
+    IF (my_process_is_stdio()) WRITE(temp_defaults(), nonhydrostatic_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nonhydrostatic_nml)
+      READ (nnml, nonhydrostatic_nml, iostat=istat)                          ! overwrite default settings
+      IF (my_process_is_stdio()) WRITE(temp_settings(), nonhydrostatic_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
 
@@ -337,6 +349,7 @@ CONTAINS
        config_iadv_rhotheta     = iadv_rhotheta
        config_vwind_offctr      = vwind_offctr
        config_rhotheta_offctr   = rhotheta_offctr
+       config_veladv_offctr     = veladv_offctr
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
        config_ltheta_up_hori    = ltheta_up_hori
@@ -345,6 +358,7 @@ CONTAINS
        config_iadv_rcf          = iadv_rcf
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
+       config_lbackward_integr  = lbackward_integr
        config_divdamp_fac       = divdamp_fac
        config_divdamp_order     = divdamp_order
        config_itime_scheme      = itime_scheme

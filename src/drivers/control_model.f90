@@ -59,7 +59,7 @@ PROGRAM control_model
 #endif
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
-  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_stdio
+  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
@@ -67,9 +67,10 @@ PROGRAM control_model
   USE mo_util_signal
 
   USE mo_ocean_model,         ONLY: ocean_model
+  USE mo_icon_testbed,        ONLY: icon_testbed
+
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_atmo_model,          ONLY: atmo_model
-  USE mo_icon_testbed,        ONLY: icon_testbed
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
 
@@ -192,12 +193,13 @@ PROGRAM control_model
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 
-  CASE (testbed_process)
-    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 
 !   CASE (radiation_process)
 !     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
+
+  CASE (testbed_process)
+    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
@@ -208,7 +210,7 @@ PROGRAM control_model
   END SELECT
       
   ! write the control.status file
-  IF (my_process_is_stdio()) THEN
+  IF (my_process_is_global_root()) THEN
     OPEN (500, FILE="finish.status")
     IF (restart_experiment) THEN
       WRITE(500,*) "RESTART"

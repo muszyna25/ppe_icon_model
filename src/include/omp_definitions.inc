@@ -16,8 +16,8 @@
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(runtime)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(guided)
 #else
-#define ICON_OMP_DO $omp do schedule(dynamic,1)
-#define ICON_OMP_PARALLEL_DO $omp parallel do schedule(dynamic,1)
+#define ICON_OMP_DO $omp do 
+#define ICON_OMP_PARALLEL_DO $omp parallel do 
 #define ICON_OMP_DEFAULT_SCHEDULE SCHEDULE(dynamic,1)
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(dynamic,1)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(dynamic,1)

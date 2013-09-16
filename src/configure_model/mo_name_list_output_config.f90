@@ -43,183 +43,38 @@
 !!
 MODULE mo_name_list_output_config
 
-  USE mo_kind,                  ONLY: wp, i8
+  USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish
-  USE mo_io_units,              ONLY: filename_max
-  USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
-    &                                 vname_len, max_var_ml, max_var_pl, &
-    &                                 max_var_hl, max_var_il, max_levels,&
+  USE mo_impl_constants,        ONLY: max_var_ml, max_var_pl, &
+    &                                 max_var_hl, max_var_il, &
     &                                 MAX_TIME_LEVELS
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_master_control,        ONLY: is_restart_run
+  USE mo_name_list_output_types,ONLY: t_output_name_list, t_output_file, &
+    &                                 t_var_desc
 
   IMPLICIT NONE
 
-  PUBLIC :: is_grib_output, &
+  PUBLIC :: is_grib_output,                                  &
     &       is_output_nml_active,  is_any_output_nml_active, &
     &       is_output_file_active, is_any_output_file_active
-  PUBLIC :: use_async_name_list_io, l_output_phys_patch
-  PUBLIC :: max_var_ml, max_var_pl, max_var_hl, max_bounds              
-  PUBLIC :: max_levels, vname_len, t_output_name_list
-  PUBLIC :: first_output_name_list, max_time_levels, t_output_file,&
-    &       t_var_desc,t_rptr_5d
+  PUBLIC :: use_async_name_list_io
+  PUBLIC :: first_output_name_list
   PUBLIC :: add_var_desc
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
     &  version = '$Id$'
 
-  ! Flag whether async name_list I/O is used, it is set in the main program:
-
-  LOGICAL :: use_async_name_list_io = .FALSE.
-  
   ! Constant defining how many variable entries are added when resizing array:
   INTEGER, PARAMETER :: NVARS_GROW = 10
-
-  ! The following parameter decides whether physical or logical patches are output
-  ! and thus whether the domain number in output name lists pertains to physical
-  ! or logical patches.
-
-  LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
-
-  TYPE t_output_name_list
-
-    ! --------------------
-    ! file name and format
-    ! --------------------
-
-    INTEGER                     :: filetype          ! One of CDI's FILETYPE_XXX constants
-    CHARACTER(LEN=filename_max) :: output_filename   ! output filename prefix
-    CHARACTER(LEN=filename_max) :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
-
-    ! --------------------
-    ! general settings
-    ! --------------------
-
-    INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
-    INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
-    INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-    INTEGER          :: steps_per_file              ! Max number of output steps in one output file
-    LOGICAL          :: include_last                ! Flag whether to include the last timestep in output
-    LOGICAL          :: output_grid                 ! Flag whether grid information is output (in NetCDF output)
-
-    ! post-processing times in units defined by output_time_unit: start, end, increment:
-    REAL(wp)         :: output_bounds(3,max_bounds) 
-
-    INTEGER          :: taxis_tunit   ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
-
-    ! --------------------
-    ! ready file handling
-    ! --------------------
-
-    LOGICAL                     :: lwrite_ready     ! Flag. TRUE if a "ready file" (sentinel file) should be written
-    CHARACTER(LEN=filename_max) :: ready_directory  ! output directory for ready files
-
-    ! --------------------
-    ! variable lists
-    ! --------------------
-
-    CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields
-    CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields
-    CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
-    CHARACTER(LEN=vname_len)  :: il_varlist(max_var_hl)   ! name of isentropic level fields
-
-    ! --------------------
-    ! horizontal interpol.
-    ! --------------------
-
-    INTEGER  :: remap                 ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
-    LOGICAL  :: remap_internal        ! do interpolations online in the model or external (including triggering)
-    INTEGER  :: lonlat_id             ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
-
-    ! --------------------
-    ! vertical interpol.
-    ! --------------------
-
-    REAL(wp) :: p_levels(max_levels)  ! pressure levels [hPa]
-    REAL(wp) :: h_levels(max_levels)  ! height levels
-    REAL(wp) :: i_levels(max_levels)  ! isentropic levels
-
-    ! -------------------------------------
-    ! Internal members, not read from input
-    ! -------------------------------------
-
-    INTEGER  :: cur_bounds_triple     ! current output_bounds triple in use
-    REAL(wp) :: next_output_time      ! next output time (in seconds simulation time)
-    INTEGER  :: n_output_steps
-    TYPE(t_output_name_list), POINTER :: next ! Pointer to next output_name_list
-
-  END TYPE t_output_name_list
 
   ! Pointer to a linked list of output name lists:
   TYPE(t_output_name_list), POINTER :: first_output_name_list => NULL()
 
-  !------------------------------------------------------------------------------------------------
-
-  ! Unfortunately, Fortran does not allow arrays of pointers, so we
-  ! have to define extra types
-  TYPE t_rptr_5d
-    REAL(wp), POINTER :: p(:,:,:,:,:)
-  END TYPE
-
-  TYPE t_iptr_5d
-    INTEGER,  POINTER :: p(:,:,:,:,:)
-  END TYPE
-
-  TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)         ! Pointer to time level independent REAL data (or NULL)
-    INTEGER,  POINTER :: i_ptr(:,:,:,:,:)         ! Pointer to time level independent INTEGER data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_rptr(MAX_TIME_LEVELS) ! Pointers to time level dependent REAL data
-    TYPE(t_iptr_5d) :: tlev_iptr(MAX_TIME_LEVELS) ! Pointers to time level dependent INTEGER data
-    TYPE(t_var_metadata) :: info                  ! Info structure for variable
-  END TYPE
-
-  !------------------------------------------------------------------------------------------------
-  TYPE t_output_file
-    
-    ! The following data must be set before opening the output file:
-    CHARACTER(LEN=filename_max) :: filename_pref ! Prefix of output file name
-    INTEGER                     :: output_type   ! CDI format
-    INTEGER                     :: phys_patch_id ! ID of physical output patch
-    INTEGER                     :: log_patch_id  ! ID of logical output patch
-    REAL(wp)                    :: start_time    ! start time of model domain
-    REAL(wp)                    :: end_time      ! end time of model domain
-    LOGICAL                     :: initialized   ! .TRUE. if vlist setup has already been called
-    INTEGER                     :: ilev_type     ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
-    INTEGER                     :: max_vars      ! maximum number of variables allocated
-    INTEGER                     :: num_vars      ! number of variables in use
-    TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
-    TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
-
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
-
-    INTEGER                     :: remap         ! Copy of remap from associated namelist
-
-    INTEGER                     :: io_proc_id    ! ID of process doing I/O on this file
-
-    !----------------------------
-    ! Used for async IO only
-    INTEGER(i8)                 :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE    :: mem_win_off(:)
-    !----------------------------
-
-    ! The following members are set during open
-    CHARACTER(LEN=filename_max) :: filename           ! Actual name of output file
-    CHARACTER(LEN=filename_max) :: rdy_filename       ! Actual name of ready file (if any)
-    INTEGER                     :: cdiFileId
-    INTEGER                     :: cdiVlistId         ! cdi vlist handler
-    INTEGER                     :: cdiCellGridID
-    INTEGER                     :: cdiVertGridID
-    INTEGER                     :: cdiEdgeGridID
-    INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(25) ! All types of possible Zaxis ID's
-    INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiTimeIndex
-    INTEGER                     :: cdiInstID      ! output generating institute
-    INTEGER                     :: cdi_grb2(3,2)  !< geographical position: (GRID, latitude/longitude)
-
-  END TYPE t_output_file
+  ! Flag whether async name_list I/O is used, it is set in the main program:
+  LOGICAL :: use_async_name_list_io = .FALSE.
 
 CONTAINS
   

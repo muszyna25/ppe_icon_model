@@ -60,6 +60,8 @@ MODULE mo_o3_util
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_physical_constants,   ONLY: amd,amo3
+  USE mo_time_interpolation,   ONLY: wgt1=>wgt1_limm, wgt2=>wgt2_limm, &
+                                     inm1=>inm1_limm, inm2=>inm2_limm
   
   IMPLICIT NONE
 
@@ -73,29 +75,23 @@ CONTAINS
 
   !=======================================================================
 
-SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,&  ! IN
-                     & selmon,                          & ! IN
-                     & ext_O3 ,                         & ! IN kproma,nlev_p,jb,nmonth
-                     & o3_time_int                       )! OUT kproma,nlev_p
+SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
+                     & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
+                     & o3_time_int                      )! OUT kproma,nlev_p
 
-  ! NOTE the very first approach ist no time avareaging but selection of 
-  ! a special month (september) for aqua planet simulations
+ ! In prior version, just a certain month was selected. This is not used anymore
+ ! (revision13218) an the routine is now doing true time interpolation
+ ! The time interpolation is done to the radiation time step, monthly ozone
+ ! values provided that are given at the middle of each month (monthly averages)
 
     INTEGER, INTENT(in)         :: kproma ! 
     INTEGER, INTENT(in)         :: kbdim  ! 
-    INTEGER, INTENT(in)         :: nmonths     ! number of months in o3
-    INTEGER, INTENT(in),OPTIONAL:: selmon      ! selected month for experiment
     INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
+    REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
+    REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
 
-    REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,nmonths):: ext_o3
-    REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)        :: o3_time_int
-
-    IF(PRESENT(selmon))THEN
-      o3_time_int(1:kproma,1:nlev_pres) =ext_o3(1:kproma,1:nlev_pres,selmon)
-    ELSE
-      o3_time_int(1:kproma,1:nlev_pres) =ext_o3(1:kproma,1:nlev_pres,9) ! September
-    ENDIF
-
+    o3_time_int(1:kproma,:)=wgt1*ext_o3(1:kproma,:,inm1)+ &
+                            wgt2*ext_o3(1:kproma,:,inm2)
 END SUBROUTINE o3_timeint
 
  SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&

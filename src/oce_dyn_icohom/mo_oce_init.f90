@@ -60,7 +60,8 @@ USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
   &                              init_oce_relax, irelax_3d_S, irelax_3d_T, irelax_2d_S,     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
-  &                              basin_height_deg,  basin_width_deg, temperature_relaxation
+  &                              basin_height_deg,  basin_width_deg, temperature_relaxation,&
+  &                              oce_t_ref, oce_s_ref, use_tracer_x_height
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
   &                              land_boundary,                                             &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -76,8 +77,7 @@ USE mo_netcdf_read,        ONLY: read_netcdf_data
 USE mo_sea_ice_types,      ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
 USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3D !, map_edges2cell_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3D !, grad_fd_norm_oce_2D_3D,&
-!  &                              height_related_quantities
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3D
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: update_time_indices! , calc_vert_velocity
 USE mo_master_control,     ONLY: is_restart_run
@@ -137,8 +137,8 @@ CONTAINS
     !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_prog(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_prog(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
@@ -321,8 +321,8 @@ CONTAINS
     INTEGER :: ncid, dimid
     INTEGER :: i_startidx_c, i_endidx_c
 
-    REAL(wp):: z_c(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp):: z_relax(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp):: z_c(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: z_relax(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
@@ -842,7 +842,7 @@ CONTAINS
   INTEGER :: i_startidx_c, i_endidx_c
   INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: z_dolic
-  REAL(wp):: z_c(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp):: z_c(nproma,n_zlev,p_patch%alloc_cell_blocks)
   REAL(wp):: z_lat, z_lon
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
@@ -1534,7 +1534,7 @@ CONTAINS
 
     CASE (46)
     ! T and S are horizontally and vertically homegeneous
-    ! Values are hardcoded and used for comparison with MPIOM
+    ! Values are taken from namelist and used for comparison with MPIOM; default: t=16 C, s=35 psu
       CALL message(TRIM(routine), 'Initialization of testcases (46)')
       CALL message(TRIM(routine), &
         &  ' - here: horizontally and vertically homogen')
@@ -1545,15 +1545,9 @@ CONTAINS
           DO jk=1,n_zlev
 
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ! #slo# 2011-11-17 - for MPIOM comparison - set T/S to 5C/35psu
-              ! #slo# 2012-05-02 - for MPIOM comparison - set T/S to 1C/34.8psu
-              ! #slo# 2012-06-21 - for Debug            - set T/S to 0C/35.0psu
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 2.0_wp
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 16.0_wp !5.0_wp
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = oce_t_ref
               IF (no_tracer == 2) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = oce_s_ref
               END IF
             END IF
           END DO
@@ -1739,7 +1733,6 @@ CONTAINS
         END DO
       END IF
 
-
     CASE (51)
       CALL message(TRIM(routine), 'Simple Initialization of testcases (51)')
       CALL message(TRIM(routine), &
@@ -1816,6 +1809,7 @@ CONTAINS
           END DO
         END DO
       END DO
+
     CASE(53)
       CALL message(TRIM(routine), 'LOCK exchange (53)')
       p_os%p_prog(nold(1))%h  = 0.0_wp
@@ -1861,7 +1855,8 @@ CONTAINS
   IF (no_tracer >=1) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src)
-  ELSE IF (no_tracer == 2) THEN
+  END IF
+  IF (no_tracer >= 2) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
     CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src)
   END IF
@@ -1928,7 +1923,6 @@ ELSEIF( iswm_oce == 1 )THEN
          p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !should be test2_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
-!       CALL height_related_quantities( p_patch, p_os)
 !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
 !                  & p_patch,    &
 !                  & p_os%p_diag%grad(:,1,:))
@@ -1969,7 +1963,6 @@ ELSEIF( iswm_oce == 1 )THEN
         p_ext_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
         END DO
       END DO
-!       CALL height_related_quantities( p_patch, p_os)
 !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
 !                  & p_patch,    &
 !                  & p_os%p_diag%grad(:,1,:))
@@ -2102,6 +2095,9 @@ ELSEIF( iswm_oce == 1 )THEN
   END SELECT
 ENDIF  !  iswm_oce
 
+  CALL fill_tracer_x_height(p_patch_3D, p_os)
+
+
 CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE init_ho_testcases
@@ -2206,8 +2202,8 @@ FUNCTION geo_balance_mim(p_patch, h_e,grad_coeff, rhs_e) result(vn_e)
      REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
     !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
      REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-     REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
-     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,p_patch%nblks_c)
+     REAL(wp) :: z_kin(nproma,1,p_patch%alloc_cell_blocks)
+     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,p_patch%alloc_cell_blocks)
      !-----------------------------------------------------------------------
      TYPE(t_subset_range), POINTER :: all_cells
      !-----------------------------------------------------------------------
@@ -3235,8 +3231,8 @@ stop
     REAL(wp), INTENT(in)  :: p_alpha   ! ROTATION ANGLE
 
 ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(out) :: p_rotlon  ! ROTATED LONGITUDE
-    REAL(wp), INTENT(out) :: p_rotlat  ! ROTATED LATITUDE
+    REAL(wp), INTENT(inout) :: p_rotlon  ! ROTATED LONGITUDE
+    REAL(wp), INTENT(inout) :: p_rotlat  ! ROTATED LATITUDE
 
 ! !LOCAL VARIABLES:
     REAL(wp)              :: z_test    ! checking value
@@ -3577,5 +3573,33 @@ stop
 
    END FUNCTION geostr_balance11
 
+  SUBROUTINE fill_tracer_x_height(patch_3D, ocean_state)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER :: tracer_idx, jk, jb, jc, start_cell_idx, end_cell_idx
+
+    IF (.not. use_tracer_x_height) RETURN
+
+    all_cells => patch_3D%p_patch_2D(1)%cells%all
+
+    DO  tracer_idx = 1, no_tracer
+      ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(:, :, :) = 0.0_wp
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_idx, end_cell_idx)
+        DO jc = start_cell_idx, end_cell_idx
+          DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
+            ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(jc, jk, jb) = &
+              & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration(jc,jk,jb)   *      &
+              & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(jc, jk, jb)
+
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE fill_tracer_x_height
 
 END MODULE mo_oce_init

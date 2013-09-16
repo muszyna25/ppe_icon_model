@@ -55,7 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
-  USE mo_o3_util,             ONLY: o3_pl2ml !o3_timeint
+  USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
@@ -200,7 +200,7 @@ CONTAINS
 
 !!$    REAL(wp) :: zdoy, zra, zdec, zdis, zen1, zen2, zen3
 
-!!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
+    REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon 
 
 !!$    REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
 
@@ -498,13 +498,26 @@ CONTAINS
 !                ENDDO
 !              ENDIF
             CASE(io3_amip)
+              CALL o3_timeint(kproma=jce,               kbdim=nbdim,                 &
+                              nlev_pres=nplev_o3,                                    &
+                              ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
+!!$              IF (jb == 1) THEN
+!!$                 DO jk=1,nplev_o3
+!!$                    WRITE(0,*) 'plev=',jk,'o3_plev=',o3_plev(jce,jk,jb,1),'o3_time_int=',zo3_timint(jce,jk)
+!!$                 END DO
+!!$              END IF
               CALL o3_pl2ml(kproma=jce,                 kbdim=nbdim,          &
                           & nlev_pres=nplev_o3,         klev=nlev,            &
                           & pfoz=plev_full_o3,          phoz=plev_half_o3,    &
                           & ppf=field%presm_new(:,:,jb),                      &
                           & pph=field%presi_new(:,:,jb),                      &
-                          & o3_time_int=o3_plev(:,:,jb,datetime%month),       &
+                          & o3_time_int=zo3_timint,                           &
                           & o3_clim=field%o3(:,:,jb)                          )
+!!$              IF (jb == 1) THEN
+!!$                 DO jk=1,nlev
+!!$                    WRITE(0,*) 'lev=',jk,'o3_clim=',field%o3(jce,jk,jb)
+!!$                 END DO
+!!$              END IF
             END SELECT
 
 
@@ -556,8 +569,8 @@ CONTAINS
           ! -----
           !
           ! indices and dimensions
-!!$          & jg                       ,&!< in     domain index
-!!$          & jb                       ,&!< in     block index
+          & jg                       ,&!< in     domain index
+          & jb                       ,&!< in     block index
           & jce        = jce         ,&!< in     end   index for loop over block
           & kbdim      = nbdim       ,&!< in     dimension of block over cells
           & klev       = nlev        ,&!< in     number of full levels = number of layers

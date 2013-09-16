@@ -148,12 +148,12 @@ CONTAINS
          &         'allocation of ptr_c failed')
     ENDIF
 
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
-    nblks_e  = ptr_patch%nblks_int_e
-    npromz_e = ptr_patch%npromz_int_e
-    nblks_v  = ptr_patch%nblks_int_v
-    npromz_v = ptr_patch%npromz_int_v
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
+    nblks_e  = ptr_patch%nblks_e
+    npromz_e = ptr_patch%npromz_e
+    nblks_v  = ptr_patch%nblks_v
+    npromz_v = ptr_patch%npromz_v
 
     ! topography
     ptr_ext_data%atm%topography_c(:,:) = 0.0_wp
@@ -416,8 +416,8 @@ CONTAINS
     zweta0 = zomega0 / zp0 * COS( 2._wp*pi/ztau * p_sim_time )
 
 
-    nblks_c  = ptr_patch%nblks_int_c
-    npromz_c = ptr_patch%npromz_int_c
+    nblks_c  = ptr_patch%nblks_c
+    npromz_c = ptr_patch%npromz_c
 
     ! top vertical half level coordinate
     zetah_top = cetah(1)

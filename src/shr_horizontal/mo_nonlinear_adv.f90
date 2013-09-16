@@ -171,10 +171,10 @@ IF (l_outputtime) THEN
   !----------------------------------------------------------------------
 ENDIF
 
-nblks_c   = pt_patch%nblks_int_c
-npromz_c  = pt_patch%npromz_int_c
-nblks_e   = pt_patch%nblks_int_e
-npromz_e  = pt_patch%npromz_int_e
+nblks_c   = pt_patch%nblks_c
+npromz_c  = pt_patch%npromz_c
+nblks_e   = pt_patch%nblks_e
+npromz_e  = pt_patch%npromz_e
 
 
 SELECT CASE (pt_patch%cell_type)
@@ -406,8 +406,8 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
   ! Absolute Potential Vorticity at rhombi
   !
   ! no grid refinement in hexagonal model
-  nblks_e   = pt_patch%nblks_int_e
-  npromz_e  = pt_patch%npromz_int_e
+  nblks_e   = pt_patch%nblks_e
+  npromz_e  = pt_patch%npromz_e
   ! loop over blocks and verts
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -471,8 +471,8 @@ CASE (6)  ! hexagons/pentagons (cell_type == 6)
 
   CASE (3)
 
-    nblks_c   = pt_patch%nblks_int_c
-    npromz_c  = pt_patch%npromz_int_c
+    nblks_c   = pt_patch%nblks_c
+    npromz_c  = pt_patch%npromz_c
 
     ieidx => pt_patch%edges%quad_idx
     ieblk => pt_patch%edges%quad_blk

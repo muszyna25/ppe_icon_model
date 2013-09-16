@@ -125,7 +125,7 @@ CONTAINS
 
     REAL(wp) :: zTempA    !Amplitude of the local diabatic forcing (in Kelvin/s)
 
-    nblks_c = p_patch%nblks_int_c                   
+    nblks_c = p_patch%nblks_c                   
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 
 !$OMP PARALLEL

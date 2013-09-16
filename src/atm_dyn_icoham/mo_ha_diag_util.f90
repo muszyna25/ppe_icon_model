@@ -172,8 +172,8 @@ CONTAINS
     !------------
     ! Dimension parameters
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     !-------------------------------------------------
     ! Part 1: sum_{j=1}^k div(vn*delp_e)_j
@@ -301,8 +301,8 @@ CONTAINS
 
     ! Dimension parameters
 
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
 
     ! Diagnose cell based quantities: pressure on full and half levels,
     ! layer thickness, and some auxiliary variables
@@ -370,7 +370,7 @@ CONTAINS
 
     !---
 
-    nblks_e = p_patch%nblks_int_e
+    nblks_e = p_patch%nblks_e
 
     ! Edge-based layer thickness: pressure levels
     IF (p_test_run)  p_delp_e(:,:,:) = 0
@@ -454,9 +454,9 @@ CONTAINS
 
     ! Dimension parameters
 
-    nblks_e  = p_patch%nblks_int_e
-    nblks_c  = p_patch%nblks_int_c
-    npromz_c = p_patch%npromz_int_c
+    nblks_e  = p_patch%nblks_e
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
 
     ! Diagnose cell based quantities: pressure on full and half levels,
     ! layer thickness, and some auxiliary variables
@@ -587,7 +587,7 @@ CONTAINS
 
     ! inquire dimension parameter
 
-    nblks_c  = p_patch%nblks_int_c
+    nblks_c  = p_patch%nblks_c
 
     !-------------------------------------------------------
     ! Diagnose virtual temperature (hydrostatic model only)
@@ -665,7 +665,7 @@ CONTAINS
             cur_datetime = time_config%cur_datetime
             ini_datetime = time_config%ini_datetime
             factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &
-              - ini_datetime%calday - ini_datetime%caltime) / 300._wp)
+              - ini_datetime%calday - ini_datetime%caltime) / 1._wp)
             !IF (jb==jbs) WRITE(*,*) 'Growing topography by factor ', factor_topo
             p_ext_data%atm%topography_c(is:ie,jb) = &
               p_ext_data%atm%elevation_c(is:ie,jb) * factor_topo

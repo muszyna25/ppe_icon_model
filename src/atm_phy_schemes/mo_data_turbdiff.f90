@@ -118,6 +118,12 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
      &                      wichfakt, & ! vertical smoothing factor for 
                                         ! explicit diffusion tendencies
      &                      securi,   & ! security factor for maximal diffusion coefficients
+     &                      frcsmot,  & !
+     &                      tndsmot,  & !
+     &                      stbsmot,  & !
+     &                      frcsecu,  & !
+     &                      tkesecu,  & !
+     &                      stbsecu,  & !
      &                      it_end      ! number of initialization iterations (>=0)
 
 
@@ -141,10 +147,14 @@ USE mo_turbdiff_config,      ONLY: turbdiff_config
 IMPLICIT NONE
 PUBLIC
 
-INTEGER (KIND=iintegers) :: &
+REAL(KIND=ireals), POINTER :: &
+    impl_weight(:)           ! implicit weights for tridiagonal solver
+
 !
 ! Switches controlling turbulent diffusion:
 ! ------------------------------------------
+!
+INTEGER (KIND=iintegers) :: &
 !
     itype_tran   =2,       & ! type of surface-atmosphere transfer
     imode_tran   =1,       & ! mode of surface-atmosphere transfer
@@ -152,7 +162,9 @@ INTEGER (KIND=iintegers) :: &
 !
     imode_turb   =3,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
-    itype_sher   =1          ! type of shear production for TKE
+    itype_sher   =1,       & ! type of shear production for TKE
+    imode_circ   =2,       & ! mode of treating the circulation term
+    ilow_dcond   =1          ! type of the default condition at the lower boundary
 
 LOGICAL :: &
 !
@@ -164,6 +176,7 @@ LOGICAL :: &
                              ! the mean value of the lowest layer for surface flux calulations
     lnonloc      =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
     lcpfluc      =.FALSE., & ! consideration of fluctuations of the heat capacity of air
+    lsflcnd      =.TRUE.,  & ! lower flux condition for vertical diffusion calculation
     limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
 
 INTEGER (KIND=iintegers) :: &
@@ -190,6 +203,8 @@ LOGICAL :: &
 
      INTEGER (KIND=iintegers), INTENT(IN) :: jg !patch index
 
+     impl_weight => turbdiff_config(jg)%impl_weight
+     
      lsso         =(atm_phy_nwp_config(jg)%inwp_sso.GT.0)
      lconv        =(atm_phy_nwp_config(jg)%inwp_convection.GT.0)
 
@@ -199,6 +214,7 @@ LOGICAL :: &
      imode_turb   = turbdiff_config(jg)%imode_turb
      icldm_turb   = turbdiff_config(jg)%icldm_turb
      itype_sher   = turbdiff_config(jg)%itype_sher
+
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon
      lexpcor      = turbdiff_config(jg)%lexpcor
@@ -206,7 +222,9 @@ LOGICAL :: &
      lprfcor      = turbdiff_config(jg)%lprfcor
      lnonloc      = turbdiff_config(jg)%lnonloc
      lcpfluc      = turbdiff_config(jg)%lcpfluc
+     lsflcnd      = turbdiff_config(jg)%lsflcnd
      limpltkediff = turbdiff_config(jg)%limpltkediff
+
      itype_wcld   = turbdiff_config(jg)%itype_wcld
      itype_synd   = turbdiff_config(jg)%itype_synd
 
@@ -217,9 +235,11 @@ LOGICAL :: &
      tkmmin       = turbdiff_config(jg)%tkmmin
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
-     rlam_mom     =turbdiff_config(jg)%rlam_mom
+     rlam_mom     = turbdiff_config(jg)%rlam_mom
      rat_sea      = turbdiff_config(jg)%rat_sea
      tkesmot      = turbdiff_config(jg)%tkesmot
+     impl_s       = turbdiff_config(jg)%impl_s
+     impl_t       = turbdiff_config(jg)%impl_t
 
  END SUBROUTINE get_turbdiff_param
 

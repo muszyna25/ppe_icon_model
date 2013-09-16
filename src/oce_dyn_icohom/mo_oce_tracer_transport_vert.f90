@@ -46,7 +46,7 @@ USE mo_kind,                      ONLY: wp
 !USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_math_constants,            ONLY: dbl_eps
-USE mo_ocean_nml,                 ONLY: n_zlev,temperature_relaxation, irelax_2d_S,         &
+USE mo_ocean_nml,                 ONLY: n_zlev,  &
   &                                     upwind, central, mimetic_miura,     &
   &                                     FLUX_CALCULATION_VERT
 USE mo_parallel_config,           ONLY: nproma
@@ -102,11 +102,11 @@ CONTAINS
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     TYPE(t_patch_3D ),TARGET          :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: p_os
-    REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c) !new tracer
+    REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables
@@ -114,7 +114,7 @@ CONTAINS
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     INTEGER  :: z_dolic
-    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)  ! vertical advective tracer flux
+    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
    TYPE(t_patch), POINTER :: p_patch
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_tracer_advection:advect_individual_tracer')
@@ -125,10 +125,13 @@ CONTAINS
     cells_in_domain => p_patch%cells%in_domain
 
 
-    z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%nblks_c)= 0.0_wp
+    z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
-    CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%w_time_weighted)
+
+    ! This is already synced in  edges_in_domain !
+    ! CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%w_time_weighted)
+
     ! Initialize timer for horizontal advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
 
@@ -136,16 +139,16 @@ CONTAINS
 
     CASE(UPWIND)
 
-       CALL upwind_vflux_oce( p_patch_3D,                 &
+      CALL upwind_vflux_oce( p_patch_3D,                 &
                             & trac_old,                   &
-                            & p_os%p_diag%w_time_weighted,& 
+                            & p_os%p_diag%w_time_weighted,&  ! in
                             & bc_top_tracer,              &
                             & z_adv_flux_v,tracer_id )
     CASE(CENTRAL)
 
       CALL central_vflux_oce(p_patch_3D,                 &
                            & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,&
+                           & p_os%p_diag%w_time_weighted,& ! in
                            & z_adv_flux_v, tracer_id)
 
       !CALL vflx_limiter_pd_oce( p_patch,                 &
@@ -160,7 +163,7 @@ CONTAINS
       !time
       CALL upwind_vflux_ppm( p_patch_3D,                 &
                            & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,&
+                           & p_os%p_diag%w_time_weighted,& ! in
                            & dtime, 1 ,                  & 
                            & p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
                            & z_adv_flux_v, tracer_id)
@@ -177,17 +180,11 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-        IF(z_dolic>0)THEN
-          DO jk = 1, z_dolic!-1
-         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             ! positive vertical divergence in direction of w (upward positive)
-              flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
-                                      &-z_adv_flux_v(jc,jk+1,jb)
-          END IF
+            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
+                                    &-z_adv_flux_v(jc,jk+1,jb)
         ENDDO
-        ENDIF
       END DO
     END DO
 
@@ -222,10 +219,10 @@ CONTAINS
   SUBROUTINE upwind_vflux_oce( p_patch_3D, pvar_c, pw_c,top_bc_t, pupflux_i, tracer_id )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells 
-    REAL(wp), INTENT(INOUT)           :: top_bc_t(nproma,      p_patch_3D%p_patch_2D(1)%nblks_c)           !< top boundary condition traver
-    REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c) !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
+    REAL(wp), INTENT(INOUT)           :: top_bc_t(nproma,      p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< top boundary condition traver
+    REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< variable in which the upwind flux is stored
     INTEGER, INTENT(IN)               :: tracer_id
     ! local variables
     ! height based but reversed (downward increasing depth) coordinate system,
@@ -235,6 +232,8 @@ CONTAINS
     INTEGER             :: i_startidx_c, i_endidx_c
     INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER             :: jkm1                     !< jk - 1
+    INTEGER             :: k
+
     TYPE(t_patch), POINTER :: p_patch
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -246,20 +245,13 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
-        !IF(z_dolic>=MIN_DOLIC)THEN
-        DO jk = 2, z_dolic
-          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        DO jk = 2, p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
             jkm1 = jk - 1
             ! calculate vertical tracer flux using upwind method
              pupflux_i(jc,jk,jb) =                 &
                &  laxfr_upflux_v( pw_c(jc,jk,jb),  &
                &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
-          ENDIF
-          !! no fluxes at bottom boundary !pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
         ENDDO
-        !zero advective flux at bottom boundary
-        !pupflux_i(jc,z_dolic+1,jb)=0.0_wp
       END DO
     END DO 
 
@@ -279,7 +271,7 @@ CONTAINS
 !     REAL(wp), INTENT(INOUT)           :: pvar_c(:,:,:)    !< advected cell centered variable
 !     REAL(wp), INTENT(INOUT)           :: pw_c(:,:,:)      !< vertical velocity on cells
 !     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
-!                                                           !< dim: (nproma,n_zlev+1,nblks_c)
+!                                                           !< dim: (nproma,n_zlev+1,alloc_cell_blocks)
 !     INTEGER, INTENT(IN)               :: tracer_id
 !     ! local variables
 !     INTEGER  :: i_startidx_c, i_endidx_c
@@ -382,9 +374,9 @@ CONTAINS
   SUBROUTINE central_vflux_oce( p_patch_3D, pvar_c, pw_c, c_flux_i, tracer_id )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)  :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)     !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)     !< vertical velocity on cells
-    REAL(wp), INTENT(INOUT)  :: c_flux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c) !< variable in which the central flux is stored
+    REAL(wp), INTENT(INOUT)  :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)  :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
+    REAL(wp), INTENT(INOUT)  :: c_flux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< variable in which the central flux is stored
     INTEGER, INTENT(IN)      :: tracer_id
     ! local variables
     INTEGER  :: i_startidx_c, i_endidx_c
@@ -457,23 +449,23 @@ CONTAINS
 !!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)            !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: p_w(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)           !< vertical velocity
+    REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)           :: p_w(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !<  in, but synced: vertical velocity
     REAL(wp), INTENT(IN)              :: p_dtime  !< time step
-    REAL(wp), INTENT(INOUT)           :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)!< layer thickness at cell center at time n
-    REAL(wp), INTENT(INOUT)           :: p_upflux(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)      !< output field, tracer flux 
+    REAL(wp), INTENT(INOUT)           :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
+    REAL(wp), INTENT(INOUT)           :: p_upflux(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< output field, tracer flux
     INTEGER, INTENT(IN)               :: p_itype_vlimit                                  !< parameter to select limiter
     INTEGER, INTENT(IN)               :: tracer_id
 !
 !local variables
-    REAL(wp) :: z_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)   !< face values of transported field
-    REAL(wp) :: z_face_up(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)  !< face value (upper face)
-    REAL(wp) :: z_face_low(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) !< face value (lower face)
+    REAL(wp) :: z_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   !< face values of transported field
+    REAL(wp) :: z_face_up(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< face value (upper face)
+    REAL(wp) :: z_face_low(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< face value (lower face)
     REAL(wp) :: z_lext_1(nproma,n_zlev+1)                 !< linear extrapolation value 1 
     REAL(wp) :: z_lext_2(nproma,n_zlev+1)                 !< linear extrapolation value 2
-    REAL(wp) :: z_cfl_m(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  !< CFL number (weta>0, w<0)
-    REAL(wp) :: z_cfl_p(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  !< CFL number (weta<0, w>0)
-    REAL(wp) :: z_slope(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  !< monotonized slope
+    REAL(wp) :: z_cfl_m(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< CFL number (weta>0, w<0)
+    REAL(wp) :: z_cfl_p(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< CFL number (weta<0, w>0)
+    REAL(wp) :: z_slope(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< monotonized slope
     REAL(wp) :: z_slope_u, z_slope_l                            !< one-sided slopes
     REAL(wp) :: z_delta_m, z_delta_p                            !< difference between lower and upper face value
                                                                 !< for weta >0 and weta <0
@@ -486,7 +478,7 @@ CONTAINS
     INTEGER  :: jc, jk, jb                                      !< index of cell, vertical level and block
     !LOGICAL  :: opt_lout_edge !< optional: output edge value (.TRUE.),
     !                          !< or the flux across the edge   !< (.FALSE./not specified)
-    !REAL(wp) :: opt_topflx_tra(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)  !< vertical tracer flux at upper boundary 
+    !REAL(wp) :: opt_topflx_tra(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< vertical tracer flux at upper boundary
     INTEGER, PARAMETER :: islopel_vsm = 1   
     TYPE(t_patch), POINTER :: p_patch
     !-----------------------------------------------------------------------
@@ -500,19 +492,21 @@ CONTAINS
     slevp1 = 2
     nlevp1 = n_zlev+1
 
-    z_cfl_m   (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-    z_cfl_p   (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-    z_face    (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-    z_face_low(1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-    z_face_up (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-    z_slope   (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
+    z_cfl_m   (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_cfl_p   (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_face    (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_face_low(1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_face_up (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_slope   (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
     z_lext_1  (1:nproma,1:n_zlev+1)=0.0_wp 
     z_lext_2  (1:nproma,1:n_zlev+1)=0.0_wp
 
 
     CALL sync_patch_array(SYNC_C, p_patch, p_cc)
     CALL sync_patch_array(SYNC_C, p_patch, p_cellhgt_mc_now)
-    CALL sync_patch_array(SYNC_C, p_patch, p_w)
+
+    ! this is noit needed
+    ! CALL sync_patch_array(SYNC_C, p_patch, p_w)
 
 
     ! advection is done with an upwind scheme and a piecwise parabolic
@@ -829,11 +823,11 @@ CONTAINS
   SUBROUTINE v_ppm_slimiter_mo( p_patch_3D, p_cc, p_face, p_slope, p_face_up, p_face_low )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: p_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  !< reconstructed face values of the advected field
-    REAL(wp), INTENT(INOUT)           :: p_slope(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) !< monotonized slope
-    REAL(wp), INTENT(INOUT)           :: p_face_up(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) !< final face value (upper face, height based)
-    REAL(wp), INTENT(INOUT)           :: p_face_low(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)!< final face value (lower face, height based)
+    REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)           :: p_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< reconstructed face values of the advected field
+    REAL(wp), INTENT(INOUT)           :: p_slope(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< monotonized slope
+    REAL(wp), INTENT(INOUT)           :: p_face_up(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< final face value (upper face, height based)
+    REAL(wp), INTENT(INOUT)           :: p_face_low(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)!< final face value (lower face, height based)
 
     ! locals
     INTEGER  :: nlev                      !< number of full levels
@@ -919,10 +913,10 @@ CONTAINS
     &                            opt_slev, opt_elev )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(INOUT)          :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)           !< advected cell centered variable at time (n)
-    REAL(wp), INTENT(INOUT)          :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(INOUT)          :: p_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)           !< advected cell centered variable at time (n)
+    REAL(wp), INTENT(INOUT)          :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(IN)             :: p_dtime
-    REAL(wp), INTENT(INOUT)          :: p_flx_tracer_v(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c) !< calculated vertical tracer mass flux
+    REAL(wp), INTENT(INOUT)          :: p_flx_tracer_v(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< calculated vertical tracer mass flux
     INTEGER,  INTENT(IN), OPTIONAL   :: opt_slev
     INTEGER,  INTENT(IN), OPTIONAL   :: opt_elev
 !
@@ -1090,16 +1084,16 @@ CONTAINS
 ! !                            & FLUX_CALCULATION_VERT, tracer_id)
 ! ! 
 ! !     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-! !     REAL(wp), INTENT(IN)              :: trac_in(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-! !     REAL(wp), INTENT(IN)              :: trac_old(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+! !     REAL(wp), INTENT(IN)              :: trac_in(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !     REAL(wp), INTENT(IN)              :: trac_old(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     TYPE(t_hydro_ocean_state), TARGET :: p_os
-! !     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
-! !     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
+! !     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     REAL(wp)                          :: A_v(:,:,:)                                   !vertical mixing coeff
-! !     REAL(wp), INTENT(OUT)             :: trac_out(:,:,:)                              !new tracer
+! !     REAL(wp), INTENT(inout)             :: trac_out(:,:,:)                              !new tracer
 ! !     INTEGER                           :: timestep
 ! !     REAL(wp)                          :: delta_t
-! !     REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+! !     REAL(wp), INTENT(INOUT)           :: cell_thick_intermed_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     INTEGER                           :: FLUX_CALCULATION_VERT
 ! !     INTEGER, INTENT(IN)               :: tracer_id
 ! ! 
@@ -1108,13 +1102,13 @@ CONTAINS
 ! !     INTEGER  :: i_startidx_c, i_endidx_c
 ! !     INTEGER  :: jc, jk, jb!, je!jkp1        !< index of edge, vert level, block
 ! !     INTEGER  :: z_dolic
-! !     REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%nblks_c)  ! vertical advective tracer flux
-! !     REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)        ! vertical tracer divergence
-! !     REAL(wp) :: z_div_diff_v (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)        ! vertical tracer divergence
-! !     REAL(wp) :: z_temp(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-! !     REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)   ! vertical diffusive tracer flux
+! !     REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
+! !     REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)        ! vertical tracer divergence
+! !     REAL(wp) :: z_div_diff_v (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)        ! vertical tracer divergence
+! !     REAL(wp) :: z_temp(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !     REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   ! vertical diffusive tracer flux
 ! ! 
-! !     REAL(wp) :: z_h(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
+! !     REAL(wp) :: z_h(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !     ! CHARACTER(len=max_char_length), PARAMETER :: &
 ! !     !        & routine = ('mo_tracer_advection:advect_individual_tracer')
 ! !     !-------------------------------------------------------------------------------

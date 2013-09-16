@@ -200,12 +200,12 @@ CONTAINS
 !
 !---initialize the prognostic variables
 !
-     nblks_c   = pt_patch%nblks_int_c
-     npromz_c  = pt_patch%npromz_int_c
-     nblks_e   = pt_patch%nblks_int_e
-     npromz_e  = pt_patch%npromz_int_e
-     nblks_v   = pt_patch%nblks_int_v
-     npromz_v  = pt_patch%npromz_int_v
+     nblks_c   = pt_patch%nblks_c
+     npromz_c  = pt_patch%npromz_c
+     nblks_e   = pt_patch%nblks_e
+     npromz_e  = pt_patch%npromz_e
+     nblks_v   = pt_patch%nblks_v
+     npromz_v  = pt_patch%npromz_v
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,nlen,lon,lat,rot_lon,rot_lat,zsiny,zcosy,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6)

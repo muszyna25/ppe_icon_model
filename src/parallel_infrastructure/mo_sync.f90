@@ -303,7 +303,6 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    TYPE(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i
    INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
-   LOGICAL :: l_part4d ! Allows to synchronize only part of a 4D field
 
 !-----------------------------------------------------------------------
 
@@ -616,7 +615,6 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       CALL finish('sync_patch_array','Illegal type parameter')
    ENDIF
 
-
    ! Actually do the check.
    ! The test PE broadcasts its full array, the other check if their section matches.
 
@@ -624,11 +622,24 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    IF(get_my_mpi_all_id() == process_mpi_all_test_id) THEN
 
-      IF(comm_lev==0) THEN
-         CALL p_bcast(arr(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
-      ELSE
-         CALL p_send(arr(:,:,1:nblks_g),comm_proc0(comm_lev)+p_work_pe0,1)
-      ENDIF
+     ! the test PE may also have reordered global indices. create a
+     ! temporary array in the correct order:
+     ALLOCATE(arr_g(nproma,ndim2,nblks_g))
+     DO j=1,ndim
+         jb = blk_no(j) ! Block index in distributed patch
+         jl = idx_no(j) ! Line  index in distributed patch
+
+         jb_g = blk_no(p_glb_index(j)) ! Block index in global patch
+         jl_g = idx_no(p_glb_index(j)) ! Line  index in global patch
+         arr_g(jl_g,1:ndim2,jb_g) = arr(jl,1:ndim2,jb)
+     END DO
+
+     IF(comm_lev==0) THEN
+       CALL p_bcast(arr_g(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
+     ELSE
+       CALL p_send(arr_g(:,:,1:nblks_g),comm_proc0(comm_lev)+p_work_pe0,1)
+     ENDIF
+     DEALLOCATE(arr_g)
 
    ELSE
 
@@ -669,7 +680,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
                   sync_error = .TRUE.
                   absmax = MAX(absmax,ABS(arr(jl,n,jb) - arr_g(jl_g,n,jb_g)))
                   IF (l_log_checks) &
-                     WRITE(log_unit,'(a,5i7,3e13.5)') 'sync error location:',&
+                     WRITE(log_unit,'(a,5i7,3e18.10)') 'sync error location:',&
                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
                        ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g))
                ENDIF
@@ -1246,7 +1257,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    ENDIF
 
    ! Get the maximum absolute value of all numbers.
-!$OMP PARALLEL PRIVATE(fact,r_fact,rval)
+!$OMP PARALLEL PRIVATE(rval)
 !$OMP DO PRIVATE(j)
    DO j=1,nblks
       max_aux(j) = MAXVAL(ABS(zfield(:,j)))
@@ -1258,10 +1269,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    abs_max = p_max(rval, comm=p_comm_glob)
 
    ! Get the exponent of abs_max for scaling
-
    iexp = EXPONENT(abs_max)
-!$OMP END MASTER
-!$OMP BARRIER
 
    ! Calculate a factor for scaling the input numbers
    ! so that the maximum absolute value of a scaled number
@@ -1269,6 +1277,9 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
 
    fact = SCALE(1._dp,40-iexp) ! same as 2**(40-iexp)
    r_fact = SCALE(1._dp,iexp-40) ! 1./fact
+
+!$OMP END MASTER
+!$OMP BARRIER
 
    ! Sum up all numbers as scaled integers
 

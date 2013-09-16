@@ -43,6 +43,7 @@ MODULE mo_oce_math_operators
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
+!  USE mo_exception,          ONLY: finish
   USE mo_run_config,         ONLY: ltimer
   USE mo_math_constants
   USE mo_physical_constants
@@ -80,7 +81,6 @@ MODULE mo_oce_math_operators
   !PUBLIC :: rot_vertex_ocean
   !PUBLIC :: rot_vertex_ocean_rbf
   PUBLIC :: calc_thickness
-  PUBLIC :: height_related_quantities
   PUBLIC :: map_edges2vert_3D
 
 
@@ -310,14 +310,15 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !!Boundary handling for triangles by P. Korn (2009)
-  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  !!
+  !!  mpi note: the result is on edges_in_domain.
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, p_patch_3D, grad_coeff, grad_norm_psi_e)
 
     !  patch on which computation is performed
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(IN)                          :: grad_coeff(:,:,:)!(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp), INTENT(IN)                          :: psi_c          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(INOUT)                       :: grad_norm_psi_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 
     !
@@ -442,7 +443,7 @@ CONTAINS
     !
     REAL(wp), INTENT(in)          :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
-    REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
@@ -559,13 +560,12 @@ CONTAINS
     !
     REAL(wp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
-    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     INTEGER,  INTENT(in)          :: level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
 
     INTEGER :: jc, jb
     INTEGER :: i_startidx, i_endidx
-    !INTEGER :: nlen, npromz_c, nblks_c
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
@@ -647,7 +647,7 @@ CONTAINS
   SUBROUTINE grad_fd_norm_oce_2d_3d( psi_c, p_patch, grad_coeff, grad_norm_psi_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
+    REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(in)    :: grad_coeff(:,:)
     REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
 
@@ -684,9 +684,18 @@ CONTAINS
         ! compute the normal derivative
         ! by the finite difference approximation
         ! (see Bonaventura and Ringler MWR 2005)
-        grad_norm_psi_e(je,jb) =  &
-          & (psi_c(iidx(je,jb,2),iblk(je,jb,2))-psi_c(iidx(je,jb,1),iblk(je,jb,1)))& 
-          & * grad_coeff(je,jb)
+        IF (iidx(je,jb,1) < 1 .or. iidx(je,jb,2) < 1) THEN
+!          IF (grad_coeff(je,jb) /= 0.0_wp) THEN
+!            CALL finish("grad_fd_norm_oce_2d_3d","grad_coeff(je,jb) /= 0.0_wp")
+!          ELSE
+            grad_norm_psi_e(je,jb) = 0.0_wp
+!          ENDIF
+        ELSE
+          grad_norm_psi_e(je,jb) =  &
+            & (psi_c(iidx(je,jb,2),iblk(je,jb,2))-psi_c(iidx(je,jb,1),iblk(je,jb,1)))&
+            & * grad_coeff(je,jb)
+        ENDIF
+
       END DO
     END DO
 ! !$OMP END DO
@@ -708,7 +717,9 @@ CONTAINS
   !! in the calculation of the tangential velocity, which is only need at lateral boundaries. Mimetic
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose.
-  !!   mpi note: the results is not synced. should be done by the calling method if necessary
+  !!
+  !! mpi note: the results is not synced. should be done by the calling method if necessary
+  !!     vn, p_vn_dual must have been synced on level 2 (in_domain + 1)
   SUBROUTINE rot_vertex_ocean_3d( p_patch_3D, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
@@ -1467,16 +1478,13 @@ CONTAINS
         !from bottom boundary to surface height
         !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
         DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+        IF ( p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0 ) THEN
             !This corresponds to full cells
             !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
             !    & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
             !  prepare for correct partial cells
-            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-            & + p_patch_3D%column_thick_c(jc,jb)
+            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%column_thick_c(jc,jb)
      !      &  - ice_hi(jc,1,jb)
-          ELSE
-            p_os%p_diag%thick_c(jc,jb) = 0.0_wp
           ENDIF
         END DO
       END DO
@@ -1490,9 +1498,6 @@ CONTAINS
 
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
           DO je = i_startidx_e, i_endidx_e
 
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1524,9 +1529,6 @@ CONTAINS
     ELSEIF(iswm_oce /= 1 )THEN
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
           DO je = i_startidx_e, i_endidx_e
 
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -1537,19 +1539,16 @@ CONTAINS
             z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
             z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
 
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
+            IF ( p_patch_3D%p_patch_1D(1)%dolic_e(je,jb) > 0 ) THEN
 
                 p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
                  & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
                  & /(z_dist_e_c1+z_dist_e_c2)
 
-            !  sea ice thickness on edges
+            !  sea ice thickness on edges ??
             !   ice_hi_e = ( z_dist_e_c1*ice_hi(il_c1,1,ib_c1)&
             !    &       +   z_dist_e_c2*ice_hi(il_c2,1,ib_c2) )&
             !    & /(z_dist_e_c1+z_dist_e_c2)
-
-                !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-                !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
 
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
                 &                          + p_patch_3D%column_thick_e(je,jb)
@@ -1559,10 +1558,6 @@ CONTAINS
             !   & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
             !   & /(z_dist_e_c1+z_dist_e_c2)
 
-
-            ELSE
-              p_os%p_diag%h_e(je,jb)    = 0.0_wp
-              p_os%p_diag%thick_e(je,jb)= 0.0_wp
             ENDIF
           END DO
         END DO
@@ -1606,214 +1601,17 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('calc_thick: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
-    CALL dbg_print('calc_thick: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
-    CALL dbg_print('calc_thick: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('calc_thick: h_old'          ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
+    CALL dbg_print('heightRelQuant: h_e'    ,p_os%p_diag%h_e        ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
+    idt_src=3
+    CALL dbg_print('heightRelQuant: h_c'    ,p_os%p_prog(nold(1))%h ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('heightRelQuant: thick_c',p_os%p_diag%thick_c    ,str_module,idt_src, &
+      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('heightRelQuant: thick_e',p_os%p_diag%thick_e    ,str_module,idt_src, &
+      & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE calc_thickness
-  !-------------------------------------------------------------------------
-
-  !---------------------------------------------------------------------------------
-  !>
-  !!
-  !!  Calculation of total fluid thickness at cell centers and surface elevation at
-  !!  cell edges from prognostic surface height at cell centers. We use height at
-  !!  old timelevel "n"
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2010).
-  !!  mpi parallelized LL
-  !!
-  SUBROUTINE height_related_quantities( p_patch_3D, p_os, p_ext_data)
-    !
-    ! Patch on which computation is performed
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    !
-    ! Type containing ocean state
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    !
-    ! Type containing external data
-    TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-
-    !  local variables
-    INTEGER            :: i_startidx_c, i_endidx_c
-    INTEGER            :: i_startidx_e, i_endidx_e
-    INTEGER            :: jc, jb, je
-    INTEGER            :: il_c1, ib_c1, il_c2, ib_c2
-    REAL(wp)           :: z_dist_e_c1, z_dist_e_c2
-
-    TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
-    TYPE(t_patch), POINTER        :: p_patch
-    !-------------------------------------------------------------------------------
-    !CALL message (TRIM(routine), 'start')
-    p_patch => p_patch_3D%p_patch_2D(1)
-    ! sync before run
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-
-    ! #ifndef __SX__
-    ! IF (ltimer) CALL timer_start(timer_height)
-    ! #endif
-    all_cells => p_patch%cells%all
-    edges_in_domain => p_patch%edges%in_domain
-
-    !Step 1: calculate cell-located variables for 2D and 3D case
-    !For 3D and for SWE thick_c contains thickness of fluid column
-    IF ( iswm_oce == 1 ) THEN  !  SWM
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-        !calculate for each fluid colum the total depth, i.e.
-        !from bottom boundary to surface height, i.e. using individual bathymetry for SWM
-        DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-
-            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-              &  - p_ext_data%oce%bathymetry_c(jc,jb) ! works fine with williamson 5
-          ELSE
-            p_os%p_diag%thick_c(jc,jb) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-
-    ELSEIF(iswm_oce /= 1 )THEN
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-        !calculate for each fluid colum the total depth, i.e.
-        !from bottom boundary to surface height
-        !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
-        DO jc = i_startidx_c, i_endidx_c
-          IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            !This corresponds to full cells
-            !p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-            !   & + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)+1)
-            !  prepare for correct partial cells
-            p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-            & + p_patch_3D%column_thick_c(jc,jb)
-          ELSE
-            p_os%p_diag%thick_c(jc,jb) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-    ENDIF!IF ( iswm_oce == 1 )
-
-
-    !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
-    !For SWE and for 3D: thick_e = thickness of fluid column at edges
-    !         h_e     = surface elevation at edges, without depth of first layer
-    IF ( iswm_oce == 1 ) THEN  !  SWM
-
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-          DO je = i_startidx_e, i_endidx_e
-
-            il_c1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-            il_c2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-            z_dist_e_c1 = 0.5_wp!z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
-            z_dist_e_c2 = 0.5_wp!z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
-
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-              p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
-                & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
-                & /(z_dist_e_c1+z_dist_e_c2)
-
-              p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
-                & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
-                & /(z_dist_e_c1+z_dist_e_c2)
-
-              !write(*,*)'height_e',je,jb, p_os%p_diag%h_e(je,jb), p_os%p_prog(nold(1))%h(il_c1,ib_c1),p_os%p_prog(nold(1))%h(il_c2,ib_c2)
-            ELSE
-              p_os%p_diag%h_e(je,jb) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-
-
-
-    ELSEIF(iswm_oce /= 1 )THEN
-
-
-        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-          DO je = i_startidx_e, i_endidx_e
-
-            il_c1 = p_patch%edges%cell_idx(je,jb,1)
-            ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-            il_c2 = p_patch%edges%cell_idx(je,jb,2)
-            ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-            z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1)
-            z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2)
-
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-
-                p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
-                 & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
-                 & /(z_dist_e_c1+z_dist_e_c2)
-
-              !p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb)&
-              !& + p_patch_3D%p_patch_1D(1)%zlev_i(p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)+1)
-              !  prepare for correct partial cells
-              p_os%p_diag%thick_e(je,jb) = p_os%p_diag%h_e(je,jb) &
-                &                          + p_patch_3D%column_thick_e(je,jb)
-
-            ELSE
-              p_os%p_diag%h_e(je,jb)    = 0.0_wp
-              p_os%p_diag%thick_e(je,jb)= 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
-        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-
-    ENDIF
-    ! write(*,*)'max/min thick_c:',maxval(p_os%p_diag%thick_c),minval(p_os%p_diag%thick_c)
-    ! write(*,*)'max/min h_c:',maxval(p_os%p_prog(nold(1))%h),minval(p_os%p_prog(nold(1))%h)
-    ! write(*,*)'max/min bath_c:',maxval(p_ext_data%oce%bathymetry_c),  &
-    !   &        minval(p_ext_data%oce%bathymetry_c)
-    ! write(*,*)'max/min thick_e:',maxval(p_os%p_diag%thick_e),minval(p_os%p_diag%thick_e)
-    ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e)
-    ! !CALL message (TRIM(routine), 'end')
-
-    ! #ifndef __SX__
-    ! IF (ltimer) CALL timer_stop(timer_height)
-    ! #endif
-
-    !sync results, already done
-!     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
-!     CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
-!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
-
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'            ,p_os%p_diag%h_e        ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_c'            ,p_os%p_prog(nold(1))%h ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_c'        ,p_os%p_diag%thick_c    ,str_module,idt_src)
-    CALL dbg_print('heightRelQuant: thick_e'        ,p_os%p_diag%thick_e    ,str_module,idt_src)
-    !---------------------------------------------------------------------
-
-
-  END SUBROUTINE height_related_quantities
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

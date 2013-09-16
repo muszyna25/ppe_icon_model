@@ -47,11 +47,12 @@ USE mo_kind,                ONLY: wp
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec !, gc2cc
 USE mo_impl_constants,      ONLY: boundary, sea_boundary, MIN_DOLIC ! ,max_char_length
 USE mo_parallel_config,     ONLY: nproma
-USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
+USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form, &
+  & use_tracer_x_height
 USE mo_run_config,          ONLY: dtime
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-  &                               t_hydro_ocean_aux!, v_base
+  &  t_ocean_tracer, t_hydro_ocean_aux!, v_base
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 !USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params
@@ -61,6 +62,7 @@ USE mo_oce_math_operators,  ONLY: div_oce_3D, rot_vertex_ocean_3d,&
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
+USE mo_exception,           ONLY: finish !, message_text, message
 
 IMPLICIT NONE
 
@@ -192,7 +194,7 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
   INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   TYPE(t_cartesian_coordinates) :: z_grad_u    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-  TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
   TYPE(t_patch), POINTER        :: p_patch 
 !-------------------------------------------------------------------------------
@@ -332,7 +334,7 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   REAL(wp)                      :: z_laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
   TYPE(t_cartesian_coordinates) :: z_grad_u          (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-  TYPE(t_cartesian_coordinates) :: z_div_grad_u      (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  TYPE(t_cartesian_coordinates) :: z_div_grad_u      (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
   TYPE(t_patch), POINTER        :: p_patch 
 ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -530,7 +532,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
     INTEGER :: i_startidx, i_endidx
-    REAL(wp) ::  z_div_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)!, &
+    REAL(wp) ::  z_div_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)!, &
     !REAL(wp) ::  z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     !REAL(wp) ::  z_rot_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
@@ -551,7 +553,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     ivblk => p_patch%edges%vertex_blk
 
     ! compute divergence of vector field
-    z_div_c(:,:,p_patch%nblks_c) = 0.0_wp
+    z_div_c(:,:,p_patch%alloc_cell_blocks) = 0.0_wp
     CALL div_oce_3d( u_vec_e, p_patch, p_op_coeff%div_coeff, z_div_c)
     CALL sync_patch_array(SYNC_C,p_patch,z_div_c)
 
@@ -559,14 +561,14 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     !CALL rot_vertex_ocean_3D( p_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
     !CALL sync_patch_array(SYNC_V,p_patch,z_rot_v)
     !z_rot_v=vort
-    !
-    !  loop through all patch edges (and blocks)
-    !
+    nabla2_vec_e(:,:,:) = 0.0_wp
+
     IF(PRESENT(k_h))THEN
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
-        DO jk = slev, elev
+        ! DO jk = slev, elev
+        DO jk = slev, p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)
 
 !              write(0, *) "==============================="
 !              write(0, *) "0",  je,jk,jb
@@ -580,15 +582,16 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 !              write(0,*)  "8",  z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1))
 !              write(0,*)  "9",  p_patch%edges%inv_dual_edge_length(je,jb)
           !IF(v_base%lsm_e(je,jk,jb) < land_boundary)THEN
-          nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)*&    !v_base%wet_e(je,jk,jb)*&
-            &k_h(je,jk,jb)*(   &
-            & p_patch%edges%system_orientation(je,jb) *     &
-            & ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))     &
-            & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )   &
-            & * p_patch%edges%inv_primal_edge_length(je,jb) &
-            & + &
-            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))     &
-            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )   &
+
+          nabla2_vec_e(je,jk,jb) = p_patch_3D%wet_e(je,jk,jb)* &    !v_base%wet_e(je,jk,jb)*&
+            & k_h(je,jk,jb) * (                                &
+            & p_patch%edges%system_orientation(je,jb) *        &
+            & ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))         &
+            & - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )       &
+            & * p_patch%edges%inv_primal_edge_length(je,jb)    &
+            & +                                                &
+            & ( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))      &
+            & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )    &
             & * p_patch%edges%inv_dual_edge_length(je,jb))
         END DO
       END DO
@@ -644,7 +647,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
     INTEGER :: i_startidx, i_endidx
-    REAL(wp) ::  z_div_c   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) ::  z_div_c   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) ::  z_rot_v   (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp) ::  z_nabla2_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: h_e        (nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -752,7 +755,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 ! !   !REAL(wp), INTENT(inout)           :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 ! !   TYPE(t_ho_params), INTENT(in)     :: p_param
 ! !   TYPE(t_hydro_ocean_diag)          :: p_diag
-! !   REAL(wp), INTENT(out)             :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
+! !   REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
 ! !   !
 ! !   !Local variables
 ! !   INTEGER :: slev, elev
@@ -819,21 +822,18 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff
   INTEGER                       :: slev, elev     ! vertical start and end level
   INTEGER                       :: jc, jk, jb, z_dolic
   INTEGER                       :: i_startidx, i_endidx
-  TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)!,  &
+  TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)!,  &
   TYPE(t_subset_range), POINTER :: cells_in_domain! , all_cells
   TYPE(t_patch), POINTER         :: p_patch 
-  !  &                              z_adv_u_m(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-  ! CHARACTER(len=max_char_length), PARAMETER :: &
-  !        & routine = ('mo_oce_diffusion:veloc diffusion vert mimetic')
   !-----------------------------------------------------------------------
   p_patch         => p_patch_3D%p_patch_2D(1)
 !  all_cells => p_patch%cells%all
   cells_in_domain => p_patch%cells%in_domain
   !-----------------------------------------------------------------------
 
-  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)%x(1) = 0.0_wp
-  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)%x(2) = 0.0_wp
-  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)%x(3) = 0.0_wp
+  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)%x(1) = 0.0_wp
+  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)%x(2) = 0.0_wp
+  z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)%x(3) = 0.0_wp
 
   slev       = 1
   elev       = n_zlev
@@ -924,15 +924,15 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 ! !   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 ! !   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
 ! !   ! Components of cell based variable which is vertically diffused
-! !   REAL(wp), INTENT(inout)           :: u_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-! !   REAL(wp), INTENT(inout)           :: v_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-! !   !REAL(wp), INTENT(in)              :: h_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+! !   REAL(wp), INTENT(inout)           :: u_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !   REAL(wp), INTENT(inout)           :: v_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !   !REAL(wp), INTENT(in)              :: h_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !   ! Top boundary condition for cell based variables
-! !   REAL(wp), INTENT(in)              :: top_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-! !   REAL(wp), INTENT(in)              :: top_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+! !   REAL(wp), INTENT(in)              :: top_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !   REAL(wp), INTENT(in)              :: top_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !   ! Bottom boundary condition for cell based variables
-! !   REAL(wp), INTENT(in)              :: bot_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
-! !   REAL(wp), INTENT(in)              :: bot_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%nblks_c)
+! !   REAL(wp), INTENT(in)              :: bot_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+! !   REAL(wp), INTENT(in)              :: bot_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !   TYPE(t_ho_params), INTENT(in)     :: p_param
 ! !   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
 ! !   ! variable in which horizontally advected velocity is stored
@@ -941,10 +941,10 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 ! !   INTEGER :: slev, elev     ! vertical start and end level
 ! !   INTEGER :: jc, jk, jb
 ! !   INTEGER :: i_startidx_c, i_endidx_c
-! !   TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+! !   TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !   TYPE(t_subset_range), POINTER :: all_cells
-! !   REAL(wp) :: z_u(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c),  &
-! !     &         z_v(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+! !   REAL(wp) :: z_u(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks),  &
+! !     &         z_v(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 ! !   ! CHARACTER(len=max_char_length), PARAMETER :: &
 ! !   !        & routine = ('mo_oce_diffusion:veloc diffusion vert rbf')
 ! !   !-----------------------------------------------------------------------
@@ -952,8 +952,8 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 ! !   !-----------------------------------------------------------------------
 ! ! 
 ! !   ! #slo# set local variable to zero due to nag -nan compiler-option
-! !   z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
-! !   z_v(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
+! !   z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+! !   z_v(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 ! ! 
 ! !   slev       = 1
 ! !   elev       = n_zlev
@@ -1051,7 +1051,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
   !
   ! Patch on which computation is performed
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-  REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   REAL(wp), INTENT(in)              :: K_T(:,:,:) !mixing coefficient for tracer
   REAL(wp), INTENT(inout)           :: diff_flx(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
@@ -1169,10 +1169,10 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
                                     & div_diff_flx)
 
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-  REAL(wp), INTENT(in)              :: trac_c       (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(in)              :: top_bc_tracer(nproma, p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(in)              :: trac_c       (nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(in)              :: top_bc_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp), INTENT(in)              :: A_v(:,:,:) 
-  REAL(wp), INTENT(out)             :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(inout)             :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !
   !Local variables
   INTEGER                       :: slev, elev
@@ -1180,7 +1180,7 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
   INTEGER                       :: i_startidx_c, i_endidx_c
   INTEGER                       :: z_dolic
   ! vertical diffusive tracer flux
-  REAL(wp)                      :: z_diff_flx(nproma, n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp)                      :: z_diff_flx(nproma, n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   TYPE(t_subset_range), POINTER :: all_cells
   TYPE(t_patch), POINTER        :: p_patch 
   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1191,7 +1191,7 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
   !-----------------------------------------------------------------------
   slev              = 1
   elev              = n_zlev
-  z_diff_flx(1:nproma, 1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
+  z_diff_flx(1:nproma, 1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 
   !1 Vertical derivative of tracer
   DO jb = all_cells%start_block, all_cells%end_block
@@ -1254,7 +1254,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !   REAL(wp), INTENT(inout)           :: field_column(:,:,:)
 !   REAL(wp), INTENT(IN)              :: h_c(:,:)           !surface height, relevant for thickness of first cell 
 !   REAL(wp), INTENT(in)              :: A_v(:,:,:)
-!   REAL(wp), INTENT(out)             :: diff_column(:,:,:)
+!   REAL(wp), INTENT(inout)             :: diff_column(:,:,:)
 !   !
 !   !Local variables
 !   INTEGER :: slev
@@ -1262,10 +1262,10 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !   INTEGER :: i_startidx_c, i_endidx_c
 !   REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 !   REAL(wp) :: z_tmp
-!   REAL(wp) :: inv_zinv_i(1:n_zlev)
-!   REAL(wp) :: inv_zinv_m(1:n_zlev)
+!   REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
+!   REAL(wp) :: inv_prism_thickness(1:n_zlev)
 !   !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
-!   !REAL(wp) :: z_c1(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
+!   !REAL(wp) :: z_c1(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 !   INTEGER  :: z_dolic
 !   TYPE(t_subset_range), POINTER :: all_cells
 !   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1280,8 +1280,8 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !   c(slev:n_zlev)          = 0.0_wp
 !   !bet(slev:n_zlev)       = 1.0_wp
 !   !gam(slev:n_zlev)       = 0.0_wp
-!   inv_zinv_i(slev:n_zlev) = 0.0_wp
-!   inv_zinv_m(slev:n_zlev) = 0.0_wp
+!   inv_prisms_center_distance(slev:n_zlev) = 0.0_wp
+!   inv_prism_thickness(slev:n_zlev) = 0.0_wp
 ! 
 !   all_cells => p_patch%cells%all
 ! 
@@ -1293,29 +1293,29 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !       IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
 !         IF ( z_dolic >=MIN_DOLIC ) THEN
 ! 
-!           inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
-!           inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
+!           inv_prisms_center_distance(:) = 1.0_wp/v_base%del_zlev_i(:)
+!           inv_prism_thickness(:) = 1.0_wp/v_base%del_zlev_m(:)
 ! 
-!            !inv_zinv_i(1) = 1.0_wp/(v_base%del_zlev_i(1)+h_c(jc,jb))
-!            !inv_zinv_m(1) = 1.0_wp/(v_base%del_zlev_m(1)+h_c(jc,jb))
-!           !inv_zinv_i(:) = 1.0_wp/h_c(jc,:,jb)
-!           !inv_zinv_m(:) = 1.0_wp/h_c(jc,:,jb)
+!            !inv_prisms_center_distance(1) = 1.0_wp/(v_base%del_zlev_i(1)+h_c(jc,jb))
+!            !inv_prism_thickness(1) = 1.0_wp/(v_base%del_zlev_m(1)+h_c(jc,jb))
+!           !inv_prisms_center_distance(:) = 1.0_wp/h_c(jc,:,jb)
+!           !inv_prism_thickness(:) = 1.0_wp/h_c(jc,:,jb)
 ! 
 !           !Fill triangular matrix
 !           !b is diagonal a and c are upper and lower band
 !           DO jk = slev+1, z_dolic-1
-!             a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
-!             c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
+!             a(jk) = -A_v(jc,jk,jb)  *inv_prism_thickness(jk) *inv_prisms_center_distance(jk)*dtime
+!             c(jk) = -A_v(jc,jk+1,jb)*inv_prism_thickness(jk) *inv_prisms_center_distance(jk+1)*dtime
 !             b(jk) = 1.0_wp-a(jk)-c(jk)
 !           END DO
 ! 
 !           ! The first row
-!           c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
+!           c(slev) = -A_v(jc,slev+1,jb)*inv_prism_thickness(slev)*inv_prisms_center_distance(slev+1)*dtime
 !           a(slev) = 0.0_wp           
 !           b(slev) = 1.0_wp- c(slev) - a(slev) 
 ! 
 !           ! The last row
-!           a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)*dtime
+!           a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_prism_thickness(z_dolic)*inv_prisms_center_distance(z_dolic)*dtime
 !           c(z_dolic) = 0.0_wp
 !           b(z_dolic) = 1.0_wp - a(z_dolic) - c(z_dolic)
 ! 
@@ -1369,106 +1369,187 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
-!! mpi parallelized, no sync required
-SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,   &
-                                         & field_column,&
-                                         & h_c,         &
-                                         & A_v,         &
-                                         & p_op_coeff,  &
-                                         & diff_column)
+!! The result diff_column is calculated on in_domain_cells
+SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
+                                         & ocean_tracer, h_c, A_v,   &
+                                         & p_op_coeff) !,  &
+                                        ! & diff_column)
 
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-  REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(IN)              :: h_c         (1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_c)  !surface height, relevant for thickness of first cell 
-  REAL(wp), INTENT(in)              :: A_v(:,:,:)  
+  TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+  TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
+  REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
+  REAL(wp), INTENT(inout)              :: A_v(:,:,:)
   TYPE(t_operator_coeff),TARGET     :: p_op_coeff
-  REAL(wp), INTENT(inout)           :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+  ! REAL(wp), INTENT(inout)           :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !
   !Local variables
   INTEGER :: slev
   INTEGER :: jc, jk, jb
   INTEGER :: i_startidx_c, i_endidx_c
-  !REAL(wp) :: a0(1:n_zlev), b0(1:n_zlev), c0(1:n_zlev)
-  !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
-  !REAL(wp) :: z_c1(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
   REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
-  REAL(wp) :: z_tmp
-  REAL(wp) :: inv_zinv_i(1:n_zlev)
-  REAL(wp) :: inv_zinv_m(1:n_zlev)
+  REAL(wp) :: fact
+  ! REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
+  ! REAL(wp) :: inv_prism_thickness(1:n_zlev)
   REAL(wp) :: dt_inv
+  REAL(wp), POINTER   :: field_column(:,:,:)
+  REAL(wp) :: column_tracer(1:n_zlev)
+  REAL(wp) :: prism_thickness(1:n_zlev), inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
   INTEGER  :: z_dolic
-  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_subset_range), POINTER :: cells_in_domain !all_cells
   TYPE(t_patch), POINTER         :: p_patch 
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
   !-----------------------------------------------------------------------
   p_patch   => p_patch_3D%p_patch_2D(1)
-  all_cells => p_patch%cells%all
+  ! all_cells => p_patch%cells%all
+  cells_in_domain => p_patch%cells%in_domain
+  IF (use_tracer_x_height) THEN
+    field_column => ocean_tracer%concentration_x_height
+  ELSE
+    field_column => ocean_tracer%concentration
+  ENDIF
   !-----------------------------------------------------------------------
   slev    = 1
   !A_v    = 0.0001_wp
   dt_inv = 1.0_wp/dtime
 
-  field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)&
-  &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)*dt_inv
+  ! done later in column_tracer
+  ! field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  &
+  !   & = field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * dt_inv
 
-  CALL sync_patch_array(SYNC_C, p_patch, field_column)
+  ! CALL sync_patch_array(SYNC_C, p_patch, field_column)
 
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
 
+      IF (z_dolic > 0 ) THEN
       !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
-      IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-        IF ( z_dolic >=MIN_DOLIC ) THEN
+      !IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+      !  IF ( z_dolic >=MIN_DOLIC ) THEN
 
-          !field_column(jc,1:z_dolic,jb)=field_column(jc,1:z_dolic,jb)*dt_inv
-           a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
-           b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
-           c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
+         ! a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
+         ! b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
+         ! c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
 
+          ! recalculate coefficients
+          prism_thickness(1)     = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + h_c(jc,jb)
+          inv_prism_thickness(1) = 1.0_wp / prism_thickness(1)
+          DO jk=2,z_dolic
+            prism_thickness(jk)            = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+            ! inv_prism_thickness(jk)        = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
+            inv_prism_thickness(jk)        = 1.0_wp / p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+            inv_prisms_center_distance(jk) = 2.0_wp / (prism_thickness(jk-1) + prism_thickness(jk))
+          ENDDO
 
+          IF (use_tracer_x_height) THEN
+            ! top level
+            a(1) = 0.0_wp
+            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(2) * inv_prisms_center_distance(2)         * dtime
+            b(1) = 1.0_wp + A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2) * dtime
+            !Fill triangular matrix
+            !b is diagonal a is the lower diagonal, c is the upper
+            DO jk = 2, z_dolic-1
+              a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk-1) * inv_prisms_center_distance(jk)   * dtime
+              c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk+1) * inv_prisms_center_distance(jk+1) * dtime
+              b(jk) = 1.0_wp +                                         &
+                & (A_v(jc,jk,jb)  * inv_prisms_center_distance(jk) +   &
+                &  A_v(jc,jk+1,jb) * inv_prisms_center_distance(jk+1)) * inv_prism_thickness(jk) * dtime
+            END DO
+            !bottom
+            a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic-1) * inv_prisms_center_distance(z_dolic) * dtime
+            c(z_dolic) = 0.0_wp
+            b(z_dolic) = 1.0_wp + A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic) * dtime
+
+            ! get locally the column tracer_x_height
+            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb)
+
+          !------------------------------------
+          ELSE ! not use_tracer_x_height
+            ! top level
+            a(1) = 0.0_wp
+            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+            b(1) = dt_inv - c(1)
+            !Fill triangular matrix
+            !b is diagonal a is the lower diagonal, c is the upper
+            DO jk = 2, z_dolic-1
+              a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
+              c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
+              b(jk) = dt_inv - a(jk) - c(jk)
+            END DO
+            !bottom
+            a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
+            c(z_dolic) = 0.0_wp
+            b(z_dolic) = dt_inv - a(z_dolic)
+
+            ! get locally the column tracer / dt
+            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
+
+          ENDIF ! use_tracer_x_height
+          !------------------------------------
+
+!          ! get 1 in the diagonal
+!          DO jk=slev, z_dolic-1
+!            IF(b(jk)/=0.0_wp)THEN
+!              a(jk) = a(jk)/b(jk)
+!              c(jk) = c(jk)/b(jk)
+!              column_tracer(jk) = column_tracer(jk)/ b(jk)
+!              ! b(jk)=1.0_wp
+!            ELSE
+!              CALL finish("","diagonal is 0")
+!            ENDIF
+!          END DO
+!          !Apply the matrix
+!          DO jk=slev+1, z_dolic-1
+!            b(jk) = 1.0_wp - a(jk) * c(jk-1)
+!            c(jk) = c(jk)/b(jk)
+!
+!            column_tracer(jk) = (column_tracer(jk) - a(jk) * column_tracer(jk-1)) / b(jk)
+!            ! column_tracer(jk) = column_tracer(jk)/b(jk)
+!            ! b(jk)                  = 1.0_wp
+!          END DO
+!          ! bottom cell
+!          z_tmp = b(z_dolic) - a(z_dolic) * c(z_dolic-1)
+!          column_tracer(z_dolic) = (column_tracer(z_dolic) - a(z_dolic) * column_tracer(z_dolic-1)) / z_tmp
+!          DO jk = z_dolic-1,1,-1
+!            column_tracer(jk) = column_tracer(jk) - c(jk) * column_tracer(jk+1)
+!          END DO
+
+          ! solver from lapack
+          !
+          ! eliminate lower diagonal
           DO jk=slev, z_dolic-1
-            IF(b(jk)/=0.0_wp)THEN
-              a(jk) = a(jk)/b(jk)
-              c(jk) = c(jk)/b(jk)
-              field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
-              b(jk)=1.0_wp
-            ENDIF
-          END DO
+            fact = a( jk+1 ) / b( jk )
+            b( jk+1 ) = b( jk+1 ) - fact * c( jk )
+            column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact * column_tracer( jk )
+          ENDDO
+!          DO jk=slev+1, z_dolic
+!            a(jk) = 0.0_wp
+!          ENDDO
 
-          !Apply the matrix
-          DO jk=slev+1, z_dolic-1
-            b(jk)                  = b(jk)-a(jk)*c(jk-1)
-            field_column(jc,jk,jb) = field_column(jc,jk,jb)&
-                          &-a(jk)*field_column(jc,jk-1,jb)
-            c(jk)                  = c(jk)/b(jk)
-            field_column(jc,jk,jb) = field_column(jc,jk,jb)/b(jk)
-            b(jk)                  = 1.0_wp
-          END DO
+          !     Back solve with the matrix U from the factorization.
+          column_tracer( z_dolic ) = column_tracer( z_dolic ) / b( z_dolic )
+          DO jk =  z_dolic-1, 1, -1
+            column_tracer( jk ) = ( column_tracer( jk ) - c( jk ) * column_tracer( jk+1 ) ) / b( jk )
+          ENDDO
 
-          z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-          z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
+          IF (use_tracer_x_height) THEN
+            DO jk = 1, z_dolic
+              ocean_tracer%concentration_x_height(jc,jk,jb) = column_tracer(jk)
+              ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk) * inv_prism_thickness(jk)
+            ENDDO
+          ELSE
+            DO jk = 1, z_dolic
+              ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk)
+            ENDDO
+          ENDIF
 
-          field_column(jc,z_dolic,jb) = z_tmp
-          DO jk = z_dolic-1,1,-1
-            field_column(jc,jk,jb) = field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
-          END DO
-           DO jk = 1,z_dolic!-1
-             diff_column(jc,jk,jb) = field_column(jc,jk,jb)!*dtime
-           END DO
-        !ELSEIF ( z_dolic < MIN_DOLIC ) THEN
-        !  diff_column(jc,:,jb) = 0.0_wp
-        !  field_column(jc,:,jb)= 0.0_wp
-        ENDIF
-      !ELSEIF( v_base%lsm_c(jc,1,jb) > sea_boundary ) THEN
-      !  diff_column(jc,1:z_dolic,jb) = field_column(jc,1:z_dolic,jb)
-      ENDIF
+      ENDIF ! z_dolic > 0
     END DO
   END DO
 
-  CALL sync_patch_array(SYNC_C, p_patch, diff_column)
+  ! CALL sync_patch_array(SYNC_C, p_patch, diff_column)
 
 END SUBROUTINE tracer_diffusion_vert_impl_hom
 !-------------------------------------------------------------------------  
@@ -1483,17 +1564,15 @@ END SUBROUTINE tracer_diffusion_vert_impl_hom
 !!  mpi parallelized LL (no sync required)
 SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
                                         & field_column,  &
-                                        & h_e,           &
                                         & A_v,           &
                                         & p_op_coeff,    &
                                         & diff_column)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !surface height at edges, relevant for thickness of first cell 
-  REAL(wp), INTENT(IN)              :: h_e(1:nproma,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   REAL(wp), INTENT(inout)           :: A_v(:,:,:)   
   TYPE(t_operator_coeff), TARGET    :: p_op_coeff
-  REAL(wp), INTENT(out)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+  REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !
   !Local variables
   INTEGER :: slev
@@ -1505,8 +1584,8 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
   REAL(wp) :: z_tmp
   REAL(wp) :: dt_inv
   INTEGER  :: z_dolic
-  REAL(wp) :: inv_zinv_i(1:n_zlev)
-  REAL(wp) :: inv_zinv_m(1:n_zlev)
+  REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
+  REAL(wp) :: inv_prism_thickness(1:n_zlev)
   TYPE(t_subset_range), POINTER :: all_edges
   TYPE(t_patch), POINTER        :: p_patch 
   ! CHARACTER(len=max_char_length), PARAMETER :: &

@@ -44,7 +44,7 @@
 MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_fortran_tools,        ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -69,7 +69,11 @@ MODULE mo_nonhydro_types
   ! prognostic variables state vector
   TYPE t_nh_prog
 
-    REAL(wp), POINTER :: &
+    REAL(wp), POINTER    &
+#ifdef _CRAYFTN
+    , CONTIGUOUS         &
+#endif
+      ::                 &
       w(:,:,:),          & !> orthogonal vertical wind (nproma,nlevp1,nblks_c)     [m/s]
       vn(:,:,:),         & !! orthogonal normal wind (nproma,nlev,nblks_e)         [m/s]
       rho(:,:,:),        & !! density (nproma,nlev,nblks_c)                     [kg/m^3]
@@ -80,13 +84,18 @@ MODULE mo_nonhydro_types
       tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_tracer),ALLOCATABLE :: conv_tracer(:,:)  
   END TYPE t_nh_prog
 
 
   ! diagnostic variables state vector
   TYPE t_nh_diag
 
-    REAL(wp), POINTER ::    &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
     ! a) variables needed for triangles and hexagons
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
@@ -183,16 +192,14 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlevp1,nblks_c)                        [m/s^2]
     &  ddt_w_vort(:,:,:),   & ! vert. wind tendency from vorticity flux term
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
-    &  ddt_w_phy(:,:,:)       ! vert. wind tendency from phyiscs
+    &  ddt_w_phy(:,:,:),    & ! vert. wind tendency from phyiscs
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+    &  vn_con(:,:,:),       & ! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
+    &  omega_t(:,:,:)         ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
 
     REAL(wp), POINTER ::    & !
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
-
-    REAL(wp), POINTER ::   &
-     &  vn_con(:,:,:),     &  ! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
-     &  omega_t(:,:,:)        ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
 
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
@@ -221,172 +228,155 @@ MODULE mo_nonhydro_types
 
   TYPE t_nh_metrics
 
-   ! a) Variables needed for triangles and hexagons
-   !
-   ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: z_ifc(:,:,:)
-   ! geometric height at full levels (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: z_mc(:,:,:)
+    REAL(wp), POINTER      &
+#ifdef _CRAYFTN
+    , CONTIGUOUS           &
+#endif
+     ::                    &
+     ! a) Variables needed for triangles and hexagons
+     !
+     z_ifc(:,:,:)        , & ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
+     z_mc(:,:,:)         , & ! geometric height at full levels (nproma,nlev,nblks_c)
+     ddxn_z_half(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlevp1,nblks_e)
+     ddxn_z_full(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
+     ddxt_z_half(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlevp1,nblks_e)
+     ddxt_z_full(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+     ddqz_z_full(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
+     ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+     ddqz_z_full_r(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+     ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     geopot(:,:,:)       , & ! geopotential at cell center (nproma,nlev,nblks_c)
+     geopot_agl(:,:,:)   , & ! geopotential above ground level at cell center (nproma,nlev,nblks_c)
+     geopot_agl_ifc(:,:,:),& ! geopotential above ground level at interfaces and cell center (nproma,nlevp1,nblks_c)
+     dgeopot_mc(:,:,:)   , & ! geopotential at cell center (nproma,nlev,nblks_c)
+     rayleigh_w(:)       , & ! Rayleigh damping on the vertical velocity
+     rayleigh_vn(:)      , & ! Rayleigh damping on the normal velocity
+     enhfac_diffu(:)     , & ! Enhancement factor for nabla4 background diffusion
+     !
+     ! b) Variables needed for the triangular grid only
+     !
+     wgtfac_c(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_c)
+     wgtfac_e(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_e)
+     wgtfacq_c(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_c)
+     wgtfacq_e(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_e)
+     wgtfacq1_c(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_c)
+     wgtfacq1_e(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
+     coeff_gradekin(:,:,:), & ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
+     inv_ddqz_z_full(:,:,:),& ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
+     coeff1_dwdz(:,:,:)   , & 
+     coeff2_dwdz(:,:,:)   , & ! Coefficients for second-order accurate dw/dz term (nproma,nlev,nblks_c)
+     zdiff_gradp(:,:,:,:) , & ! Height differences between local edge point and neighbor cell points used for
+                              ! pressure gradient computation (2,nproma,nlev,nblks_e)
+     coeff_gradp(:,:,:,:) , & ! Interpolation coefficients for cubic interpolation of Exner pressure (8,nproma,nlev,nblks_e)
+     exner_exfac(:,:,:)   , & ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
+                              ! (nproma,nlev,nblks_c)
+     vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
+     vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
+     vwind_impl_wgt_sv(:,:),& ! save array for the above coefficient field (nproma,nblks_c)
+     !
+     ! c) Variables needed for the hexagonal grid only
+     !
+     z_mc_e(:,:,:)       , &  ! geometric height at full level edges (nproma,nlev,nblks_e)
+     ddnorth_z(:,:,:)    , &  ! slope of the coordinate lines towards the North (nproma,nlev,nblks_e)
+     ddeast_z(:,:,:)     , &  ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
+     ddqz_z_full_v(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_v)
+     ddqz_z_half_e(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
+     diff_1_o_dz(:,:,:)  , &  ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
+     mult_1_o_dz(:,:,:)  , &  ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
+     !
+     ! d) Fields for reference atmosphere
+     !
+     theta_ref_mc(:,:,:) , & 
+     theta_ref_me(:,:,:) , & 
+     theta_ref_ic(:,:,:) , & 
+     tsfc_ref(:,:)       , & 
+     exner_ref_mc(:,:,:) , & 
+     rho_ref_mc  (:,:,:) , &  
+     rho_ref_me  (:,:,:) , & 
+     d_exner_dz_ref_ic(:,:,:), & 
+     d2dexdz2_fac1_mc(:,:,:) , & 
+     d2dexdz2_fac2_mc(:,:,:) , &
+     !
+     ! e) Fields for truly horizontal temperature diffusion
+     !
+     zd_intcoef(:,:) , & 
+     zd_geofac(:,:)  , & 
+     zd_e2cell(:,:)  , & 
+     zd_diffcoef(:)  , & 
+     !
+     ! f) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
+     !
+     ! Vertical grid related
+     inv_ddqz_z_half_e(:,:,:)  , & 
+     inv_ddqz_z_full_e(:,:,:)  , & 
+     inv_ddqz_z_half(:,:,:)    , & 
+     inv_ddqz_z_half_v(:,:,:)  , & 
+     wgtfac_v(:,:,:)           , & 
+     ! Mixing length for Smagorinsky model
+     mixing_length_sq(:,:,:)   , & 
+     !
+     ! g) Other stuff
+     !
+     pg_exdist (:)       , & ! extrapolation distance needed for igradp_method = 3
+     ! Correction term needed to use perturbation density for lateral boundary nudging
+     ! (note: this field is defined on the local parent grid in case of MPI parallelization)
+     rho_ref_corr(:,:,:) , & 
+     ! Area of subdomain for which feedback is performed; dim: (nlev)
+     fbk_dom_volume(:)
 
-   ! slope of the terrain in normal direction (nproma,nlevp1,nblks_e)
-   REAL(wp), POINTER :: ddxn_z_half(:,:,:)
-   ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddxn_z_full(:,:,:)
-   ! slope of the terrain in tangential direction (nproma,nlevp1,nblks_e)
-   REAL(wp), POINTER :: ddxt_z_half(:,:,:)
-   ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddxt_z_full(:,:,:)
 
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: ddqz_z_full(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddqz_z_full_e(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddqz_z_full_r(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: ddqz_z_half(:,:,:)
+    INTEGER, POINTER          &
+#ifdef _CRAYFTN
+    , CONTIGUOUS              &
+#endif
+     ::                       &
+     vertidx_gradp(:,:,:,:) , &  ! Vertical index of neighbor points needed for Taylor-expansion-based 
+                                 ! pressure gradient (2,nproma,nlev,nblks_e)
+     !
+     ! Fields for truly horizontal temperature diffusion
+     zd_indlist(:,:) , & 
+     zd_blklist(:,:) , & 
+     zd_edgeidx(:,:) , & 
+     zd_edgeblk(:,:) , & 
+     zd_vertidx(:,:) , & 
+     !
+     ! Fields for igradp_method = 3
+     pg_edgeidx(:) , & 
+     pg_edgeblk(:) , & 
+     pg_vertidx(:) , & 
+     !
+     ! Index lists for grid points on which lateral boundary nudging is applied
+     nudge_c_idx(:) , & 
+     nudge_e_idx(:) , & 
+     nudge_c_blk(:) , & 
+     nudge_e_blk(:) , & 
+     !
+     ! Index lists and mask fields needed to minimize the number of halo communications
+     ! a) index lists for halo points belonging to the nest boundary region
+     bdy_halo_c_idx(:) , & 
+     bdy_halo_c_blk(:) , & 
+     ! b) index lists for halo points belonging to a nest overlap region
+     !    the additional dimension is n_childdom
+     ovlp_halo_c_dim(:)   , &
+     ovlp_halo_c_idx(:,:) , & 
+     ovlp_halo_c_blk(:,:) , & 
+     ! c) index lists for mass fluxes at lateral nest boundary (including the required halo points)
+     bdy_mflx_e_idx(:) , & 
+     bdy_mflx_e_blk(:)
 
-   ! geopotential at cell center (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: geopot(:,:,:)
-   ! geopotential above ground level at cell center (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: geopot_agl(:,:,:)
-   ! geopotential above ground level at interfaces and cell center (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: geopot_agl_ifc(:,:,:)
-   ! geopotential at cell center (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: dgeopot_mc(:,:,:)
 
 
-   ! Rayleigh damping on the vertical velocity
-   REAL(wp), POINTER :: rayleigh_w(:)
-   ! Rayleigh damping on the normal velocity
-   REAL(wp), POINTER :: rayleigh_vn(:)
-   ! Enhancement factor for nabla4 background diffusion
-   REAL(wp), POINTER :: enhfac_diffu(:)
+   ! Corresponding scalar list dimensions
+   INTEGER  :: zd_listdim  ! for truly horizontal temperature diffusion
+   INTEGER  :: pg_listdim  ! for igradp_method = 3
+   INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
+   INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
+   INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
 
-   ! b) Variables needed for the triangular grid only
-   !
-   ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: wgtfac_c(:,:,:)
-   ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_e)
-   REAL(wp), POINTER :: wgtfac_e(:,:,:)
-   ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_c)
-   REAL(wp), POINTER :: wgtfacq_c(:,:,:)
-   ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_e)
-   REAL(wp), POINTER :: wgtfacq_e(:,:,:)
-   ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_c)
-   REAL(wp), POINTER :: wgtfacq1_c(:,:,:)
-   ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
-   REAL(wp), POINTER :: wgtfacq1_e(:,:,:)
-   ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
-   REAL(wp), POINTER :: coeff_gradekin(:,:,:)
-   ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: inv_ddqz_z_full(:,:,:)
-   ! Inverse distance between full levels jk+1 and jk-1 (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: inv_ddqz_z_half2(:,:,:)
-   ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
-   INTEGER,  POINTER :: vertidx_gradp(:,:,:,:) ! (2,nproma,nlev,nblks_e)
-   ! Height differences between local edge point and neighbor cell points used for
-   ! pressure gradient computation (2,nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: zdiff_gradp(:,:,:,:)
-   ! Interpolation coefficients for cubic interpolation of Exner pressure (8,nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: coeff_gradp(:,:,:,:)
-   ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
-   ! (nproma,nlev,nblks_c)
-   REAL(wp), POINTER :: exner_exfac(:,:,:)
-   ! explicit weight in vertical wind solver (nproma,nblks_c)
-   REAL(wp), POINTER :: vwind_expl_wgt(:,:)
-   ! implicit weight in vertical wind solver (nproma,nblks_c)
-   REAL(wp), POINTER :: vwind_impl_wgt(:,:)
-   ! save array for the above coefficient field (nproma,nblks_c)
-   REAL(wp), POINTER :: vwind_impl_wgt_sv(:,:)
 
-   ! Fields for reference atmosphere
-   REAL(wp), POINTER :: theta_ref_mc(:,:,:)
-   REAL(wp), POINTER :: theta_ref_me(:,:,:)
-   REAL(wp), POINTER :: theta_ref_ic(:,:,:)
-   REAL(wp), POINTER :: tsfc_ref(:,:)
-   REAL(wp), POINTER :: exner_ref_mc(:,:,:)
-   REAL(wp), POINTER :: rho_ref_mc  (:,:,:)
-   REAL(wp), POINTER :: rho_ref_me  (:,:,:)
-   REAL(wp), POINTER :: d_exner_dz_ref_ic(:,:,:)
-   REAL(wp), POINTER :: d2dexdz2_fac1_mc(:,:,:)
-   REAL(wp), POINTER :: d2dexdz2_fac2_mc(:,:,:)
-   ! Fields for truly horizontal temperature diffusion
-   INTEGER           :: zd_listdim
-   INTEGER,  POINTER :: zd_indlist(:,:)
-   INTEGER,  POINTER :: zd_blklist(:,:)
-   INTEGER,  POINTER :: zd_edgeidx(:,:)
-   INTEGER,  POINTER :: zd_edgeblk(:,:)
-   INTEGER,  POINTER :: zd_vertidx(:,:)
-   REAL(wp), POINTER :: zd_intcoef(:,:)
-   REAL(wp), POINTER :: zd_geofac(:,:)
-   REAL(wp), POINTER :: zd_e2cell(:,:)
-   REAL(wp), POINTER :: zd_diffcoef(:)
-   ! Fields for igradp_method = 3
-   INTEGER           :: pg_listdim
-   INTEGER,  POINTER :: pg_edgeidx(:)
-   INTEGER,  POINTER :: pg_edgeblk(:)
-   INTEGER,  POINTER :: pg_vertidx(:)
-   REAL(wp), POINTER :: pg_exdist (:)
-   ! Index lists for grid points on which lateral boundary nudging is applied
-   INTEGER           :: nudge_c_dim, nudge_e_dim
-   INTEGER,  POINTER :: nudge_c_idx(:)
-   INTEGER,  POINTER :: nudge_e_idx(:)
-   INTEGER,  POINTER :: nudge_c_blk(:)
-   INTEGER,  POINTER :: nudge_e_blk(:)
-   ! Index lists and mask fields needed to minimize the number of halo communications
-   ! a) index lists for halo points belonging to the nest boundary region
-   INTEGER           :: bdy_halo_c_dim  
-   INTEGER,  POINTER :: bdy_halo_c_idx(:)
-   INTEGER,  POINTER :: bdy_halo_c_blk(:)
-   ! b) a mask field that excludes boundary halo points
+   ! Finally, a mask field that excludes boundary halo points
    LOGICAL,  POINTER :: mask_prog_halo_c(:,:)
-   ! c) index lists for halo points belonging to a nest overlap region
-   !    the additional dimension is n_childdom
-   INTEGER,  POINTER :: ovlp_halo_c_dim(:)
-   INTEGER,  POINTER :: ovlp_halo_c_idx(:,:)
-   INTEGER,  POINTER :: ovlp_halo_c_blk(:,:)
-   ! d) index lists for mass fluxes at lateral nest boundary (including the required halo points)
-   INTEGER           :: bdy_mflx_e_dim  
-   INTEGER,  POINTER :: bdy_mflx_e_idx(:)
-   INTEGER,  POINTER :: bdy_mflx_e_blk(:)
-   ! Correction term needed to use perturbation density for lateral boundary nudging
-   ! (note: this field is defined on the local parent grid in case of MPI parallelization)
-   REAL(wp), POINTER :: rho_ref_corr(:,:,:)
-   ! Area of subdomain for which feedback is performed; dim: (nlev)
-   REAL(wp), POINTER :: fbk_dom_volume(:)
 
-   ! c) Variables needed for the hexagonal grid only
-   !
-   ! geometric height at full level edges (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: z_mc_e(:,:,:)
-
-   ! slope of the coordinate lines towards the North (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddnorth_z(:,:,:)
-   ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: ddeast_z(:,:,:)
-
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_v)
-   REAL(wp), POINTER :: ddqz_z_full_v(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
-   REAL(wp), POINTER :: ddqz_z_half_e(:,:,:)
-
-   ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: diff_1_o_dz(:,:,:)
-   ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
-
-   !For LES Model : Anurag Dipankar, MPIM (2013-04)
-
-   !Vertical grid related
-   REAL(wp), POINTER :: inv_ddqz_z_half_e(:,:,:) 
-   REAL(wp), POINTER :: inv_ddqz_z_full_e(:,:,:) 
-   REAL(wp), POINTER :: inv_ddqz_z_half(:,:,:) 
-   REAL(wp), POINTER :: inv_ddqz_z_half_v(:,:,:) 
-   REAL(wp), POINTER :: wgtfac_v(:,:,:) 
-   !Mixing length for Smagorinsky model
-   REAL(wp), POINTER :: mixing_length_sq(:,:,:) 
-   
   END TYPE t_nh_metrics
 
   TYPE :: t_buffer_memory

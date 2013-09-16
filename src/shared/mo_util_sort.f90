@@ -15,13 +15,18 @@ MODULE mo_util_sort
 
   PRIVATE
   PUBLIC :: quicksort
+  PUBLIC :: insertion_sort
 
   ! generic interface for in-situ QuickSort sorting routine
   INTERFACE quicksort
     MODULE PROCEDURE quicksort_real
     MODULE PROCEDURE quicksort_int
   END INTERFACE
-  
+
+  INTERFACE insertion_sort
+    MODULE PROCEDURE insertion_sort_int
+  END INTERFACE insertion_sort
+
 CONTAINS
 
   ! --------------------------------------------------------------------
@@ -139,5 +144,23 @@ CONTAINS
       CALL quicksort(a,permutation,i+1,r)
     END IF
   END SUBROUTINE quicksort_int
+
+  SUBROUTINE insertion_sort_int(a)
+    INTEGER, INTENT(inout) :: a(:)
+
+    INTEGER :: t, h
+    INTEGER :: i, n
+
+    n = SIZE(a)
+
+    DO i = 2, n
+      t = a(i)
+      DO h = i - 1, 1, -1
+        IF (t >= a(h)) EXIT
+        a(h + 1) = a(h)
+      END DO
+      a(h + 1) = t
+    END DO
+  END SUBROUTINE insertion_sort_int
 
 END MODULE mo_util_sort

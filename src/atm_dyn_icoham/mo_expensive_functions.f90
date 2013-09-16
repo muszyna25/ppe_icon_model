@@ -101,8 +101,8 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_con_t2theta)
   
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
 
   rovcp = rd/cpd
 
@@ -182,8 +182,8 @@ END SUBROUTINE convert_t2theta
 
   IF (ltimer) CALL timer_start(timer_con_theta2t)
   
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
 
   rovcp = rd/cpd
 
@@ -265,8 +265,8 @@ END SUBROUTINE convert_theta2t
   
   IF (ltimer) CALL timer_start(timer_con_l_t2theta)
 
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
 
   rovcp = rd/cpd
 
@@ -344,8 +344,8 @@ END SUBROUTINE convert_t2theta_lin
 
   IF (ltimer) CALL timer_start(timer_con_l_theta2t)
   
-  nblks_c   = pt_patch%nblks_int_c
-  npromz_c  = pt_patch%npromz_int_c
+  nblks_c   = pt_patch%nblks_c
+  npromz_c  = pt_patch%npromz_c
 
   rovcp = rd/cpd
 

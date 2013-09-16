@@ -143,7 +143,7 @@ MODULE mo_echam_phy_memory
   !! dynamics grid, but is unstaggered. This means
   !!
   !!    nlev_phy = nlev
-  !!   nblks_phy = patch%nblks_int_c
+  !!   nblks_phy = patch%nblks_c
   !!
   !! In the long run, the physics grid and dynamics grid may differ in
   !! horizontal and/or vertical resolution, or even in shape.
@@ -199,7 +199,17 @@ MODULE mo_echam_phy_memory
       & emterclr    (:,:,:),  &!< [W/m2] terrestrial emissivity, clear sky, net downward
       & emterall    (:,:,:),  & !< [W/m2] terrestrial emissivity, all   sky, net downward
       & o3          (:,:,:)     !< temporary set ozone mass mixing ratio  
-
+    ! aerosol optical properties
+    REAL(wp), POINTER ::      &
+      & aer_aod_533 (:,:,:),  & !< aerosol optical depth at 533 nm
+      & aer_ssa_533 (:,:,:),  & !< aerosol single scattering albedo at 533 nm
+      & aer_asy_533 (:,:,:),  & !< aerosol asymmetry factor at 533 nm
+      & aer_aod_2325(:,:,:),  & !< aerosol optical depth at 2325 nm
+      & aer_ssa_2325(:,:,:),  & !< aerosol single scattering albedo at 2325 nm
+      & aer_asy_2325(:,:,:),  & !< aerosol asymmetry factor at 2325 nm
+      & aer_aod_9731(:,:,:)       !< effective aerosol optical depth at 9731 nm
+            !< the last quantity is in the thermal wavelength ranch, 
+            !< the first lie in the solar spectrum
     ! Cloud and precipitation
     REAL(wp),POINTER ::     &
       & aclc      (:,:,:),  &!< [m2/m2] cloud area fractional
@@ -481,6 +491,8 @@ MODULE mo_echam_phy_memory
   TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
  
 CONTAINS
+
+
   !!--------------------------------------------------------------------------
   !!                SUBROUTINES FOR BUILDING AND DELETING VARIABLE LISTS 
   !!--------------------------------------------------------------------------
@@ -543,7 +555,10 @@ CONTAINS
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
 
   END SUBROUTINE construct_echam_phy_state
-  !-------------
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
   !>
   !! Release memory used by the state variable arrays and list arrays
   !!
@@ -581,10 +596,11 @@ CONTAINS
     CALL message(TRIM(thismodule),'Destruction of ECHAM physics state finished.')
 
   END SUBROUTINE destruct_echam_phy_state
-  !-------------
+  !--------------------------------------------------------------------
+
+
+  !--------------------------------------------------------------------
   !>
-  !!
-  !!
   SUBROUTINE new_echam_phy_field_list( k_jg, kproma, klev, kblks, ktracer,      &
                                      & ctracer_list, ksfc_type, listname, &
                                      & prefix, field_list, field          )
@@ -604,7 +620,7 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3)
+    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shapeice(3), shape3d_layer_interfaces(3)
 !0!    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits, jsfc, jtrc
 
@@ -615,6 +631,9 @@ CONTAINS
 
     shape2d  = (/kproma,       kblks/)
     shape3d  = (/kproma, klev, kblks/)
+    shapesfc = (/kproma, kblks, ksfc_type/)
+    shape3d_layer_interfaces = (/kproma,klev+1,kblks/)
+
 
     ! Register a field list and apply default settings
 
@@ -664,6 +683,52 @@ CONTAINS
     CALL add_var( field_list, prefix//'o3', field%o3,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! aerosol optical properties
+    ! at 533 nm
+    cf_desc    = t_cf_var('aer_aod_533','-','aerosol optical depth at 533 nm', &
+                & DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_533', field%aer_aod_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_ssa_533','-',                                   &
+                & 'aerosol single scattering albedo at 533 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_ssa_533', field%aer_ssa_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_asy_533','-',                                   &
+                & 'aerosol asymmetry factor at 533 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_asy_533', field%aer_asy_533,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    ! at 2325 nm
+    cf_desc    = t_cf_var('aer_aod_2325','-',                                  &
+                & 'aerosol optical depth at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_2325', field%aer_aod_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_ssa_2325','-',                                  &
+                & 'aerosol single scattering albedo at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_ssa_2325', field%aer_ssa_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    cf_desc    = t_cf_var('aer_asy_2325','-',                                  &
+                & 'aerosol asymmetry factor at 2325 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_asy_2325', field%aer_asy_2325,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
+    ! at 9731 nm
+    cf_desc    = t_cf_var('aer_aod_9731','-',                                  &
+                & 'effective aerosol optical depth at 9731 nm', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'aer_aod_9731', field%aer_aod_9731,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d )
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'q', field%q,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
@@ -715,26 +780,23 @@ CONTAINS
 
 
     !-- Variables defined at layer interfaces --
-
-    shape3d = (/kproma,klev+1,kblks/)
-
     ! &       field% geoi      (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ghi', field%geoi,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
     ! &       field% presi_old (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presi_old', field%presi_old,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
     ! &       field% presi_new (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presi_new', field%presi_new,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces  )
 
     !------------------
     ! Radiation
@@ -1033,39 +1095,34 @@ CONTAINS
 
     !---- 3D variables defined at layer interfaces ----
 
-    shape3d = (/kproma,klev+1,kblks/)
-
     ! &       field% emterclr  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('emterclr', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'emterclr', field%emterclr,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
     ! &       field% emterall  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('emterall', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'emterall', field%emterall,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
     ! &       field% trsolclr  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('trsolclr', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'trsolclr', field%trsolclr,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
     ! &       field% trsolall  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('trsolall', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'trsolall', field%trsolall,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
 
 
     !-------------------------
     ! Cloud and precipitation
     !-------------------------
-    shape2d  = (/kproma,       kblks/)
-    shape3d  = (/kproma, klev, kblks/)
-
     cf_desc    = t_cf_var('ACLC', 'm2 m-2', 'cloud area fraction, instantaneous', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclc', field%aclc,                       &
@@ -1268,10 +1325,10 @@ CONTAINS
     !--------------------
     IF (get_lvdiff()) THEN
 
-      shape2d  = (/kproma,            kblks/)
-      shape3d  = (/kproma, klev,      kblks/)
+     ! shape2d  = (/kproma,            kblks/)
+     ! shape3d  = (/kproma, klev,      kblks/)
      !shapesfc = (/kproma, ksfc_type, kblks/)
-      shapesfc = (/kproma, kblks, ksfc_type/)
+     ! shapesfc = (/kproma, kblks, ksfc_type/)
 
      !ALLOCATE( field% ri     (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('richardson_number', ' ', 'moist Richardson number', DATATYPE_FLT32)

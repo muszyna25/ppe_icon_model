@@ -60,6 +60,7 @@ MODULE mo_util_string
   PUBLIC :: MAX_STRING_LEN
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
+  PUBLIC :: add_to_list
   PUBLIC :: one_of
   PUBLIC :: insert_group
   PUBLIC :: delete_keyword_list
@@ -111,7 +112,7 @@ MODULE mo_util_string
   ! Linked list used for keyword substitution in strings
   TYPE t_keyword_list
     CHARACTER(len=MAX_KEYWORD_LEN) :: keyword    !< keyword string ...
-    CHARACTER(len=MAX_KEYWORD_LEN) :: subst      !< ... will be substituted by "subst"
+    CHARACTER(len=MAX_STRING_LEN)  :: subst      !< ... will be substituted by "subst"
     TYPE(t_keyword_list), POINTER  :: next
   END TYPE t_keyword_list
 
@@ -180,7 +181,9 @@ CONTAINS
       LOOKAHEAD : DO
         char = string((i+offset):(i+offset))
         SELECT CASE(IACHAR(char))
-        CASE (9,32)     ! SPACE and TAB
+      ! To eliminate LF and CR generates error reading namelists in restart file by gfortran and NAG!
+      ! CASE (9,32,10,13)     ! SPACE and TAB, LF and CR
+        CASE (9,32)           ! SPACE and TAB
           offset  = offset + 1
           IF ((i+offset) > i_max) EXIT LOOP
           lspaces = (i>1)
@@ -401,7 +404,8 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE keyword_list_pop(list_head, keyword, subst)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword, subst
+    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword
+    CHARACTER(len=MAX_STRING_LEN),   INTENT(OUT) :: subst
     TYPE(t_keyword_list),            POINTER     :: list_head
     ! Local parameters
     TYPE (t_keyword_list),   POINTER    :: tmp
@@ -430,12 +434,12 @@ CONTAINS
   !------------------------------------------------------------------------------
   FUNCTION str_replace(in_str, keyword, subst) RESULT(out_str)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN), INTENT(IN) :: keyword, subst
-    CHARACTER(len=*),               INTENT(IN) :: in_str
-    CHARACTER(len=MAX_STRING_LEN)              :: out_str
+    CHARACTER(len=*), INTENT(IN)           :: keyword, subst
+    CHARACTER(len=*), INTENT(IN)           :: in_str
+    CHARACTER(len=MAX_STRING_LEN)          :: out_str
     ! Local parameters
     INTEGER :: kw_len, in_len, subs_len, pos, out_pos, upper
-    
+
     out_str = ""
     kw_len   = LEN_TRIM(keyword)
     subs_len = LEN_TRIM(subst)
@@ -448,19 +452,21 @@ CONTAINS
       IF (in_str(pos:upper) == keyword) THEN
         pos     = pos + kw_len
         ! note: we don't call "finish" to avoid circular dep
-        IF ((out_pos + subs_len) > MAX_STRING_LEN) &
-          & WRITE (0,*) "ERROR: str_replace: string too long"
+        IF ((out_pos+subs_len+in_len-pos-kw_len) > MAX_STRING_LEN) THEN
+          WRITE (0,*) "ERROR: str_replace: string too long"
+        END IF
         out_str(out_pos:(out_pos+subs_len-1)) = subst(1:subs_len)
         out_pos = out_pos + subs_len
       ELSE
-        IF (out_pos > MAX_STRING_LEN) &
-          & WRITE (0,*) "ERROR: str_replace: string too long"
+        IF ((out_pos+in_len-pos) > MAX_STRING_LEN) THEN
+          WRITE (0,*) "ERROR: str_replace: string too long"
+        END IF
         out_str(out_pos:out_pos) = in_str(pos:pos)
         pos     = pos + 1
         out_pos = out_pos + 1
       END IF
-    END DO
-    
+    END DO  
+
   END FUNCTION str_replace
 
 
@@ -542,6 +548,44 @@ CONTAINS
   END SUBROUTINE difference
 
 
+
+
+  !==============================================================================
+  !+ Add entries from list 2 to list 1, if they are not already present 
+  !+ in list 1.
+  !
+  ! @note This is a very crude implementation, quadratic complexity.
+  !
+  SUBROUTINE add_to_list(str_list1, nitems1, str_list2, nitems2)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list1(:)
+    INTEGER,                   INTENT(INOUT) :: nitems1
+    CHARACTER(len=*),          INTENT(IN)    :: str_list2(:)
+    INTEGER,                   INTENT(IN)    :: nitems2
+    ! local variables
+    INTEGER :: iread, i
+    LOGICAL :: l_duplicate
+    
+
+    ! Loop over all items that should potentially be added    
+    DO iread=1,nitems2
+      ! check if item is already in string list 1:
+      l_duplicate = .FALSE.
+      ! Loop over all items in the target list (list 1)
+      CHECK_LOOP : DO i=1,nitems1
+        IF (TRIM(str_list1(i)) == TRIM(str_list2(iread))) THEN
+          l_duplicate = .TRUE.
+          EXIT CHECK_LOOP
+        END IF
+      END DO CHECK_LOOP
+      IF (.NOT. l_duplicate) THEN
+        str_list1(nitems1+1) = str_list2(iread)
+        nitems1 = nitems1+1
+      END IF
+    END DO
+    
+  END SUBROUTINE add_to_list
+
+
   !==============================================================================
   !+ Add a pair (keyword -> substitution) to a keyword list
   ! see FUNCTION with_keywords for further documentation.
@@ -570,8 +614,8 @@ CONTAINS
   FUNCTION with_keywords(keyword_list, in_str) RESULT(result_str)
     TYPE(t_keyword_list), POINTER  :: keyword_list
     CHARACTER(len=*), INTENT(IN)   :: in_str
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
-    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword, subst
+    CHARACTER(len=MAX_STRING_LEN)  :: result_str, subst
+    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword
     
     ! note: we don't call "finish" to avoid circular dep
     IF (LEN_TRIM(in_str) > MAX_STRING_LEN) &
@@ -634,9 +678,6 @@ CONTAINS
   RECURSIVE SUBROUTINE delete_keyword_list(list_head)
     ! Parameters
     TYPE(t_keyword_list),    POINTER    :: list_head
-    ! Local parameters
-    TYPE (t_keyword_list),   POINTER    :: tmp
-    INTEGER                             :: errstat
 
     IF (ASSOCIATED(list_head)) THEN
       CALL delete_keyword_list(list_head%next)

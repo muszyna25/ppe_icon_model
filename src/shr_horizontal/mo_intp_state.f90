@@ -165,6 +165,7 @@ MODULE mo_intp_state
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area, &
   &                               global_cell_type
@@ -198,7 +199,7 @@ IMPLICIT NONE
 
 PRIVATE
 
-!!CJPUBLIC :: setup_interpol, 
+!!CJPUBLIC :: setup_interpol,
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
@@ -261,7 +262,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     CALL finish ('mo_interpolation:construct_int_state',  &
     &            'allocation for c_lin_e failed')
   ENDIF
-  
+
   IF (ptr_patch%cell_type == 3) THEN
     !
     ! e_bln_c_s
@@ -304,7 +305,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for e_flx_avg failed')
     ENDIF
     !
-    !e_aw_v 
+    !e_aw_v
     !
     ALLOCATE (ptr_int%e_aw_v(nproma,6,nblks_v), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -396,6 +397,14 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for cells_aw_verts failed')
+  ENDIF
+  !
+  ! cells_plwa_verts
+  !
+  ALLOCATE (ptr_int%cells_plwa_verts(nproma,9-ptr_patch%cell_type,nblks_v), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:construct_int_state',                     &
+      &             'allocation for cells_plwa_verts failed')
   ENDIF
   !
   IF( ptr_patch%cell_type == 6 ) THEN
@@ -796,7 +805,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ENDIF
     !
     ! lsq_rmat_utri_c
-    ! 
+    !
     idummy=(lsq_high_set%dim_unk*lsq_high_set%dim_unk - lsq_high_set%dim_unk)/2
     ALLOCATE (ptr_int%lsq_high%lsq_rmat_utri_c(nproma, idummy, nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1195,7 +1204,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   ENDIF
 
   IF ( iequations == ihs_ocean) THEN
-    ! 
+    !
     ! arrays that are required for #slo OLD# reconstruction
     !
     ALLOCATE(ptr_int%dist_cell2edge(nproma,nblks_e,2),STAT=ist)
@@ -1228,7 +1237,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     !
     !coefficients for edge to vertex mapping.
     !
-    !Dimension: nproma,nblks_v encode number of vertices, 
+    !Dimension: nproma,nblks_v encode number of vertices,
     !1:6 is number of edges of a vertex,
     !1:2 is for u and v component of vertex vector
     ALLOCATE(ptr_int%edge2vert_coeff_cc(nproma,nblks_v,1:6),STAT=ist)
@@ -1290,11 +1299,12 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%e_aw_v        = 0._wp
   ENDIF
 
-  ptr_int%v_1o2_e       = 0.5_wp
-  ptr_int%c_lin_e       = 0._wp
-  ptr_int%e_inn_c       = 0._wp
-  ptr_int%verts_aw_cells= 0._wp
-  ptr_int%cells_aw_verts= 0._wp
+  ptr_int%v_1o2_e          = 0.5_wp
+  ptr_int%c_lin_e          = 0._wp
+  ptr_int%e_inn_c          = 0._wp
+  ptr_int%verts_aw_cells   = 0._wp
+  ptr_int%cells_aw_verts   = 0._wp
+  ptr_int%cells_plwa_verts = 0._wp
 
   IF (ptr_patch%cell_type == 6 ) THEN
     ptr_int%e_inn_v     = 0._wp
@@ -1577,6 +1587,7 @@ SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
   REAL(wp), INTENT(IN)    :: arri(:,:)
   REAL(wp), INTENT(INOUT) :: arro(:,:)
+  ! local variables
 
   IF(typ == SYNC_C) THEN
     CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
@@ -1585,7 +1596,7 @@ SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
   ELSEIF(typ == SYNC_V) THEN
     CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
   ELSE
-    CALL finish ('mo_interpolation:xfer_var','Illegal type for Ssync')
+    CALL finish ('mo_interpolation:xfer_var','Illegal type for sync')
   ENDIF
 
 END SUBROUTINE xfer_var_r2
@@ -1795,7 +1806,7 @@ END SUBROUTINE xfer_idx_3
 !-------------------------------------------------------------------------
 !!
 !>
-!!  Transfers interpolation state form parent to local parent
+!!  Transfers interpolation state from parent to local parent
 !!
 !! @par Revision History
 !! Developed  by  Rainer Johanni (2011-10-26)
@@ -1915,6 +1926,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !  ENDIF
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%verts_aw_cells,po%verts_aw_cells)
   CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_aw_verts,po%cells_aw_verts)
+  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_plwa_verts,po%cells_plwa_verts)
 !  IF( p_p%cell_type == 6 ) THEN
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_north,po%tria_north)
 !  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_east,po%tria_east)
@@ -1994,6 +2006,8 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v1,po%shear_def_v1)
 !  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v2,po%shear_def_v2)
 !  ENDIF
+
+  ! clean up
 
 !CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_glb_to_loc_c)
@@ -2223,6 +2237,14 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for cells_aw_verts failed')
+  ENDIF
+  !
+  ! cells_plwa_verts
+  !
+  DEALLOCATE (ptr_int%cells_plwa_verts, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for cells_plwa_verts failed')
   ENDIF
 
   IF (global_cell_type == 3) THEN
@@ -2758,7 +2780,7 @@ SUBROUTINE destruct_2d_interpol_state( ptr_int_state)
   INTEGER                 :: jg
 
   !-----------------------------------------------------------------------
-  
+
   CALL message(routine, 'start to destruct int state')
 
   DO jg = n_dom_start, n_dom
@@ -2766,7 +2788,7 @@ SUBROUTINE destruct_2d_interpol_state( ptr_int_state)
   ENDDO
 
   CALL message (routine, 'destruction of interpolation state finished')
-  
+
 END SUBROUTINE destruct_2d_interpol_state
 
 

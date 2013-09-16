@@ -65,13 +65,18 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
+  USE mo_var_list,            ONLY: add_var, add_ref, groups
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_cf_convention,       ONLY: t_cf_var
+  USE mo_grib2,               ONLY: t_grib2_var
+  USE mo_cdi_constants
 
   IMPLICIT NONE
 
 
   PRIVATE
 
-  PUBLIC  :: t_operator_coeff
+  PUBLIC  :: t_operator_coeff, t_ptr3d
   PUBLIC  :: allocate_exp_coeff
   PUBLIC  :: par_init_operator_coeff
   PUBLIC  :: update_diffusion_matrices
@@ -95,6 +100,10 @@ MODULE mo_operator_ocean_coeff_3d
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
 
+
+  TYPE t_ptr3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr3d
 
   TYPE t_operator_coeff
 
@@ -158,14 +167,15 @@ MODULE mo_operator_ocean_coeff_3d
     !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
     ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)
+    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:) 
 
-    REAL(wp), ALLOCATABLE :: matrix_vert_diff_c(:,:,:,:)
-    REAL(wp), ALLOCATABLE :: matrix_vert_diff_e(:,:,:,:)
-
+    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
+    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
 
@@ -179,16 +189,18 @@ CONTAINS
   ! !! @par Revision History
   ! !! Peter Korn (2012-2)
   ! !!
-  SUBROUTINE allocate_exp_coeff( p_patch, p_coeff)
+  SUBROUTINE allocate_exp_coeff( p_patch, p_coeff, var_list)
     ! !
     TYPE(t_patch),TARGET,INTENT(in)       :: p_patch
     TYPE(t_operator_coeff), INTENT(inout) :: p_coeff
+    TYPE(t_var_list)                      :: var_list
 
     INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
-    INTEGER :: ist,ie
+    INTEGER :: ist,ie,i
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: jc,je,jk,jb
+    CHARACTER(len=max_char_length) :: var_suffix
 
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
@@ -198,7 +210,7 @@ CONTAINS
     ! determine size of arrays, i.e.
     ! values for the blocking
     !
-    nblks_c  = p_patch%nblks_c
+    nblks_c  = p_patch%alloc_cell_blocks
     nblks_e  = p_patch%nblks_e
     nblks_v  = p_patch%nblks_v
     nz_lev   = n_zlev
@@ -346,10 +358,10 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
     ENDIF
-    ALLOCATE(p_coeff%cell_position_cc(nproma,nz_lev,nblks_c),stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
-    ENDIF
+!    ALLOCATE(p_coeff%cell_position_cc(nproma,nz_lev,nblks_c),stat=ist)
+!    IF (ist /= success) THEN
+!      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
+!    ENDIF
     !
     !normalizing factors for edge to cell mapping.
     !
@@ -361,7 +373,6 @@ CONTAINS
     ENDIF
     ALLOCATE(p_coeff%variable_vol_norm(nproma,nz_lev,nblks_c,1:no_primal_edges),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating variable_vol_norm failed')
     ENDIF
 
     ALLOCATE(p_coeff%variable_dual_vol_norm(nproma,nz_lev,nblks_v,1:no_dual_edges),stat=ist)
@@ -370,19 +381,43 @@ CONTAINS
     ENDIF
 
     !The last index "3" comes from the fact that we use a tridiagonal matrix
-    ALLOCATE(p_coeff%matrix_vert_diff_c(nproma,n_zlev,nblks_c, 3),&
-      & stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d',                 &
-        & 'allocation for matrix_vert_diff_c failed')
-    ENDIF
-    !The last index "3" comes from the fact that we use a tridiagonal matrix
-    ALLOCATE(p_coeff%matrix_vert_diff_e(nproma,n_zlev,nblks_e, 3),&
-      & stat=ist)
-    IF (ist /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d',                 &
-        & 'allocation for matrix_vert_diff_e failed')
-    ENDIF
+!   ALLOCATE(p_coeff%matrix_vert_diff_c(nproma,n_zlev,nblks_c, 3),&
+!     & stat=ist)
+!   IF (ist /= success) THEN
+!     CALL finish ('mo_operator_ocean_coeff_3d',                 &
+!       & 'allocation for matrix_vert_diff_c failed')
+!   ENDIF
+!   !The last index "3" comes from the fact that we use a tridiagonal matrix
+!   ALLOCATE(p_coeff%matrix_vert_diff_e(nproma,n_zlev,nblks_e, 3),&
+!     & stat=ist)
+!   IF (ist /= success) THEN
+!     CALL finish ('mo_operator_ocean_coeff_3d',                 &
+!       & 'allocation for matrix_vert_diff_e failed')
+!   ENDIF
+    CALL add_var(var_list, 'matrix_vert_diff_c', p_coeff%matrix_vert_diff_c, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('matrix_vert_diff_c','','for each edge',DATATYPE_FLT64),&
+      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,n_zlev,nblks_c,no_primal_edges/), &
+      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+    ALLOCATE(p_coeff%matrix_vert_diff_c_ptr(no_primal_edges))
+    DO i=1,no_primal_edges
+      WRITE(var_suffix,'(a,i1.1)') '_',i
+      CALL add_ref( var_list, 'matrix_vert_diff_c', &
+        &           'matrix_vert_diff_c'//TRIM(var_suffix), &
+        &           p_coeff%matrix_vert_diff_c_ptr(i)%p,    &
+        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+        &           t_cf_var('matrix_vert_diff_c'//TRIM(var_suffix),'','', DATATYPE_FLT64), &
+        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &           ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_coeffs"))
+    ENDDO
+
+    CALL add_var(var_list, 'matrix_vert_diff_e', p_coeff%matrix_vert_diff_e, &
+      &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+      &          t_cf_var('matrix_vert_diff_e','','for each cell',DATATYPE_FLT64),&
+      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+      &          ldims=(/nproma,n_zlev,nblks_e,no_primal_edges/), &
+      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     !
     ! initialize all components
@@ -413,17 +448,17 @@ CONTAINS
       END DO
     END DO
 
-    DO jk = 1, nz_lev
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          p_coeff%cell_position_cc(jc,jk,jb) &
-            & = p_patch%cells%cartesian_center(jc,jb)
-!             & = gc2cc(p_patch%cells%center(jc,jb))
-
-        END DO
-      END DO
-    END DO
+!    DO jk = 1, nz_lev
+!      DO jb = all_cells%start_block, all_cells%end_block
+!        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!        DO jc = i_startidx_c, i_endidx_c
+!          p_coeff%cell_position_cc(jc,jk,jb) &
+!            & = p_patch%cells%cartesian_center(jc,jb)
+! !             & = gc2cc(p_patch%cells%center(jc,jb))
+!
+!        END DO
+!      END DO
+!    END DO
 
     p_coeff%edge2edge_viacell_coeff= 0._wp
     p_coeff%edge2edge_viavert_coeff= 0._wp
@@ -514,7 +549,12 @@ CONTAINS
      TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
      TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:3)
-     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c,1:3)
+     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
+    !
+    !
+    ! matrix_vert_diff_c(:,:,:,1) : lower diagonal term
+    ! matrix_vert_diff_c(:,:,:,2) : diagonal term
+    ! matrix_vert_diff_c(:,:,:,3) : upper diagonal term
     !
     !Local variables
     !
@@ -523,8 +563,8 @@ CONTAINS
     REAL(wp), POINTER :: A_v(:,:,:)
     REAL(wp) :: inv_zinv_i(1:n_zlev)
     REAL(wp) :: inv_zinv_m(1:n_zlev)
-    REAL(wp) :: dt_inv
-    INTEGER  :: je,jc,jb,jk, i_no_t
+    REAL(wp) :: dt_inv,dz_m(1:n_zlev),dz_i(1:n_zlev)
+    INTEGER  :: je,jc,jb,jk,i_no_t
     INTEGER  :: slev,z_dolic
     INTEGER  :: i_startidx_e, i_endidx_e,  i_startidx_c, i_endidx_c
     TYPE(t_patch), POINTER :: patch
@@ -549,43 +589,28 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= SEA_BOUNDARY ) THEN 
             IF ( z_dolic >=MIN_DOLIC ) THEN
 
-              !inv_zinv_i(:) = 1.0_wp/v_base%del_zlev_i(:)
-              !inv_zinv_m(:) = 1.0_wp/v_base%del_zlev_m(:)
-               !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_c(jc,:,jb)
-               !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_c(jc,:,jb)
               inv_zinv_i(:) = p_patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
               inv_zinv_m(:) = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
+                    dz_i(:) = p_patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
+                    dz_m(:) = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb)
 
+              !first level
+              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp           
+              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
+              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3) 
 
               !Fill triangular matrix
               !b is diagonal a and c are upper and lower band
               !This corresponds to the 4th indices: "2", "1" and "3"
               DO jk = slev+1, z_dolic-1
-                !a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)!*dtime
-                !c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)!*dtime
-                !b(jk) = dt_inv-a(jk)-c(jk)
                 matrix_vert_diff_c(jc,jk,jb,1) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
                 matrix_vert_diff_c(jc,jk,jb,3) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
                 matrix_vert_diff_c(jc,jk,jb,2)  = dt_inv&
                                                & -matrix_vert_diff_c(jc,jk,jb,1)&
                                                & -matrix_vert_diff_c(jc,jk,jb,3)
               END DO
-!write(*,*)'coeff 521',matrix_vert_diff_c(5,2,1,2),matrix_vert_diff_c(5,2,1,1),matrix_vert_diff_c(5,2,1,3),&
-!&-A_v(5,2,1),inv_zinv_m(2) ,inv_zinv_i(2),A_v(5,3,1),inv_zinv_m(2),inv_zinv_i(3)
-              ! The first row
-              !c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-              !a(slev) = 0.0_wp           
-              !b(slev) = dt_inv- c(slev)!! - a(slev) 
-               
-              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp           
-              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3) 
-!write(*,*)'coeff 511',matrix_vert_diff_c(5,1,1,2),matrix_vert_diff_c(5,1,1,1),matrix_vert_diff_c(5,1,1,3),&
-!&-A_v(jc,slev+1,jb),inv_zinv_m(slev),inv_zinv_i(slev+1)
-              ! The last row
-              !a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
-              !c(z_dolic) = 0.0_wp
-              !b(z_dolic) = dt_inv - a(z_dolic)!! - c(z_dolic)
+  
+              !bottom
               matrix_vert_diff_c(jc,z_dolic,jb,1) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
               matrix_vert_diff_c(jc,z_dolic,jb,3) = 0.0_wp
               matrix_vert_diff_c(jc,z_dolic,jb,2) = dt_inv - matrix_vert_diff_c(jc,z_dolic,jb,1)
@@ -676,21 +701,13 @@ CONTAINS
 !
     REAL(wp)                      :: prime_edge_length      (1:nproma,patch%nblks_e)
     REAL(wp)                      :: dual_edge_length       (1:nproma,patch%nblks_e)
-    !REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
-    !REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch%nblks_e,1:2*no_dual_edges )
     REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
-    !REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
-    !REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    !REAL(wp)                      :: variable_dual_vol_norm (1:nproma,1:patch%nblks_e,1:no_dual_edges)
 
-    REAL(wp)                      :: div_coeff              (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    REAL(wp)                      :: div_coeff              (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     REAL(wp)                      :: rot_coeff              (1:nproma,1:patch%nblks_v,1:no_dual_edges)
     REAL(wp)                      :: grad_coeff             (1:nproma,1:patch%nblks_e)
 
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
-    !TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
-    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc     (1:nproma,1:patch%nblks_v,1:no_dual_edges)
-    !TYPE(t_cartesian_coordinates) :: edge2vert_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
+    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
 
 
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
@@ -1000,12 +1017,12 @@ CONTAINS
 !
     REAL(wp)                      :: edge2edge_viacell_coeff(1:nproma,1:patch%nblks_e,1:2*no_primal_edges)
     !REAL(wp)                      :: dist_cell2edge         (1:nproma,1:patch%nblks_e,1:2)
-    REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%nblks_c)
-    REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    REAL(wp)                      :: fixed_vol_norm         (1:nproma,patch%alloc_cell_blocks)
+    REAL(wp)                      :: variable_vol_norm      (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     REAL(wp)                      :: norm, orientation
     REAL(wp)                      :: dist_edge_cell, dist_edge_cell_basic
 
-    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%nblks_c,1:no_primal_edges)
+    TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch%alloc_cell_blocks,1:no_primal_edges)
     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc_t   (1:nproma,1:patch%nblks_e,1:2)
     TYPE(t_cartesian_coordinates) :: cell_center, edge_center
     TYPE(t_cartesian_coordinates) :: dist_vector, dist_vector_basic
@@ -1135,12 +1152,12 @@ CONTAINS
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
 
-        edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
+!        edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
         edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
 
         DO neigbor=1,2
 
-          edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+ !         edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
           cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
           cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
 
@@ -1171,9 +1188,9 @@ CONTAINS
 
     !copy 2D to 3D structure
     DO edge_block = owned_edges%start_block, owned_edges%end_block
-      DO level = 1, n_zlev
-        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-        DO edge_index =  start_index, end_index
+      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+      DO edge_index =  start_index, end_index
+        DO level = 1, n_zlev
 
           ocean_coeff%edge2cell_coeff_cc_t(edge_index,level,edge_block,1)%x &
           &= edge2cell_coeff_cc_t(edge_index,edge_block,1)%x
@@ -1955,16 +1972,20 @@ CONTAINS
                   & + triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( p_patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
-                cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-                cell2_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ! at least one of the two cells exists and is sea cell
+                IF (icell_idx_2 <= 0) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                ELSE IF (icell_idx_1 <= 0) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ELSE IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary) THEN
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                ELSE
+                  cell1_cc%x  = patch%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                ENDIF
 !                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
 !                   & + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
                 ! add only the sea dual area, ie the triagle area between
                 ! the vertex, edge centre, and sea cell center
-                IF (p_patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) > sea_boundary) THEN
-                  ! cell2 is the sea cell
-                  cell1_cc%x = cell2_cc%x
-                ENDIF
                 zarea_fraction(jv,jk,jb) = zarea_fraction(jv,jk,jb)  &
                   & + triangle_area(cell1_cc, vertex_cc, patch%edges%cartesian_center(ile,ibe))
               ENDIF
@@ -2106,9 +2127,6 @@ CONTAINS
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
     INTEGER :: start_index, end_index, neigbor, level
-    !REAL(wp) :: z_sync_c(nproma,n_zlev,p_patch%nblks_c)
-    !REAL(wp) :: z_sync_e(nproma,n_zlev,p_patch%nblks_e)
-    !REAL(wp) :: z_sync_v(nproma,n_zlev,p_patch%nblks_v)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:init_diff_operator_coeff_3D')

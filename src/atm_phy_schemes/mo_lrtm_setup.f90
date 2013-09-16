@@ -29,7 +29,7 @@ module mo_lrtm_setup
 contains
 
   ! **************************************************************************
-  subroutine lrtm_setup
+  subroutine lrtm_setup(data_filename)
     ! **************************************************************************
     !
     !  Original version:       Michael J. Iacono; July, 1998
@@ -44,6 +44,10 @@ contains
 
     use mo_lrtm_rtrnmr, only: ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
     use mo_lrtm_netcdf, only: lrtm_read
+
+    !> NetCDF file containing longwave absorption coefficients and other data
+    !> for RRTMG_LW k-distribution model
+    CHARACTER (LEN=*), INTENT(IN) :: data_filename
 
     ! ------- Local -------
 
@@ -70,11 +74,11 @@ contains
 
     ! Initialize model data
     call lwdatinit
-    call lwcmbdat               ! g-point interval reduction data
-    call lwatmref               ! reference MLS profile
-    call lwavplank              ! Planck function
-    call lwavplankderiv         ! Planck function derivative wrt temp
-    call lrtm_read              ! molecular absorption coefficients
+    call lwcmbdat                  ! g-point interval reduction data
+    call lwatmref                  ! reference MLS profile
+    call lwavplank                 ! Planck function
+    call lwavplankderiv            ! Planck function derivative wrt temp
+    call lrtm_read(data_filename)  ! molecular absorption coefficients
 
     ! Compute lookup tables for transmittance, tau transition function,
     ! and clear sky tau (for the cloudy sky radiative transfer).  Tau is

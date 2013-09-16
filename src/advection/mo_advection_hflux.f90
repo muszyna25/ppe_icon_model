@@ -2777,8 +2777,8 @@ CONTAINS
       &                      opt_slev=slev, opt_elev=elev )
 
     ! values for the blocking
-    nblks_e  = p_patch%nblks_int_e
-    npromz_e = p_patch%npromz_int_e
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE

@@ -57,7 +57,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
-  &                                iqc, iqi, iqr, iqs
+  &                                iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -88,10 +88,10 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_any_output_nml_active
-USE mo_name_list_output,    ONLY: init_name_list_output,  &
-  &                               close_name_list_output, &
-  &                               parse_variable_groups,  &
-  &                               output_file
+USE mo_name_list_output_init, ONLY: init_name_list_output, &
+  &                               parse_variable_groups
+USE mo_name_list_output,    ONLY: close_name_list_output
+USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
@@ -236,9 +236,9 @@ CONTAINS
     ! Unfortunatley this conflicts with our trying to call the config-routines 
     ! as early as possible. 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs,    &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),        &
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,                        &
+       &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
+       &                      kstart_moist(jg), kend_qvsubstep(jg),                          &
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 

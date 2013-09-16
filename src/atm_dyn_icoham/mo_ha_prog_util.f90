@@ -142,8 +142,8 @@ CONTAINS
 
     ! Dimension parameters related to refinement and MPI parallelisation
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     ! Update cell-based variables
 
@@ -356,8 +356,8 @@ CONTAINS
     !------
     ! Dimension parameters related to refinement and MPI parallelisation
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     ! Accumulate cell-based tendencies
 
@@ -427,7 +427,7 @@ CONTAINS
     ! Cell-based variables
 
     jbs = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-    jbe = p_patch%nblks_int_c
+    jbe = p_patch%nblks_c
 
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
@@ -445,7 +445,7 @@ CONTAINS
     ! Edge-based variable
 
     jbs = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-    jbe = p_patch%nblks_int_e
+    jbe = p_patch%nblks_e
 
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
@@ -494,8 +494,8 @@ CONTAINS
 
     ! Dimension parameters related to refinement and MPI parallelisation
 
-    nblks_e = p_patch%nblks_int_e
-    nblks_c = p_patch%nblks_int_c
+    nblks_e = p_patch%nblks_e
+    nblks_c = p_patch%nblks_c
 
     ! Diagnose cell-based tendencies
 

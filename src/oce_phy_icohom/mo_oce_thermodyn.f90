@@ -193,7 +193,7 @@ END INTERFACE
    p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
-  ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
+  ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
   all_cells => p_patch%cells%all
 
@@ -270,10 +270,10 @@ END INTERFACE
   SUBROUTINE calc_internal_press(p_patch_3D, rho, prism_thick_c, h, press_hyd)
   !
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-  REAL(wp), INTENT(IN)              :: rho          (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< density
-  REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%nblks_c)     !< surface elevation at cells
-  REAL(wp), INTENT(INOUT)           :: press_hyd    (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%nblks_c)  !< hydrostatic pressure
+  REAL(wp), INTENT(IN)              :: rho          (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< density
+  REAL(wp), INTENT(IN), TARGET      :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+  REAL(wp), INTENT(IN)              :: h            (1:nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< surface elevation at cells
+  REAL(wp), INTENT(INOUT)           :: press_hyd    (1:nproma,1:n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< hydrostatic pressure
 
   ! local variables:
   !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -291,7 +291,7 @@ END INTERFACE
    p_patch   => p_patch_3D%p_patch_2D(1)
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
-  ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
+  ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
   all_cells => p_patch%cells%all
   press_hyd(:,:,:) = 0.0_wp
@@ -688,7 +688,7 @@ END INTERFACE
   !
   TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
   REAL(wp),    INTENT(IN)                     :: tracer(:,:,:,:)  
-  REAL(wp), INTENT(OUT)                       :: rho(:,:,:) 
+  REAL(wp), INTENT(inout)                       :: rho(:,:,:) 
 
   ! local variables:              
   REAL(wp) :: z_t

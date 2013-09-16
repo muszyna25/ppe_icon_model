@@ -25,12 +25,14 @@ MODULE mo_io_restart_namelist
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
+  PUBLIC :: set_restart_namelist
   !
 #ifdef HAVE_F95
   PUBLIC :: t_att_namelist
 #endif
   !
 #ifndef HAVE_F2003
+  PUBLIC :: nmllen_max
 !   INTEGER, PARAMETER :: nmllen_max = 4096
   INTEGER, PARAMETER :: nmllen_max = 65536
 #endif
@@ -175,7 +177,6 @@ CONTAINS
     !
   END FUNCTION open_tmpfile
   !
-#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
   SUBROUTINE store_and_close_namelist(funit, name)
     INTEGER,          INTENT(in) :: funit
     CHARACTER(len=*), INTENT(in) :: name 
@@ -232,14 +233,7 @@ CONTAINS
     iret = util_unlink(TRIM(filename))
     !
   END SUBROUTINE store_and_close_namelist
-#else
-  SUBROUTINE store_and_close_namelist(funit, name)
-    INTEGER,          INTENT(in) :: funit
-    CHARACTER(len=*), INTENT(in) :: name 
-  END SUBROUTINE store_and_close_namelist
-#endif
   !
-#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
   FUNCTION open_and_restore_namelist(name) RESULT(funit)
     INTEGER :: funit
     CHARACTER(len=*), INTENT(in) :: name 
@@ -282,12 +276,6 @@ CONTAINS
          DELIM='apostrophe')
     !    
   END FUNCTION open_and_restore_namelist
-#else
-  FUNCTION open_and_restore_namelist(name) RESULT(funit)
-    INTEGER :: funit
-    CHARACTER(len=*), INTENT(in) :: name 
-  END FUNCTION open_and_restore_namelist
-#endif
   !
   SUBROUTINE close_tmpfile(funit)
     INTEGER, INTENT(in) :: funit

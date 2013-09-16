@@ -62,7 +62,7 @@
 MODULE mo_nwp_phy_types
 
   USE mo_kind,                ONLY: wp
-  USE mo_fortran_tools,       ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_model_domain,        ONLY: t_patch
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_nwp_parameters,      ONLY: t_phy_params
@@ -82,7 +82,6 @@ MODULE mo_nwp_phy_types
   !types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
-
 
   !
   !!data structure defining model states
@@ -116,13 +115,17 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: v_10m_t_ptr(:)  !< pointer array: meridional wind at 10m
     TYPE(t_ptr_2d3d),ALLOCATABLE :: shfl_s_t_ptr(:) !< pointer array: surface sensible heat flux 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_s_t_ptr(:) !< pointer array: surface latent heat flux
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: ustr_s_t_ptr(:) !< pointer array: surface U stress
-    TYPE(t_ptr_2d3d),ALLOCATABLE :: vstr_s_t_ptr(:) !< pointer array: surface V stress
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: umfl_s_t_ptr(:) !< pointer array: u-momentum flux at the surface
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: vmfl_s_t_ptr(:) !< pointer array: v-momentum flux at the surface
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
 
-    REAL(wp), POINTER ::  &
+    REAL(wp), POINTER          &
+#ifdef _CRAYFTN
+      , CONTIGUOUS             &
+#endif
+      &  ::                    &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
       &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
       &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
@@ -158,8 +161,6 @@ MODULE mo_nwp_phy_types
       &  shfl_s_t(:,:,:),      & !! sensible heat flux (surface) ( W/m2)
       &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
       &  lhfl_s_t(:,:,:),      & !! latent   heat flux (surface) ( W/m2)
-      &  ustr_s_t(:,:,:),      & !! U stress           (surface) ( m2/s2)
-      &  vstr_s_t(:,:,:),      & !! V stress           (surface) ( m2/s2)
       &  lhfl_bs(:,:),         & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_bs_t(:,:,:),     & !! latent heat flux from bare soil evap. (surface) ( W/m2)
       &  lhfl_pl(:,:,:),       & !! latent heat flux from plants                    ( W/m2)
@@ -181,6 +182,7 @@ MODULE mo_nwp_phy_types
       &  clcl(:,:),            & !! cloud cover of low-level clouds
       &  hbas_con(:,:),        & !! height of base of convection [m]
       &  htop_con(:,:),        & !! height of top of convection [m]
+      &  htop_dc(:,:),         & !! height above msl of the top of dry convection [m]
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), icluding vertical 
                                  !! integrals of qr and qs 
@@ -190,7 +192,9 @@ MODULE mo_nwp_phy_types
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
       &  albdif(:,:),          & !! Shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
+      &  albvisdir(:,:),       & !! UV visible albedo for direct radiation  (0.3-0.7µm)
       &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
+      &  albnirdir(:,:),       & !! near IR albedo for direct radiation     (0.7-5.0µm)
       &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0µm)
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7µm)
@@ -219,8 +223,12 @@ MODULE mo_nwp_phy_types
 
 
     !> Parameter fields for turbulence
-    REAL(wp), POINTER ::  &
-      rcld(:,:,:)      ,    & !> standard deviation of the saturation deficit    --
+    REAL(wp), POINTER      &
+#ifdef _CRAYFTN
+      , CONTIGUOUS         &
+#endif
+      ::                   &
+      rcld(:,:,:)      ,   & !> standard deviation of the saturation deficit    --
       tcm(:,:)        ,    & !! turbulent transfer coefficients for momentum    --
       tch(:,:)        ,    & !! turbulent transfer coefficients for heat        --
       tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
@@ -257,11 +265,21 @@ MODULE mo_nwp_phy_types
                              !! (tile based)
       u_10m_t(:,:,:)   ,   & !! zonal wind at 10m                             ( m/s )
       v_10m_t(:,:,:)   ,   & !! meridional wind at 10m                        ( m/s )
+      umfl_s_t(:,:,:)  ,   & !! u-momentum flux at the surface (tile based)    (N/m2)
+      vmfl_s_t(:,:,:)  ,   & !! v-momentum flux at the surface (tile based)    (N/m2)
       umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)
-      vmfl_s(:,:)            !! u-momentum flux at the surface                 (N/m2)
+      vmfl_s(:,:)      ,   & !! v-momentum flux at the surface                 (N/m2)
+      aumfl_s(:,:)     ,   & !! u-momentum flux at the surface (N/m2), accumulated or mean since model start
+      avmfl_s(:,:)           !! v-momentum flux at the surface (N/m2), accumulated or mean since model start
+                             !! a means average values if lflux_avg=.TRUE.
+                             !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
 
     ! need only for vdiff (and some for EDMF)
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & ri      (:,:,:),    &!< moist Richardson number at layer interfaces
       & mixlen  (:,:,:),    &!< mixing length at layer interfaces
       & thvvar  (:,:,:),    &!< variance of virtual potential temperature at layer interfaces.
@@ -277,7 +295,11 @@ MODULE mo_nwp_phy_types
       & ocv     (:,:)        !< northward velocity of ocean surface current
 
 
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & cfm    (:,:,:),     &!< turbulent exchange coefficient
       & cfm_tile(:,:,:),    &!< turbulent exchange coefficient
       & cfh    (:,:,:),     &!< turbulent exchange coefficient
@@ -289,18 +311,30 @@ MODULE mo_nwp_phy_types
 
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
-    REAL(wp),POINTER :: &
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & aersea  (:,:),      &
       & aerlan  (:,:),      &
       & aerurb  (:,:),      &
       & aerdes  (:,:)
 
-    INTEGER, POINTER :: &
+    INTEGER, POINTER        &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       &  mbas_con(:,:),     & !< cloud base level index
       &  mtop_con(:,:),     & !< cloud top  level index
       &  ktype   (:,:)        !< Type of convection
 
-    LOGICAL, POINTER :: &
+    LOGICAL, POINTER        &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
       & locum     (:,:),    & !< convective  activity indicator
       & ldshcv    (:,:)       !< shallow convection indicator
 
@@ -314,7 +348,11 @@ MODULE mo_nwp_phy_types
   !
   TYPE t_nwp_phy_tend
 
-    REAL(wp),POINTER ::  &
+    REAL(wp), POINTER           &
+#ifdef _CRAYFTN
+      , CONTIGUOUS              &
+#endif
+      ::                        &
       ddt_temp_radsw  (:,:,:)  ,& !! Temp-tendency from shortwave radiation
       ddt_temp_radlw  (:,:,:)  ,& !! Temp-tendency from longwave radiation
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
@@ -345,6 +383,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
       &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
+
+    TYPE(t_ptr_tracer), ALLOCATABLE :: conv_tracer_tend(:,:) !< pointer for chemical tracer conv. tend.
+
   END TYPE t_nwp_phy_tend
 
 END MODULE mo_nwp_phy_types
