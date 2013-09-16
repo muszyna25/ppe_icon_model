@@ -382,10 +382,10 @@ src/namelists/*.settings
 src/namelists/.cproject
 src/namelists/.project
 src/namelists/icon-dev
-src/ocean/atm_oce_lnd_interface/*.settings
-src/ocean/atm_oce_lnd_interface/.cproject
-src/ocean/atm_oce_lnd_interface/.project
-src/ocean/atm_oce_lnd_interface/icon-dev
+src/ocean/boundary/*.settings
+src/ocean/boundary/.cproject
+src/ocean/boundary/.project
+src/ocean/boundary/icon-dev
 src/ocean/dynamics/*.settings
 src/ocean/dynamics/.cproject
 src/ocean/dynamics/.project
