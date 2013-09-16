@@ -1467,6 +1467,7 @@ src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
+src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_sea_ice.f90 -text
 src/ocean/boundary/mo_sea_ice_shared_sr.f90 -text
 src/ocean/boundary/mo_sea_ice_types.f90 -text
@@ -1489,6 +1490,8 @@ src/ocean/dynamics/mo_oce_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_oce_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_oce_veloc_advection.f90 -text
 src/ocean/dynamics/mo_scalar_product.f90 -text
+src/ocean/math/mo_ocean_gmres.f90 -text
+src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/physics/mo_oce_forcing.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
@@ -1525,7 +1528,6 @@ src/shared/mo_math_types.f90 -text
 src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
 src/shared/mo_namelist.f90 -text
-src/shared/mo_ocean_gmres.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
@@ -1578,8 +1580,6 @@ src/shr_horizontal/mo_model_domain.f90 -text
 src/shr_horizontal/mo_model_domimp_patches.f90 -text
 src/shr_horizontal/mo_model_domimp_setup.f90 -text
 src/shr_horizontal/mo_nonlinear_adv.f90 -text
-src/shr_horizontal/mo_ocean_ext_data.f90 -text
-src/shr_horizontal/mo_operator_ocean_coeff_3d.f90 -text
 src/shr_horizontal/mo_reorder_patches.f90 -text
 src/shr_horizontal/mo_smooth_topo.f90 -text
 src/testbed/mo_icon_testbed_config.f90 -text
