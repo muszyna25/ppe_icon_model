@@ -1,0 +1,153 @@
+#!/bin/ksh
+#=============================================================================
+#
+# This section of the run script defines the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2011-01-29
+# Hui Wan,         MPI-M, 2010-08-17
+# Leonidas Linardakis, MPI-M, 2011-07-20
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson baroclinic wave test
+# _bb_table_Model_        hydrost. atmosphere
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+#
+start_date=${start_date:="2008-09-01T00:00:00Z"}
+end_date=${end_date:="2008-09-01T12:00:00Z"}
+#
+ndays=1
+dt_checkpoint=`expr ${ndays} \* 86400` # [s]
+#
+ndays=10
+dt_restart=`expr ${ndays} \* 86400` # [s]
+#
+#-----------------------------------------------------------------------------
+# model timing
+#
+dtime=600 # [s]
+#
+nhours=6
+dt_data=`expr ${nhours} \* 3600` # [s]
+#
+nhours=24
+dt_diag=`expr ${nhours} \* 3600` # [s]
+#
+ndays=10
+dt_file=`expr ${ndays} \* 86400` # [s]
+#
+steps_per_file=120
+#-----------------------------------------------------------------------------
+# model parameters
+#
+atmo_model_equations=1   # equation system
+#                          0: shallow water model
+#                          1: hydrostatic atmosphere, T
+#                          2: hydrostatic atm., theta*dp
+#                          3: non-hydrostatic atmosphere
+#                         -1: hydrostatic ocean
+#
+#-----------------------------------------------------------------------------
+# define variable names
+#
+dict_file='dict.r2b4_amip__cmor'
+#
+#-----------------------------------------------------------------------------
+# horizontal grid
+#
+atmo_dyn_grids='iconR2B04-grid.nc'
+#
+#-----------------------------------------------------------------------------
+# vertical grid
+#
+nlev=31
+#
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# write namelist parameters
+# -------------------------
+# For a complete list see Namelist_overview.pdf
+#  
+cat > $atmo_namelist << EOF
+!
+&parallel_nml
+ nproma          = ${nproma}
+ use_icon_comm   = .true.
+ max_send_recv_buffer_size = 262144
+ p_test_run      = .true.
+ ! l_log_checks    = .true.
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev         = ${nlev},         ! number of full levels of vertical grid
+ ntracer         = 0                ! number of tracers
+ dtime           = ${dtime}         ! [s]
+ ldynamics       = .TRUE.           ! dynamics
+ ltransport      = .FALSE.          ! transport 
+ iforcing        = 0                ! no forcing
+ ltestcase       = .TRUE.           ! run testcase
+ ltimer          = .TRUE.
+ timers_level    = 5
+ activate_sync_timers = .TRUE.
+ output="nml"
+/
+&ha_testcase_nml
+ ctest_name      = 'JWw'            ! test case identifier
+/
+&io_nml
+ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
+! output_nml_dict  = '${dict_file}'
+! netcdf_dict      = '${dict_file}'
+/
+&output_nml
+ output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
+ steps_per_file   = ${steps_per_file}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}"
+!!! ml_varlist       = 'ps'      , 'ta'      ,
+!                    'hus'     , 'clw'     , 'cli'     ,
+!                    'ua'      , 'va'      , 'wap'     ,
+!                    'pfull'   , 'gpfull'
+! ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
+ ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div'
+/
+!&io_nml
+! out_expname     = '${EXPNAME}'     ! file name base
+! dt_data         = ${dt_data}       ! [s]
+! dt_diag         = ${dt_diag}       ! [s]
+! dt_checkpoint   = ${dt_checkpoint} ! [s]
+! dt_file         = ${dt_file}       ! [s]
+!/
+&dynamics_nml
+ iequations      = ${atmo_model_equations}
+/
+EOF
+#-----------------------------------------------------------------------------
+

@@ -33,7 +33,7 @@ RADDIR=${basedir}/icon_input/radiation
 #set -x
 
 # the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
+if [[ ! -d $EXPDIR ]] ; then
     mkdir -p $EXPDIR
 fi
 cd $EXPDIR
@@ -158,13 +158,14 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 91          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000.
  ifs2icon_filename            = '${ifs2icon_filename}'
 /
 &io_nml
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
+ itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
+ lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
 /
 &run_nml
  num_lev                      = 90
@@ -261,7 +262,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 7.5
+ rat_sea                      = 10.0
 /
 &lnd_nml
  ntiles                       = 3

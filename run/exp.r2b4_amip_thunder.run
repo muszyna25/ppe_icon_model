@@ -1,7 +1,10 @@
 #!/bin/bash
 #
-# The script is currently set up to automatically do a restart starting on 1980-01-01 00:00 using
-# a restart file from /pool (see below) in order to start with a realistic topography.
+# This script starts a spin-up run for the AMIP experiment from an analytically initialized, zonally 
+# symmetric atmospheric state over a flat Earth surface. Over the first day mountains are grown to
+# their realistic size.
+#
+# The length of the spin-up run is 1 year from 1978-01-01T00:00:00Z to 1979-01-01T00:00:00Z.
 #
 #__________________________________________________________________________________________________
 # SLURM destructs $0!
@@ -33,10 +36,7 @@ job_name=exp.r2b4_amip_thunder.run
 restart=${restart:=".false."}
 #
 #AUTOMATIC_RESTART_SETUP:
-restart=.true.
 #END AUTOMATIC_RESTART_SETUP
-restart_from_folder=/pool/data/ICON/restart/r0001/r2b4_amip/atm
-restart_atmo_from=restart.r2b4_amip_19790101T000000Z_atm.nc
 #__________________________________________________________________________________________________
 # set error checking
 set -eu
@@ -143,9 +143,10 @@ case $user in
 	basedir=/scratch/mpi/mh0287/users/m214017/svn/icon/trunk/icon-dev
 	;;
     Sebastian)
-	basedir=""
-	redln "Add the base directory of ICON here ..."
-	exit 1
+	basedir=XX_TEST_MODEL_DIR
+#	basedir="/scratch/local2/m218036/icon/icon_rev12975/icon-dev/"
+#	redln "Add the base directory of ICON here ..."
+#	exit 1
 	;;
     Reiner)
 	case $(hostname) in
@@ -235,12 +236,12 @@ case $user in
         mpiexec_options="--mca btl self,sm,openib --bind-to-core --bycore"
         ;;
     Sebastian)
-	mpi_root=""
-	mpiexec_cmd=""
+	mpi_root=/sw/squeeze-x64/mpi/mpich2-1.3.1-static-gcc45
+	mpiexec_cmd=mpirun
         mpiexec_options=""
-	redln "Add mpi_root directory here ..."
-	redln "Add mpiexec cmd here ..."
-	exit 1
+#	redln "Add mpi_root directory here ..."
+#	redln "Add mpiexec cmd here ..."
+#	exit 1
 	;;
 esac
  
@@ -304,10 +305,8 @@ minute=60                                # [s] 1 minute
 hour=3600                                # [s] 1 hour
 day=86400                                # [s] 1 day
 #
-# RS 2013-05-30: If using the restart file from /pool for 1979-01-01, leave the 
-# start_date at 1978-01-01.
 start_date="1978-01-01T00:00:00Z"        # start and end date
-  end_date="1980-01-01T00:00:00Z"        # of the experiment
+  end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
 (( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
 (( dt_checkpoint   =  1 * day         )) # [s] time between additional restart file writing
@@ -336,7 +335,7 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 
 # define variable names
 #
-dict_file='dict.r2b4_amip__cmor'
+dict_file='dict.cmor'
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
@@ -397,7 +396,7 @@ cat > ${atm_namelist} << EOF
  irad_co2         = 2            ! constant co2 vmr
  irad_ch4         = 0            ! switch off ch4
  irad_n2o         = 0            ! switch off n2o
- irad_o3          = 8            ! ozone for AMIP experiment
+ irad_o3          = 8            ! ozone for AMIP experiment ! eventually 1...7 if 8 does not work
  irad_o2          = 0            ! switch off o2
  irad_cfc11       = 0            ! switch off cfc11
  irad_cfc12       = 0            ! switch off cfc12
@@ -654,7 +653,7 @@ check_error $? "$LINENO: ${MODEL} does not exist?"
 
 # start experiment
 #
-if [[ "$(os)" = "Linux" ]]
+if [[ "$(os)" = "Linux" ]] && [[ "$(hostname)" == ctc* ]]
 then
     ulimit -s unlimited
 fi

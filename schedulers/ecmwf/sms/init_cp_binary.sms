@@ -25,18 +25,20 @@ echo "INIT_CP_BINARY.SMS"
 
 
 arch=rs6000-ibm-aix
+toolstag=icontools-1.3.4    # synchronize with init_build.sms!
 
 SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/bin
 mkdir -p ${SETDIRTMP}
 
+
 # Copy executable to experiment temporary directory
-cp %SCPERMIII%/icon-dev/build/${arch}/bin/control_model ${SETDIRTMP}
-cp %SCPERMIII%/icon-dev/build/${arch}/bin/prep_icon     ${SETDIRTMP}
-cp %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt  ${SETDIRTMP}
+cp %SCPERMIII%/icon-dev/build/${arch}/bin/control_model                ${SETDIRTMP}
+cp %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt                 ${SETDIRTMP}
+cp %SCPERMIII%/dwd_icon_tools/tags/${toolstag}/icontools/iconremap_mpi ${SETDIRTMP}
+
 
 # Use executable from $USER
-#cp %SCPERM%/icon-dev/build/${arch}/bin/control_model ${SETDIRTMP}
-
+#cp %SCPERM%/icon-dev/build/${arch}/bin/control_model                  ${SETDIRTMP}
 
 
 # -------------------------------------------------

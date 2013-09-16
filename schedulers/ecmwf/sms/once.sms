@@ -24,7 +24,7 @@ echo "ONCE.SMS"
 
 # Create setup directory on c2a and copy ICON namelist there
  
-if [ %NENS% -eq 0 ]
+if [[ %NENS% -eq 0 ]]
 then 
  
   SETDIRTMP=%SCTEMP%/%SUITE%/%EXPNUM%/output/setup

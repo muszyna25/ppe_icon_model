@@ -63,6 +63,18 @@ else
   mh_setup=""            
 fi
 
+AC_ARG_WITH([mtime],
+  [AS_HELP_STRING([--with-mtime],
+    [enable use of mtime for development/prototyping])],
+    [],
+    [])
+
+if test x$with_mtime != x; then
+    use_mtime="yes"
+else
+    use_mtime="no"
+fi
+
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
     [use specified group od flags (std, hiopt, noopt, etc])],
@@ -87,17 +99,28 @@ dnl ######################################################################
 ac_hostname=$(hostname)
 ac_hostname=${ac_hostname%%\.*}
 
-if [[ x$ac_hostname = xplogintest1 ]] ; then
-  ac_sitename=dkrz.de
-else 
-
-if [[ $(hostname) = $ac_hostname ]] ; then 
+AS_CASE([x"$ac_hostname"],
+  [xplogintest1],
+  [ac_sitename=dkrz.de],
+  [xwizard*],
+  [ac_sitename=dkrz.de; ac_hostname=wizard],
+  [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
    fqdn=$(hostname)
 fi
-ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-fi
+  echo $fqdn
+  if [[ -n "$fqdn" ]]; then
+    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
+  else
+    if [[ -n "$PE_ENV" ]] ; then
+      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+      echo "detecting Cray environment... $fqdn"
+    else
+      fqdn=${HOSTNAME}
+    fi
+    ac_sitename=${fqdn}
+  fi])
 
 dnl ######################################################################
 
@@ -107,6 +130,7 @@ case $host in
     *-ibm-aix*)          host_frag=config/mh-aix ;;
     *-*-linux-*)         host_frag=config/mh-linux ;;
     *-*-darwin*)         host_frag=config/mh-darwin ;;
+    *-cray-*)            host_frag=config/mh-cray ;;
     *) echo This configuration is not supported.
        echo Please set a valid config/mh-* file up.
        ;;	 	
@@ -566,6 +590,11 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
+
+if [[ "x$use_mtime" = xyes ]] ; then
+    my_srcdirs="externals/mtime/src ${my_srcdirs}"
+fi
+
 ac_srcdirs=""
 for dir in $my_srcdirs ; do
     ac_srcdirs="${ac_srcdirs} $dir"
@@ -621,15 +650,16 @@ else
     use_flags_group=$with_flags
 fi
 
-if [[ "$use_flags_group" = "std" ]] ; then
-   FFLAGS="${FFLAGS} ${STD_FLAGS}"
-elif [[ "$use_flags_group" = "hiopt" ]] ; then
-   FFLAGS="${FFLAGS} ${HIOPT_FLAGS}"
-else
-   echo "unkown with_flags patrameter: $with_flags" 
-   exit 1   
+if [[ "x$use_mtime" = xyes ]] ; then
+   ac_libs="$ac_libs -lmtime"
 fi
- 
+
+dnl the following prepends VARIANT_FLAGS to FFLAGS
+dnl when given --with-flags=variant argument to configure
+AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
+  [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
+  [AS_IF([test x"$use_flags_group" != xstd],
+     [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
 
 
 #------------------------
@@ -899,6 +929,7 @@ use_mpi="${use_mpi}"
 use_openmp="${use_openmp}"
 use_builddir="build/${build_host}"
 use_mpi_root="${MPIROOT}"
+use_mpi_procs_pernode="${use_mpi_procs_pernode}"
 use_mpi_startrun="${mpi_startrun}"
 use_load_modules="$load_modules"
 use_load_profile="$load_profile"

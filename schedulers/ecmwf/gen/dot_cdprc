@@ -1,4 +1,4 @@
-alias lll set SMS_PROG 901730 \; login ecgate UID 1
+alias lll set SMS_PROG 901730 \; login ecgb UID 1
 
 define total_restart {
    lll

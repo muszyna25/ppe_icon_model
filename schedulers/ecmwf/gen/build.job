@@ -29,7 +29,8 @@ set -e
 set -u
 set -x
 
-module swap fortran fortran/xlf/14.1.0.2
+module swap fortran fortran/xlf/14.1.0.3
+module swap grib_api grib_api/1.11.0
 
 arch=rs6000-ibm-aix
 

@@ -26,7 +26,7 @@ echo "POST_ARCHIVE.SMS"
 
 
 case %SIMMODE% in
-  1) if [ %FAMILY1% = "post" ] ; then
+  1) if [[ %FAMILY1% = "post" ]] ; then
        ldeldata=0      # pre-operations (post)
      else
        ldeldata=1      # pre-operations (post_1)
@@ -41,18 +41,16 @@ esac
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 cd ${gatedir}
 ecfsdir=ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-ECFSPATH=/usr/local/ecfs/new
-${ECFSPATH}/emkdir.p -p $ecfsdir
+emkdir -p $ecfsdir
 
 
 #-----------------------------------------------------------------------------
-# convert metview plots from ps to png 
+# change metview plot names from *.1.png to *.png
 
 cd metplots
-for metfile in `ls map*.ps zon*.ps` ; do
-  metfile2=`echo $metfile | sed 's/\.ps//'`
- #convert -rotate 90 ${metfile2}.ps ${metfile2}.png || true
-  rm -f ${metfile2}.ps
+for metfile in `ls map*.1.png zon*.1.png` ; do
+  metfile2=`echo $metfile | sed 's/\.1\.png/\.png/'`
+  mv ${metfile} ${metfile2}
 done 
 cd -
 
@@ -67,19 +65,19 @@ cd -
 #-----------------------------------------------------------------------------
 # archive plots to ecfs
 
-tar cvf               metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar metplots
-gzip -f               metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
-${ECFSPATH}/ecp.p  -o metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+tar cvf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar     metplots
+gzip -f metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp -o  metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz  $ecfsdir
 \rm -rf metplots_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
-tar cvf               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar meteo
-gzip -f               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
-${ECFSPATH}/ecp.p  -o meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
-\rm -rf               meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
+tar cvf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar    meteo
+gzip -f meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar
+ecp -o  meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz $ecfsdir
+\rm -rf meteogram_%SUITE%_%EXPNUM%_%YMD%%INIHOUR%.tar.gz
 
 
 #-----------------------------------------------------------------------------
-# delete complete date directory
+# delete grib data
 
 if [[ $ldeldata = 1 ]] ; then
  #\rm -rf met.job.*

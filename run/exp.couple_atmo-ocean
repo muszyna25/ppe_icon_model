@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -58,8 +59,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 start_date="2000-01-01T00:00:00Z"
   end_date="2000-01-02T00:00:00Z"
 #
-ndays=1
-ndays_restart=${ndays}
+ndays_restart=1
 #
 dtime_atmo=300
 dtime_ocean=1800
@@ -72,10 +72,9 @@ dt_checkpoint=$dt_restart  # checkpointing not yet supported for coupling fields
 # model timing
 #
 dtime=$dtime_atmo
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
-dt_data=`expr 6 \* 3600 `         # write output every 6 hours
-dt_rad=7200.                      # compute radiative transfer every other hour
+dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
+dt_data=`expr 6 \* 3600 `                 # write output every 6 hours
+dt_rad=7200.                              # compute radiative transfer every other hour
 #
 #
 #-----------------------------------------------------------------------------
@@ -94,7 +93,7 @@ iforcing=2               # ECHAM physics
 # the grid files
 #
 grid_ext="aqua_planet"
-grid_name="iconR2B04-ocean_${grid_ext}"
+grid_name="iconR2B04-ocean_${grid_ext}"   #  resolution change via grid file
 ocean_grids="${grid_name}.nc"
 #
 #-----------------------------------------------------------------------------
@@ -225,7 +224,6 @@ cat > $atmo_namelist << EOF
 &run_nml
  output      = 'vlist'
  num_lev     = ${nlev}      ! number of full levels of vertical grid
- nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
@@ -287,7 +285,7 @@ cat > $atmo_namelist << EOF
  irad_co2   = 2         ! constant co2 vmr
  irad_ch4   = 0         ! switch off ch4
  irad_n2o   = 0         ! switch off n2o
- irad_o3    = 4         ! switch off o3
+ irad_o3    = 0         ! switch off o3
  irad_o2    = 0         ! switch off o2
  irad_cfc11 = 0         ! switch off cfc11
  irad_cfc12 = 0         ! switch off cfc12
@@ -323,18 +321,16 @@ iforc_oce=14
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2000-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 #
 dtime=$dtime_ocean   # ocean model timestep [s]
 #
-# calculate model timesteps using $ndays
+# calculate model timesteps using $ndays_restart
 #
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_data=`expr 24 \* 3600 `        # write output every 24 hours
-dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
+dt_data=`expr 24 \* 3600 `                # write output every 24 hours
+dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
@@ -456,7 +452,6 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  output      = 'vlist'
- nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltimer      = .true. 
 /
@@ -475,17 +470,29 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  350.0,  400.0,  400.0,  400.0,  400.0,  400.0,
                         500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
+  !l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+  !l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
+  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
+  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
+  solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
+  use_continuity_correction = .true.
+  !i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  !richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
   k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
+  !richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
 /
 &ocean_forcing_and_init_nml

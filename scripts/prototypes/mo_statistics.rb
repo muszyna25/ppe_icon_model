@@ -44,6 +44,10 @@ class DataStatistics
 
     @numberOfAccumulations += 1
   end
+  def variance
+  end
+  def meanHorizontal
+  end
 end
 class DataStatisticsCollection
   def initialize

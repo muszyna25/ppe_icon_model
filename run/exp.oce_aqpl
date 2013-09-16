@@ -88,17 +88,19 @@ start_date="1001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=72       # ocean model output interval hours [hours]
+nhours_data=240       # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
-ndays_checkp=90      # write restart file interval [days]
-ndays_restart=360    # stop model for restart [days]
+ndays_checkp=900      # write restart file interval [days]
+ndays_restart=3600    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-dt_data=`expr ${nhours_data} \* 3600`
-dt_file=`expr ${ndays_file} \* 86400`
-dt_checkpoint=`expr ${ndays_checkp} \* 86400`
-dt_restart=`expr ${ndays_restart} \* 86400`
+(( dt_data       = nhours_data   * 3600 ))
+(( dt_file       = ndays_file    * 86400 ))
+(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_restart    = ndays_restart * 86400 ))
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -120,6 +122,7 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
+ l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -128,26 +131,68 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 1800         ! model timestep in seconds
- output      = 'vlist'      ! We're still using the old output mechanism
+ dtime       = 3600         ! model timestep in seconds
+ output      = 'nml'      ! We are still using the old output mechanism
+ activate_sync_timers = .TRUE.
+ write_timer_files    = .FALSE.
+ msg_timestamp        = .TRUE.
+/
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_nmlOuput"
+  ! Output Variable List:
+  ml_varlist       =
+   'wet_c' 'wet_e' 'basin_c' 'regio_c' 'dolic_c' 'dolic_e' 'bottom_thick_c' 'column_thick_c' 'bottom_thick_e' 'column_thick_e' 
+   't' 's' 'u' 'v' 'w' 'h' 'u_vint' 't_acc' 's_acc' 'u_acc' 'v_acc' 'rhopot' 'rhopot_acc' 
+   'vn' 'vt' 'vort' 'hi' 'hs' 'concSum' 
+/
+&dbg_index_nml
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+  str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 10 unevenly spaced levels beginning with 50m depth
-  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
-                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+! 40 unevenly spaced levels used by MPIOM/GR30
+! n_zlev             =   40
+! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+  l_partial_cells = .TRUE.       ! partial bottom cells=true: local varying bottom depth
+  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
+  !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
+  solver_tolerance = 1.0E-11              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart = 20        !  outer solver loop with syncing
+  solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
 /
 &ocean_physics_nml
-  i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
-  no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
+  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
+  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+  MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:

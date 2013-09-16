@@ -1,12 +1,14 @@
 EXP="test_oce_numeric"
-varNames="ELEV T S"
+varNames2D="h"
+varNames3D="t s rhopot"
+varNames="${varNames2D} ${varNames3D}"
 maskName="wet_c"
 oType="eps"
 # ================================================================================
 # technical stuff
 basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXP}/"
-scriptPath="${basePath}/scripts/postprocessing/tools"
+scriptPath="/pool/data/ICON/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
 # set the CDO path for the dwd to a local installation
@@ -22,6 +24,11 @@ esac
 ## find the last input file
 cd ${dataPath}
 iFile=$(ls ${EXP}*.nc | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+fi
 ## get the index of the last timestamp
 nTimesteps=$(cdo ntime ${iFile})
 tOutput=$((nTimesteps - 1))
@@ -33,14 +40,18 @@ for varname in ${varNames}; do
     -varName=$varname -maskName=${maskName} -noConfig \
     -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
   mv ${oFile}.${oType} plots/.
-  if [ "ELEV" != "$varname" ] ; then
-    oFile=${varname}_transection_${iFile}
-    ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
-      -varName=$varname -maskName=${maskName} -noConfig -secLC=-45,-70 -secRC=30,80 -secPoints=100 -resolution=r360x180 -secMode=circle -rStrg=' '\
-      -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
-    mv ${oFile}.${oType} plots/.
-  fi
+done
+for varname in ${varNames3D}; do 
+  oFile=${varname}_transection_${iFile}
+  ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
+    -varName=$varname -maskName=${maskName} -noConfig -secLC=-45,-70 -secRC=30,80 -secPoints=100 -resolution=r360x180 -secMode=circle -rStrg=' '\
+    -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput}
+  mv ${oFile}.${oType} plots/.
 done
 
-#
-## vim:ft=sh
+# $nclCaller does not reveal an error code
+# check error needed for buildbot
+check_error 0 "oce_numeric: $nclCaller"
+
+exit
+

@@ -20,7 +20,7 @@
 set_default()
 {
   if [[ "x$(eval echo \$$1)" == "x" ]]; then
-    eval $1=$2
+    eval "$1=$2"
   fi 
 }
 
@@ -35,7 +35,7 @@ fi
 
 set_default use_nodes 1
 set_default use_omp_stacksize 32M
-let mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}
+let "mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}"
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -263,7 +263,11 @@ set_run_target_blizzard()
     esac
   fi
   let memory_size=${total_memory}/${use_mpi_procs_pernode}
-  use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+  if [[ "$use_mpi" == "yes"  ]] ; then
+    use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+  else
+    use_resources="$use_resources ConsumableMemory(4000mb)"
+  fi
 
   # create header
   start_header
@@ -337,6 +341,19 @@ set_run_target_blizzard()
     class="class = bench"
   fi
 
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name='LOG.$(job_name)'
+  else
+    job_log_name='LOG.$(job_name).$(jobid)'
+  fi
+
+  if  [[ $use_openmp_threads -gt 1 ]] ; then
+    parallel_threads="parallel_threads = $use_openmp_threads"
+  else
+    parallel_threads=""
+  fi
+
 # smt mode
 #   task_affinity="cpu($use_openmp_threads)"
 # st mode
@@ -375,12 +392,12 @@ set_run_target_blizzard()
 # @ $node
 # @ $tasks_per_node
 # @ task_affinity    = $task_affinity
-# @ parallel_threads = $use_openmp_threads
+# @ $parallel_threads
 # @ $resources
 # @ $wall_clock_limit
 # @ job_name     = $job_name
-# @ output       = LOG.\$(job_name).\$(jobid).out
-# @ error        = LOG.\$(job_name).\$(jobid).err
+# @ output       = $job_log_name.o
+# @ error        = \$(output)
 # @ notification = error
 # @ $account
 # @ queue
@@ -409,8 +426,60 @@ run_model()
 
 EOF
 }
+#=============================================================================
+set_run_target_wizard()
+{
 
+  set_default use_nproma 32
+  set_default use_nodes 1
+  use_OMP_SCHEDULE="dynamic,1"
 
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 4
+      set_default use_openmp_threads 4
+    else
+      set_default use_mpi_procs_pernode 16
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 16
+     else
+       is_serial_run="yes"
+   fi
+
+  fi
+
+  # create header
+  start_header
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue="serial"
+    use_nodes=1
+    tasks_per_node=1
+  else
+    job_type=parallel
+    queue="serial"
+    tasks_per_node=$use_mpi_procs_pernode
+  fi
+  # ------------------------------------
+
+  cat >> $output_script <<EOF
+# =====================================
+# wizard batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=LOG.$job_name.%j.out
+#SBATCH --error=LOG.$job_name.%j.err
+#SBATCH --partition=$queue
+#SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#SBATCH --ntasks-per-node=$tasks_per_node
+#SBATCH --cpus-per-task=$use_openmp_threads
+#SBATCH --mem=233472
+#========================================
+EOF
+}
 
 #=============================================================================
 set_run_target_thunder()
@@ -443,26 +512,42 @@ set_run_target_thunder()
   start_header
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue="mpi-serial"
+  #  queue="mpi-develop"
     use_nodes=1
     tasks_per_node=1
  else
     job_type=parallel
+  #  queue="mpi-develop"
     queue="mpi-compute"
     tasks_per_node=$use_mpi_procs_pernode
   fi
-  # ------------------------------------
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
 
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  # ------------------------------------
+ 
   cat >> $output_script << EOF
 # =====================================
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
-#SBATCH --output=LOG.$job_name.%j.out
-#SBATCH --error=LOG.$job_name.%j.err
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --ntasks-per-node=$tasks_per_node
+# #$s_cpu_time
+# #SBATCH --time=30
 #========================================
 EOF
 }
@@ -549,64 +634,6 @@ sleep 2
 mpdid=\$($use_mpi_root/bin/mpdtrace -l | awk '{print \$1}')
 echo "mpd started as \$mpdid"
 #======================================
-EOF
-}
-
-
-#=============================================================================
-set_run_target_tornado()
-{  
-  set_default use_nproma 8
-  use_nodes=1
-   
-  if [[ $use_openmp == "yes" ]]; then
-    use_mpi="no"
-    set_default use_openmp_threads 16
-    queue="-q smp"
-    resources=" -pe smp 16"
-  elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 8
-    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
-      queue="-q serial"
-      resources=""    
-    else
-      queue="-q cluster"
-      resources="-pe orte8 ${use_mpi_procs_pernode}"
-    fi
-  else
-    queue="-q serial"
-    resources=""      
-  fi
-
-  # create header
-  start_header
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="-l s_cpu=$use_cpu_time"
-  fi
-#-----------------------------------------------------------------------------
-# >> #$ -S /bin/bash
-# >> #$ -l s_cpu=2:00:00
-# >> #$ -l s_vmem=1024M
-# >> #$ -j y
-# >> #$ -cwd
-# >> #$ -N smp_job
-# >> #$ -M <your email>
-# >> #$ -pe smp 16
-# >> #-----------------------------------------------------------------------------
-  cat >> $output_script << EOF
-# ===========================
-# tornado.dkrz.de batch job parameters
-# ---------------------------
-#$ -S /bin/bash
-#$ -o LOG.$job_name.o
-#$ -N $job_name
-#$ $s_cpu_time
-#$ $resources
-#$ -j y
-#$ -cwd
-#$ $queue
-# ==========================
 EOF
 }
 
@@ -903,7 +930,6 @@ create_target_header()
 
   if [[ "$use_mpi" == "no" ]]; then
     use_nodes=1
-    use_mpi_procs_pernode=1
     use_mpi_procs_pernode=1
   fi
 

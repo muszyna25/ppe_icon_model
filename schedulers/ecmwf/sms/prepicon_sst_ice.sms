@@ -40,10 +40,9 @@ rm SST*nc
 rm CI*nc
 # Important: ==================================
 # export the DWD GRIB short names:
-dwd_grib_api=/home/ms/de/dwd/grib_api
-# export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/1.9.9/share/definitions"
-#export GRIB_DEFINITION_PATH="%SCSOFT%/software/grib_api/release/share-1.9.9/definitions.edzw:/usr/local/lib/metaps/lib/grib_api/current/share/definitions"
-export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.10.4/share/definitions:${dwd_grib_api}/definitions.edzw-1.9.16"
+#dwd_grib_api=/home/ms/de/dwd/grib_api
+dwd_grib_api=/home/ms/de/dei4
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions"
 # =============================================
 
 ICON_GRIDFILE="icon_grid_%RES%_G.nc"
@@ -71,7 +70,8 @@ export F_PROGINF=DETAIL
 # -------------------------------------------------
 
 
-cp -p ${outbasedir}/bin/prep_icon ./prep_icon
+#cp -p ${outbasedir}/bin/prep_icon ./prep_icon
+cp -p ${outbasedir}/bin/iconremap_mpi .
 
 # global timing
 start_date="2008-09-01T00:00:00Z"
@@ -87,24 +87,24 @@ atmo_namelist=NAMELIST_${basename}
 
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
-cat > icon_master.namelist << EOF
-&master_nml
- lrestart                     = .FALSE.
-/
-&time_nml
- ini_datetime_string          = "$start_date"
- dt_restart                   = $dt_restart
-/
-&master_model_nml
-  model_type                  = 1
-  model_name                  = "ATMO"
-  model_namelist_filename     = "$atmo_namelist"
-  model_restart_info_filename = ""
-  model_min_rank              = 1
-  model_max_rank              = 65536
-  model_inc_rank              = 1
-/
-EOF
+#cat > icon_master.namelist << EOF
+#&master_nml
+# lrestart                     = .FALSE.
+#/
+#&time_nml
+# ini_datetime_string          = "$start_date"
+# dt_restart                   = $dt_restart
+#/
+#&master_model_nml
+#  model_type                  = 1
+#  model_name                  = "ATMO"
+#  model_namelist_filename     = "$atmo_namelist"
+#  model_restart_info_filename = ""
+#  model_min_rank              = 1
+#  model_max_rank              = 65536
+#  model_inc_rank              = 1
+#/
+#EOF
 
 
 month_list="01 02 03 04 05 06 07 08 09 10 11 12"
@@ -118,17 +118,18 @@ do
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_SST_%YYYY%_${month}.grb"
-IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
+#IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_${ICON_GRIDFILE}"
+IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_%RES%_DOM01.nc"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+#if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
-&parallel_nml
- nproma                       = 10
-/
-&prepicon_nml
- i_oper_mode                  = 4
-/
+!&parallel_nml
+! nproma                       = 10
+!/
+!&prepicon_nml
+! i_oper_mode                  = 4
+!/
 ! interpolation regular grid-> ICON
 &remap_nml
  in_grid_filename             = "${IFS_FILENAME_GRB}"
@@ -139,13 +140,15 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
+ out_filetype      = 4
+ !rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! SST
  inputname      = "SST"         
  outputname     = "SST"          
  code           = 34          
- type_of_layer  = "surface" 
+! type_of_layer  = "surface" 
 /
 EOF
 # -------------------------------------------------
@@ -155,28 +158,30 @@ EOF
 echo "job::start"
 date
 export USE_SIGNAL_HANDLING=yes
-./prep_icon
+#./prep_icon
+ ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 echo "job::end"
-date
 
-fi
+
+#fi
 
 
 # CI
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 
 IFS_FILENAME_GRB="${SSTICEDIR}/ifs_ei_CI_%YYYY%_${month}.grb"
-IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
+#IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_${ICON_GRIDFILE}"
+IFS_FILENAME_NC="${SSTICEDIR}/CI_%YYYY%_${month}_%RES%_DOM01.nc"
 
-if [ ! -f ${IFS_FILENAME_NC} ]; then
+#if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
-&parallel_nml
- nproma                       = 10
-/
-&prepicon_nml
- i_oper_mode                  = 4
-/
+!&parallel_nml
+! nproma                       = 10
+!/
+!&prepicon_nml
+! i_oper_mode                  = 4
+!/
 ! interpolation regular grid-> ICON
 &remap_nml
  in_grid_filename             = "${IFS_FILENAME_GRB}"
@@ -187,13 +192,15 @@ cat > NAMELIST_PREPICON << EOF
  out_type                     = 2
  s_maxsize                    = 500000
  l_have3dbuffer               = .false.
+ out_filetype      = 4
+ !rbf_vec_scale     = 0.01
 /
 
 &input_field_nml  ! CI
  inputname      = "CI"         
  outputname     = "CI"          
  code           = 31          
- type_of_layer  = "surface" 
+! type_of_layer  = "surface" 
 /
 EOF
 # -------------------------------------------------
@@ -203,14 +210,14 @@ EOF
 echo "job::start"
 date
 export USE_SIGNAL_HANDLING=yes
-./prep_icon
+#./prep_icon
+ ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 echo "job::end"
-date
 
-fi
+#fi
 
 done
-rm  ./prep_icon
+rm  ./iconremap_mpi
 
 ls -lrt ${SSTICEDIR}/*
 # -------------------------------------------------

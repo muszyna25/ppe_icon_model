@@ -35,7 +35,7 @@ SSTICEDIR=${sstice_dir}/icon_input/sstice
 #set -x
 
 # the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
+if [[ ! -d $EXPDIR ]] ; then
     mkdir -p $EXPDIR
 fi
 cd $EXPDIR
@@ -43,15 +43,28 @@ cd $EXPDIR
 # grid parameters
 atmo_dyn_grids=icon_grid_${res}_G.nc
 atmo_rad_grids=icon_grid_${resrad}_R.nc
-extpar_filename=extpar_${atmo_dyn_grids}
+#extpar_filename=extpar_${atmo_dyn_grids}
+extpar_filename=icon_extpar_${res}_G.nc
+ifs2icon_filename=ifs2icon_${res}_DOM01.nc
+sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
+ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
+
+#rm -f ${atmo_dyn_grids}
+#rm -f ${atmo_rad_grids}
+#rm -f ${extpar_filename}
+#rm -f ${ifs2icon_filename}
+
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
-ln -sf $IFS2ICONDIR/ifs2icon_${res}_DOM01.nc .
+ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
+
+#rm -f *SST**${res}*
+#rm -f *CI**${res}*
 
 ln -sf ${SSTICEDIR}/*/*SST**${res}* .
 ln -sf ${SSTICEDIR}/*/*CI**${res}* .
@@ -132,6 +145,8 @@ ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres',
 pl_varlist="'u','v','temp','geopot','clc'"      
 hl_varlist="'u','v','temp','pres',  'clc'"   
 
+
+
 # ---
 
 cat > ${atmo_namelist} << EOF
@@ -156,7 +171,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
- nlev_in                      = 60          ! number of levels of input data
  zpbl1                        = 500. 
  zpbl2                        = 1000. 
  ifs2icon_filename            = '${ifs2icon_filename}'
@@ -164,7 +178,9 @@ cat > ${atmo_namelist} << EOF
 /
 &io_nml
  lflux_avg                    = .FALSE.
+ itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  dt_checkpoint                = ${dt_restart}   
+ lzaxis_reference=.FALSE.
 /
 &run_nml
  num_lev                      = 90
@@ -176,7 +192,7 @@ cat > ${atmo_namelist} << EOF
  ntracer                      = 5
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
- msg_level                    = 5           ! default: 5, much more: 20
+ msg_level                    = 12           ! default: 5, much more: 20
  ldump_states                 = ${ldump_states}
  lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.
@@ -260,7 +276,7 @@ cat > ${atmo_namelist} << EOF
                      -10.08, -61.93, 'LBA_Rondonia',
                       13.50,   2.5 , 'Niamey',
                       36.61, -97.49, 'ARM_Southern_Great_Plains',
-                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow'
+                      71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
                       -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
                      -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
                      -20.00,-120.00, 'Tropical Ocean cumumulus',
@@ -273,7 +289,7 @@ cat > ${atmo_namelist} << EOF
                       55.195,  7.158,'FINO3'
 /
 &nwp_phy_nml
- inwp_gscp                    = 10  ! 1: default, or 10
+ inwp_gscp                    = 1   ! 1: default, or 10
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
@@ -295,7 +311,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 10.0
+ rat_sea                      = 7.5
 /
 &lnd_nml
  ntiles                       = 3
@@ -305,6 +321,8 @@ cat > ${atmo_namelist} << EOF
  lsnowtile                    = .false.
  lseaice                      = .true.
  sstice_mode                  = 3
+ sst_td_filename              = '${sst_td_filename}'
+ ci_td_filename               = '${ci_td_filename}'
 /
 &radiation_nml
  irad_o3                      = 7
@@ -323,7 +341,7 @@ cat > ${atmo_namelist} << EOF
  ivctype                      = 2
  itime_scheme                 = 4
  exner_expol                  = 0.333
- vwind_offctr                 = 0.2
+ vwind_offctr                 = 0.3         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
  iadv_rcf                     = 5
@@ -387,6 +405,7 @@ cat > ${atmo_namelist} << EOF
  itopo                        = 1
  n_iter_smooth_topo           = 0
  heightdiff_threshold         = 3000.
+ extpar_filename              = '${extpar_filename}'
 /
 EOF
 

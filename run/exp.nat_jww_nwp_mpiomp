@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script contains the specifications of the experiment.
@@ -20,17 +21,18 @@
 # _bb_table_Model_        non-hydrost. atmosph.
 # _bb_table_Grid_         triangle, global + 1 double nested region
 #-----------------------------------------------------------------------------
-#
+ 
 # This test must have available at least 3 MPI processes.
 #
 # If the model runs with mpi_procs=1, then this script exits without error:
-if [[ ${mpi_procs} = 1 ]]; then
+if [[ ${mpi_total_procs} = 1 ]]; then
   echo "This test must not be started if mpi_procs=1 --> exit test without error"
   check_error 0 "exp.nat_jww_nwp_mpiomp"
   exit 0
 fi
+
 # If running in parallel, mpi_procs*no_of_nodes must be bigger than 2:
-n_procs=`expr ${mpi_procs} \* ${no_of_nodes}`
+n_procs=`expr ${mpi_procs_pernode} \* ${no_of_nodes}`
 if [[ ${n_procs} = 2 ]]; then
   echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
   mpi_procs=3
@@ -120,7 +122,7 @@ cat > ${atmo_namelist} << EOF
  nproma         = ${nproma}
  p_test_run     = .true.
  l_test_openmp  = .true.
- l_log_checks   = .true.
+ ! l_log_checks   = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -150,7 +152,7 @@ cat > ${atmo_namelist} << EOF
  iforcing       = 3            ! diabatic forcing
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
- ltimer         = .false.
+ ltimer         = .true.
  ldump_states   = .false.
  lrestore_states= .false. 
 /

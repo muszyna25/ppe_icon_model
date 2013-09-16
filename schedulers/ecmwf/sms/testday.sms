@@ -35,7 +35,7 @@ echo "METVIEW.SMS"
 # test end-of-month
 
 EOFM=`python %ECBASEDIR%/gen/date_calc.py -a endofmonth -d %YMD%%INIHOUR%`
-if [ "${EOFM}" -eq "1" ]
+if [[ "${EOFM}" -eq "1" ]]
 then
     echo "End of month!"
     smsevent time_eom
@@ -46,7 +46,7 @@ fi
 # test or 12th of month to do plotting like end-of-month
 # (see also eom_prepare.sms)
 
-if [ `echo %YMD% | cut -c 7-8` -eq "12" ]
+if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]]
 then
     echo "12th of month - do some plots!"
     smsevent time_eom
@@ -59,16 +59,12 @@ fi
 YYYYMM=`echo %YMD% | cut -c 1-6`
 MONTHS=`echo %MONTHS% | sed 's/_/ /'`
 for month in ${MONTHS[*]} ; do
-  if [ ${YYYYMM} -eq ${month} ]
+  if [[ ${YYYYMM} -eq ${month} ]]
   then
     echo "Calculate this month!"
     smsevent time_domonth
   fi
 done
-
-
-
-
 
 
 # -------------------------------------------------

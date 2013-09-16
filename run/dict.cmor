@@ -1,10 +1,16 @@
 # The following table defines the dictionary for the mapping  between
 # user defined short names and short names defined in the "add_var"
-# calls in ICON. The "add_var" names are used by default.
+# calls in ICON. The "add_var" names are used by default, if either no
+# translation is used or the name does not occur in the dictionary.
 #
 # This file contains a dictionary for the mapping between "add_var"
 # names and CMOR or CMOR inspired names.
-
+#
+# ===========================================================
+#
+# atmosphere
+# ==========
+#
 # variables from the dynamical core with prefix 'ha_prog_out'
 # -----------------------------------------------------------
 #
@@ -88,4 +94,32 @@
   tauv_sso           prm_u_stress_sso
   tauu_sso           prm_v_stress_sso
   diss_sso           prm_dissipation_sso
+#
+#
+# land / JSBACH
+# =============
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+#
+# ocean
+# =====
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+#
+# ice
+# ===
+#
+# CMOR names         "add_var" name
+# ---------------------------------
+#
+#
+# ocean biogeochemistry
+# =====================
+#
+# CMOR names         "add_var" name
+# ---------------------------------
 #

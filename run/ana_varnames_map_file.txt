@@ -25,8 +25,16 @@ t_snow              T_SNOW
 freshsnow           FRESHSNW
 w_snow              W_SNOW
 rho_snow            RHO_SNOW
+h_snow              H_SNOW
 w_i                 W_I
 w_so                W_SO
 w_so_ice            W_SO_ICE
 t_so                T_SO
 gz0                 Z0
+t_mnw_lk            T_MNW_LK
+t_wml_lk            T_WML_LK
+h_ml_lk             H_ML_LK
+t_bot_lk            T_BOT_LK
+c_t_lk              C_T_LK
+t_b1_lk             T_B1_LK
+h_b1_lk             H_B1_LK

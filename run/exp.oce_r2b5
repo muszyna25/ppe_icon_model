@@ -39,7 +39,7 @@ B=5   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+#  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -92,24 +92,25 @@ end_day=${end_day:=11}
 end_month=${end_month:=01}
 end_year=${end_year:=2001}
 start_date="2001-01-01T00:00:00Z"
-  end_date=${end_date:="${end_year}-${end_month}-${end_day}T00:00:00Z"}
-#  end_date="2501-01-01T00:00:00Z"
+  end_date="2001-01-05T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=240      # ocean model output interval hours [hours]
+nhours_data=24      # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=3650     # write restart file interval [days]
 #ndays_restart=5490   # stop model for restart [days]
 #ndays_restart=3655   # stop model for restart [days]
-#ndays_restart=366    # stop model for restart [days]
+ndays_restart=366    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-dt_data=`expr ${nhours_data} \* 3600`
-dt_file=`expr ${ndays_file} \* 86400`
-dt_checkpoint=`expr ${ndays_checkp} \* 86400`
-dt_restart=`expr ${ndays_restart} \* 86400`
+(( dt_data       = nhours_data   * 3600 ))
+(( dt_file       = ndays_file    * 86400 ))
+(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_restart    = ndays_restart * 86400 ))
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -117,13 +118,11 @@ ocean_model_equations=-1  # equation system: -1=hydrost. ocean
 dtime=${dtime:=1200}      # model timestep in seconds
 
 solver_tolerance=${solver_tolerance:=1.0E-12}
-use_absolute_solver_tolerance=${use_absolute_solver_tolerance:=".true."}
-solver_max_iter_per_restart=${solver_max_iter_per_restart:=10}
-solver_max_restart_iterations=${solver_max_restart_iterations:=20}
+solver_max_iter_per_restart=${solver_max_iter_per_restart:=20}
+solver_max_restart_iterations=${solver_max_restart_iterations:=50}
 
 # the original setup
 # solver_tolerance=1.0E-6
-# use_absolute_solver_tolerance=".false."
 # solver_max_iter_per_restart=1000
 # solver_max_restart_iterations=20
 
@@ -158,22 +157,40 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       =  $dtime         ! model timestep in seconds
-! output="vlist",
- output="none",
- ltimer               = ${ltimer}
- timers_level         = ${timers_level}
- activate_sync_timers = ${activate_sync_timers}
- write_timer_files    =.TRUE.
+ dtime       = ${dtime}         ! model timestep in seconds
+ output      = 'nml'        ! namelist controlled output scheme
+ activate_sync_timers = .TRUE.
+ write_timer_files    = .FALSE.
+ msg_timestamp        = .TRUE.
 /
-!&dbg_index_nml
-!  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
-!  idbg_val =0                     ! initialize one cell debug output
-!  idbg_slev=1                     ! initialize start level for debug output
-!  idbg_elev=5                     ! initialize end level for debug output
-!  dbg_lat_in=   30.0              ! latitude location of one cell debug output
-!  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
-!  str_mod_tst='all'               ! define modules to print out in debug mode
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_nmlOuput"
+  ! Output Variable List:
+  ml_varlist       =
+   'wet_c' 'wet_e' 'basin_c' 'regio_c' 'dolic_c' 'dolic_e' 'bottom_thick_c' 'column_thick_c' 'bottom_thick_e' 'column_thick_e' 
+   't' 's' 'u' 'v' 'w' 'h' 'u_vint' 't_acc' 's_acc' 'u_acc' 'v_acc' 'rhopot' 'rhopot_acc' 
+   'vn' 'vt' 'vort' 'K_veloc_h' 'A_veloc_v' 
+   'forc_wind_u' 'forc_wind_v' 'forc_swflx' 'forc_lwflx' 'forc_ssflx' 'forc_slflx' 
+   'forc_wind_u_acc' 'forc_wind_v_acc' 'forc_swflx_acc' 'forc_lwflx_acc' 'forc_ssflx_acc' 'forc_slflx_acc' 
+   'forc_precip' 'forc_evap' 'forc_runoff' 'forc_fwrelax' 'forc_fwbc' 'forc_fwfx' 
+   'forc_precip_acc' 'forc_evap_acc' 'forc_runoff_acc' 'forc_fwrelax_acc' 'forc_fwbc_acc' 'forc_fwfx_acc' 
+   'forc_tracer_relax_s' 'forc_tracer_s' 'forc_tracer_t' 
+   'forc_tracer_relax_acc_t' 'forc_tracer_acc_t' 
+   'forc_tracer_relax_acc_s' 'forc_tracer_acc_s' 
+   'hi' 'hs' 'concSum' 
+/
+&dbg_index_nml
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+  str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
@@ -192,9 +209,7 @@ cat > ${ocean_namelist} << EOF
   i_apply_bulk          = 0      ! 1=use bulk formula without sea ice
   !veloc_diffusion_order = 2      ! biharmonic friction
   !veloc_diffusion_form  = 1      ! curlcurl-graddiv form of laplacian
-  ! solver_tolerance      = 1.0E-6 ! solver tolerance; default is 1.0E-6
   solver_tolerance              = ${solver_tolerance}
-  use_absolute_solver_tolerance = ${use_absolute_solver_tolerance}
   solver_max_iter_per_restart   = ${solver_max_iter_per_restart}
   solver_max_restart_iterations = ${solver_max_restart_iterations}
 /

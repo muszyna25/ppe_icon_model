@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.1rc2
+! Fortran interface for CDI library version 1.6.2
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   April 2013
+! Uwe Schulzweida, MPI-MET, Hamburg,   August 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -181,6 +181,8 @@
       PARAMETER (DATATYPE_TXT           = 253)
       INTEGER    DATATYPE_CPX          
       PARAMETER (DATATYPE_CPX           = 254)
+      INTEGER    DATATYPE_UCHAR        
+      PARAMETER (DATATYPE_UCHAR         = 255)
 !
 !  Chunks
 !
@@ -221,10 +223,14 @@
       PARAMETER (GRID_LAEA              = 13)
       INTEGER    GRID_SINUSOIDAL       
       PARAMETER (GRID_SINUSOIDAL        = 14)
-      INTEGER    GRID_REFERENCE        
-      PARAMETER (GRID_REFERENCE         = 15)
       INTEGER    GRID_PROJECTION       
-      PARAMETER (GRID_PROJECTION        = 16)
+      PARAMETER (GRID_PROJECTION        = 15)
+
+! Intermediate fix, until GRID_REFERENCE has completely been removed from ICON
+      INTEGER    GRID_REFERENCE        
+      PARAMETER (GRID_REFERENCE         = 9)
+
+
 !
 !  ZAXIS types
 !
@@ -266,8 +272,20 @@
       PARAMETER (ZAXIS_CLOUD_TOP        = 17)
       INTEGER    ZAXIS_ISOTHERM_ZERO   
       PARAMETER (ZAXIS_ISOTHERM_ZERO    = 18)
+      INTEGER    ZAXIS_SNOW            
+      PARAMETER (ZAXIS_SNOW             = 19)
+      INTEGER    ZAXIS_LAKE_BOTTOM     
+      PARAMETER (ZAXIS_LAKE_BOTTOM      = 20)
+      INTEGER    ZAXIS_SEDIMENT_BOTTOM 
+      PARAMETER (ZAXIS_SEDIMENT_BOTTOM  = 21)
+      INTEGER    ZAXIS_SEDIMENT_BOTTOM_TA
+      PARAMETER (ZAXIS_SEDIMENT_BOTTOM_TA = 22)
+      INTEGER    ZAXIS_SEDIMENT_BOTTOM_TW
+      PARAMETER (ZAXIS_SEDIMENT_BOTTOM_TW = 23)
+      INTEGER    ZAXIS_MIX_LAYER       
+      PARAMETER (ZAXIS_MIX_LAYER        = 24)
       INTEGER    ZAXIS_REFERENCE       
-      PARAMETER (ZAXIS_REFERENCE        = 19)
+      PARAMETER (ZAXIS_REFERENCE        = 25)
 !
 !  TIME types
 !
@@ -368,41 +386,39 @@
 !  parallel IO routines
 !
 !                     pioEndDef
-      EXTERNAL        pioEndDef
+!DR      EXTERNAL        pioEndDef
 
 !                     pioEndTimestepping
-      EXTERNAL        pioEndTimestepping
+!DR      EXTERNAL        pioEndTimestepping
 
 !                     pioFinalize
-      EXTERNAL        pioFinalize
+!DR      EXTERNAL        pioFinalize
 
-      INTEGER         pioInit
-!                                    (INTEGER         ,
-!                                     INTEGER         ,
-!                                     INTEGER         ,
-!                                     INTEGER         ,
-!                                     INTEGER         )
-      EXTERNAL        pioInit
-
-      INTEGER         pioInqVarDecoChunk
-!                                    (INTEGER         ,
-!                                     INTEGER         )
-      EXTERNAL        pioInqVarDecoChunk
-
-      INTEGER         pioInqVarDecoOff
-!                                    (INTEGER         ,
-!                                     INTEGER         )
-      EXTERNAL        pioInqVarDecoOff
-
-!                     pioNamespaceSetActive
-!                                    (INTEGER         )
-      EXTERNAL        pioNamespaceSetActive
+!DR      INTEGER         pioInit
+!                                    (INTEGER         commSuper,
+!                                     INTEGER         nProcsIO,
+!                                     INTEGER         IOMode,
+!                                     INTEGER         pioNamespace,
+!                                     REAL            partInflate)
+!DR      EXTERNAL        pioInit
 
 !                     pioWriteTimestep
 !                                    (INTEGER         ,
 !                                     INTEGER         ,
 !                                     INTEGER         )
-      EXTERNAL        pioWriteTimestep
+!DR      EXTERNAL        pioWriteTimestep
+
+!                     streamWriteVarPart
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     CHOICE          data,
+!                                     INTEGER         nmiss,
+!                                     TYPE(XT_IDXLIST)partDesc)
+!DR      EXTERNAL        streamWriteVarPart
+
+!                     pioNamespaceSetActive
+!                                    (INTEGER         )
+      EXTERNAL        pioNamespaceSetActive
 
 !
 !  CDI control routines
@@ -423,6 +439,10 @@
 
 !                     cdiPrintVersion
       EXTERNAL        cdiPrintVersion
+
+      INTEGER         cdiHaveFiletype
+!                                    (INTEGER         filetype)
+      EXTERNAL        cdiHaveFiletype
 
 !                     cdiDefMissval
 !                                    (DOUBLEPRECISION missval)
@@ -634,6 +654,14 @@
 !                                     REAL            data_vec,
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteVarSliceF
+
+!                     streamWriteVarChunk
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     INTEGER         rect,
+!                                     DOUBLEPRECISION data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamWriteVarChunk
 
 !
 !  STREAM record I/O routines
@@ -1200,7 +1228,7 @@
 !                                    ()
       EXTERNAL        gribGetAPIVersion
 
-!
+
 !                     cdiDefAdditionalKey
 !                                    (CHARACTER*(*)   string)
       EXTERNAL        cdiDefAdditionalKey
@@ -1219,7 +1247,7 @@
 !                                     DOUBLEPRECISION value)
       EXTERNAL        vlistDefVarDblKey
 
-      INTEGER vlistHasVarKey
+      INTEGER         vlistHasVarKey
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
 !                                     CHARACTER*(*)   name)
@@ -1897,6 +1925,11 @@
       INTEGER         zaxisInqPrec
 !                                    (INTEGER         zaxisID)
       EXTERNAL        zaxisInqPrec
+
+!                     zaxisDefPositive
+!                                    (INTEGER         zaxisID,
+!                                     INTEGER         positive)
+      EXTERNAL        zaxisDefPositive
 
       INTEGER         zaxisInqPositive
 !                                    (INTEGER         zaxisID)

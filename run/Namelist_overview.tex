@@ -1479,11 +1479,17 @@ L & .FALSE.& &
 planar option&
 \tabularnewline
 
+\hline
+is\_plane\_torus &
+L & .FALSE.& &
+f-plane approximation on triangular grid &
+\tabularnewline
+
 \hline 
 corio\_lat &
 R & 0.0& deg&
 Center of the f-plane is located at this geographical latitude &
-lplane=.TRUE.
+lplane=.TRUE. and is\_plane\_torus=.TRUE.
 \tabularnewline
 
 \hline 
@@ -1710,54 +1716,6 @@ n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
 
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
-%------------------------------------------------------------------------------
-% prepicon_nml
-%------------------------------------------------------------------------------
-\subsection{prepicon\_nml}
-
-The namelist prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
-There are currently two ways of using it: 
-\begin{itemize}
-\item
-Using the preprocessing tool prep\_icon, it is possible to
-{
-\renewcommand\theenumi{(\alph{enumi})}
-\renewcommand\labelenumi{\theenumi}
-%
-\begin{enumerate}
-\item \textbf{generate the three-dimensional coordinate fields} needed by IFS2ICON if IFS2ICON is requested to do
-the horizontal and vertical interpolation from the IFS grid to the ICON grid
-\item \textbf{convert the hydrostatic set of variables provided by IFS2ICON} to the nonhydrostatic set of equations
-needed by ICONAM,
-\item \label{item:c} \textbf{perform the vertical interpolation} to the ICON grid if IFS2ICON is requested to do only
-the horizontal interpolation step,
-\item  \label{item:d} \textbf{perform data remapping from a regular grid onto a triangular ICON grid and vice versa}.
-\end{enumerate}}
-
-\item
-If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality \ref{item:c} while running
-the ICON executable.
-\end{itemize}
-
-\textbf{Remark:}
-When using prep\_icon as a stand-alone tool, namelists must be defined in a file ``NAMELIST\_PREPICON''.
-
-\begin{longtab}
-
-\hline 
-i\_oper\_mode&
-I & 1& &
-Operating mode if the prep\_icon executable is run: \\
-1: generate coordinate fields \\
-2: convert IFS2ICON output to NH prognostic variables\\
-3: do vertical interpolation \\
-4: grid remapping &
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_prepicon\_nml.f90
-
 
 
 %------------------------------------------------------------------------------
@@ -1776,15 +1734,10 @@ I & 1& &
 \tabularnewline
 
 \hline 
-nlev\_in&
-I & 91 & &
-number of model levels of input data&
-\tabularnewline
-
-\hline 
 nlevsoil\_in&
 I & 4 & &
 number of soil levels of input data&
+init\_mode=2
 \tabularnewline
 
 \hline 
@@ -1807,6 +1760,15 @@ with the SST provided in the ifs2icon file. If false, it is initialized with the
 temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
 init\_mode=2
 \tabularnewline
+
+\hline 
+l\_ana\_sfc&
+L & .TRUE.& &
+Logical switch. If true, soil/surface analysis fields are read from the analysis file dwdfg\_filename
+If false, soil/surface analysis is not read. First guess is used, instead. &
+init\_mode=1
+\tabularnewline
+
 
 \hline 
 l\_coarse2fine\_mode&
@@ -1871,203 +1833,6 @@ GRIB2 shortnames or NetCDF var names.
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_initicon\_nml.f90
-
-
-
-%------------------------------------------------------------------------------
-% remap_nml
-%------------------------------------------------------------------------------
-\subsection{remap\_nml}
-
-The namelist remap\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
-
-\begin{longtab}
-
-\hline 
-in\_grid\_filename&
-C & ````& & input grid file name &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-in\_filename&
-C & ````& & input data file name (may be identical to input grid file name) &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-in\_type&
-I & 1 & &
-Type of input grid: 
-1: regular grid; 2: ICON triangular grid
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_grid\_filename&
-C & ````& & file containing output grid that is read as input for the remapping process &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_filename&
-C & ````& & output data file name &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_type&
-I & 2 & & 
-Type of output grid: 
-1: regular grid; 2: ICON triangular grid
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-out\_filetype&
-I & 4 & & 
-output file type: 2=FILETYPE\_GRB2, 4=FILETYPE\_NC2
-&
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-s\_maxsize&
-I & 500\,000& & Maximum size of sequential list for very large stencils &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-l\_have3dbuffer&
-L & .FALSE.& & Flag. True if a 3D buffer is used for output &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lcompute\_vn&
-L & .FALSE.& & Flag: .TRUE., if the normal wind shall be computed. 
-This requires the specification of input fields ``u'' and ``v''. &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lcompute\_vt&
-L & .FALSE.& & Flag: .TRUE., if the tangential wind at edge midpoints shall be computed.
-This requires the specification of input fields ``u'' and ``v''.  &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-rbf\_vec\_scale&
-R &  0.05 & & Scaling factor for interpolation with radial basis functions.  &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/prep\_icon/mo\_remap\_io.f90
-
-
-%------------------------------------------------------------------------------
-% input_field_nml
-%------------------------------------------------------------------------------
-\subsection{input\_field\_nml}
-
-The namelist input\_field\_nml is only processed when setting i\_oper\_mode=4 in prepicon\_nml (cf.\ option \ref{item:d}).
-
-\begin{longtab}
-
-\hline 
-inputname &
-C & ```` & & Name of input variable &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-outputname &
-C & ```` & & Name of output variable &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-code &
-I & 0 & & GRIB input code number &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-type\_of\_layer &
-C & ```` & & GRIB input layer type &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-lhydrostatic\_correction &
-L & F & & Flag. True, if hydrostatic correction shall be applied to this field &
-i\_oper\_mode=4 (prepicon\_nml)
-\tabularnewline
-
-\hline 
-var\_temp &
-C & ``T'' & & field name: temperature &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_temp &
-I & 130 & & GRIB1 code: temperature &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-var\_geosp &
-C & ``FI'' & & field name: surface geopotential &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_geosp &
-I & 129 & & GRIB1 code: surface geopotential &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-var\_qv &
-C & ``QV'' & & field name: specific humidity &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-code\_qv &
-I & 133 & & GRIB1 code: specific humidity &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-hpbl1 &
-R & 500 & & height above ground of surface inversion top &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\hline 
-hpbl2 &
-R & 1000 & & top of layer used to estimate the vertical temperature gradient above the inversion &
-i\_oper\_mode=4 (prepicon\_nml) and
-lhydrostatic\_correction=.TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/prep\_icon/mo\_remap\_input.f90
 
 
 %------------------------------------------------------------------------------
@@ -2270,6 +2035,72 @@ Coriolis force&
 
 Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 
+
+%------------------------------------------------------------------------------
+% limarea_nml:
+%------------------------------------------------------------------------------
+\subsection{limarea\_nml (Scope: l\_limited\_area=1 in grid\_nml)}
+
+\begin{longtab}
+
+\hline 
+itype\_latbc&
+I & 0& &
+Type of lateral boundary nudging. Nudge from\\
+0: the initial date,\\
+1: IFS data analysis/forecast,\\
+2: ICON output data (with the identical 3d grid)&
+\tabularnewline
+
+\hline 
+dtime\_latbc&
+R &
+43200.0& s
+&
+Time step size of boundary data
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+\hline 
+nlev\_latbc&
+I &
+0& s
+&
+Number of vertical levels in boundary data
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+\hline 
+latbc\_filename&
+C &
+&
+&
+Filename of boundary data input file, default:\\
+''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
+keyword ''\texttt{<path>}'' which will be substituted by
+\texttt{latbc\_path}.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+\hline 
+latbc\_path&
+C &
+&
+&
+Absolute path to boundary data.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_limarea\_nml.f90
+
+
+
 %-----------------------------------------------------------------------------
 % ha_dyn_nml: hydrostatic atm dynamics
 %-----------------------------------------------------------------------------
@@ -2453,6 +2284,13 @@ cell\_type=3
 \tabularnewline
 
 \hline 
+veladv\_offctr&
+R& 0.25& &
+Off-centering of velocita advection in corrector step &
+cell\_type=3
+\tabularnewline
+
+\hline 
 ivctype&
 I& 2& &
 Type of vertical coordinate:\\
@@ -2487,6 +2325,13 @@ extremely rarely in practice; this is mostly an emergency fix for pathological c
 \tabularnewline
 
 \hline 
+lbackward\_integr&
+L& .FALSE. & &
+.TRUE.: Integrate backward in time (preparation for testing a digital filter initialization)
+& cell\_type=3
+\tabularnewline
+
+\hline 
 divdamp\_fac&
 R& 0.004& &
 Scaling factor for divergence damping&
@@ -2496,7 +2341,11 @@ lhdiff\_rcf = .TRUE.
 \hline 
 divdamp\_order&
 I& 4& &
-Order of divergence damping (2 or 4)&
+Order/type of divergence damping: \\ 
+2 = second-order damping acting on 2D divergence \\
+3 = second-order damping acting on 3D divergence \\
+4 = fourth-order damping acting on 2D divergence \\
+5 = fourth-order damping acting on 3D divergence&
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 
@@ -2519,7 +2368,7 @@ cell\_type=3
 iadv\_rhotheta&
 I& 2& &
 Advection method for rho and rhotheta:\\
-1: centred differences horiz. + vert.\\
+1: simple second-order upwind-biased scheme \\
 2: 2nd order Miura horizontal &
 cell\_type=3 \tabularnewline
 & & & & 3: 3rd order Miura horizontal (not recommended)&
@@ -2979,12 +2828,22 @@ iforcing=3
 
 \hline 
 itype\_pres\_msl&
-I& 1. & &
+I& 1 & &
 Specifies method for computation of mean sea level pressure (and geopotential at
 pressure levels below the surface). \\
 1: GME-type extrapolation, \\
 2: stepwise analytical integration, \\
 3: current IFS method
+&
+\tabularnewline
+
+\hline 
+itype\_rh&
+I& 1 & &
+Specifies method for computation of relative humidity \\
+1: WMO-type: water only (e\_s=e\_s\_water), \\
+2: IFS-type: mixed phase (water and ice), \\
+3: IFS-type with clipping ($\mathrm{rh}\leq100$)
 &
 \tabularnewline
 
@@ -3025,6 +2884,14 @@ C&' '& &
 & 
 \texttt{output\_nml} namelists, 
 NetCDF output
+\tabularnewline
+
+\hline
+lzaxis\_reference&
+L& .TRUE. & &
+FALSE: use vertical axis ZAXIS\_HYBRID for 3D atmospheric fields\\
+TRUE: use vertical axis ZAXIS\_REFERENCE for 3D atmospheric fields &
+will be removed after some testing phase
 \tabularnewline
 
 \hline 
@@ -3134,7 +3001,7 @@ C&None& &
 \hline
  filename\_format &
 C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{jfile}, \texttt{ddhhmmss}.
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
  Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
@@ -3238,7 +3105,6 @@ R&0,90& &
 &
 \tabularnewline
 
-
 \hline 
 \end{longtab}
 
@@ -3261,6 +3127,19 @@ sets of common variables can be added to the output:
 \texttt{group:land\_vars}              \>                                                                           \\
 \texttt{group:multisnow\_vars}         \>     tile-averaged variables                                               
 \end{tabbing}
+
+\paragraph{Keyword substitution in output filename (\texttt{filename\_format}):} 
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\ 
+\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
+\texttt{physdom}           \>  substituted by physical patch ID                         \\
+\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
+\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
+\texttt{jfile}             \>  substituted by output file counter                       \\
+\texttt{ddhhmmss}          \>  substituted by day-hour-minute-second string
+\end{tabbing}
+
 
 Defined and used in: src/namelists/mo\_name\_list\_output.f90
 
@@ -3360,6 +3239,38 @@ L& .TRUE. & &
 GRIB creation date\\
 .TRUE.: add creation date\\
 .FALSE.: add dummy date &
+filetype=2
+\tabularnewline
+
+\hline 
+productDefinitionTemplateNumber&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline 
+typeOfEnsembleForecast&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline 
+numberOfForecastsInEnsemble&
+I& -1 & &
+Local definiton for ensemble products,
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline 
+perturbationNumber&
+I& -1 & &
+Local definiton for ensemble products,
+(only set if value changed from default) &
 filetype=2
 \tabularnewline
 
@@ -3832,6 +3743,13 @@ vertical diffusion and transfer
 4: ECHAM diffusion (currently for water only)
 &
 \tabularnewline
+&
+&
+&
+&
+5: Classical Smagorinsky diffusion 
+&
+\tabularnewline
 \hline 
 inwp\_sso&
 I (max\_dom)&
@@ -4042,6 +3960,23 @@ currently each subdomain has
 &
 the same value
 &
+\tabularnewline
+
+\hline
+lrtm\_filename &
+C(:)&
+``rrtmg\_lw.nc''&
+&
+NetCDF file containing longwave absorption coefficients and other data
+for RRTMG\_LW k-distribution model. &
+\tabularnewline
+
+\hline
+cldopt\_filename &
+C(:)&
+``ECHAM6\_CldOptProps.nc''&
+&
+NetCDF file with RRTM Cloud Optical Properties for ECHAM6. &
 \tabularnewline
 
 \end{longtab}
@@ -4284,6 +4219,12 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 \hline 
 idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2--4 = more advanced experimental methods &
+\tabularnewline
+
+\hline 
+itype\_lndtbl &
+I & 1 &  & Table values used for associating surface parameters to land-cover classes: 1 = defaults from extpar, 
+2 = IFS values for globcover classes (currently no effect in case of glc2000 data) &
 \tabularnewline
 
 \hline
@@ -4684,6 +4625,144 @@ lconst\_z0=.TRUE.
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
+
+%------------------------------------------------------------------------------
+% les_nml:
+%------------------------------------------------------------------------------
+\subsection{les\_nml (parameters for LES turbulence scheme; valid for inwp\_turb=5)}
+
+\begin{longtab}
+
+\hline 
+sst & R & 300 & K &
+sea surface temperature for idealized LES simulations &
+nh\_test\_name=CBL, RICO\\
+isrfc\_type=1,4 
+\tabularnewline
+
+\hline 
+shflx & R & -999 & Km/s &
+Kinematic sensible heat flux at surface &
+isrfc\_type = 2
+\tabularnewline
+
+\hline 
+lhflx & R & -999 & m/s &
+Kinematic latent heat flux at surface &
+isrfc\_type = 2
+\tabularnewline
+
+\hline 
+isrfc\_type & I & 1 &  &
+surface type \\
+1 = fixed SST \\
+2 = fixed surface fluxes \\ 
+3 = fixed buoyancy fluxes \\
+4 = RICO test case &
+\tabularnewline
+
+\hline 
+ufric & R & -999 & m/s &
+friction velocity for idealized LES simulations &
+\tabularnewline
+
+\hline 
+is\_dry\_cbl & L & .FALSE. &  &
+switch for dry convective boundary layer simulations &
+\tabularnewline
+
+\hline 
+karman\_constant & R & 0.4 &  &
+von Karman constant &
+\tabularnewline
+
+\hline 
+smag\_constant & R & 0.12 &  &
+Smagorinsky constant &
+\tabularnewline
+
+\hline 
+turb\_prandtl & R & 0.333333 &  &
+turbulent Prandtl number &
+\tabularnewline
+
+\hline 
+bflux & R & -999 &  m$^2$/s$^3$ &
+buoyancy flux for idealized LES simulations (Stevens 2007) &
+isrfc\_type=3
+\tabularnewline
+
+\hline 
+tran\_coeff & R & -999 &  m/s &
+transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
+isrfc\_type=3
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_les\_nml.f90
+
+%------------------------------------------------------------------------------
+% ls_forcing_nml:
+%------------------------------------------------------------------------------
+\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
+
+\begin{longtab}
+
+\hline 
+is\_ls\_forcing& L & .FALSE. &  &
+switch for enabling large-scale (LS) forcing on torus grid &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_subsidence\_moment & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for momentum equations&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_subsidence\_heat & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for thermal equations &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+
+\hline 
+is\_advection & L & .FALSE. &  &
+switch for enabling LS horizontal advection (currently only for thermal equations)&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_rad\_forcing & L & .FALSE. &  &
+switch for enabling radiative forcing &
+is\_plane\_torus=.TRUE. \\
+inwp\_rad=.FALSE.
+\tabularnewline
+
+\hline 
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline 
+is\_theta & L & .FALSE. &  &
+switch to indicate that the prescribed radiative forcing is for potential temperature &
+is\_plane\_torus=.TRUE. \\
+is\_rad\_forcing=.TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_ls\_forcing\_nml.f90
 
 
 %------------------------------------------------------------------------------
@@ -5186,6 +5265,9 @@ lcoriolis = .TRUE.
 &&&&'\textbf{dcmip\_tc\_52}': tropical cyclone test case with with full physics in Aqua-planet mode&
 lcoriolis = .TRUE.
 \tabularnewline
+&&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
+is\_plane\_torus= .TRUE.
+\tabularnewline
 \hline
 jw\_up&
 R& 1.0& m/s&
@@ -5674,6 +5756,29 @@ maximum temperature perturbation&
 nh\_test\_name=\\'dcmip\_gw\_32'
 \tabularnewline
 
+\hline 
+u\_cbl(2)&
+R& 0:0 & m/s and 1/s &
+to prescribe initial zonal velocity profile for convective boundary layer simulations where u\_cbl(1)
+sets the constant and u\_cbl(2) sets the vertical gradient &
+nh\_test\_name=CBL
+\tabularnewline
+
+\hline 
+v\_cbl(2)&
+R& 0:0 & m/s and 1/s &
+to prescribe initial meridional velocity profile for convective boundary layer simulations where v\_cbl(1)
+sets the constant and v\_cbl(2) sets the vertical gradient &
+nh\_test\_name=CBL
+\tabularnewline
+
+\hline 
+th\_cbl(2)&
+R& 290:0.006 & K and K/m &
+to prescribe initial potential temperature profile for convective boundary layer simulations where th\_cbl(1)
+sets the constant and th\_cbl(2) sets the gradient &
+nh\_test\_name=CBL
+\tabularnewline
 
 \end{longtab}
 
@@ -5846,6 +5951,36 @@ model expects {\bf height based} coordinates. For further information see <icon 
 \begin{changeitem}{initicon\_nml: dwdinc\_filename}{ 2013-05-24 }{ 12266 }
   \begin{itemize}
    \item Renamed dwdinc\_filename to dwdana\_filename
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: l\_ana\_sfc}{ 2013-06-25 }{ 12582 }
+  \begin{itemize}
+   \item Introduced new namelist flag \textbf{l\_ana\_sfc}
+   \item If true, soil/surface analysis fields are read from the analysis fiel dwdfg\_filename. 
+         If false, surface analyis fields are not read. Soil and surface are initialized with the first guess instead.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{new\_nwp\_phy\_tend\_list: output names consistent with variable names}{ 2013-06-25 }{ 12590 }
+  \begin{itemize}
+   \item temp\_tend\_radlw $\rightarrow$ ddt\_temp\_radlw
+   \item temp\_tend\_turb $\rightarrow$ ddt\_temp\_turb
+   \item temp\_tend\_drag $\rightarrow$ ddt\_temp\_drag
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{prepicon\_nml, remap\_nml, input\_field\_nml}{ 2013-06-25 }{ 12597 }
+  \begin{itemize}
+   \item Removed the sources for the "prepicon" binary!
+   \item The "prepicon" functionality (and most of its code) has become part of the ICON tools.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml}{ 2013-08-19 }{ 13311 }
+  \begin{itemize}
+   \item The number of vertical input levels is now read from file.
+         The namelist parameter \textbf{nlev\_in} has become obsolete in r12700 and has been removed.
   \end{itemize}
 \end{changeitem}
 
