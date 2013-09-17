@@ -1409,15 +1409,8 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
     field_column => ocean_tracer%concentration
   ENDIF
   !-----------------------------------------------------------------------
-  slev    = 1
-  !A_v    = 0.0001_wp
+  slev   = 1
   dt_inv = 1.0_wp/dtime
-
-  ! done later in column_tracer
-  ! field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  &
-  !   & = field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * dt_inv
-
-  ! CALL sync_patch_array(SYNC_C, p_patch, field_column)
 
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -1425,125 +1418,92 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
 
       IF (z_dolic > 0 ) THEN
-      !IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN 
-      !IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-      !  IF ( z_dolic >=MIN_DOLIC ) THEN
 
-         ! a(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,1)
-         ! b(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,2)
-         ! c(1:z_dolic) = p_op_coeff%matrix_vert_diff_c(jc,1:z_dolic,jb,3)
+        ! recalculate coefficients
+        prism_thickness(1)     = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + h_c(jc,jb)
+        inv_prism_thickness(1) = 1.0_wp / prism_thickness(1)
+        DO jk=2,z_dolic
+          prism_thickness(jk)            = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+          ! inv_prism_thickness(jk)        = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
+          inv_prism_thickness(jk)        = 1.0_wp / p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
+          inv_prisms_center_distance(jk) = 2.0_wp / (prism_thickness(jk-1) + prism_thickness(jk))
+          !inv_prisms_center_distance(jk) = 1.0_wp / p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)
+        ENDDO
 
-          ! recalculate coefficients
-          prism_thickness(1)     = p_patch_3D%p_patch_1D(1)%del_zlev_m(1) + h_c(jc,jb)
-          inv_prism_thickness(1) = 1.0_wp / prism_thickness(1)
-          DO jk=2,z_dolic
-            prism_thickness(jk)            = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-            ! inv_prism_thickness(jk)        = p_patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
-            inv_prism_thickness(jk)        = 1.0_wp / p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-            inv_prisms_center_distance(jk) = 2.0_wp / (prism_thickness(jk-1) + prism_thickness(jk))
+        IF (use_tracer_x_height) THEN
+          ! top level
+          a(1) = 0.0_wp
+          c(1) = -A_v(jc,2,jb) * inv_prism_thickness(2) * inv_prisms_center_distance(2)         * dtime
+          b(1) = 1.0_wp + A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2) * dtime
+          !Fill triangular matrix
+          !b is diagonal a is the lower diagonal, c is the upper
+          DO jk = 2, z_dolic-1
+            a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk-1) * inv_prisms_center_distance(jk)   * dtime
+            c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk+1) * inv_prisms_center_distance(jk+1) * dtime
+            b(jk) = 1.0_wp +                                         &
+              & (A_v(jc,jk,jb)  * inv_prisms_center_distance(jk) +   &
+              &  A_v(jc,jk+1,jb) * inv_prisms_center_distance(jk+1)) * inv_prism_thickness(jk) * dtime
+          END DO
+          !bottom
+          a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic-1) * inv_prisms_center_distance(z_dolic) * dtime
+          c(z_dolic) = 0.0_wp
+          b(z_dolic) = 1.0_wp + A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic) * dtime
+
+          ! get locally the column tracer_x_height
+          column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb)
+
+        !------------------------------------
+        ELSE ! not use_tracer_x_height
+          ! top level
+          a(1) = 0.0_wp
+          c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+          b(1) = dt_inv - c(1)
+          !Fill triangular matrix
+          !b is diagonal a is the lower diagonal, c is the upper
+          DO jk = 2, z_dolic-1
+            a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
+            c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
+            b(jk) = dt_inv - a(jk) - c(jk)
+          END DO
+          !bottom
+          a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
+          c(z_dolic) = 0.0_wp
+          b(z_dolic) = dt_inv - a(z_dolic)
+
+          ! get locally the column tracer / dt
+          column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
+
+        ENDIF ! use_tracer_x_height
+        !------------------------------------
+
+        ! solver from lapack
+        !
+        ! eliminate lower diagonal
+        DO jk=slev, z_dolic-1
+          fact = a( jk+1 ) / b( jk )
+          b( jk+1 ) = b( jk+1 ) - fact * c( jk )
+          column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact * column_tracer( jk )
+        ENDDO
+!        DO jk=slev+1, z_dolic
+!          a(jk) = 0.0_wp
+!        ENDDO
+
+        !     Back solve with the matrix U from the factorization.
+        column_tracer( z_dolic ) = column_tracer( z_dolic ) / b( z_dolic )
+        DO jk =  z_dolic-1, 1, -1
+          column_tracer( jk ) = ( column_tracer( jk ) - c( jk ) * column_tracer( jk+1 ) ) / b( jk )
+        ENDDO
+
+        IF (use_tracer_x_height) THEN
+          DO jk = 1, z_dolic
+            ocean_tracer%concentration_x_height(jc,jk,jb) = column_tracer(jk)
+            ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk) * inv_prism_thickness(jk)
           ENDDO
-
-          IF (use_tracer_x_height) THEN
-            ! top level
-            a(1) = 0.0_wp
-            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(2) * inv_prisms_center_distance(2)         * dtime
-            b(1) = 1.0_wp + A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2) * dtime
-            !Fill triangular matrix
-            !b is diagonal a is the lower diagonal, c is the upper
-            DO jk = 2, z_dolic-1
-              a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk-1) * inv_prisms_center_distance(jk)   * dtime
-              c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk+1) * inv_prisms_center_distance(jk+1) * dtime
-              b(jk) = 1.0_wp +                                         &
-                & (A_v(jc,jk,jb)  * inv_prisms_center_distance(jk) +   &
-                &  A_v(jc,jk+1,jb) * inv_prisms_center_distance(jk+1)) * inv_prism_thickness(jk) * dtime
-            END DO
-            !bottom
-            a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic-1) * inv_prisms_center_distance(z_dolic) * dtime
-            c(z_dolic) = 0.0_wp
-            b(z_dolic) = 1.0_wp + A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic) * dtime
-
-            ! get locally the column tracer_x_height
-            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb)
-
-          !------------------------------------
-          ELSE ! not use_tracer_x_height
-            ! top level
-            a(1) = 0.0_wp
-            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
-            b(1) = dt_inv - c(1)
-            !Fill triangular matrix
-            !b is diagonal a is the lower diagonal, c is the upper
-            DO jk = 2, z_dolic-1
-              a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
-              c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
-              b(jk) = dt_inv - a(jk) - c(jk)
-            END DO
-            !bottom
-            a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
-            c(z_dolic) = 0.0_wp
-            b(z_dolic) = dt_inv - a(z_dolic)
-
-            ! get locally the column tracer / dt
-            column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
-
-          ENDIF ! use_tracer_x_height
-          !------------------------------------
-
-!          ! get 1 in the diagonal
-!          DO jk=slev, z_dolic-1
-!            IF(b(jk)/=0.0_wp)THEN
-!              a(jk) = a(jk)/b(jk)
-!              c(jk) = c(jk)/b(jk)
-!              column_tracer(jk) = column_tracer(jk)/ b(jk)
-!              ! b(jk)=1.0_wp
-!            ELSE
-!              CALL finish("","diagonal is 0")
-!            ENDIF
-!          END DO
-!          !Apply the matrix
-!          DO jk=slev+1, z_dolic-1
-!            b(jk) = 1.0_wp - a(jk) * c(jk-1)
-!            c(jk) = c(jk)/b(jk)
-!
-!            column_tracer(jk) = (column_tracer(jk) - a(jk) * column_tracer(jk-1)) / b(jk)
-!            ! column_tracer(jk) = column_tracer(jk)/b(jk)
-!            ! b(jk)                  = 1.0_wp
-!          END DO
-!          ! bottom cell
-!          z_tmp = b(z_dolic) - a(z_dolic) * c(z_dolic-1)
-!          column_tracer(z_dolic) = (column_tracer(z_dolic) - a(z_dolic) * column_tracer(z_dolic-1)) / z_tmp
-!          DO jk = z_dolic-1,1,-1
-!            column_tracer(jk) = column_tracer(jk) - c(jk) * column_tracer(jk+1)
-!          END DO
-
-          ! solver from lapack
-          !
-          ! eliminate lower diagonal
-          DO jk=slev, z_dolic-1
-            fact = a( jk+1 ) / b( jk )
-            b( jk+1 ) = b( jk+1 ) - fact * c( jk )
-            column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact * column_tracer( jk )
+        ELSE
+          DO jk = 1, z_dolic
+            ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk)
           ENDDO
-!          DO jk=slev+1, z_dolic
-!            a(jk) = 0.0_wp
-!          ENDDO
-
-          !     Back solve with the matrix U from the factorization.
-          column_tracer( z_dolic ) = column_tracer( z_dolic ) / b( z_dolic )
-          DO jk =  z_dolic-1, 1, -1
-            column_tracer( jk ) = ( column_tracer( jk ) - c( jk ) * column_tracer( jk+1 ) ) / b( jk )
-          ENDDO
-
-          IF (use_tracer_x_height) THEN
-            DO jk = 1, z_dolic
-              ocean_tracer%concentration_x_height(jc,jk,jb) = column_tracer(jk)
-              ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk) * inv_prism_thickness(jk)
-            ENDDO
-          ELSE
-            DO jk = 1, z_dolic
-              ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk)
-            ENDDO
-          ENDIF
+        ENDIF
 
       ENDIF ! z_dolic > 0
     END DO
