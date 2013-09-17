@@ -357,7 +357,7 @@ CONTAINS
        IF (phy_config%ljsbach) THEN
          ! Calculate ztemperature_rad and _eff everywhere
          ztemperature_rad(:) = 0._wp
-         ztemperature_eff(:) = field%tsfc(jcs:jce,jb)
+         ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
          DO jsfc=1,nsfc_type
            ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
              & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
@@ -1195,7 +1195,7 @@ CONTAINS
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
                      nlev                                      ,& ! in,  number of levels
                      !
-                     p_patch(jg)%cells%center(jcs:jce,jb)%lat  ,& ! in,  Latitude in radians
+                     p_patch(jg)%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
                      psteplen                                  ,& ! in,  time step length, usually 2*delta_time
                      !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
