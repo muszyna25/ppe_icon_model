@@ -445,7 +445,7 @@ CONTAINS
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwsice', 'm/s', 'forc_fwsice', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
       ! there are four tracer related fields: tracer focing, tracer relaxation
       ! and both accumulated
@@ -603,7 +603,7 @@ CONTAINS
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_fwsice_acc', 'm/s', 'forc_fwsice_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,nblks_c/))
+    &          ldims=(/nproma,alloc_cell_blocks/))
 
     ! cartesians
     ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,alloc_cell_blocks), STAT=ist)
