@@ -2826,7 +2826,7 @@ CONTAINS
     DO jk = 2, n_zlev
       del_zlev_i(jk) = zlev_m(jk) -  zlev_m(jk-1)
     END DO
-!TODO    del_zlev_i(n_zlev+1) = 0.5*dzlev_m(n_zlev)
+
     del_zlev_m(:) = dzlev_m(1:n_zlev)
   END SUBROUTINE set_del_zlev
 
