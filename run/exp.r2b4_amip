@@ -231,7 +231,12 @@ cat > $jsbach_master_namelist << EOF
 /
 EOF
 
+add_required_file ${thisdir}/${jsbach_master_namelist} ./
+add_required_file ${thisdir}/${jsbach_namelist}        ./
 #__________________________________________________________________________________________________
+# add standard atmo_hydrostatic_files
+. ./add_required_atmo_hydrostatic_files
+
 # copy initial and boundary conditions and ancilliary files
 INDATA=/pool/data/ICON/input/r0001
 
@@ -240,10 +245,6 @@ INDATA=/pool/data/ICON/input/r0001
 
 # - atmosphere
 #   t.b.d
-
-# - land
-#cp -f $INDATA/r2b4_amip/lnd/ic_land_soil.nc                 ./
-
 
 
 # boundary conditions

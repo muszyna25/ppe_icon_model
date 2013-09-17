@@ -670,6 +670,7 @@ lapack/spotrs.f -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text
+run/add_required_atmo_hydrostatic_files -text
 run/ana_varnames_map_file.txt -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text

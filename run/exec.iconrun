@@ -20,8 +20,6 @@ else
    HGRIDDIR=$grids_folder
 fi
 EXPDIR=${ICONDIR}/experiments/${EXPNAME}
-# data directories
-DATADIR=${ICONDIR}/data
 #-----------------------------------------------------------------------------
 # set up the model lists if they do not exist
 # this works for subngle model runs
@@ -142,43 +140,6 @@ for gridfile in ${all_grids}; do
  #    fi
  # fi 
 done
-#-----------------------------------------------------------------------------
-
-#-----------------------------------------------------------------------------
-if [ $run_atmo = "true" ] ;  then
-   # =======================================================
-   #
-   # model constants
-   # ---------------
-   cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
-   cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
-
-   # boundary conditions
-   # -------------------
-   
-   # APE BCs
-   # -------
-   if [ x$ozon_file != "x" ] ;  then
-     cp -f ${DATADIR}/external/ape_ozone/$ozon_file ${EXPDIR}/o3_icon_DOM01.nc
-   else
-     cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
-   fi
-   # =======================================================
-   # vertical grid
-   # -------------
-   VGRIDDIR=${ICONDIR}/vertical_coord_tables
-   if [[ $atmo_model_equations = 3 ]] ; then
-      VGRIDNAME=atm_hyb_sz_${nlev}
-      rm  ${EXPDIR}/${VGRIDNAME}
-      ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-      warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
-   else
-     VGRIDNAME=atm_hyb_sp_${nlev}
-     rm ${EXPDIR}/${VGRIDNAME}
-     ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-     check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
-   fi
-fi
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -456,22 +417,6 @@ do
   j=`expr ${j} + 1`
 done
 
-# get jsbach namelist, this is not consistent though with the master model control
-if [ x_${jsbach_master_namelist} != "" ] ; then
-  if [ -f ${RUNSCRIPTDIR}/${jsbach_master_namelist} ] ; then
-    mv -f ${RUNSCRIPTDIR}/${jsbach_master_namelist} ${EXPDIR}
-    check_error $? "mv -f ${RUNSCRIPTDIR}/${jsbach_master_namelist}"
-  else
-    check_error 1 "${RUNSCRIPTDIR}/$jsbach_master_namelist does not exist"
-  fi  
-  if [ -f ${RUNSCRIPTDIR}/${jsbach_namelist} ] ; then
-    mv -f ${RUNSCRIPTDIR}/${jsbach_namelist} ${EXPDIR}
-    check_error $? "mv -f ${RUNSCRIPTDIR}/${jsbach_namelist}"
-  else
-    check_error 1 "${RUNSCRIPTDIR}/$jsbach_namelist does not exist"
-  fi  
-fi
-
 #-----------------------------------------------------------------------------
 
 
@@ -488,7 +433,6 @@ check_error $? "${MODEL} does not exist?"
 #
 # start experiment
 #
-cd ${EXPDIR}
 
 rm -f finish.status
 #

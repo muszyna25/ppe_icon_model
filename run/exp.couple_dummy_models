@@ -183,6 +183,9 @@ EOF
 create_namelist $dummy_1_namelist
 create_namelist $dummy_2_namelist
 create_namelist $dummy_3_namelist
-cp_atmo_files="true"
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# add standard atmo_hydrostatic_files
+. ./add_required_atmo_hydrostatic_files
 #-----------------------------------------------------------------------------
 

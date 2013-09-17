@@ -1,0 +1,23 @@
+#!/bin/ksh
+DATADIR=${ICON_BASE_PATH}/data
+add_required_file ${DATADIR}/rrtmg_lw.nc           ./
+add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
+
+# APE BCs
+if [ x$ozon_file != "x" ] ;  then
+  add_required_file ${DATADIR}/external/ape_ozone/$ozon_file ./o3_icon_DOM01.nc
+else
+  add_required_file ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ./o3_icon_DOM01.nc
+fi
+
+# vertical grid
+VGRIDDIR=${ICON_BASE_PATH}/vertical_coord_tables
+if [[ $atmo_model_equations = 3 ]] ; then
+  VGRIDNAME=atm_hyb_sz_${nlev}
+  add_required_file ${VGRIDDIR}/${VGRIDNAME} ./${VGRIDNAME}
+else
+  VGRIDNAME=atm_hyb_sp_${nlev}
+  add_required_file ${VGRIDDIR}/${VGRIDNAME} ./${VGRIDNAME}
+fi
+
+#-----------------------------------------------------------------------------
