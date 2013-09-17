@@ -320,7 +320,7 @@ begin
      	gsn_polyline(wks,plot,xref,spc_ref,polyres)             ; add polyline
 
      	xref    = (/50.,400./)
-     	spc_ref = .06*(xref/100.)^(-5/3) 				; make it 0.8 @ k=40
+     	spc_ref = .06*(xref/100.)^(-5./3.) 				; make it 0.8 @ k=40
      
      	polyres                  = True
      	polyres@gsLineThicknessF = lthick
