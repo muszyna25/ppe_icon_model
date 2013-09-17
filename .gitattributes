@@ -1454,8 +1454,6 @@ src/namelists/mo_mtgrm_nml.f90 -text
 src/namelists/mo_nh_pzlev_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
-src/namelists/mo_ocean_nml.f90 -text
-src/namelists/mo_ocean_read_namelists.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
@@ -1473,7 +1471,9 @@ src/ocean/boundary/mo_sea_ice_types.f90 -text
 src/ocean/boundary/mo_sea_ice_winton.f90 -text
 src/ocean/boundary/mo_sea_ice_zerolayer.f90 -text
 src/ocean/config/mo_ocean_config.f90 -text
+src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
+src/ocean/config/mo_ocean_read_namelists.f90 -text
 src/ocean/drivers/mo_hydro_ocean_run.f90 -text
 src/ocean/drivers/mo_ocean_model.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
