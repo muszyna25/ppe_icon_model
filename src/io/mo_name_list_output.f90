@@ -179,11 +179,11 @@ CONTAINS
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
       grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
+      ! compute some entries of lon-lat grid specification:
+      CALL compute_lonlat_specs(grid)
       ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), &
         &      r_out_dp(grid%lon_dim,grid%lat_dim), stat=errstat)
       IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
-      ! compute some entries of lon-lat grid specification:
-      CALL compute_lonlat_specs(grid)
       ! compute grid points of rotated lon/lat grid
       CALL rotate_latlon_grid(grid, rotated_pts)
       ! write RLON, RLAT

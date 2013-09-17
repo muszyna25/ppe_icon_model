@@ -54,6 +54,15 @@ MODULE mo_lonlat_grid
   ! types and variables:
   PUBLIC :: t_lon_lat_grid
 
+  !---------------------------------------------------------------
+  ! constants
+
+  ! Threshold constant: If a "delta" value is provided, which is
+  ! larger than this constant, then it is interpreted as the number of
+  ! intervals for the lon-lat grid.
+  REAL(wp), PARAMETER :: threshold_delta_or_intvls = 5._wp
+
+
 
   !> specification of (rotated) lon-lat grid
   !
@@ -87,17 +96,70 @@ MODULE mo_lonlat_grid
 CONTAINS
 
   !---------------------------------------------------------------
-  !> Computes rad-unit entries in lon-lat-grid definition
+  !> Computes rad-unit entries in lon-lat-grid definition.
+  !
+  !  This subroutine takes care of some special conventions:
+  !
+  !  1. For longitude values the last grid point is omitted if the end
+  !     point matches the start point, e.g. for 0 and 360 degrees.
+  !
+  !  2. Instead of defining an increment it is also possible to
+  !     prescribe the number of grid points, where it is expected that
+  !     this value is larger than 5.0.
   !
   SUBROUTINE compute_lonlat_specs(lonlat_grid)
     TYPE (t_lon_lat_grid), INTENT(INOUT) :: lonlat_grid
-    REAL(wp) :: pi_180
+    ! local variables
+    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15_wp
+    REAL(wp) :: pi_180, lon_s, lon_e
+    INTEGER  :: nintvls
+    LOGICAL  :: lnpts_given(2), lskip_last_lon
 
     pi_180 = ATAN(1._wp)/45._wp
     lonlat_grid%delta(1)        = lonlat_grid%reg_lon_def(2) * pi_180
     lonlat_grid%delta(2)        = lonlat_grid%reg_lat_def(2) * pi_180
     lonlat_grid%start_corner(1) = lonlat_grid%reg_lon_def(1) * pi_180
     lonlat_grid%start_corner(2) = lonlat_grid%reg_lat_def(1) * pi_180
+
+    ! Check for some special cases:
+    !
+    ! 1. --- check, if the longitude end value equals the longitude
+    !        start value; skip the last point then
+    lon_s          = lonlat_grid%reg_lon_def(1)
+    lon_e          = lonlat_grid%reg_lon_def(3)
+    IF (lon_s >= 360._wp) lon_s = lon_s - 360._wp
+    IF (lon_e >= 360._wp) lon_e = lon_e - 360._wp
+    lskip_last_lon = (ABS(lon_s - lon_e) < ZERO_TOL)
+    ! 2. --- check if the "delta" value prescribes an interval size or
+    !        the total *number* of intervals:
+    lnpts_given(1) = (lonlat_grid%reg_lon_def(2) > threshold_delta_or_intvls)
+    lnpts_given(2) = (lonlat_grid%reg_lat_def(2) > threshold_delta_or_intvls)
+
+    ! set longitude dimension
+    IF (lnpts_given(1)) THEN
+      ! no. of points was given:
+      lonlat_grid%lon_dim  = NINT(lonlat_grid%reg_lon_def(2))
+      IF (lskip_last_lon) THEN
+        nintvls = lonlat_grid%lon_dim
+      ELSE
+        nintvls = lonlat_grid%lon_dim - 1
+      END IF
+      lonlat_grid%delta(1) = (lonlat_grid%reg_lon_def(3)-lonlat_grid%reg_lon_def(1))/nintvls * pi_180
+    ELSE
+      ! increment was given:
+      lonlat_grid%lon_dim  = INT( (lonlat_grid%reg_lon_def(3)-lonlat_grid%reg_lon_def(1))/lonlat_grid%reg_lon_def(2) ) + 1
+      IF (lskip_last_lon) lonlat_grid%lon_dim = lonlat_grid%lon_dim - 1
+    END IF
+    ! set latitude dimension
+    IF (lnpts_given(2)) THEN
+      ! no. of points was given:
+      lonlat_grid%lat_dim  = NINT(lonlat_grid%reg_lat_def(2))
+      lonlat_grid%delta(2) = (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/(lonlat_grid%lat_dim-1) * pi_180
+    ELSE
+      ! increment was given:
+      lonlat_grid%lat_dim  = INT( (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/lonlat_grid%reg_lat_def(2) ) + 1
+    END IF
+
   END SUBROUTINE compute_lonlat_specs
 
 
@@ -105,7 +167,8 @@ CONTAINS
     TYPE (t_lon_lat_grid), INTENT(INOUT) :: lonlat_grid
     INTEGER,               INTENT(IN)    :: source, comm
     ! local variables
-    REAL(wp) :: buf(12), int_buf(2)
+    REAL(wp) :: buf(12)
+    INTEGER  :: int_buf(2)
 
     !-- broadcast REAL data:    
     buf = (/ lonlat_grid%delta(1),        lonlat_grid%delta(2),                                  &
@@ -192,7 +255,7 @@ CONTAINS
     REAL(wp),              INTENT(inout) :: rotated_pts(:,:,:)
     
     ! Local parameters
-    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15
+    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15_wp
 
     REAL(wp) :: sincos_pole(2,2),                   &  ! (lon/lat, sin/cos)
       &         sincos_lon(lon_lat_grid%lon_dim,2), &
@@ -202,9 +265,14 @@ CONTAINS
       &         rlat(lon_lat_grid%lat_dim)
     INTEGER  :: k, j
     LOGICAL  :: ltrivial_rotation
-   
-    ltrivial_rotation = ((ABS(90._wp - lon_lat_grid%north_pole(2)) < ZERO_TOL) .AND.  &
-      &                   ABS( 0._wp - lon_lat_grid%north_pole(1)) < ZERO_TOL)
+
+    pi_180 = ATAN(1._wp)/45._wp   
+
+    ! check for "trivial rotation" (no.pole at +90,0):
+    ltrivial_rotation  = ((ABS(90._wp - lon_lat_grid%north_pole(2)) < ZERO_TOL) .AND.  &
+      &                    ABS( 0._wp - lon_lat_grid%north_pole(1)) < ZERO_TOL)
+
+    ! compute the non-rotated lon/lat values
     DO k=1,lon_lat_grid%lon_dim
       rlon(k)         = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
       sincos_lon(k,:) = (/ SIN(rlon(k)), COS(rlon(k)) /)
@@ -227,7 +295,6 @@ CONTAINS
     ELSE
 
       ! convert north pole: degree -> rad:
-      pi_180 = ATAN(1._wp)/45._wp
       npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
 
       sincos_pole(:,1) = SIN(npole_rad(:))

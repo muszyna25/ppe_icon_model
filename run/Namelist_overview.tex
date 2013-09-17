@@ -3089,15 +3089,22 @@ I&0& &
 \hline
  reg\_lon\_def(3) &
 R&None& &
- if remap=1: start, increment, end longitude in degrees
+ The regular grid points are specified by three values: start, increment, end given in degrees.
+It contains all grid points $start + k * increment <= end$, where $k$ is an integer.
+For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
+Instead of defining an increment it is also possible to prescribe the number of grid points, where it is expected that this
+value is larger than 5.0.
 &
+remap=1
 \tabularnewline
 
 \hline
  reg\_lat\_def(3) &
 R&None& &
- if remap=1: start, increment, end latitude in degrees
+ start, increment, end latitude in degrees.
+ See reg\_lon\_def for details.
 &
+remap=1
 \tabularnewline
 
 \hline
