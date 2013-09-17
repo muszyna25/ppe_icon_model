@@ -163,41 +163,6 @@ if [ $run_atmo = "true" ] ;  then
    else
      cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
    fi
-#   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_hex_1Pa_c.nc ${EXPDIR}/o3_icon_DOM01.nc
-#   check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa.nc ${EXPDIR}/o3_icon_DOM01.nc"
-   INIDATA=/pool/data/ICON/input/r0001
-   #
-   # AMIP BCs
-   # --------
-   #
-   # atmosphere
-   #
-   cp -f $INIDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc  ${EXPDIR}/bc_greenhouse.nc
-   #
-   #cp -f $INIDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_$yearm1.nc ${EXPDIR}/bc_ozone_yearm1.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_$year.nc   ${EXPDIR}/bc_ozone_year.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_$yearp1.nc ${EXPDIR}/bc_ozone_yearp1.nc
-   #
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_trop_kinne/bc_aeropt_trop_kinne_$yearm1.nc ${EXPDIR}/bc_aeropt_trop_yearm1.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_trop_kinne/bc_aeropt_trop_kinne_$year.nc ${EXPDIR}/bc_aeropt_trop_year.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_trop_kinne/bc_aeropt_trop_kinne_$yearp1.nc ${EXPDIR}/bc_aeropt_trop_yearp1.nc
-   #
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_strat_stenchikov/bc_aeropt_strat_stenchikov_$yearm1.nc ${EXPDIR}/bc_aeropt_strat_yearm1.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_strat_stenchikov/bc_aeropt_strat_stenchikov_$year.nc ${EXPDIR}/bc_aeropt_strat_year.nc
-   #cp -f $INIDATA/r2b4_amip/atm/bc_aeropt_strat_stenchikov/bc_aeropt_strat_stenchikov_$yearp1.nc ${EXPDIR}/bc_aeropt_strat_yearp1.nc
-   #
-   # ocean
-   #
-   cp -f $INIDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc ${EXPDIR}/bc_sic.nc
-   cp -f $INIDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc ${EXPDIR}/bc_sst.nc
-   #
-   # land
-   #
-   cp -f $INIDATA/r2b4_amip/lnd/bc_land_frac.nc ${EXPDIR}/bc_land_frac.nc
-   cp -f $INIDATA/r2b4_amip/lnd/bc_land_phys.nc ${EXPDIR}/bc_land_phys.nc
-   cp -f $INIDATA/r2b4_amip/lnd/bc_land_soil.nc ${EXPDIR}/bc_land_soil.nc
-   cp -f $INIDATA/r2b4_amip/lnd/bc_land_sso.nc  ${EXPDIR}/bc_land_sso.nc
-   #
    # =======================================================
    # vertical grid
    # -------------
