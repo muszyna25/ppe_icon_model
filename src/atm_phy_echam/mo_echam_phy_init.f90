@@ -571,13 +571,23 @@ CONTAINS
              !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
              !
              !
+#ifdef YAC_Coupling
+             CALL yac_fget_nbr_fields ( nbr_fields )
+             ALLOCATE(field_id(nbr_fields))
+             CALL yac_fget_field_ids ( nbr_fields, field_id )
+#else
              CALL ICON_cpl_get_nbr_fields ( nbr_fields )
              ALLOCATE(field_id(nbr_fields))
              CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+#endif
              !
              field_shape(1) = 1
              field_shape(2) = nbr_hor_points
              field_shape(3) = 1
+
+#ifdef YAC_coupling
+   TODO
+#else
              !
              ! Send fields away
              ! ----------------
@@ -697,7 +707,7 @@ CONTAINS
                CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
              ENDIF
-
+#endif
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
 

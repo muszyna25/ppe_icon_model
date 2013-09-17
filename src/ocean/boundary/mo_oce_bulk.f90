@@ -92,9 +92,13 @@ USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,       
 
 #ifndef __ICON_OCEAN_ONLY__
 USE mo_coupling_config,     ONLY: is_coupled_run
+# ifdef YAC_coupling
+USE finterface_description  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+# else
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+#endif
 #endif
 
 IMPLICIT NONE
@@ -742,9 +746,15 @@ CONTAINS
       !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
       !
       !
+#ifdef YAC_Coupling
+        CALL yac_fget_nbr_fields ( nbr_fields )
+        ALLOCATE(field_id(nbr_fields))
+        CALL yac_fget_field_ids ( nbr_fields, field_id )
+#else
         CALL ICON_cpl_get_nbr_fields ( nbr_fields )
         ALLOCATE(field_id(nbr_fields))
         CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+#endif
       !
         field_shape(1) = 1
         field_shape(2) = p_patch%n_patch_cells 
@@ -761,17 +771,30 @@ CONTAINS
       !
       ! SST
         buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
+
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! Ice thickness, concentration, T1 and T2
@@ -780,7 +803,11 @@ CONTAINS
         buffer(:,3) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
         buffer(:,4) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
         field_shape(3) = 4
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
 
         IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
@@ -793,7 +820,11 @@ CONTAINS
 
       ! zonal wind stress
         field_shape(3) = 1
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -801,7 +832,11 @@ CONTAINS
         ENDIF
       !
       ! meridional wind stress
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -812,7 +847,11 @@ CONTAINS
       !  - here freshwater can be bracketed by l_forc_freshw, i.e. it must not be passed through coupler if not used
       ! IF (l_forc_freshw) THEN
         field_shape(3) = 2
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
             p_sfc_flx%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -829,7 +868,11 @@ CONTAINS
       !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
       ! IF (temperature_relaxation >=1) THEN
         field_shape(3) = 1
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
           p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -842,7 +885,11 @@ CONTAINS
       ! p_sfc_flx%swflx(:,:)  ocean short wave heat flux                              [W/m2]
       ! p_sfc_flx%lwflx(:,:)  ocean long  wave, latent and sensible heat fluxes (sum) [W/m2]
         field_shape(3) = 2
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
           p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -857,7 +904,11 @@ CONTAINS
       ! p_ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
       ! p_ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
         field_shape(3) = 4
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
           p_ice%Qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
