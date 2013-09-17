@@ -1012,6 +1012,7 @@ scripts/postprocessing/tools/metview/paperclose.pro -text
 scripts/postprocessing/tools/metview/paperopenl.pro -text
 scripts/postprocessing/tools/metview/scores.pro -text
 scripts/postprocessing/tools/metview/zonal.error -text
+scripts/postprocessing/tools/mld.py -text
 scripts/postprocessing/tools/mld.sh -text
 scripts/postprocessing/tools/mocTimeseries.rb -text
 scripts/postprocessing/tools/mocTimeseries.sh -text
