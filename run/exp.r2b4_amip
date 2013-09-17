@@ -1,0 +1,282 @@
+#!/bin/bash
+#__________________________________________________________________________________________________
+#
+# ICON AMIP run script.
+#
+# Authors:
+#          Monika Esch, MPIM, March 2013 
+#          Luis Kornblueh, MPIM, March 2013
+#          Marco Giorgetta, MPIM, April 2013
+#          Reiner Schnur, MPIM, April 2013  
+# 
+#__________________________________________________________________________________________________
+# This script starts a spin-up run for the AMIP experiment from an analytically initialized, zonally 
+# symmetric atmospheric state over a flat Earth surface. Over the first day mountains are grown to
+# their realistic size.
+#
+# The length of the spin-up run is 1 year from 1978-01-01T00:00:00Z to 1979-01-01T00:00:00Z.
+#
+#__________________________________________________________________________________________________
+# Restart status
+#
+restart=${restart:=".false."}
+#
+#AUTOMATIC_RESTART_SETUP:
+#END AUTOMATIC_RESTART_SETUP
+#__________________________________________________________________________________________________
+#__________________________________________________________________________________________________
+# define the experiment: set variables for ICON namelist
+# horizontal grid(s)
+grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+atmo_dyn_grids='r2b4_amip.nc'
+
+# vertical grid
+nlev=47
+
+# define model timing
+start_date="1978-01-01T00:00:00Z"        # start and end date
+  end_date="1979-01-01T00:00:00Z"        # of the experiment
+#
+(( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
+(( dt_checkpoint   =  1 * day         )) # [s] time between additional restart file writing
+#
+# atm_dyn output
+(( dt_file_atm_dyn =  1 * day         )) # [s] data file interval
+(( dt_data_atm_dyn =  1 * day         )) # [s] data output interval
+(( steps_per_file_atm_dyn = dt_file_atm_dyn / dt_data_atm_dyn ))
+#
+# atm_phy output
+(( dt_file_atm_phy =  1 * day        )) # [s] data file interval
+(( dt_data_atm_phy =  1 * hour       )) # [s] data output interval
+(( steps_per_file_atm_phy = dt_file_atm_phy / dt_data_atm_phy ))
+#
+# lnd_phy output
+(( dt_file_lnd_phy =  1 * day        )) # [s] data file interval
+(( dt_data_lnd_phy =  1 * hour       )) # [s] data output interval
+(( steps_per_file_lnd_phy = dt_file_lnd_phy / dt_data_lnd_phy ))
+
+# define model configuration
+#
+atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. atm.
+#
+(( dt_dyn         =  5 * minute       )) # [s] dynamics time step
+(( dt_rad         =  1 * hour         )) # [s] radiation time step
+
+# define variable names
+#
+dict_file='dict.cmor'
+#
+#__________________________________________________________________________________________________
+# define the experiment: write ICON namelist parameters
+
+atmo_namelist=NAMELIST_${EXPNAME}_atm
+
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev          = ${nlev},     ! number of full levels of vertical grid
+ output           = 'nml'
+ dtime            = ${dt_dyn}    ! [s] dynamics time step
+ ltestcase        = .TRUE.       ! run testcase                 --> testcase_nml
+ ldynamics        = .TRUE.       ! dynamics                     --> dynamics_nml, diffusion_nml
+ ltransport       = .TRUE.       ! switch on tracer transport   --> transport_nml
+ ntracer          = 5            ! number of tracers
+ iforcing         = 2            ! ECHAM physics                --> echam_phy_nml
+ msg_level        = 10           ! detailed report during integration 
+/
+&ha_testcase_nml
+ ctest_name       = 'AMIP'       ! test case identifier
+ lrh_linear_pres  = .TRUE.       ! initial RH is a linear function of pressure
+ rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
+/
+&dynamics_nml
+ iequations       = ${atmo_model_equations}    ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore      = .FALSE.      ! moist dynamical core
+/
+&diffusion_nml
+ hdiff_order      = 24           ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max      = 8            ! the 3 highest model levels use 2nd order diffusion
+/
+&transport_nml
+ ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+/
+&echam_phy_nml
+ lamip            = .TRUE.
+ lrad             = .TRUE.
+ lvdiff           = .TRUE.
+ lconv            = .TRUE.
+ lcond            = .TRUE.
+ lgw_hines        = .TRUE.
+ lssodrag         = .TRUE.
+ ljsbach          = .TRUE.
+ dt_rad           = ${dt_rad}    ! [s] radiation time step
+/
+&radiation_nml
+ irad_h2o         = 1            ! prognostic vapor, liquid and ice
+ irad_co2         = 2            ! constant co2 vmr
+ irad_ch4         = 0            ! switch off ch4
+ irad_n2o         = 0            ! switch off n2o
+ irad_o3          = 8            ! ozone for AMIP experiment ! eventually 1...7 if 8 does not work
+ irad_o2          = 0            ! switch off o2
+ irad_cfc11       = 0            ! switch off cfc11
+ irad_cfc12       = 0            ! switch off cfc12
+ irad_aero        = 0            ! switch off aerosols
+ ighg             = 1            ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
+ izenith          = 4            ! seasonal and diurnal cycle
+/
+&echam_conv_nml
+/
+&gw_hines_nml
+/
+&io_nml
+dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
+ output_nml_dict  = '${dict_file}'
+ netcdf_dict      = '${dict_file}'
+/
+&output_nml
+ output_bounds    = ${dt_data_atm_dyn},${dt_restart},${dt_data_atm_dyn}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_dyn}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}_atm_dyn"
+ ml_varlist       = 'ps'      , 'ta'      ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'pfull'   , 'gpfull'
+/
+&output_nml
+ output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_phy}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}_atm_phy"
+ ml_varlist       = 'cosmu0'  , 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+                    'sic'     , 'sit'     , 'alb'     ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 
+                    'tauu'    , 'tauv'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso'
+/
+&output_nml
+ output_bounds    = ${dt_data_lnd_phy},${dt_restart},${dt_data_lnd_phy}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_lnd_phy}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}_lnd_phy"
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+EOF
+
+#------------------------------------------------------
+# jsbach namelists
+jsbach_master_namelist=jsbach_master.namelist
+jsbach_namelist=NAMELIST_${EXPNAME}_lnd
+
+cat > ${jsbach_namelist} <<EOF
+&jsb_model_nml
+  usecase         = 'jsbach_lite'
+/
+
+&jsb_srf_nml
+  bc_filename     = 'bc_land_phys.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+
+&jsb_soil_nml
+  active          = .TRUE.
+  nsoil_energy    = 5
+  nsoil_water     = 5
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+
+&jsb_veg_nml
+  active          = .TRUE.
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+EOF
+
+cat > $jsbach_master_namelist << EOF
+&jsb_control_nml
+ is_standalone      = .false.
+ restart_jsbach     = .false.
+/
+
+&jsb_model_nml
+ model_name = 'JSBACHlite'
+ model_shortname = 'lite'
+ model_description = 'JSBACH-lite model'
+ model_namelist_filename = "${jsbach_namelist}"
+/
+EOF
+
+#__________________________________________________________________________________________________
+# copy initial and boundary conditions and ancilliary files
+INDATA=/pool/data/ICON/input/r0001
+
+# initial conditions
+# ------------------
+
+# - atmosphere
+#   t.b.d
+
+# - land
+#cp -f $INDATA/r2b4_amip/lnd/ic_land_soil.nc                 ./
+
+
+
+# boundary conditions
+# -------------------
+
+# - well mixed greenhouse gases
+add_required_file $INDATA/r2b4_amip/lnd/ic_land_soil.nc                 ./
+add_required_file $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc   ./bc_greenhouse_gases.nc
+
+# - ozone
+year=1977
+while [[ $year -le 2009 ]]
+do
+  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc  ./ozone${year}.nc
+ (( year = year+1 ))
+done
+
+# - sst and sic
+add_required_file $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
+add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
+
+# - ssi and tsi
+add_required_file $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc  ./bc_ssi.nc
+
+# - land parameters
+add_required_file $INDATA/r2b4_amip/lnd/bc_land_frac.nc                      ./
+add_required_file $INDATA/r2b4_amip/lnd/bc_land_phys.nc                      ./
+add_required_file $INDATA/r2b4_amip/lnd/bc_land_soil.nc                      ./
+add_required_file $INDATA/r2b4_amip/lnd/bc_land_sso.nc                       ./
+
+
+#__________________________________________________________________________________________________
+# copy dictionary file for variable names
+add_required_file ${basedir}/run/${dict_file}                                ./
+
+#__________________________________________________________________________________________________

@@ -737,6 +737,7 @@ run/exp.oce_tracer_conservation_force-5-0 -text
 run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
+run/exp.r2b4_amip -text
 run/exp.r2b4_amip_blizzard.run -text
 run/exp.r2b4_amip_thunder.run -text
 run/exp.sl_lsmfl -text

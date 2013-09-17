@@ -75,6 +75,8 @@ fi
 ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
 
+cd ${EXPDIR}
+
 
 #-----------------------------------------------------------------------------
 # set some default values and derive some run parameteres
@@ -98,6 +100,10 @@ if [ x$ocean_namelist != x ]; then
 fi
 
 #-----------------------------------------------------------------------------
+# print_required_files
+copy_required_files
+
+
 
 #-----------------------------------------------------------------------------
 #
@@ -374,8 +380,6 @@ fi
 
 #-----------------------------------------------------------------------------
 
-cd ${EXPDIR}
-
 #-----------------------------------------------------------------------------
 # get restart files
 # try copying instead of linking
@@ -468,7 +472,7 @@ EOF
 #get namelist
   if [ -f ${RUNSCRIPTDIR}/$model_namelist_filename ] ; then
     mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}
-    check_error $? "cp -f ${RUNSCRIPTDIR}/$model_namelist_filename"
+    check_error $? "mv -f ${RUNSCRIPTDIR}/$model_namelist_filename"
   else
     check_error 1 "${RUNSCRIPTDIR}/$model_namelist_filename does not exist"
   fi  
@@ -486,6 +490,22 @@ do
   add_component_to_master_namelist "${namelist_list[$j]}" "${modelname_list[$j]}" ${modeltype_list[$j]} ${minrank_list[$j]} ${maxrank_list[$j]} ${incrank_list[$j]}
   j=`expr ${j} + 1`
 done
+
+# get jsbach namelist, this is not consistent though with the master model control
+if [ x_${jsbach_master_namelist} != "" ] ; then
+  if [ -f ${RUNSCRIPTDIR}/${jsbach_master_namelist} ] ; then
+    mv -f ${RUNSCRIPTDIR}/${jsbach_master_namelist} ${EXPDIR}
+    check_error $? "mv -f ${RUNSCRIPTDIR}/${jsbach_master_namelist}"
+  else
+    check_error 1 "${RUNSCRIPTDIR}/$jsbach_master_namelist does not exist"
+  fi  
+  if [ -f ${RUNSCRIPTDIR}/${jsbach_namelist} ] ; then
+    mv -f ${RUNSCRIPTDIR}/${jsbach_namelist} ${EXPDIR}
+    check_error $? "mv -f ${RUNSCRIPTDIR}/${jsbach_namelist}"
+  else
+    check_error 1 "${RUNSCRIPTDIR}/$jsbach_namelist does not exist"
+  fi  
+fi
 
 #-----------------------------------------------------------------------------
 
