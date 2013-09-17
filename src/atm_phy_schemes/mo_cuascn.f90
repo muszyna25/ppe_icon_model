@@ -805,7 +805,7 @@ DO jk=klev-1,ktdia+2,-1
           pkineu(jl,jk)=(pkineu(jl,jk+1)*(1.0_JPRB-zdken)+zdkbuo)/(1.0_JPRB+zdken)
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
-            zkedke=MAX(0.0_JPRB,MIN(1.0_JPRB,zkedke))
+            zkedke=MAX(1.e-30_JPRB,MIN(1.0_JPRB,zkedke))
             zmfun=EXP(exp_detr*LOG(zkedke))*pmfu(jl,jk+1)
             zdmfde(jl)=MAX(zdmfde(jl),pmfu(jl,jk+1)-zmfun)
             plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
