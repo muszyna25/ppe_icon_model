@@ -218,11 +218,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only
-   gibraltar(1:10)              = 2371,2374
-   denmark_strait(1:10)         = 2436,2471
-   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
-   indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
-   scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+!  gibraltar(1:10)              = 2371,2374
+!  denmark_strait(1:10)         = 2436,2471
+!  drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+!  indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+!  scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
 /
 &io_nml
   out_expname   = '${EXPNAME}'
