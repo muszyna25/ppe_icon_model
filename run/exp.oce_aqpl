@@ -215,4 +215,8 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ./add_required_ocean_files
+#-----------------------------------------------------------------------------
 

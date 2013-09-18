@@ -101,6 +101,7 @@ warning()
 
 
 number_of_required_files=0
+number_of_linked_files=0
 
 add_required_file()
 {
@@ -129,6 +130,36 @@ copy_required_files()
   while [ \$i -lt \$number_of_required_files ]
   do
     cp -f \${input_required_file[\${i}]} \${output_required_file[\${i}]}
+   (( i=i+1 ))
+  done    
+}
+
+add_link_file()
+{
+  in_name=\$1
+  new_name=\$2
+  
+  input_linked_file[\$number_of_linked_files]=\$in_name
+  output_linked_file[\$number_of_linked_files]=\$new_name  
+  (( number_of_linked_files = number_of_linked_files + 1 ))    
+}
+
+print_linked_files()
+{
+  i=0
+  while [ \$i -lt \$number_of_linked_files ]
+  do
+    print linked file \$i : \${input_linked_file[\${i}]} \${output_linked_file[\${i}]}
+   (( i=i+1 ))
+  done    
+}
+
+link_required_files()
+{
+  i=0
+  while [ \$i -lt \$number_of_linked_files ]
+  do
+    ln -s \${input_linked_file[\${i}]} \${input_linked_file[\${i}]}
    (( i=i+1 ))
   done    
 }
@@ -553,7 +584,7 @@ set_run_target_thunder()
  else
     job_type=parallel
     queue="mpi-compute"
-  #  queue="mpi-develop"
+    queue="mpi-develop"
     tasks_per_node=$use_mpi_procs_pernode
   fi
   if [[ "x$BB_SYSTEM" != "x" ]]; then

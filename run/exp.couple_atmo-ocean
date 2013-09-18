@@ -90,14 +90,9 @@ nlev=47                  # nlev = number of full levels
 iforcing=2               # ECHAM physics
 #
 #-----------------------------------------------------------------------------
-# the grid files
-#
-grid_ext="aqua_planet"
-grid_name="iconR2B04-ocean_${grid_ext}"   #  resolution change via grid file
-ocean_grids="${grid_name}.nc"
-#
+ocean_grids="iconR2B04-ocean_aqua_planet.nc"
+# atmo_dyn_grids="$ocean_grids" atmo uses the ocean grids
 #-----------------------------------------------------------------------------
-atmo_dyn_grids="$ocean_grids"
 ozon_file="ape_o3_${grid_name}.nc"
 #-----------------------------------------------------------------------------
 #
@@ -219,7 +214,7 @@ cat > $atmo_namelist << EOF
  /
 &grid_nml
  cell_type = 3             ! triangular cells
- dynamics_grid_filename = "${atmo_dyn_grids}",
+ dynamics_grid_filename = "${ocean_grids}",
 /
 &run_nml
  output      = 'vlist'
