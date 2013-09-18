@@ -20,13 +20,13 @@ void util_user_name(char *name, int *actual_len)
 {
   struct passwd *current;
  
-#if defined(__XT3__) || defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(__XT3__)
   current = NULL;
 #else
   current = getpwuid(getuid());
 #endif
   if (current == NULL) {
-#if defined(__XT3__) || defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+#if defined(__XT3__)
     strcpy(name, "user name not available");
 #else
     strcpy(name, "unknown user name");
