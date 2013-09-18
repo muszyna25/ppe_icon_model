@@ -173,7 +173,7 @@ mpi_root=$use_mpi_root
 no_of_nodes=$use_nodes
 mpi_procs_pernode=$use_mpi_procs_pernode
 mpi_total_procs=$mpi_total_procs
-START="\$start"
+START="$start"
 # ----------------------------
 # openmp environment variables
 # ----------------------------
