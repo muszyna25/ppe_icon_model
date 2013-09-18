@@ -105,3 +105,7 @@ l_log_checks       = .false.
 /
 EOF
 #
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ./add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------

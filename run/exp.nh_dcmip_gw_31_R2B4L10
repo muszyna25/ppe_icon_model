@@ -162,3 +162,7 @@ cat > ${atmo_namelist} << EOF
  map_file         ="mapfile_dcmip.txt"
 /
 EOF
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ./add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------

@@ -1,0 +1,6 @@
+#!/bin/ksh
+DATADIR=${ICON_BASE_PATH}/data
+add_required_file ${DATADIR}/rrtmg_lw.nc           ./
+add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
+
+#-----------------------------------------------------------------------------
