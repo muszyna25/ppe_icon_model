@@ -187,8 +187,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
 EOF
 
 #------------------------------------------------------
-# jsbach namelists
-jsbach_master_namelist=jsbach_master.namelist
+# jsbach namelist
 jsbach_namelist=NAMELIST_${EXPNAME}_lnd
 
 cat > ${jsbach_namelist} <<EOF
@@ -217,21 +216,6 @@ cat > ${jsbach_namelist} <<EOF
 /
 EOF
 
-cat > $jsbach_master_namelist << EOF
-&jsb_control_nml
- is_standalone      = .false.
- restart_jsbach     = .false.
-/
-
-&jsb_model_nml
- model_name = 'JSBACHlite'
- model_shortname = 'lite'
- model_description = 'JSBACH-lite model'
- model_namelist_filename = "${jsbach_namelist}"
-/
-EOF
-
-add_required_file ${thisdir}/${jsbach_master_namelist} ./
 add_required_file ${thisdir}/${jsbach_namelist}        ./
 #__________________________________________________________________________________________________
 # add standard atmo_hydrostatic_files

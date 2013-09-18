@@ -60,6 +60,7 @@ MODULE mo_echam_phy_init
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
 #ifdef __JSBACH__
+  USE mo_master_control,       ONLY: master_namelist_filename
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
 #endif
@@ -369,7 +370,7 @@ CONTAINS
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH
-      CALL jsbach_init_base()
+      CALL jsbach_init_base(master_namelist_filename)
       ! Now continue initialization of JSBACH for the different grids
       ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
       DO jg=1,ndomain
