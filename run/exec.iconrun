@@ -76,10 +76,17 @@ fi
 #-----------------------------------------------------------------------------
 # set some default values and derive some run parameteres
 restart=${restart:=".false."}
+restartSemaphoreFilename='isRestartRun.sem'
+#AUTOMATIC_RESTART_SETUP:
+if [ -f ${restartSemaphoreFilename} ]; then
+  restart=.true.
+  [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
+fi
+#END AUTOMATIC_RESTART_SETUP
 #
 # wait 5min to let GPFS finish the write operations
 if [ "x$restart" != 'x.false.' -a "x$submit" != 'x' ]; then
-  sleep 300;
+  sleep 10;
 fi
 # fill some checks
 
@@ -298,11 +305,12 @@ namelist_list=""
 #   Note: this is a different mechanism from checking the restart
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
-  cd $RUNSCRIPTDIR
   this_script="${RUNSCRIPTDIR}/${job_name}"
   echo 'this_script: ' "$this_script"
-  perl -pi -e 's/(^#AUTOMATIC_RESTART_SETUP.*)/\1\nrestart=\.true\./' "${this_script}"
+  touch ${restartSemaphoreFilename}
   ${submit} $this_script
+else
+  [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
 fi
 
 
