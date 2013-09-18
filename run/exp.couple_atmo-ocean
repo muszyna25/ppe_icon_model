@@ -557,5 +557,5 @@ maxrank_list[1]=$ocean_max_rank
 incrank_list[1]=$ocean_inc_rank
 #-----------------------------------------------------------------------------
 # add standard atmo_hydrostatic_files
-. ./add_required_atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
 #-----------------------------------------------------------------------------

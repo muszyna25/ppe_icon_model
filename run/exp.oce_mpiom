@@ -238,5 +238,5 @@ cat > ${ocean_namelist} << EOF
 EOF
 #-----------------------------------------------------------------------------
 # add required standard input files
-. ./add_required_ocean_files
+. ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------

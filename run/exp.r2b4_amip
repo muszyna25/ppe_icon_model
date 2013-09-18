@@ -235,7 +235,7 @@ add_required_file ${thisdir}/${jsbach_master_namelist} ./
 add_required_file ${thisdir}/${jsbach_namelist}        ./
 #__________________________________________________________________________________________________
 # add standard atmo_hydrostatic_files
-. ./add_required_atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
 
 # copy initial and boundary conditions and ancilliary files
 INDATA=/pool/data/ICON/input/r0001

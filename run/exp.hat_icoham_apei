@@ -146,5 +146,5 @@ EOF
 #
 #-----------------------------------------------------------------------------
 # add standard atmo_hydrostatic_files
-. ./add_required_atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
 #-----------------------------------------------------------------------------
