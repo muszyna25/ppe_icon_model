@@ -286,8 +286,7 @@ def doCheckExp(build,exp)
           echo '#===========================================================================';
           echo " $file";echo
           cdo showname  $file
-          cdo -infov -fldmin -subc,16.0 -div -selname,t_acc $file -selname,wet_c $file
-          cdo -infov -fldmin -subc,16.0 -div -selname,t $file     -selname,wet_c $file
+          cdo -infov -subc,16.0 -div -selname,t_acc,t $file -selname,wet_c $file
         fi;
       done
                EOS
@@ -480,7 +479,8 @@ end
 }
 
 desc "Check variables an user input"
-task :check do
+task :check ,[:p] do |t,args|
+  pp args
   {
     'SRCDIR' => SRCDIR,
     'REMOTE_USER' => REMOTE_USER,
