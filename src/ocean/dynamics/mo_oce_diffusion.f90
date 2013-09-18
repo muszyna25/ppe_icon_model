@@ -1455,22 +1455,26 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
         ELSE ! not use_tracer_x_height
           ! top level
           a(1) = 0.0_wp
-          c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
-          b(1) = dt_inv - c(1)
+          c(1) = -A_v(jc,2,jb) * dtime * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+          b(1) = 1.0_wp - c(1)
           !Fill triangular matrix
           !b is diagonal a is the lower diagonal, c is the upper
           DO jk = 2, z_dolic-1
-            a(jk) = -A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
-            c(jk) = -A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
-            b(jk) = dt_inv - a(jk) - c(jk)
+            a(jk) = dtime * inv_prism_thickness(jk)
+            c(jk) = dtime * inv_prism_thickness(jk)
+          END DO
+          DO jk = 2, z_dolic-1
+            a(jk) = -A_v(jc,jk,jb)   * inv_prisms_center_distance(jk)   * a(jk)
+            c(jk) = -A_v(jc,jk+1,jb) * inv_prisms_center_distance(jk+1) * a(jk)
+            b(jk) = 1.0_wp - a(jk) - c(jk)
           END DO
           !bottom
-          a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
+          a(z_dolic) = -A_v(jc,z_dolic,jb) * dtime * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
           c(z_dolic) = 0.0_wp
-          b(z_dolic) = dt_inv - a(z_dolic)
+          b(z_dolic) = 1.0_wp - a(z_dolic)
 
           ! get locally the column tracer / dt
-          column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb) * dt_inv
+          column_tracer(1:z_dolic) = field_column(jc,1:z_dolic,jb)
 
         ENDIF ! use_tracer_x_height
         !------------------------------------
