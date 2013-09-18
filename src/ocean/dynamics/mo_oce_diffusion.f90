@@ -1395,13 +1395,12 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
   REAL(wp) :: column_tracer(1:n_zlev)
   REAL(wp) :: prism_thickness(1:n_zlev), inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
   INTEGER  :: z_dolic
-  TYPE(t_subset_range), POINTER :: cells_in_domain !all_cells
+  TYPE(t_subset_range), POINTER :: cells_in_domain
   TYPE(t_patch), POINTER         :: p_patch 
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
   !-----------------------------------------------------------------------
-  p_patch   => p_patch_3D%p_patch_2D(1)
-  ! all_cells => p_patch%cells%all
+  p_patch         => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
   IF (use_tracer_x_height) THEN
     field_column => ocean_tracer%concentration_x_height
@@ -1415,7 +1414,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
-      z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)  !v_base%dolic_c(jc,jb)
+      z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
       IF (z_dolic > 0 ) THEN
 
