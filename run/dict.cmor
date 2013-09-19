@@ -95,6 +95,38 @@
   tauu_sso           prm_v_stress_sso
   diss_sso           prm_dissipation_sso
 #
+# tendencies from the ECHAM6 physics with prefix 'prm_tend'
+# ---------------------------------------------------
+#
+# Temperature:
+  tend_temp          prm_tend_temp
+  tend_temp_radlw    prm_tend_temp_radlw
+  tend_temp_radsw    prm_tend_temp_radsw
+  tend_temp_cld      prm_tend_temp_cld
+  tend_temp_cnv      prm_tend_temp_cnv
+  tend_temp_vdf      prm_tend_temp_vdf
+  tend_temp_gwh      prm_tend_temp_gwh
+  tend_temp_sso      prm_tend_temp_sso
+# u-Wind:
+  tend_u             prm_tend_u
+  tend_u_cnv         prm_tend_u_cnv
+  tend_u_vdf         prm_tend_u_vdf
+  tend_u_gwh         prm_tend_u_gwh
+  tend_u_sso         prm_tend_u_sso
+# v-Wind:
+  tend_v             prm_tend_v
+  tend_v_cnv         prm_tend_v_cnv
+  tend_v_vdf         prm_tend_v_vdf
+  tend_v_gwh         prm_tend_v_gwh
+  tend_v_sso         prm_tend_v_sso
+# detrained water (liq+ice)
+  tend_x_dtr         prm_tend_x_dtr
+# qv
+  tend_qv            prm_tend_qv
+  tend_qv_cld        prm_tend_qv_cld
+  tend_qv_cnv        prm_tend_qv_cnv
+  tend_qv_vdf        prm_tend_qv_vdf
+
 #
 # land / JSBACH
 # =============

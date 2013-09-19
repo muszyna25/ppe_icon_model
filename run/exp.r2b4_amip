@@ -65,6 +65,10 @@ atmo_model_equations=1                   # 1 = hydrost. atm., 2 = non-hydrost. a
 # define variable names
 #
 dict_file='dict.cmor'
+
+# Choose whether to output tendency variables (yes/no) (same output interval as atm_phy)
+write_tend_temp  = no  # temperature tendencies
+write_tend_other = no  # other tendencies (u,v-wind, detrained water, qv)
 #
 #__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
@@ -185,6 +189,34 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /
 EOF
+
+if [[ "$write_tend_temp" == "yes" ]]; then
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_phy}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}_atm_phy_tend_t"
+ ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
+                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
+/
+EOF
+fi
+
+if [[ "$write_tend_other" == "yes" ]]; then
+    cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_phy}
+ include_last     = .FALSE.
+ output_filename  = "${EXPNAME}_atm_phy_tend"
+ ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
+                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
+                    'tend_x_dtr'
+                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+/
+EOF
+fi
 
 #------------------------------------------------------
 # jsbach namelist
