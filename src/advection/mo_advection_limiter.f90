@@ -770,6 +770,7 @@ CONTAINS
         ! 2. Compute total outward mass
         !
         DO jk = slev, elev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             ! Sum of all outgoing fluxes out of cell jc

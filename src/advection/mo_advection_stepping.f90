@@ -255,8 +255,11 @@ CONTAINS
     REAL(wp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer) 
 
-    REAL(wp), POINTER ::  &
-      &  ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
+    REAL(wp), POINTER   &
+#ifdef _CRAYFTN
+    , CONTIGUOUS        &
+#endif
+      & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
 
     REAL(wp) ::  &                              !< result of intermediate RK2 step
       &  z_estim_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer)       
@@ -312,35 +315,6 @@ CONTAINS
     !
     ! Godunov-type advection with two-time level scheme
     !
-
-    !
-    !
-    i_rlstart  = 1
-    i_rlend    = min_rlcell
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-      DO jk = 1, nlev
-
-        DO jt=1,ntracer
-          DO jc = i_startidx, i_endidx
-            ! IF slev >1, then z_fluxdiv_c must be initialized with 0.
-            ! For p_test_run=.TRUE. this is necessary, anyway
-            z_fluxdiv_c(jc,jk,jb,jt) = 0._wp
-          ENDDO
-        ENDDO
-
-      END DO
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
 
 
