@@ -159,7 +159,7 @@ MODULE mo_nh_stepping
   USE mo_interface_les,       ONLY: les_phy_interface
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
-
+  USE mo_nh_prepadv_types,    ONLY: prep_adv, jstep_adv
 
   IMPLICIT NONE
 
@@ -167,48 +167,6 @@ MODULE mo_nh_stepping
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  ! for preparation of transport with optional reduced calling frequency
-  TYPE :: t_prepare_adv
-    ! mass flux at full level edges (currently at N+1\2)
-    REAL(wp), ALLOCATABLE :: mass_flx_me(:,:,:)
-
-    !mass flux at half level centers (currently at N+1\2)
-    REAL(wp), ALLOCATABLE :: mass_flx_ic(:,:,:)
-
-    ! horizontal velocity at edges for computation of backward trajectories
-    ! (currently at N+1/2)
-    REAL(wp), ALLOCATABLE :: vn_traj(:,:,:)
-
-    ! vertical velocity at half level centers for computation of
-    ! backward trajectories (currently at N+1/2)
-    REAL(wp), ALLOCATABLE :: w_traj(:,:,:)
-
-    ! density times layer thickness at cell center at time step N
-    REAL(wp), ALLOCATABLE :: rhodz_mc_now(:,:,:)
-
-    !< density times layer thickness at cell center at time step N+1
-    REAL(wp), ALLOCATABLE :: rhodz_mc_new(:,:,:)
-
-    !< vertical tracer flux at domain top (time average; n+1/2)
-    REAL(wp), ALLOCATABLE :: topflx_tra(:,:,:)
-
-  END TYPE t_prepare_adv
-
-
-  ! counter for 'reduced calling frequency' and Marchuk splitting
-  TYPE :: t_step_adv
-    ! Counts total number of dynamics time steps for each patch (necessary for
-    ! generalization of rcf to arbitrary (even) number of iadv_rcf)
-    INTEGER :: ntsteps
-
-    ! Determines sequence of operations for Marchuk-splitting (for transport)
-    INTEGER :: marchuk_order
-  END TYPE t_step_adv
-
-
-  TYPE(t_prepare_adv), ALLOCATABLE :: prep_adv(:)  ! n_dom
-
-  TYPE(t_step_adv),    ALLOCATABLE :: jstep_adv(:) ! n_dom
 
 
   ! additional flow control variables that need to be dimensioned with the
@@ -827,7 +785,7 @@ MODULE mo_nh_stepping
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
     INTEGER :: idyn_timestep
-    LOGICAL :: l_recompute, lsave_mflx
+    LOGICAL :: l_recompute, lsave_mflx, lprep_adv, lfull_comp
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -1033,6 +991,8 @@ MODULE mo_nh_stepping
         ! Pure advection
         !------------------
 
+        lfull_comp = .TRUE.  ! full set of computations in prepare_tracer required
+
         SELECT CASE ( TRIM(nh_test_name) )
 
         CASE ('PA') ! solid body rotation
@@ -1069,7 +1029,7 @@ MODULE mo_nh_stepping
         CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),     &! in
           &         p_nh_state(jg)%prog(n_new),                           &! in
           &         p_nh_state(jg)%metrics, p_int_state(jg),              &! in
-          &         iadv_rcf, lstep_adv(jg), lclean_mflx,                 &! in
+          &         iadv_rcf, lstep_adv(jg), lclean_mflx, lfull_comp,     &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
@@ -1163,7 +1123,15 @@ MODULE mo_nh_stepping
             lsave_mflx = .TRUE.
           ELSE
             lsave_mflx = .FALSE.
-          ENDIF   
+          ENDIF
+
+          IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
+            lprep_adv = .TRUE.
+          ELSE
+            lprep_adv = .FALSE.
+          ENDIF
+
+          lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
 
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
@@ -1175,8 +1143,9 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), prep_adv(jg)%mass_flx_me, &
-              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), prep_adv(jg), &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),   &
+              lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
@@ -1187,6 +1156,8 @@ MODULE mo_nh_stepping
           ENDIF
 
         ELSE ! hexagonal case
+
+          lfull_comp = .TRUE.  ! full set of computations in prepare_tracer required
 
           l_predictor=.TRUE.
           ! 1. nonlinear advection terms (know) for the predictor step
@@ -1215,14 +1186,14 @@ MODULE mo_nh_stepping
 
         ! 5. tracer advection
         !-----------------------
-        IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
+        IF ( ltransport) THEN
 
           ! Diagnose some velocity-related quantities for the tracer
           ! transport scheme
           CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),     &! in
             &         p_nh_state(jg)%prog(n_new),                           &! in
             &         p_nh_state(jg)%metrics, p_int_state(jg),              &! in
-            &         iadv_rcf, lstep_adv(jg), lclean_mflx,                 &! in
+            &         iadv_rcf, lstep_adv(jg), lclean_mflx, lfull_comp,     &! in
             &         p_nh_state(jg)%diag,                                  &! inout
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
@@ -2287,6 +2258,5 @@ MODULE mo_nh_stepping
 END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
 
-
-
 END MODULE mo_nh_stepping
+
