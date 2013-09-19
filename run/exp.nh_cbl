@@ -114,7 +114,7 @@ cat > ${atmo_namelist} << EOF
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
  smag_constant     = 0.12
- isrfc_type        = 2     !2=Fixed flux, 1=fixed SST
+ isrfc_type        = 2     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  ufric             = 0.45
 /
 &diffusion_nml

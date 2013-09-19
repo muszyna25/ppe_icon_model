@@ -4646,7 +4646,7 @@ Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
 sst & R & 300 & K &
 sea surface temperature for idealized LES simulations &
 nh\_test\_name=CBL, RICO\\
-isrfc\_type=1,4 
+isrfc\_type=5,4 
 \tabularnewline
 
 \hline 
@@ -4664,10 +4664,11 @@ isrfc\_type = 2
 \hline 
 isrfc\_type & I & 1 &  &
 surface type \\
-1 = fixed SST \\
+1 = TERRA land physics \\
 2 = fixed surface fluxes \\ 
 3 = fixed buoyancy fluxes \\
-4 = RICO test case &
+4 = RICO test case \\
+5 = fixed SST &
 \tabularnewline
 
 \hline 
