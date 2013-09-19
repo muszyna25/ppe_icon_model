@@ -288,6 +288,7 @@ MODULE mo_ocean_nml
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
+                                                 ! false = salinity is relaxed under sea ice completely
 
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
   LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
