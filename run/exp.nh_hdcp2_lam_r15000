@@ -153,9 +153,10 @@ tkmmin  = 0.1
 /
 &interpol_nml
 nudge_zone_width  = 8
-rbf_vec_scale_c =  0.03
-rbf_vec_scale_v =  0.07
-rbf_vec_scale_e = 0.25
+rbf_vec_scale_c =  0.5
+rbf_vec_scale_v =  0.5
+rbf_vec_scale_e = 0.5
+rbf_vec_scale_ll = 0.35
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2
