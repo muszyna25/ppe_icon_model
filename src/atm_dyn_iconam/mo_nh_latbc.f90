@@ -370,7 +370,7 @@ MODULE mo_nh_latbc
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'lev', dimid), routine)
+      CALL nf(nf_inq_dimid(latbc_fileid, 'height', dimid), routine)
       CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_levels), routine)
 
       !
