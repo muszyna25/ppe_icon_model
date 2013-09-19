@@ -112,7 +112,8 @@ MODULE mo_name_list_output_init
   USE mo_nonhydrostatic_config,             ONLY: ivctype
 #endif
 ! __ICON_OCEAN_ONLY__
-  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid
+  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
+    &                                             compute_lonlat_specs
   USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids
@@ -469,6 +470,9 @@ CONTAINS
         lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
         lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
         lonlat%grid%north_pole(:)  = north_pole(:)
+        ! compute some additional entries of lon-lat grid specification:
+        CALL compute_lonlat_specs(lonlat%grid)
+        CALL compute_lonlat_blocking(lonlat%grid, nproma)
 
         IF(reg_lon_def(2)<=0._wp) CALL finish(routine,'Illegal LON increment')
         IF(reg_lat_def(2)==0._wp) CALL finish(routine,'Illegal LAT increment')

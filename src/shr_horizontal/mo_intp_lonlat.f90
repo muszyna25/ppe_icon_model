@@ -71,9 +71,7 @@
     USE mo_math_constants,      ONLY: pi, pi2, pi_2
     USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
-    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid,                                       &
-      &                               compute_lonlat_blocking,                              &
-      &                               compute_lonlat_specs, latlon_compute_area_weights
+    USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
     USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,          &
@@ -244,11 +242,6 @@
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
-        ! compute some entries of lon-lat grid specification:
-        CALL compute_lonlat_specs(lonlat_grid_list(i)%grid)
-
-        CALL compute_lonlat_blocking(lonlat_grid_list(i)%grid, nproma)
-
         lonlat_grid_list(i)%l_dom(n_dom+1:) = .FALSE.
       END DO
 
