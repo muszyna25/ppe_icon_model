@@ -163,3 +163,7 @@ nudge_zone_width  = 4
 /
 EOF
 #
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------

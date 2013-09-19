@@ -60,6 +60,7 @@ MODULE mo_echam_phy_init
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
 #ifdef __JSBACH__
+  USE mo_master_control,       ONLY: master_namelist_filename
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
 #endif
@@ -369,7 +370,7 @@ CONTAINS
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH
-      CALL jsbach_init_base()
+      CALL jsbach_init_base(master_namelist_filename)
       ! Now continue initialization of JSBACH for the different grids
       ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
       DO jg=1,ndomain
@@ -571,13 +572,23 @@ CONTAINS
              !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
              !
              !
+#ifdef YAC_Coupling
+             CALL yac_fget_nbr_fields ( nbr_fields )
+             ALLOCATE(field_id(nbr_fields))
+             CALL yac_fget_field_ids ( nbr_fields, field_id )
+#else
              CALL ICON_cpl_get_nbr_fields ( nbr_fields )
              ALLOCATE(field_id(nbr_fields))
              CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+#endif
              !
              field_shape(1) = 1
              field_shape(2) = nbr_hor_points
              field_shape(3) = 1
+
+#ifdef YAC_coupling
+   TODO
+#else
              !
              ! Send fields away
              ! ----------------
@@ -697,7 +708,7 @@ CONTAINS
                CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
              ENDIF
-
+#endif
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
 

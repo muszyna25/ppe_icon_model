@@ -1827,6 +1827,8 @@ ana\_varnames\_map\_file &
 C& & &
 Dictionary file which maps internal variable names onto
 GRIB2 shortnames or NetCDF var names.
+This is a text file with two columns separated by whitespace, where
+left column: ICON variable name, right column: GRIB short name.
 &
 \tabularnewline
 
@@ -3087,15 +3089,22 @@ I&0& &
 \hline
  reg\_lon\_def(3) &
 R&None& &
- if remap=1: start, increment, end longitude in degrees
+ The regular grid points are specified by three values: start, increment, end given in degrees.
+It contains all grid points $start + k * increment <= end$, where $k$ is an integer.
+For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
+Instead of defining an increment it is also possible to prescribe the number of grid points, where it is expected that this
+value is larger than 5.0.
 &
+remap=1
 \tabularnewline
 
 \hline
  reg\_lat\_def(3) &
 R&None& &
- if remap=1: start, increment, end latitude in degrees
+ start, increment, end latitude in degrees.
+ See reg\_lon\_def for details.
 &
+remap=1
 \tabularnewline
 
 \hline
@@ -4637,7 +4646,7 @@ Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
 sst & R & 300 & K &
 sea surface temperature for idealized LES simulations &
 nh\_test\_name=CBL, RICO\\
-isrfc\_type=1,4 
+isrfc\_type=5,4 
 \tabularnewline
 
 \hline 
@@ -4655,10 +4664,11 @@ isrfc\_type = 2
 \hline 
 isrfc\_type & I & 1 &  &
 surface type \\
-1 = fixed SST \\
+1 = TERRA land physics \\
 2 = fixed surface fluxes \\ 
 3 = fixed buoyancy fluxes \\
-4 = RICO test case &
+4 = RICO test case \\
+5 = fixed SST &
 \tabularnewline
 
 \hline 

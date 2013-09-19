@@ -82,6 +82,7 @@ MODULE mo_solve_nonhydro
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_vertical_coord_table,ONLY: vct_a
+  USE mo_nh_prepadv_types,  ONLY: t_prepare_adv
 
   IMPLICIT NONE
 
@@ -107,15 +108,14 @@ MODULE mo_solve_nonhydro
   !! @par Revision History
   !! Development started by Guenther Zaengl on 2010-02-03
   !!
-  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, mflx_avg, nnow, nnew, l_init, l_recompute, &
-                       lsave_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
+  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
+                       lprep_adv, lstep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
     TYPE(t_buffer_memory),     INTENT(INOUT) :: bufr
-
-    REAL(wp), INTENT(IN)                     :: mflx_avg(:,:,:)
+    TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
     LOGICAL,                   INTENT(INOUT) :: l_init
@@ -123,6 +123,12 @@ MODULE mo_solve_nonhydro
     LOGICAL,                   INTENT(IN)    :: l_recompute
     ! Switch if mass flux needs to be saved for nest boundary interpolation tendency computation
     LOGICAL,                   INTENT(IN)    :: lsave_mflx
+    ! Switch if preparations for tracer advection shall be computed
+    LOGICAL,                   INTENT(IN)    :: lprep_adv
+    ! Switch if current time step is a tracer advection step (relevant only if lprep_adv = .true.)
+    LOGICAL,                   INTENT(IN)    :: lstep_adv
+    ! Switch if mass fluxes computed for tracer advection need to be reinitialized
+    LOGICAL,                   INTENT(IN)    :: lclean_mflx
     ! Counter of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
     INTEGER,                   INTENT(IN)    :: idyn_timestep
     ! Time step count since last boundary interpolation (ranges from 0 to 2*iadv_rcf-1)
@@ -202,8 +208,10 @@ MODULE mo_solve_nonhydro
 
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,     &
-               z_ntdistv_bary(2), distv_bary(2)
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, multfac_vntraj
+
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
+
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
 
@@ -260,6 +268,9 @@ MODULE mo_solve_nonhydro
       dtime_r =  dtime
     ENDIF
     dthalf = 0.5_wp*dtime_r
+
+    ! Inverse value of iadv_rcf for tracer advection precomputations
+    r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -334,6 +345,12 @@ MODULE mo_solve_nonhydro
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     DO istep = 1, 2
+
+      IF (istep == 1 .AND. lclean_mflx .OR. lstep_adv) THEN
+        multfac_vntraj = 0.5_wp*r_iadv_rcf
+      ELSE
+        multfac_vntraj = r_iadv_rcf
+      ENDIF
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
@@ -707,17 +724,34 @@ MODULE mo_solve_nonhydro
       ! flux divergence term; this is included in upwind_hflux_miura3 for option 3
       IF (iadv_rhotheta <= 2) THEN
 
-        rl_start = 7
-        rl_end   = min_rledge_int-1
-
+        ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
         i_startblk = p_patch%edges%start_blk(min_rledge_int-2,i_nchdom)
         i_endblk   = p_patch%edges%end_blk  (min_rledge_int-3,i_nchdom)
 
-        ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
 !$OMP WORKSHARE
         z_rho_e    (:,:,i_startblk:i_endblk) = 0._wp
         z_theta_v_e(:,:,i_startblk:i_endblk) = 0._wp
 !$OMP END WORKSHARE
+
+        ! Initialize halo points on level 2 of vn_traj for tracer advection
+        i_endblk   = p_patch%edges%end_blk(min_rledge_int-2,i_nchdom)
+        IF (lprep_adv .AND. lclean_mflx) THEN
+!$OMP WORKSHARE
+          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
+!$OMP END WORKSHARE
+        ENDIF
+
+        ! Initialize also the relevant nest boundary points of vn_traj for tracer advection
+        IF (lprep_adv .AND. lclean_mflx .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
+          i_startblk = p_patch%edges%start_blk(5,1)
+          i_endblk   = p_patch%edges%end_blk  (6,1)
+!$OMP WORKSHARE
+          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
+!$OMP END WORKSHARE
+        ENDIF
+
+        rl_start = 7
+        rl_end   = min_rledge_int-1
 
         i_startblk = p_patch%edges%start_blk(rl_start,1)
         i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
@@ -851,6 +885,16 @@ MODULE mo_solve_nonhydro
               ENDDO ! loop over edges
             ENDDO   ! loop over vertical levels
           ENDIF
+
+          ! Initialize vn_traj for tracer advection
+          IF (lprep_adv .AND. lclean_mflx) THEN
+            DO jk = 1, nlev
+              DO je = i_startidx, i_endidx
+                prep_adv%vn_traj(je,jk,jb) = multfac_vntraj*p_nh%prog(nnow)%vn(je,jk,jb)
+              ENDDO
+            ENDDO
+          ENDIF
+
         ENDDO
 !$OMP END DO
 
@@ -1407,6 +1451,17 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           p_nh%diag%mass_fl_e_sv(i_startidx:i_endidx,:,jb) = p_nh%diag%mass_fl_e(i_startidx:i_endidx,:,jb)
         ENDIF
+
+        IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
+          IF (lclean_mflx) prep_adv%mass_flx_me(:,:,jb) = 0._wp
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + multfac_vntraj*p_nh%prog(nnew)%vn(je,jk,jb)
+              prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDIF
 
       IF (istep == 1 .OR. itime_scheme >= 5) THEN
@@ -1483,7 +1538,7 @@ MODULE mo_solve_nonhydro
         IF (jstep == 0) THEN
           DO jk = 1, nlev
             p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
-            p_nh%diag%grf_bdy_mflx(jk,ic,1) = mflx_avg(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+            p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
           ENDDO
         ENDIF
 
@@ -1878,17 +1933,6 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-      ! compute dw/dz for divergence damping term
-      IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
-              ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
-                (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
-          ENDDO
-        ENDDO
-      ENDIF
-
       ! Results for thermodynamic variables
       DO jk = jk_start, nlev
 !DIR$ IVDEP
@@ -1961,6 +2005,29 @@ MODULE mo_solve_nonhydro
             p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
             p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
           p_nh%prog(nnew)%w(jc,1,jb) = z_mflx_top(jc,jb)/p_nh%diag%rho_ic(jc,1,jb)
+        ENDDO
+      ENDIF
+
+      ! compute dw/dz for divergence damping term
+      IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
+              ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
+                (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
+          ENDDO
+        ENDDO
+      ENDIF
+
+      ! Preparations for tracer advection
+      IF (lprep_adv .AND. istep == 2) THEN
+        IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_iadv_rcf * ( z_contr_w_fl_l(jc,jk) + &
+              p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
+          ENDDO
         ENDDO
       ENDIF
 
@@ -2045,10 +2112,24 @@ MODULE mo_solve_nonhydro
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
                 ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
                   (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
+            ENDDO
+          ENDDO
+        ENDIF
+
+        ! Preparations for tracer advection
+        IF (lprep_adv .AND. istep == 2) THEN
+        IF (lclean_mflx) prep_adv%mass_flx_ic(i_startidx:i_endidx,:,jb) = 0._wp
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_iadv_rcf*p_nh%diag%rho_ic(jc,jk,jb) * &
+                (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) +                                       &
+                 p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb) )
             ENDDO
           ENDDO
         ENDIF
@@ -2099,6 +2180,7 @@ MODULE mo_solve_nonhydro
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
                 ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
@@ -2282,3 +2364,4 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro
+

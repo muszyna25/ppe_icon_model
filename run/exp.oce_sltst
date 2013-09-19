@@ -144,19 +144,20 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
+  ml_varlist       =  'group:oce_default','hi','conc'
+! ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
 /
 &output_nml
   output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-  steps_per_file   = ${steps_per_file}
-  include_last     = .TRUE.
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-  ml_varlist       = 'wet_c','group:ice_default'
+! steps_per_file   = ${steps_per_file}
+! include_last     = .TRUE.
+! output_grid      = .TRUE.
+! output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
+! ml_varlist       = 'wet_c','group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=2                     ! initialize MIN/MAX  debug output
-  idbg_val =2                     ! initialize one cell debug output
+  idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
@@ -218,11 +219,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only
-   gibraltar(1:10)              = 2371,2374
-   denmark_strait(1:10)         = 2436,2471
-   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
-   indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
-   scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+!  gibraltar(1:10)              = 2371,2374
+!  denmark_strait(1:10)         = 2436,2471
+!  drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+!  indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+!  scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
 /
 &io_nml
   out_expname   = '${EXPNAME}'
@@ -232,5 +233,7 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.         ! sync after each timestep
 /
 EOF
-
-# vim:ft=sh
+#-----------------------------------------------------------------------------
+# add required standard input files
+. ./add_required_ocean_files
+#-----------------------------------------------------------------------------

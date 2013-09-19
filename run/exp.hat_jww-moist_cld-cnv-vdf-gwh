@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the experiment.
@@ -119,4 +120,10 @@ cat > ${atmo_namelist} << EOF
  lheatcal  = .FALSE.        ! no heating by gravity wave dissipation
 /                           ! because radiation is switched off
 EOF
-#
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# add standard atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+#-----------------------------------------------------------------------------
+

@@ -110,6 +110,16 @@ MODULE mo_ocean_model
   !-------------------------------------------------------------
   ! For the coupling
 #ifndef __ICON_OCEAN_ONLY__
+# ifdef YAC_coupling
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE finterface_description, ONLY: yac_finit, yac_fdef_comp,                    &
+    &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
+    &                               yac_fdef_elements, yac_fdef_points,          &
+    &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
+    &                               yac_ffinalize
+  USE mo_coupling_config,     ONLY: is_coupled_run
+# else
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
@@ -117,6 +127,7 @@ MODULE mo_ocean_model
   USE mo_icon_cpl_def_field,  ONLY: icon_cpl_def_field
   USE mo_icon_cpl_search,     ONLY: icon_cpl_search
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
+# endif
 #endif
   !-------------------------------------------------------------
   
@@ -298,7 +309,11 @@ CONTAINS
     CALL destruct_icon_communication()
 
 #ifndef __ICON_OCEAN_ONLY__
-    IF ( is_coupled_run() ) CALL icon_cpl_finalize
+# ifdef YAC_coupling
+    IF ( is_coupled_run() ) CALL yac_ffinalize
+# else
+    IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
+# endif
 #endif
 
     CALL message(TRIM(routine),'clean-up finished')
@@ -447,6 +462,164 @@ CONTAINS
 
     INTEGER :: patch_no
 
+# ifdef YAC_coupling
+    INTEGER, PARAMETER :: nbr_vertices_per_cell = 3 ! Triangle
+
+    INTEGER, PARAMETER :: nbr_subdomain_ids = 1
+
+    INTEGER            :: comp_id
+    INTEGER            :: cell_point_id
+    INTEGER            :: edge_point_id
+    INTEGER            :: mask_id
+    INTEGER            :: subdomain_id
+    INTEGER            :: subdomain_ids(nbr_subdomain_ids)
+
+    INTEGER, PARAMETER :: CELL     = 0 ! one point per cell
+    INTEGER, PARAMETER :: CORNER   = 1 ! one point per vertex
+    INTEGER, PARAMETER :: EDGE     = 2 ! one point per edge
+                                       ! (see definition of enum location in points.h)
+    INTEGER            :: jb, jc, je, index
+    INTEGER            :: cell_start_idx, cell_end_idx
+    INTEGER            :: edge_start_idx, edge_end_idx
+
+    REAL(wp), ALLOCATABLE :: buffer_x(:)
+    REAL(wp), ALLOCATABLE :: buffer_y(:)
+    REAL(wp), ALLOCATABLE :: buffer_c(:)
+
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges
+    TYPE(t_patch), POINTER        :: patch_horz
+
+    patch_no = 1
+
+    ! Initialise the coupler
+    CALL yac_finit ( "couling.xml", "coupling.xsd" )
+
+    ! Inform the coupler about what we are
+    CALL yac_fdef_comp ( "ICON_ocean", comp_id )
+
+    ! Announce one subdomain (patch) to the coupler
+    CALL yac_fdef_subdomain ( comp_id, "ICON_ocean", subdomain_id )
+
+    patch_horz => patch_3D%p_patch_2D(patch_no)
+    all_cells  => patch_horz%cells%ALL
+    all_edges  => patch_horz%edges%ALL
+ 
+    ! Extract cell information
+    !
+    ! cartesian coordinates of cell vertices are stored in
+    ! patch_horz%verts%cartesian(:,:)%x(1:3)
+    ! Here we use the longitudes and latitudes.
+
+    ALLOCATE(buffer_x(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
+    ALLOCATE(buffer_y(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
+    ALLOCATE(buffer_c(nproma*(all_cells%end_block-all_cells%start_block+1)*3))
+
+    DO jb = all_cells%start_block, all_cells%end_block
+       CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
+       DO jc = cell_start_idx, cell_end_idx
+          index = (jb-1)*nproma+jc
+          buffer_x(index) = patch_horz%verts(jc,jb)%vertex%lon
+          buffer_y(index) = patch_horz%verts(jc,jb)%vertex%lat
+          buffer_c((index-1)*3+1) = patch_horz%cells%vertex_idx(jc,jb,1)
+          buffer_c((index-1)*3+2) = patch_horz%cells%vertex_idx(jc,jb,2)
+          buffer_c((index-1)*3+3) = patch_horz%cells%vertex_idx(jc,jb,3)
+       ENDDO
+    ENDDO
+
+    ! Description of elements, here as unstructured grid
+    CALL yac_fdef_elements ( subdomain_id,              &
+                             patch_horz%n_patch_verts,  &
+                             patch_horz%n_patch_cells,  &
+                             nbr_vertices_per_cell,     &
+                             buffer_x,                  &
+                             buffer_y,                  &
+                             buffer_c )
+
+    ! Can we have two fdef_point calls for the same subdomain, i.e.
+    ! one single set of cells?
+    !
+    ! Define cell center points (location = 0)
+    !
+    ! cartesian coordinates of cell centers are stored in
+    ! patch_horz%cells%cartesian_center(:,:)%x(1:3)
+    ! Here we use the longitudes and latitudes.
+
+    DO jb = all_cells%start_block, all_cells%end_block
+       CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
+       DO jc = cell_start_idx, cell_end_idx
+          index = (jb-1)*nproma+jc
+          buffer_x(index) = patch_horz%cells%center(jc,jb)%lon
+          buffer_x(index) = patch_horz%cells%center(jc,jb)%lat
+       ENDDO
+    ENDDO
+
+    CALL yac_fdef_points ( subdomain_id,            &
+                           patch_horz%n_patch_cells,   &
+                           CELL,                    &
+                           buffer_x,                &
+                           buffer_y,                &
+                           cell_point_id )
+
+    ! Define edge center points (location = 2)
+    !
+    ! cartesian coordinates of cell centers are stored in
+    ! patch_horz%edges%cartesian_center(:,:)%x(1:3)
+    ! Here we use the longitudes and latitudes.
+
+    DEALLOCATE (buffer_x, buffer_y)
+
+    ALLOCATE(buffer_x(nproma*(all_edges%end_block-all_edges%start_block+1)))
+    ALLOCATE(buffer_y(nproma*(all_edges%end_block-all_edges%start_block+1)))
+
+    DO jb = all_edges%start_block, all_edges%end_block
+       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+       DO je = edge_start_idx, edge_end_idx
+          index = (jb-1)*nproma+je
+          buffer_x(index) = patch_horz%edges%center(jc,jb)%lon
+          buffer_x(index) = patch_horz%edges%center(jc,jb)%lat
+       ENDDO
+    ENDDO
+
+    CALL yac_fdef_points ( subdomain_id,             &
+                           patch_horz%n_patch_cells, &
+                           EDGE,                     &
+                           buffer_x,                 &
+                           buffer_y,                 &
+                           edge_point_id )
+
+    ! Connect subdomains
+    CALL yac_fconnect_subdomains ( comp_id,           &
+                                   nbr_subdomain_ids, &
+                                   subdomain_ids,     &
+                                   domain_id )
+    !
+    ! mask generation : ... not yet defined ...
+    !
+    ! We could use the patch_horz%cells%owner_local information
+    ! e.g. to mask out halo points. We do we get the info about what is local and what
+    ! is remote.
+    !
+    ! The land-sea mask for the ocean is available in p_patch_3D%surface_cell_sea_land_mask(:,:)
+    !
+    !          -2: inner ocean
+    !          -1: boundary ocean
+    !           1: boundary land
+    !           2: inner land
+    !
+    ! CALL yac_fdef_mask ( mask_size,     &
+    !                      imask,         &
+    !                      cell_point_id, &
+    !                      mask_id )
+
+    CALL yac_fdef_mask ( mask_size,  &  !rr TODO
+                         imask,      &  !rr TODO
+                         points_id,  &
+                         mask_id )
+
+    DEALLOCATE (buffer_x, buffer_y, buffer_c)
+
+# else
+
     !------------------------------------------------------------
     CALL icon_cpl_init(debug_level=config_debug_coupler_level)
     ! Inform the coupler about what we are
@@ -469,6 +642,8 @@ CONTAINS
       & p_pe_work,  & ! this owner id
       & error_status )                                            ! output
 
+# endif
+
     field_name(1) = "TAUX"
     field_name(2) = "TAUY"
     field_name(3) = "SFWFLX" ! bundled field containing two components
@@ -479,6 +654,20 @@ CONTAINS
     field_name(8) = "OCEANU"
     field_name(9) = "OCEANV"
     field_name(10) = "ICEOCE" ! bundled field containing four components
+
+# ifdef YAC_coupling
+       DO i = 1, no_of_fields
+          CALL yac_fdef_field ( field_name(i),            &
+                                comp_id,                  &
+                                domain_id,                &
+                                point_id,                 &
+                                mask_id,                  &
+                                patch_horz%n_patch_cells, &
+                                field_id(i) )
+       ENDDO
+
+       CALL yac_fsearch ( nbr_components, comp_id, no_of_fields, field_id, error_status )
+# else
 
     field_shape(1:2) = grid_shape(1:2)
 
@@ -495,7 +684,7 @@ CONTAINS
     ENDDO
 
     CALL icon_cpl_search
-
+#endif
   END SUBROUTINE construct_ocean_coupling
 #endif
   !--------------------------------------------------------------------------

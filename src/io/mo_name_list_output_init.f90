@@ -474,11 +474,6 @@ CONTAINS
         IF(reg_lat_def(2)==0._wp) CALL finish(routine,'Illegal LAT increment')
         IF(reg_lon_def(3)<=reg_lon_def(1)) CALL finish(routine,'end lon <= start lon')
 
-        lonlat%grid%lon_dim = INT( (reg_lon_def(3)-reg_lon_def(1))/reg_lon_def(2) ) + 1
-        lonlat%grid%lat_dim = INT( (reg_lat_def(3)-reg_lat_def(1))/reg_lat_def(2) ) + 1
-
-        IF(lonlat%grid%lat_dim <= 0) CALL finish(routine,'Illegal LAT grid description')
-
         ! Flag those domains, which are used for this lon-lat grid:
         !     If dom(:) was not specified in namelist input, it is set
         !     completely to -1.  In this case all domains are wanted in
@@ -2134,6 +2129,21 @@ CONTAINS
       DEALLOCATE(levels)
 
 
+      ! REFERENCE (special version for HHL)
+      !
+      of%cdiZaxisID(ZA_reference_half_hhl) = zaxisCreate(ZAXIS_REFERENCE, nlevp1)
+      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
+      DO k = 1, nlevp1
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      END DO
+      ubounds(1:nlevp1) = 0._dp
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_reference_half_hhl), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_reference_half_hhl), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_reference_half_hhl), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
+
+
       ! HYBRID_LAYER
       !
       of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
@@ -2166,20 +2176,6 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
-      ! HYBRID (special version for HHL)
-      !
-      of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
-      DO k = 1, nlevp1
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      END DO
-      ubounds(1:nlevp1) = 0._dp
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
-      DEALLOCATE(lbounds, ubounds, levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
 
       !
       ! Define axis for output on mean sea level

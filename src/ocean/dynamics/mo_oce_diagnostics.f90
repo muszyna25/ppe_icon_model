@@ -108,11 +108,9 @@ TYPE t_oce_monitor
     REAL(wp) :: forc_runoff   ! river runoff flux                                         [m/s]
     REAL(wp) :: forc_fwbc     ! sum of forcing surface freshwater flux from BC            [m/s]
     REAL(wp) :: forc_fwrelax  ! diagnosed surface freshwater flux due to relaxation       [m/s]
-    REAL(wp) :: forc_fwsice   ! surface freshwater flux due to changes in sea ice         [m/s]
     REAL(wp) :: forc_fwfx     ! diagnosed sum of forcing surface freshwater flux          [m/s]
     REAL(wp) :: forc_hfrelax  ! diagnosed surface heat flux due to relaxation             [m/s]
     REAL(wp) :: forc_hflx     ! diagnosed sum of forcing surface heat flux                [W/m2]
-
     REAL(wp) :: ice_volume_nh !                                                           [km3]
     REAL(wp) :: ice_volume_sh !                                                           [km3]
     REAL(wp) :: ice_extent_nh !                                                           [km2]
@@ -131,7 +129,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(34)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(33)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -149,7 +147,6 @@ TYPE t_oce_timeseries
       & "forc_runoff                             ", &
       & "forc_fwbc                               ", &
       & "forc_fwrelax                            ", &
-      & "forc_fwsice                             ", &
       & "forc_fwfx                               ", &
       & "forc_hfrelax                            ", &
       & "forc_hflx                               ", &
@@ -245,7 +242,6 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwbc                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_fwsice                = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwfx                  = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
@@ -548,7 +544,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
         monitor%forc_runoff  = monitor%forc_runoff  + p_sfc_flx%forc_runoff(jc,jb)*prism_area
         monitor%forc_fwbc    = monitor%forc_fwbc    + p_sfc_flx%forc_fwbc(jc,jb)*prism_area
         monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
-        monitor%forc_fwsice  = monitor%forc_fwsice  + p_sfc_flx%forc_fwsice(jc,jb)*prism_area
         monitor%forc_fwfx    = monitor%forc_fwfx    + p_sfc_flx%forc_fwfx(jc,jb)*prism_area
         monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
         monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
@@ -618,7 +613,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   monitor%forc_runoff                = global_sum_array(monitor%forc_runoff)/surface_area
   monitor%forc_fwbc                  = global_sum_array(monitor%forc_fwbc)/surface_area
   monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
-  monitor%forc_fwsice                = global_sum_array(monitor%forc_fwsice)/surface_area
   monitor%forc_fwfx                  = global_sum_array(monitor%forc_fwfx)/surface_area
   monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
   monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
@@ -690,7 +684,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
       & monitor%forc_runoff, &
       & monitor%forc_fwbc, &
       & monitor%forc_fwrelax, &
-      & monitor%forc_fwsice,  &
       & monitor%forc_fwfx, &
       & monitor%forc_hfrelax, &
       & monitor%forc_hflx, &

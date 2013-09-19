@@ -88,13 +88,13 @@ CONTAINS
   !! - removed rho_ic which became obsolete after removing the second order 
   !!   MUSCL scheme for vertical transport
   !!
-  SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,  &!in
-    &                        iadv_rcf, lstep_advphy, lclean_mflx,      &!in
-    &                        p_nh_diag,                                &!inout
-    &                        p_vn_traj, p_mass_flx_me,                 &!inout
-    &                        p_w_traj, p_mass_flx_ic,                  &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new,           &!inout
-    &                        p_topflx_tra                              )!out
+  SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,         &!in
+    &                        iadv_rcf, lstep_advphy, lclean_mflx, lfull_comp, &!in
+    &                        p_nh_diag,                                       &!inout
+    &                        p_vn_traj, p_mass_flx_me,                        &!inout
+    &                        p_w_traj, p_mass_flx_ic,                         &!inout
+    &                        p_rhodz_mc_now, p_rhodz_mc_new,                  &!inout
+    &                        p_topflx_tra                                     )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
 
@@ -104,10 +104,12 @@ CONTAINS
     TYPE(t_nh_diag),INTENT(INOUT) :: p_nh_diag
 
 
-    INTEGER :: iadv_rcf     !< used here to switch off time-averaging
-    LOGICAL :: lstep_advphy !< used here to switch on time-averaging
-    LOGICAL :: lclean_mflx  !< switch for re-initializing time integrated
-                            !< mass fluxes and trajectory-velocities
+    INTEGER, INTENT(IN) :: iadv_rcf     !< used here to switch off time-averaging
+    LOGICAL, INTENT(IN) :: lstep_advphy !< used here to switch on time-averaging
+    LOGICAL, INTENT(IN) :: lclean_mflx  !< switch for re-initializing time integrated
+                                        !< mass fluxes and trajectory-velocities
+    LOGICAL, INTENT(IN) :: lfull_comp   !< perform full amount of computations (comes in as .FALSE. if
+                                        !< part of the precomputations has already been done in solve_nh)
 
     REAL(wp),INTENT(INOUT)         :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT)         :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
@@ -130,6 +132,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: nlev, nlevp1       !< number of full and half levels
+
+    LOGICAL  :: lfull_computations
   !--------------------------------------------------------------------------
     IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
 
@@ -150,6 +154,17 @@ CONTAINS
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
+ 
+    ! The full set of computations is NOT exectuted when the tracer advection is running together
+    ! with the dynmical core (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
+    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+    lfull_computations = lfull_comp
+    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
+      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
+      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
+      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
+      lfull_computations = .TRUE.
+    ENDIF
 
 !$OMP PARALLEL PRIVATE(i_rlstart_e,i_rlend_e,i_startblk,i_endblk)
 
@@ -171,42 +186,44 @@ CONTAINS
     ! horizontal (contravariant) mass flux at full level edges
     ! Taken from dynamical core (corrector-step)
     !
+    IF (lfull_computations) THEN
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
-        &                 i_startidx, i_endidx, i_rlstart_e, i_rlend_e )
+        CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
+          &                 i_startidx, i_endidx, i_rlstart_e, i_rlend_e )
 
-      ! reset mass fluxes and trajectory-velocities to start new integration sweep
-      IF (lclean_mflx) THEN
-        p_vn_traj    (:,:,jb) = 0._wp
-        p_mass_flx_me(:,:,jb) = 0._wp
-      ENDIF
+        ! reset mass fluxes and trajectory-velocities to start new integration sweep
+        IF (lclean_mflx) THEN
+          p_vn_traj    (:,:,jb) = 0._wp
+          p_mass_flx_me(:,:,jb) = 0._wp
+        ENDIF
 
-      DO jk = 1,nlev
+        DO jk = 1,nlev
 !DIR$ IVDEP
-        DO je = i_startidx, i_endidx
+          DO je = i_startidx, i_endidx
 
-          ! trajectory-velocity
-          p_vn_traj(je,jk,jb) = p_vn_traj(je,jk,jb)                             &
-            &             + 0.5_wp * ( p_now%vn(je,jk,jb) + p_new%vn(je,jk,jb) )
+            ! trajectory-velocity
+            p_vn_traj(je,jk,jb) = p_vn_traj(je,jk,jb)                             &
+              &             + 0.5_wp * ( p_now%vn(je,jk,jb) + p_new%vn(je,jk,jb) )
 
-          ! mass flux
-          p_mass_flx_me(je,jk,jb) = p_mass_flx_me(je,jk,jb)       &
-            &                       + p_nh_diag%mass_fl_e(je,jk,jb)
+            ! mass flux
+            p_mass_flx_me(je,jk,jb) = p_mass_flx_me(je,jk,jb)       &
+              &                       + p_nh_diag%mass_fl_e(je,jk,jb)
 
-          ! Note that p_mass_flx_me must be used for summation instead of
-          ! z_mass_flx_me. The latter looses its information after leaving this
-          ! routine. Therefore the following copy-command is necessary. A SAVE-attribute
-          ! would nicely do the job, but is not allowed for this kind of dynamic array.
-          z_mass_flx_me(je,jk,jb) = p_mass_flx_me(je,jk,jb)
+            ! Note that p_mass_flx_me must be used for summation instead of
+            ! z_mass_flx_me. The latter looses its information after leaving this
+            ! routine. Therefore the following copy-command is necessary. A SAVE-attribute
+            ! would nicely do the job, but is not allowed for this kind of dynamic array.
+            z_mass_flx_me(je,jk,jb) = p_mass_flx_me(je,jk,jb)
 
+          ENDDO
         ENDDO
       ENDDO
-    ENDDO
 !$OMP END DO NOWAIT
+    ENDIF
 
-    IF (p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
+    IF (lfull_computations .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
 !$OMP WORKSHARE
         p_vn_traj    (:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
         p_mass_flx_me(:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
@@ -221,39 +238,41 @@ CONTAINS
     ! Time averaged contravariant vertical velocity
     ! and vertical mass flux at half level centers
     !
+    IF (lfull_computations) THEN
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,w_tavg) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-        &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+          &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
-      ! reset mass fluxes and trajectory-velocities to start new integration sweep
-      IF (lclean_mflx) THEN
-        p_mass_flx_ic(:,:,jb) = 0._wp
-        p_w_traj     (:,:,jb) = 0._wp
-      ENDIF
+        ! reset mass fluxes and trajectory-velocities to start new integration sweep
+        IF (lclean_mflx) THEN
+          p_mass_flx_ic(:,:,jb) = 0._wp
+          p_w_traj     (:,:,jb) = 0._wp
+        ENDIF
 
-      DO jk = 1, nlevp1
+        DO jk = 1, nlevp1
 !DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
+          DO jc = i_startidx, i_endidx
 
 ! Note(DR): This is somewhat inconsistent since for horizontal trajectories
 ! v_n at n+1/2 is used.
 ! w_concorr_c at TL n+1
-          w_tavg = p_metrics%vwind_expl_wgt(jc,jb)*p_now%w(jc,jk,jb)  &
-            &    + p_metrics%vwind_impl_wgt(jc,jb)*p_new%w(jc,jk,jb)  &
-            &    - p_nh_diag%w_concorr_c(jc,jk,jb)
+            w_tavg = p_metrics%vwind_expl_wgt(jc,jb)*p_now%w(jc,jk,jb)  &
+              &    + p_metrics%vwind_impl_wgt(jc,jb)*p_new%w(jc,jk,jb)  &
+              &    - p_nh_diag%w_concorr_c(jc,jk,jb)
 
-          p_w_traj(jc,jk,jb) = p_w_traj(jc,jk,jb) + w_tavg
+            p_w_traj(jc,jk,jb) = p_w_traj(jc,jk,jb) + w_tavg
 
-          p_mass_flx_ic(jc,jk,jb) = p_mass_flx_ic(jc,jk,jb)              &
-            &                     + p_nh_diag%rho_ic(jc,jk,jb) * w_tavg
+            p_mass_flx_ic(jc,jk,jb) = p_mass_flx_ic(jc,jk,jb)              &
+              &                     + p_nh_diag%rho_ic(jc,jk,jb) * w_tavg
 
+          ENDDO
         ENDDO
       ENDDO
-    ENDDO
 !$OMP END DO
+    ENDIF
 
-    IF (p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
+    IF (lfull_computations .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
 !$OMP WORKSHARE
         p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
         p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
@@ -312,7 +331,7 @@ CONTAINS
     !
     ! compute time averaged mass fluxes and trajectory-velocities
     !
-    IF ( lstep_advphy .AND. iadv_rcf > 1 ) THEN
+    IF (lfull_computations .AND. lstep_advphy .AND. iadv_rcf > 1 ) THEN
 
 
       r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
@@ -487,7 +506,7 @@ CONTAINS
 
 
     ! This synchronization is only needed, if the non-standard vertical PPM-scheme
-    ! ippm_v is used. p_w_traj is not used by p_w_traj
+    ! ippm_v is used. p_w_traj is not used by the default scheme (ippm_vcfl)
     IF ( ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
       CALL sync_patch_array(SYNC_C,p_patch,p_w_traj)
     ENDIF
@@ -497,3 +516,4 @@ CONTAINS
   END SUBROUTINE prepare_tracer
 
 END MODULE mo_nh_dtp_interface
+

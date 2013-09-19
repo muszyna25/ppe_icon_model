@@ -59896,8 +59896,11 @@ void listSizeExtend()
 
   for (int i = oldSize; i < newListSize; ++i)
     {
-      resHList[nsp].resources[i].resH = namespaceIdxEncode2 ( nsp, i );
-      resHList[nsp].resources[i].next = i + 1;
+      resHList[nsp].resources[i].resH   = namespaceIdxEncode2 ( nsp, i );
+      resHList[nsp].resources[i].next   = i + 1;
+      resHList[nsp].resources[i].ops    = NULL;
+      resHList[nsp].resources[i].val    = NULL;
+      resHList[nsp].resources[i].status = RESH_UNDEFID;
     }
 
   resHList[nsp].resources[newListSize-1].next = resHList[nsp].freeHead;

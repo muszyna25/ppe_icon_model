@@ -36,12 +36,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=2   # number of bisections applied
+B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+#  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -71,7 +71,7 @@ init_relax=0   # 1: use relaxation initialization file
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=10
+iforc=11
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
@@ -89,11 +89,11 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T12:00:00Z"
+  end_date="2001-01-11T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=1
+nhours_data=6
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=360    # stop model for restart [days]
@@ -217,5 +217,9 @@ cat > ${ocean_namelist} << EOF
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
 

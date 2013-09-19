@@ -92,9 +92,13 @@ USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,       
 
 #ifndef __ICON_OCEAN_ONLY__
 USE mo_coupling_config,     ONLY: is_coupled_run
+# ifdef YAC_coupling
+USE finterface_description  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+# else
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+#endif
 #endif
 
 IMPLICIT NONE
@@ -147,7 +151,6 @@ CONTAINS
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     ! Local declarations for coupling:
     LOGICAL               :: write_coupler_restart
@@ -166,9 +169,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
     cells_in_domain => p_patch%cells%in_domain
-
-    t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
     !  calculate day and month
     jmon  = datetime%month         ! integer current month
@@ -401,12 +401,6 @@ CONTAINS
         p_sfc_flx%forc_fwbc(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
           &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
 
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: frc3 Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc3 Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        !---------------------------------------------------------------------
-
         ! #slo# This is a first try for "simple flux coupling"
         IF (i_sea_ice >= 1) THEN
           Qatm%SWnet  (:,i,:)   = 0.0_wp  ! not available - very hot shot
@@ -464,14 +458,14 @@ CONTAINS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: frc4 SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Data Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! call of sea ice model
@@ -559,9 +553,9 @@ CONTAINS
             p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
             idt_src=2  ! output print level (1-5, fix)
-            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_evap'     ,p_sfc_flx%forc_evap  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_fwbc',p_sfc_flx%forc_fwbc  &
+            CALL dbg_print('UpdSfc: p_sfc_flx%forc_fwbc'     ,p_sfc_flx%forc_fwbc  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
           ENDIF
 
@@ -571,7 +565,7 @@ CONTAINS
         ENDIF
         
         IF ( no_tracer >= 2 ) THEN
-          Tfw(:,:) = -mu*s_top(:,:)
+          Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
         ELSE
           Tfw = Tf
         ENDIF
@@ -693,8 +687,8 @@ CONTAINS
           ENDDO
 
           ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
-          WHERE (t_top(:,:) .LT. Tf)
-            t_top(:,:) = Tf
+          WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) .LT. Tf)
+            p_os%p_prog(nold(1))%tracer(:,1,:,1) = Tf
           ENDWHERE
 
           ! sum of fluxes for ocean boundary condition
@@ -752,9 +746,15 @@ CONTAINS
       !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
       !
       !
+#ifdef YAC_Coupling
+        CALL yac_fget_nbr_fields ( nbr_fields )
+        ALLOCATE(field_id(nbr_fields))
+        CALL yac_fget_field_ids ( nbr_fields, field_id )
+#else
         CALL ICON_cpl_get_nbr_fields ( nbr_fields )
         ALLOCATE(field_id(nbr_fields))
         CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+#endif
       !
         field_shape(1) = 1
         field_shape(2) = p_patch%n_patch_cells 
@@ -771,17 +771,30 @@ CONTAINS
       !
       ! SST
         buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
+
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! zonal velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! meridional velocity
         buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
       !
       ! Ice thickness, concentration, T1 and T2
@@ -790,7 +803,11 @@ CONTAINS
         buffer(:,3) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
         buffer(:,4) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
         field_shape(3) = 4
+#ifdef YAC_coupling
+        CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
+#else
         CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+#endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
 
         IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
@@ -803,7 +820,11 @@ CONTAINS
 
       ! zonal wind stress
         field_shape(3) = 1
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -811,7 +832,11 @@ CONTAINS
         ENDIF
       !
       ! meridional wind stress
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -822,7 +847,11 @@ CONTAINS
       !  - here freshwater can be bracketed by l_forc_freshw, i.e. it must not be passed through coupler if not used
       ! IF (l_forc_freshw) THEN
         field_shape(3) = 2
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+#endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
             p_sfc_flx%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -839,7 +868,11 @@ CONTAINS
       !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
       ! IF (temperature_relaxation >=1) THEN
         field_shape(3) = 1
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
           p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -852,7 +885,11 @@ CONTAINS
       ! p_sfc_flx%swflx(:,:)  ocean short wave heat flux                              [W/m2]
       ! p_sfc_flx%lwflx(:,:)  ocean long  wave, latent and sensible heat fluxes (sum) [W/m2]
         field_shape(3) = 2
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
           p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -867,7 +904,11 @@ CONTAINS
       ! p_ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
       ! p_ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
         field_shape(3) = 4
+#ifdef YAC_coupling
+        CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
+#else
         CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+#endif
         IF (info > 0 ) THEN
           buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
           p_ice%Qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
@@ -1026,14 +1067,18 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
+
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relaxation_param*seconds_per_month)
-            p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,1))
+
+            p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
+              &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
+              &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
           ENDIF
-
         END DO
       END DO
 
@@ -1042,7 +1087,7 @@ CONTAINS
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL dbg_print('UpdSfc: Temp-relax'        ,z_c2                    ,str_module,idt_src)
       idt_src=2  ! output print level (1-5, fix)
-      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-t_top(:,:)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
       CALL dbg_print('UpdSfc: Temp-difference'   ,z_c2                    ,str_module,idt_src)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
       CALL dbg_print('UpdSfc: T-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
@@ -1141,11 +1186,13 @@ CONTAINS
 
             z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
-              &                              -z_relax*(s_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
+              &                              -z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
+              &                                        -p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
             ! this flux is applied as volume condition in surface equation in fill_rhs4surface_eq_ab
-            p_sfc_flx%forc_fwrelax(jc,jb) = (z_forc_tracer_old-p_sfc_flx%forc_tracer(jc,jb,2)) / s_top(jc,jb)
+            p_sfc_flx%forc_fwrelax(jc,jb) = (z_forc_tracer_old-p_sfc_flx%forc_tracer(jc,jb,2)) &
+              &                            / p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
 
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
@@ -1155,12 +1202,11 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src)
-      idt_src=2  ! output print level (1-5, fix)
+      idt_src=1  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
       CALL dbg_print('UpdSfc:S-relax: S*'        ,z_c2                    ,str_module,idt_src)
-      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-s_top(:,:)
+      idt_src=2  ! output print level (1-5, fix)
+      z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
       CALL dbg_print('UpdSfc:S-relax: S*-S'      ,z_c2                    ,str_module,idt_src)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
       CALL dbg_print('UpdSfc:S-relax: trc [Km/s]',z_c2                    ,str_module,idt_src)
@@ -1171,38 +1217,23 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
 
-    ! Freshwater forcing activated as boundary condition in vertical Diffusion D, see above
-    ! Vertical diffusion term for salinity Q_S in tracer equation is
-    !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
-
     IF (l_forc_freshw) THEN
 
-      p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
-        &                            - p_sfc_flx%forc_fwbc(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+      ! Freshwater forcing activated as boundary condition in vertical Diffusion D, see above
+      ! Vertical diffusion term for salinity Q_S in tracer equation is
+      !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:fwbc:forc_trac[Km/s]',z_c2                    ,str_module,idt_src)
-      !---------------------------------------------------------------------
-
-    ENDIF
-
-    !-------------------------------------------------------------------------
-    ! Add freshwater forcing due to sea ice (and snow changes)
-    !  - added as forcing to vertical Diffusion as above
-
-    IF (i_sea_ice >= 1) THEN
-
-      p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
-        &                            - p_sfc_flx%forc_fwsice(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice   ,str_module,idt_src)
-      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src)
-      !---------------------------------------------------------------------
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+              p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
+                &                            - p_sfc_flx%forc_fwbc(jc,jb)*p_os%p_prog(nold(1))%tracer(jc,1,jb,2)
+          ELSE
+            p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
+          ENDIF
+        END DO
+      END DO
 
     ENDIF
 

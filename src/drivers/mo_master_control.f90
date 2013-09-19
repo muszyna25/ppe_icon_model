@@ -58,10 +58,10 @@ MODULE mo_master_control
 
   PRIVATE
 
-  PUBLIC ::  init_master_control, get_my_namelist_filename,            &
-    & get_my_process_type, get_my_process_name,                        &
-    & atmo_process, ocean_process, radiation_process, testbed_process, &
-    & my_process_is_ocean, is_restart_run, get_my_model_no,            &
+  PUBLIC ::  init_master_control, master_namelist_filename,               &
+    & get_my_namelist_filename, get_my_process_type, get_my_process_name, &
+    & atmo_process, ocean_process, radiation_process, testbed_process,    &
+    & my_process_is_ocean, is_restart_run, get_my_model_no,               &
     & are_multiple_models
    
 
@@ -77,6 +77,8 @@ MODULE mo_master_control
                          ! Example: Two different components may run the dummy_process
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=64) :: my_model_name = ""
+
+  CHARACTER(len=filename_max) :: master_namelist_filename = ""
 
   INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
   LOGICAL :: multiple_models
@@ -114,7 +116,10 @@ MODULE mo_master_control
     IF (no_of_models < 1) THEN
       CALL finish(method_name,'no_of_models < 1')
     ENDIF
+
     !------------------------------------------------------------
+    ! Save filename of master namelist
+    master_namelist_filename = TRIM(namelist_filename)
 
     !------------------------------------------------------------
     ! find what is my process

@@ -165,3 +165,7 @@ cat > ${atmo_namelist} << EOF
  l_mono_c2l = .true.
 /
 EOF
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------
