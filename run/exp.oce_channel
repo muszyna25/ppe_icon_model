@@ -81,7 +81,7 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2002-01-01T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -125,7 +125,19 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 1800         ! model timestep in seconds
+ dtime       = 3600               ! model timestep in seconds
+ output      = 'nml'              ! output mechanism via namelist
+ activate_sync_timers = .TRUE.
+ write_timer_files    = .FALSE.
+/
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist       =  'wet_c','t_acc'
+! ml_varlist       =  'group:oce_default'
 /
 &ocean_dynamics_nml
 ! 10 unevenly spaced levels beginning with 50m depth
