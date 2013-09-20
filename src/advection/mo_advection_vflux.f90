@@ -1368,18 +1368,19 @@ CONTAINS
 
 
 
+!$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
+!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
+!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
+      &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+
     !
     ! 1. Compute density weighted (fractional) Courant number 
     !    for w<0 (weta>0) and w>0 (weta<0) and integer shift s
     !
     IF (ld_compute) THEN
-!$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
-!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
-!$OMP            z_aux_p,z_aux_m) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
       ! set start values for index list dimension
       i_listdim_p(1:nlist_max,jb) = 0
@@ -1539,21 +1540,11 @@ CONTAINS
 
       END IF  ! IF ( max_cfl_blk(jb) > 1._wp )
 
-    ENDDO ! end loop over blocks
-!$OMP END DO
     END IF ! ld_compute
-
-
 
     !
     ! 2. Compute monotonized slope
     !
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,ikp1_ic,ikp1,z_slope_u, &
-!$OMP            z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
       z_slope(i_startidx:i_endidx,slev,jb) = 0._wp
 
@@ -1691,15 +1682,17 @@ CONTAINS
         &                     opt_rlend=i_rlend, opt_slev=slev    ) !in
     ENDIF
 
+
 !$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,ikp1,jc,i_startidx,i_endidx,nlist,ji_p,ji_m,jk_shift,z_iflx_m, &
+!$OMP z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
 
-     IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
-      ! simply copy face values to 'face_up' and 'face_low' arrays
-!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
+        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+      IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
+        ! simply copy face values to 'face_up' and 'face_low' arrays
 
         DO jk = slev, nlev
           ! index of bottom half level
@@ -1707,25 +1700,16 @@ CONTAINS
           z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
           z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
         ENDDO
-      ENDDO
-!$OMP ENDDO
-    ENDIF
+
+      ENDIF
 
 
-
-    !
-    ! 5. calculation of upwind fluxes. IF CFL > 1, the fluxes are the sum of
-    !    integer-fluxes and a fractional flux. IF CFL <1 the fluxes are only
-    !    comprised of the fractional flux. The fractional flux is calculated
-    !    assuming a piecewise parabolic approx. for the subgrid distribution.
-    !
-
-!$OMP DO PRIVATE(jb,jk,jc,nlist,ji_p,ji_m,i_startidx,i_endidx,jk_shift,z_iflx_m, &
-!$OMP z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+      !
+      ! 5. calculation of upwind fluxes. IF CFL > 1, the fluxes are the sum of
+      !    integer-fluxes and a fractional flux. IF CFL <1 the fluxes are only
+      !    comprised of the fractional flux. The fractional flux is calculated
+      !    assuming a piecewise parabolic approx. for the subgrid distribution.
+      !
 
 
       !
