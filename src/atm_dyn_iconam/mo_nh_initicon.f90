@@ -1942,29 +1942,34 @@ MODULE mo_nh_initicon
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
       &                  nlev, my_ptr3d )
 
+    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
     CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-      &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv))
+      &                  nlev, my_ptr3d)
 
     ! For the time being identical to qc from FG
+    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
     CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qc', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-      &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc))
+      &                  nlev, my_ptr3d)
 
     ! For the time being identical to qi from FG
+    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
     CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qi', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-      &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi))
+      &                  nlev, my_ptr3d)
 
     ! For the time being identical to qr from FG
+    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
     CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-      &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr))
+      &                  nlev, my_ptr3d)
 
     ! For the time being identical to qs from FG
+    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
     CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,        &
       &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-      &                  nlev, p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs))
+      &                  nlev, my_ptr3d)
 
   END SUBROUTINE read_dwdana_atm
 
