@@ -161,7 +161,6 @@ CONTAINS
     INTEGER,INTENT(IN) :: grid_level(n_dom)
     TYPE(t_grid_geometry_info), OPTIONAL, INTENT(in) :: geometry_info
     
-    REAL(wp):: torus_grid_fac
     INTEGER :: jg, jlev, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
 
