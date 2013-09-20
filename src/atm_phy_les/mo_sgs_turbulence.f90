@@ -175,8 +175,9 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
-                            p_prog_lnd_new, p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv) )
+    IF(les_config(jg)%isrfc_type>0) & 
+      CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+                              p_prog_lnd_new, p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv) )
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
 
