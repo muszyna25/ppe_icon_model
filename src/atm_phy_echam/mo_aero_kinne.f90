@@ -341,7 +341,7 @@ SUBROUTINE set_aop_kinne ( jg,                                            &
 END SUBROUTINE set_aop_kinne
 !-------------------------------------------------------------------------
 ! 
-!> SUBROUTINE read_months_aero_kinne -- reads optical aerosol parameters from file containg
+!> SUBROUTINE read_months_aero_kinne -- reads optical aerosol parameters from file containing
 !! aod, ssa, asy, aer_ex (altitude dependent extinction), dz_clim (layer 
 !! thickness in meters), lev_clim (number of levels), and (optional) surface 
 !! altitude in meters.

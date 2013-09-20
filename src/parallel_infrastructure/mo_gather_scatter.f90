@@ -69,6 +69,9 @@ MODULE mo_gather_scatter
 
   INTERFACE broadcast_array
     MODULE PROCEDURE broadcast_real_array_1D
+    MODULE PROCEDURE broadcast_real_array_2D
+    MODULE PROCEDURE broadcast_real_array_3D
+    MODULE PROCEDURE broadcast_real_array_4D
     MODULE PROCEDURE broadcast_int_array_1D
   END INTERFACE broadcast_array
 
@@ -1164,6 +1167,43 @@ CONTAINS
 #endif
   END SUBROUTINE broadcast_real_array_1D
   !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_real_array_2D(in_array)
+    REAL(wp), TARGET  :: in_array(:,:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_real_array_2D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_real_array_3D(in_array)
+    REAL(wp), TARGET  :: in_array(:,:,:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_real_array_3D
+  !--------------------------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE broadcast_real_array_4D(in_array)
+    REAL(wp), TARGET  :: in_array(:,:,:,:)
+
+    IF (my_process_is_mpi_seq()) RETURN
+#ifndef NOMPI
+    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+#endif
+  END SUBROUTINE broadcast_real_array_4D
+  !--------------------------------------------------------------------------------------
+
 
   !--------------------------------------------------------------------------------------
   !>

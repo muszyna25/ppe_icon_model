@@ -89,7 +89,7 @@ MODULE mo_radiation
 
   USE mo_newcld_optics,        ONLY: newcld_optics
   USE mo_aero_kinne,           ONLY: set_aop_kinne
-!!$  USE mo_aero_volc,            ONLY: add_aop_volc
+  USE mo_aero_stenchikov,      ONLY: add_aop_stenchikov
 
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
@@ -1204,19 +1204,19 @@ CONTAINS
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
-!!$    CASE (15)
-!!$      CALL set_aop_kinne( &
-!!$        & jce              ,kbdim                 ,klev             ,&
-!!$        & krow             ,jpband                ,jpsw             ,&
-!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$        & tk_fl            ,pgeom1 )
-!!$      CALL add_aop_volc( &
-!!$        & jce              ,kbdim                 ,klev             ,&
-!!$        & krow             ,jpband                ,jpsw             ,&
-!!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-!!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-!!$        & tk_fl )
+    CASE (15)
+      CALL set_aop_kinne( jg,                                        &
+        & jce              ,kbdim                 ,klev             ,&
+        & jb               ,jpband                ,jpsw             ,&
+        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+        & tk_fl                                                      )
+      CALL add_aop_stenchikov( jg,                                   &
+        & jce              ,kbdim                 ,klev             ,&
+        & jb               ,jpband                ,jpsw             ,&
+        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+        & tk_fl )
     CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &

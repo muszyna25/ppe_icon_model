@@ -1141,6 +1141,7 @@ src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_aero_kinne.f90 -text
+src/atm_phy_echam/mo_aero_stenchikov.f90 -text
 src/atm_phy_echam/mo_amip_bc.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_canopy.f90 -text
