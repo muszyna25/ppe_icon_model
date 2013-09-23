@@ -500,13 +500,22 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.AND.i_bc_veloc_top > 2) THEN
+     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 2) THEN
        CALL finish(TRIM(routine), &
          &  'top boundary condition for velocity currently not supported: choose = 0 or =1 or =2')
      ENDIF
-     IF(i_bc_veloc_bot < 0 .AND. i_bc_veloc_bot>1) THEN
+     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &
          &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
+     ENDIF
+
+     IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
+       IF(no_tracer == 1) THEN
+         CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
+         CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
+         CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
+       ENDIF
+       CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
      ENDIF
 
 
