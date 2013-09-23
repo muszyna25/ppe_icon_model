@@ -702,7 +702,9 @@ MODULE mo_nh_initicon
     INTEGER,           INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,           INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,           INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
+!DR uncomment INTENT attribute which is a F2003 feature and not supported by our SUNf90 compiler
+!    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
+    REAL(wp), POINTER                :: var_out(:,:)   !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
@@ -770,7 +772,9 @@ MODULE mo_nh_initicon
     INTEGER,           INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,           INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,           INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
+! uncomment INTENT attribute which is a F2003 feature and not supported by our SUNf90 compiler
+!DR    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
+    REAL(wp), POINTER                :: var_out(:,:,:) !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
