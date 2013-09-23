@@ -48,7 +48,7 @@ USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_ocean_nml,                 ONLY: n_zlev,  &
   &                                     upwind, central, mimetic_miura,     &
-  &                                     FLUX_CALCULATION_VERT
+  &                                     FLUX_CALCULATION_VERT, l_vert_limiter_advection
 USE mo_parallel_config,           ONLY: nproma
 !USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
@@ -687,7 +687,8 @@ CONTAINS
     ! Therefore 2 additional fields z_face_up and z_face_low are
     ! introduced.
     !
-    IF (p_itype_vlimit == islopel_vsm) THEN
+    IF (l_vert_limiter_advection) THEN
+     IF (p_itype_vlimit == islopel_vsm) THEN
 !      ! monotonic (mo) limiter
       IF (ltimer) CALL timer_start(timer_ppm_slim)
 
@@ -720,7 +721,8 @@ CONTAINS
       ENDDO
 ! !$OMP ENDDO
 ! !$OMP END PARALLEL
-    ENDIF
+     ENDIF  !  p_ityp_vlimit
+    ENDIF  ! l_vert_limiter_advection
 
 
 ! !$OMP PARALLEL
@@ -793,7 +795,8 @@ CONTAINS
       !    These flux limiters are based on work by Zalesak (1979)
       !    positive-definite (pd) limiter      !
       !    IF (p_itype_vlimit == ifluxl_vpd) THEN
-      !     CALL vflx_limiter_pd_oce( p_patch, p_dtime, p_cc, p_cellhgt_mc_now, p_upflux)
+      !     IF (l_vert_limiter_advection) &
+      !       & CALL vflx_limiter_pd_oce( p_patch, p_dtime, p_cc, p_cellhgt_mc_now, p_upflux)
       !   ENDIF
 
     CALL sync_patch_array(SYNC_C, p_patch, p_upflux)

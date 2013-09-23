@@ -291,9 +291,14 @@ MODULE mo_ocean_nml
                                                  ! false = salinity is relaxed under sea ice completely
 
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
-  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
-  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
-  LOGICAL  :: use_tracer_x_height = .false.  ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+  LOGICAL  :: use_tracer_x_height   = .FALSE.    ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.  ! FALSE: no horizontal tracer diffusion
+  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.  ! FALSE: no vertical tracer diffusion
+  LOGICAL  :: l_with_horz_tracer_advection = .TRUE.  ! FALSE: no horizontal tracer advection
+  LOGICAL  :: l_with_vert_tracer_advection = .TRUE.  ! FALSE: no vertical tracer advection
+  LOGICAL  :: l_horz_limiter_advection     = .TRUE.  ! FALSE: no horizontal limiter for tracer advection
+  LOGICAL  :: l_vert_limiter_advection     = .TRUE.  ! FALSE: no vertical limiter for tracer advection
+                                                     ! Note that only in vertical ppm-scheme a limiter is used
 
   ! special diagnostics configuration
   !
@@ -341,6 +346,9 @@ MODULE mo_ocean_nml
     &                 l_constant_mixing, l_wind_mixing,                    &
     &                 l_with_vert_tracer_diffusion,                        &
     &                 l_with_horz_tracer_diffusion,                        &
+    &                 l_with_vert_tracer_advection,                        &
+    &                 l_with_horz_tracer_advection,                        &
+    &                 l_horz_limiter_advection, l_vert_limiter_advection,  &
     &                 use_tracer_x_height
 
 
@@ -494,6 +502,17 @@ MODULE mo_ocean_nml
      ELSE
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
      ENDIF
+
+     IF( FLUX_CALCULATION_HORZ == 1 .AND. l_horz_limiter_advection ) THEN
+       CALL message(TRIM(routine),'WARNING, limiter for horizontal upwind advection set to false')
+       l_horz_limiter_advection = .FALSE.
+     ENDIF
+
+   ! not necessary, limiter within ppm advection (Miura) only
+   ! IF( FLUX_CALCULATION_VERT == 1 .AND. l_vert_limiter_advection ) THEN
+   !   CALL message(TRIM(routine),'WARNING, limiter for vertical upwind advection set to false')
+   !   l_vert_limiter_advection = .FALSE.
+   ! ENDIF
 
 
      IF(i_bc_veloc_lateral/= 0) THEN

@@ -50,7 +50,8 @@ USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based,ab_gam, &
   &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
-  &                                     FLUX_CALCULATION_HORZ, l_with_horz_tracer_diffusion
+  &                                     FLUX_CALCULATION_HORZ, l_with_horz_tracer_diffusion, &
+  &                                     l_horz_limiter_advection
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -271,22 +272,21 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   ! Stop timer for horizontal advection
   IF (ltimer) CALL timer_stop(timer_adv_horz)
 
+  ! Flux limiting process, dependent on tracer configuration
+  !IF(FLUX_CALCULATION_HORZ/=UPWIND)THEN
+  IF (l_horz_limiter_advection) THEN
 
-  ! Start timer for horizontal flux limitation
-  IF (ltimer) CALL timer_start(timer_hflx_lim)
+    ! Start timer for horizontal flux limitation
+    IF (ltimer) CALL timer_start(timer_hflx_lim)
 
-  !Flux limiting process, dependent on tracer configuration
-  IF(FLUX_CALCULATION_HORZ/=UPWIND)THEN
-    !z_adv_flux_h2=z_adv_flux_h
-
-    CALL hflx_limiter_oce_mo( patch_3D,             &
-                            & trac_old,               &
-                            & p_os%p_diag%mass_flx_e, &
-                            & z_adv_flux_h,           &
-                            & p_op_coeff,             & 
-                            & h_old,h_new)     
+      CALL hflx_limiter_oce_mo( patch_3D,               &
+                              & trac_old,               &
+                              & p_os%p_diag%mass_flx_e, &
+                              & z_adv_flux_h,           &
+                              & p_op_coeff,             & 
+                              & h_old,h_new)     
+    IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
-  IF (ltimer) CALL timer_stop(timer_hflx_lim)
 
   !The diffusion part: calculate horizontal diffusive flux
   IF ( l_with_horz_tracer_diffusion ) THEN
