@@ -115,7 +115,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:)
+    REAL(wp), ALLOCATABLE :: theta(:,:,:), thetav(:,:,:)
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -140,6 +140,7 @@ MODULE mo_sgs_turbulence
               visc_smag_ie(nproma,nlevp1,p_patch%nblks_e),   &                              
               diff_smag_e(nproma,nlev,p_patch%nblks_e),      &
               theta(nproma,nlev,p_patch%nblks_c),            &
+              thetav(nproma,nlev,p_patch%nblks_c),           &
               DIV_c(nproma,nlev,p_patch%nblks_c),            &
               rho_e(nproma,nlev,p_patch%nblks_e)             &
              )
@@ -152,34 +153,37 @@ MODULE mo_sgs_turbulence
     END IF
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
-    !use theta and thetav
+    !use theta and thetav. Somehow using prog theta_v was creating issue with 
+    !sync_patch_array
+
     rl_start   = 2
     rl_end     = min_rlcell_int-2
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!ICON_OMP_PARALLEL
+!ICON_OMP_PARALLEL 
 !ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jc = i_startidx, i_endidx
-         theta(jc,1:nlev,jb) = p_nh_diag%temp(jc,1:nlev,jb) / &
-                               p_nh_prog%exner(jc,1:nlev,jb)
+         theta(jc,1:nlev,jb)  = p_nh_diag%temp(jc,1:nlev,jb) / &
+                                p_nh_prog%exner(jc,1:nlev,jb)
 
-         p_nh_prog%theta_v(jc,1:nlev,jb) = p_nh_diag%tempv(jc,1:nlev,jb) / &
-                                           p_nh_prog%exner(jc,1:nlev,jb)
+         thetav(jc,1:nlev,jb) = p_nh_diag%tempv(jc,1:nlev,jb) / &
+                                p_nh_prog%exner(jc,1:nlev,jb)
        END DO
     END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
+
 
     !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
     IF(les_config(jg)%isrfc_type>0) & 
       CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                               p_prog_lnd_new, p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv) )
 
-    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
+    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, thetav)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                                prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
@@ -209,7 +213,7 @@ MODULE mo_sgs_turbulence
 
     
     DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
-               theta, visc_smag_c, rho_e, DIV_c)
+               theta, thetav, visc_smag_c, rho_e, DIV_c)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -238,7 +242,7 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-20)
   SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                               prm_diag)
+                               prm_diag, thetav)
 
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -246,6 +250,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
+    REAL(wp),          INTENT(inout)     :: thetav(:,:,:) !< atm phys vars
 
     ! local variables
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: DD, div_of_stress, visc_smag_e, &
@@ -501,7 +506,7 @@ MODULE mo_sgs_turbulence
     ! 3(a)Calculate thetav at interface edges for gradient Richardson number and 
     ! some additional interpolations. 
     
-    CALL cells2edges_scalar(p_nh_prog%theta_v, p_patch, p_int%c_lin_e, thetav_e,  &
+    CALL cells2edges_scalar(thetav, p_patch, p_int%c_lin_e, thetav_e,  &
                             opt_rlstart=4, opt_rlend= min_rledge_int)
 
     rl_start = 4
@@ -1246,7 +1251,7 @@ MODULE mo_sgs_turbulence
                               p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) / p_nh_prog%rho(jc,jk,jb)
 
          p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) + dt * tot_tend(jc,jk,jb)
-
+       
        END DO
       END DO
     END DO  
