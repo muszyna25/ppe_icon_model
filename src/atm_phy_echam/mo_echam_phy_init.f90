@@ -370,7 +370,7 @@ CONTAINS
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH
-      CALL jsbach_init_base(master_namelist_filename)
+      CALL jsbach_init_base()
       ! Now continue initialization of JSBACH for the different grids
       ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
       DO jg=1,ndomain
