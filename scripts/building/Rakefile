@@ -81,7 +81,7 @@ $builds = {
   :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
-  :remotePgi         => {:host => :thunder5, :subdir => 'pgi'      , :CC => 'pgi'}     ,
+  :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
   :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
