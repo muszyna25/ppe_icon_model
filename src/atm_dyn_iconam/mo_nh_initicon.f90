@@ -108,6 +108,7 @@ MODULE mo_nh_initicon
   USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
   USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
   USE mo_flake,               ONLY: flake_coldinit
+  USE mo_io_util,             ONLY: get_filetype
 
   IMPLICIT NONE
 
@@ -396,7 +397,11 @@ MODULE mo_nh_initicon
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
         ENDIF
-        filetype_fg(jg) = get_filetype(TRIM(dwdfg_file(jg))) ! determine filetype
+        IF (nml_filetype == -1) THEN
+          filetype_fg(jg) = get_filetype(TRIM(dwdfg_file(jg))) ! determine filetype
+        ELSE
+          filetype_fg(jg) = nml_filetype
+        END IF
         SELECT CASE(filetype_fg(jg))
         CASE (FILETYPE_NC2)
 
@@ -431,7 +436,11 @@ MODULE mo_nh_initicon
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
         ENDIF
-        filetype_ana(jg) = get_filetype(TRIM(dwdana_file(jg))) ! determine filetype
+        IF (nml_filetype == -1) THEN
+          filetype_ana(jg) = get_filetype(TRIM(dwdana_file(jg))) ! determine filetype
+        ELSE
+          filetype_ana(jg) = nml_filetype
+        END IF
         SELECT CASE(filetype_ana(jg))
         CASE (FILETYPE_NC2)
 
@@ -1204,40 +1213,6 @@ MODULE mo_nh_initicon
     CALL p_bcast(ngrp_vars_ana,p_io, mpi_comm)
 
   END SUBROUTINE create_input_groups
-
-
-
-  !-------------------------------------------------------------------------
-  !> @return One of CDI's FILETYPE\_XXX constants. Possible values: 2
-  !          (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
-  !
-  !  The file type is determined by the setting of the "filetype"
-  !  namelist parameter in "initicon_nml". If this parameter has not
-  !  been set, we try to determine the file type by its extension
-  !  "*.grb*" or ".nc".
-  !
-  FUNCTION get_filetype(filename)
-    INTEGER :: get_filetype
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    ! local variables
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nh_initicon:get_filetype'
-    INTEGER :: idx
-    
-    get_filetype = nml_filetype
-    IF (nml_filetype == -1) THEN
-      idx = INDEX(tolower(filename),'.nc')
-      IF (idx==0) THEN
-        idx = INDEX(tolower(filename),'.grb')
-        IF (idx==0) THEN
-          CALL finish(routine, "File type could not be determined!")
-        ELSE
-          get_filetype = FILETYPE_GRB2
-        END IF
-      ELSE
-        get_filetype = FILETYPE_NC2
-      END IF
-    END IF
-  END FUNCTION get_filetype
 
 
   !>
