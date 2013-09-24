@@ -90,10 +90,10 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=1          # ocean model output interval hours [hours]
+nhours_data=1
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=100      # stop model for restart [days]
+ndays_restart=10000
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -171,7 +171,7 @@ cat > ${ocean_namelist} << EOF
 ! dzlev_m(1:20)      =  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,
 !                       100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0,  100.0
   dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  640.0,  700.0,  700.0,  700.0
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
 ! n_zlev             =   40
 ! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
