@@ -41,6 +41,9 @@ LOGDIR=%SMSOUT%
 #==========================================================================
 #  SMS Definitions
 #==========================================================================
+echo $$
+echo ${LOADL_STEP_ID}
+echo ${QSUB_REQID}
 
 LOADL_STEP_ID=${LOADL_STEP_ID:=NOT_SET}
 QSUB_REQID=${QSUB_REQID:=NOT_SET}
@@ -55,7 +58,7 @@ else
   SMSRID=$$
   JOB_ID=$SMSRID
 fi
-
+echo "SMSRID ${SMSRID}"
 export SMSPASS SMSNODE SMSNAME SMS_PROG SMSHOME SMSJOBOUT
 
 export WSHOST SCHOST USER SUITE
