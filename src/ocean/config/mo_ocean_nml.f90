@@ -244,6 +244,9 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
   REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
+  INTEGER  :: scatter_levels(10)    = 0          ! levels for possible scattering of the constant tracer fields
+  REAL(wp) :: scatter_t             = 20.0_wp    ! temperature value for scattering
+  REAL(wp) :: scatter_s             = 10.0_wp    ! salinity value for scattering
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
@@ -360,7 +363,8 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
     &                 oce_t_ref, oce_s_ref, z_forc_period, y_forc_period,  &
-    &                 analytic_wind_amplitude
+    &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
+    &                 scatter_s
 
   NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland

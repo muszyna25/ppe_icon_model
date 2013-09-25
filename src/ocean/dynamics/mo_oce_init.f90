@@ -61,7 +61,8 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_s
   &                              init_oce_relax, irelax_3d_S, irelax_3d_T, irelax_2d_S,     &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation,&
-  &                              oce_t_ref, oce_s_ref, use_tracer_x_height
+  &                              oce_t_ref, oce_s_ref, use_tracer_x_height, scatter_levels, &
+  &                              scatter_t, scatter_s
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
   &                              land_boundary,                                             &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -849,6 +850,7 @@ CONTAINS
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
   REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
   REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
+  REAL(wp):: t,s
   CHARACTER(len=max_char_length) :: sst_case
 
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -1532,22 +1534,27 @@ CONTAINS
       END DO
       ! p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
 
-    CASE (46)
+    CASE (46,461)
     ! T and S are horizontally and vertically homegeneous
     ! Values are taken from namelist and used for comparison with MPIOM; default: t=16 C, s=35 psu
       CALL message(TRIM(routine), 'Initialization of testcases (46)')
       CALL message(TRIM(routine), &
         &  ' - here: horizontally and vertically homogen')
-
+      t = oce_t_ref
+      s = oce_s_ref
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
+            IF (461 == itestcase_oce) THEN
+              t = MERGE(scatter_t,oce_t_ref,ANY(scatter_levels .eq. jk))
+              s = MERGE(scatter_s,oce_s_ref,ANY(scatter_levels .eq. jk))
+            ENDIF
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = oce_t_ref
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = t
               IF (no_tracer == 2) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = oce_s_ref
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = s
               END IF
             END IF
           END DO
