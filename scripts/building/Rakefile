@@ -69,7 +69,6 @@ $hosts = {
   :thingol => {
     :dir => '/home/ram/builds/icon' }
 }
-
 # naming conventions:
 # * local builds start with 'local'
 # * remote builds start with 'remote'
