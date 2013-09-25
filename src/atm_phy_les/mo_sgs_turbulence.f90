@@ -153,8 +153,11 @@ MODULE mo_sgs_turbulence
     END IF
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
-    !use theta and thetav. Somehow using prog theta_v was creating issue with 
-    !sync_patch_array
+    !use theta and thetav. Using prog theta_v was creating issue with sync_patch_array
+    !that could have been solved by doing the below calculation on halo points only if 
+    !all procs are MPI and NOT for serial runs. Refer to the part in mo_interface_les
+    !where prog vars are updated on halo points in the end only if
+    !my_process_is_mpi_all_parallel()  is TRUE
 
     rl_start   = 2
     rl_end     = min_rlcell_int-2
@@ -176,7 +179,6 @@ MODULE mo_sgs_turbulence
     END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-
 
     !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
     IF(les_config(jg)%isrfc_type>0) & 
@@ -1230,7 +1232,7 @@ MODULE mo_sgs_turbulence
    ! 2) Vertical tendency: evaluated at w point
    !
 
-!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx,flux_up_c,flux_dn_c, &
+!ICON_OMP_DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,flux_up_c,flux_dn_c, &
 !ICON_OMP            jkm1)
     DO jb = i_startblk,i_endblk
 
@@ -1247,11 +1249,24 @@ MODULE mo_sgs_turbulence
          flux_dn_c = visc_smag_c(jc,jk,jb) * ( (p_nh_prog%w(jc,jk,jb)-p_nh_prog%w(jc,jk+1,jb)) * &
                      p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) - 0.333333_wp*DIV_c(jc,jk,jb) )
 
+         tmp = tot_tend(jc,jk,jb)
          tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + 2._wp * (flux_up_c - flux_dn_c) *  &
                               p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) / p_nh_prog%rho(jc,jk,jb)
 
+       END DO
+      END DO
+    END DO  
+!ICON_OMP_END_DO
+
+    !Now update w
+
+!ICON_OMP_DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+      DO jk = 2 , nlev
+       DO jc = i_startidx, i_endidx
          p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) + dt * tot_tend(jc,jk,jb)
-       
        END DO
       END DO
     END DO  
