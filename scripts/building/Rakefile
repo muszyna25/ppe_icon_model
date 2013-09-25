@@ -61,6 +61,10 @@ $hosts = {
     :user     => REMOTE_USER,
     :hostname => 'passat.dkrz.de',
     :dir      => '/work/mh0287/users/ram/builds'},
+  :wizard => {
+    :user     => REMOTE_USER,
+    :hostname => 'wizard.dkrz.de',
+    :dir      => '/work/mh0287/users/ram/builds'},
   # laptop on my desk
   :thingol => {
     :dir => '/home/ram/builds/icon' }
@@ -83,7 +87,7 @@ $builds = {
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
   :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
-  :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
+  :remoteXlf         => {:host => :wizard  , :subdir => 'default'} ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
