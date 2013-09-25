@@ -150,6 +150,15 @@ CONTAINS
       ! calc u and v out of vn
     ELSE
     ENDIF
+    ! copy old tracer values to spot value fields for propper initial timestep
+    ! output
+    ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
+
+    ocean_state%p_acc%tracer(:,:,:,1)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    ocean_state%p_acc%tracer(:,:,:,2)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ocean_state%p_acc%h  = ocean_state%p_prog(nold(1))%h
   END SUBROUTINE prepare_ho_stepping
 
   !-------------------------------------------------------------------------
