@@ -291,7 +291,7 @@ CONTAINS
     
     IF (i_ice_therm == 3 ) THEN
       ! Heat flux from ocean into ice
-      CALL oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
+      CALL oce_ice_heatflx (p_patch, p_os,ice,Tfw,zHeatOceI)
 !!$    ELSE IF ( i_ice_therm == 3) THEN
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF

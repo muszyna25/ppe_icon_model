@@ -100,6 +100,7 @@ USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 #endif
 #endif
+USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 
 IMPLICIT NONE
 
@@ -131,7 +132,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
+  SUBROUTINE update_sfcflx(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, &
+    &   p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
@@ -141,6 +143,7 @@ CONTAINS
     TYPE(t_sfc_flx)                             :: p_sfc_flx
     INTEGER, INTENT(IN)                         :: jstep
     TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
@@ -341,6 +344,8 @@ CONTAINS
         ! 10:  precip(:,:), &  ! precipitation rate                              [m/s]
         ! 11:  evap  (:,:), &  ! evaporation   rate                              [m/s]
         ! 12:  runoff(:,:)     ! river runoff  rate                              [m/s]
+        ! 13: u(:,:),      &  ! 10m zonal wind speed                             [m/s]
+        ! 14: v(:,:),      &  ! 10m meridional wind speed                        [m/s]
 
         p_as%tafo(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
@@ -358,6 +363,10 @@ CONTAINS
         !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
         p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
           &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
+        p_as%u(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,13) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,13)
+        p_as%v(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,14) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,14)
 
         ! provide precipitation, evaporation, runoff flux data for freshwater forcing of ocean 
         !  - not changed via bulk formula, stored in surface flux data
@@ -617,7 +626,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff, datetime)
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
@@ -659,6 +668,8 @@ CONTAINS
 
           IF (iforc_type == 2 .OR. iforc_type == 5) &
             & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
           temperature_relaxation = 0   !  hack
 
@@ -944,7 +955,7 @@ CONTAINS
           Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
           Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
 
-          CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
+          CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
           ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
           !  done in mo_sea_ice:upper_ocean_TS

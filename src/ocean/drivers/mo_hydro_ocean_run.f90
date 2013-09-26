@@ -116,6 +116,8 @@ USE mo_var_list,               ONLY: print_var_list
   USE mo_master_control,       ONLY: is_restart_run
   USE mo_statistics
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
+  USE mo_sea_ice_nml,         ONLY: i_ice_dyn
+  USE mo_ocean_nml,           ONLY: i_sea_ice
 
 IMPLICIT NONE
 
@@ -142,12 +144,20 @@ END INTERFACE add_fields
 !-------------------------------------------------------------------------
 
 CONTAINS
-  SUBROUTINE prepare_ho_stepping(ocean_state,is_restart)
+  SUBROUTINE prepare_ho_stepping(p_patch_3D, operators_coefficients, ocean_state, is_restart)
+    TYPE(t_patch_3D ), INTENT(IN)     :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     LOGICAL, INTENT(IN)               :: is_restart
+    TYPE(t_operator_coeff)            :: operators_coefficients
 
     IF (is_restart) THEN
-      ! calc u and v out of vn
+      ! Prepare p_os%p_prog, since it is needed by the dynamical sea ice model
+      IF ( i_sea_ice > 0 .and. i_ice_dyn == 1 )         &
+        CALL calc_scalar_product_veloc_3D( p_patch_3D,  &
+          & ocean_state%p_prog(nnew(1))%vn,             &
+          & ocean_state%p_prog(nnew(1))%vn,             &
+          & ocean_state%p_diag,                         &
+          & operators_coefficients)
     ELSE
     ENDIF
     ! copy old tracer values to spot value fields for propper initial timestep
@@ -260,7 +270,7 @@ CONTAINS
       !In case of a time-varying forcing:
       IF (ltimer) CALL timer_start(timer_upd_flx)
       CALL update_sfcflx( patch_3D, p_os(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-        &                jstep, datetime)
+        &                jstep, datetime, p_op_coeff)
 
       IF(.NOT.l_staggered_timestep)THEN
 
@@ -507,7 +517,7 @@ CONTAINS
     CALL construct_sfcflx(patch_3D%p_patch_2D(jg),p_sfc_flx, ocean_default_list)
     CALL      init_sfcflx(patch_3D, p_sfc_flx)
 
-    CALL construct_sea_ice(patch_3D%p_patch_2D(jg), p_ice, kice)
+    CALL construct_sea_ice(patch_3D, p_ice, kice)
     CALL construct_atmos_for_ocean(patch_3D%p_patch_2D(jg), p_as)
     CALL construct_atmos_fluxes(patch_3D%p_patch_2D(jg), p_atm_f, kice)
 
@@ -524,7 +534,7 @@ CONTAINS
 
     CALL init_ho_coupled(patch_3D%p_patch_2D(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D%p_patch_2D(jg), p_os(jg), p_ice)
+      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
 
     CALL allocate_exp_coeff     ( patch_3D%p_patch_2D(jg), p_op_coeff, ocean_default_list)
     CALL par_init_operator_coeff( patch_3D, p_os(jg),p_phys_param, p_op_coeff)

@@ -214,15 +214,15 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER ::           &
     ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
     ki           = 2.1656_wp,       & ! heat conductivity ice      [J  / (m s K)]   
-    rhoi         = 917.0_wp,        & ! density of sea ice         [kg / m�]
-    rhos         = 300.0_wp,        & ! density of snow            [kg / m�]
+    rhoi         = 917.0_wp,        & ! density of sea ice         [kg / m**3]
+    rhos         = 300.0_wp,        & ! density of snow            [kg / m**3]
     ci           = 2106.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
     Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
     mu           = 0.054_wp,        & ! Constant in linear freezing-
-                                      ! point relationship         [�C/ppt]
+                                      ! point relationship         [C/ppt]
     muS          = mu*Sice,         & ! = - (sea-ice liquidus 
-                                      ! (aka melting) temperature) [�C]
+                                      ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albs         = 0.75_wp,         & ! Albedo of snow (not melting)
     albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
@@ -230,7 +230,10 @@ MODULE mo_physical_constants
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
     albedoW      = 0.07_wp,         & ! albedo of the ocean 
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
-    I_0          = 0.17_wp            ! Ice-surface penetrating shortwave fraction
+    I_0          = 0.17_wp,         & ! Ice-surface penetrating shortwave fraction
+    Cd_ia       =  1.2e-3_wp,       & ! Ice-atmosphere drag coefficient
+    Cd_io       =  3.0e-3_wp,       & ! Ice-ocean drag coefficient
+    Ch_io       = 12.0e-3_wp          ! Ice-ocean heat transfer coefficient
 
 
 !--------- parameters for NWP sea-ice model (we should agree on a single value)-----

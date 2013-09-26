@@ -21,7 +21,7 @@ MODULE mo_var_metadata
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(28) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(29) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -49,7 +49,8 @@ MODULE mo_var_metadata
     &  "OCE_GEOMETRY          ",  &
     &  "OCE_PHYSICS           ",  &
     &  "OCE_COEFFS            ",  &
-    &  "ICE_DEFAULT           "/)
+    &  "ICE_DEFAULT           ",  &
+    &  "ICE_DIAG              "/)
 
 
   ! list of vertical interpolation types

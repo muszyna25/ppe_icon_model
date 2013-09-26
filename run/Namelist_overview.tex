@@ -4909,10 +4909,27 @@ l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
   In an ocean run i\_sea\_ice must be >=1. In an atmospheric run the ice surface type must be defined.
   \tabularnewline
 
+  i\_ice\_dyn   &
+  I             &
+  0             &&
+  Switch for sea-ice dynamics: \\
+  0: No dynamics \\
+  1: FEM dynamics (from AWI) &
+  \tabularnewline
+
   i\_ice\_albedo        &
   I                     &
   1                     &&
   Switch for albedo model. Only one is implemented so far. &
+  \tabularnewline
+
+  i\_Qio\_type          &
+  I                     &
+  2                     &&
+  Switch for ice-ocean heat-flux calculation method: \\
+  1: Proportional to ocean cell thickness (like MPI-OM) \\
+  2: Proportional to speed difference between ice and ocean &
+  Defaults to 1 when i\_ice\_dyn=0 and 2 otherwise.
   \tabularnewline
 
   kice  &
@@ -4926,6 +4943,20 @@ l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
   0.5   &
   m     &
   Hibler's $h_0$ parameter for new-ice growth. &
+  \tabularnewline
+
+  hmin  &
+  R     &
+  0.05  &
+  m     &
+  Minimum sea-ice thickness allowed. &
+  \tabularnewline
+
+  ramp\_wind    &
+  R             &
+  10            &
+  days          &
+  Number of days it takes the wind to reach correct strength. Only used at the start of an OMIP/NCEP simulation (not after restart). &
   \tabularnewline
 
 \end{longtab}

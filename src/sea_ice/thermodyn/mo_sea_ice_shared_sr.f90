@@ -48,11 +48,14 @@ MODULE mo_sea_ice_shared_sr
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: rho_ref, clw
+  USE mo_physical_constants,  ONLY: rho_ref, clw, Cd_io, Ch_io
   USE mo_oce_state,           ONLY: t_hydro_ocean_state!, v_base, ocean_restart_list
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_io_units,            ONLY: nerr
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
+  USE mo_exception,           ONLY: finish
+  USE mo_impl_constants,      ONLY: max_char_length
+  USE mo_sea_ice_nml,         ONLY: i_Qio_type
 
 
   IMPLICIT NONE
@@ -78,23 +81,44 @@ CONTAINS
   ! Positive flux upwards.
  
   
-  SUBROUTINE oce_ice_heatflx (p_os,ice,Tfw,zHeatOceI)
+  SUBROUTINE oce_ice_heatflx (p_patch, p_os,ice,Tfw,zHeatOceI)
+    TYPE(t_patch)            , INTENT(IN), TARGET    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(IN)  :: p_os
     TYPE(t_sea_ice)          , INTENT(IN)  :: ice
     REAL(wp)                 , INTENT(IN)  :: Tfw(:,:,:)      ! freezing temperature
     REAL(wp)                 , INTENT(OUT) :: zHeatOceI(:,:,:)
 
     ! Local
-    INTEGER :: k ! counter for ice thickness categories
+    INTEGER :: jb, k, jc, i_startidx_c, i_endidx_c
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: u_star
 
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice_shared_sr:oce_ice_heatflx'
     
+    all_cells => p_patch%cells%all 
     zHeatOceI = 0.0_wp
+
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
-    DO k=1,ice%kice
-      WHERE (ice%hi(:,k,:) > 0._wp) 
-        zHeatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tfw(:,k,:) ) &
-          &                 * ice%zUnderIce(:,:) * clw*rho_ref/dtime
-      ENDWHERE
+    DO jb = 1,p_patch%nblks_c
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+      DO jc = i_startidx_c,i_endidx_c
+        DO k=1,ice%kice
+          IF (ice%hi(jc,k,jb) > 0._wp) THEN
+            SELECT CASE ( i_Qio_type )
+              CASE (1)
+                zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
+                  &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
+              CASE(2)
+                u_star = SQRT(Cd_io*( (p_os%p_diag%u(jc,1,jb)-ice%u(jc,jb))**2 + &
+                  &         (p_os%p_diag%v(jc,1,jb)-ice%v(jc,jb))**2 ))
+                zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
+                  &                         *rho_ref*clw*Ch_io*u_star
+              CASE DEFAULT
+                CALL finish(TRIM(routine), 'Invalid i_Qio_type')
+              END SELECT
+          ENDIF
+        ENDDO
+      ENDDO
     END DO
   END SUBROUTINE oce_ice_heatflx
 
