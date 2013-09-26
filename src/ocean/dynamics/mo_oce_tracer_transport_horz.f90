@@ -152,15 +152,16 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   z_div_diff_h  (:,:,:) = 0.0_wp
   z_diff_flux_h (:,:,:) = 0.0_wp
 
-  ! Initialize timer for horizontal advection
-  IF (ltimer) CALL timer_start(timer_adv_horz)
-
   CALL sync_patch_array(SYNC_E, patch_2d, p_os%p_diag%vn_time_weighted)
 
   !Calculate tracer fluxes at edges
   !This step takes already the edge length into account
   !but not the edge height
   IF ( l_with_horz_tracer_advection ) THEN
+
+  ! Initialize timer for horizontal advection
+  IF (ltimer) CALL timer_start(timer_adv_horz)
+
   SELECT CASE(FLUX_CALCULATION_HORZ)
 
     CASE(UPWIND)
