@@ -48,9 +48,11 @@ USE mo_kind,                      ONLY: wp
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary
-USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based,ab_gam, &
-  &                                     UPWIND, CENTRAL,MIMETIC,MIMETIC_MIURA,&
-  &                                     FLUX_CALCULATION_HORZ, l_with_horz_tracer_diffusion, &
+USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based, ab_gam,            &
+  &                                     UPWIND, CENTRAL,MIMETIC, MIMETIC_MIURA,  &
+  &                                     FLUX_CALCULATION_HORZ,                   &
+  &                                     l_with_horz_tracer_diffusion,            &
+  &                                     l_with_horz_tracer_advection,            &
   &                                     l_horz_limiter_advection
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
@@ -158,6 +160,7 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
   !Calculate tracer fluxes at edges
   !This step takes already the edge length into account
   !but not the edge height
+  IF ( l_with_horz_tracer_advection ) THEN
   SELECT CASE(FLUX_CALCULATION_HORZ)
 
     CASE(UPWIND)
@@ -193,7 +196,11 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
 
   END SELECT
 
-  CALL dbg_print('Adv upwind: adv_flux_h',z_adv_flux_h,str_module,idt_src,patch_2d%edges%owned)
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('aft. AdvHorz: adv_flux_h',z_adv_flux_h,str_module,idt_src,patch_2d%edges%owned)
+  !---------------------------------------------------------------------
+
   !Multiply fluxes with edge height
 ! !-------------------------------------------------------------------------------
   IF( l_edge_based)THEN
@@ -208,7 +215,11 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
       END DO
     END DO
 
-  CALL dbg_print('Adv*thick_e:adv_flux_h', z_adv_flux_h, str_module, idt_src, patch_2d%edges%owned)
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  idt_src=5  ! output print level (1-5, fix)
+  CALL dbg_print('AdvH*thick_e: adv_flux_h', z_adv_flux_h,str_module, idt_src, patch_2d%edges%owned)
+  !---------------------------------------------------------------------
+
 ! !-------------------------------------------------------------------------------
   ELSEIF(.NOT. l_edge_based)THEN
 ! !-------------------------------------------------------------------------------
@@ -286,7 +297,21 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
                               & p_op_coeff,             & 
                               & h_old,h_new)     
     IF (ltimer) CALL timer_stop(timer_hflx_lim)
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('aft. HorzLim: adv_flux_h',z_adv_flux_h,str_module,idt_src,patch_2d%edges%owned)
+    !---------------------------------------------------------------------
+
   ENDIF
+
+  !Calculate divergence of advective fluxes
+  CALL div_oce_3d( z_adv_flux_h, patch_2d,p_op_coeff%div_coeff, z_div_adv_h,&
+     & subset_range=cells_in_domain)
+
+  ELSE
+    z_div_adv_h   (:,:,:) = 0.0_wp
+  ENDIF ! l_with_horz_tracer_diffusion
 
   !The diffusion part: calculate horizontal diffusive flux
   IF ( l_with_horz_tracer_diffusion ) THEN
@@ -297,17 +322,16 @@ SUBROUTINE advect_diffuse_flux_horz( patch_3D,          &
                               & K_h,          &
                               & z_diff_flux_h,&
                               & subset_range = edges_in_domain)
+
+    !Calculate divergence of diffusive fluxes
+    CALL div_oce_3d( z_diff_flux_h, patch_2d,p_op_coeff%div_coeff, z_div_diff_h, &
+       & subset_range=cells_in_domain)
     IF (ltimer) CALL timer_stop(timer_dif_horz)
+
+  ELSE
+    z_diff_flux_h (:,:,:) = 0.0_wp
+    z_div_diff_h  (:,:,:) = 0.0_wp
   ENDIF
-
-
-  !Calculate divergence of advective and diffusive fluxes
-  CALL div_oce_3d( z_adv_flux_h, patch_2d,p_op_coeff%div_coeff, z_div_adv_h,&
-     & subset_range=cells_in_domain)
-
-  CALL div_oce_3d( z_diff_flux_h, patch_2d,p_op_coeff%div_coeff, z_div_diff_h, &
-     & subset_range=cells_in_domain)
-
 
   !Final step: calculate sum of advective and diffusive horizontal fluxes
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
