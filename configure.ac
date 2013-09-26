@@ -64,14 +64,16 @@ else
 fi
 
 AC_ARG_WITH([mtime],
-  [AS_HELP_STRING([--without-mtime],
-    [disable use of mtime])],
+  [AS_HELP_STRING([--with-mtime],
+    [enable use of mtime for development/prototyping])],
     [],
     [])
 
-AS_IF([test "x$with_mtime" != "xno"],
-      [use_mtime="yes"],
-      [use_mtime="no"])
+if test x$with_mtime != x; then
+    use_mtime="yes"
+else
+    use_mtime="no"
+fi
 
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
