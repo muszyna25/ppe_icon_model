@@ -239,7 +239,11 @@ MODULE mo_ocean_nml
                                                  ! mo_oce_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   LOGICAL  :: l_constant_mixing     = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! keep constant over time and are set to the background values; no convection
+                                                 ! are kept constant over time and are set to the background values; no convection
+!  LOGICAL  :: l_convection          = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+!                                                 ! are unchanged in case of instable stratification
+!  LOGICAL  :: l_pp_scheme           = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+                                                 ! are set to the background values in case of stable stratification
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
 
   REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
