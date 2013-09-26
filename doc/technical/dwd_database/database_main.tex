@@ -116,6 +116,7 @@
 
 \includeonly{./title_toc,
              ./versionhistory,
+             ./analysis,
              ./grid_geometry,
              ./GRIB2_output_tables}
 
@@ -179,6 +180,11 @@
 % sign function
 \newcommand{\sgn}{\operatorname{sgn}}
 
+% color
+\newcommand{\tred}{\textcolor{red}}
+
+% shifting table captions...
+\newcommand{\rb}[1]{\raisebox{4.0ex}[0pt]{#1}}
 
 % use default again
 \renewcommand{\chaptermark}[1]{%
@@ -190,6 +196,7 @@
 
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
 \include{./grid_geometry}
+\include{./analysis}
 \include{./GRIB2_output_tables}
 % ----------------------------------------------------------------%
 
