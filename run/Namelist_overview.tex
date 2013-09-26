@@ -2343,11 +2343,18 @@ lhdiff\_rcf = .TRUE.
 \hline 
 divdamp\_order&
 I& 4& &
-Order/type of divergence damping: \\ 
-2 = second-order damping acting on 2D divergence \\
-3 = second-order damping acting on 3D divergence \\
-4 = fourth-order damping acting on 2D divergence \\
-5 = fourth-order damping acting on 3D divergence&
+Order of divergence damping: \\ 
+2 = second-order divergence damping \\
+4 = fourth-order divergence damping &
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline 
+divdamp\_type&
+I& 2 & &
+Type of divergence damping: \\ 
+2 = divergence damping acting on 2D divergence \\
+3 = divergence damping acting on 3D divergence &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 

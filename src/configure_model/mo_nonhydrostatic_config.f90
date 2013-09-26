@@ -75,6 +75,7 @@ MODULE mo_nonhydrostatic_config
     LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
     REAL(wp):: divdamp_fac              ! Scaling factor for divergence damping (if lhdiff_rcf = true)
     INTEGER :: divdamp_order            ! Order of divergence damping
+    INTEGER :: divdamp_type             ! Type of divergence damping (2D or 3D divergence)
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
     REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
                                         ! where processes related to moist physics are computed

@@ -48,7 +48,7 @@ MODULE mo_solve_nonhydro
   USE mo_kind,                 ONLY: wp, vp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
-                                     rayleigh_type, iadv_rcf, rhotheta_offctr,              &
+                                     divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
                                      lbackward_integr, veladv_offctr
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
@@ -297,9 +297,9 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
-    IF (divdamp_order <= 3) THEN
+    IF (divdamp_order == 2) THEN
       scal_divdamp(:) = divdamp_fac * p_patch%geometry_info%mean_cell_area 
-    ELSE IF (divdamp_order >= 4) THEN
+    ELSE IF (divdamp_order == 4) THEN
        ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
        ! with height to a value of 0.004 (= the namelist default) at 40 km
        enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
@@ -900,7 +900,7 @@ MODULE mo_solve_nonhydro
 
       ENDIF
 
-    ELSE IF (lhdiff_rcf .AND. (divdamp_order == 3 .OR. divdamp_order == 5)) THEN ! istep = 2 partly 3D div damping
+    ELSE IF (istep == 2 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN ! apply div damping on 3D divergence
 
       ! add dw/dz contribution to divergence damping term
 
@@ -1161,7 +1161,7 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-      IF (lhdiff_rcf .AND. istep == 2 .AND. divdamp_order >= 4) THEN ! fourth-order divergence damping
+      IF (lhdiff_rcf .AND. istep == 2 .AND. divdamp_order == 4) THEN ! fourth-order divergence damping
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1185,7 +1185,7 @@ MODULE mo_solve_nonhydro
 
       IF (lhdiff_rcf .AND. istep == 2) THEN
         ! apply divergence damping if diffusion is not called every sound-wave time step
-        IF (divdamp_order <= 3) THEN ! second-order divergence damping
+        IF (divdamp_order == 2) THEN ! second-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -1193,7 +1193,7 @@ MODULE mo_solve_nonhydro
                 + scal_divdamp(jk)*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order >= 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
+        ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
           ! fourth-order divergence damping with reduced damping coefficient along nest boundary
           ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
           ! damping along nest boundaries is beneficial because this reduces the interference
@@ -1205,7 +1205,7 @@ MODULE mo_solve_nonhydro
                 + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order >= 4) THEN ! fourth-order divergence damping
+        ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -2009,7 +2009,7 @@ MODULE mo_solve_nonhydro
       ENDIF
 
       ! compute dw/dz for divergence damping term
-      IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+      IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -2110,7 +2110,7 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         ! compute dw/dz for divergence damping term
-        IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2178,7 +2178,7 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         ! compute dw/dz for divergence damping term
-        IF (lhdiff_rcf .AND. istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5) ) THEN
+        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2227,7 +2227,7 @@ MODULE mo_solve_nonhydro
           & p_patch%sync_cells_not_owned, name="solve_step2_w")
       ENDIF
     ELSE IF (itype_comm == 1) THEN
-      IF (istep == 1 .AND. (divdamp_order == 3 .OR. divdamp_order == 5)) THEN
+      IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN
         ! Synchronize w and vertical contribution to divergence damping
         CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
       ELSE IF (istep == 1) THEN 
