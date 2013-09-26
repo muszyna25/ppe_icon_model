@@ -42,8 +42,10 @@
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
+\usepackage{array}
 
-
+% left-aligned fixed-width table column
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 % define some colors
 \definecolor{darkred}{rgb}{0.5,0,0}
