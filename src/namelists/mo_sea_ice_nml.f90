@@ -156,13 +156,13 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 0 .AND. i_Qio_type > 1) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 0 or 1.')
+    IF (i_Qio_type < 1 .AND. i_Qio_type > 2) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
     END IF
 
     IF (i_ice_dyn == 0) THEN
-      CALL message(TRIM(routine), 'i_Qio_type set to 0 because i_ice_dyn is 0')
-      i_Qio_type = 0
+      CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
+      i_Qio_type = 1
     ENDIF
 
     IF (hmin > hnull) THEN
