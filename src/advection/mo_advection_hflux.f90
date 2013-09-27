@@ -338,7 +338,7 @@ CONTAINS
 
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
-          &             p_mass_flx_e, p_vn, p_dtime, 2, p_int,            &! in
+          &             p_mass_flx_e, p_vn, p_dtime, 3, p_int,            &! in
           &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),       &! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
@@ -372,7 +372,7 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
+          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
           &              lcompute%miura_mcycl_h(jt),                     &! in
           &              lcleanup%miura_mcycl_h(jt),                     &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
@@ -409,7 +409,7 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
+          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
           &              lcompute%miura3_mcycl_h(jt),                    &! in
           &              lcleanup%miura3_mcycl_h(jt),                    &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
@@ -1019,6 +1019,8 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2012-01-25)
   !! - bug fix for positive definite limiter. Limiter is now called after each 
   !!   substep.
+  !! Modification by Daniel Reinert, DWD (2013-09-27)
+  !! - increased number of subcycling steps from 2 to 3 (hard coded)
   !!
   !! @par LITERATURE
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
@@ -1166,9 +1168,9 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-    IF (p_ncycl /= 2) &
+    IF (p_ncycl /= 3) &
     CALL finish(TRIM(routine),'current implementation of upwind_hflux_miura_cycl '//&
-      &                       'requires 2 subcycling steps (p_ncycl=2)')
+      &                       'requires 3 subcycling steps (p_ncycl=3)')
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1549,7 +1551,7 @@ CONTAINS
           DO je = i_startidx, i_endidx
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
+            p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
