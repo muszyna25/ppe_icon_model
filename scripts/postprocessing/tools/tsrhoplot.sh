@@ -13,6 +13,7 @@
 #   - an init file is generated using 10 days output (2001-01-11), since first timestep contains zero
 
 #  TBD:
+#   - include initial year for begin with zero deviation - needs adjusting date of initial to 2000-12-27
 #
 
 # ==============================================================================
@@ -25,16 +26,15 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
 # ==============================================================================
 # ==============================================================================
 # we supppose, that all files belong to the same experiment
-         expIdent='xmpiom.r12088.norunoff'                                           # experiment identifier
          expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
-         expIdent='xmpiom.r13694'                                                    # experiment identifier
+         expIdent='xmpiom.r13694.hupw.vppm'                                          # experiment identifier
+      outputIdent='r12088.relice'                                                    # output file name appendix
+      outputIdent='r13694.hupw.vppm'                                                 # output file name appendix
           expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
-     fileListPath="$expPath/$expIdent/Output"                                        # output data path
      fileListPath="$expPath/$expIdent"                                               # output data path
+     fileListPath="$expPath/$expIdent/Output"                                        # output data path
   fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"           # 'nml' naming convention
   fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"                       # 'vlist' naming convention
-      outputIdent='r12088.relice'                                                    # output file name appendix
-      outputIdent='r13694'                                                           # output file name appendix
           Tempvar='T'                                                                # temperature variable name
            Salvar='S'                                                                # salinity variable name
            Rhovar='rhopot'                                                           # density variable name
@@ -42,9 +42,9 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
            Salvar='s_acc'                                                            # salinity variable name
            Rhovar='rhopot_acc'                                                       # density variable name
    outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
-       PlotScript='ncl'               #  ncl-script, see below - not yet
        PlotScript='icon'              #  script icon_plot_ncl using ncl, see above
        PlotScript='none'              #  no plots
+       PlotScript='ncl'               #  ncl-script, see below - not yet
 # ==============================================================================
 # these variable names must not necessarily be changed
       MaskVarName='wet_c'
@@ -139,191 +139,316 @@ fi
 if [[ $PlotScript == "ncl" ]]; then 
 
 cat >scr_plot_tsrho.ncl << EOF
-;************************************************
+;-----------------------------------------------------------------------------
+;-----------------------------------------------------------------------------
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
-load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
-;************************************************
 
 begin
 
-;================================================
-; get data
-;================================================
-  f     = addfile ("$outputDataFile", "r")
-  temp  = f->$Tempvar(:,:,:,:)
+;-----------------------------------------------------------------------------
+;-- NCL needs monotonous increasing time steps
+;-- if time steps are missing NCL draws no time axis
+;-- New arrays for time and data are created and filled with missing values
+;-- Here: annual data
+;--                                      Karin Meier-Fleischer, DKRZ, 18.09.13
+;-----------------------------------------------------------------------------
+;-- Use cdo to show the yearly time steps and get missing years or incorrect/
+;-- uncomplete years.
+;-- for yearly data ! mon=12=Dec
+;-----------------------------------------------------------------------------
+;-- more TBD:
+;    - geometry of the plot (postscript)
+;    - title with $outputDataFile
+;    - shorter minor x-tick marks
+;-----------------------------------------------------------------------------
 
-; t     = f->$Tempvar(depth|time|lat|lon)   ; error ??
-; s     = f->$Salvar(:,:,:,:)
-; rho   = f->$Rhovar(:,:,:,:)
+   dates       = systemfunc("cdo showdate $outputDataFile")
+   dates_count = str_fields_count(dates," ")
+   dates_str   = new(dates_count,"string")
+   yearlist    = new(dates_count,"integer")
+   monlist     = new(dates_count,"integer")
+   indmis      = new(dates_count,"integer")
+   missing     = new(dates_count,"integer")
 
-; t     = temp(depth|:,time|0|0)   ; wrong sequence
-;moc_atl     = f->var778(0,:,60:179)  ; 120 values - 30S to 90N
-; t_    = t(depth_2|:,time|:,lat|:,lon|:)
-; t     = f->$Tempvar(:,:,0,0)
+   j=0
+   do i=0,dates_count-1
+      dates_str = str_get_field(dates,i+1,"  ")
+      yearlist(i) = tointeger(str_get_field(dates_str(i),1,"-"))
+      if (i.ne.0) then
+         last = last + 1
+;         print(last + "     "+ yearlist(i))
+         if (yearlist(i).ne.last) then
+            m = j
+            n = i
+            do while(yearlist(i).ne.last)
+               indmis(m) = n
+               missing(m) = tointeger(last)
+               last = last + 1
+               m = m + 1
+               n = n + 1
+            end do
+            j=m
+         end if
+      else
+         last = yearlist(0)
+      end if
+      monlist(i) = tointeger(str_get_field(dates_str(i),2,"-"))
+   end do
 
-  t     = temp(time|:,depth|:,lat|:,lon|:)
+;-- get the indices of the wrong years (yearly data not complete)
+   print("")
+   print("Missing time values: ")
+   do i=0,dimsizes(missing)-1
+      if (.not.ismissing(missing(i))) then
+         print(""+missing(i))
+      end if
+   end do
 
+;-- get the indices of the missing years
+   indlist = ind(monlist.ne.12)       ;-- for yearly data month must be 12
 
-;************************************************************************
-;  more TBD:
-;   - ???
-;************************************************************************
+   do i=0,dimsizes(indlist)-1
+      if (.not.ismissing(indlist(i))) then
+         indlast = indlist(i)
+      end if
+   end do
 
-  wks = gsn_open_wks("ps","hov.ano.${outputIdent}")
-; wks = gsn_open_wks("pdf","hov.ano.${outputIdent}")
+;-- how many indices have incorrect or missing time steps
+   nmisy = dimsizes(ind(.not.ismissing(missing)))
+   nnoty = dimsizes(ind(.not.ismissing(indlist)))
 
-  aplot = new(3,graphic);  resources for 3 plots on one page
+   print("")
+   print("Number of missing years:    "+nmisy)
+   print("Number of incomplete years: "+nnoty)
+   print("")
 
-; gsn_define_colormap(wks,"BlWhRe")            ; colormap
-; gsn_define_colormap(wks,"BlGrYeOrReVi200")   ; colormap
-; gsn_define_colormap(wks,"WhiteBlueGreenYellowRed")
-; gsn_define_colormap(wks,"temp_diff_18lev")
-; gsn_define_colormap(wks,"temp_19lev")
-; gsn_define_colormap(wks,"BlAqGrYeOrReVi200")
-; gsn_define_colormap(wks,"BlueWhiteOrangeRed")
-; gsn_define_colormap(wks,"testcmap")
-  gsn_define_colormap(wks,"ViBlGrWhYeOrRe")
+;-----------------------------------------------------------------------------
+;-- read file original data file containing uncomplete years and/or missing years
+;-----------------------------------------------------------------------------
+   f     = addfile ("$outputDataFile", "r")
 
-  res                      = True
-  res@gsnDraw              = False             ; False: don't draw on own page
-  res@gsnFrame             = False             ; False: don't advance frame - otherwise empty plots?
+   temp  = f->t_acc(depth|:,time|:,lat|0,lon|0)
+   s     = f->s_acc(depth|:,time|:,lat|0,lon|0)
+   rho   = f->rhopot_acc(depth|:,time|:,lat|0,lon|0)
 
-; res@cnFillMode           = "RasterFill"
-  res@gsnPaperOrientation  = "Portrait"
-; res@gsnPaperOrientation  = "Landscape"
-; res@gsnMaximize          = True              ; no effect
+   time  = f->time
+   depth = f->depth
 
-; res@gsnYAxisIrregular2Linear = True          ; True: axis-scaling is linear in Y, False: following resolution
+;-- assign depth array for correct y-axis labeling
+   ndepth    = dimsizes(depth)
+   dlabels   = new(ndepth,string)
+   dlabels   = depth
 
-  res@vpWidthF             = 0.85              ; change aspect ratio of plot
-  res@vpHeightF            = 0.32              ; change aspect ratio of plot
+;-- set _FillValue to wrong time steps of original data
+   temp(depth|:,time|indlist) = temp@_FillValue
+   s(depth|:,time|indlist)    = s@_FillValue
+   rho(depth|:,time|indlist)  = rho@_FillValue
 
-  res@cnFillOn             = True              ; color for contours
-; res@cnLinesOn            = False             ; contour lines
-; res@lbLabelBarOn         = False             ; color label bar
-  res@cnInfoLabelOn        = False             ; contour info label
-  res@gsnSpreadColors      = True              ; subset of the whole colormap
-; res@gsnSpreadColorStart  =  25               ; start color
-; res@gsnSpreadColorEnd    = -25               ; end color
-; res@cnFillMode           = "CellFill"        ; filled cells
+;-- create new time dimension with continuing time steps
+   tdim1 = dimsizes(time)
+   tdim2 = tdim1  + nmisy
+   tdim11 = tdim1-1
+   if((tdim11).eq.indlast) then
+      print("Last time step incorrect")
+      tdim2 = tdim2-1                        ; --> KMF do not increase tdim2 if last time step
+      lastyear = tointeger(time(dimsizes(time)-2)) + 365
+      time2 = int2dble(ispan(tointeger(time(0)), lastyear, 365))
+   else
+      time2 = int2dble(ispan(tointeger(time(0)), tointeger(time(dimsizes(time)-1)),365))
+   end if
+   time2@standard_name = time@standard_name
+   time2@units = time@units
 
+;-- create new data arrays containing _FillValue at missing/wrong years
+   tempdim2 = (/ndepth, tdim2/)
 
-; choice: explicit levels
-; res@cnLevelSelectionMode  = "ExplicitLevels"  ; set explicit contour levels
-; res@cnLevels              = (/ -100, -20, -10, -5,0,5,10,20,100 /)
+   temp2 = new(tempdim2, typeof(temp),temp@_FillValue)
+   s2    = new(tempdim2, typeof(s),s@_FillValue)
+   rho2  = new(tempdim2, typeof(rho),rho@_FillValue)
 
-  res@gsnContourZeroLineThicknessF   = 2.2      ; factor for thickness of zero contour
-  res@gsnContourLineThicknessesScale = 1.5      ; factor for other lines
+   tdim21 = tdim2-1
 
-; res@cnLineLabelsOn        = False             ; contour line labels
-; res@cnLineLabelFontHeightF= 0.012             ; contour line label height
-; res@cnLineLabelInterval   = 2                 ; line label interval (default=2)
-; res@cnLabelMasking        = True		; masking contour lines below line labels
-; res@cnLineLabelBackgroundColor = "white"
+;-- wrong time steps are already set to _FillValue, we need to copy
+;-- the data of the non-missing time steps from the original data
+   k=0
+   m=0
+   n=0
+   do l=0,tdim21
+      if(.not.ismissing(indmis(m)) .and. indmis(m).eq.l) then
+         temp2(:,k) = temp2@_FillValue
+         s2(:,k)    = s2@_FillValue
+         rho2(:,k)  = rho2@_FillValue
+         k = k + 1
+         m = m + 1
+      else
+         temp2(:,k) = temp(:,n)
+         s2(:,k)    = s(:,n)
+         rho2(:,k)  = rho(:,n)
+         k = k + 1
+         n = n + 1
+      end if
+   end do
 
-  res@lbLabelFontHeightF    = 0.014             ; label bar font
-; res@lbLabelStride         = 2                 ; labelling interval at color bar
-; res@lbLabelPosition       = "Left"  
-; res@pmLabelBarOrthogonalPosF = 0.1            ; move label bar closer
+;-- convert time to date strings
+   utc_date  =  cd_calendar(time2, 0)
+   year      =  utc_date(:,0)
+   month     =  utc_date(:,1)
 
-; res@cnMissingValFillColor        = "gray30"    ; not defined?
-; res@cnMissingValPerimOn          = True
-; res@cnMissingValFillPattern      = -1          ; set the missing value fill pattern
-; res@cnMissingValFillScaleF       = 0.9         ; increase the density of the fill pattern (default   = 1.0)
-; res@cnMissingValPerimColor       = "black"     ; change the missing value perimeter to black
-; res@cnMissingValPerimDashPattern = 1           ; set the dash pattern of the missing value perimeter to 1
-; res@cnMissingValPerimThicknessF  = 2.0         ; factor for thickness of the missing value perimeter 3X
+   print("")
 
-  res@gsnRightString	        = "hov.ano.${outputIdent}"  ;  output filename
-  res@trYReverse                = True            ; reverse the Y-axis
-                            
-  res@tiXAxisOn                 =  True        ;  false: x-axis title removed - cannot be redrawn?
-; res@tiXAxisString             = "Time [years]"
-  res@tiXAxisString             = " "          ;  set to empty, used only at bottom
-  res@tiXAxisFontHeightF        = 0.025
+;-----------------------------------------------------------------------------
+;-----------------------------------------------------------------------------
 
-  res@tiYAxisString             = "depth [m]"
-  res@tiYAxisFontHeightF        = 0.025
+;-- open workstation
+   wks = gsn_open_wks("ps","hov.ano.${outputIdent}")
 
-; resources used by KMF - to be checked
-; res@tmXTOn                    =  True        ;  false: turns off top ticks
-; res@tmXTLabelsOn              =  True        ;  false: turns off top labels
-; res@tmXBOn                    =  False       ;  false: x-axis numbers and ticks removed
-  res@tmXBMode 		        = "Explicit"   ;  switch from dimension to latitude
-; res@tmXBLabelsOn              =  False       ;  false: x-axis labels removed
-  res@tmXBLabelFontHeightF      = 0.020        ;  x-axis labels font height
-  res@tmYLLabelFontHeightF      = 0.018        ;  y-axis labels font height
+;-- color maps
+;  gsn_define_colormap(wks,"BlueWhiteOrangeRed")
+   gsn_define_colormap(wks,"ViBlGrWhYeOrRe")
 
-; *****************************************
-; Plotting the 3 panels
-; *****************************************
+;-- set resources
+   res                      =  True               ;-- set resource object
+   res@gsnDraw              =  False              ;-- don't draw plot, yet
+   res@gsnFrame             =  False              ;-- don't advance frame, yet
+   res@gsnSpreadColors      =  True               ;-- subset of the whole colormap
 
-; choice: range of levels
-  res@gsnLeftString	    = "$Tempvar [K]"
-  res@cnLevelSelectionMode  = "ManualLevels"    ; set manual contour levels
-  res@cnMinLevelValF        = -3                ; set min contour level
-  res@cnMaxLevelValF        = 3                 ; set max contour level
-  res@cnLevelSpacingF       = 0.3               ; set contour spacing
+;  res@vpWidthF             =  0.98               ;-- set view port width of each plot in panel
+;  res@vpHeightF            =  0.40               ;-- set view port height of each plot in panel 
+   res@vpWidthF             =  0.6                ;-- set view port width of each plot in panel
+   res@vpHeightF            =  0.27               ;-- set view port height of each plot in panel 
+                                                  ;--          (optimized value for "ps" output)
+;  res@vpXF                 =  1.0
+;  res@vpYF                 =  1.0
+                                                  ;--          (optimized value for "ps" output)
+   res@sfXArray             =  time2              ;-- uses time as plot x-axis
+   res@sfYArray             =  depth              ;-- uses depth as plot y-axis
 
-; drawNDCGrid(wks)  ;  - verkleinert
-  plot     = gsn_csm_contour(wks,t(:,:,0,0),res)
-  aplot(0) = plot   ;  creates the uppermost plot
+   res@trYReverse           =  True               ;-- reverse the y-axis, if requested
+;   res@gsnYAxisIrregular2Linear =  True          ;-- converts irreg depth to linear, if requested
 
-; ==========  ========== ==========
+;-- common contour line settings
+   res@cnFillOn             =  True               ;-- color for contours
+   res@cnLineLabelsOn       =  True               ;-- draw line labels
+   res@cnInfoLabelOn        =  False              ;-- don't draw the info label box
+   res@cnLineLabelDensityF  =  1.0                ;-- density of labels <1.0 = less, >1.0 = more
+   res@cnLineLabelFontHeightF = 0.01              ;-- set line label font size
+   res@lbLabelStride        =  2                  ;-- labelling interval at color bar and contour lines
 
-  res@gsnLeftString	    = "$Salvar [psu]"
-  res@cnMinLevelValF        = -0.3              ; set min contour level
-  res@cnMaxLevelValF        = 0.3               ; set max contour level
-  res@cnLevelSpacingF       = 0.03              ; set contour spacing
+   res@tiMainOn             =  False              ;-- don't draw any title string
 
-; plot     = gsn_csm_contour(wks,s,res)
-; aplot(1) = plot
+;-- common x-axis labeling settings
+;  res@tmXBLabelsOn         =  False              ;-- False: x-axis labels removed
+;  res@tmXBMode             = "Explicit"          ;-- set x-axis labeling to explicit
+;  res@tmXBValues           =  time2              ;-- values for x-axis tickmarks
+;  res@tmXBLabels           =  ""+year            ;-- set labels equal to values (type string)
+;  res@tmXBLabelStride      =  5                  ;-- draw every 5th label
+;  res@tmXBLabelFontHeightF =  0.018              ;-- x-axis font size
+;  res@tmXBLabelAngleF      =  40                 ;-- rotate the x-axis labels counter clockwise
+;  res@tmXBLabelDeltaF      =  1.0                ;-- move the x-axis labels downward
+   res@tmXTOn               =  False              ;-- don't draw tickmarks on top of x-axis
+   res@tmXBOn               =  False              ;-- don't draw tickmarks on bottom of x-axis
+   res@tmXTLabelsOn         =  False              ;-- don't draw labels on top of x-axis
+   res@tmXBLabelsOn         =  False              ;-- don't draw labels on bottom of x-axis
+   res@tiXAxisOn            =  False              ;-- don't draw x-axis title        
 
-; ==========  ========== ==========
+;-- common y-axis labeling settings
+;  res@tmYLMode             = "Explicit"          ;-- set y-axis labeling to explicit
+;  res@tmYLValues           =  depth              ;-- values for y-axis tickmarks
+;  res@tmYLLabels           =  ""+depth           ;-- set labels equal to values (type string)
+;  res@gsnYAxisIrregular2Linear =  True           ;-- converts irreg depth to linear, if requested
+;  res@tmYLLabelStride      =  0                  ;-- draw every 5th label
+   res@tiYAxisString        = "Depth (m)"         ;-- y-axis title string
+   res@tiYAxisFontHeightF   =  0.013              ;-- y-axis font size
+   res@tmYLLabelFontHeightF =  0.011              ;-- y-axis mark font size
 
-  res@gsnLeftString	    = "$Rhovar [kg/m3]"
-  res@cnMinLevelValF        = -0.5              ; set min contour level
-  res@cnMaxLevelValF        = 0.5               ; set max contour level
-  res@cnLevelSpacingF       = 0.05              ; set contour spacing
+;-- common labelbar settings
+;  res@lbBoxMinorExtentF    =  0.25               ;-- decrease the width of the labelbar
+   res@lbLabelFontHeightF   =  0.012              ;-- label bar font
+   res@lbOrientation        = "vertical"          ;-- set labelbar orientation
+   res@pmLabelBarWidthF     =  0.12               ;-- set labelbar width
+   res@pmLabelBarHeightF    =  0.34               ;-- set labelbar height
+   ;  this increases the height of the 3 panels, fits DINA4 better!?
 
-; res@tiXAxisOn                = True         ;  false: x-axis title removed
-  res@tiXAxisOffsetYF          =  0.010 
-  res@tiXAxisString            = "time [years]"
-; plot     = gsn_csm_contour(wks,rho,res)
-; aplot(2) = plot
+;-- assign plot array
+   plot = new(3,graphic)
 
-; *****************************************
-;  Resources for 3 panels
-; *****************************************
+;-------------------------------------------------------------------------------
+;-- upper plot - temp (temperature)
+;-------------------------------------------------------------------------------
+   res0                      =  res               ;-- use res
+;  res0@cnFillPalette        = "BlWhRe"           ;-- set colormap
+   res0@cnLevelSelectionMode = "ManualLevels"     ;-- set manual contour levels
+   res0@cnMinLevelValF       = -3                 ;-- set min contour level
+   res0@cnMaxLevelValF       =  3                 ;-- set max contour level
+   res0@cnLevelSpacingF      =  0.3               ;-- set contour spacing
+   res0@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
 
-; Attention
-;  - the maximize function (and other carackteristics of the whole page using gsn_panel) need own resources (resP)
-  resP                           = True
-  resP@gsnPaperOrientation       = "Portrait"
-; resP@gsnPaperOrientation       = "Landscape"
-  resP@gsnMaximize               =  True
-  resP@txString                  = "ICON: Global Mean Evolution"
-  resP@txFontHeightF             = 0.020
-; resP@tiMainString	         = "ICON: Meridional Overturning Stream Function"
-; resP@tiMainOffsetYF            =  -0.3       ;  wo ist der title
-; resP@tiMainOn                  = True        ;  False: Main title removed
+   plot(0) = gsn_csm_contour(wks,temp2,res0)
 
-; resP@gsnPanelYWhiteSpacePercent =  0.1       ;  <-- KMF
-; resP@gsnFrame                  =  False
-; resP@gsnPaperHeight            =  11.69      ;  <-- KMF
-; resP@gsnPaperWidth             =   8.27      ;  <-- KMF
+;-------------------------------------------------------------------------------
+;-- middle plot - s (salinity)
+;-------------------------------------------------------------------------------
+   res1                      =  res               ;-- use res
+;  res1@cnFillPalette        = "WhiteBlue"        ;-- set colormap
+;  res1@cnFillColors         = (/5,10,20,30,40,50,60,70,80,90,100,120/)
+   res1@cnLevelSelectionMode = "ManualLevels"     ;-- set manual contour levels
+   res1@cnMinLevelValF       = -0.3               ;-- set min contour level
+   res1@cnMaxLevelValF       =  0.3               ;-- set max contour level
+   res1@cnLevelSpacingF      =  0.03              ;-- set contour spacing
+   res1@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
 
-  resP@gsnPanelBottom            =  0.02       ;  <-- KMF
-  resP@gsnPanelTop               =  0.95       ;  <-- KMF
-; resP@tiXAxisOn                 =  False      ;  <-- KMF
-; resP@vpXF                      =  0.05
-; resP@vpYF                      =  0.95
+   plot(1) = gsn_csm_contour(wks,s2,res1)
 
-; drawNDCGrid(wks)                       ;  - verkleinert Plot?
-  gsn_panel(wks,(/aplot/),(/3,1/),resP)  ; now draw as one plot
+;-------------------------------------------------------------------------------
+;-- lower plot - rho (potential density)
+;-------------------------------------------------------------------------------
+   delete(res@tmXBLabelsOn)                       ;-- setting the resource to True won't work
+   delete(res@tmXBOn)                             ;-- setting the resource to True won't work
 
+   res2                      =  res               ;-- use res
+;  res2@cnFillPalette        = "rainbow"          ;-- set colormap
+;  res2@cnFillColors         = (/140,145,150,155,160,165,170,175,180,185,190,195,200,205,210,215,220,225,230,235,240,245/)
+   res2@cnLevelSelectionMode = "ManualLevels"     ;-- set manual contour levels
+   res2@cnMinLevelValF       = -0.5               ;-- set min contour level
+   res2@cnMaxLevelValF       =  0.5               ;-- set max contour level
+   res2@cnLevelSpacingF      =  0.05              ;-- set contour spacing
+   res2@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
+   res2@tmXBMode             = "Explicit"         ;-- set x-axis labeling to explicit
+   res2@tmXBValues           =  time2             ;-- values for x-axis tickmarks
+   res2@tmXBLabels           =  ""+year           ;-- set labels equal to values (type string)
+   res2@tmXBLabelStride      =  10                ;-- draw every 5th label
+   res2@tmXBLabelFontHeightF =  0.013             ;-- x-axis font size
+   res2@tmXBLabelAngleF      =  45                ;-- rotate the x-axis labels counter clockwise
+   res2@tmXBLabelDeltaF      =  0.5               ;-- move the x-axis labels downward
+   res2@tmXBLabelsOn         =  True              ;-- draw the x-axis tickmark labels
+   res2@tiXAxisOn            =  True              ;-- draw the x-axis title    
+   res2@tiXAxisString        = "Time"             ;-- draw x-axis title string
+   res2@tiXAxisOffsetYF      =  0.02              ;-- move x-axis title string upward
+   res2@tiXAxisFontHeightF   =  0.016             ;-- x-axis font size
+   res2@pmLabelBarOrthogonalPosF = 0.0            ;-- position label bar
+
+   plot(2) = gsn_csm_contour(wks,rho2,res2)
+
+;-------------------------------------------------------------------------------
+;-- generate page panel
+;-------------------------------------------------------------------------------
+  pres                       =  True              ;-- resource object for panel
+  pres@gsnPaperOrientation   = "Portrait"         ;-- set paper orientation
+  pres@gsnMaximize           = True               ;-- maximize plots (don't set gsnMaximize for the other res's)
+  pres@gsnPanelBottom        =  0.00              ;-- set panel bottom
+; pres@gsnPanelYF            =  (/0.95,.65,.35/)  ;-- adjust middle and lower plot
+; pres@gsnPanelYF            =  (/0.92,.61,.30/)  ;-- adjust middle and lower plot
+  pres@gsnPanelYF            =  (/0.94,.64,.34/)  ;-- adjust middle and lower plot
+; pres@gsnPanelYF            =  (/0.945,.65,.355/)  ;-- adjust middle and lower plot
+  pres@gsnPanelTop           =  0.95              ;-- set panel top
+  pres@txFontHeightF         =  0.019             ;-- set text font size
+  pres@txString              = "ICON: Global Mean Evolution" ;-- draw title string
+; pres@txString              = "ICON: Global Mean Evolution:C:$outputDataFile" ;-- draw title string
+; pres@txPosYF               =  0.98
+
+  gsn_panel(wks,plot,(/3,1/),pres)
 
 end
 EOF
