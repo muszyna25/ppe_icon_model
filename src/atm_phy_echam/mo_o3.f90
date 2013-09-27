@@ -74,12 +74,13 @@ CONTAINS
     IF (year > pre_year) THEN
 
       IF (ALLOCATED(o3_plev)) THEN
-        o3_plev(:,:,:,0)=o3_plev(:,:,:,12)
+        o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
         write(cyear,'(i4)') year
         fname='ozone'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
-        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
-        o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
+        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3', &
+                  patch=p_patch,start_timestep=2,end_timestep=12)
+        o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
         fname='ozone'//TRIM(cyear)//'.nc'
         zo3_plev=>netcdf_read_oncells_3d_time(filename=fname,variable_name='O3',patch=p_patch, &

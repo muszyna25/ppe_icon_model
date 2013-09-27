@@ -1545,6 +1545,7 @@ src/shared/mo_grid_subset.f90 -text
 src/shared/mo_impl_constants.f90 -text
 src/shared/mo_impl_constants_grf.f90 -text
 src/shared/mo_kind.f90 -text
+src/shared/mo_latitude_interpolation.f90 -text
 src/shared/mo_linked_list.f90 -text
 src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
