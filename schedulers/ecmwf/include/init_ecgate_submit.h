@@ -95,7 +95,6 @@ trap ERROR 0
 trap '{ echo "Killed by a signal"; ERROR ; }' \
      $SMS_SIGNAL_LIST
 
-echo $TMPDIR
 [[ -d $TMPDIR ]] && cd $TMPDIR
 
 date
