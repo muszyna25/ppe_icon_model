@@ -52,7 +52,7 @@ MODULE mo_echam_phy_main
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, iqt, ltimer
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
+  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
@@ -60,8 +60,7 @@ MODULE mo_echam_phy_main
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend,      &
-    &                               mean_charlen
+    &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
@@ -85,7 +84,6 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_orbit,               ONLY: orbit_vsop87
 
   IMPLICIT NONE
   PRIVATE
@@ -215,8 +213,6 @@ CONTAINS
     field  => prm_field(jg)
     tend   => prm_tend (jg)
     atm_td => ext_data(jg)%atm_td
-
-!     WRITE(0,*)' test mean_Charlen', jg,mean_charlen(jg)
 
     ! 2. local switches and parameters
 
@@ -446,21 +442,8 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
                                        COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
                                        COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
-!LK          CASE(5)
           END SELECT
 
-!          zdoy = REAL(datetime%calday, wp) + datetime%caltime
-!          CALL orbit_vsop87 (zdoy, zra, zdec, zdis)
-!          write(0,*) 'LK: ', zdoy, zra, zdec, zdis
-!          time_of_day = datetime%daytim * 2 * pi
-          ! flx_ratio = 1.0_wp/dist_sun**2
-!          zen1 = SIN(zdec)
-!          zen2 = COS(zdec)*COS(time_of_day)
-!          zen3 = COS(zdec)*SIN(time_of_day)
-!LK          field%cosmu0(jcs:jce,jb) = &
-!               &  zen1*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lat) &
-!               & -zen2*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lon) &
-!               & +zen3*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lon)
 
           SELECT CASE(irad_o3)
             CASE default
@@ -474,11 +457,6 @@ CONTAINS
               ELSE
                 selmon=9
               ENDIF
-
-!              CALL o3_timeint( jce, nbdim, nlev_o3,nmonths,  & !
-!                             & selmon ,                        & ! optional choice for month
-!                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
-!                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
               CALL o3_pl2ml ( kproma=jce, kbdim=nbdim,                &
                              & nlev_pres = nlev_o3,klev= nlev ,       &
