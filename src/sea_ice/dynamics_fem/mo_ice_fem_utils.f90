@@ -63,7 +63,7 @@ MODULE mo_ice_fem_utils
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_oce_math_operators,  ONLY: div_oce_3D
   USE mo_dynamics_config,     ONLY: nold
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D, map_edges2vert_3D
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
   USE mo_physical_constants,  ONLY: rhoi, Cd_ia, rho_ref
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
