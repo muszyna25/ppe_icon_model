@@ -350,31 +350,27 @@ CONTAINS
 
 
        ! Einar: This should be done in update_surface
+       !
+       ! surface temperatures for radiative transfer and radiative heating computations
+       !
+       ! for radiative heating : effective sfc temp. [K]
+       ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
+       ! 
+       ! for radiative transfer: radiative sfc temp. [K]
+       ztemperature_rad(:) = 0._wp
+       DO jsfc=1,nsfc_type
+         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+           & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
+       ENDDO
+       ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
+
        IF (phy_config%ljsbach) THEN
-         ! Calculate ztemperature_rad and _eff everywhere
-         ztemperature_rad(:) = 0._wp
-         ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
-         DO jsfc=1,nsfc_type
-           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
-             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
-         ENDDO
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
-         ! Reset to precalculated land values
+         ! Reset to land values pre-calculated in JSBACH
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
-            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb) ! effective sfc temp. [K]
+            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb)
+            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb)
          ENDWHERE
-       ELSE
-         ztemperature_rad(:) = 0._wp
-         DO jsfc=1,nsfc_type
-!           write(0, *) " jsfc=", jsfc
-!           write(0, *) jsfc, " zfrc(jcs:jce,jsfc)):", zfrc(jcs:jce,jsfc)
-!           write(0, *) jsfc, " field%tsfc_tile(:,jb,jsfc):", field%tsfc_tile(jcs:jce,jb,jsfc)
-           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
-             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
-         ENDDO
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
-        END IF
+       END IF
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -636,17 +632,12 @@ CONTAINS
 
       ! - solar incoming flux at TOA
 
-!!$ TR      field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-!!$ TR                                & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-!!$ TR                                &      +ptime_radheat )
-
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
       field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
-      IF (phy_config%ljsbach) THEN
       CALL radheat (                                   &
         !
         ! input
@@ -663,40 +654,7 @@ CONTAINS
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = ztemperature_eff(:)            ,&! in  effective surface temperature [K]
-        & ptsfctrad  = ztemperature_rad(:)            ,&! in  radiative sfc temp. used in "radiation" [K]
-        & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
-        & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
-        & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
-        !
-        ! output
-        ! ------
-        !
-        & pdtdtradsw = tend%temp_radsw        (:,:,jb),&! out   rad. heating by SW         [K/s]
-        & pdtdtradlw = tend%temp_radlw        (:,:,jb),&! out   rad. heating by LW         [K/s]
-        & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
-        & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
-        & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
-        & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
-      ELSE
-      CALL radheat (                                   &
-        !
-        ! input
-        ! -----
-        !
-        & jcs        = jcs,                            &! in    loop start index
-        & jce        = jce,                            &! in    loop end index
-        & kbdim      = nbdim,                          &! in    dimension size
-        & klev       = nlev,                           &! in    vertical dimension size
-        & klevp1     = nlevp1,                         &! in    vertical dimension size
-        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
-        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
-        & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
-        & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
-        & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
-        & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = field%tsfc               (:,jb),&! in    surface temperature           [K]
+        & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
         & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
         & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
@@ -712,7 +670,6 @@ CONTAINS
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
         & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
         & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
-    END IF ! ljsbach
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
