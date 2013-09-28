@@ -47,7 +47,7 @@ MODULE mo_vdiff_config
   TYPE t_vdiff_config
 
     LOGICAL :: lsfc_mom_flux   !< switch on/off surface momentum flux
-    LOGICAL :: lsfc_heat_flux  !< switch on/off surface heat flux                                  
+    LOGICAL :: lsfc_heat_flux  !< switch on/off surface heat flux
                                !< (sensible AND latent)
 
   END TYPE t_vdiff_config

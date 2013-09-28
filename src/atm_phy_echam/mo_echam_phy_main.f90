@@ -250,7 +250,7 @@ CONTAINS
     DO jc=jcs,jce
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
-!!$ TR      write (*,*) "field% lsmask", field% lsmask(jc,jb), jc, jb
+
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -720,7 +720,6 @@ CONTAINS
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
-                    !& field% tsfc_tile(:,:,jb),        &! in, surface temperature
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -742,21 +741,17 @@ CONTAINS
                      & zxt_emis,                        &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                    !& field% z0m_tile(:,:,jb),         &! in
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                    !& field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
-                    !& field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfh     (:,:,jb),         &! out, for output
-                    !& field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfv     (:,:,jb),         &! out, for output
                      & field% cftke   (:,:,jb),         &! out, for output
@@ -782,7 +777,6 @@ CONTAINS
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
-                    !& field% tsfc_tile(:,:,jb),        &! in, surface temperature
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -804,21 +798,17 @@ CONTAINS
                      & zxt_emis,                        &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                    !& field% z0m_tile(:,:,jb),         &! in
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                    !& field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
-                    !& field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfh     (:,:,jb),         &! out, for output
-                    !& field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfv     (:,:,jb),         &! out, for output
                      & field% cftke   (:,:,jb),         &! out, for output
