@@ -48,6 +48,9 @@ MODULE mo_latitude_interpolation
 
   IMPLICIT NONE
 
+  PRIVATE
+  PUBLIC  :: latitude_weights_li
+
   CONTAINS
 
 !> SUBROUTINE latitude_weights_li  -- calculate weights and indices for 
