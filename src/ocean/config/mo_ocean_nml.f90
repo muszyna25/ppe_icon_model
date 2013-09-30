@@ -157,6 +157,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: CENTRAL= 2
   INTEGER, PARAMETER :: MIMETIC= 3
   INTEGER, PARAMETER :: MIMETIC_MIURA= 4
+  INTEGER, PARAMETER :: ADPO   = 5
   !INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC  ! consistent with l_edge_based=.FALSE.
   !INTEGER            :: FLUX_CALCULATION_VERT = UPWIND   ! consistent with l_edge_based=.FALSE.
   INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.

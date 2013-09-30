@@ -47,7 +47,7 @@ USE mo_kind,                      ONLY: wp
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_ocean_nml,                 ONLY: n_zlev,  &
-  &                                     upwind, central, mimetic_miura,     &
+  &                                     UPWIND, CENTRAL, MIMETIC_MIURA, ADPO, &
   &                                     FLUX_CALCULATION_VERT, l_vert_limiter_advection
 USE mo_parallel_config,           ONLY: nproma
 !USE mo_dynamics_config,           ONLY: nold, nnew
@@ -111,11 +111,15 @@ CONTAINS
 
     !Local variables
     REAL(wp) :: delta_
+    REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw, weight_1, weight_2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     INTEGER  :: z_dolic
-    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
-   TYPE(t_patch), POINTER :: p_patch
+    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical advective tracer flux
+    REAL(wp) :: z_adv_flux_vu(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical upwind tracer flux
+    REAL(wp) :: z_adv_flux_vc(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical central tracer flux
+    TYPE(t_patch), POINTER :: p_patch
+
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_tracer_advection:advect_individual_tracer')
     !-------------------------------------------------------------------------------
@@ -126,37 +130,51 @@ CONTAINS
 
 
     z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
+    z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
+    z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
 
     ! This is already synced in  edges_in_domain !
     ! CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%w_time_weighted)
 
-    ! Initialize timer for horizontal advection
+    ! Initialize timer for vertical advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
 
-    SELECT CASE(FLUX_CALCULATION_VERT)
+    !SELECT CASE(FLUX_CALCULATION_VERT)
+    !CASE(UPWIND)
 
-    CASE(UPWIND)
+    IF (FLUX_CALCULATION_VERT == UPWIND .OR. FLUX_CALCULATION_VERT == ADPO) THEN
 
       CALL upwind_vflux_oce( p_patch_3D,                 &
                             & trac_old,                   &
                             & p_os%p_diag%w_time_weighted,&  ! in
                             & bc_top_tracer,              &
-                            & z_adv_flux_v,tracer_id )
-    CASE(CENTRAL)
+                            & z_adv_flux_vu,tracer_id )
+
+    ENDIF
+
+    !CASE(CENTRAL)
+    IF (FLUX_CALCULATION_VERT == CENTRAL .OR. FLUX_CALCULATION_VERT == ADPO) THEN
 
       CALL central_vflux_oce(p_patch_3D,                 &
                            & trac_old,                   &
                            & p_os%p_diag%w_time_weighted,& ! in
-                           & z_adv_flux_v, tracer_id)
+                           & z_adv_flux_vc, tracer_id)
 
-      !CALL vflx_limiter_pd_oce( p_patch,                 &
+      !IF (l_vert_limiter_advection) &
+      !& CALL vflx_limiter_pd_oce( p_patch,               &
       !                        & dtime,                   &
       !                        & trac_old,                &
       !                        & p_patch_3D%p_patch_1D(1)%prism_thick_c, &
-      !                        & z_adv_flux_v)
-    CASE(MIMETIC_MIURA)
+      !                        & z_adv_flux_vc)
+
+    ENDIF
+
+    ! Vertical advection scheme: piecewise parabolic method (ppm)
+    !CASE(MIMETIC_MIURA)
+    IF (FLUX_CALCULATION_VERT == MIMETIC_MIURA) THEN
+
 #ifndef __SX__
       !TODO review: here p_patch_3D%p_patch_1D(1)%prism_thick_c is used as a
       !data variable, whereas it should only contain geometrics constant in
@@ -168,13 +186,46 @@ CONTAINS
                            & p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
                            & z_adv_flux_v, tracer_id)
 #endif
-    CASE DEFAULT
-      CALL finish('TRIM(advect_diffuse_flux_vert)',"This flux option is not supported")
+    ENDIF
 
-    END SELECT
+    ! Vertical advection scheme: ADPO, adapted from MPIOM (Ernst Meier-Reimer)
+    !   The implementation follows the MPIOM Draft documentation, section 5.2.13 describing ocadpo.f90
+    IF (FLUX_CALCULATION_VERT == ADPO) THEN
+
+      ! main vertical loop
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
+
+            !
+            ! calculation of first and second spatial derivative
+            deriv_fst = trac_old(jc,jk-1,jb)-trac_old(jc,jk+1,jb)
+            deriv_sec = trac_old(jc,jk-1,jb)-trac_old(jc,jk+1,jb) - 2.0_wp*trac_old(jc,jk,jb)
+
+            ! weighting factor corresponding to "r" in MPIOM documentation
+            weight_1 = MAX(0._wp, (deriv_fst-deriv_sec) / (deriv_fst + 1.E-20_wp))
+
+            ! weighting factor corresponding to "R" in MPIOM documentation
+         !  weight_2 = weight_1*vol_new / (transport_top + transport_bottom + 1.E-20_wp) * wet_c(jc,jk+1,jb)
+
+          ENDDO
+        END DO
+      END DO
+
+      adpo_weight_upw_cntr = 0.5_wp
+      adpo_weight_cntr_upw = 1.0_wp - adpo_weight_upw_cntr
+      z_adv_flux_v(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) =                             &
+        & z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_upw_cntr + &
+        & z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_cntr_upw
+
+    ENDIF
+
+    !CASE DEFAULT
+    !  CALL finish('TRIM(advect_diffuse_flux_vert)',"This flux option is not supported")
+    !END SELECT
+
     CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
-
-    IF (ltimer) CALL timer_stop(timer_adv_vert)
 
     !divergence is calculated for advective fluxes
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -187,6 +238,8 @@ CONTAINS
         ENDDO
       END DO
     END DO
+
+    IF (ltimer) CALL timer_stop(timer_adv_vert)
 
     CALL sync_patch_array(SYNC_C, p_patch, flux_div_vert)
 
