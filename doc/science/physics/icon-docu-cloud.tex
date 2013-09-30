@@ -1,11 +1,11 @@
-%\documentclass[rd,12pt]{memo}       % other options: memo ad, rd 
-% \documentclass[od,mr]{memo}  % Additional option mr for mission report 
 \documentclass[a4paper,11pt]{article}
 %\documentclass[a4paper,11pt,twocolumn]{article}
 
 \usepackage{natbib}
 \setlength{\bibsep}{1pt}
-\newcommand{\bibfont}{\footnotesize}
+%\newcommand{\bibfont}{\footnotesize}
+%%% for citation within brackets combined with other text:
+\newcommand{\citeNP}[1]{\citeauthor{#1} \citeyear{#1}}
 
 \usepackage{enumitem}
 
@@ -19,9 +19,6 @@
 \usepackage{array,amsmath,graphicx}
 \author{Martin K\"{o}hler}
 \title{ICON Documentation: Cloud Cover and Water Distribution}
-%\toname{RD} 
-%\copyto{}
-%\file{R58.1/MK/????}
 %\date{ 2007} % optional  
 \begin{document}  \maketitle
 
@@ -43,7 +40,7 @@ sub-grid scale variability are parameterized (named qv, qc, qi).
 
 The ICON-ECHAM physics includes two more cloud options : 
 (1) a relative humidity based scheme and (2) a prognostic
-total water variance scheme based on Tompkins (2002). 
+total water variance scheme based on \cite{tompkins:2002}. 
 They are not yet covered 
 in this documentation.
 
@@ -113,7 +110,7 @@ and
 
 \begin{figure}[t]
 \centering
-\includegraphics*[width=0.7\textwidth,bb=190 130 545 308] {plots/liquidPDF.pdf}
+\includegraphics*[width=0.7\textwidth,bb=190 130 545 308] {liquidPDF.pdf}
 \caption{Box distribution of total water in a grid box that forms a liquid cloud.}
 \label{fg:liquidPDF}
 \end{figure}
@@ -152,7 +149,7 @@ relative humidity of 95\%.
 
 \subsection{Convective clouds}
 
-The Tiedtke (1989) convection scheme provides detrainment properties that we are using to create a diagnostic anvil
+The \cite{tiedtke:1989} convection scheme provides detrainment properties that we are using to create a diagnostic anvil
 (see figure \ref{fg:anvil}).  In particular three parameters calculated by the convection scheme are available:
 detrainment rate $D_u$, updraft liquid water $q_{l,up}$ and ice water $q_{i,up}$.  The anvil cloud cover can
 be estimated from
@@ -172,11 +169,11 @@ CC= \frac{\frac{D_u}{\rho}}{\frac{D_u}{\rho} + \frac{1}{\tau_{decay}}}
 The anvil decay time-scale $\tau_{diss}$ is currently set to 30min.  
 Observations of anvil life times are on the order of a few hours.   
 This decay time-scale should be dependent on environmental 
-relative humidity (Tiedtke 1993, eq. 30-32).
+relative humidity (\citeNP{tiedtke:1993}, eq. 30-32).
 
 \begin{figure}[t]
 \centering
-\includegraphics*[width=0.5\textwidth,bb=40 225 330 420] {plots/detrainment_anvil.pdf}
+\includegraphics*[width=0.5\textwidth,bb=40 225 330 420] {detrainment_anvil.pdf}
 \caption{Detrainment terms from convection create an anvil.}
 \label{fg:anvil}
 \end{figure}
@@ -259,8 +256,8 @@ The only unfortunate fact is that this formula depends on $e$, the current speci
 
 %-------------------------------------------------------------------------
 
-\bibliography {/fe1-daten/mkoehler/papers-me/references/REFERENCES}
-\bibliographystyle {/fe1-daten/mkoehler/papers-me/references/wileyqj} %QJ
+\bibliography {../references-icon-science}
+\bibliographystyle {../wileyqj} %QJ
 
 
 \end{document}
