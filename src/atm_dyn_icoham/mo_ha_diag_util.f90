@@ -661,6 +661,8 @@ CONTAINS
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
         IF (lgeop_wrt_sfc) THEN
+          z_gzs(is:ie) = 0._wp
+        ELSE
           IF (phy_config%lamip) THEN
             cur_datetime = time_config%cur_datetime
             ini_datetime = time_config%ini_datetime
@@ -669,11 +671,7 @@ CONTAINS
             !IF (jb==jbs) WRITE(*,*) 'Growing topography by factor ', factor_topo
             p_ext_data%atm%topography_c(is:ie,jb) = &
               p_ext_data%atm%elevation_c(is:ie,jb) * factor_topo
-            z_gzs(is:ie) = grav*p_ext_data%atm%topography_c(is:ie,jb)
-          ELSE
-            z_gzs(is:ie) = 0._wp
           END IF
-        ELSE
           z_gzs(is:ie) = grav*p_ext_data%atm%topography_c(is:ie,jb)
         ENDIF
 
