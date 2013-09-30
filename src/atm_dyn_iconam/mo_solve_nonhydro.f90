@@ -49,7 +49,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     lbackward_integr, veladv_offctr
+                                     lbackward_integr, veladv_offctr, divdamp_fac_o2
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -182,6 +182,7 @@ MODULE mo_solve_nonhydro
                 z_rho_expl      (nproma,p_patch%nlev  ),          &
                 z_exner_expl    (nproma,p_patch%nlev  ),          &
                 z_exner_ic      (nproma,p_patch%nlevp1),          &
+                z_theta_tavg    (nproma,p_patch%nlev  ),          &
                 z_rho_tavg      (nproma,p_patch%nlev  )
 
     ! The data type vp (variable precision) is by default the same as wp but reduces
@@ -196,7 +197,6 @@ MODULE mo_solve_nonhydro
                 z_q             (nproma,p_patch%nlev  ),          &
                 z_w_backtraj    (nproma,p_patch%nlevp1),          &
                 z_graddiv2_vn   (nproma,p_patch%nlev  ),          &
-                z_theta_tavg    (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_mc (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_ic (nproma,p_patch%nlevp1),          &
                 z_w_concorr_mc  (nproma,p_patch%nlev  ),          &
@@ -206,9 +206,10 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel, &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,     &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, multfac_vntraj
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,    &
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,        &
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, multfac_vntraj, &
+               scal_divdamp_o2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
@@ -295,18 +296,18 @@ MODULE mo_solve_nonhydro
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-    ! scaling factor for divergence damping: divdamp_fac*delta_x**2
+    ! scaling factor for second-order divergence damping: divdamp_fac_o2*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
-    IF (divdamp_order == 2) THEN
-      scal_divdamp(:) = divdamp_fac * p_patch%geometry_info%mean_cell_area 
-    ELSE IF (divdamp_order == 4) THEN
-       ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
-       ! with height to a value of 0.004 (= the namelist default) at 40 km
-       enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
-         MAX(0._wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
-       enh_divdamp_fac(:) = MAX(divdamp_fac,enh_divdamp_fac(:))
-       scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
-    ENDIF
+    scal_divdamp_o2 = divdamp_fac_o2 * p_patch%geometry_info%mean_cell_area 
+
+    ! Fourth-order divergence damping
+    !
+    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
+    ! with height to a value of 0.004 (= the namelist default) at 40 km
+    enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
+      MAX(0._wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
+    enh_divdamp_fac(:) = MAX(divdamp_fac,enh_divdamp_fac(:))
+    scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
     dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
@@ -1161,7 +1162,7 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-      IF (lhdiff_rcf .AND. istep == 2 .AND. divdamp_order == 4) THEN ! fourth-order divergence damping
+      IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1185,15 +1186,15 @@ MODULE mo_solve_nonhydro
 
       IF (lhdiff_rcf .AND. istep == 2) THEN
         ! apply divergence damping if diffusion is not called every sound-wave time step
-        IF (divdamp_order == 2) THEN ! second-order divergence damping
+        IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! second-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) &
-                + scal_divdamp(jk)*z_graddiv_vn(je,jk,jb)
+                + scal_divdamp_o2*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order == 4 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
+        ELSE IF (ANY( (/24,4/) == divdamp_order) .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
           ! fourth-order divergence damping with reduced damping coefficient along nest boundary
           ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
           ! damping along nest boundaries is beneficial because this reduces the interference
@@ -1205,7 +1206,7 @@ MODULE mo_solve_nonhydro
                 + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
             ENDDO
           ENDDO
-        ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
+        ELSE IF (ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx

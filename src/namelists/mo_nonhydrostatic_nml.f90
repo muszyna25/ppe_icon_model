@@ -54,6 +54,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_lextra_diffu     => lextra_diffu     , &
                                     & config_lbackward_integr => lbackward_integr , &
                                     & config_divdamp_fac      => divdamp_fac      , &
+                                    & config_divdamp_fac_o2   => divdamp_fac_o2   , &
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_divdamp_type     => divdamp_type     , &
                                     & config_ivctype          => ivctype          , &
@@ -352,9 +353,9 @@ CONTAINS
     ENDIF
 
     SELECT CASE (divdamp_order)
-    CASE (2,4) !OK
+    CASE (2,4, 24) !OK
     CASE DEFAULT
-      CALL finish( TRIM(routine),'Invalid value for divdamp_order (must be 2 or 4)' )
+      CALL finish( TRIM(routine),'Invalid value for divdamp_order (must be 2, 24 or 4)' )
     END SELECT
 
     !----------------------------------------------------
@@ -378,6 +379,7 @@ CONTAINS
        config_lextra_diffu      = lextra_diffu
        config_lbackward_integr  = lbackward_integr
        config_divdamp_fac       = divdamp_fac
+       config_divdamp_fac_o2    = divdamp_fac ! initialization - divdamp_fac_o2 is a derived variable that may change during runtime
        config_divdamp_order     = divdamp_order
        config_divdamp_type      = divdamp_type
        config_itime_scheme      = itime_scheme
