@@ -79,9 +79,9 @@ while [[ $nt < ${#inidate[*]} ]]; do
   set -A vars  W_SO  T_SO     #W_SO_ICE_tile_1 
   for var in ${vars[*]}
   do
-    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-    echo ${metview} -b ${scriptdir}map.error $expnum $var lnd diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var sfc snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var sfc ctr   ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $var sfc diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   
   # -------------------------------------------------------
