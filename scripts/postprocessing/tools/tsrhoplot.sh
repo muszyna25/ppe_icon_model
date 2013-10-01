@@ -159,9 +159,9 @@ begin
 ;-- for yearly data ! mon=12=Dec
 ;-----------------------------------------------------------------------------
 ;-- more TBD:
-;    - geometry of the plot (postscript)
-;    - title with $outputDataFile
-;    - shorter minor x-tick marks
+;    - geometry of the plot (postscript) - do not use automatic scaling (gsn_panel)
+;    - independent placing of string with $outputDataFile - not in title
+;    - shorter minor x-tick marks - do not use stride for x-axis labelling
 ;-----------------------------------------------------------------------------
 
    dates       = systemfunc("cdo showdate $outputDataFile")
@@ -317,7 +317,7 @@ begin
 ;  res@vpWidthF             =  0.98               ;-- set view port width of each plot in panel
 ;  res@vpHeightF            =  0.40               ;-- set view port height of each plot in panel 
    res@vpWidthF             =  0.6                ;-- set view port width of each plot in panel
-   res@vpHeightF            =  0.27               ;-- set view port height of each plot in panel 
+   res@vpHeightF            =  0.31               ;-- set view port height of each plot in panel 
                                                   ;--          (optimized value for "ps" output)
 ;  res@vpXF                 =  1.0
 ;  res@vpYF                 =  1.0
@@ -367,7 +367,7 @@ begin
 ;  res@lbBoxMinorExtentF    =  0.25               ;-- decrease the width of the labelbar
    res@lbLabelFontHeightF   =  0.012              ;-- label bar font
    res@lbOrientation        = "vertical"          ;-- set labelbar orientation
-   res@pmLabelBarWidthF     =  0.12               ;-- set labelbar width
+   res@pmLabelBarWidthF     =  0.13               ;-- set labelbar width
    res@pmLabelBarHeightF    =  0.34               ;-- set labelbar height
    ;  this increases the height of the 3 panels, fits DINA4 better!?
 
@@ -383,7 +383,7 @@ begin
    res0@cnMinLevelValF       = -3                 ;-- set min contour level
    res0@cnMaxLevelValF       =  3                 ;-- set max contour level
    res0@cnLevelSpacingF      =  0.3               ;-- set contour spacing
-   res0@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
+;  res0@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
 
    plot(0) = gsn_csm_contour(wks,temp2,res0)
 
@@ -397,7 +397,7 @@ begin
    res1@cnMinLevelValF       = -0.3               ;-- set min contour level
    res1@cnMaxLevelValF       =  0.3               ;-- set max contour level
    res1@cnLevelSpacingF      =  0.03              ;-- set contour spacing
-   res1@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
+   res1@pmLabelBarOrthogonalPosF =  0.038         ;-- position label bar
 
    plot(1) = gsn_csm_contour(wks,s2,res1)
 
@@ -419,15 +419,17 @@ begin
    res2@tmXBValues           =  time2             ;-- values for x-axis tickmarks
    res2@tmXBLabels           =  ""+year           ;-- set labels equal to values (type string)
    res2@tmXBLabelStride      =  10                ;-- draw every 5th label
-   res2@tmXBLabelFontHeightF =  0.013             ;-- x-axis font size
+   res2@tmXBLabelFontHeightF =  0.012             ;-- x-axis font size
    res2@tmXBLabelAngleF      =  45                ;-- rotate the x-axis labels counter clockwise
    res2@tmXBLabelDeltaF      =  0.5               ;-- move the x-axis labels downward
    res2@tmXBLabelsOn         =  True              ;-- draw the x-axis tickmark labels
    res2@tiXAxisOn            =  True              ;-- draw the x-axis title    
    res2@tiXAxisString        = "Time"             ;-- draw x-axis title string
-   res2@tiXAxisOffsetYF      =  0.02              ;-- move x-axis title string upward
+;  res2@tiXAxisOffsetYF      =  0.00              ;-- move x-axis title string upward
    res2@tiXAxisFontHeightF   =  0.016             ;-- x-axis font size
-   res2@pmLabelBarOrthogonalPosF = 0.0            ;-- position label bar
+   res2@tmXBMinorLengthF     =  0.003             ;-- no minor ticks since stride was used above
+;  res2@tmXBMajorLengthF     =  0.01
+   res2@pmLabelBarOrthogonalPosF = 0.018          ;-- position label bar
 
    plot(2) = gsn_csm_contour(wks,rho2,res2)
 
@@ -437,16 +439,22 @@ begin
   pres                       =  True              ;-- resource object for panel
   pres@gsnPaperOrientation   = "Portrait"         ;-- set paper orientation
   pres@gsnMaximize           = True               ;-- maximize plots (don't set gsnMaximize for the other res's)
-  pres@gsnPanelBottom        =  0.00              ;-- set panel bottom
 ; pres@gsnPanelYF            =  (/0.95,.65,.35/)  ;-- adjust middle and lower plot
 ; pres@gsnPanelYF            =  (/0.92,.61,.30/)  ;-- adjust middle and lower plot
   pres@gsnPanelYF            =  (/0.94,.64,.34/)  ;-- adjust middle and lower plot
 ; pres@gsnPanelYF            =  (/0.945,.65,.355/)  ;-- adjust middle and lower plot
-  pres@gsnPanelTop           =  0.95              ;-- set panel top
+  pres@gsnPanelTop           =  0.94              ;-- set panel top
+  pres@gsnPanelBottom        =  0.05              ;-- set panel bottom
   pres@txFontHeightF         =  0.019             ;-- set text font size
-  pres@txString              = "ICON: Global Mean Evolution" ;-- draw title string
-; pres@txString              = "ICON: Global Mean Evolution:C:$outputDataFile" ;-- draw title string
+; pres@txString              = "ICON: Global Mean Evolution" ;-- draw title string
+                                                  ;-- draw title string including file string
+  pres@txString              = "ICON: Global Mean Evolution~C~~Z75~            $outputDataFile"
 ; pres@txPosYF               =  0.98
+
+; tres                       =  True              ;-- resource object for panel
+; tres@txFontHeightF         = 0.015              ;
+; gsn_text_ndc(wks,"$output",.2,.9,tres)
+; gsn_text_ndc(wks,"filename hier",.4,.97,tres)   ;  changes viewport!
 
   gsn_panel(wks,plot,(/3,1/),pres)
 
