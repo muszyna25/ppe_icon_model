@@ -37,7 +37,7 @@ MPIOM_GRID_DIR_DEFAULT='/pool/data/MPIOM/input'
 #    remapFields[icon]=$ICON_GRID_DIR
 #   remapFields[mpiom]=$MPIOM_GRID_DIR
            targetGrid=./cell_grid-${RESOLUTION}.nc
-         targetWeight=./cell_weight-${RESOLUTION}.nc
+         targetWeight=./cell_weight-phc3-to-${MODEL}-${RESOLUTION}.nc
 
 declare -A remapOperator
   remapOperator[icon]=gencon
