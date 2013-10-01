@@ -79,9 +79,10 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: ramp_wind          !< Time (in days) that the wind stress is increased over.
                                         !  This is only necessary for runs which start off from a
                                         !  still ocean, i.e. not re-start
+  REAL(wp),PUBLIC :: hci_layer          !< Thickness of stabilizing constant heat capacity layer
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
-    &           i_Qio_type
+    &           i_Qio_type, hci_layer
 
 CONTAINS
   !>
@@ -105,6 +106,8 @@ CONTAINS
 
     hnull       = 0.5_wp
     hmin        = 0.05_wp
+    hci_layer   = 0.10_wp
+
     ramp_wind   = 10._wp
 
     !------------------------------------------------------------------
@@ -177,6 +180,9 @@ CONTAINS
       ramp_wind = TINY(1._wp)
     ENDIF
 
+    IF (hci_layer < 0) THEN
+      CALL message(TRIM(routine), 'hci_layer < 0, setting it equal to zero')
+    ENDIF
 
     !------------------------------------------------------------------
     ! Store the namelist for restart

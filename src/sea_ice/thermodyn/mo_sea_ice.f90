@@ -57,7 +57,8 @@ MODULE mo_sea_ice
     &                               Cd_ia
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer
+
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, &
     &                               ocean_restart_list, set_oce_tracer_info
   USE mo_var_list,            ONLY: add_var, add_ref, groups
@@ -1349,7 +1350,7 @@ CONTAINS
     ELSE IF ( i_ice_therm == 4 )  THEN
       WHERE ( hi(:,:) > 0._wp )
       Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
-        &               / (ci*rhoi*0.05_wp/pdtime-dnonsolardT+ki/hi))
+        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT+ki/hi))
       ELSEWHERE
         Tsurf(:,:) = Tf
       ENDWHERE
@@ -1834,8 +1835,6 @@ CONTAINS
   !! Einar Olason, renamed and added support for changing concentration
   !!
   SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
-
-    USE mo_sea_ice_nml,         ONLY: hnull, hmin
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice
