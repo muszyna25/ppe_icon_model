@@ -129,9 +129,9 @@ CONTAINS
     cells_in_domain => p_patch%cells%in_domain
 
 
-    z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
-    z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
-    z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
+    z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
 
@@ -152,6 +152,9 @@ CONTAINS
                             & bc_top_tracer,              &
                             & z_adv_flux_vu,tracer_id )
 
+      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
+      &  z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
     ENDIF
 
     !CASE(CENTRAL)
@@ -168,6 +171,9 @@ CONTAINS
       !                        & trac_old,                &
       !                        & p_patch_3D%p_patch_1D(1)%prism_thick_c, &
       !                        & z_adv_flux_vc)
+
+      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
+      &  z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     ENDIF
 
