@@ -117,7 +117,7 @@ CONTAINS
                            & albnirdir_ice, albnirdif_ice,      &! inout
                            & albvisdir_wtr, albvisdif_wtr,      &! inout
                            & albnirdir_wtr, albnirdif_wtr,      &! inout
-                           & pswflx_wtr, plwflx_wtr)             ! out (for coupling)
+                           & pswflx_tile, plwflx_tile)             ! out (for coupling)
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
     REAL(wp),INTENT(IN) :: pdtime, psteplen
@@ -198,8 +198,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_wtr(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_wtr(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pswflx_wtr(kbdim) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: plwflx_wtr(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: pswflx_tile(kbdim,ksfc_type) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: plwflx_tile(kbdim,ksfc_type) ! OUT
 
 ! locals
 
@@ -486,21 +486,19 @@ CONTAINS
 
       ENDDO
 ! Then open water
-      IF ( PRESENT(plwflx_wtr) ) &
-        &       plwflx_wtr(1:kproma) = LWin(1:kproma) - zemiss_def * stbo * ptsfc_tile(1:kproma,idx_wtr)**4
+      IF ( PRESENT(plwflx_tile) ) THEN
+        plwflx_tile(1:kproma,idx_wtr) = LWin(1:kproma) - zemiss_def * stbo * ptsfc_tile(1:kproma,idx_wtr)**4
+        plwflx_tile(1:kproma,idx_ice) = LWin(1:kproma) - zemiss_def * stbo * (Tsurf(1:kproma,1)+tmelt)**4
+      ENDIF
 
-      IF ( PRESENT(pswflx_wtr) ) &
-        &       pswflx_wtr(1:kproma) = ptrsolall(1:kproma) * (                         &
-        &        0.28_wp / (1._wp-albvisdir(1:kproma)) * (1._wp-albvisdir_wtr(1:kproma)) + &
-        &        0.24_wp / (1._wp-albvisdif(1:kproma)) * (1._wp-albvisdif_wtr(1:kproma)) + &
-        &        0.31_wp / (1._wp-albnirdir(1:kproma)) * (1._wp-albnirdir_wtr(1:kproma)) + &
-        &        0.17_wp / (1._wp-albnirdif(1:kproma)) * (1._wp-albnirdif_wtr(1:kproma)) )
-
-!        &       pswflx_wtr(1:kproma) = &
-!        &        0.28_wp*ptrsolall(1:kproma)/(1._wp-albvisdir(1:kproma))*(1._wp-albvisdir_wtr(1:kproma)) + &
-!        &        0.24_wp*ptrsolall(1:kproma)/(1._wp-albvisdif(1:kproma))*(1._wp-albvisdif_wtr(1:kproma)) + &
-!        &        0.31_wp*ptrsolall(1:kproma)/(1._wp-albnirdir(1:kproma))*(1._wp-albnirdir_wtr(1:kproma)) + &
-!        &        0.17_wp*ptrsolall(1:kproma)/(1._wp-albnirdif(1:kproma))*(1._wp-albnirdif_wtr(1:kproma))
+      IF ( PRESENT(pswflx_tile) ) THEN
+        pswflx_tile(1:kproma,idx_wtr) = ptrsolall(1:kproma) * (                                 &
+          &        0.28_wp / (1._wp-albvisdir(1:kproma)) * (1._wp-albvisdir_wtr(1:kproma)) +    &
+          &        0.24_wp / (1._wp-albvisdif(1:kproma)) * (1._wp-albvisdif_wtr(1:kproma)) +    &
+          &        0.31_wp / (1._wp-albnirdir(1:kproma)) * (1._wp-albnirdir_wtr(1:kproma)) +    &
+          &        0.17_wp / (1._wp-albnirdif(1:kproma)) * (1._wp-albnirdif_wtr(1:kproma)) )
+        pswflx_tile(1:kproma,idx_ice) = swflx_ice(1:kproma,1)
+      ENDIF
 
       CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
         &   Tsurf,              &

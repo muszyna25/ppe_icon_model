@@ -904,8 +904,8 @@ CONTAINS
                        & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
                        & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
-                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
-                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
+                       & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
+                       & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
         field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
@@ -961,8 +961,8 @@ CONTAINS
                        & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
                        & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
-                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
-                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
+                       & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
+                       & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
     ENDIF ! ljsbach
 
