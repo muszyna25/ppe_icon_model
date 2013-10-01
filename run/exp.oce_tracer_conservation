@@ -32,7 +32,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=0   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
@@ -111,7 +111,7 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #-----------------------------------------------------------------------------
 # provide an ocean horizontal grid file
   grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-  grid_ext="aqua_planet"
+# grid_ext="aqua_planet"
 #
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
