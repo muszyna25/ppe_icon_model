@@ -192,6 +192,12 @@ if [[ $lsplitdata = 1 ]] ; then
     done
   done
 
+# fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
+  for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
+    cdo copy ${ml_file}      ${ml_file}_temp
+    mv       ${ml_file}_temp ${ml_file}
+  done
+
   ls -l grb_data
 
 fi
