@@ -340,6 +340,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MCYCL   = 20
   INTEGER, PARAMETER :: MIURA_MCYCL  = 22
   INTEGER, PARAMETER :: MIURA3_MCYCL = 32
+  INTEGER, PARAMETER :: FFSL_MCYCL = 42
 
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0

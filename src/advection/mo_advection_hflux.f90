@@ -47,6 +47,8 @@
 !! - new Miura-type advection scheme with internal time-step subcycling
 !! Modification by Daniel Reinert, DWD (2012-05-04)
 !! - removed optional slope limiter
+!! Modification by Daniel Reinert, DWD (2013-09-30)
+!! - new option: FFSL + Miura-type advection with subcycling
 !!
 !!
 !! @par Copyright
@@ -88,8 +90,8 @@ MODULE mo_advection_hflux
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               UP, MIURA, MIURA3, FFSL, MCYCL,             &
-    &                               MIURA_MCYCL, MIURA3_MCYCL, UP3, ifluxl_m,   &
-    &                               ifluxl_sm
+    &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, UP3, &
+    &                               ifluxl_m, ifluxl_sm
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
@@ -104,8 +106,6 @@ MODULE mo_advection_hflux
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
   USE mo_intp,                ONLY: cells2edges_scalar
-  USE mo_dynamics_config,     ONLY: iequations
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh_atm => itime_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
@@ -153,6 +153,7 @@ CONTAINS
   !! - the MIURA method with linear reconstruction (essentially 2D)
   !! - the MIURA method with linear reconstruction and internal subcycling
   !! - the MIURA method with quadr/cubic reconstruction (essentially 2D)
+  !! - the FFSL method with quadr/cubic reconstruction (essentially 2D)
   !!
   !!
   !! @par Revision History
@@ -161,6 +162,8 @@ CONTAINS
   !! - tracer loop moved from step_advection to hor_upwind_flux
   !! Modification by Daniel Reinert (2010-11-09)
   !! - removed MUSCL-type horizontal advection
+  !! Modification by Daniel Reinert, DWD (2013-09-30)
+  !! - new option: FFSL + Miura-type advection with subcycling
   !!
   !
   ! !LITERATURE
@@ -412,6 +415,44 @@ CONTAINS
           &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
           &              lcompute%miura3_mcycl_h(jt),                    &! in
           &              lcleanup%miura3_mcycl_h(jt),                    &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              opt_lconsv  = llsq_lin_consv,                   &! in
+          &              opt_real_vt = z_real_vt,                        &! in
+          &              opt_rlend   = i_rlend,                          &! in
+          &              opt_slev    = p_iadv_slev(jt),                  &! in
+          &              opt_elev    = qvsubstep_elev,                   &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
+          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ENDIF
+
+      CASE (FFSL_MCYCL)
+
+        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+
+        ! CALL standard FFSL for lower atmosphere and the subcycling version of 
+        ! MIURA for upper atmosphere
+        CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
+          &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
+          &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
+          &                 p_upflux(:,:,:,jt),                           &! inout
+          &                 opt_real_vt = z_real_vt,                      &! in
+          &                 opt_lconsv  = llsq_high_consv,                &! in
+          &                 opt_rlend   = i_rlend,                        &! in
+          &                 opt_slev    = qvsubstep_elev+1,               &! in
+          &                 opt_elev    = p_patch%nlev,                   &! in
+          &                 opt_ti_slev = qvsubstep_elev+1,               &! in
+          &                 opt_ti_elev = p_patch%nlev                    )! in
+
+        IF (qvsubstep_elev > 0) THEN
+
+        ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
+        ! with substepping. This prevents us from computing the backward 
+        ! trajectories twice for the standard miura3-scheme.
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
+          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
+          &              lcompute%ffsl_mcycl_h(jt),                      &! in
+          &              lcleanup%ffsl_mcycl_h(jt),                      &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
           &              opt_lconsv  = llsq_lin_consv,                   &! in

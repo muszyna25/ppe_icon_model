@@ -41,8 +41,9 @@ MODULE mo_initicon_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, &
-    &                              MODE_IFSANA, MODE_DWDANA,MODE_COMBINED 
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,  &
+    &                              max_var_ml, MODE_IFSANA, MODE_DWDANA, &
+    &                              MODE_COMBINED 
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -58,6 +59,7 @@ MODULE mo_initicon_nml
     & config_dwdana_filename    => dwdana_filename,   &
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
+    & config_ana_varlist        => ana_varlist,       &
     & config_ana_varnames_map_file => ana_varnames_map_file
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -86,6 +88,10 @@ MODULE mo_initicon_nml
                                            ! to fine resolutions over mountainous terrain
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
+  CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+                                                      ! This list can include a subset or the 
+                                                      ! entire set of default analysis fields.
+
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
@@ -103,10 +109,11 @@ MODULE mo_initicon_nml
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
 
-  NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode, &
-                          nlevsoil_in, l_sst_in, l_ana_sfc,                     &
-                          ifs2icon_filename, dwdfg_filename,                    &
-                          dwdana_filename, filetype, ana_varnames_map_file
+  NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,   &
+                          nlevsoil_in, l_sst_in, l_ana_sfc,              &
+                          ifs2icon_filename, dwdfg_filename,             &
+                          dwdana_filename, filetype, ana_varlist,        &
+                          ana_varnames_map_file
   
 CONTAINS
 
@@ -144,6 +151,12 @@ CONTAINS
   l_ana_sfc   = .TRUE.      ! true: read soil/surface analysis fields from 
                             !       analysis file dwdana_filename 
   filetype    = -1          ! "-1": undefined
+  ana_varlist = ''          ! list of mandatory analysis fields. This list can include a subset 
+                            ! or the entire set of default analysis fields. If any of these fields
+                            ! is missing in the analysis file, the model aborts. On default 
+                            ! this list is empty, meaning that fields which are missing in the 
+                            ! analysis file (when compared to the default set), are simply 
+                            ! taken from the first guess.
   ana_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -180,6 +193,7 @@ CONTAINS
   config_dwdana_filename    = dwdana_filename
   config_l_coarse2fine_mode = l_coarse2fine_mode
   config_filetype           = filetype
+  config_ana_varlist        = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------
@@ -189,8 +203,18 @@ CONTAINS
   z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_COMBINED/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid initialization mode. Must be init_mode=1 or 2')
+      &  'Invalid initialization mode. Must be init_mode=1, 2 or 3')
   ENDIF
+
+  ! Check whether a NetCDF<=>GRIB2 Map File is needed, and if so, whether 
+  ! it is provided
+  IF (ANY((/MODE_DWDANA,MODE_COMBINED/)==init_mode)) THEN
+    ! NetCDF<=>GRIB2 Map File required
+    IF(ana_varnames_map_file == ' ') THEN
+    CALL finish( TRIM(routine),                         &
+      &  'ana_varnames_map_file required, but missing.')
+    ENDIF
+  ENDIF 
 
   ! write the contents of the namelist to an ASCII file
 

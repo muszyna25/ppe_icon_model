@@ -54,7 +54,7 @@ MODULE mo_nml_crosscheck
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
-    &                              ifluxl_sm, ifluxl_m, ihs_ocean,            &
+    &                              FFSL_MCYCL, ifluxl_sm, ifluxl_m, ihs_ocean,&
     &                              RAYLEIGH_CLASSIC, MODE_REMAP, iedmf,       &
     &                              icosmo
   USE mo_time_config,        ONLY: time_config, restart_experiment
@@ -281,7 +281,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
-    INTEGER :: z_go_hex(3), z_go_tri(8), z_nogo_tri(2)   ! for crosscheck
+    INTEGER :: z_go_hex(3), z_go_tri(9), z_nogo_tri(3)   ! for crosscheck
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
 
@@ -788,21 +788,21 @@ CONTAINS
 
       SELECT CASE (global_cell_type)
       CASE (3)
-        z_go_tri(1:8)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,MCYCL,MIURA_MCYCL,MIURA3_MCYCL/)
+        z_go_tri(1:9)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,MCYCL,MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL/)
         DO jt=1,ntracer
           IF ( ALL(z_go_tri /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
             CALL finish( TRIM(method_name),                                       &
               &  'incorrect settings for TRI-C grid ihadv_tracer. Must be '// &
-              &  '0,1,2,3,4,20,22, or 32 ')
+              &  '0,1,2,3,4,20,22,32 or 42 ')
           ENDIF
         ENDDO
 
         IF ( ntracer > 1 ) THEN
-          z_nogo_tri(1:2)=(/MIURA_MCYCL,MIURA3_MCYCL/)
+          z_nogo_tri(1:3)=(/MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL/)
           DO jt=2,ntracer
             IF ( ANY(z_nogo_tri == advection_config(jg)%ihadv_tracer(jt)) ) THEN
               CALL finish( TRIM(method_name),                                       &
-                &  'TRI-C grid ihadv_tracer: MIURA(3)_MCYCL not allowed for '// &
+                &  'TRI-C grid ihadv_tracer: MIURA(3)/FFSL_MCYCL not allowed for '// &
                 &  'any other tracer than qv.')
             ENDIF
           ENDDO

@@ -39,7 +39,8 @@ MODULE mo_initicon_config
     &                              associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom, MODE_IFSANA
+  USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, &
+    &                              MODE_IFSANA
 
   IMPLICIT NONE
 
@@ -53,6 +54,7 @@ MODULE mo_initicon_config
   PUBLIC :: dwdfg_filename
   PUBLIC :: dwdana_filename
   PUBLIC :: generate_filename
+  PUBLIC :: ana_varlist
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
   PUBLIC :: is_coldstart_soil
@@ -77,6 +79,10 @@ MODULE mo_initicon_config
                                            ! to fine resolutions over mountainous terrain
 
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
+
+  CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+                                                      ! This list can include a subset or the 
+                                                      ! entire set of default analysis fields.
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
