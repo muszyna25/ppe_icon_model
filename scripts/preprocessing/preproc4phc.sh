@@ -3,6 +3,10 @@
 set -x
 
 #==============================================================================
+# Usage:
+#   MODEL=icon GRID=../ocean_grid/iconR2B04-ocean_etopo40_planet.nc RESOLUTION=R2B04 PHC_DIR=. FORCE=1 LEVELS=L20 ./preproc4phc.sh
+#   MODEL=mpiom GRID=../../mpiom/GR30L20_fx.nc  RESOLUTION=GR15 PHC_DIR=. FORCE=1 LEVELS=L40 ./preproc4phc.sh
+#==============================================================================
 # CONFIGURATION
 #==============================================================================
 # input
@@ -29,11 +33,11 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${RESOLUTION}_${LEVELS}.nc
 MPIOM_GRID_DIR_DEFAULT='/pool/data/MPIOM/input'
         MPIOM_GRID_DIR=${MPIOM_GRID_DIR:-${MPIOM_GRID_DIR_DEFAULT}}
 # grids/weights for horizontal interpolation
-declare -A remapFields
-    remapFields[icon]=$ICON_GRID_DIR
-   remapFields[mpiom]=$MPIOM_GRID_DIR
-           targetGrid=${remapFields[${MODEL}]}/cell_grid-${RESOLUTION}.nc
-         targetWeight=${remapFields[${MODEL}]}/cell_weight-${RESOLUTION}.nc
+#declare -A remapFields
+#    remapFields[icon]=$ICON_GRID_DIR
+#   remapFields[mpiom]=$MPIOM_GRID_DIR
+           targetGrid=./cell_grid-${RESOLUTION}.nc
+         targetWeight=./cell_weight-${RESOLUTION}.nc
 
 declare -A remapOperator
   remapOperator[icon]=gencon
@@ -78,9 +82,9 @@ $CDO -r -settaxis,2000-01-01,0,years  -fillmiss ${PHC_MERGED} ${PHC_NOMISS}
 # * if the targeWeight are not present, they have to be created by with the targeGrid
 # * if the targeGrid is not present, it has to be selection from the file
 #   provides with the GRID variable
-if [ ! -f ${targetWeight} -o "$FORCE" -eq 1 ];then 
-  if [ ! -f ${targeGrid} -o "$FORCE" -eq 1 ]; then
-    if [[ ! -f ${GRID} ]]; then
+if test ! -f "${targetWeight}" -o "$FORCE" -eq 1 ;then
+  if test ! -f "${targeGrid}" -o "$FORCE" -eq 1 ; then
+    if test ! -f ${GRID} ; then
       echo "GRID variablen has to be set correctly!"
       exit 1
     else
@@ -96,7 +100,7 @@ $CDO -P ${THREADS} -remap,${targetGrid},${targetWeight} ${PHC_NOMISS} ${TARGET_M
 $CDO -sellevel,10 ${TARGET_MODEL_NOMISS} ${TARGET_MODEL_SURF}
 
 #==============================================================================
-# vertical interpolation 
+# vertical interpolation
 $CDO -intlevelx,${remapLevels[${LEVELS}]} ${TARGET_MODEL_NOMISS} ${TARGET_MODEL_OUTPUT}
 
 #==============================================================================
