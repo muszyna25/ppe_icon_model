@@ -1065,6 +1065,7 @@ scripts/preprocessing/mars4icon_smi_32r3+_eda -text
 scripts/preprocessing/mars4icon_smi_ERAinterim -text
 scripts/preprocessing/mars4icon_sst -text
 scripts/preprocessing/omip2icon.rb -text
+scripts/preprocessing/preproc4omip.rb -text
 scripts/preprocessing/preproc4phc.sh -text
 scripts/preprocessing/testdata/2.98.128.table -text
 scripts/preprocessing/testdata/atm_hyb_sp_31 -text
