@@ -290,7 +290,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 10.0
+ rat_sea                      = 9.0
 /
 &lnd_nml
  ntiles                       = 3
