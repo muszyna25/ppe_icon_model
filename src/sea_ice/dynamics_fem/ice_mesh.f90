@@ -114,7 +114,7 @@ subroutine local_element_def(element, &
   integer                                     :: i
   integer                                     :: node
   REAL(wp)                                :: meancos
-  REAL(wp), dimension(2,2)                :: trans_temp
+  REAL(wp), dimension(3,2)                :: trans_temp
   !
   meancos=cos_elem2D(element)
   do i=1, 3
