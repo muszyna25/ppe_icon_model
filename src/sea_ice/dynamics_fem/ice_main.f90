@@ -79,6 +79,7 @@ subroutine ice_init_fem
   use mo_ice_iceparam
   USE mo_run_config,          ONLY: dtime
   USE mo_kind,    ONLY: wp
+  USE mo_set_mesh,            ONLY: set_mesh
 
 implicit none
 integer      :: steps, step
