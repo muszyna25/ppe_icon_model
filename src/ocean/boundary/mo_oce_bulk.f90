@@ -838,8 +838,9 @@ CONTAINS
 #endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
-            p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_u(:,:))
+            Qatm%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            !TODO: Add stress for ice
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_xw(:,:))
         ENDIF
       !
       ! meridional wind stress
@@ -850,8 +851,9 @@ CONTAINS
 #endif
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
-            p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_v(:,:))
+            Qatm%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            !TODO: Add stress for ice
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_yw(:,:))
         ENDIF
       !
       ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
@@ -968,6 +970,11 @@ CONTAINS
           CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
           CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
           !---------------------------------------------------------------------
+
+        ELSE
+
+          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
         ENDIF
 
