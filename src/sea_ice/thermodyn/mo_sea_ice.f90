@@ -1374,7 +1374,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff, datetime)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     !TYPE(t_patch),            INTENT(IN)     :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
@@ -1385,15 +1385,10 @@ CONTAINS
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
 
-    ! For wind-stress ramping
-    REAL(wp) :: ramp
-    
     !-------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_slow)
@@ -1922,11 +1917,13 @@ CONTAINS
   !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
   !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
   !
-  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+
+    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
 
     !Local variables
@@ -1955,6 +1952,8 @@ CONTAINS
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
+    ! For wind-stress ramping
+    REAL(wp) :: ramp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2099,8 +2098,8 @@ CONTAINS
     IF ( PRESENT(datetime) ) THEN
       ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
         - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      QatmAve%stress_x(:,:)  = ramp*QatmAve%stress_x(:,:)
-      QatmAve%stress_y(:,:)  = ramp*QatmAve%stress_y(:,:)
+      Qatm%stress_x(:,:)  = ramp*Qatm%stress_x(:,:)
+      Qatm%stress_y(:,:)  = ramp*Qatm%stress_y(:,:)
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -2128,11 +2127,13 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
-  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+
+    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
 
     !Local variables
@@ -2159,6 +2160,8 @@ CONTAINS
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
+    ! For wind-stress ramping
+    REAL(wp) :: ramp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2283,8 +2286,8 @@ CONTAINS
     IF ( PRESENT(datetime) ) THEN
       ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
         - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      QatmAve%stress_xw(:,:) = ramp*QatmAve%stress_xw(:,:)
-      QatmAve%stress_yw(:,:) = ramp*QatmAve%stress_yw(:,:)
+      Qatm%stress_xw(:,:) = ramp*Qatm%stress_xw(:,:)
+      Qatm%stress_yw(:,:) = ramp*Qatm%stress_yw(:,:)
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------

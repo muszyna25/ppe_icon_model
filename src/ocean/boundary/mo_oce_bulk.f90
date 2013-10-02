@@ -550,8 +550,8 @@ CONTAINS
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
           ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
-          CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
-          CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+          CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
+          CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
           IF (l_forc_freshw) THEN
@@ -626,7 +626,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff, datetime)
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
@@ -667,7 +667,7 @@ CONTAINS
         IF (i_apply_bulk == 1) THEN
 
           IF (iforc_type == 2 .OR. iforc_type == 5) &
-            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
