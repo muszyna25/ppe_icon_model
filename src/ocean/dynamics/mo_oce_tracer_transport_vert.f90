@@ -111,7 +111,8 @@ CONTAINS
 
     !Local variables
     REAL(wp) :: delta_
-    REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw, weight_1, weight_2
+    REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw
+    REAL(wp) :: prism_volume, transport_in, transport_out, adpo_r1, adpo_r2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     INTEGER  :: z_dolic
@@ -119,6 +120,7 @@ CONTAINS
     REAL(wp) :: z_adv_flux_vu(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical upwind tracer flux
     REAL(wp) :: z_adv_flux_vc(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical central tracer flux
     TYPE(t_patch), POINTER :: p_patch
+    REAL(wp),      POINTER :: cell_area
 
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_tracer_advection:advect_individual_tracer')
@@ -127,6 +129,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
+  ! cell_area       => p_patch%cells%area
 
 
     z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
@@ -210,10 +213,20 @@ CONTAINS
             deriv_sec = trac_old(jc,jk-1,jb)-trac_old(jc,jk+1,jb) - 2.0_wp*trac_old(jc,jk,jb)
 
             ! weighting factor corresponding to "r" in MPIOM documentation
-            weight_1 = MAX(0._wp, (deriv_fst-deriv_sec) / (deriv_fst + 1.E-20_wp))
+            adpo_r1 = MAX(0._wp, (deriv_fst-deriv_sec) / (deriv_fst + 1.E-20_wp))
 
             ! weighting factor corresponding to "R" in MPIOM documentation
-         !  weight_2 = weight_1*vol_new / (transport_top + transport_bottom + 1.E-20_wp) * wet_c(jc,jk+1,jb)
+            !  - this calculation is independent of tracers, see ocadpo_base in MPIOM
+            !  - transport_in  is water transport wtm in mpiom, is U_in  in MPIOM documentation
+            !  - transport_out is water transport wtp in mpiom, is U_out in MPIOM documentation
+            !  - these transports can be replaced by upwind flux z_adv_flux_vu
+   !        prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) * cell_area(jc,jb)
+   !        transport_in  = 0.5_wp * dtime * cell_area(jc,jb) * &
+   !          &             (    p_os%p_diag%w_time_weighted(jc,jk  ,jb)  - ABS(p_os%p_diag%w_time_weighted(jc,jk  ,jb)))
+   !        transport_out = 0.5_wp * dtime * cell_area(jc,jb) * &
+   !          &             (ABS(p_os%p_diag%w_time_weighted(jc,jk+1,jb)) -     p_os%p_diag%w_time_weighted(jc,jk+1,jb))
+   !        adpo_r2       = MIN(wet_c(jc,jk+1,jb), &
+   !          &             adpo_r1*volume / (transport_in + transport_out + 1.E-20_wp)) * wet_c(jc,jk+1,jb)
 
           ENDDO
         END DO
