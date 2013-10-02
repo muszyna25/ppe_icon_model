@@ -160,7 +160,7 @@ begin
 ;-----------------------------------------------------------------------------
 ;-- more TBD:
 ;    - geometry of the plot (postscript) - do not use automatic scaling (gsn_panel)
-;    - independent placing of string with $outputDataFile - not in title
+;    - independent placing of string with $outputIdent - not in title
 ;    - shorter minor x-tick marks - do not use stride for x-axis labelling
 ;-----------------------------------------------------------------------------
 
@@ -448,7 +448,7 @@ begin
   pres@txFontHeightF         =  0.019             ;-- set text font size
 ; pres@txString              = "ICON: Global Mean Evolution" ;-- draw title string
                                                   ;-- draw title string including file string
-  pres@txString              = "ICON: Global Mean Evolution~C~~Z75~            $outputDataFile"
+  pres@txString              = "ICON: Global Mean Evolution~C~~Z75~            $outputIdent"
 ; pres@txPosYF               =  0.98
 
 ; tres                       =  True              ;-- resource object for panel
