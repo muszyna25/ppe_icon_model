@@ -513,11 +513,11 @@ MODULE mo_ocean_nml
      ENDIF
 
      IF( FLUX_CALCULATION_HORZ > 4 .OR. FLUX_CALCULATION_HORZ <1 ) THEN
-       CALL finish(TRIM(routine), 'wrong parameter for advection scheme')
+       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-4')
      ENDIF
 
      IF( FLUX_CALCULATION_VERT > 5 .OR. FLUX_CALCULATION_VERT <1 ) THEN
-       CALL finish(TRIM(routine), 'wrong parameter for advection scheme')
+       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-5')
      ENDIF
 
      IF( FLUX_CALCULATION_HORZ == 1 .AND. l_horz_limiter_advection ) THEN
