@@ -120,7 +120,7 @@ CONTAINS
     REAL(wp) :: z_adv_flux_vu(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical upwind tracer flux
     REAL(wp) :: z_adv_flux_vc(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical central tracer flux
     TYPE(t_patch), POINTER :: p_patch
-    REAL(wp),      POINTER :: cell_area
+ !  REAL(wp),      POINTER :: cell_area(:,:)
 
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_tracer_advection:advect_individual_tracer')
@@ -225,8 +225,8 @@ CONTAINS
    !          &             (    p_os%p_diag%w_time_weighted(jc,jk  ,jb)  - ABS(p_os%p_diag%w_time_weighted(jc,jk  ,jb)))
    !        transport_out = 0.5_wp * dtime * cell_area(jc,jb) * &
    !          &             (ABS(p_os%p_diag%w_time_weighted(jc,jk+1,jb)) -     p_os%p_diag%w_time_weighted(jc,jk+1,jb))
-   !        adpo_r2       = MIN(wet_c(jc,jk+1,jb), &
-   !          &             adpo_r1*volume / (transport_in + transport_out + 1.E-20_wp)) * wet_c(jc,jk+1,jb)
+   !        adpo_r2       = MIN(p_patch_3D%wet_c(jc,jk+1,jb), &
+   !          &             adpo_r1*prism_volume / (transport_in + transport_out + 1.E-20_wp)) * p_patch_3D%wet_c(jc,jk+1,jb)
 
           ENDDO
         END DO
