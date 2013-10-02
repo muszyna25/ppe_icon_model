@@ -1426,16 +1426,6 @@ CONTAINS
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
 
-    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-    IF ( PRESENT(datetime) ) THEN
-      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      QatmAve%stress_x(:,:)  = ramp*QatmAve%stress_x(:,:)
-      QatmAve%stress_y(:,:)  = ramp*QatmAve%stress_y(:,:)
-      QatmAve%stress_xw(:,:) = ramp*QatmAve%stress_xw(:,:)
-      QatmAve%stress_yw(:,:) = ramp*QatmAve%stress_yw(:,:)
-    ENDIF
-
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_as, p_op_coeff )
@@ -2105,6 +2095,14 @@ CONTAINS
     Qatm%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
     Qatm%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
 
+    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
+    IF ( PRESENT(datetime) ) THEN
+      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+      QatmAve%stress_x(:,:)  = ramp*QatmAve%stress_x(:,:)
+      QatmAve%stress_y(:,:)  = ramp*QatmAve%stress_y(:,:)
+    ENDIF
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('CalcBulk: stress_x'        ,Qatm%stress_x     ,str_module,idt_src)
@@ -2280,6 +2278,14 @@ CONTAINS
     C_ao(:,:)   = MIN( 2._wp, MAX(1.1_wp, 0.61_wp+0.063_wp*wspeed ) )*1e-3_wp
     Qatm%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
     Qatm%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
+
+    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
+    IF ( PRESENT(datetime) ) THEN
+      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+      QatmAve%stress_xw(:,:) = ramp*QatmAve%stress_xw(:,:)
+      QatmAve%stress_yw(:,:) = ramp*QatmAve%stress_yw(:,:)
+    ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
