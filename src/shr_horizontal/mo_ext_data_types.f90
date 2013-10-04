@@ -296,6 +296,12 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &   !< Actual area fraction for each tile index  [ ]
       & frac_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
 
+    REAL(wp), POINTER ::  &   !< Inverse of fr_land derived from actual land tile fractions [ ]
+      & inv_frland_from_tiles(:,:) ! needed for aggregation of land-only fields. 
+                              ! Approximately equal to inverse of  
+                              ! fr_land (extpar) + fr_lake(extpar, where fr_lake<frlake_thrhld)
+                              ! index1=1,nproma, index2=1,nblks_c
+
     ! Sub-lists for sea points (idx_lst_sp), in order to distinguish between ice-covered and open
     ! sea points.
     ! 

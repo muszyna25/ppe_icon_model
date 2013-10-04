@@ -1143,6 +1143,14 @@ CONTAINS
       ENDDO
 
 
+      ! inv_frland_from_tiles      p_ext_atm%inv_frland_from_tiles(nproma,nblks_c)
+      cf_desc    = t_cf_var('inv_frland_from_tiles', '-', &
+        &                   'inverse of fr_land derived from land tiles', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'inv_frland_from_tiles', p_ext_atm%inv_frland_from_tiles,&
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                          &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.)
+
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
       ! The dimension (num_lcc) is currently hard-wired to 23
@@ -2774,6 +2782,7 @@ CONTAINS
 
     REAL(wp) :: scalfac       ! scaling factor for inflating dominating land fractions 
                               ! to fr_land (or fr_land + fr_lake)
+    REAL(wp) :: zfr_land      ! fr_land derived from land tile fractions
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
@@ -2820,7 +2829,7 @@ CONTAINS
 !!                 The reason is not clear to me, thus the directives are commented out for the time being
 !! !$OMP PARALLEL
 !! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!! !$OMP            tile_mask,lu_subs,sum_frac,scalfac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! !$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -3099,6 +3108,17 @@ CONTAINS
          ENDIF
 
 
+         ! Compute inverse of fr_land based on land tile fractions.
+         ! Required for proper aggregation of land-only variables
+         DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%inv_frland_from_tiles(jc,jb) = 0._wp
+           zfr_land = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
+           IF (zfr_land > 0._wp) THEN
+             ext_data(jg)%atm%inv_frland_from_tiles(jc,jb) = 1._wp/zfr_land
+           ENDIF
+         ENDDO  ! jc
+
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
            DO jt = ntiles_lnd+1, ntiles_total
@@ -3252,7 +3272,10 @@ CONTAINS
           DO ic = 1, i_count
             jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
 
-            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+            ! note that frac_t must be re-scaled such that sum(frac_t(1:ntiles_lnd)) = 1
+            ! therefore we multiply by inv_frland_from_tiles
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
+              &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
@@ -3260,20 +3283,20 @@ CONTAINS
 
             ! root depth (aggregated)
             ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
-              &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
+              &              + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
 
             ! surface area index (aggregated)
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
-              &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
-              &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+              &              + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
+              &              /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
 
             ! evaporative soil area index (aggregated)
             ext_data(jg)%atm%eai(jc,jb) = ext_data(jg)%atm%eai(jc,jb)           &
-              &             +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
+              &              +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
 
             ! transpiration area index (aggregated)
             ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &
-              &             +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
+              &              +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
 
             ! minimal stomata resistance (aggregated)
             ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &

@@ -1141,7 +1141,11 @@ CONTAINS
         !
         DO isubs = 1,ntiles_total
           DO jc = i_startidx, i_endidx
-            tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
+            !
+            ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
+            ! therefore we multiply by inv_frland_from_tiles
+            tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+              &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
 
             lnd_diag%t_snow(jc,jb)    = lnd_diag%t_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%t_snow_t(jc,jb,isubs)
@@ -1172,7 +1176,11 @@ CONTAINS
 
           DO jk=1,nlev_soil
             DO jc = i_startidx, i_endidx
-              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
+              !
+              ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
+              ! therefore we multiply by inv_frland_from_tiles
+              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)         &
+                &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
 
               lnd_diag%t_so(jc,jk+1,jb)    = lnd_diag%t_so(jc,jk+1,jb) + tilefrac &
                                              * lnd_prog%t_so_t(jc,jk+1,jb,isubs)
@@ -1186,7 +1194,11 @@ CONTAINS
           IF (lmulti_snow) THEN
             DO jk=1,nlev_snow
               DO jc = i_startidx, i_endidx
-                tilefrac = ext_data%atm%frac_t(jc,jb,isubs)
+                !
+                ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
+                ! therefore we multiply by inv_frland_from_tiles
+                tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+                  &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
 
                 lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_diag%t_snow_mult(jc,jk,jb) + tilefrac  &
                                                    * lnd_prog%t_snow_mult_t(jc,jk,jb,isubs)
