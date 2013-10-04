@@ -447,16 +447,16 @@ case $host in
       MPI_INCLUDE_THREAD="thread/"
     fi
     ;;
-  *-*-darwin*)
-    if test -n "$MPIROOT" ; then
-      mpifh=$(find $MPIROOT/include -name mpif.h)
-      mpifh=${mpifh%\/mpif.h}
-      mpifh=${mpifh##*/}
-      if test -n $mpifh; then
-        MPI_INCLUDE_THREAD="$mpifh/"
-      fi
-     fi
-     ;;
+#  *-*-darwin*)
+#    if test -n "$MPIROOT" ; then
+#      mpifh=$(find $MPIROOT/include -name mpif.h)
+#      mpifh=${mpifh%\/mpif.h}
+#      mpifh=${mpifh##*/}
+#      if test -n $mpifh; then
+#        MPI_INCLUDE_THREAD="$mpifh/"
+#      fi
+#     fi
+#     ;;
   *)
     MPI_INCLUDE_THREAD=""
     ;;
@@ -496,7 +496,14 @@ else
   fi
   if test -n "$MPIROOT" ; then    
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
-    MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
+    case $host in
+    *-*-darwin*)
+      MPI_LIB='-L$(MPIROOT)/lib/mpich-mp '$MPI_LIB
+      ;;    
+    *)
+      MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
+      ;;   
+    esac 
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -842,8 +849,8 @@ esac
 else
 case $host in
 *-*-darwin*)
-  mpi_version_number=$(openmpiexec -V 2>&1 | awk 'NR==1' | cut -f3- -d" ")
-  MPI_VERSION="openmpi ${mpi_version_number} (MacPorts)"
+  mpi_version_number=$(mpiexec --version | awk 'NR==2{print $2}')
+  MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
   ;;		       
 *)
   MPI_VERSION=${MPIROOT##*/}
