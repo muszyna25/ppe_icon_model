@@ -111,12 +111,13 @@ CONTAINS
 
     !Local variables
     REAL(wp) :: deriv_fst, deriv_sec!, adpo_weight_upw_cntr, adpo_weight_cntr_upw
-    REAL(wp) :: prism_volume, new_volume, transport_in, transport_out, tracer_in, tracer_out, adpo_r1, adpo_r2, adpo_r3
-    REAL(wp) :: trac_tst  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_vol_in  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_vol_out (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_trac_in (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_trac_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: prism_volume, new_volume, adpo_r1, adpo_r2, adpo_r3
+    REAL(wp) :: advvol_in, advvol_out, advtrc_in, advtrc_out, wupw_in, wupw_out
+    REAL(wp) :: z_trac_tst    (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_vol_in (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_vol_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_trc_in (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_trc_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     INTEGER  :: z_dolic
@@ -136,9 +137,14 @@ CONTAINS
     cell_area       => p_patch%cells%area
 
 
-    z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_v  (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_vu (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adv_flux_vc (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_trac_tst    (1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_vol_in (1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_vol_out(1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_trc_in (1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_trc_out(1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
 
@@ -211,8 +217,8 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
 
-            !
             ! calculation of first and second spatial derivative
+            prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) * cell_area(jc,jb)
             deriv_fst = trac_old(jc,jk-1,jb)-trac_old(jc,jk+1,jb)
             deriv_sec = trac_old(jc,jk-1,jb)-trac_old(jc,jk+1,jb) - 2.0_wp*trac_old(jc,jk,jb)
 
@@ -221,19 +227,22 @@ CONTAINS
 
             ! weighting factor corresponding to "R" in MPIOM documentation
             !  - this calculation is independent of tracers, see ocadpo_base in MPIOM
-            !  - transport_in  is water transport wtm in mpiom, is U_in  in MPIOM documentation
-            !  - transport_out is water transport wtp in mpiom, is U_out in MPIOM documentation
+            !  - z_adpo_vol_in  is water transport wtm in mpiom, is U_in  in MPIOM documentation
+            !  - z_adpo_vol_out is water transport wtp in mpiom, is U_out in MPIOM documentation
             !  - these transports can be replaced by upwind flux z_adv_flux_vu
-            prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) * cell_area(jc,jb)
-            z_adpo_vol_in (jc,jk,jb) = 0.5_wp * dtime * cell_area(jc,jb) * &
-              &  (    p_os%p_diag%w_time_weighted(jc,jk  ,jb)  + ABS(p_os%p_diag%w_time_weighted(jc,jk-1,jb)))
-            z_adpo_vol_out(jc,jk,jb) = 0.5_wp * dtime * cell_area(jc,jb) * &
-              &  (ABS(p_os%p_diag%w_time_weighted(jc,jk+1,jb)) -     p_os%p_diag%w_time_weighted(jc,jk+1,jb))
-            adpo_r2 = MIN(1.0_wp, adpo_r1*prism_volume / (transport_in + transport_out + 1.E-20_wp)) &
-              &        * p_patch_3D%wet_c(jc,jk+1,jb)  ! set zero on land
+            wupw_in    =     p_os%p_diag%w_time_weighted(jc,jk  ,jb)  + ABS(p_os%p_diag%w_time_weighted(jc,jk-1,jb))
+            wupw_out   = ABS(p_os%p_diag%w_time_weighted(jc,jk+1,jb)) -     p_os%p_diag%w_time_weighted(jc,jk+1,jb)
+            advvol_in  = wupw_in  * 0.5_wp * dtime * cell_area(jc,jb)
+            advvol_out = wupw_out * 0.5_wp * dtime * cell_area(jc,jb)
+            z_adpo_vol_in (jc,jk,jb) = advvol_in
+            z_adpo_vol_out(jc,jk,jb) = advvol_out
+            adpo_r2 = MIN(1.0_wp, &
+              &       adpo_r1*prism_volume / (advvol_in + advvol_out + 1.E-20_wp)) * &
+              &       p_patch_3D%wet_c(jc,jk+1,jb)  ! set zero on land
 
             !  - formulation by excluding factor 0.5*dtime*cell_area from transports - not yet checked
-            !  - these transports can be replaced by upwind flux z_adv_flux_vu
+            !  - transport_in  is water transport wtm in mpiom, is U_in  in MPIOM documentation
+            !  - transport_out is water transport wtp in mpiom, is U_out in MPIOM documentation
         !   transport_in  =     p_os%p_diag%w_time_weighted(jc,jk  ,jb)  + ABS(p_os%p_diag%w_time_weighted(jc,jk-1,jb))
         !   transport_out = ABS(p_os%p_diag%w_time_weighted(jc,jk+1,jb)) -     p_os%p_diag%w_time_weighted(jc,jk+1,jb)
         !   z_adpo_vol_in (jc,jk,jb) = transport_in  * 0.5_wp * dtime * cell_area(jc,jb)
@@ -246,10 +255,10 @@ CONTAINS
 
             ! calculate resulting vertical advection fluxes: main vertical loop
             !  - these transports can be replaced by weighted upwind and central flux z_adv_flux_vu/vc
-            tracer_in     = adpo_r3*transport_in *trac_old(jc,jk,jb) + adpo_r2*0.5_wp*(trac_old(jc,jk,jb)+trac_old(jc,jk-1,jb))
-            tracer_out    = adpo_r3*transport_out*trac_old(jc,jk,jb) + adpo_r2*0.5_wp*(trac_old(jc,jk,jb)+trac_old(jc,jk+1,jb))
-            z_adpo_trac_in (jc,jk,jb) = tracer_in
-            z_adpo_trac_out(jc,jk,jb) = tracer_out
+            advtrc_in     = adpo_r3*advvol_in *trac_old(jc,jk,jb) + adpo_r2*0.5_wp*(trac_old(jc,jk,jb)+trac_old(jc,jk-1,jb))
+            advtrc_out    = adpo_r3*advvol_out*trac_old(jc,jk,jb) + adpo_r2*0.5_wp*(trac_old(jc,jk,jb)+trac_old(jc,jk+1,jb))
+            z_adpo_trc_in (jc,jk,jb) = advtrc_in
+            z_adpo_trc_out(jc,jk,jb) = advtrc_out
 
           ENDDO
         ENDDO
@@ -264,23 +273,33 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
 
+         !  write(*,*) 'XXXXX indices: jb,jc,jk,dolic = ',jb,jc,jk,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
             prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) * cell_area(jc,jb)
             new_volume    = prism_volume + z_adpo_vol_in  (jc,jk+1,jb) - z_adpo_vol_in  (jc,jk,jb) &
               &                          + z_adpo_vol_out (jc,jk-1,jb) - z_adpo_vol_out (jc,jk,jb)
-            trac_tst(jc,jk,jb) = (trac_old(jc,jk,jb)*prism_volume &
-                                         + z_adpo_trac_in (jc,jk+1,jb) - z_adpo_trac_in (jc,jk,jb)  &
-              &                          + z_adpo_trac_out(jc,jk-1,jb) - z_adpo_trac_out(jc,jk,jb)) &
+            z_trac_tst(jc,jk,jb) = (trac_old(jc,jk,jb)*prism_volume &
+                                         + z_adpo_trc_in (jc,jk+1,jb) - z_adpo_trc_in (jc,jk,jb)  &
+              &                          + z_adpo_trc_out(jc,jk-1,jb) - z_adpo_trc_out(jc,jk,jb)) &
               &                   /new_volume
 
           ENDDO
         ENDDO
       ENDDO
 
-  !   adpo_weight_upw_cntr = 0.5_wp
-  !   adpo_weight_cntr_upw = 1.0_wp - adpo_weight_upw_cntr
-  !   z_adv_flux_v(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) =                             &
+      z_adv_flux_v(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) =                             &
+        & z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   !     & z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_upw_cntr + &
   !     & z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_cntr_upw
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=4  ! output print level (1-5, fix)
+      CALL dbg_print('AdvVertAdpo: adv_flux_v'    ,z_adv_flux_v  ,str_module,idt_src)
+      CALL dbg_print('AdvVertAdpo: adpo_vol_in'   ,z_adpo_vol_in ,str_module,idt_src)
+      CALL dbg_print('AdvVertAdpo: adpo_vol_out'  ,z_adpo_vol_out,str_module,idt_src)
+      CALL dbg_print('AdvVertAdpo: adpo_trc_in '  ,z_adpo_trc_in ,str_module,idt_src)
+      CALL dbg_print('AdvVertAdpo: adpo_trc_out'  ,z_adpo_trc_out,str_module,idt_src)
+      CALL dbg_print('AdvVertAdpo: trac_tst'      ,z_trac_tst    ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
     ENDIF
 
@@ -309,8 +328,8 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvDifVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
-    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+    CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
+    !CALL dbg_print('AdvifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
     CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
     CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
     !---------------------------------------------------------------------
