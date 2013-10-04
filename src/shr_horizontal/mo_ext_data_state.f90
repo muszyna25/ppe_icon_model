@@ -2772,9 +2772,12 @@ CONTAINS
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
 
+    REAL(wp) :: scalfac       ! scaling factor for inflating dominating land fractions 
+                              ! to fr_land (or fr_land + fr_lake)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
+
     !-------------------------------------------------------------------------
 
     WRITE(message_text,'(a,i4)') &
@@ -2817,7 +2820,7 @@ CONTAINS
 !!                 The reason is not clear to me, thus the directives are commented out for the time being
 !! !$OMP PARALLEL
 !! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!! !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! !$OMP            tile_mask,lu_subs,sum_frac,scalfac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -3024,10 +3027,62 @@ CONTAINS
          END DO ! jc
 
 
+! New version -> see below
+!!$         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
+!!$         ! lake index to a sum of 1
+!!$         IF (ntiles_lnd > 1) THEN
+!!$           DO jc = i_startidx, i_endidx
+!!$             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
+!!$                        SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
+!!$
+!!$             DO jt = 1, ntiles_total + MIN(2,ntiles_water)
+!!$               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
+!!$             ENDDO
+!!$           ENDDO
+!!$         ELSE ! overwrite fractional settings over water points if tile approach is turned off
+!!$           DO jc = i_startidx, i_endidx
+!!$             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
+!!$           ENDDO
+!!$         ENDIF
 
-         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
-         ! lake index to a sum of 1
+
+
+         ! Inflate dominating land-tile fractions to fr_land or fr_land + fr_lake, depending 
+         ! on whether a lake tile is present (fr_lake >= frlake_thrhld), or not 
+         ! (fr_lake < frlake_thrhld).
          IF (ntiles_lnd > 1) THEN
+           ! Inflate fractions for land points
+           DO ic = 1, ext_data(jg)%atm%lp_count(jb)
+
+             jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+
+             ! sum up fractions of dominating land tiles
+             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
+             IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
+               ! cell with lake point
+               ! inflate dominating land fractions to fr_land
+               scalfac = ext_data(jg)%atm%fr_land(jc,jb)/sum_frac
+             ELSE
+               ! cell without lake point
+               ! inflate dominating land fractions to (fr_land + fr_lake)
+               scalfac = (ext_data(jg)%atm%fr_land(jc,jb) + ext_data(jg)%atm%fr_lake(jc,jb))/sum_frac
+             ENDIF
+
+             ! inflate land fractions
+             DO jt = 1, ntiles_total
+               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) * scalfac
+             ENDDO
+           ENDDO  ! ic
+
+              
+           ! Inflate fractions for 
+           ! - sea-water only points 
+           ! - lake only points. 
+           ! As a side effect, fractions for land-only points (with 0<fr_sea<frsea_thrhld) 
+           ! are also corrected.
+           ! Note that, for simplicity, we loop over all points. At mixed land/water points this 
+           ! should do no harm, since these have already been inflated in the loop above.
            DO jc = i_startidx, i_endidx
              sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
                         SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
@@ -3035,13 +3090,13 @@ CONTAINS
              DO jt = 1, ntiles_total + MIN(2,ntiles_water)
                ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
              ENDDO
-           ENDDO
+           ENDDO  ! jc
+
          ELSE ! overwrite fractional settings over water points if tile approach is turned off
            DO jc = i_startidx, i_endidx
              ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
            ENDDO
          ENDIF
-
 
 
 
