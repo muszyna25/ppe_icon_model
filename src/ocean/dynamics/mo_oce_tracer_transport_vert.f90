@@ -231,8 +231,6 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src, in_subset=cells_in_domain)
-    !CALL dbg_print('AdvifVert: div_mass_flx_c',p_os%p_diag%div_mass_flx_c, str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert               ,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
@@ -524,7 +522,7 @@ CONTAINS
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
           ! calculation of volume transport, same as below with top boundary condition
-          wupw_in    =     p_w(jc,1,jb) ! zero in jk=1: + ABS(p_w(jc,jk-1,jb))
+          wupw_in    =     p_w(jc,1,jb) ! zero in jk=1: ABS(p_w(jc,jk-1,jb))
           wupw_out   = ABS(p_w(jc,2,jb)) - p_w(jc,2,jb)
           advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
           advvol_out = wupw_out * 0.5_wp * p_dtime * cell_area(jc,jb)
