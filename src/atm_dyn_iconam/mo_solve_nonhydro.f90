@@ -395,7 +395,11 @@ MODULE mo_solve_nonhydro
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = 3
-    rl_end = min_rlcell_int - 1
+    IF (istep == 1) THEN
+      rl_end = min_rlcell_int - 1
+    ELSE ! halo points are not needed in step 2
+      rl_end = min_rlcell_int
+    ENDIF
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
