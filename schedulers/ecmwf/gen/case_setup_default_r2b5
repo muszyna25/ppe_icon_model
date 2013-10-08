@@ -271,6 +271,8 @@ cat > ${atmo_namelist} << EOF
  idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
+ itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
+ itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
 /
 &radiation_nml
  irad_o3                      = 7
