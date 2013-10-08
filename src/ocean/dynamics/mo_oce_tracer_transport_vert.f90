@@ -74,6 +74,7 @@ INTEGER                     :: idt_src       = 1               ! Level of detail
 ! PUBLIC INTERFACE
 !
 PUBLIC :: advect_flux_vertical
+PUBLIC :: adpo_vtrac_oce
 ! Private implemenation
 !
 PRIVATE :: upwind_vflux_oce
@@ -183,30 +184,24 @@ CONTAINS
         &                    z_adv_flux_v, tracer_id)
 #endif
     !ENDIF
-
-    ! Vertical advection scheme: ADPO, adapted from MPIOM (Ernst Meier-Reimer)
-    !   The implementation follows the MPIOM Draft documentation, section 5.2.13 describing ocadpo.f90
-    CASE (ADPO)
+  ! CASE (ADPO)
     !IF (FLUX_CALCULATION_VERT == ADPO) THEN
 
-      CALL adpo_vflux_oce( p_patch_3D,                              &
-        &                  trac_old,                                &
-        &                  p_os%p_diag%w_time_weighted,             &
-        &                  dtime,                                   & 
-        &                  p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-        &                  trac_tst)
+      ! ADPO scheme cannot calculate vertical tracer flux but updates tracer values directly
+      ! therefore it is called from above in mo_oce_tracer
+      ! Nothing to be done here
 
-      ! trac_tst not yet active, needs vertical upwind
-      CALL upwind_vflux_oce( p_patch_3D,                  &
-        &                    trac_old,                    &
-        &                    p_os%p_diag%w_time_weighted, &
-        &                    bc_top_tracer,               &
-        &                    z_adv_flux_v,tracer_id )
+  !   ! trac_tst not yet active, here vertical upwind is called
+  !   CALL upwind_vflux_oce( p_patch_3D,                  &
+  !     &                    trac_old,                    &
+  !     &                    p_os%p_diag%w_time_weighted, &
+  !     &                    bc_top_tracer,               &
+  !     &                    z_adv_flux_v,tracer_id )
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v  ,str_module,idt_src)
-      !---------------------------------------------------------------------
+  !   !---------DEBUG DIAGNOSTICS-------------------------------------------
+  !   idt_src=4  ! output print level (1-5, fix)
+  !   CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v ,str_module, idt_src, in_subset=cells_in_domain)
+  !   !---------------------------------------------------------------------
 
     !ENDIF
 
@@ -216,6 +211,7 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
 
+    !IF (FLUX_CALCULATION_VERT /= ADPO) THEN
     !divergence is calculated for advective fluxes
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -227,6 +223,7 @@ CONTAINS
         ENDDO
       END DO
     END DO
+    !ENDIF
 
     IF (ltimer) CALL timer_stop(timer_adv_vert)
 
@@ -234,10 +231,10 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
-    !CALL dbg_print('AdvifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
-    CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
-    CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
+    CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src, in_subset=cells_in_domain)
+    !CALL dbg_print('AdvifVert: div_mass_flx_c',p_os%p_diag%div_mass_flx_c, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert               ,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
   END SUBROUTINE advect_flux_vertical
@@ -470,6 +467,7 @@ CONTAINS
   !! derivative of the tracer and the strength of the flow.
   !!
   !! The code is adopted from the MPIOM-model, written by Ernst Meier-Reimer
+  !! The implementation follows the MPIOM Draft documentation, section 5.2.13 describing ocadpo.f90
   !!
   !! LITERATURE
   !!  - Sweby (1984), SIAM-JNA, 21, 995-1011
@@ -480,7 +478,7 @@ CONTAINS
   !! Stephan Lorenz, MPI-M
   !!
   !! not yet mpi parallelized, no sync
-  SUBROUTINE adpo_vflux_oce ( p_patch_3D,  &
+  SUBROUTINE adpo_vtrac_oce ( p_patch_3D,  &
     &                         p_cc,        & ! advected cell centered variable
     &                         p_w,         & ! vertical velocity
     &                         p_dtime,     & ! time step
@@ -677,14 +675,14 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvVertAdpo: adpo_vol_in'   ,z_adpo_vol_in ,str_module,idt_src)
-    CALL dbg_print('AdvVertAdpo: adpo_vol_out'  ,z_adpo_vol_out,str_module,idt_src)
-    CALL dbg_print('AdvVertAdpo: adpo_trc_in '  ,z_adpo_trc_in ,str_module,idt_src)
-    CALL dbg_print('AdvVertAdpo: adpo_trc_out'  ,z_adpo_trc_out,str_module,idt_src)
-    CALL dbg_print('AdvVertAdpo: trac_out'      ,p_trac_out    ,str_module,idt_src)
+    CALL dbg_print('AdvVertAdpo: adpo_vol_in'   ,z_adpo_vol_in ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_vol_out'  ,z_adpo_vol_out,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_trc_in '  ,z_adpo_trc_in ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_trc_out'  ,z_adpo_trc_out,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: trac_out'      ,p_trac_out    ,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE adpo_vflux_oce
+  END SUBROUTINE adpo_vtrac_oce
 
   !------------------------------------------------------------------------
   !! The third order PPM scheme
