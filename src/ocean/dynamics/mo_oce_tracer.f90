@@ -75,7 +75,7 @@ USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_E, sync_patch_array
 USE mo_timer,                     ONLY: timer_start, timer_stop,&
-  &                                     timer_dif_vert
+  &                                     timer_dif_vert, timer_adpo_vert
 USE mo_statistics,                ONLY: global_minmaxmean
 USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
 
@@ -670,6 +670,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
       IF (FLUX_CALCULATION_VERT == ADPO) THEN
 
+        IF (ltimer) CALL timer_start(timer_adpo_vert)
+
         CALL adpo_vtrac_oce( p_patch_3D,                              &
           &                  old_ocean_tracer%concentration,          &
           &                  p_os%p_diag%w_time_weighted,             &
@@ -685,6 +687,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
           ! new tracer calculated directly by adpo_vtrac_oce
           trac_old(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = trac_tmp(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)
         ENDIF
+
+        IF (ltimer) CALL timer_stop(timer_adpo_vert)
+
         ! vertical tracer flux (AdPO) set to zero
         !flux_vert(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
 
