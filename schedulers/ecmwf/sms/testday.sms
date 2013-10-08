@@ -57,7 +57,7 @@ fi
 # test for monthly mean runs if current month is selected
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
-MONTHS=`echo %MONTHS% | sed 's/_/ /'`
+MONTHS=`echo %MONTHS% | sed 's/_/ /g'`
 for month in ${MONTHS[*]} ; do
   if [[ ${YYYYMM} -eq ${month} ]]
   then
