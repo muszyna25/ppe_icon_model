@@ -114,9 +114,7 @@ CONTAINS
     INTEGER  :: jc, jk, jb
     INTEGER  :: z_dolic
     REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical advective tracer flux
-    REAL(wp) :: z_adv_flux_vu(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical upwind tracer flux
-    REAL(wp) :: z_adv_flux_vc(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical central tracer flux
-    REAL(wp) :: trac_tst     (nproma, n_zlev  , p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical advective tracer flux
+    REAL(wp) :: trac_tst     (nproma, n_zlev  , p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! new tracer after vertical adpo
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: cell_area(:,:)
 
@@ -130,8 +128,6 @@ CONTAINS
     cell_area       => p_patch%cells%area
 
     z_adv_flux_v  (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adv_flux_vu (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adv_flux_vc (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
     trac_tst      (1:nproma, 1:n_zlev  , 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
@@ -142,29 +138,25 @@ CONTAINS
     ! Initialize timer for vertical advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
 
-    !SELECT CASE(FLUX_CALCULATION_VERT)
-    !CASE(UPWIND)
+    SELECT CASE (FLUX_CALCULATION_VERT)
+    CASE (UPWIND)
+    !IF (FLUX_CALCULATION_VERT == UPWIND .OR. FLUX_CALCULATION_VERT == ADPO) THEN
 
-    IF (FLUX_CALCULATION_VERT == UPWIND .OR. FLUX_CALCULATION_VERT == ADPO) THEN
+      CALL upwind_vflux_oce( p_patch_3D,                  &
+        &                    trac_old,                    &
+        &                    p_os%p_diag%w_time_weighted, &
+        &                    bc_top_tracer,               &
+        &                    z_adv_flux_v,tracer_id )
 
-      CALL upwind_vflux_oce( p_patch_3D,                 &
-                            & trac_old,                   &
-                            & p_os%p_diag%w_time_weighted,&  ! in
-                            & bc_top_tracer,              &
-                            & z_adv_flux_vu,tracer_id )
+    !ENDIF
 
-      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
-      &  z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    CASE (CENTRAL)
+    !IF (FLUX_CALCULATION_VERT == CENTRAL .OR. FLUX_CALCULATION_VERT == ADPO) THEN
 
-    ENDIF
-
-    !CASE(CENTRAL)
-    IF (FLUX_CALCULATION_VERT == CENTRAL .OR. FLUX_CALCULATION_VERT == ADPO) THEN
-
-      CALL central_vflux_oce(p_patch_3D,                 &
-                           & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,& ! in
-                           & z_adv_flux_vc, tracer_id)
+      CALL central_vflux_oce(p_patch_3D,                  &
+        &                    trac_old,                    &
+        &                    p_os%p_diag%w_time_weighted, &
+        &                    z_adv_flux_v, tracer_id)
 
       !IF (l_vert_limiter_advection) &
       !& CALL vflx_limiter_pd_oce( p_patch,               &
@@ -173,54 +165,54 @@ CONTAINS
       !                        & p_patch_3D%p_patch_1D(1)%prism_thick_c, &
       !                        & z_adv_flux_vc)
 
-      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
-      &  z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-
-    ENDIF
+    !ENDIF
 
     ! Vertical advection scheme: piecewise parabolic method (ppm)
-    !CASE(MIMETIC_MIURA)
-    IF (FLUX_CALCULATION_VERT == MIMETIC_MIURA) THEN
+    CASE (MIMETIC_MIURA)
+    !IF (FLUX_CALCULATION_VERT == MIMETIC_MIURA) THEN
 
 #ifndef __SX__
       !TODO review: here p_patch_3D%p_patch_1D(1)%prism_thick_c is used as a
       !data variable, whereas it should only contain geometrics constant in
       !time
-      CALL upwind_vflux_ppm( p_patch_3D,                 &
-                           & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,& ! in
-                           & dtime, 1 ,                  & 
-                           & p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-                           & z_adv_flux_v, tracer_id)
+      CALL upwind_vflux_ppm( p_patch_3D,                              &
+        &                    trac_old,                                &
+        &                    p_os%p_diag%w_time_weighted,             &
+        &                    dtime, 1 ,                               & 
+        &                    p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
+        &                    z_adv_flux_v, tracer_id)
 #endif
-    ENDIF
+    !ENDIF
 
     ! Vertical advection scheme: ADPO, adapted from MPIOM (Ernst Meier-Reimer)
     !   The implementation follows the MPIOM Draft documentation, section 5.2.13 describing ocadpo.f90
-    IF (FLUX_CALCULATION_VERT == ADPO) THEN
+    CASE (ADPO)
+    !IF (FLUX_CALCULATION_VERT == ADPO) THEN
 
-      CALL adpo_vflux_oce( p_patch_3D,                                &
-        &                    trac_old,                                &
-        &                    p_os%p_diag%w_time_weighted,             &
-        &                    dtime,                                   & 
-        &                    p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-        &                    trac_tst)
+      CALL adpo_vflux_oce( p_patch_3D,                              &
+        &                  trac_old,                                &
+        &                  p_os%p_diag%w_time_weighted,             &
+        &                  dtime,                                   & 
+        &                  p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
+        &                  trac_tst)
 
-      z_adv_flux_v(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) =                             &
-        & z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  !     & z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_upw_cntr + &
-  !     & z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) * adpo_weight_cntr_upw
+      ! trac_tst not yet active, needs vertical upwind
+      CALL upwind_vflux_oce( p_patch_3D,                  &
+        &                    trac_old,                    &
+        &                    p_os%p_diag%w_time_weighted, &
+        &                    bc_top_tracer,               &
+        &                    z_adv_flux_v,tracer_id )
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v  ,str_module,idt_src)
-    !---------------------------------------------------------------------
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=4  ! output print level (1-5, fix)
+      CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v  ,str_module,idt_src)
+      !---------------------------------------------------------------------
 
-    ENDIF
+    !ENDIF
 
-    !CASE DEFAULT
-    !  CALL finish('TRIM(advect_diffuse_flux_vert)',"This flux option is not supported")
-    !END SELECT
+    CASE DEFAULT
+      CALL finish('TRIM(advect_diffuse_flux_vert)',"This flux option is not supported")
+    END SELECT
 
     CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
 
@@ -240,7 +232,6 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_C, p_patch, flux_div_vert)
 
-
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('AdvVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
@@ -248,6 +239,7 @@ CONTAINS
     CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
     CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
     !---------------------------------------------------------------------
+
   END SUBROUTINE advect_flux_vertical
   !-------------------------------------------------------------------------
 
