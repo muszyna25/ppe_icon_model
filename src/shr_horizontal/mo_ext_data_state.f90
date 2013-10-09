@@ -2856,6 +2856,8 @@ CONTAINS
          it_count(:)                   = 0 ! counter for tiles
 
          DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
+
            IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
              i_count=i_count+1
              ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
@@ -2863,7 +2865,6 @@ CONTAINS
              tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
              tile_mask(:)=.true.
              tile_mask(i_lc_water)=.false. ! exclude water points
-             ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
              ext_data(jg)%atm%lp_count(jb) = i_count
 
