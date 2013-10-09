@@ -41,7 +41,7 @@
 MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
-  USE mo_fortran_tools,      ONLY: t_ptr_2d3d
+  USE mo_fortran_tools,      ONLY: t_ptr_2d3d, t_ptr_i2d3d 
   USE mo_linked_list,        ONLY: t_var_list
 
   IMPLICIT NONE
@@ -340,8 +340,9 @@ MODULE mo_ext_data_types
     INTEGER :: i_lc_urban      !< Land-cover classification index for urban / artificial surface
 
     ! for output purposes.
-    TYPE(t_ptr_2d3d), ALLOCATABLE :: frac_t_ptr(:)
-    TYPE(t_ptr_2d3d), ALLOCATABLE :: plcov_t_ptr(:)
+    TYPE(t_ptr_i2d3d), ALLOCATABLE :: lc_class_t_ptr(:)
+    TYPE(t_ptr_2d3d),  ALLOCATABLE :: frac_t_ptr(:)
+    TYPE(t_ptr_2d3d),  ALLOCATABLE :: plcov_t_ptr(:)
 
   END TYPE t_external_atmos
 

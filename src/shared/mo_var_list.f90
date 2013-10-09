@@ -102,6 +102,7 @@ MODULE mo_var_list
   INTERFACE add_ref
     MODULE PROCEDURE add_var_list_reference_r3d
     MODULE PROCEDURE add_var_list_reference_r2d
+    MODULE PROCEDURE add_var_list_reference_i2d
   END INTERFACE add_ref
 
 
@@ -1837,7 +1838,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, loutput,                &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element, cdiTimeID,  &
@@ -1852,6 +1853,7 @@ CONTAINS
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
     LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -1904,14 +1906,14 @@ CONTAINS
     CALL assign_if_present(missval%ival, missval_i)
     CALL assign_if_present(initval%ival, initval_i)
     CALL assign_if_present(resetval%ival, resetval_i)
-    CALL set_var_metadata (new_list_element%field%info,                   &
-         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
-         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
-         l_pp_scheduler_task=l_pp_scheduler_task,                         &
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
+         missval=missval, vert_interp=vert_interp, hor_interp=hor_interp,         &
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,                 &
+         l_pp_scheduler_task=l_pp_scheduler_task,                                 &
          post_op=post_op)
     !
     IF (.NOT. referenced) THEN
@@ -1953,6 +1955,7 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE add_var_list_element_i3d
+
   !------------------------------------------------------------------------------------------------
   !
   ! create (allocate) a new table entry
@@ -3382,6 +3385,164 @@ CONTAINS
     END IF
     !
   END SUBROUTINE add_var_list_reference_r2d
+
+
+
+  ! INTEGER SECTION ----------------------------------------------------------------------------------
+  !
+  ! create (allocate) a new table entry
+  ! reference to an existing pointer to 3d-field
+  ! optionally overwrite some default meta data 
+  !
+  SUBROUTINE add_var_list_reference_i2d (this_list, target_name, name, ptr,                      &
+       &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
+       &                                 lrestart, lrestart_cont, initval_i, isteptype,          &
+       &                                 resetval_i, lmiss, missval_i, tlev_source, tracer_info, &
+       &                                 info, vert_interp, hor_interp, in_group, verbose,       &
+       &                                 new_element, cdiTimeID, l_pp_scheduler_task, post_op)
+    !
+    TYPE(t_var_list), INTENT(inout)            :: this_list
+    CHARACTER(len=*), INTENT(in)               :: target_name
+    CHARACTER(len=*), INTENT(in)               :: name
+    INTEGER, POINTER                           :: ptr(:,:)
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ref_idx             ! idx of slice to be referenced
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype           ! type of statistical processing
+    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
+    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
+    INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    !
+    INTEGER, POINTER :: target_ptr2d(:,:)
+    INTEGER, POINTER :: target_ptr3d(:,:,:)
+    !
+    TYPE(t_list_element), POINTER :: target_element    
+    TYPE(t_var_metadata), POINTER :: target_info, ref_info
+    TYPE(t_list_element), POINTER :: new_list_element
+    TYPE(t_union_vals) :: missval, initval, resetval
+    !
+    NULLIFY(target_ptr2d)
+    NULLIFY(target_ptr3d)
+    !
+    target_element => find_list_element (this_list, target_name)
+    target_info => target_element%field%info
+    IF (target_info%lcontainer) THEN
+      target_ptr3d => target_element%field%i_ptr(:,:,:,1,1)
+      !
+      IF (.NOT. ASSOCIATED(target_ptr3d)) THEN
+        CALL finish('add_var_list_reference_i2d', &
+             TRIM(name)//' not created.')
+      ENDIF
+      !
+      ! Counting the number of existing references is deactivated, if the slice index 
+      ! to be referenced is given explicitly.
+      IF ( PRESENT(ref_idx) ) THEN
+        ! only check validity of given slice index
+        IF ( (ref_idx > SIZE(target_ptr3d,3)) .OR. (ref_idx < 1)) THEN
+          WRITE (message_text, *) &
+            &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
+            &  ' out of allowable range [1,',SIZE(target_ptr3d,3),']'      
+          CALL finish('add_var_list_reference_r3d', message_text)
+        ENDIF
+      ELSE
+        target_info%ncontained = target_info%ncontained+1
+        IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
+          WRITE (message_text, *) &
+            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+            &  SIZE(target_ptr3d,3)      
+          CALL finish('add_var_list_reference_i2d', message_text)
+        ENDIF
+      ENDIF
+      IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
+           ldims(2) /=  target_info%used_dimensions(2) ) THEN
+        CALL finish('add_var_list_reference_i2d', & 
+             TRIM(name)//' dimensions requested and available differ.')      
+      ENDIF
+    ELSE
+      target_ptr2d => target_element%field%i_ptr(:,:,1,1,1)
+      !
+      IF (.NOT. ASSOCIATED(target_ptr2d)) THEN
+        CALL finish('add_var_list_reference_i2d', &
+             TRIM(name)//' not created.')
+      ENDIF
+    ENDIF
+    !
+    ! add list entry
+    !
+    CALL append_list_element (this_list, new_list_element)
+    IF (PRESENT(new_element)) new_element=>new_list_element
+    ref_info => new_list_element%field%info
+    ref_info = default_var_list_metadata(this_list)
+
+    !
+    CALL assign_if_present(missval%ival, missval_i)
+    CALL assign_if_present(initval%ival, initval_i)
+    CALL assign_if_present(resetval%ival, resetval_i)
+    !
+    CALL set_var_metadata (new_list_element%field%info,                     &
+         name=name, hgrid=hgrid, vgrid=vgrid,                               & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                  &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,   &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
+         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
+         vert_interp=vert_interp, hor_interp=hor_interp,                    &
+         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
+         l_pp_scheduler_task=l_pp_scheduler_task,                           &
+         post_op=post_op)
+    !
+    ref_info%ndims = 2
+    ref_info%used_dimensions =  target_element%field%info%used_dimensions
+    !
+    IF (target_info%lcontainer) THEN
+      ref_info%lcontained = .TRUE.
+      ref_info%used_dimensions(3) = 1
+      !
+      IF ( PRESENT(ref_idx) ) THEN
+        ref_info%ncontained = ref_idx
+        ptr => target_element%field%i_ptr(:,:,ref_idx,1,1)
+      ELSE
+        ref_info%ncontained = target_info%ncontained
+        ptr => target_element%field%i_ptr(:,:,target_info%ncontained,1,1)
+      ENDIF
+      !
+      new_list_element%field%i_ptr => target_element%field%i_ptr
+    ELSE
+      new_list_element%field%i_ptr => target_element%field%i_ptr
+      ptr => target_element%field%i_ptr(:,:,1,1,1)
+    ENDIF
+    !
+    IF (.NOT. ASSOCIATED(new_list_element%field%i_ptr)) THEN
+      write (0,*) 'problem with association of ptr for '//TRIM(name)
+    ENDIF
+    !
+    IF(PRESENT(info)) info => new_list_element%field%info
+    !
+    IF (PRESENT(lmiss)) THEN
+      ptr = new_list_element%field%info%missval%ival
+    ELSE
+      ptr = 0
+    END IF
+    !
+  END SUBROUTINE add_var_list_reference_i2d
+
 
 
   !================================================================================================

@@ -1108,13 +1108,27 @@ CONTAINS
       ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
 
 
+
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &
         &                   'tile point land cover class list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE. )
+
+      ! fill the separate variables belonging to the container lc_class_t
+      ALLOCATE(p_ext_atm%lc_class_t_ptr(ntiles_total+ntiles_water))
+      DO jsfc = 1,ntiles_total + ntiles_water
+      WRITE(csfc,'(i2)') jsfc
+      CALL add_ref( p_ext_atm_list, 'lc_class_t', 'lc_class_t_'//TRIM(ADJUSTL(csfc)),  &
+        &           p_ext_atm%lc_class_t_ptr(jsfc)%p_2d,                               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+        &           hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB),&
+        &           ldims=shape2d_c, loutput=.TRUE. )
+      ENDDO
+
+
 
       ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
