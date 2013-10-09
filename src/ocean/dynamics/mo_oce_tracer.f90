@@ -678,7 +678,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
           &                  p_os%p_diag%w_time_weighted,             &
           &                  dtime,                                   & 
           &                  p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-          &                  trac_tmp)
+          &                  trac_tmp, tracer_id)
 
         IF (use_tracer_x_height) THEN
      !    new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &

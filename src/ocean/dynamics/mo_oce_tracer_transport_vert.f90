@@ -113,7 +113,6 @@ CONTAINS
     !Local variables
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
-    INTEGER  :: z_dolic
     REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! vertical advective tracer flux
     REAL(wp) :: trac_tst     (nproma, n_zlev  , p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! new tracer after vertical adpo
     TYPE(t_patch), POINTER :: p_patch
@@ -265,11 +264,10 @@ CONTAINS
     ! height based but reversed (downward increasing depth) coordinate system,
     ! grid coefficient is negative (same as pressure based atmospheric coordinate system
     !REAL(wp), PARAMETER :: zcoeff_grid = -1.0_wp
-    INTEGER             :: z_dolic
+    !INTEGER             :: z_dolic
     INTEGER             :: i_startidx_c, i_endidx_c
     INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER             :: jkm1                     !< jk - 1
-    INTEGER             :: k
 
     TYPE(t_patch), POINTER :: p_patch
     !-------------------------------------------------------------------------
@@ -481,7 +479,8 @@ CONTAINS
     &                         p_w,         & ! vertical velocity
     &                         p_dtime,     & ! time step
     &                         p_thick_c,   & ! layer thickness
-    &                         p_trac_out)    ! output tracer field, tracer flux
+    &                         p_trac_out,  & ! output tracer field, tracer flux
+    &                         tracer_id)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)  :: p_cc        (nproma,n_zlev  , p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -489,6 +488,7 @@ CONTAINS
     REAL(wp), INTENT(IN)     :: p_dtime                                                                  
     REAL(wp), INTENT(INOUT)  :: p_thick_c   (nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  
     REAL(wp), INTENT(INOUT)  :: p_trac_out  (nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  
+    INTEGER, INTENT(IN)      :: tracer_id
 
     ! local variables
     INTEGER  :: jc, jk, jb, i_startidx_c, i_endidx_c
@@ -563,8 +563,8 @@ CONTAINS
 
           ! calculation of first and second spatial derivative
           prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) * cell_area(jc,jb)
-          deriv_fst = p_cc(jc,jk-1,jb)-p_cc(jc,jk+1,jb)
-          deriv_sec = p_cc(jc,jk-1,jb)-p_cc(jc,jk+1,jb) - 2.0_wp*p_cc(jc,jk,jb)
+          deriv_fst = ABS(p_cc(jc,jk-1,jb)-p_cc(jc,jk+1,jb))
+          deriv_sec = ABS(p_cc(jc,jk-1,jb)+p_cc(jc,jk+1,jb) - 2.0_wp*p_cc(jc,jk,jb))
 
           ! weighting factor corresponding to "r" in MPIOM documentation
           adpo_r1 = MAX(0.0_wp, (deriv_fst-deriv_sec) / (deriv_fst + 1.E-20_wp))
@@ -597,6 +597,10 @@ CONTAINS
           z_adpo_trc_in (jc,jk,jb) = advtrc_in
           z_adpo_trc_out(jc,jk,jb) = advtrc_out
 
+        ! if (jb==1.and.jc==29) then
+        !   write(*,*) 'YYYYY indices: jb,jc,jk, der1,der2,r1,r2,: ',jb,jc,jk,deriv_fst,deriv_sec,adpo_r1,adpo_r2
+        ! endif
+
         ENDDO
       ENDDO
     ENDDO
@@ -609,15 +613,9 @@ CONTAINS
         !  - main vertical loop
         DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
 
-       !  write(*,*) 'XXXXX indices: jb,jc,jk,dolic = ',jb,jc,jk,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
           prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) * cell_area(jc,jb)
           new_volume    = prism_volume + z_adpo_vol_in  (jc,jk+1,jb) - z_adpo_vol_in  (jc,jk,jb) &
             &                          + z_adpo_vol_out (jc,jk-1,jb) - z_adpo_vol_out (jc,jk,jb)
-       !  write(*,*) 'XXXXX volumes                 = ', prism_volume, new_volume
-       !  write(*,*) 'XXXXX adpo_trcin (jk+1) = ', z_adpo_trc_in(jc,jk+1,jb)
-       !  write(*,*) 'XXXXX adpo_trcin (jk)   = ', z_adpo_trc_in(jc,jk  ,jb)
-       !  write(*,*) 'XXXXX adpo_trcout(jk)   = ', z_adpo_trc_out(jc,jk  ,jb)
-       !  write(*,*) 'XXXXX adpo_trcout(jk-1) = ', z_adpo_trc_out(jc,jk-1,jb)
 
           ! - update new tracer values
           p_trac_out(jc,jk,jb) = (p_cc(jc,jk,jb)*prism_volume &
@@ -648,6 +646,14 @@ CONTAINS
           p_trac_out(jc,jk,jb) = (p_cc(jc,jk,jb)*prism_volume &
                                        + z_adpo_trc_in (jc,jk+1,jb) - z_adpo_trc_out(jc,jk,jb)) &
             &                   /new_volume
+       !  write(*,*) 'XXXXX indices: jb,jc,jk,dolic = ',jb,jc,jk,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
+       !  write(*,*) 'XXXXX volumes                 = ', prism_volume, new_volume
+       !  write(*,*) 'XXXXX adpo_trcin (jk+1) = ', z_adpo_trc_in(jc,jk+1,jb)
+       !  write(*,*) 'XXXXX adpo_trcin (jk)   = ', z_adpo_trc_in(jc,jk  ,jb)
+       !  write(*,*) 'XXXXX adpo_trcout(jk)   = ', z_adpo_trc_out(jc,jk  ,jb)
+       !  write(*,*) 'XXXXX adpo_trcout(jk-1) = ', z_adpo_trc_out(jc,jk-1,jb)
+       !  write(*,*) 'XXXXX trac_out   (jk)   = ', p_trac_out    (jc,jk  ,jb)
+       !  write(*,*) 'XXXXX indices: jb,jc,jk, trac_out = ',jb,jc,jk,p_trac_out(jc,jk,jb)
 
         ENDIF
 
@@ -673,11 +679,13 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
+    !IF (tracer_id == 1) THEN
     CALL dbg_print('AdvVertAdpo: adpo_vol_in'   ,z_adpo_vol_in ,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: adpo_vol_out'  ,z_adpo_vol_out,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: adpo_trc_in '  ,z_adpo_trc_in ,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: adpo_trc_out'  ,z_adpo_trc_out,str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: trac_out'      ,p_trac_out    ,str_module,idt_src, in_subset=cells_in_domain)
+    !ENDIF
     !---------------------------------------------------------------------
 
   END SUBROUTINE adpo_vtrac_oce
