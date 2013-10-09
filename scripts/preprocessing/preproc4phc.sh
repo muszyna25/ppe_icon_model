@@ -24,7 +24,8 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
   TARGET_MODEL_SURF=${TARGET}_${MODEL}_${GRID}_surf.nc
 #==============================================================================
 # internals
-                   CDO=${CDO:-cdo-dev}
+                   CDO=${CDO:-cdo}
+                CDODEV=${CDODEV:-cdo-dev}
                THREADS=${THREADS:-8}
 #==============================================================================
 # basic input directories
@@ -38,8 +39,8 @@ case "${MODEL}" in
    remapOperator=genbil
    gridSelect=ifs2icon_cell_grid
    GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
-  targetGrid=./cell_grid-${GRID}-${MODEL}.nc
-  ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
+   targetGrid=./cell_grid-${GRID}-${MODEL}.nc
+   ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
  mpiom)
    remapOperator=genbil
@@ -84,9 +85,7 @@ $CDO -adipot -setcode,-1 -chname,SO,s,TempO,t ${PHC_TMP} ${PHC_MERGED}
 
 #==============================================================================
 # filling of land points
-# TODO: fillmis produces unreal values in the baltic sea
-$CDO -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss -fillmiss -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
-#$CDO -O -r -settaxis,2000-01-01,0,years  -fillmiss ${PHC_MERGED} ${PHC_NOMISS}
+$CDODEV -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss1s -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss1s,4  -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
 
 #==============================================================================
 # horiz. interpolation for ICON or MPIOM target grid
