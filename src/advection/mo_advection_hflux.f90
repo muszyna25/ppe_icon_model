@@ -345,6 +345,7 @@ CONTAINS
           &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),       &! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
+          &             elev = p_patch%nlev,                              &! in
           &             opt_lconsv  = llsq_lin_consv,                     &! in
           &             opt_real_vt = z_real_vt,                          &! in
           &             opt_rlend   = i_rlend,                            &! in 
@@ -380,11 +381,11 @@ CONTAINS
           &              lcleanup%miura_mcycl_h(jt),                     &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
           &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_elev    = qvsubstep_elev,                   &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
           &              opt_ti_elev = qvsubstep_elev                    )! in
 
@@ -417,11 +418,11 @@ CONTAINS
           &              lcleanup%miura3_mcycl_h(jt),                    &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
           &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_elev    = qvsubstep_elev,                   &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
           &              opt_ti_elev = qvsubstep_elev                    )! in
         ENDIF
@@ -455,11 +456,11 @@ CONTAINS
           &              lcleanup%ffsl_mcycl_h(jt),                      &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
           &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_elev    = qvsubstep_elev,                   &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
           &              opt_ti_elev = qvsubstep_elev                    )! in
         ENDIF
@@ -1062,18 +1063,20 @@ CONTAINS
   !!   substep.
   !! Modification by Daniel Reinert, DWD (2013-09-27)
   !! - increased number of subcycling steps from 2 to 3 (hard coded)
+  !! Modification by Daniel Reinert, DWD (2013-10-09)
+  !! - reduce vertical dimension of local arrays from nlev to elev
   !!
   !! @par LITERATURE
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
-  !!   in Press
+  !!   138, 4497-4508
   !!
   SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e, p_vn,    &
     &                   p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,          &
     &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
-    &                   opt_lconsv, opt_rlstart, opt_rlend, opt_real_vt,           &
-    &                   opt_slev, opt_elev, opt_ti_slev, opt_ti_elev  )
+    &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_real_vt,     &
+    &                   opt_slev, opt_ti_slev, opt_ti_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1122,6 +1125,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
 
+    INTEGER, INTENT(IN)     :: & !< vertical end level; not an optional argument since it 
+      &  elev                    !< is used to dimension local arrays
+
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
      &  opt_lconsv                     !< is used
 
@@ -1136,9 +1142,6 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
       &  opt_ti_slev
@@ -1180,23 +1183,23 @@ CONTAINS
     REAL(wp) :: z_dtsub                 !< sub timestep p_dtime/p_ncycl
     REAL(wp) :: z_dthalf                !< z_dtsub/2
     REAL(wp) ::                     &   !< tracer flux at n + nsub/p_ncycl
-      &  z_tracer_mflx(nproma,p_patch%nlev,p_patch%nblks_e,p_ncycl)
+      &  z_tracer_mflx(nproma,elev,p_patch%nblks_e,p_ncycl)
 
     REAL(wp) ::                     &   !< tracer mass flux divergence at cell center
-      &  z_rhofluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c)
+      &  z_rhofluxdiv_c(nproma,elev,p_patch%nblks_c)
 
     REAL(wp) ::                     &   !< mass flux divergence at cell center
-      &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c)
+      &  z_fluxdiv_c(nproma,elev,p_patch%nblks_c)
 
     REAL(wp), TARGET ::             &   !< 'tracer cell value' at interm.  
-      &  z_tracer(nproma,p_patch%nlev,p_patch%nblks_c,2) !< old and new timestep
+      &  z_tracer(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
 
-    REAL(wp), TARGET ::             &   !< density (i.e. \rho\Delta z) at interm.  
-      &  z_rho(nproma,p_patch%nlev,p_patch%nblks_c,2) !< old and new timestep
+    REAL(wp) ::                     &   !< density (i.e. \rho\Delta z) at interm.  
+      &  z_rho(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
 
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
-    INTEGER  :: slev, elev         !< vertical start and end level
+    INTEGER  :: slev               !< vertical start level
     INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: jc, je, jk, jb     !< index of cell, edge, vert level, block
@@ -1225,11 +1228,11 @@ CONTAINS
     ELSE
       slev = 1
     END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = nlev
-    END IF
+!!$    IF ( PRESENT(opt_elev) ) THEN
+!!$      elev = opt_elev
+!!$    ELSE
+!!$      elev = nlev
+!!$    END IF
 
     IF ( PRESENT(opt_ti_slev) ) THEN
       slev_ti = opt_ti_slev
