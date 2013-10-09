@@ -1664,6 +1664,7 @@ support/util_pbio.c -text
 support/util_postgresql.c -text
 support/util_reshape.c -text
 support/util_signal.c -text
+support/util_svn.c -text
 support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_system.c_luis -text
