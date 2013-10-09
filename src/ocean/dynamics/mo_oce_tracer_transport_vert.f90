@@ -183,7 +183,7 @@ CONTAINS
         &                    z_adv_flux_v, tracer_id)
 #endif
     !ENDIF
-  ! CASE (ADPO)
+    CASE (ADPO)
     !IF (FLUX_CALCULATION_VERT == ADPO) THEN
 
       ! ADPO scheme cannot calculate vertical tracer flux but updates tracer values directly
@@ -254,7 +254,7 @@ CONTAINS
   !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( p_patch_3D, pvar_c, pw_c,top_bc_t, pupflux_i, tracer_id )
 
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
     REAL(wp), INTENT(INOUT)           :: top_bc_t(nproma,      p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< top boundary condition traver
@@ -522,7 +522,9 @@ CONTAINS
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
           ! calculation of volume transport, same as below with top boundary condition
-          wupw_in    =     p_w(jc,1,jb) ! zero in jk=1: ABS(p_w(jc,jk-1,jb))
+          !wupw_in    =     p_w(jc,1,jb)  + ABS(p_w(jc,1,jb))  ! consistent with MPIOM-code below
+          !wupw_in    =     p_w(jc,1,jb)                       ! consistent with MPIOM-docu; zero in jk=1: + ABS(p_w(jc,jk-1,jb))
+          wupw_in    = 0.0_wp                                  ! MPIOM-code (WTP)
           wupw_out   = ABS(p_w(jc,2,jb)) - p_w(jc,2,jb)
           advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
           advvol_out = wupw_out * 0.5_wp * p_dtime * cell_area(jc,jb)
@@ -539,8 +541,8 @@ CONTAINS
         jk = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         IF ( jk > 1 ) THEN  !  sea-point
 
-          wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk-1,jb))
-        ! wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk  ,jb)) ! MPIOM
+        ! wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk-1,jb)) ! MPIOM-docu
+          wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk  ,jb)) ! MPIOM-code
           wupw_out   = ABS(p_w(jc,jk+1,jb)) -     p_w(jc,jk+1,jb)
           advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
           advvol_out = wupw_out * 0.5_wp * p_dtime * cell_area(jc,jb)
@@ -574,11 +576,11 @@ CONTAINS
           !  - z_adpo_vol_in  is water transport wtp in mpiom, is U_in  in MPIOM documentation
           !  - z_adpo_vol_out is water transport wtm in mpiom, is U_out in MPIOM documentation
           !  - these transports can be replaced by upwind flux z_adv_flux_vu
-          wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk-1,jb))
-          wupw_out   = ABS(p_w(jc,jk+1,jb)) -     p_w(jc,jk+1,jb)
           ! ATTENTION - implementation in MPIOM-model is different from MPIOM documentation:
           !  - wupw_in (wtk in MPIOM) is taken as simple upwind part using level k only
-        ! wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk  ,jb))
+          wupw_out   = ABS(p_w(jc,jk+1,jb)) -     p_w(jc,jk+1,jb)
+        ! wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk-1,jb))  !  MPIOM-docu
+          wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk  ,jb))  !  MPIOM-code
 
           ! multiplying with factors
           advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
@@ -597,9 +599,9 @@ CONTAINS
           z_adpo_trc_in (jc,jk,jb) = advtrc_in
           z_adpo_trc_out(jc,jk,jb) = advtrc_out
 
-        ! if (jb==1.and.jc==29) then
-        !   write(*,*) 'YYYYY indices: jb,jc,jk, der1,der2,r1,r2,: ',jb,jc,jk,deriv_fst,deriv_sec,adpo_r1,adpo_r2
-        ! endif
+       !  if (jb==1.and.jc==2) then
+       !    write(*,*) 'YYYYY indices: jb,jc,jk, der1,der2,r1,r2,: ',jb,jc,jk,deriv_fst,deriv_sec,adpo_r1,adpo_r2
+       !  endif
 
         ENDDO
       ENDDO
@@ -613,7 +615,7 @@ CONTAINS
         !  - main vertical loop
         DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
 
-          prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) * cell_area(jc,jb)
+          prism_volume  = p_thick_c(jc,jk,jb) * cell_area(jc,jb)
           new_volume    = prism_volume + z_adpo_vol_in  (jc,jk+1,jb) - z_adpo_vol_in  (jc,jk,jb) &
             &                          + z_adpo_vol_out (jc,jk-1,jb) - z_adpo_vol_out (jc,jk,jb)
 
@@ -629,7 +631,7 @@ CONTAINS
 
     ! special treatment of top and bottom levels
     !  - no calculation of r and R
-    !  - this loop can be integrated above
+    !  - this loop can be moved to loop above
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -637,7 +639,7 @@ CONTAINS
         jk = 1
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
-          prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) * cell_area(jc,jb)
+          prism_volume  = p_thick_c(jc,jk,jb) * cell_area(jc,jb)
           ! new_volume consists of 3 summands: wtm(i,j,k-1)=z_adpo_vol_out(jc,jk-1,jb)=0
           new_volume    = prism_volume + z_adpo_vol_in  (jc,jk+1,jb) - z_adpo_vol_in  (jc,jk,jb) &
             &                                                        - z_adpo_vol_out (jc,jk,jb)
@@ -655,13 +657,18 @@ CONTAINS
        !  write(*,*) 'XXXXX trac_out   (jk)   = ', p_trac_out    (jc,jk  ,jb)
        !  write(*,*) 'XXXXX indices: jb,jc,jk, trac_out = ',jb,jc,jk,p_trac_out(jc,jk,jb)
 
+       !  if (jb==1.and.jc==2) then
+       !    write(*,*) 'YYYYY indices: jb,jc,jk, ovol,nvol,trcin/out,tracout: ', &
+       !      &  jb,jc,jk,prism_volume,new_volume,z_adpo_trc_in(jc,jk+1,jb),z_adpo_trc_out(jc,jk,jb),p_trac_out(jc,jk,jb)
+       !  endif
+
         ENDIF
 
         ! - special treatment of bottom
         jk = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         IF ( jk > 1 ) THEN  !  sea-point
 
-          prism_volume  = p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb) * cell_area(jc,jb)
+          prism_volume  = p_thick_c(jc,jk,jb) * cell_area(jc,jb)
           ! new_volume consists of 3 summands: wtp(i,j,k+1)=z_adpo_vol_in(jc,jk+1,jb)=0
           new_volume    = prism_volume                               - z_adpo_vol_in  (jc,jk,jb) &
             &                          + z_adpo_vol_out (jc,jk-1,jb) - z_adpo_vol_out (jc,jk,jb)
