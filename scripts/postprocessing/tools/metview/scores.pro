@@ -2,9 +2,10 @@ pro scores, direxp, dirref, expnum, expref, inidate, step, nfor, levtype
 ;------------------------------------------------------------
 ; Plot scores from ICON experiments.
 ;
-; run as: scores,'/scratch/ms/de/deia/icon_data/dei2/008/201201/metplots',
-;                '/scratch/ms/de/deia/icon_data/dei2/006/201201/metplots',
-;                'dei2_008','dei2_006','201201','24','1','ml'
+; run as: .run scores paperopenl paperclose
+;         scores,'/scratch/ms/de/deia/icon/dei2/084/201201/metplots',
+;                '/scratch/ms/de/deia/icon/dei2/083/201201/metplots',
+;                'dei2_084','dei2_083','201201','24','31','ml'
 ;
 ; Martin Koehler, Sep 2012
 ;------------------------------------------------------------
@@ -15,6 +16,7 @@ print, 'Arguments: ', direxp, ' ', dirref, ' ', expnum, ' ', expref, ' ', $
 nlev=90
 nlevpl=25
 nlevzl=25
+nlevlnd=8
 nword=18
 
 amp_ml_rms  = 100.0  ;40.0
@@ -56,6 +58,9 @@ var2d  = ['TOT_PREC' , 'TCC'      , 'TQV'     , 'TQC'     , 'TQI', $
           'ACCSOB_S' , 'ACCTHB_S' , 'ACCSOB_T', 'ACCTHB_T', $
           'PS'       , 'T_2M'     , 'T_G'     , 'U_10M'   , 'V_10M']
 nvar2d = n_elements(var2d)
+
+var3lnd  = ['W_SO', 'T_SO' ]
+nvar3lnd = n_elements(var3lnd)
 
 var3d  = ['T', 'U', 'V', 'P', 'QV', 'CC', 'QC', 'QI']   ;, 'Q2', 'CRWC','CSWC'];'QTVAR', 'O3','P''QV', 'QC', 'QI'
 nvar3d = n_elements(var3d)
@@ -258,6 +263,8 @@ CASE levtype OF
 
   xyouts, 0.15, 0.97, /normal, charsize=1.0, title+'   '+levtype
   
+  ; surface parameters (e.g. fluxes) --------------------------------------------------------
+
   for nn=1,nvar2d do begin
    ;print,''
    ;print,'searching for variable ', var2d(nn-1)
@@ -274,7 +281,7 @@ CASE levtype OF
     rms  =     rms1   / (     rms1   +     rms2   )
    ;print, var2d(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
   
-    xxx = 0.25
+    xxx = 0.05
     yyy = 0.9
     vert= 0.045
   
@@ -311,7 +318,66 @@ CASE levtype OF
       xyouts,   xr(0)+0.18,   yr(0)-nn*vert+0.008, err1,  /normal, charsize=0.6
       xyouts,   xr(0)+0.18,   yr(0)-nn*vert-0.008, err2,  /normal, charsize=0.6
     end
-   
+  end
+
+  ; land parameters (T and moisture) --------------------------------------------------------
+
+  for nn=1,nvar3lnd do begin
+   for nk=1,nlevlnd do begin
+   ;print,''
+   ;print,'searching for variable ', var3lnd(nn-1)
+    ind1 = where(var1(0,*) eq var3lnd(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk)
+    ind2 = where(var2(0,*) eq var3lnd(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk)
+    ind1=ind1(n_elements(ind1)-1)
+    ind2=ind2(n_elements(ind2)-1)
+    if ind1 eq -1 or ind2 eq -1 then continue
+    mean1= float(var1(16-1,ind1))
+    mean2= float(var2(16-1,ind2))
+    rms1 = float(var1(18-1,ind1))
+    rms2 = float(var2(18-1,ind2))
+    bias = abs(mean1) / ( abs(mean1) + abs(mean2) )
+    rms  =     rms1   / (     rms1   +     rms2   )
+   ;print, var3lnd(nn-1), ' exp',expref, ' bias:', bias2, 'rms:', rms2 
+  
+    xxx = 0.55
+    yyy = 0.9
+    vert= 0.045
+  
+    header = 'variable                    bias               new,ref                     rms               new,ref'
+    xyouts, xxx, yyy, header, /normal, charsize=0.8
+    for nerr=1,2 do begin
+      if nerr eq 1 then begin
+        err1=mean1
+        err2=mean2
+        err =bias
+        xoff=0.0
+        amp =amp_sfc_bias
+      endif else begin
+        err1=rms1
+        err2=rms2
+        err =rms
+        xoff=0.18
+        amp =amp_sfc_rms
+      endelse
+      vertical = ( (nn-1)*nlevlnd + nk ) * vert
+      scale = (err-0.5) * (err gt 0.5)
+      xr= [0.0,0.01,0.01,0.0 ,0.0] * amp * scale(0) + xxx + xoff
+      yr= [0.0,0.0 ,0.01,0.01,0.0] * 1.0            + yyy
+      polyfill, xr   +0.12 , yr   -vertical,               /normal, color=240     ;positive
+      scale = (0.5-err) * (err lt 0.5)
+      xr=-[0.0,0.01,0.01,0.0 ,0.0] * amp * scale(0) + xxx + xoff
+      polyfill, xr     +0.12, yr  -vertical,               /normal, color=160     ;negative
+      plots,    xr(3:4)+0.12, [yr(3)+0.002,yr(4)-0.002]-vertical, /normal         ;zero
+      xr= [-0.01,0.01]             * amp * 0.01*0.5 + xxx + xoff
+      plots,    xr(0:1)+0.12, yr(0:1)-vertical+0.005,      /normal                ;reference 1%
+
+      if nerr eq 1 then begin
+      xyouts,   xr(0)     ,   yr(0)-vertical, var3lnd(nn-1)+'  L'+strcompress(string(nk)), /normal, charsize=0.7
+      endif
+      xyouts,   xr(0)+0.18,   yr(0)-vertical+0.008, err1,  /normal, charsize=0.6
+      xyouts,   xr(0)+0.18,   yr(0)-vertical-0.008, err2,  /normal, charsize=0.6
+    end
+   end  
   end
 
  END
