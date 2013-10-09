@@ -1574,6 +1574,7 @@ src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_signal.f90 -text
 src/shared/mo_util_sort.f90 -text
 src/shared/mo_util_string.f90 -text
+src/shared/mo_util_svn.f90 -text
 src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_uuid.f90 -text

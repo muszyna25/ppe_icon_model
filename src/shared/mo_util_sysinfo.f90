@@ -65,16 +65,10 @@ MODULE mo_util_sysinfo
     END SUBROUTINE private_util_get_maxrss
   END INTERFACE
 
-  INTERFACE
-    SUBROUTINE private_util_print_svn_version() BIND(C,NAME='print_svn_version') 
-    END SUBROUTINE private_util_print_svn_version
-  END INTERFACE
-
   PUBLIC :: util_user_name
   PUBLIC :: util_os_system
   PUBLIC :: util_node_name
   PUBLIC :: util_get_maxrss
-  PUBLIC :: printSVNVersion
 
 CONTAINS
 
@@ -100,9 +94,5 @@ CONTAINS
     INTEGER, INTENT(out) :: maxrss
     CALL private_util_get_maxrss(maxrss)
   END SUBROUTINE util_get_maxrss
-
-  SUBROUTINE printSVNVersion()
-    CALL private_util_print_svn_version
-  END SUBROUTINE printSVNVersion
 
 END MODULE mo_util_sysinfo

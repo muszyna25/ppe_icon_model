@@ -88,7 +88,7 @@ INLINE   = $INLINE -pi rexp=p_wait
 INLINE   = $INLINE -pi rexp=nwp_dyn_gust1
 
 # standard flags for C compiler
-SVNVERSION=`svnversion`
+SVNVERSION=`touch support/util_svn.c ; svnversion`
 CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.11.0/include -D__SVN_VERSION="${SVNVERSION}"
 
 NETCDFROOT = /usr/local/pkg-sx9/
