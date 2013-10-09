@@ -107,7 +107,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)      :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)      :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET                :: p_os
   TYPE(t_ho_params),                 INTENT(INOUT) :: p_param
   TYPE(t_sfc_flx),                   INTENT(INOUT) :: p_sfc_flx
@@ -563,7 +563,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                                      & K_h, A_v,                           &
                                      & new_ocean_tracer, tracer_id)
 
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
   TYPE(t_ocean_tracer), TARGET   :: old_ocean_tracer
   TYPE(t_ocean_tracer), TARGET   :: new_ocean_tracer
 
