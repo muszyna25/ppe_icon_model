@@ -1572,16 +1572,26 @@ END SUBROUTINE message
   
         zsri    = MIN(1.0_ireals, (w_so_now(i,kso)/zdzhs(kso)) / zthetas)
   
-        IF ( zsri >= 0.1_ireals ) THEN
+        IF ( zsri >= 0.05_ireals ) THEN
          IF ( t_so_now(i,kso) < t0_melt) THEN
           zKe = zsri
          ELSE
-          zKe = LOG10(zsri) + 1.0_ireals
+          zKe = 0.7*LOG10(zsri) + 1.0_ireals ! unfrozen coarse
          ENDIF
          zKe = MAX(0.0_ireals, (MIN(1.0_ireals, zKe)) )
          hzalam(i,kso) = zKe*(zlamsat - zlamdry) + zlamdry
         ELSE
          hzalam(i,kso) = zlamdry
+        ENDIF
+
+        IF ( zsri >= 0.1_ireals ) THEN
+         IF ( t_so_now(i,kso) < t0_melt) THEN
+          zKe = zsri
+         ELSE
+          zKe = LOG10(zsri) + 1.0_ireals  ! unfrozen fine
+         ENDIF
+         zKe = MAX(0.0_ireals, (MIN(1.0_ireals, zKe)) )
+         hzalam(i,kso) = zKe*(zlamsat - zlamdry) + zlamdry
         ENDIF
 !       END IF  ! land-points
       ENDDO
