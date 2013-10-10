@@ -114,7 +114,8 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
     REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
-    INTEGER, INTENT(IN)    :: doy
+
+    INTEGER,OPTIONAL,INTENT(IN)    :: doy
 
     ! Local variables
     REAL(wp) ::        &

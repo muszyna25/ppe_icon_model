@@ -1317,12 +1317,15 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_fast'
+
     !-------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_fast)
 
     ! #achim
-    IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
+    SELECT CASE (i_ice_therm)
+    CASE (1)
       CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
             &   Tsurf,          &
             &   hi,             &
@@ -1332,9 +1335,8 @@ CONTAINS
             &   SWnet,          &
             &   nonsolar,       &
             &   dnonsolardT,    &
-            &   Tfw,            &
-            &   doy)
-    ELSE IF ( i_ice_therm == 2 ) THEN
+            &   Tfw)
+    CASE (2)
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          &
             &   T1,             &
@@ -1347,14 +1349,29 @@ CONTAINS
             &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw)
-    ELSE IF ( i_ice_therm == 4 )  THEN
+    CASE (3)
+      IF ( .NOT. PRESENT(doy) ) THEN
+        CALL finish(TRIM(routine),'i_ice_therm = 3 not allowed in this context')
+      ENDIF
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+            &   Tsurf,          &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy=doy)
+    CASE (4)
       WHERE ( hi(:,:) > 0._wp )
       Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
         &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT+ki/hi))
       ELSEWHERE
         Tsurf(:,:) = Tf
       ENDWHERE
-    END IF
+    END SELECT
 
     ! New albedo based on the new surface temperature
     CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, Tsurf, hi, hs, &
