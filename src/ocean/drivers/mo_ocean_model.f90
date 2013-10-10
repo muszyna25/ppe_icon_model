@@ -237,7 +237,7 @@ CONTAINS
 
     END IF ! (not) is_restart_run()
 
-    CALL prepare_ho_stepping(ocean_state(1),is_restart_run())
+    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),is_restart_run())
 
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &

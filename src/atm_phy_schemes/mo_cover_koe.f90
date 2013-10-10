@@ -186,11 +186,11 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   & p0
 
 
-REAL(KIND=wp) ::             &
-  fgew   , fgee   , fgqs   , &!fgqv   , & ! name of statement functions
-  ztt    , zzpv   , zzpa   , zzps   , &
-  zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
-  vap_pres
+REAL(KIND=wp) :: &
+  & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
+  & ztt    , zzpv   , zzpa   , zzps   , &
+  & zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
+  & vap_pres
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat
@@ -199,8 +199,8 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 !! -----------------
 
 REAL(KIND=wp), PARAMETER  :: &
-  & zcldlim  = 1.0e-6_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
-  & taudecay = 1800.0_wp, & ! decay time scale of convective anvils
+  & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
+  & taudecay = 1200.0_wp, & ! decay time scale of convective anvils
   & box_liq  = 0.05_wp  , & ! box width scale liquid clouds
   & box_ice  = 0.05_wp      ! box width scale ice clouds
 

@@ -67,11 +67,21 @@ MODULE mo_sea_ice_nml
                                         ! 3: Zero layers with analytical fluxes
                                         ! 4: Zero layers - only calculates surface temperature
   INTEGER,PUBLIC :: i_ice_albedo        !< Albedo model (no albedo model implemented yet)
+  INTEGER,PUBLIC :: i_ice_dyn           !< Dynamical model switch:
+                                        ! 0: No dynamics
+                                        ! 1: FEM dynamics (from AWI)
+  INTEGER,PUBLIC :: i_Qio_type          !< Methods to calculate ice-ocean heatflux
+                                        ! 1: Proportional to ocean cell thickness (like MPI-OM)
+                                        ! 2: Proportional to speed difference btwn. ice and ocean
 
   REAL(wp),PUBLIC :: hnull              !< Hibler's h_0 for new ice formation
   REAL(wp),PUBLIC :: hmin               !< Minimum ice thickness allowed in the model
+  REAL(wp),PUBLIC :: ramp_wind          !< Time (in days) that the wind stress is increased over.
+                                        !  This is only necessary for runs which start off from a
+                                        !  still ocean, i.e. not re-start
 
-  NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, hnull
+  NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
+    &           i_Qio_type
 
 CONTAINS
   !>
@@ -89,10 +99,13 @@ CONTAINS
     !------------------------------------------------------------------
     kice        = 1
     i_ice_therm = 2
-    i_ice_albedo= 999
+    i_ice_albedo= 0
+    i_ice_dyn   = 0
+    i_Qio_type  = 2
 
     hnull       = 0.5_wp
-    hmin        = hnull
+    hmin        = 0.05_wp
+    ramp_wind   = 10._wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -125,17 +138,43 @@ CONTAINS
     END IF
 
     IF (i_ice_therm < 1 .AND. i_ice_therm > 4) THEN
-      CALL finish(TRIM(routine), 'ice therm must be between 1 and 4.')
+      CALL finish(TRIM(routine), 'i_ice_therm must be between 1 and 4.')
     END IF
 
-    IF (i_ice_albedo /= 999) THEN
+    IF (i_ice_albedo /= 0) THEN
       CALL message(TRIM(routine), 'only one albedo scheme implemented')
     END IF
+
+    IF (i_ice_dyn < 0 .AND. i_ice_dyn > 1) THEN
+      CALL finish(TRIM(routine), 'i_ice_dyn must be either 0 or 1.')
+    END IF
+
+    ! TODO: This can be changed when we start advecting T1 and T2
+    IF (i_ice_dyn == 1 ) THEN
+      CALL message(TRIM(routine), 'i_ice_therm set to 1 because i_ice_dyn is 1')
+      i_ice_therm = 1
+    ENDIF
+
+
+    IF (i_Qio_type < 0 .AND. i_Qio_type > 1) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 0 or 1.')
+    END IF
+
+    IF (i_ice_dyn == 0) THEN
+      CALL message(TRIM(routine), 'i_Qio_type set to 0 because i_ice_dyn is 0')
+      i_Qio_type = 0
+    ENDIF
 
     IF (hmin > hnull) THEN
       CALL message(TRIM(routine), 'hmin cannot be larger than hnull')
       CALL message(TRIM(routine), 'setting hmin to hnull')
       hmin = hnull
+    ENDIF
+
+    IF (ramp_wind <= 0) THEN
+      CALL message(TRIM(routine), 'ramp_wind cannot be smaller than or equal to zero')
+      CALL message(TRIM(routine), 'setting ramp_wind to TINY(1._wp)')
+      ramp_wind = TINY(1._wp)
     ENDIF
 
 

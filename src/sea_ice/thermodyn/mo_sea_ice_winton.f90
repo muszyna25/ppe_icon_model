@@ -288,7 +288,7 @@ CONTAINS
     ENDIF
 
     ! Heat flux from ocean into ice
-    CALL oce_ice_heatflx(p_os,ice,Tfw,zHeatOceI)
+    CALL oce_ice_heatflx(p_patch, p_os,ice,Tfw,zHeatOceI)
   CALL dbg_print('GrowWinton: Tfw', Tfw, 'ice_growth_winton',5)
   CALL dbg_print('GrowWinton: zHeatOceI', zHeatOceI, 'ice_growth_winton',5)
 

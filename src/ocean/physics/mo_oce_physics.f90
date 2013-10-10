@@ -58,7 +58,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               biharmonic_diffusion_factor,                            &
   &                               richardson_tracer, richardson_veloc,                    &
   &                               l_constant_mixing, l_smooth_veloc_diffusion,            &
-  &                               l_wind_mixing
+  &                               l_wind_mixing    !, l_convection, l_pp_scheme
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
@@ -638,6 +638,9 @@ CONTAINS
       !initialzed with params_oce%A_tracer_v_back(itracer)
       !and velocity diffusion coefficient
 
+    ! prepare independent logicals for PP and convection parametrizations - not yet activated
+    ! IF (.NOT. (l_convection .AND. l_pp_scheme)) THEN
+
     ELSE !(.NOT.l_constant_mixing)
       ! Attention: with l_constant_mixing=.true. there is no application of
       ! convective mixing parameters in case of instability
@@ -736,11 +739,15 @@ CONTAINS
 
                 !! vert_density_grad  < 0 or smaler than threshold ('unstable'): use convective mixing parameter
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_threshold ) THEN
+                ! IF (l_convection) &  ! else take calculated or background values
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = MAX_VERT_DIFF_TRAC
 
                 !! vert_density_grad  >= 0 or greater-o-equal then threshold ('stable'): use calculated value
                 !! again taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
                 ELSE
+
+                  ! IF (l_pp_scheme) THEN
+
                   z_Ri_c(jc,jk,jb) = MAX(z_Ri_c(jc,jk,jb),0.0_wp)
 
                   ! This follows (19) in Marsland et al. but with lambda_D=1.0
@@ -773,7 +780,10 @@ CONTAINS
                       params_oce%A_tracer_v(jc,jk,jb, itracer) = params_oce%A_tracer_v_back(itracer)
                                                                    !z_max_diff_T!params_oce%A_tracer_v_back(itracer)
                     END IF
-                  ENDIF
+                  ENDIF  !  l_wind_mixing
+                  
+                  ! ELSE - nothing to calculate - background values
+                  ! ENDIF  !  pp_scheme
 
                 END IF
               ENDDO

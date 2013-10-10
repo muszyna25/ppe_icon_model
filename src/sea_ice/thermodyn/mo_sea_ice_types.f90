@@ -147,7 +147,9 @@ MODULE mo_sea_ice_types
       & bot     (:,:,:),           & ! Ocean heat flux at ice bottom               [W/m2]
       & dsensdT (:,:,:),           & ! d sensible Flux / d T_surf                  [W/m2/K]
       & dlatdT  (:,:,:),           & ! d latent Flux / d T_surf                    [W/m2/K]
-      & dLWdT   (:,:,:)              ! d radiation Flux / d T_surf                 [W/m2/K]
+      & dLWdT   (:,:,:),           & ! d radiation Flux / d T_surf                 [W/m2/K]
+      & stress_x(:,:),             & ! Wind stress at the ice surface              [Pa]
+      & stress_y(:,:)                ! Wind stress at the ice surface              [Pa]
 
     REAL(wp), ALLOCATABLE ::   &
       & rprecw (:,:),             & ! liquid precipitation rate                   [m/s]
@@ -157,7 +159,9 @@ MODULE mo_sea_ice_types
       & LWoutw (:,:),             & ! outgoing LW radiation flux over water       [W/m2]
       & LWnetw (:,:),             & ! net LW radiation flux over water            [W/m2]
       & SWnetw (:,:),             & ! net SW radiation flux over water            [W/m2]
-      & LWin   (:,:)                ! incoming LW radiation flux                  [W/m2]
+      & LWin   (:,:),             & ! incoming LW radiation flux                  [W/m2]
+      & stress_xw(:,:),           & ! Wind stress at the ocean surface            [Pa]
+      & stress_yw(:,:)              ! Wind stress at the ocean surface            [Pa]
 
 ! Albedos
     REAL(wp), POINTER ::     &
@@ -202,6 +206,7 @@ MODULE mo_sea_ice_types
       & E1         (:,:,:)       ,   & ! Energy content upper layer                    [Jm/kg]
       & E2         (:,:,:)       ,   & ! Energy content lower layer                    [Jm/kg]
       & vol        (:,:,:)       ,   & ! Ice volume                                    [m^3]
+      & vols       (:,:,:)       ,   & ! Snow volume                                   [m^3]
       & hi         (:,:,:)       ,   & ! Ice thickness                                 [m]
       & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
       & hiold      (:,:,:)       ,   & ! Ice thickness at previous time step           [m]
@@ -216,8 +221,11 @@ MODULE mo_sea_ice_types
       & conc       (:,:,:)             ! ice concentration in each ice class
 
     REAL(wp), POINTER :: &
-      & u(:,:)          ,      & ! Zonal velocity                                [m/s]
-      & v(:,:)          ,      & ! Meridional velocity                           [m/s]
+      & u_prog(:,:)     ,      & ! Zonal velocity (prognostic, rotated grid)     [m/s]
+      & v_prog(:,:)     ,      & ! Meridional velocity (prognostic, rotated)     [m/s]
+      & u(:,:)          ,      & ! Zonal velocity on cell centre (diagnostic)    [m/s]
+      & v(:,:)          ,      & ! Meridional velocity on cell centre (diagn.)   [m/s]
+      & vn_e(:,:)       ,      & ! Edge normal velocity (diagnostic)             [m/s]
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]

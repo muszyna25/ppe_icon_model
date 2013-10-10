@@ -237,10 +237,10 @@ CONTAINS
     ! for type of forcing see mo_oce_bulk
     idim_omip = 0
     IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
-    IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
+    IF (iforc_type == 2 ) idim_omip = 14    !  OMIP type forcing
     IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
     IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
+    IF (iforc_type == 5 ) idim_omip = 14    !  NCEP type forcing - time dependent read in mo_oce_bulk
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
@@ -582,6 +582,8 @@ CONTAINS
       ! 10:  precip(:,:), &  ! precipitation rate                               [m/s]
       ! 11:  evap  (:,:), &  ! evaporation   rate                               [m/s]
       ! 12:  runoff(:,:)     ! river runoff  rate                               [m/s]
+      ! 13:  u_wind_10m   &  ! zonal wind speed                                 [m/s]
+      ! 14:  v_wind_10m   &  ! meridional wind speed                            [m/s]
 
         ! 2m-temperature
         CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
@@ -636,6 +638,18 @@ CONTAINS
           &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                    no_tst, z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
+
+        ! zonal wind speed
+        CALL read_netcdf_data (ncid, 'u_wind_10m', p_patch(jg)%n_patch_cells_g,          &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux(:,:,:))
+        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+
+        ! meridional wind speed
+        CALL read_netcdf_data (ncid, 'u_wind_10m', p_patch(jg)%n_patch_cells_g,          &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
 
       END IF
 

@@ -147,6 +147,10 @@ MODULE mo_timer
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
 
+  ! Timer IDs for sea ice
+  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+!    &       timer_ice_advection, timer_ice_interp
+
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
             timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
@@ -277,6 +281,10 @@ MODULE mo_timer
   INTEGER :: timer_feedback
 
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
+
+  ! Timer IDs for sea ice
+  INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
+!    &        timer_ice_advection, timer_ice_interp
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
@@ -453,7 +461,14 @@ CONTAINS
     timer_bdy_interp = new_timer("nesting.bdy_interp")
     timer_feedback   = new_timer("nesting.feedback")
 
-    ! extra timers for on-demand (non-permanent) timings
+    ! Timer IDs for sea ice
+    timer_ice_fast      = new_timer("ice_fast")
+    timer_ice_slow      = new_timer("ice_slow")
+    timer_ice_momentum  = new_timer("ice_momentum")
+!    timer_ice_advection = new_timer("ice_advection")
+!    timer_ice_interp    = new_timer("ice_interp")
+  
+  ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
     timer_extra2  = new_timer("extra2")
     timer_extra3  = new_timer("extra3")

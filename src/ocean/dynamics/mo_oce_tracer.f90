@@ -51,9 +51,9 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
-  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-  &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer,                        &
-  & l_with_vert_tracer_diffusion, use_tracer_x_height
+  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA,        &
+  &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
+  &                                     use_tracer_x_height, l_forc_freshw, l_skip_tracer
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -664,18 +664,22 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   !finally implicit vertical diffusion
   ELSEIF( iswm_oce /= 1) THEN
 
-    CALL advect_flux_vertical( p_patch_3D,                     &
-                             & old_ocean_tracer%concentration, &
-                             & p_os,                           &
-                             & bc_top_tracer,                  &
-                             & bc_bot_tracer,                  &
-                             & flux_vert,                      &
-                             & tracer_id)
+    IF ( l_with_vert_tracer_advection ) THEN
+      CALL advect_flux_vertical( p_patch_3D,                     &
+                               & old_ocean_tracer%concentration, &
+                               & p_os,                           &
+                               & bc_top_tracer,                  &
+                               & bc_bot_tracer,                  &
+                               & flux_vert,                      &
+                               & tracer_id)
+    ELSE
+      flux_vert(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+    ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aft. AdvDiffVert:flux vert',flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('aft. AdvFluxDiff:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('aft. AdvFluxVert:flux vert',flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('aft. AdvFluxVert:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
     !Case: Implicit Vertical diffusion
@@ -746,9 +750,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('BefImplDiff: trac_old',trac_old, str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('BefImplDiff: flux_vert',flux_vert  , str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('BefImplDiff: flux_horz',flux_horz  , str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: trac_old', trac_old,  str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: flux_vert',flux_vert, str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('BefImplDiff: flux_horz',flux_horz, str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
@@ -776,11 +780,28 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
     !vertival diffusion is calculated explicitely
     ELSEIF(expl_vertical_tracer_diff==0)THEN
 
-      CALL tracer_diffusion_vert_expl( p_patch_3D,            &
-                             & old_ocean_tracer%concentration, &
-                             & bc_top_tracer,                  &
-                             & A_v,                            &
-                             & div_diff_flx)
+      IF ( l_with_vert_tracer_diffusion ) THEN
+
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('BefExplDiff: trac_old', trac_old,  str_module,idt_src, in_subset=cells_in_domain)
+        CALL dbg_print('BefExplDiff: flux_vert',flux_vert, str_module,idt_src, in_subset=cells_in_domain)
+        CALL dbg_print('BefExplDiff: flux_horz',flux_horz, str_module,idt_src, in_subset=cells_in_domain)
+        !---------------------------------------------------------------------
+
+        CALL tracer_diffusion_vert_expl( p_patch_3D,            &
+                               & old_ocean_tracer%concentration, &
+                               & bc_top_tracer,                  &
+                               & A_v,                            &
+                               & div_diff_flx)
+      ELSE
+        div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+      ENDIF
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('AftExplDiff: div_diff_flx', div_diff_flx, str_module, idt_src, in_subset=cells_in_domain)
+      !---------------------------------------------------------------------
 
       ! top layer
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
