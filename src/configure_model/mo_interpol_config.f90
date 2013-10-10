@@ -161,7 +161,6 @@ CONTAINS
     INTEGER,INTENT(IN) :: grid_level(n_dom)
     TYPE(t_grid_geometry_info), OPTIONAL, INTENT(in) :: geometry_info
     
-    REAL(wp):: torus_grid_fac
     INTEGER :: jg, jlev, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
 
@@ -185,33 +184,18 @@ CONTAINS
     ! - values are specified for Gaussian kernel
     ! (need to be smaller for inv. multiquadric)
 
-    !Modification required for planar torus grid: the scale factor
-    !is scaled up based on torus length
-
-    geometry_type = sphere_geometry
-    IF (PRESENT(geometry_info)) &
-      geometry_type = geometry_info%geometry_type
-
-    IF( geometry_type==planar_torus_geometry ) THEN
-       torus_grid_fac = geometry_info%domain_length/(pi2*grid_sphere_radius)   
-       CALL message( TRIM(routine),'Modifying rbf_vec_scale for torus grid: ignore warnings!')
-    ELSE
-       torus_grid_fac = 1._wp
-    END IF
-
-
     DO jg = 1,n_dom
 
       ! Check if scale factor is set in the namelist
       IF (rbf_vec_scale_c(jg) > 0.0_wp) CYCLE
 
       jlev = grid_level(jg)
-      IF      (jlev <= 9 ) THEN ; rbf_vec_scale_c(jg) = 0.5_wp * torus_grid_fac
-      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_c(jg) = 0.45_wp* torus_grid_fac
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_c(jg) = 0.3_wp * torus_grid_fac
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_c(jg) = 0.1_wp * torus_grid_fac
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_c(jg) = 0.03_wp* torus_grid_fac
-      ELSE                      ; rbf_vec_scale_c(jg) = 0.01_wp* torus_grid_fac
+      IF      (jlev <= 9 ) THEN ; rbf_vec_scale_c(jg) = 0.5_wp 
+      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_c(jg) = 0.45_wp
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_c(jg) = 0.3_wp 
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_c(jg) = 0.1_wp 
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_c(jg) = 0.03_wp
+      ELSE                      ; rbf_vec_scale_c(jg) = 0.01_wp
       ENDIF
     ENDDO
 
@@ -224,11 +208,11 @@ CONTAINS
       IF (rbf_vec_scale_v(jg) > 0.0_wp) CYCLE
 
       jlev = grid_level(jg)
-      IF      (jlev <= 10) THEN ; rbf_vec_scale_v(jg) = 0.5_wp * torus_grid_fac
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_v(jg) = 0.4_wp * torus_grid_fac
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_v(jg) = 0.25_wp* torus_grid_fac
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_v(jg) = 0.07_wp* torus_grid_fac
-      ELSE                      ; rbf_vec_scale_v(jg) = 0.02_wp* torus_grid_fac
+      IF      (jlev <= 10) THEN ; rbf_vec_scale_v(jg) = 0.5_wp 
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_v(jg) = 0.4_wp 
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_v(jg) = 0.25_wp
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_v(jg) = 0.07_wp
+      ELSE                      ; rbf_vec_scale_v(jg) = 0.02_wp
       ENDIF
     ENDDO
 
@@ -243,11 +227,11 @@ CONTAINS
       IF (rbf_vec_scale_e(jg) > 0.0_wp) CYCLE
 
       jlev = grid_level(jg)
-      IF      (jlev <= 10) THEN ; rbf_vec_scale_e(jg) = 0.5_wp * torus_grid_fac
-      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_e(jg) = 0.45_wp* torus_grid_fac
-      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_e(jg) = 0.37_wp* torus_grid_fac
-      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_e(jg) = 0.25_wp* torus_grid_fac
-      ELSE                      ; rbf_vec_scale_e(jg) = 0.1_wp * torus_grid_fac
+      IF      (jlev <= 10) THEN ; rbf_vec_scale_e(jg) = 0.5_wp 
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_e(jg) = 0.45_wp
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_e(jg) = 0.37_wp
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_e(jg) = 0.25_wp
+      ELSE                      ; rbf_vec_scale_e(jg) = 0.1_wp 
       ENDIF
     ENDDO
 
@@ -274,6 +258,24 @@ CONTAINS
       ELSE                      ; rbf_vec_scale_ll(jg) = 0.0005_wp
       ENDIF
     ENDDO
+
+    !AD (20 Sept 2913) Modification required for planar torus grid: the scale factor
+    !is based on the width of the Gaussian but very soon it will adapted in more
+    !analytical manner by Florian
+    geometry_type = sphere_geometry
+    IF (PRESENT(geometry_info)) &
+      geometry_type = geometry_info%geometry_type
+
+    IF( geometry_type==planar_torus_geometry ) THEN
+      DO jg = 1, n_dom
+       rbf_vec_scale_c(jg)  = 3._wp*geometry_info%mean_dual_edge_length
+       rbf_vec_scale_e(jg)  = rbf_vec_scale_c(jg)
+       rbf_vec_scale_v(jg)  = rbf_vec_scale_c(jg)
+       rbf_vec_scale_ll(jg) = rbf_vec_scale_c(jg)
+       CALL message( TRIM(routine),'Modifying rbf_vec_scale for torus grid: ignore warnings!')
+      END DO
+    END IF
+
 
     !-----------------------------------------------------------------------
     ! Now check the RBF scaling factors

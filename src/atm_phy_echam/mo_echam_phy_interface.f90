@@ -83,6 +83,7 @@ MODULE mo_echam_phy_interface
   USE mo_icoham_sfc_indices, ONLY: iwtr, iice
   USE mo_o3,                 ONLY: read_amip_o3
   USE mo_aero_kinne,         ONLY: read_aero_kinne
+  USE mo_aero_stenchikov,    ONLY: read_aero_stenchikov
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
@@ -368,6 +369,10 @@ CONTAINS
     END IF
     IF (ltrig_rad .AND. irad_aero == 13) THEN
       CALL read_aero_kinne(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 15) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
+      CALL read_aero_stenchikov(datetime%year, p_patch)
     END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN

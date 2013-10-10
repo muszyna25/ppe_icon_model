@@ -1,3 +1,4 @@
+require 'minitest/autorun'
 require 'open3'
 require 'jobqueue'
 require 'facets'
@@ -60,11 +61,14 @@ $hosts = {
     :user     => REMOTE_USER,
     :hostname => 'passat.dkrz.de',
     :dir      => '/work/mh0287/users/ram/builds'},
+  :wizard => {
+    :user     => REMOTE_USER,
+    :hostname => 'wizard.dkrz.de',
+    :dir      => '/work/mh0287/users/ram/builds'},
   # laptop on my desk
   :thingol => {
     :dir => '/home/ram/builds/icon' }
 }
-
 # naming conventions:
 # * local builds start with 'local'
 # * remote builds start with 'remote'
@@ -81,8 +85,8 @@ $builds = {
   :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
-  :remotePgi         => {:host => :thunder5, :subdir => 'pgi'      , :CC => 'pgi'}     ,
-  :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
+  :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
+  :remoteXlf         => {:host => :wizard  , :subdir => 'default'} ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
@@ -186,11 +190,13 @@ $excludeFiles = lambda {|build|
 def sync(build)
   excludes = $excludeFiles[build]
   dir      = $targetDir[build]
+  rsyncOpts = "--delete-excluded --delete"
+  rsyncOpts = ""
 
   if isLocal?(build)
-    syncCmd = "rsync -avz #{SRCDIR}/ #{dir} #{excludes}"
+    syncCmd = "rsync #{rsyncOpts} -avz #{SRCDIR}/ #{dir} #{excludes}"
   else
-    syncCmd = "rsync -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir} #{excludes}"
+    syncCmd = "rsync #{rsyncOpts} -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir} #{excludes}"
   end
   syncCmd
 end
@@ -286,7 +292,11 @@ def doCheckExp(build,exp)
           echo '#===========================================================================';
           echo " $file";echo
           cdo showname  $file
-          cdo -infov -subc,16.0 -div -selname,t_acc,t $file -selname,wet_c $file
+          #cdo infov -selname,t $file
+          #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
+          #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
+          #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
+          cdo -infov -div -selname,t,t_acc $file -selname,wet_c $file
         fi;
       done
                EOS

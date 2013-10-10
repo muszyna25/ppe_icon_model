@@ -221,6 +221,9 @@ check_accept_script()
        *test_oce_default*)
           accepted_script="false"
           ;;
+       *test_oce_numeric*)
+          accepted_script="false"
+          ;;
        *test_nh_hdcp2_lam_r15000_modified*)
           accepted_script="false"
           ;;

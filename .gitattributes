@@ -174,6 +174,7 @@ doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img002.png -te
 doc/technical/async_restart/restart_module_doc.pdf -text
 doc/technical/async_restart/restart_module_doc.tex -text
 doc/technical/dwd_database/GRIB2_output_tables.tex -text
+doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
@@ -741,8 +742,6 @@ run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.r2b4_amip -text
-run/exp.r2b4_amip_blizzard.run -text
-run/exp.r2b4_amip_thunder.run -text
 run/exp.sl_lsmfl -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_jww -text
@@ -1141,6 +1140,7 @@ src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_aero_kinne.f90 -text
+src/atm_phy_echam/mo_aero_stenchikov.f90 -text
 src/atm_phy_echam/mo_amip_bc.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_canopy.f90 -text
@@ -1469,6 +1469,8 @@ src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
+src/ocean/attic/impl_vert_tracer_diff -text
+src/ocean/attic/mo_simple_expl_run -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_sea_ice.f90 -text

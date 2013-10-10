@@ -20,7 +20,7 @@
 % \end{psinputs}
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
-\usepackage[square,sort,comma,numbers]{natbib} %--- creates bibliography; author-year with curly brackets within the text
+\usepackage[round,sort,comma,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
 % \usepackage[  %--- no numbering of positions 
 % toc,           %--- let it appear in the document's table of contents
 % style=mylong3colheader %--- see glossaries Documentation for a list of available styles
@@ -42,8 +42,10 @@
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
+\usepackage{array}
 
-
+% left-aligned fixed-width table column
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 % define some colors
 \definecolor{darkred}{rgb}{0.5,0,0}
@@ -51,7 +53,7 @@
 %\definecolor{darkgreen}{rgb}{0,0.5,0}
 
 % customize hyperref
-\hypersetup{colorlinks, linkcolor=darkblue, urlcolor=darkred}
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred}
 
 
 % Fortran environment
@@ -116,6 +118,7 @@
 
 \includeonly{./title_toc,
              ./versionhistory,
+             ./analysis,
              ./grid_geometry,
              ./GRIB2_output_tables}
 
@@ -179,6 +182,11 @@
 % sign function
 \newcommand{\sgn}{\operatorname{sgn}}
 
+% color
+\newcommand{\tred}{\textcolor{red}}
+
+% shifting table captions...
+\newcommand{\rb}[1]{\raisebox{4.0ex}[0pt]{#1}}
 
 % use default again
 \renewcommand{\chaptermark}[1]{%
@@ -190,6 +198,7 @@
 
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
 \include{./grid_geometry}
+\include{./analysis}
 \include{./GRIB2_output_tables}
 % ----------------------------------------------------------------%
 

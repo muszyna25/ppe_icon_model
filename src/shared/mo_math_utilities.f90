@@ -614,8 +614,9 @@ CONTAINS
     CASE (planar_torus_geometry)
       !Assuming that the flat geometry is nothing but a small arc 
       !over sphere. This assumption doesn't really affect any calculation
-      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) / &
-              geometry_info%sphere_radius
+      !AD (20 Sept 2013) Now we use the planar distance instead. RBF scale 
+      !has been adjusted accordingly
+      p_arc = plane_torus_distance(p_x%x,p_y%x,geometry_info) 
     CASE (sphere_geometry)
       !    
       p_arc = arc_length_sphere (p_x, p_y)
@@ -716,8 +717,10 @@ CONTAINS
     CASE (planar_torus_geometry)
       !Assuming that the flat geometry is nothing but a small arc 
       !over sphere. This assumption doesn't really affect any calculation
-      p_arc = plane_torus_distance(p_x,p_y,geometry_info) / &
-              geometry_info%sphere_radius
+      !AD (20 Sept 2013) Now we use the planar distance in these calculations
+      !for TORUS. RBF scale has been adjusted accordingly
+      p_arc = plane_torus_distance(p_x,p_y,geometry_info) !/ &
+              !geometry_info%sphere_radius
     CASE (sphere_geometry)
       !
       p_arc = arc_length_v_sphere (p_x, p_y)

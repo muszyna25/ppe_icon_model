@@ -72,7 +72,8 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
 USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, &
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  &                                  t_hydro_ocean_prog, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
@@ -152,6 +153,15 @@ CONTAINS
       ! calc u and v out of vn
     ELSE
     ENDIF
+    ! copy old tracer values to spot value fields for propper initial timestep
+    ! output
+    ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
+
+    ocean_state%p_acc%tracer(:,:,:,1)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    ocean_state%p_acc%tracer(:,:,:,2)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ocean_state%p_acc%h  = ocean_state%p_prog(nold(1))%h
   END SUBROUTINE prepare_ho_stepping
 
   !-------------------------------------------------------------------------
@@ -377,13 +387,13 @@ CONTAINS
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
       ! set the output variable pointer to the correct timelevel
-      CALL set_output_pointers
+      CALL set_output_pointers(nnew(1), p_os(jg)%p_diag, p_os(jg)%p_prog(nnew(1)))
 
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
       IF (output_mode%l_vlist) THEN
-          CALL write_output_oce( datetime, time_config%sim_time(1),patch_3D, p_os)
+        CALL write_output_oce( datetime, time_config%sim_time(1),patch_3D, p_os)
       ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
@@ -590,7 +600,7 @@ CONTAINS
   SUBROUTINE update_ocean_statistics(p_os,p_sfc_flx,subset)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
-    TYPE(t_subset_range),INTENT(IN) :: subset
+    TYPE(t_subset_range),      INTENT(IN)    :: subset
 
     INTEGER :: jtrc,i
 
@@ -737,29 +747,42 @@ CONTAINS
   SUBROUTINE new_ocean_statistics()
   END SUBROUTINE new_ocean_statistics
 
-  SUBROUTINE set_output_pointers
+  SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
+    INTEGER, INTENT(IN) :: timelevel
+    TYPE(t_hydro_ocean_diag) :: p_diag
+    TYPE(t_hydro_ocean_prog) :: p_prog
 
-    TYPE(t_list_element), POINTER :: output_var, prog_var
-    CHARACTER(len=max_char_length) :: timelevel
-   !-------------------------------------------------------------------------
-    WRITE(timelevel,'(a,i2.2)') '_TL',nnew(1)
+    TYPE(t_list_element), POINTER  :: output_var => null()
+    TYPE(t_list_element), POINTER  :: prog_var   => null()
+    CHARACTER(len=max_char_length) :: timelevel_str
+    !-------------------------------------------------------------------------
+    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
+    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
 
     !CALL print_var_list(ocean_restart_list)
-    prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel))
-    output_var             => find_list_element(ocean_restart_list,'h')
-    output_var%field%r_ptr => prog_var%field%r_ptr
+   !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
+   !output_var             => find_list_element(ocean_restart_list,'h')
+   !output_var%field%r_ptr => prog_var%field%r_ptr
+   !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
+    p_diag%h               =  p_prog%h
 
-    output_var             => find_list_element(ocean_restart_list,'vn')
-    prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel))
-    output_var%field%r_ptr => prog_var%field%r_ptr
+   !output_var             => find_list_element(ocean_restart_list,'vn')
+   !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
+   !output_var%field%r_ptr => prog_var%field%r_ptr
+   !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
+    p_diag%vn(:,:,:)       =  p_prog%vn
 
-    output_var             => find_list_element(ocean_restart_list,'t')
-    prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel))
-    output_var%field%r_ptr => prog_var%field%r_ptr
+   !output_var             => find_list_element(ocean_restart_list,'t')
+   !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
+   !output_var%field%r_ptr => prog_var%field%r_ptr
+   !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
+    p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
 
-    output_var             => find_list_element(ocean_restart_list,'s')
-    prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel))
-    output_var%field%r_ptr => prog_var%field%r_ptr
+   !output_var             => find_list_element(ocean_restart_list,'s')
+   !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
+   !output_var%field%r_ptr => prog_var%field%r_ptr
+   !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
+    p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
   END SUBROUTINE set_output_pointers
 
 END MODULE mo_hydro_ocean_run

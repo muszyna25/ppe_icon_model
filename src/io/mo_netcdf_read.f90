@@ -81,7 +81,9 @@ MODULE mo_netcdf_read
 
   PUBLIC :: netcdf_read_0D
   PUBLIC :: netcdf_read_1D
-  PUBLIC :: netcdf_read_oncells_2d
+  PUBLIC :: netcdf_read_2D_time
+  PUBLIC :: netcdf_read_3D_time
+  PUBLIC :: netcdf_read_oncells_2D
   PUBLIC :: netcdf_read_oncells_2D_time
   PUBLIC :: netcdf_read_oncells_3D_time
   PUBLIC :: netcdf_read_oncells_2D_extdim
@@ -115,6 +117,15 @@ MODULE mo_netcdf_read
     MODULE PROCEDURE netcdf_read_REAL_1D_filename
     MODULE PROCEDURE netcdf_read_REAL_1D_fileid
   END INTERFACE netcdf_read_1D
+
+  INTERFACE netcdf_read_2D_time
+!!$    MODULE PROCEDURE netcdf_read_REAL_2D_time_filename
+    MODULE PROCEDURE netcdf_read_REAL_2D_time_fileid
+  END INTERFACE netcdf_read_2D_time
+
+  INTERFACE netcdf_read_3D_time
+    MODULE PROCEDURE netcdf_read_REAL_3D_time_fileid
+  END INTERFACE netcdf_read_3D_time
 
   INTERFACE netcdf_read_oncells_2D
     MODULE PROCEDURE netcdf_read_REAL_ONCELLS_2D_filename
@@ -447,7 +458,224 @@ CONTAINS
   END FUNCTION netcdf_read_REAL_1D_fileid
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_2D_time_fileid(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
 
+    REAL(wp), POINTER            :: netcdf_read_REAL_2D_time_fileid(:,:,:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
+
+    INTEGER :: total_number_of_cells
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: file_time_steps, time_steps, start_time, end_time
+    INTEGER :: start_read_index(3), count_read_index(3)
+    INTEGER :: idim
+    INTEGER :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_2D_time_fileid'
+
+    ! trivial return value.
+    NULLIFY(netcdf_read_REAL_2D_time_fileid)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 3 ) THEN
+        WRITE(0,*) "var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      IF (PRESENT(dim_names)) THEN
+        DO idim = 1, 2
+          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),' but dimension name', &
+                       TRIM(ADJUSTL(dim_names(idim))),' was expected'
+            CALL finish(method_name, 'dimension name mismatch')
+          END IF
+        END DO
+      END IF
+
+      IF (TRIM(var_dim_name(3)) /= 'time' ) THEN
+        WRITE(0,*) 'no time dimension found, the last dimension must be time'
+        CALL finish(method_name, 'no time dimension found')
+      END IF
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:3))
+    file_time_steps=var_size(3)
+
+    ! calculate time range
+    IF (PRESENT(start_timestep)) THEN
+      start_time = start_timestep
+    ELSE
+      start_time = 1
+    ENDIF
+    IF (PRESENT(end_timestep)) THEN
+      end_time = end_timestep
+    ELSE
+      end_time = file_time_steps
+    ENDIF
+!!$    use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+    time_steps = end_time - start_time + 1
+!    write(0,*) "start,end time=", start_time, end_time
+    IF (time_steps < 1) &
+      & CALL finish(method_name, "number of time steps < 1")
+
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_2D_time_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_2D_time_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_2D_time_fileid(var_size(1),var_size(2),time_steps), stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_2D_time_fileid )')
+        ENDIF
+        netcdf_read_REAL_2D_time_fileid(:,:,:)=0.0_wp
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_2D_time_fileid(var_size(1),var_size(2),time_steps), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_2D_time_fileid )')
+      ENDIF
+      netcdf_read_REAL_2D_time_fileid(:,:,:)=0.0_wp
+    ENDIF
+
+!!$    ! check if the size is correct
+!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) < var_size(1)) &
+!!$      CALL finish(method_name, "allocated size < var_size")
+!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) > var_size(1)) &
+!!$      CALL warning(method_name, "allocated size > var_size")
+
+    IF( my_process_is_mpi_workroot()) THEN
+      start_read_index = (/1,1,start_time/)
+      count_read_index = (/var_size(1),var_size(2),time_steps/)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, &
+              netcdf_read_REAL_2D_time_fileid(:,:,:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(netcdf_read_REAL_2D_time_fileid)
+
+  END FUNCTION netcdf_read_REAL_2D_time_fileid
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_3D_time_fileid(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
+
+    REAL(wp), POINTER            :: netcdf_read_REAL_3D_time_fileid(:,:,:,:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
+
+    INTEGER :: total_number_of_cells
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: file_time_steps, time_steps, start_time, end_time
+    INTEGER :: start_read_index(4), count_read_index(4)
+    INTEGER :: idim
+    INTEGER :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_netcdf_read:netcdf_read_REAL_3D_time_fileid'
+
+    ! trivial return value.
+    NULLIFY(netcdf_read_REAL_3D_time_fileid)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      return_status = netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 4 ) THEN
+        WRITE(0,*) "var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      IF (PRESENT(dim_names)) THEN
+        DO idim = 1, 3
+          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),' but dimension name ', &
+                       TRIM(ADJUSTL(dim_names(idim))),' was expected'
+            CALL finish(method_name, 'dimension name mismatch')
+          END IF
+        END DO
+      END IF
+
+      IF (TRIM(var_dim_name(4)) /= 'time' ) THEN
+        WRITE(0,*) 'no time dimension found, the last dimension must be time'
+        CALL finish(method_name, 'no time dimension found')
+      END IF
+    ENDIF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:4))
+    file_time_steps=var_size(4)
+
+    ! calculate time range
+    IF (PRESENT(start_timestep)) THEN
+      start_time = start_timestep
+    ELSE
+      start_time = 1
+    ENDIF
+    IF (PRESENT(end_timestep)) THEN
+      end_time = end_timestep
+    ELSE
+      end_time = file_time_steps
+    ENDIF
+!!$    use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+    time_steps = end_time - start_time + 1
+!    write(0,*) "start,end time=", start_time, end_time
+    IF (time_steps < 1) &
+      & CALL finish(method_name, "number of time steps < 1")
+
+    IF (PRESENT(fill_array)) THEN
+      netcdf_read_REAL_3D_time_fileid => fill_array
+      IF (.NOT. ASSOCIATED(netcdf_read_REAL_3D_time_fileid)) THEN
+        CALL warning(method_name, "fill_array is not allocated")
+        ALLOCATE( netcdf_read_REAL_3D_time_fileid(var_size(1),var_size(2),&
+                  var_size(3),time_steps), stat=return_status )
+        IF (return_status /= success) THEN
+          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_3D_time_fileid )')
+        ENDIF
+        netcdf_read_REAL_3D_time_fileid(:,:,:,:)=0.0_wp
+      ENDIF
+    ELSE
+      ALLOCATE( netcdf_read_REAL_3D_time_fileid(var_size(1),var_size(2), &
+                var_size(3),time_steps), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_3D_time_fileid )')
+      ENDIF
+      netcdf_read_REAL_3D_time_fileid(:,:,:,:)=0.0_wp
+    ENDIF
+
+!!$    ! check if the size is correct
+!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) < var_size(1)) &
+!!$      CALL finish(method_name, "allocated size < var_size")
+!!$    IF (SIZE(netcdf_read_REAL_1D_fileid,1) > var_size(1)) &
+!!$      CALL warning(method_name, "allocated size > var_size")
+
+    IF( my_process_is_mpi_workroot()) THEN
+      start_read_index = (/1,1,1,start_time/)
+      count_read_index = (/var_size(1),var_size(2),var_size(3),time_steps/)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, &
+              netcdf_read_REAL_3D_time_fileid(:,:,:,:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(netcdf_read_REAL_3D_time_fileid)
+
+  END FUNCTION netcdf_read_REAL_3D_time_fileid
+  !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
   FUNCTION netcdf_read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)

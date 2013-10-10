@@ -81,7 +81,7 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2002-01-01T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -125,25 +125,54 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 1800         ! model timestep in seconds
+ dtime       = 3600               ! model timestep in seconds
+ output      = 'nml'              ! output mechanism via namelist
+ activate_sync_timers = .TRUE.
+ write_timer_files    = .FALSE.
+/
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist       =  'wet_c','t_acc'
+! ml_varlist       =  'group:oce_default'
+/
+&dbg_index_nml
+  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
+  dbg_lat_in=   30.0              ! latitude location of one cell debug output
+  dbg_lon_in=  -30.0              ! longitude location of one cell debug output
+  str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
+! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 10 unevenly spaced levels beginning with 50m depth
-  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
-                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
+! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
-  no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 0.001     ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-2    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  !i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
+  !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  !k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
+  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
+  k_pot_temp_h       = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h            = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+  MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
@@ -151,7 +180,7 @@ cat > ${ocean_namelist} << EOF
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   51      ! 51=analytical wind and temperature forcing for circumpolar channel
+  itestcase_oce      =   46      ! 51=analytical wind and temperature forcing for circumpolar channel
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
@@ -162,6 +191,9 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    1.0    ! strength of 2-dim relaxation for salinity (months)
+  l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
+  iforc_stat_oce     =    3      ! analytic forcing constant westerly
+  analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /
 &io_nml
   out_expname   = '${EXPNAME}'

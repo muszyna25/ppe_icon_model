@@ -51,6 +51,9 @@ MODULE mo_io_util
     &                                 my_process_is_mpi_test, process_mpi_all_test_id, &
     &                                 process_mpi_all_workroot_id, p_send, p_recv,     &
     &                                 my_process_is_mpi_seq
+  USE mo_cdi_constants,         ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4,         &
+    &                                 FILETYPE_GRB, FILETYPE_GRB2
+  USE mo_util_string,           ONLY: tolower
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_model_domain,          ONLY: t_patch
   USE mo_communication,         ONLY: t_comm_pattern, exchange_data
@@ -63,6 +66,8 @@ MODULE mo_io_util
 
   PUBLIC :: gather_array1 
   PUBLIC :: gather_array2
+  PUBLIC :: get_filetype
+  PUBLIC :: get_file_extension
 
   PUBLIC :: t_outvar_desc
   PUBLIC :: t_collected_var_ptr
@@ -79,6 +84,8 @@ MODULE mo_io_util
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
+  ! module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_util'
 
   INTEGER, PARAMETER :: GATHER_C      = 1
   INTEGER, PARAMETER :: GATHER_E      = 2
@@ -324,6 +331,59 @@ CONTAINS
 
   END SUBROUTINE gather_array2
 
+
+  !-------------------------------------------------------------------------
+  !> @return One of CDI's FILETYPE\_XXX constants. Possible values: 2
+  !          (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
+  !
+  !  The file type is determined by the setting of the "filetype"
+  !  namelist parameter in "initicon_nml". If this parameter has not
+  !  been set, we try to determine the file type by its extension
+  !  "*.grb*" or ".nc".
+  !
+  FUNCTION get_filetype(filename)
+    INTEGER :: get_filetype
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nh_initicon:get_filetype'
+    INTEGER :: idx
+    
+    idx = INDEX(tolower(filename),'.nc')
+    IF (idx==0) THEN
+      idx = INDEX(tolower(filename),'.grb')
+      IF (idx==0) THEN
+        CALL finish(routine, "File type could not be determined!")
+      ELSE
+        get_filetype = FILETYPE_GRB2
+      END IF
+    ELSE
+      get_filetype = FILETYPE_NC2
+    END IF
+  END FUNCTION get_filetype
+
+
+  !> @return file extension string corresponding to file type
+  !
+  FUNCTION get_file_extension(filetype) RESULT(extn)
+    CHARACTER(LEN=16)   :: extn
+    INTEGER, INTENT(IN) :: filetype
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_file_extension"
+
+    SELECT CASE (filetype)
+    CASE (FILETYPE_NC)
+      CALL finish(routine,'netCDF classic not supported')
+    CASE (FILETYPE_NC2, FILETYPE_NC4)
+      ! this is ok, both formats can write more than 2GB files
+      extn = '.nc'
+    CASE (FILETYPE_GRB)
+      CALL finish(routine,'GRIB1 not supported')
+    CASE (FILETYPE_GRB2)
+      extn = '.grb'
+    CASE default
+      CALL finish(routine,'unknown output_type')
+    END SELECT
+  END FUNCTION get_file_extension
 
 END MODULE mo_io_util
 

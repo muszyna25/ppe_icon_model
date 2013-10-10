@@ -94,7 +94,7 @@ MODULE mo_les_config
        les_config(jg)%shflx = 0._wp   
        les_config(jg)%lhflx = 0._wp   
 
-       WRITE(message_text,'(a,e14.6)')'LES with fixed SST=',les_config(jg)%sst
+       WRITE(message_text,'(a,e14.6)')'LES with surface scheme TERRA'
 
        CALL message(TRIM(routine),message_text)
 

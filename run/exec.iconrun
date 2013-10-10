@@ -325,6 +325,7 @@ if [ $finish_status = "RESTART" ] ; then
   this_script="${RUNSCRIPTDIR}/${job_name}"
   echo 'this_script: ' "$this_script"
   touch ${restartSemaphoreFilename}
+  cd ${RUNSCRIPTDIR}
   ${submit} $this_script
 else
   [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}

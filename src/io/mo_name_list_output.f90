@@ -36,6 +36,7 @@ MODULE mo_name_list_output
   USE mo_cdi_constants              ! We need all
   USE mo_io_units,                  ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,                 ONLY: lkeep_in_sync
+  USE mo_io_util,                   ONLY: get_file_extension
   USE mo_exception,                 ONLY: finish, message, message_text
   USE mo_var_metadata,              ONLY: t_var_metadata, POST_OP_NONE
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
@@ -224,22 +225,8 @@ CONTAINS
     ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
     ! really appear in the log
 
-    !
-    ! check output file type
-    !
-    SELECT CASE (of%output_type)
-    CASE (FILETYPE_NC)
-      CALL finish(routine,'netCDF classic not supported')
-    CASE (FILETYPE_NC2, FILETYPE_NC4)
-      ! this is ok, both formats can write more than 2GB files
-      extn = '.nc'
-    CASE (FILETYPE_GRB)
-      CALL finish(routine,'GRIB1 not supported')
-    CASE (FILETYPE_GRB2)
-      extn = '.grb'
-    CASE default
-      CALL finish(routine,'unknown output_type')
-    END SELECT
+    ! get file extension: ".nc"/".grb"
+    extn = TRIM(get_file_extension(of%output_type))
 
     ! generate DDHHMMSS forecast time string (elapsed time)
     rel_fct_time%calday  = 0

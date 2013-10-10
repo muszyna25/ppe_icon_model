@@ -17,20 +17,22 @@
 # 2012-07-02 : Introduced new SVN user "dwd-ecmwf"
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
-# 2012-end:    Switch co C2A (Martin Koehler and Stefan Koerner)
+# 2012-end:    Switch to C2A (Martin Koehler and Stefan Koerner)
 #
 
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "004"                #---experiment number---
-set EXPNUM2       "004"                #---experiment number used for score comparison---
+set EXPNUM        "005"                #---experiment number---
+set EXPNUM2       "005"                #---experiment number used for score comparison---
 set SUITE2        "dei3"               #---suite             used for score comparison---
 set FIRST_DATE    20001020
 set LAST_DATE     20001024
 set DATE_LIST     "20001020 20001022 20001024"
+set TIME_LIST       "2000102000/2000102200/2000102400"
 set FIRST_DATE_S    2000-12-01T00:00:00           # First date to save in the output
-set LAST_DATE_S     2001-11-30T00:00:00           # Last date to save in the output
+#set LAST_DATE_S     2001-11-30T12:00:00           # Last date to save in the output
+set LAST_DATE_S     2001-02-28T12:00:00           # Last date to save in the output
 set FIRST_SSTICE_YEAR 2000             # First and last year for which we neeed the external SST
 set LAST_SSTICE_YEAR  2002             #  and CI external files 
 set MONTHS        200010               #---months to be run e.g. 201201_201207
@@ -43,7 +45,9 @@ set RESRAD        "R02B04"              #---ICON resolution radiation (requires 
 #set NSTEPS       12000  # R2B6 10d
 #set NSTEPS       4800   # grey zone 48h: R2B7-4800, R2B8-9600
 #set NSTEPS       2880
-set NSTEPS      393600   # 410*86400s/90s
+#set NSTEPS      393600   # 410*86400s/90s
+set NSTEPS      128640   # 134*86400s/90s
+set FCLENGTH     3216    # 134*24 hours
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
 set SIMMODE      3
@@ -162,15 +166,15 @@ suite $USER
     edit INIHOUR 00
 
     # init local variables:
-    set ENABLE_INIT               0 #to avoid running again
+    set ENABLE_INIT               1 #to avoid running again
     set     ENABLE_GET_DATA       0
     set     ENABLE_INIT_DATA      0
     set     ENABLE_BUILD          0
     set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
-    set     ENABLE_MODEL          1
-    set     ENABLE_CHECK          1
+    set     ENABLE_MODEL          0
+    set     ENABLE_CHECK          0
     set ENABLE_SSTICE             0 #to avoid running again
     set ENABLE_POST               1
     set     ENABLE_METEOGRAM      1
@@ -178,7 +182,7 @@ suite $USER
     set     ENABLE_POST_ARCHIVE   1
     
     set ENABLE_POST_SEAS          1
-    set     ENABLE_SEAS_MEAN      1
+    set     ENABLE_SEAS_MEAN      0
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
     set  SVN_UPDATE           1
@@ -219,6 +223,8 @@ suite $USER
     edit FDATE $FIRST_DATE
     edit FDATE_S $FIRST_DATE_S
     edit LDATE_S $LAST_DATE_S
+    edit TIME_LIST $TIME_LIST
+    edit FCLENGTH $FCLENGTH
 
 
     edit ICONNODES        $ICONNODES        
@@ -383,7 +389,6 @@ suite $USER
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 05:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
-
             endfamily
         endloop
 
@@ -395,10 +400,13 @@ suite $USER
        #repeat date YMD ${FIRST_DATE} ${LAST_DATE} 2      # cycle over dates
         trigger forecast==complete
         complete ( $ENABLE_POST_SEAS == 0)
+        set PLOTPERIODS 20
 
-        loop DATE ( ${DATE_LIST}  ) do
-            family $DATE
-              edit YMD $DATE
+        repeat string YMD ${DATE_LIST}  
+        family climmeans
+         ## loop DATE ( ${DATE_LIST}  ) do
+         ##   family $DATE
+         ##     edit YMD $DATE
                 
              # family prepare
              #   task pre_clean
@@ -417,15 +425,67 @@ suite $USER
                 #trigger (prepare == complete)
                 complete ($ENABLE_SEAS_MEAN == 0)
                 on_hpc_serial
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 05:00:00
                 #event seasonal_mean_complete
-	      
-              
+          ##   endfamily
+         ## endloop
+	endfamily
+   
+        family climplot
+          ##repeat string YMD ${DATE_LIST}  
+             define rcmd { repeat integer PLOTPERIOD 1 \$PLOTPERIODS }
+             rcmd
+             trigger ( climmeans == complete ) ## or \
+                ##   ( climplot:PLOTPERIOD lt climmeans:PLOTPERIOD ) or \
+                ##   ( climplot:PLOTPERIOD eq climmeans:PLOTPERIOD and \
+                ##     climmeans/mmeans_sfc == complete and \
+                ##     climmeans/mmeans_pl  == complete and \
+                ##     climmeans/mmeans_ml  == complete )
+        ##   complete ( climplot:PLOTPERIOD \> $PLOTPERIODS )
+           task getmeans
+             # trigger ../climplot:PLOTPERIOD le $PLOTPERIODS
+             on_ecgate_submit
+           task plot_2d
+             trigger getmeans==complete
+             on_ecgate_submit
+##           task plot_wind
+##             trigger getmeans==complete
+##           task plot_z500
+##             trigger getmeans==complete
+##           task plot_zon
+##             trigger getmeans==complete
+##           task plot_dcycle
+##             trigger getmeans==complete
+##           task plot_wavfreq
+##             trigger getmeans==complete
+##           task plot_vdspectra
+##             trigger getmeans==complete
+##           family plot_obs
+##             trigger getmeans==complete
+##               task plot_obs_1
+##               task plot_obs_2
+##               task plot_obs_3
+##               task plot_obs_4
+##               task plot_obs_5
+##               task plot_obs_6
+##               task plot_obs_7
+##               task plot_obs_8
+##               task plot_obs_9
+##               task plot_obs_10
+##           endfamily
+##           task plot_clean
+##            trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
+##                    plot_z500==complete and plot_zon==complete and plot_obs==complete and \
+##                    plot_dcycle==complete and plot_wavfreq==complete and plot_vdspectra==complete
+       
+        endfamily
 
-            endfamily
-        endloop
+        task climplot_save
+           trigger climplot == complete
+             
 
+ 
     endfamily
-
+ endfamily
 
 endsuite

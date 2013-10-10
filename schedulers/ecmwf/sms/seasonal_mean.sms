@@ -20,7 +20,7 @@
 echo "SEASONAL_MEAN.SMS" 
 
 module load python
-module load cdo
+module load cdo/1.6.0
 module swap grib_api grib_api/1.11.0
 
 #dwd_grib_api=/home/ms/de/dwd/grib_api
@@ -41,40 +41,46 @@ case %SIMMODE% in
      ldeldata=1  ;;
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  ;;
-  3) lseasmean=1
+  3) lseasmean=1      #only seasonal means for the time been
      lmonthmean=0
-     lyearmean=1
+     lyearmean=0
      lseldate=1
      lcpdata=1  
      ldeldata=1
      lsel2D=1    
-     dout=5    ;     # 2 days output interval
+     dout=0.5    ;     # 2 days output interval
 esac
-    # lsplitdata=0
-    # lseasmean=0
-    # lmonthmean=0
-    # lyearmean=1
-    # lseldate=0
-    # lcpdata=1  
+     #lsplitdata=0
+     #lseasmean=0
+     #lmonthmean=0
+     #lyearmean=0
+     #lseldate=0
+     #lcpdata=0  
      ldeldata=0
-    # lsel2D=0  
+     #lsel2D=0  
 
 #-----------------------------------------------------------------------------
 # directories
 
 outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
-gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
+#gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
+gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/seasonal
 ssh ecgb mkdir -p ${gatedir}
+ssh ecgb rm  -rf ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
+ecfseas="ec:icon/experiments/%SUITE%/%EXPNUM%/seasonal"
 emkdir -p $ecfsdir
-
+emkdir -p $ecfseas
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
+#mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%/grb_data
+#ssh ecgb cp ${gatedir}/*  %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%/grb_data
 #-----------------------------------------------------------------------------
 # namelist and icon_rev.txt: copy to ecfs
 
+if [[ 1 = 0 ]] ; then
 if [[ -f   NAMELIST_${basename} ]] ; then
  ecp -o NAMELIST_${basename} $ecfsdir
 else
@@ -86,17 +92,19 @@ if [[ -f ${bindir}/icon_rev.txt ]] ; then
 else
  ecp ${ecfsdir}/icon_rev.txt ${bindir}
 fi
+fi
 #-----------------------------------------------------------------------------
 # GRIB: copy to ecfs
-
+if [[ 1 = 0 ]] ; then
 for levtype in ML PL HL ; do
   if [[ -f   ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
    ls ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   else
-    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
+   ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
   fi
 done
+fi
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -147,7 +155,7 @@ if [[ $lsplitdata = 1 ]] ; then
       \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
     done
   done
-
+ ls  grb_data/*.grb
 fi
  # ls -l grb_data
 #-----------------------------------------------------------------------------
@@ -157,13 +165,24 @@ if [[ $lsplitdata = 1 ]] ; then
 # Split seasons and months
 for file in `ls grb_data/*.grb`
 do
+ if [[ $lseasmean = 1 ]] ; then
  cdo splitseas ${file} ${file%%.grb}_S_
+ 
+ fi
+ if [[ $lmonthmean = 1 ]] ; then
  cdo splitmon ${file} ${file%%.grb}_M_
+ fi
 done
 
  for sfile in `ls grb_data/*_S_*.g2`
- do
+ do   
+   nsteps=`cdo ntime ${sfile}`
+   nintv=`expr ${nsteps}  \- 1 `
+  if [[ $nintv -eq 0 ]] ; then
+  rm ${sfile}
+  else
   mv ${sfile} ${sfile%%.g2}.grb
+  fi
  done
  for mfile in `ls grb_data/*_M_*.g2`
  do
@@ -174,37 +193,64 @@ done
 fi
 #-----------------------------------------------------------------------------
 # Calculate seasonal means and standard deviation
-
 if [[ $lseasmean = 1 ]] ; then
- rm -f grb_data/*_S_???_mean.grb
- rm -f grb_data/*_S_???_std.grb
- for sfile in `ls grb_data/*_S_???.grb`
+# rm -f grb_data/*_S_???_mean.grb
+# rm -f grb_data/*_S_???_std.grb
+rm -f grb_data/*_S_MAM.grb
+ for seas in MAM DJF JJA SON ; do
+
+ for levt  in sfc pl zl; do
+ i=0
+ for sfile in `ls grb_data/*${levt}*_S_${seas}.grb`
  do
   NAME=`cdo showname ${sfile}`
   NAME=${NAME#" "}                   #remove the leading blank 
+   nsteps=`cdo ntime ${sfile}`
+   nintv=`expr ${nsteps}  \- 1 `
 case $NAME in 
   tp|param76.1.0|param77.1.0|lssrwe|csrwe)
-   nsteps=`cdo ntime ${sfile}`
-   nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
    cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile} out.grb
    cdo divc,${numdays} out.grb ${sfile%%.grb}_mean.grb
-   rm out.grb
+   rm -f out.grb
   ;;
   ttr|nswrf|ssr|str|sshf|slhf)
-   nsteps=`cdo ntime ${sfile}`
-   nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
-   numsec=`expr ${numdays}  \* 86400 `
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
+   numsec=$(echo "scale=9; ${numdays} * 86400 " | bc)
+   #numsec=`expr ${numdays}  \* 86400 `
    cdo sub -seltimestep,$nsteps ${sfile} -seltimestep,1 ${sfile} out.grb
    cdo divc,${numsec} out.grb ${sfile%%.grb}_mean.grb
-   rm out.grb
+   rm -f out.grb
   ;;
   *)
    cdo seasmean ${sfile} ${sfile%%.grb}_mean.grb
-   cdo seasstd ${sfile} ${sfile%%.grb}_std.grb
+   #cdo seasstd ${sfile} ${sfile%%.grb}_std.grb
   ;;
 esac
+ #set -A clist ${clist[*]} ${sfile%%.grb}_mean.grb
+ i=`expr ${i} \+ 1`
+ done
+ if [[ $i -gt 0 ]] ; then
+  catlist=`ls grb_data/*${levt}*S*${seas}*mean.grb`
+  set -A clist ${catlist}
+  myfile=${clist[0]%%_mean.grb}.grb
+  cdo -O merge ${catlist} grb_data/outfile.grb
+  nmon=`cdo nmon $myfile `
+  mons=`cdo showmon  $myfile `
+  set -A lmons $mons
+  years=`cdo showyear  $myfile `
+  set -A lyears $years
+  fmon=${lmons[0]}
+  if [[ $fmon -lt 10 ]] ; then
+   fmon=0${fmon}
+  fi
+  fyear=${lyears[0]}
+  mv grb_data/outfile.grb grb_data/mmean_%SUITE%_%EXPNUM%_${levt}_ini%YMD%_mon${fyear}${fmon}_n${nmon}.grb
+  rm grb_data/*${levt}*S*mean.grb   
+  fi 
+ done
  done
 
 fi
@@ -224,7 +270,8 @@ if [[ $lmonthmean = 1 ]] ; then
   tp|param76.1.0|param77.1.0|lssrwe|csrwe)
    nsteps=`cdo ntime ${mfile}`
    nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
    cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile} out.grb
    cdo divc,${numdays} out.grb  ${mfile%%.grb}_mean.grb
    rm out.grb
@@ -232,8 +279,10 @@ if [[ $lmonthmean = 1 ]] ; then
   ttr|nswrf|ssr|str|sshf|slhf)
    nsteps=`cdo ntime ${mfile}`
    nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
-   numsec=`expr ${numdays}  \* 86400 `
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
+   numsec=$(echo "scale=9; ${numdays} * 86400 " | bc)
+   #numsec=`expr ${numdays}  \* 86400 `
    cdo sub -seltimestep,$nsteps ${mfile} -seltimestep,1 ${mfile} out.grb
    cdo divc,${numsec} out.grb ${mfile%%.grb}_mean.grb
    rm out.grb
@@ -263,7 +312,8 @@ if [[ $lyearmean = 1 ]] ; then
   tp|param76.1.0|param77.1.0|lssrwe|csrwe)
    nsteps=`cdo ntime ${yfile}`
    nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
    cdo sub -seltimestep,$nsteps ${yfile} -seltimestep,1 ${yfile} out.grb
    cdo divc,${numdays} out.grb ${yfile%%.grb}_Y_mean.grb
    rm out.grb
@@ -271,8 +321,10 @@ if [[ $lyearmean = 1 ]] ; then
   ttr|nswrf|ssr|str|sshf|slhf)
    nsteps=`cdo ntime ${yfile}`
    nintv=`expr ${nsteps}  \- 1 `
-   numdays=`expr ${nintv}  \* ${dout}`
-   numsec=`expr ${numdays}  \* 86400 `
+   numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+   #numdays=`expr ${nintv}  \* ${dout}`
+   numsec=$(echo "scale=9; ${numdays} * 86400 " | bc)
+   #numsec=`expr ${numdays}  \* 86400 `
    cdo sub -seltimestep,$nsteps ${yfile} -seltimestep,1 ${yfile} out.grb
    cdo divc,${numsec} out.grb  ${yfile%%.grb}_Y_mean.grb
    rm out.grb
@@ -290,12 +342,16 @@ if [[ $lyearmean = 1 ]] ; then
 fi
 #-----------------------------------------------------------------------------
 
-# Calculate monthly means and standard deviation
+# 
 # move data to ecgate
 
 if [[ $lcpdata = 1 ]] ; then
-  ssh ecgb mkdir -p ${gatedir}/grb_data
-  scp grb_data/* ecgb:${gatedir}/grb_data
+ # ssh ecgb mkdir -p ${gatedir}/grb_data
+ # scp grb_data/* ecgb:${gatedir}/grb_data
+  ssh ecgb mkdir -p ${gatedir}
+  scp grb_data/mmean* ecgb:${gatedir}
+
+  ecp -o grb_data/mmean* $ecfseas
 fi
 
 #-----------------------------------------------------------------------------

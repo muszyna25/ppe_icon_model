@@ -35,7 +35,7 @@
 MODULE mo_nonhydrostatic_nml
 
   USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: finish
+  USE mo_exception,             ONLY: finish, message
   USE mo_impl_constants,        ONLY: max_dom, MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE,&
     &                                 TRACER_ONLY,  MATSUNO_UNK
   USE mo_io_units,              ONLY: nnml, nnml_output
@@ -55,6 +55,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_lbackward_integr => lbackward_integr , &
                                     & config_divdamp_fac      => divdamp_fac      , &
                                     & config_divdamp_order    => divdamp_order    , &
+                                    & config_divdamp_type     => divdamp_type     , &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_hbot_qvsubstep   => hbot_qvsubstep   , &
@@ -108,6 +109,7 @@ MODULE mo_nonhydrostatic_nml
   LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: divdamp_order           ! Order of divergence damping
+  INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
   REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
                                      ! where processes related to moist physics are computed
@@ -155,7 +157,8 @@ MODULE mo_nonhydrostatic_nml
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
                               & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
-                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr
+                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr, &
+                              & divdamp_type
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -209,6 +212,9 @@ CONTAINS
 
     ! Order of divergence damping
     divdamp_order = 4
+
+    ! Type of divergence damping
+    divdamp_type = 2
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
@@ -338,6 +344,18 @@ CONTAINS
       CALL finish(TRIM(routine), 'hbot_qvsubstep < htop_moist_proc is not allowed.')
     ENDIF
 
+    ! For backward compatibility with the previous implementation of divergence damping flow control
+    IF (divdamp_order == 5) THEN
+      divdamp_order = 4
+      divdamp_type  = 3
+      CALL message(TRIM(routine), 'WARNING: divdamp_order = 5 has been reset to 4')
+    ENDIF
+
+    SELECT CASE (divdamp_order)
+    CASE (2,4) !OK
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'Invalid value for divdamp_order (must be 2 or 4)' )
+    END SELECT
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -361,6 +379,7 @@ CONTAINS
        config_lbackward_integr  = lbackward_integr
        config_divdamp_fac       = divdamp_fac
        config_divdamp_order     = divdamp_order
+       config_divdamp_type      = divdamp_type
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_upstr_beta        = upstr_beta

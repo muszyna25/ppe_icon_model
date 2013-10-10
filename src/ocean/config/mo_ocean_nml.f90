@@ -244,6 +244,9 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
   REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
+  INTEGER  :: scatter_levels(10)    = 0          ! levels for possible scattering of the constant tracer fields
+  REAL(wp) :: scatter_t             = 20.0_wp    ! temperature value for scattering
+  REAL(wp) :: scatter_s             = 10.0_wp    ! salinity value for scattering
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
@@ -288,11 +291,17 @@ MODULE mo_ocean_nml
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
+                                                 ! false = salinity is relaxed under sea ice completely
 
   LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
-  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.
-  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.
-  LOGICAL  :: use_tracer_x_height = .false.  ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+  LOGICAL  :: use_tracer_x_height   = .FALSE.    ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+  LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.  ! FALSE: no horizontal tracer diffusion
+  LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.  ! FALSE: no vertical tracer diffusion
+  LOGICAL  :: l_with_horz_tracer_advection = .TRUE.  ! FALSE: no horizontal tracer advection
+  LOGICAL  :: l_with_vert_tracer_advection = .TRUE.  ! FALSE: no vertical tracer advection
+  LOGICAL  :: l_horz_limiter_advection     = .TRUE.  ! FALSE: no horizontal limiter for tracer advection
+  LOGICAL  :: l_vert_limiter_advection     = .TRUE.  ! FALSE: no vertical limiter for tracer advection
+                                                     ! Note that only in vertical ppm-scheme a limiter is used
 
   ! special diagnostics configuration
   !
@@ -340,6 +349,9 @@ MODULE mo_ocean_nml
     &                 l_constant_mixing, l_wind_mixing,                    &
     &                 l_with_vert_tracer_diffusion,                        &
     &                 l_with_horz_tracer_diffusion,                        &
+    &                 l_with_vert_tracer_advection,                        &
+    &                 l_with_horz_tracer_advection,                        &
+    &                 l_horz_limiter_advection, l_vert_limiter_advection,  &
     &                 use_tracer_x_height
 
 
@@ -351,7 +363,8 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
     &                 oce_t_ref, oce_s_ref, z_forc_period, y_forc_period,  &
-    &                 analytic_wind_amplitude
+    &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
+    &                 scatter_s
 
   NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland
@@ -494,18 +507,38 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
      ENDIF
 
+     IF( FLUX_CALCULATION_HORZ == 1 .AND. l_horz_limiter_advection ) THEN
+       CALL message(TRIM(routine),'WARNING, limiter for horizontal upwind advection set to false')
+       l_horz_limiter_advection = .FALSE.
+     ENDIF
+
+   ! not necessary, limiter within ppm advection (Miura) only
+   ! IF( FLUX_CALCULATION_VERT == 1 .AND. l_vert_limiter_advection ) THEN
+   !   CALL message(TRIM(routine),'WARNING, limiter for vertical upwind advection set to false')
+   !   l_vert_limiter_advection = .FALSE.
+   ! ENDIF
+
 
      IF(i_bc_veloc_lateral/= 0) THEN
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.AND.i_bc_veloc_top > 2) THEN
+     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 2) THEN
        CALL finish(TRIM(routine), &
          &  'top boundary condition for velocity currently not supported: choose = 0 or =1 or =2')
      ENDIF
-     IF(i_bc_veloc_bot < 0 .AND. i_bc_veloc_bot>1) THEN
+     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &
          &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
+     ENDIF
+
+     IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
+       IF(no_tracer == 1) THEN
+         CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
+         CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
+         CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
+       ENDIF
+       CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
      ENDIF
 
 
