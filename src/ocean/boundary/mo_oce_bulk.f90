@@ -738,7 +738,7 @@ CONTAINS
 
         nbr_hor_points = p_patch%n_patch_cells
         nbr_points     = nproma * p_patch%nblks_c
-        ALLOCATE(buffer(nbr_points,4))
+        ALLOCATE(buffer(nbr_points,5))
         buffer(:,:) = 0.0_wp
 
       !
@@ -810,14 +810,15 @@ CONTAINS
       !
       ! Ice thickness, concentration, T1 and T2
         buffer(:,1) = RESHAPE(p_ice%hi  (:,1,:), (/nbr_points /) )
-        buffer(:,2) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
-        buffer(:,3) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
-        buffer(:,4) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
-        field_shape(3) = 4
+        buffer(:,2) = RESHAPE(p_ice%hs  (:,1,:), (/nbr_points /) )
+        buffer(:,3) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
+        buffer(:,4) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
+        buffer(:,5) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
+        field_shape(3) = 5
 #ifdef YAC_coupling
         CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
 #else
-        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
 

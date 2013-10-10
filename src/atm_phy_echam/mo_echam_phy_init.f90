@@ -541,7 +541,7 @@ CONTAINS
 ! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN
 
-             ALLOCATE(buffer(nproma*nblks_c,4))
+             ALLOCATE(buffer(nproma*nblks_c,5))
 
              nbr_hor_points = p_patch(jg)%n_patch_cells
              nbr_points     = nproma * p_patch(jg)%nblks_c
@@ -684,21 +684,22 @@ CONTAINS
              !
              ! ICEOCE
              !
-             field_shape(3) = 4
+             field_shape(3) = 5
              CALL ICON_cpl_get_init ( field_id(10), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), info, ierror )
+                                      buffer(1:nbr_hor_points,1:5), info, ierror )
              IF ( info > 0 ) THEN
                buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
                field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-               field%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
-               field%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
-               field%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
-               field%seaice(:,:) = field%conc(:,1,:)
+               field%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
+               field%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
+               field%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
+               field%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, nblks_c /) )
                CALL sync_patch_array(sync_c, p_patch(jg), field%hi  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%conc(:,1,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%hs  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%seaice(:,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
+               field%seaice(:,:) = field%conc(:,1,:)
              ENDIF
 #endif
              DEALLOCATE(field_id)

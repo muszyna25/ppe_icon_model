@@ -470,7 +470,7 @@ CONTAINS
        nbr_hor_points = p_patch%n_patch_cells
        nbr_points     = nproma * p_patch%nblks_c
        
-       ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
+       ALLOCATE(buffer(nproma*p_patch%nblks_c,5))
        buffer(:,:) = 0.0_wp
 
        !
@@ -647,21 +647,22 @@ CONTAINS
 #ifdef YAC_coupling
        CALL yac_fget ( field_id(7), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
 #else
-       field_shape(3) = 4
-       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+       field_shape(3) = 5
+       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
          prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
+         prm_field(jg)%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%seaice(:,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
+         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
        ENDIF
 
        DEALLOCATE(buffer)
