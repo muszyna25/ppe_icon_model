@@ -59,23 +59,34 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 start_date="2000-01-01T00:00:00Z"
   end_date="2000-01-02T00:00:00Z"
 #
-ndays_restart=1
-#
+#=============================================================================
+second=1                                 # [s] 1 second
+minute=60                                # [s] 1 minute
+hour=3600                                # [s] 1 hour
+day=86400                                # [s] 1 day
+#=============================================================================
 dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
-dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=$dt_restart  # checkpointing not yet supported for coupling fields
-#
-#-----------------------------------------------------------------------------
-#
-# model timing
-#
 dtime=$dtime_atmo
-dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
-dt_data=`expr 6 \* 3600 `                 # write output every 6 hours
-dt_rad=7200.                              # compute radiative transfer every other hour
+ndays_restart=1
 #
+#---------------------------------------------------------------------------
+#model timing
+# calculate model timesteps using $ndays
+(( dt_rad        = 2 * hour ))
+(( dt_checkpoint = ${ndays_restart} * day )) # checkpointing not yet supported for coupling fields
+(( dt_restart    = ${ndays_restart} * day ))
+
+# atm_dyn output - ACTIVATE WHEN USING NML OUTPUT
+(( dt_file_atm_dyn =  ${ndays_restart} * day         )) # [s] data file interval/ 1 file per job
+(( dt_data_atm_dyn =  6 * hour         )) # [s] data output interval/ write output every 6 hours
+(( steps_per_file_atm_dyn = dt_file_atm_dyn / dt_data_atm_dyn ))
+
+# atm_phy output
+(( dt_file_atm_phy =  ${ndays_restart} * day        )) # [s] data file interval
+(( dt_data_atm_phy =  1 * hour       )) # [s] data output interval
+(( steps_per_file_atm_phy = dt_file_atm_phy / dt_data_atm_phy ))
 #
 #-----------------------------------------------------------------------------
 #
@@ -86,7 +97,7 @@ atmo_model_equations=1   # equation system
 #                        2=non-hydrost. atm., 
 #                       -1=shallow water model
 #                       -2=hydrost. ocean
-nlev=47                  # nlev = number of full levels
+nlev=31                  # nlev = number of full levels
 iforcing=2               # ECHAM physics
 #
 #-----------------------------------------------------------------------------
@@ -215,9 +226,10 @@ cat > $atmo_namelist << EOF
 &grid_nml
  cell_type = 3             ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
+ grid_angular_velocity = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
 &run_nml
- output      = 'vlist'
+ output      = 'nml'
  num_lev     = ${nlev}      ! number of full levels of vertical grid
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
@@ -229,6 +241,10 @@ cat > $atmo_namelist << EOF
  ltimer = .TRUE.
  timers_level = 10
  activate_sync_timers = .TRUE.
+ write_timer_files  = .TRUE.
+ msg_timestamp = .TRUE.
+! output_nml_dict  = ''  ! to activate the dictionnary for variables translation
+! netcdf_dict      = ''  ! when output nml is used
 /
 &ha_testcase_nml
  ctest_name  = 'APEc'  ! test case identifier
@@ -237,18 +253,45 @@ cat > $atmo_namelist << EOF
  rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- out_expname      = '${EXPNAME}_atm' ! file name base
- dt_data          = ${dt_data}       ! [s] write output
- dt_file          = ${dt_file}       ! [s] trigger new output file
- dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lwrite_initial   = .FALSE.          ! do/don't write out initial data
- lwrite_radiation = .TRUE.           ! add radiation fields to output
- lwrite_cloud     = .TRUE.           ! add cloud fraction to output
- lwrite_precip    = .TRUE.           ! add precipitation to output
- lwrite_pres      = .FALSE.          ! remove pressure from output
- lwrite_tend_phy  = .FALSE.          ! write out tendencies 
- lflux_avg        = .FALSE.
+  out_expname      = '${EXPNAME}_atm' ! file name base
+  dt_data          = ${dt_data}       ! [s] write output
+  dt_file          = ${dt_file}       ! [s] trigger new output file
+  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+  lwrite_initial   = .FALSE.          ! do/don't write out initial data
+  lwrite_radiation = .TRUE.           ! add radiation fields to output
+  lwrite_cloud     = .TRUE.           ! add cloud fraction to output
+  lwrite_precip    = .TRUE.           ! add precipitation to output
+  lwrite_pres      = .FALSE.          ! remove pressure from output
+  lwrite_tend_phy  = .FALSE.          ! write out tendencies 
+  lflux_avg        = .FALSE.
 /
+&output_nml
+ output_bounds    = ${dt_data_atm_dyn},${dt_restart},${dt_data_atm_dyn}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_dyn}
+ include_last     = .TRUE.
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_atm_dyn"
+ ml_varlist       = 'ha_prog_out_pres_sfc'      , 'ha_prog_out_temp'      ,
+                    'ha_prog_out_qv'     , 'ha_prog_out_qw'     , 'ha_prog_out_qi'     ,
+                    'ha_diag_out_u'      , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'     ,
+                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' , 'ha_diag_u' , 'ha_diag_v' ,
+                      'ha_diag_rel_vort_c'  ,'ha_diag_div' , 'prm_omega' , 'prm_vo' 
+/                    
+&output_nml
+ output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ steps_per_file   = ${steps_per_file_atm_phy}
+ include_last     = .TRUE.
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_atm_phy"
+ ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa'    , 'prm_t' ,
+                    'prm_swflxsfc'    , 'prm_lwflxsfc'  , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
+                    'prm_tsfc'        , 'prm_seaice'    , 'prm_o3', 'prm_ghm'   , 'prm_ghi' ,
+                    'prm_aclcov'      , 'prm_aclc'      ,
+                    'prm_rsfl'    , 'prm_ssfl'    , 'prm_rsfc'    , 'prm_ssfc'  ,
+                    'prm_totprec' , 'prm_qvi'     , 'prm_xlvi'    , 'prm_xivi'  ,
+                    'prm_evap'    , 'prm_lhflx'   , 'prm_shflx'   ,
+                    'prm_u_stress', 'prm_v_stress'
+/                    
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
 /
@@ -322,10 +365,12 @@ iforc_oce=14
 #
 dtime=$dtime_ocean   # ocean model timestep [s]
 #
-# calculate model timesteps using $ndays_restart
+# calculate model timesteps 
 #
-dt_data=`expr 24 \* 3600 `                # write output every 24 hours
-dt_file=`expr ${ndays_restart} \* 86400 ` # 1 file per job
+(( dt_data=  12 * hour ))                # write output every 24 hours
+(( dt_file=  ${ndays_restart} * day ))                  # 1 file per job
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
@@ -444,12 +489,34 @@ cat > ${ocean_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
+ grid_angular_velocity = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
 &run_nml
- output      = 'vlist'
+ output      = 'nml'
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltimer      = .true. 
+ activate_sync_timers = .TRUE.
+ write_timer_files  = .TRUE.
+ msg_timestamp = .TRUE.
+ msg_level     = 12
 /
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_ocn_iconR2B02"
+  ml_varlist       =  'group:oce_default','hi','conc'
+/
+! no complete sea ice
+!&output_nml
+!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
+!  steps_per_file   = ${steps_per_file}
+!  include_last     = .TRUE.
+!  output_grid      = .TRUE.
+!  output_filename  = "${EXPNAME}_R2B02_ice"
+!  ml_varlist       = 'wet_c','group:ice_default'
+!/
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -462,9 +529,9 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
 /
 &ocean_dynamics_nml
-  n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  350.0,  400.0,  400.0,  400.0,  400.0,  400.0,
-                        500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0, 20.0 , 20.0 , 30.0,  40.0,  50.0,  70.0, 90.0,  120.0,  150.0,  180.0,  210.0,
+                        250.0,  300.0,  400.0,  500.0,  550.0,  600.0,  700.0,  700.0,  500.0,  500.0
   !l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   !l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
@@ -480,6 +547,7 @@ cat > ${ocean_namelist} << EOF
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  !HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
   !richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
