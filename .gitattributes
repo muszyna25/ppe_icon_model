@@ -799,6 +799,7 @@ run/variations.rb -text
 schedulers/ecmwf/def/climplot.def -text
 schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
+schedulers/ecmwf/def/icon_B-matrix.def -text
 schedulers/ecmwf/def/icon_clim.def -text
 schedulers/ecmwf/def/icon_clim_tsoil.def -text
 schedulers/ecmwf/def/icon_eps.def -text
