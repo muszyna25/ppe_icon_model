@@ -59,10 +59,8 @@ MODULE mo_echam_phy_memory
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iice
-!   USE mo_echam_phy_nml,       ONLY: lvdiff
-   USE mo_echam_phy_config,   ONLY: get_lvdiff, get_ljsbach, get_lamip
-!   USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_icoham_sfc_indices,  ONLY: nsfc_type
+  USE mo_echam_phy_config,    ONLY: get_lvdiff, get_ljsbach, get_lamip
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list
@@ -90,7 +88,6 @@ MODULE mo_echam_phy_memory
   PUBLIC :: construct_echam_phy_state                   !< subroutine
   PUBLIC :: destruct_echam_phy_state                    !< subroutines
   PUBLIC :: t_echam_phy_field, t_echam_phy_tend         !< derived types
-  PUBLIC :: mean_charlen
 
 #ifdef HAVE_F95
   PUBLIC :: t_ptr2d, t_ptr3d
@@ -98,8 +95,6 @@ MODULE mo_echam_phy_memory
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_memory'
-
-  REAL(wp), POINTER :: mean_charlen(:)
 
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
@@ -517,12 +512,6 @@ CONTAINS
 
     ndomain = SIZE(patch_array)
 
-    !This array is only defined via its patches
-    ALLOCATE(mean_charlen(ndomain), STAT=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(thismodule), 'allocation of mean_charlen failed')
-    ENDIF
-
     ALLOCATE( prm_field(ndomain), prm_tend(ndomain), STAT=ist)
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
       &'allocation of prm_field/tend array failed')
@@ -577,13 +566,6 @@ CONTAINS
       CALL delete_var_list( prm_field_list(jg) )
       CALL delete_var_list( prm_tend_list (jg) )
     ENDDO
-
-    !This array is only defined via its patches
-    DEALLOCATE(mean_charlen, STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish ('mo_nwp_phy_state:construct_nwp_phy_state', &
-        &       'deallocation of mean_charlen failed')
-    ENDIF
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
@@ -1016,81 +998,76 @@ CONTAINS
     ! Sea ice
     !-------------------------
 
-    !IF ( iice <= nsfc_type ) THEN
+    field%kice = kice ! Number of thickness classes - always 1, as of yet
+    shapeice = (/kproma, field%kice, kblks/)
 
-      field%kice = kice ! Number of thickness classes - always 1, as of yet
-      shapeice = (/kproma, field%kice, kblks/)
-
-      CALL add_var( field_list, prefix//'Tsurf', field%Tsurf ,                  &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('Tsurf', 'C', 'surface temperature', DATATYPE_FLT32),&
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
-      CALL add_var( field_list, prefix//'T1', field%T1 ,                        &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
-      CALL add_var( field_list, prefix//'T2', field%T2 ,                        &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
-      CALL add_var( field_list, prefix//'hi', field%hi ,                        &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),        &
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
-      CALL add_var( field_list, prefix//'hs', field%hs ,                        &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),       &
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
-      CALL add_var( field_list, prefix//'Qtop', field%Qtop ,                    &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
-        &                   DATATYPE_FLT32),                                    &
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice, lrestart=.FALSE.)
-      CALL add_var( field_list, prefix//'Qbot', field%Qbot ,                    &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice, lrestart=.FALSE.)
+    CALL add_var( field_list, prefix//'Tsurf', field%Tsurf ,                  &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('Tsurf', 'C', 'surface temperature', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'T1', field%T1 ,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('T1', 'C', 'Temperature upper layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'T2', field%T2 ,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('T2', 'C', 'Temperature lower layer', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'hi', field%hi ,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('hi', 'm', 'ice thickness', DATATYPE_FLT32),        &
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'hs', field%hs ,                        &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('hs', 'm', 'snow thickness', DATATYPE_FLT32),       &
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'Qtop', field%Qtop ,                    &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('Qtop', 'W/m^2', 'Energy flux available for surface melting', &
+      &                   DATATYPE_FLT32),                                    &
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice, lrestart=.FALSE.)
+    CALL add_var( field_list, prefix//'Qbot', field%Qbot ,                    &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice, lrestart=.FALSE.)
 
 
-      CALL add_var( field_list, prefix//'conc', field%conc ,                    &
-        &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
-        &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
-        &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=shapeice)
+    CALL add_var( field_list, prefix//'conc', field%conc ,                    &
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
+      &          t_cf_var('conc', '', 'ice concentration in each ice class', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=shapeice)
 
-        ! &       field% albvisdir_ice (nproma,field%kice,nblks),          &
-        cf_desc    = t_cf_var('albvisdir_ice', '', 'ice albedo VIS direct', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( field_list, prefix//'albvisdir_ice', field%albvisdir_ice,             &
-                    & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
+    ! &       field% albvisdir_ice (nproma,field%kice,nblks),          &
+    cf_desc    = t_cf_var('albvisdir_ice', '', 'ice albedo VIS direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdir_ice', field%albvisdir_ice,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
 
-        ! &       field% albvisdif_ice (nproma,field%kice,nblks),          &
-        cf_desc    = t_cf_var('albvisdif_ice', '', 'ice albedo VIS diffuse', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( field_list, prefix//'albvisdif_ice', field%albvisdif_ice,             &
-                    & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
+    ! &       field% albvisdif_ice (nproma,field%kice,nblks),          &
+    cf_desc    = t_cf_var('albvisdif_ice', '', 'ice albedo VIS diffuse', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albvisdif_ice', field%albvisdif_ice,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
 
-        ! &       field% albnirdir_ice (nproma,field%kice,nblks),          &
-        cf_desc    = t_cf_var('albnirdir_ice', '', 'ice albedo NIR direct', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( field_list, prefix//'albnirdir_ice', field%albnirdir_ice,             &
-                    & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
+    ! &       field% albnirdir_ice (nproma,field%kice,nblks),          &
+    cf_desc    = t_cf_var('albnirdir_ice', '', 'ice albedo NIR direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdir_ice', field%albnirdir_ice,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
 
-        ! &       field% albnirdif_ice (nproma,field%kice,nblks),          &
-        cf_desc    = t_cf_var('albnirdif_ice', '', 'ice albedo NIR direct', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( field_list, prefix//'albnirdif_ice', field%albnirdif_ice,             &
-                    & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
-
-
-    !ENDIF ! iice <= nfsc_type
+    ! &       field% albnirdif_ice (nproma,field%kice,nblks),          &
+    cf_desc    = t_cf_var('albnirdif_ice', '', 'ice albedo NIR direct', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'albnirdif_ice', field%albnirdif_ice,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, ldims=shapeice )
 
 
     !---- 3D variables defined at layer interfaces ----
@@ -1528,7 +1505,7 @@ CONTAINS
       CALL add_var( field_list, prefix//'albnirdif_wtr', field%albnirdif_wtr,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ENDIF ! lvdiff
+    ENDIF ! get_lvdiff
 
     !-----------------------
     ! Surface

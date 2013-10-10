@@ -892,8 +892,7 @@ CONTAINS
         zheat(jl)=MAX(1.e-4_JPRB,zheat(jl))
         ztau(jl)=(pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_JPRB+MIN(15.0_JPRB,pwmean(jl)))*rg) &
                 *phy_params%tau
-        ztau(jl)=MAX(ptsphy,MIN(10800._jprb,ztau(jl)))
-        ztau(jl)=MAX(720.0_JPRB,ztau(jl))
+        ztau(jl)=MAX(720.0_JPRB,MIN(10800._jprb,ztau(jl)))
         zmfub1(jl)=(zcape(jl)*zmfub(jl))/(zheat(jl)*ztau(jl))
         zmfub1(jl)=MAX(zmfub1(jl),0.001_JPRB)
         !>KF

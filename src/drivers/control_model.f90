@@ -65,6 +65,7 @@ PROGRAM control_model
     & testbed_process,  atmo_process, ocean_process!, radiation_process
   USE mo_time_config,        ONLY: restart_experiment
   USE mo_util_signal
+  USE mo_util_svn,           ONLY: printSVNVersion
 
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_icon_testbed,        ONLY: icon_testbed
@@ -176,6 +177,12 @@ PROGRAM control_model
   CALL message('', message_text)
 #endif
 #endif
+
+  !-------------------------------------------------------------------
+  ! Print SVN version
+  IF (my_process_is_global_root()) THEN
+    CALL printSVNVersion() ! (... if defined)
+  END IF
 
   !-------------------------------------------------------------------
   ! Initialize the master control

@@ -157,6 +157,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: CENTRAL= 2
   INTEGER, PARAMETER :: MIMETIC= 3
   INTEGER, PARAMETER :: MIMETIC_MIURA= 4
+  INTEGER, PARAMETER :: ADPO   = 5
   !INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC  ! consistent with l_edge_based=.FALSE.
   !INTEGER            :: FLUX_CALCULATION_VERT = UPWIND   ! consistent with l_edge_based=.FALSE.
   INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.
@@ -511,17 +512,30 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
      ENDIF
 
+     IF( FLUX_CALCULATION_HORZ > 4 .OR. FLUX_CALCULATION_HORZ <1 ) THEN
+       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-4')
+     ENDIF
+
+     IF( FLUX_CALCULATION_VERT > 5 .OR. FLUX_CALCULATION_VERT <1 ) THEN
+       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-5')
+     ENDIF
+
      IF( FLUX_CALCULATION_HORZ == 1 .AND. l_horz_limiter_advection ) THEN
        CALL message(TRIM(routine),'WARNING, limiter for horizontal upwind advection set to false')
        l_horz_limiter_advection = .FALSE.
      ENDIF
 
-   ! not necessary, limiter within ppm advection (Miura) only
-   ! IF( FLUX_CALCULATION_VERT == 1 .AND. l_vert_limiter_advection ) THEN
-   !   CALL message(TRIM(routine),'WARNING, limiter for vertical upwind advection set to false')
-   !   l_vert_limiter_advection = .FALSE.
-   ! ENDIF
+     ! not necessary, limiter within ppm advection (Miura) only
+     IF( FLUX_CALCULATION_VERT == 1 .AND. l_vert_limiter_advection ) THEN
+       CALL message(TRIM(routine),'WARNING, UPWIND advection, limiter for vertical upwind advection set to false')
+       l_vert_limiter_advection = .FALSE.
+     ENDIF
 
+     ! not necessary, limiter within ppm advection (Miura) only
+     IF( FLUX_CALCULATION_VERT == 5 .AND. l_vert_limiter_advection ) THEN
+       CALL message(TRIM(routine),'WARNING, ADPO advection, limiter for vertical upwind advection set to false')
+       l_vert_limiter_advection = .FALSE.
+     ENDIF
 
      IF(i_bc_veloc_lateral/= 0) THEN
        CALL finish(TRIM(routine), &

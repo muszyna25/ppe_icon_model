@@ -61,7 +61,7 @@ MODULE mo_nh_initicon
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename,                                  &
     &                               nml_filetype => filetype,                           &
-    &                               ana_varnames_map_file, l_ana_sfc
+    &                               ana_varlist, ana_varnames_map_file, l_ana_sfc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,             &
     &                               min_rledge, min_rledge_int, min_rlcell_int
@@ -74,7 +74,7 @@ MODULE mo_nh_initicon
   USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
+  USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
@@ -922,15 +922,21 @@ MODULE mo_nh_initicon
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'in_grp_vars_fg' and 'in_grp_vars_ana', containing the names of the variables which  
-  !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based in the ICON-internal output groups "in_dwd_fg_sfc" and "in_dwd_ana_sfc".
-  !! In a first step it is checked, whether the ANA-File contains all members of the group 'in_grp_vars_ana'. 
-  !! If a member is missing, it is removed from the group 'in_grp_vars_ana', added to the group 
-  !! 'in_grp_vars_fg', and a warning is issued, however the model does not abort. In a second step it is 
+  !! Generates groups 'in_grp_vars_fg' and 'in_grp_vars_ana', which contain the names of thise 
+  !! fields which must be read from the FG- and ANA-File, respectively.
+  !! Both groups are based in the ICON-internal output groups "dwd_fg_sfc_in", "dwd_ana_sfc_in", 
+  !! "dwd_fg_atm_in", and "dwd_ana_atm_in".
+  !! In a first step it is checked, whether the ANA-File contains all members of the group 'in_grp_vars_ana'.
+  !! If a member is missing, it is checked (based on the group grp_vars_ana_mandatory) whether the 
+  !! ANA-Field is mandatory or not. If the field is mandatory, i.e. if it is part of the group 
+  !! grp_vars_ana_mandatory provided via Namelist, the model aborts. If it is not mandatory, the model 
+  !! tries to fall back to the corresponding FG-Field. This is done as follows:
+  !! The missing ANA-Field is removed from the group 'in_grp_vars_ana' and added to the group 
+  !! 'in_grp_vars_fg'. A warning is issued, however the model does not abort. In a second step it is 
   !! checked, whether the FG-File contains all members of the group 'in_grp_vars_fg'. If this is not the 
   !! case, the model aborts.
-  !! At the end, a table is printed that shows which variables are part of which input group.
+  !! At the end, a table is printed that shows which variables are part of which input group, meaning 
+  !! which field will be read from which file.
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2013-07-08)
@@ -965,11 +971,22 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: varname                     ! variable name
     INTEGER :: vlistID, varID, ivar, mpi_comm
     INTEGER :: zaxisID
-    INTEGER :: index
-!!$    INTEGER :: nlev_ana, nlev_fg                                  ! number of vertical levels (in fg/ana file)
+    INTEGER :: index, is_one_of
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
     TYPE(t_bool_table) :: bool_table
+
+    ! local groups
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_sfc(SIZE(grp_vars_fg_default))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_atm(SIZE(grp_vars_fg_default))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_sfc(SIZE(grp_vars_ana_default))
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_atm(SIZE(grp_vars_ana_default))
+    INTEGER :: ngrp_vars_fg_sfc, ngrp_vars_fg_atm    ! group length
+    INTEGER :: ngrp_vars_ana_sfc, ngrp_vars_ana_atm  ! group length
+
+    ! list of mandatory analysis fields (provided via Namelist)
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_mandatory(SIZE(grp_vars_ana_default))
+    INTEGER :: nvars_ana_mandatory
 
     ! additional list for LOG printout
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default_grib2(SIZE(grp_vars_fg_default))
@@ -981,25 +998,57 @@ MODULE mo_nh_initicon
     IF(p_pe == p_io) THEN
 
 
-      ! Collect group 'grp_vars_fg' from dwd_fg_sfc_in
+      !===================
+      ! 1: Collect groups
+      !====================
+
+      ! Collect group 'grp_vars_fg_sfc' from dwd_fg_sfc_in
       !
       grp_name ='dwd_fg_sfc_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_fg, ngrp_vars_fg,    &
+      CALL collect_group(TRIM(grp_name), grp_vars_fg_sfc, ngrp_vars_fg_sfc,    &
         &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
       ! Special HACK for MODE_COMBINED:
       ! remove z0 from grp_vars_fg, if init_mode=MODE_COMBINED, since it must not be read from 
       ! GME soil input data.
       IF (init_mode == MODE_COMBINED) THEN
-        CALL difference(grp_vars_fg, ngrp_vars_fg, (/'gz0'/), 1)
+        CALL difference(grp_vars_fg_sfc, ngrp_vars_fg_sfc, (/'gz0'/), 1)
       ENDIF
 
 
-      ! Collect group 'grp_vars_ana' from dwd_ana_sfc_in
+      ! Collect group 'grp_vars_fg_atm' from dwd_fg_atm_in
+      !
+      grp_name ='dwd_fg_atm_in' 
+      CALL collect_group(TRIM(grp_name), grp_vars_fg_atm, ngrp_vars_fg_atm,    &
+        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+
+      ! Collect group 'grp_vars_ana_sfc' from dwd_ana_sfc_in
       !
       grp_name ='dwd_ana_sfc_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_ana, ngrp_vars_ana,  &
+      CALL collect_group(TRIM(grp_name), grp_vars_ana_sfc, ngrp_vars_ana_sfc,  &
         &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+      ! Collect group 'grp_vars_ana_atm' from dwd_ana_atm_in
+      !
+      grp_name ='dwd_ana_atm_in' 
+      CALL collect_group(TRIM(grp_name), grp_vars_ana_atm, ngrp_vars_ana_atm,  &
+        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+
+      ! Join groups surface and atmosphere into 1
+      !
+      ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_fg_atm
+      ngrp_vars_fg = 0
+      CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc(1:ngrp_vars_fg_sfc), ngrp_vars_fg_sfc)
+      CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_atm(1:ngrp_vars_fg_atm), ngrp_vars_fg_atm)
+      !
+      ! grp_vars_ana = grp_vars_ana_sfc + grp_vars_ana_atm
+      ngrp_vars_ana = 0
+      CALL add_to_list(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
+      CALL add_to_list(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
+
+
 
       ! Lateron, grp_vars_fg and grp_vars_ana will be the groups that control the reading stuff
 
@@ -1012,9 +1061,32 @@ MODULE mo_nh_initicon
 
 
 
-      !
-      ! Generate file inventory lists for FG- and ANA-files
-      !
+      !===============================================================================
+      ! 2: generate list of mandatory analysis fields (i.e. for which no fall back to
+      !    FG fields is allowed )
+      !===============================================================================
+
+      IF( ana_varlist(1) /= ' ') THEN
+        ! translate GRIB2 varname to internal netcdf varname
+        ! If requested GRIB2 varname is not found in the dictionary 
+        ! (i.e. due to typos) -> Model abort
+        nvars_ana_mandatory = 0
+        DO ivar=1,SIZE(ana_varlist)
+          IF (ana_varlist(ivar) /= ' ') THEN
+            nvars_ana_mandatory = nvars_ana_mandatory + 1
+            ! translate GRIB2 -> NetCDF
+            grp_vars_ana_mandatory(ivar) = TRIM(dict_get(ana_varnames_dict, ana_varlist(ivar), &
+              &                            linverse=.TRUE.))
+          ELSE
+            EXIT
+          ENDIF
+        ENDDO
+      END IF
+
+
+      !========================================================
+      ! 3: Generate file inventory lists for FG- and ANA-files
+      !========================================================
 
       ! get ANA-file inventory list (surface fields, only)
       !
@@ -1086,66 +1158,52 @@ MODULE mo_nh_initicon
 !!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
 
 
+      !======================================
+      ! 4: Check for missing input fields
+      !======================================
 
       ! Check, whether the ANA-file inventory list contains all required analysis fields.
-      ! If not, remove the corresponding file name from the group 'grp_vars_ana' and issue a warning.
-      ! The missing field is added to the group 'grp_vars_fg' and thus the model tries to read 
-      ! it from the FG-File.
+      ! If not, check whether the missing field is mandatory. If so, issue an error and abort. If 
+      ! the field is not mandatory, remove the corresponding variable name from the group 
+      ! 'grp_vars_ana' and issue a warning. The missing field is added to the group 'grp_vars_fg' 
+      ! and thus the model tries to read it from the FG-File as fall back.
       !
       DO ivar=1,ngrp_vars_ana_default
         index = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
 
         IF ( index == -1) THEN  ! variable not found
-          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' not found in ANA-input file.'
-          CALL message(routine, TRIM(message_text))
-          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' will be read from FG-input, instead.'
-          CALL message(routine, TRIM(message_text))
 
-          ! remove missing field from analysis input-group grp_vars_ana
-          CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_default(ivar:ivar), 1)
+          ! Check whether this field is mandatory, or whether we may fall back to 
+          ! the first guess
+          is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:nvars_ana_mandatory))
 
-          ! add missing field to the FG-group grp_vars_fg
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(ivar:ivar), 1)
+          IF ( is_one_of == -1) THEN  ! analysis field is not mandatory
+            ! fall back to first guess
+            !
+            WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' not found in ANA-input file.'
+            CALL message(routine, TRIM(message_text))
+            WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' will be read from FG-input, instead.'
+            CALL message(routine, TRIM(message_text))
+
+            ! remove missing field from analysis input-group grp_vars_ana
+            CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_default(ivar:ivar), 1)
+
+            ! add missing field to the FG-group grp_vars_fg
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(ivar:ivar), 1)
+
+          ELSE  ! analysis field is mandatory
+            ! abort
+            !
+            WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))// &
+              &                       ' mandatory, but not found in ANA-input file.'
+            CALL finish(routine, TRIM(message_text))
+          ENDIF
         ELSE
           ! save varID
           grp_varID_ana(ivar) = grp_varID_anafile(index)
         ENDIF
       ENDDO  
 
-
-
-
-!!$      ! Remove those names from grp_vars_fg which are also included in grp_vars_ana
-!!$      ! Thus, only those variables are read from the first guess, which are not contained 
-!!$      ! in the analysis file. By this, we avoid double reading.
-!!$      !
-!!$      DO ivar=1,ngrp_vars_ana
-!!$
-!!$        index = one_of(TRIM(grp_vars_ana(ivar)),grp_vars_fg(:))
-!!$
-!!$        ! If grp_vars_ana(ivar) is also a group member of grp_vars_fg(:)
-!!$        IF (index /= -1) THEN ! found matching name.
-!!$          !
-!!$          ! Check, whether the number of vertical levels matches as well
-!!$
-!!$          ! get number of vertical levels for variable grp_vars_ana(ivar)
-!!$          varID    = grp_varID_ana(ivar)             ! CDI variable ID with this name in analysis 
-!!$          vlistID  = streamInqVlist(fileID_ana(1))
-!!$          zaxisID  = vlistInqVarZaxis(vlistID, varID)
-!!$          nlev_ana = zaxisInqSize(zaxisID)
-!!$
-!!$          ! get number of vertical levels for variable grp_vars_fg(index)
-!!$          varID    = grp_varID_fg(index)             ! CDI variable ID with this name in analysis 
-!!$          vlistID  = streamInqVlist(fileID_fg(1))
-!!$          zaxisID  = vlistInqVarZaxis(vlistID, varID)
-!!$          nlev_fg  = zaxisInqSize(zaxisID)
-!!$
-!!$          IF (nlev_ana == nlev_fg) THEN
-!!$            ! remove grp_vars_ana(ivar) from grp_vars_fg(:)
-!!$            CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_ana(ivar:ivar), 1)
-!!$          ENDIF
-!!$        ENDIF          
-!!$      ENDDO
 
 
 
@@ -1164,7 +1222,11 @@ MODULE mo_nh_initicon
       ENDDO  
 
 
-      ! Printout table
+
+      !====================
+      ! 5: Printout table
+      !====================
+
       !
       ! For printout, translate variable names from Netcdf (internal) to GRIB2
       ! print both GRIB2 (internal)
@@ -1192,12 +1254,12 @@ MODULE mo_nh_initicon
           &                        linverse=.FALSE.))//" ("//          &
           &                        TRIM(grp_vars_ana(ivar))//")"
       ENDDO
-      CALL message("Required surface input fields:",'Source of FG and ANA fields:')
+      CALL message("Required input fields:",'Source of FG and ANA fields:')
       CALL init_bool_table(bool_table)
-      CALL add_column(bool_table, "FG-SFC (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
-      CALL add_column(bool_table, "FG-SFC",           grp_vars_fg_grib2,          ngrp_vars_fg)
-      CALL add_column(bool_table, "ANA-SFC (default)",grp_vars_ana_default_grib2, ngrp_vars_ana_default)
-      CALL add_column(bool_table, "ANA-SFC",          grp_vars_ana_grib2,         ngrp_vars_ana)
+      CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
+      CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
+      CALL add_column(bool_table, "ANA (default)",grp_vars_ana_default_grib2, ngrp_vars_ana_default)
+      CALL add_column(bool_table, "ANA (this run)",          grp_vars_ana_grib2,         ngrp_vars_ana)
       CALL print_bool_table(bool_table)
     ENDIF  ! p_pe == p_io
 

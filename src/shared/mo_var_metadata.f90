@@ -21,7 +21,7 @@ MODULE mo_var_metadata
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(29) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(31) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -41,7 +41,9 @@ MODULE mo_var_metadata
     &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
     &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
     &  "DWD_FG_SFC_IN         ",  &  ! Sfc input fields that are required from the FG input file
+    &  "DWD_FG_ATM_IN         ",  &  ! Atm input fields that are required from the FG input file
     &  "DWD_ANA_SFC_IN        ",  &  ! Sfc input fields that are required from the ANA input file
+    &  "DWD_ANA_ATM_IN        ",  &  ! Atm input fields that are required from the ANA input file
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &

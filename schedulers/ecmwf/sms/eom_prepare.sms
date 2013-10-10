@@ -21,11 +21,8 @@
 
 # -------------------------------------------------
 
-
 echo "EOM_PREPARE.SMS" 
 
-## module load python
-## module load netcdf
 module load cdo/1.6.0
 module swap grib_api grib_api/1.11.0
 

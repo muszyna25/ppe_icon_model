@@ -4,11 +4,18 @@
 # Comments:
 #
 # 2010-02-09, Marco Giorgetta, MPI-M
+# 2010-02-09, Luis Kornblueh,  MPI-M: clean-up
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -ffree-line-length-132
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
+# 2012-10-04, Luis Kornblueh,  MPI-M: openmpi from macports cannot be used 
+#                                     anymore. Change to mpich and update 
+#                                     to gcc 4.8, the new macports default.
 #
-# Current setup for gcc-4.3.4
+# Current setup for gcc-4.8
 # 
 # . language options to be used:
-#   -xf95-cpp-input
+#   -cpp
 #   -std=f2003
 #   -fmodule-private -fimplicit-none
 #   -ffree-line-length-132 -fmax-identifier-length=63
@@ -24,12 +31,7 @@
 # . checks and initializers
 #   -finit-real=nan
 #   (other potential initializers: -finit-integer=, -finit-logical=)
-#
-# 2010-02-09, Luis Kornblueh,  MPI-M: clean-up
-# 2010-02-17, Marco Giorgetta, MPI-M: activate -ffree-line-length-132
-# 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
-# 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
-#
+
 #-----------------------------------------------------------------------------
 #
 # define site dependend library paths
@@ -40,7 +42,7 @@ config_compiler=gcc
 load_modules=""
 
 MPIROOT     = /opt/local
-MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal -lutil
+MPI_LIB     = -lmpichf90 -lpmpich -lmpich -lopa -lmpl -lpthread
 
 ZLIBROOT    = /opt/local
 SZIPROOT    = /opt/local
@@ -56,12 +58,13 @@ LAPACK_LIB  =
 
 LIBS        = -L../lib -lsupport -lcurl
 
-FCPP        = -xf95-cpp-input
+FCPP        = -cpp
 FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
 FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
 FDEBUG      = -g -fbacktrace -fbounds-check
 FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
 FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
+
 CC          = gcc
 CFLAGS      = -march=core2 -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99 -g
 FC          = gfortran
@@ -75,7 +78,7 @@ MODOPT      = -I
 MODDIR      = -J
 
 make_command="make" "-j" "2"
-mpi_startrun="$MPIROOT/bin/openmpiexec" "-n" "\\\$mpi_total_procs"
+mpi_startrun="$MPIROOT/bin/mpiexec" "-n" "\\\$mpi_total_procs"
 submit=""
   
 

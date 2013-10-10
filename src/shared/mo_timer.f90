@@ -122,7 +122,7 @@ MODULE mo_timer
   PUBLIC :: timer_upd_phys, timer_upd_flx
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
+  PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   PUBLIC :: timer_dbg_prnt
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
@@ -254,7 +254,7 @@ MODULE mo_timer
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
   INTEGER :: timer_oce_phy
   INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
+  INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   INTEGER :: timer_dbg_prnt
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
@@ -443,6 +443,7 @@ CONTAINS
     timer_adv_vert      = new_timer("adv_vert")
     timer_dif_vert      = new_timer("dif_vert")
     timer_ppm_slim      = new_timer("ppm_slim")
+    timer_adpo_vert     = new_timer("adpo_vert")
     timer_vert_veloc    = new_timer("vert_veloc")
     timer_normal_veloc  = new_timer("normal_veloc")
     timer_dbg_prnt      = new_timer("dbg_prnt")

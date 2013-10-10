@@ -14,7 +14,7 @@
 #SBATCH --job-nam=ICON_%TASK%
 #SBATCH --output=%SMSJOBOUT%
 #SBATCH --error=%SMSJOBOUT%
-#SBATCH --mail-type=FAIL
+###SBATCH --mail-type=FAIL
 
 
 #==========================================================================
@@ -95,7 +95,6 @@ trap ERROR 0
 trap '{ echo "Killed by a signal"; ERROR ; }' \
      $SMS_SIGNAL_LIST
 
-echo $TMPDIR
 [[ -d $TMPDIR ]] && cd $TMPDIR
 
 date

@@ -924,6 +924,7 @@ MODULE mo_nh_diffusion
       ENDDO
 #ifndef _CRAYFTN
 !$OMP END MASTER
+!$OMP BARRIER
 #else
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 #endif

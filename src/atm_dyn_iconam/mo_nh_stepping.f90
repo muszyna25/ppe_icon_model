@@ -51,7 +51,7 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp, i8
   USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
-    & nest_substeps
+    & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
@@ -427,7 +427,7 @@ MODULE mo_nh_stepping
   TYPE(t_datetime)                     :: datetime_old
 
   INTEGER           :: nsoil(n_dom), nsnow
-  REAL(wp)          :: latbc_elapsed
+  REAL(wp)          :: latbc_elapsed, elapsed_time_global
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -588,10 +588,13 @@ MODULE mo_nh_stepping
     ! activating and immediately after terminating a model domain
     ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
 
-    ! This serves for enhancing the sound wave damping during the initial spinup phase
-    IF (jstep <= 100+iadv_rcf .AND. MOD(jstep,iadv_rcf) == 1 .AND. .NOT. is_restart_run() &
-       .AND. .NOT. ltestcase) THEN
-      CALL update_w_offctr(jstep)
+    ! This serves for enhancing the sound wave damping during the first 2 hours of integration
+    ! If mixed second-order - fourth-order divergence damping is chosen (divdamp_order=24),
+    ! the coefficient for second-order divergence damping is also updated
+    elapsed_time_global = REAL(jstep,wp)*dtime
+    IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND. MOD(jstep,iadv_rcf) == 1  &
+       .AND. .NOT. is_restart_run() .AND. .NOT. ltestcase) THEN
+      CALL update_w_offctr(elapsed_time_global)
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -1875,18 +1878,24 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-06-04)
   !!
-  SUBROUTINE update_w_offctr(jstep)
+  SUBROUTINE update_w_offctr(elapsed_time)
 
-    INTEGER, INTENT(IN) :: jstep
+    REAL(wp), INTENT(IN) :: elapsed_time
     INTEGER :: jg
-    REAL(wp) :: min_vwind_impl_wgt
+    REAL(wp) :: min_vwind_impl_wgt, time1, time2
 
-    IF (jstep <= 30) THEN ! apply slightly super-implicit weights
+    time1 = 1800._wp  ! enhanced damping during the first half hour of integration
+    time2 = 7200._wp  ! linear decrease of enhanced damping until time2
+
+    IF (elapsed_time <= time1) THEN ! apply slightly super-implicit weights
       min_vwind_impl_wgt = 1.1_wp
-    ELSE IF (jstep <= 100) THEN ! linearly decrease minimum weights to 0.5
-      min_vwind_impl_wgt = 0.5_wp + 0.6_wp*REAL(100-jstep,wp)/70._wp
+      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac
+    ELSE IF (elapsed_time <= time2) THEN ! linearly decrease minimum weights to 0.5
+      min_vwind_impl_wgt = 0.5_wp + 0.6_wp*(time2-elapsed_time)/(time2-time1)
+      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
     ELSE
       min_vwind_impl_wgt = 0.5_wp
+      IF (divdamp_order == 24) divdamp_fac_o2 = 0._wp
     ENDIF
 
     DO jg = 1, n_dom

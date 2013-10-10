@@ -277,7 +277,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin                       = 0.2
  pat_len                      = 100.
  c_diff                       = 0.2
- rat_sea                      = 10.0
+ rat_sea                      = 9.0
 /
 &lnd_nml
  ntiles                       = 3
@@ -286,6 +286,8 @@ cat > ${atmo_namelist} << EOF
  idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
+ itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
+ itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
  sstice_mode                  = 3
  sst_td_filename              = '${sst_td_filename}'
  ci_td_filename               = '${ci_td_filename}'

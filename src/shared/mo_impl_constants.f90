@@ -340,6 +340,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MCYCL   = 20
   INTEGER, PARAMETER :: MIURA_MCYCL  = 22
   INTEGER, PARAMETER :: MIURA3_MCYCL = 32
+  INTEGER, PARAMETER :: FFSL_MCYCL = 42
 
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0
@@ -479,7 +480,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: &
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
     PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
-    PRES_MSL_METHOD_IFS = 3       ! current IFS method
+    PRES_MSL_METHOD_IFS = 3,  &   ! current IFS method
+    PRES_MSL_METHOD_IFS_CORR = 4  ! modified IFS method that is consistent with 
+                                  ! geopotential computation 
 
   ! Method for computation of relative humidity:
   INTEGER, PARAMETER :: &

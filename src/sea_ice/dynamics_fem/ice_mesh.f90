@@ -1,3 +1,10 @@
+MODULE mo_set_mesh
+
+  PUBLIC :: set_mesh
+
+CONTAINS
+
+
 ! A set of auxilliary routines required to run standing-alone ice.
 ! They are not needed if ice is used as a part of coupled system
 ! Their role: reading the mesh and preparing it to further usage 
@@ -107,6 +114,7 @@ subroutine local_element_def(element, &
   integer                                     :: i
   integer                                     :: node
   REAL(wp)                                :: meancos
+  REAL(wp), dimension(3,2)                :: trans_temp
   !
   meancos=cos_elem2D(element)
   do i=1, 3
@@ -129,7 +137,10 @@ subroutine local_element_def(element, &
   !  I N V E R S E   O F   jacobian
   call matrix_inverse_2x2(jacobian2D, jacobian2D_inv, DET)
   !
-  der_transp=matmul(transpose(derivative_stdbf), jacobian2D_inv)
+  ! the following line creates compiler problems on IBM and is therefore rewritten in 2 lines
+  ! der_transp=matmul(transpose(derivative_stdbf), jacobian2D_inv)
+  trans_temp=transpose(derivative_stdbf)
+  der_transp=matmul(trans_temp, jacobian2D_inv)
   derivative_loczeta=transpose(der_transp)
   !
 end subroutine local_element_def
@@ -318,3 +329,6 @@ subroutine build_nghbr_arrays
   !
   deallocate(ind, check)
 end subroutine build_nghbr_arrays
+
+
+END MODULE mo_set_mesh

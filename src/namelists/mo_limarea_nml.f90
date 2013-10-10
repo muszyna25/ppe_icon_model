@@ -65,8 +65,9 @@ MODULE mo_limarea_nml
   INTEGER                         :: nlev_latbc     ! number of vertical levels in boundary data
   CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
   CHARACTER(LEN=MAX_STRING_LEN)   :: latbc_path     ! directory containing external latbc files
+  LOGICAL                         :: lupdate_qvqc   ! switch to update qv, qc at boundary (only first grf_bdywidth_? layers)
 
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path
+  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path, lupdate_qvqc
 
 CONTAINS
   !>
@@ -85,6 +86,7 @@ CONTAINS
     nlev_latbc       = 0
     latbc_filename   = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
     latbc_path       = "<path>"
+    lupdate_qvqc     = .FALSE.
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -117,6 +119,7 @@ CONTAINS
     latbc_config% nlev_in         = nlev_latbc
     latbc_config% latbc_filename  = latbc_filename
     latbc_config% latbc_path      = latbc_path//'//'
+    latbc_config% lupdate_qvqc    = lupdate_qvqc
 
     !-----------------------------------------------------
     ! Store the namelist for restart

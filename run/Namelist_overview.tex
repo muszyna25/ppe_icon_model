@@ -1823,6 +1823,15 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 \hline 
+ana\_varlist &
+C& & &
+List of mandatory analysis fields that must be present in the analysis file. If these fields cannot be found in the analysis 
+file, the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+& init\_mode=1
+\tabularnewline
+
+
+\hline 
 ana\_varnames\_map\_file &
 C& & &
 Dictionary file which maps internal variable names onto
@@ -2345,7 +2354,8 @@ divdamp\_order&
 I& 4& &
 Order of divergence damping: \\ 
 2 = second-order divergence damping \\
-4 = fourth-order divergence damping &
+4 = fourth-order divergence damping \\
+24 = combined second-order and fourth-order divergence damping (use for data assimilation cycle only!) &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 
@@ -2842,7 +2852,8 @@ Specifies method for computation of mean sea level pressure (and geopotential at
 pressure levels below the surface). \\
 1: GME-type extrapolation, \\
 2: stepwise analytical integration, \\
-3: current IFS method
+3: current IFS method, \\
+4: IFS method with consistency correction
 &
 \tabularnewline
 
@@ -3427,11 +3438,12 @@ I(ntracer)&
 & & 5& & 0: no horiz. transport & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
-& & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
 & & & & 3: miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
 & & & & 22: combination of miura and miura with subcycling& if cell\_type=3 \tabularnewline
 & & & & 32: combination of miura3 and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 42: combination of FFSL and miura with subcycling& if cell\_type=3 \tabularnewline
 & & & & 5: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
 
 \hline 

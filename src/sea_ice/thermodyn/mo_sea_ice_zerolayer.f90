@@ -47,7 +47,7 @@ MODULE mo_sea_ice_zerolayer
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
   USE mo_ocean_nml,           ONLY: no_tracer
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, hci_layer
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_state,           ONLY: t_hydro_ocean_state 
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
@@ -114,7 +114,8 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: nonsolar   (nbdim,kice)
     REAL(wp),INTENT(IN)    :: dnonsolardT(nbdim,kice)
     REAL(wp),INTENT(IN)    :: Tfw        (nbdim)
-    INTEGER, INTENT(IN)    :: doy
+
+    INTEGER,OPTIONAL,INTENT(IN)    :: doy
 
     ! Local variables
     REAL(wp) ::        &
@@ -174,7 +175,7 @@ CONTAINS
 
           IF (i_therm_model == 1 ) THEN
           ! We add constant heat capacity to deltaTdenominator to stabilize the atmosphere
-            deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*0.05_wp*ci/pdtime
+            deltaTdenominator = k_effective  - dnonsolardT(jc,k) + rhoi*hci_layer*ci/pdtime
           ELSE IF (i_therm_model == 3) THEN
             ! dLWdT is missing!
             deltaTdenominator = k_effective + 4.0_wp*zemiss_def*StBo*(Tsurf(jc,k)+tmelt)**3

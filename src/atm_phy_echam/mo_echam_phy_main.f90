@@ -52,7 +52,7 @@ MODULE mo_echam_phy_main
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, iqt, ltimer
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
+  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
@@ -60,8 +60,7 @@ MODULE mo_echam_phy_main
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend,      &
-    &                               mean_charlen
+    &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
@@ -85,7 +84,6 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_orbit,               ONLY: orbit_vsop87
 
   IMPLICIT NONE
   PRIVATE
@@ -216,8 +214,6 @@ CONTAINS
     tend   => prm_tend (jg)
     atm_td => ext_data(jg)%atm_td
 
-!     WRITE(0,*)' test mean_Charlen', jg,mean_charlen(jg)
-
     ! 2. local switches and parameters
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
@@ -254,7 +250,7 @@ CONTAINS
     DO jc=jcs,jce
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
-!!$ TR      write (*,*) "field% lsmask", field% lsmask(jc,jb), jc, jb
+
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -354,31 +350,27 @@ CONTAINS
 
 
        ! Einar: This should be done in update_surface
+       !
+       ! surface temperatures for radiative transfer and radiative heating computations
+       !
+       ! for radiative heating : effective sfc temp. [K]
+       ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
+       ! 
+       ! for radiative transfer: radiative sfc temp. [K]
+       ztemperature_rad(:) = 0._wp
+       DO jsfc=1,nsfc_type
+         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
+           & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
+       ENDDO
+       ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
+
        IF (phy_config%ljsbach) THEN
-         ! Calculate ztemperature_rad and _eff everywhere
-         ztemperature_rad(:) = 0._wp
-         ztemperature_eff(jcs:jce) = field%tsfc(jcs:jce,jb)
-         DO jsfc=1,nsfc_type
-           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
-             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
-         ENDDO
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
-         ! Reset to precalculated land values
+         ! Reset to land values pre-calculated in JSBACH
          WHERE (field%lsmask(jcs:jce,jb) > 0.5_wp)
-            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb) ! radiative sfc temp. [K]
-            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb) ! effective sfc temp. [K]
+            ztemperature_rad(jcs:jce) = field%surface_temperature_rad(jcs:jce,jb)
+            ztemperature_eff(jcs:jce) = field%surface_temperature_eff(jcs:jce,jb)
          ENDWHERE
-       ELSE
-         ztemperature_rad(:) = 0._wp
-         DO jsfc=1,nsfc_type
-!           write(0, *) " jsfc=", jsfc
-!           write(0, *) jsfc, " zfrc(jcs:jce,jsfc)):", zfrc(jcs:jce,jsfc)
-!           write(0, *) jsfc, " field%tsfc_tile(:,jb,jsfc):", field%tsfc_tile(jcs:jce,jb,jsfc)
-           ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce) + &
-             & zfrc(jcs:jce,jsfc) * field%tsfc_tile(jcs:jce,jb,jsfc)**4
-         ENDDO
-         ztemperature_rad(jcs:jce) = ztemperature_rad(jcs:jce)**0.25_wp
-        END IF
+       END IF
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -446,21 +438,8 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
                                        COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
                                        COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
-!LK          CASE(5)
           END SELECT
 
-!          zdoy = REAL(datetime%calday, wp) + datetime%caltime
-!          CALL orbit_vsop87 (zdoy, zra, zdec, zdis)
-!          write(0,*) 'LK: ', zdoy, zra, zdec, zdis
-!          time_of_day = datetime%daytim * 2 * pi
-          ! flx_ratio = 1.0_wp/dist_sun**2
-!          zen1 = SIN(zdec)
-!          zen2 = COS(zdec)*COS(time_of_day)
-!          zen3 = COS(zdec)*SIN(time_of_day)
-!LK          field%cosmu0(jcs:jce,jb) = &
-!               &  zen1*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lat) &
-!               & -zen2*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lon) &
-!               & +zen3*cos(p_patch(jg)%cells%center(jcs:jce,jb)%lat)*sin(p_patch(jg)%cells%center(jcs:jce,jb)%lon)
 
           SELECT CASE(irad_o3)
             CASE default
@@ -474,11 +453,6 @@ CONTAINS
               ELSE
                 selmon=9
               ENDIF
-
-!              CALL o3_timeint( jce, nbdim, nlev_o3,nmonths,  & !
-!                             & selmon ,                        & ! optional choice for month
-!                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
-!                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
               CALL o3_pl2ml ( kproma=jce, kbdim=nbdim,                &
                              & nlev_pres = nlev_o3,klev= nlev ,       &
@@ -658,17 +632,12 @@ CONTAINS
 
       ! - solar incoming flux at TOA
 
-!!$ TR      field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-!!$ TR                                & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-!!$ TR                                &      +ptime_radheat )
-
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
       field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
-      IF (phy_config%ljsbach) THEN
       CALL radheat (                                   &
         !
         ! input
@@ -685,40 +654,7 @@ CONTAINS
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = ztemperature_eff(:)            ,&! in  effective surface temperature [K]
-        & ptsfctrad  = ztemperature_rad(:)            ,&! in  radiative sfc temp. used in "radiation" [K]
-        & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
-        & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
-        & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
-        !
-        ! output
-        ! ------
-        !
-        & pdtdtradsw = tend%temp_radsw        (:,:,jb),&! out   rad. heating by SW         [K/s]
-        & pdtdtradlw = tend%temp_radlw        (:,:,jb),&! out   rad. heating by LW         [K/s]
-        & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
-        & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
-        & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
-        & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
-      ELSE
-      CALL radheat (                                   &
-        !
-        ! input
-        ! -----
-        !
-        & jcs        = jcs,                            &! in    loop start index
-        & jce        = jce,                            &! in    loop end index
-        & kbdim      = nbdim,                          &! in    dimension size
-        & klev       = nlev,                           &! in    vertical dimension size
-        & klevp1     = nlevp1,                         &! in    vertical dimension size
-        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
-        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
-        & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
-        & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
-        & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
-        & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = field%tsfc               (:,jb),&! in    surface temperature           [K]
+        & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
         & ptsfctrad  = ztemperature_rad(:)            ,&! in    sfc temp. used in "radiation" [K]
         & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
         & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
@@ -734,7 +670,6 @@ CONTAINS
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
         & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux      [W/m2]
         & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
-    END IF ! ljsbach
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -785,7 +720,6 @@ CONTAINS
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
-                    !& field% tsfc_tile(:,:,jb),        &! in, surface temperature
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -807,21 +741,17 @@ CONTAINS
                      & zxt_emis,                        &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                    !& field% z0m_tile(:,:,jb),         &! in
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                    !& field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
-                    !& field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfh     (:,:,jb),         &! out, for output
-                    !& field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfv     (:,:,jb),         &! out, for output
                      & field% cftke   (:,:,jb),         &! out, for output
@@ -847,7 +777,6 @@ CONTAINS
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
-                    !& field% tsfc_tile(:,:,jb),        &! in, surface temperature
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -869,21 +798,17 @@ CONTAINS
                      & zxt_emis,                        &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                    !& field% z0m_tile(:,:,jb),         &! in
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                    !& field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
-                    !& field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfh     (:,:,jb),         &! out, for output
-                    !& field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
                      & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfv     (:,:,jb),         &! out, for output
                      & field% cftke   (:,:,jb),         &! out, for output
@@ -979,8 +904,8 @@ CONTAINS
                        & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
                        & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
-                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
-                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
+                       & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
+                       & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
         field%tsurfl(jcs:jce,jb) = field%tsfc_tile(jcs:jce,jb,ilnd)
 
@@ -1036,8 +961,8 @@ CONTAINS
                        & albnirdir_wtr = field% albnirdir_wtr(:  ,jb), &! inout
                        & albvisdif_wtr = field% albvisdif_wtr(:  ,jb), &! inout
                        & albnirdif_wtr = field% albnirdif_wtr(:  ,jb), &! inout
-                       & plwflx_wtr = field%lwflxsfc_tile(:,jb,iwtr),  &! out (for coupling)
-                       & pswflx_wtr = field%swflxsfc_tile(:,jb,iwtr))  ! out (for coupling)
+                       & plwflx_tile = field%lwflxsfc_tile(:,jb,:),  &! out (for coupling)
+                       & pswflx_tile = field%swflxsfc_tile(:,jb,:))  ! out (for coupling)
 
     ENDIF ! ljsbach
 

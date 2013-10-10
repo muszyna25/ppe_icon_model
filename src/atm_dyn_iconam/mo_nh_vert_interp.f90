@@ -56,7 +56,8 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS
+  USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
+    &                               PRES_MSL_METHOD_IFS_CORR
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     l_coarse2fine_mode
@@ -594,7 +595,8 @@ CONTAINS
       &                   vcoeff_z%lin_cell%wfac_lin,                                        & !out
       &                   vcoeff_z%lin_cell%idx0_lin,                                        & !out
       &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out 
-    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev,    & !in
         &                       vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1)           !out
       vcoeff_z%lin_cell%kpbl2(:,:) = 0
@@ -648,7 +650,8 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
-    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                           & !in
         &                 vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1,               & !out
         &                 vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%wfacpbl2 )                !out
@@ -732,7 +735,8 @@ CONTAINS
     CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
 
     !--- Coefficients: Interpolation to pressure-level fields
-    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev, & !in
         &                       vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1)        !out
       vcoeff_p%lin_cell%kpbl2(:,:) = 0
@@ -792,7 +796,8 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
-    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                          & !in
         &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,              & !out
         &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )               !out
@@ -1595,7 +1600,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+      ELSE IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2041,7 +2047,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+!DR      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
+      ELSE IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL 
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2562,7 +2569,9 @@ CONTAINS
         temp_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS) THEN
+!DR      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS) THEN
+      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS     &
+        &           .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS_CORR) THEN
 
         DO jk1 = 1, nlevs_in
           DO jc = 1, nlen
@@ -3650,8 +3659,9 @@ CONTAINS
   ! temperatures used for temperature extrapolation)
   ! 
   !
-  SUBROUTINE diagnose_pmsl_ifs(pres_sfc_in, temp3d_in, z3d_in, pmsl_out, &
-    &                          nblks, npromz, nlevs_in, wfac_extrap, kextrap)
+  SUBROUTINE diagnose_pmsl_ifs(pres_sfc_in, temp3d_in, z3d_in, pmsl_out,      &
+    &                          nblks, npromz, nlevs_in, wfac_extrap, kextrap, &
+    &                          method )
 
     ! Input fields
     REAL(wp), INTENT(IN)  :: pres_sfc_in (:,:)   ! surface pressure field (input data)
@@ -3670,6 +3680,9 @@ CONTAINS
     INTEGER , INTENT(IN) :: kextrap(:,:)     ! index of model level immediately above (by default) 150 m AGL
     REAL(wp), INTENT(IN) :: wfac_extrap(:,:) ! corresponding interpolation coefficient
 
+    ! Method (PRES_MSL_METHOD_IFS or PRES_MSL_METHOD_IFS_CORR)
+    INTEGER , INTENT(IN) :: method           ! valid input: PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR
+ 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:diagnose_pmsl_ifs")
 
@@ -3686,6 +3699,15 @@ CONTAINS
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
     dtdz_thresh = 1.e-4_wp ! 0.1 K/km
+
+
+    ! sanity check
+    !
+    IF (method/=PRES_MSL_METHOD_IFS .AND. method/=PRES_MSL_METHOD_IFS_CORR) THEN
+      WRITE(message_text,'(a,i2,a,i2)') 'invalid method! must be ', PRES_MSL_METHOD_IFS, &
+        &                               'or ', PRES_MSL_METHOD_IFS_CORR
+      CALL finish(routine, message_text)
+    ENDIF
 
 
 !$OMP PARALLEL
@@ -3726,7 +3748,10 @@ CONTAINS
         ELSE IF (tsfc_mod(jc) >= t_high .AND. tmsl_mod(jc) > tsfc_mod(jc)) THEN
           tmsl_mod(jc) = tsfc_mod(jc)
         ELSE
-          tmsl_mod(jc) = tmsl(jc) ! this is missing in the geopotential computation!!!
+          IF (method == PRES_MSL_METHOD_IFS) THEN
+            tmsl_mod(jc) = tmsl(jc) ! this is missing in the geopotential computation!!!
+          ENDIF
+          ! tmsl_mod unmodified for method == PRES_MSL_METHOD_IFS_CORR
         ENDIF
 
         vtgrad = (tsfc_mod(jc) - tmsl_mod(jc))/MAX(1.e-4_wp,z3d_in(jc,nlevp1,jb))

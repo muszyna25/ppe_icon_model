@@ -1,0 +1,399 @@
+#!/bin/ksh
+#=============================================================================
+#
+# recommended Namelist settings for pre-operational runs (except for output_nml 
+# which may be adapted according to personal needs)
+#
+# Date: 2013.10.01  Guenther Zangl, Daniel Reinert
+#
+#=============================================================================
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="mydate_nmlT00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=72
+ndays=7
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm.,
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#-----------------------------------------------------------------------------
+# the grid parameters
+atmo_dyn_grids="iconR2B06_DOM01.nc"
+atmo_rad_grids="iconR2B05_DOM00.nc"
+#-----------------------------------------------------------------------------
+
+
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart               = .false.
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+&master_model_nml
+  model_type=1
+  model_name="ATMO"
+  model_namelist_filename="$atmo_namelist"
+  model_restart_info_filename=""
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+pl_varlist="'u','v','temp','geopot'"
+
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = 1024
+ p_test_run     = .false.
+ l_test_openmp  = .true.
+ l_log_checks   = .true.
+ num_io_procs   = 1
+ itype_comm     = 1
+ iorder_sendrecv = 1
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ radiation_grid_filename = ${radiation_grid_filename}
+ dynamics_parent_grid_id = 0,1
+ lredgrid_phys           = .true.,.true.
+ lfeedback               = .true.
+ ifeedback_type          = 2
+/
+&initicon_nml
+ init_mode   = 2           ! operation mode 2: IFS
+ zpbl1       = 500. 
+ zpbl2       = 1000. 
+ l_sst_in    = .true.
+/
+&io_nml
+ itype_pres_msl = 3
+ itype_rh       = 2
+/
+&nh_pzlev_nml
+ nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
+ nzlev       = 10     ! number of z level output (attention: levels in [m] and top-down)
+ plevels     = 20000,30000,50000,70000,85000
+ zlevels     = 10000,8000,6000,5000,4000,3000,2000,1000,500,100
+/
+&run_nml
+ num_lev        = 90
+ lvert_nest     = .true.
+ nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
+ dtime          = ${dtime}     ! timestep in seconds
+ ldynamics      = .TRUE.       ! dynamics
+ ltransport     = .true.
+ ntracer        = 5            ! default: 0
+ iforcing       = 3            ! NWP forcing
+ ltestcase      = .false.      ! false: run with real data
+ msg_level      = 7            ! detailed report during integration
+ ltimer         = .false.
+ timers_level   = 0
+ ldump_states   = .false.
+ lrestore_states= .false.
+ ldump_dd       = .false.
+ lread_dd       = .false.
+ output         = "nml"
+ l_one_file_per_patch = .false.
+/
+&nwp_phy_nml
+ inwp_gscp       = 1
+ inwp_convection = 1
+ inwp_radiation  = 1
+ inwp_cldcover   = 1 ! 3 geaendert ab Test2
+ inwp_turb       = 10
+ inwp_satad      = 1
+ inwp_sso        = 1
+ inwp_gwd        = 1
+ inwp_surface    = 1
+ latm_above_top  = .false.,.true.
+ efdt_min_raylfric = 7200.
+ itype_z0         = 2
+/
+&turbdiff_nml
+ tkhmin  = 0.2
+ tkmmin  = 0.2
+ pat_len = 100.
+ c_diff  = 0.2
+ rat_sea = 9.0
+/
+&lnd_nml
+ ntiles      = 3
+ nlev_snow   = 2
+ lmulti_snow = .true.
+ itype_heatcond = 1
+ idiag_snowfrac = 4
+ lsnowtile = .false.
+ lseaice   = .true.
+ llake     = .false.
+ itype_lndtbl = 3
+/
+&radiation_nml
+ irad_o3 = 7
+ irad_aero = 6
+ albedo_type = 2 ! Modis albedo
+ vmr_co2    = 390.e-06 ! values representative for 2012
+ vmr_ch4    = 1800.e-09
+ vmr_n2o    = 322.0e-09
+ vmr_o2     = 0.20946
+ vmr_cfc11  = 240.e-12
+ vmr_cfc12  = 532.e-12
+/
+&nonhydrostatic_nml
+ iadv_rhotheta  = 2
+ ivctype        = 2
+ itime_scheme   = 4
+ exner_expol    = 0.333
+ vwind_offctr   = 0.2
+ damp_height    = 50000.
+ rayleigh_coeff = 0.10
+ iadv_rcf       = 5
+ lhdiff_rcf     = .true.
+ divdamp_fac    = 0.004
+ divdamp_order  = 4
+ divdamp_type   = 3
+ l_open_ubc     = .true.
+ l_nest_rcf     = .true.
+ l_masscorr_nest= .true.
+ igradp_method  = 3
+ l_zdiffu_t     = .true.
+ thslp_zdiffu   = 0.02
+ thhgtd_zdiffu  = 125.
+ htop_moist_proc= 22500.
+ hbot_qvsubstep = 22501.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 75000.
+ stretch_fac     = 0.9
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
+/
+&dynamics_nml
+ iequations     = 3
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+ lcoriolis      = .TRUE.
+/
+&transport_nml
+ ctracer_list  = '12345'
+ ivadv_tracer  = 3,3,3,3,3
+ itype_hlimit  = 3,4,4,4,4,0
+ ihadv_tracer  = 42,2,2,2,2,0
+/
+&diffusion_nml
+ hdiff_order      = 5
+ itype_vn_diffu   = 1
+ itype_t_diffu    = 2
+ hdiff_efdt_ratio = 36.0
+ hdiff_smag_fac   = 0.015
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_nml
+ nudge_zone_width  = 8
+ lsq_high_ord      = 2
+ l_intp_c2l        = .true.
+ l_mono_c2l        = .true.
+/
+&gridref_nml
+ grf_intmethod_e  = 6
+ grf_intmethod_ct = 2
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 1
+ heightdiff_threshold = 3000.
+/
+! OUTPUT: Regular grid, model levels, all domains
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.    ! start, end, increment
+ steps_per_file               =  50
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-pmsl'         ! file name base
+ ml_varlist                   = 'pres_msl'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.    ! start, end, increment
+ steps_per_file               =  50
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-wind'         ! file name base
+ pl_varlist                   = 'u', 'v'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.    ! start, end, increment
+ steps_per_file               =  50
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-t'         ! file name base
+ pl_varlist                   = 'temp'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.    ! start, end, increment
+ steps_per_file               =  50
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-rh'         ! file name base
+ pl_varlist                   = 'rh'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.    ! start, end, increment
+ steps_per_file               =  50
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-phi'         ! file name base
+ pl_varlist                   = 'geopot'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 10800.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXP}-sfcfields'         ! file name base
+ ml_varlist                   = 'topography_c','fr_land','pres_msl','pres_sfc','group:precip_vars','tqv','tqc','tqi','shfl_s','lhfl_s','qhfl_s','tcm','tch','t_2m','qv_2m','rh_2m','u_10m','v_10m','gust10','clct','clcl','clcm','clch'
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.5
+ reg_lat_def                  = 90.,-0.5, -90.
+/
+&output_nml
+ dom                          =  -1                        ! write all domains
+ output_time_unit             =   1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 21600.  ! start, end, increment
+ steps_per_file               =  5
+ include_last                 =  .TRUE.
+ output_filename              = '${EXP}'                ! file name base
+ ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'tqv','tqc','tqi','shfl_s','lhfl_s','qhfl_s','cape', 'group:precip_vars', 'group:land_vars', 'group:multisnow_vars', 'group:rad_vars'
+ pl_varlist                   = ${pl_varlist}
+ output_grid                  =  .TRUE.
+/
+&meteogram_output_nml
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 300  ! meteogram output interval (in terms of time steps)
+ ldistributed      = .false.
+ stationlist_tot   =  52.17,  14.12, 'Lindenberg',    ! Lat,Lon
+                      51.97,   4.93, 'Cabauw',
+                     -10.08, -61.93, 'LBA_Rondonia',
+                      13.50,   2.5 , 'Niamey',
+                      36.61, -97.49, 'ARM_Southern_Great_Plains',
+                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
+                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
+                      60.00,  80.00, 'Snow Test Russia',
+/
+EOF
+

@@ -700,8 +700,8 @@ CONTAINS
         & p_pe_work,  & ! this owner id
         & error_status )                                            ! output
 
-      field_name(1) = "TAUX"
-      field_name(2) = "TAUY"
+      field_name(1) = "TAUX"   ! bundled field containing two components
+      field_name(2) = "TAUY"   ! bundled field containing two components
       field_name(3) = "SFWFLX" ! bundled field containing two components
       field_name(4) = "SFTEMP"
       field_name(5) = "THFLX"  ! bundled field containing two components
@@ -714,10 +714,12 @@ CONTAINS
       field_shape(1:2) = grid_shape(1:2)
 
       DO i = 1, no_of_fields
-        IF ( i == 3 .OR. i == 5 ) THEN
+        IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
          field_shape(3) = 2
-        ELSE IF ( i == 6 .OR. i == 10 ) THEN
+        ELSE IF ( i == 6 ) THEN
            field_shape(3) = 4
+        ELSE IF ( i == 10 ) THEN
+           field_shape(3) = 5
         ELSE
            field_shape(3) = 1
         ENDIF

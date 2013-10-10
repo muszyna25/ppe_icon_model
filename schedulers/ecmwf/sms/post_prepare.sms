@@ -32,14 +32,20 @@ dwd_grib_api=/home/ms/de/dei4
 export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
 
 lsplitdata=1
+lcpdata=1 
+ldeldata=1
+lmeteo=1
+levtypes="ML PL HL"
+
 case %SIMMODE% in
-  1) lcpdata=1        # pre-operations     
-     ldeldata=1  ;;
+  1)              ;;  # pre-operations (use defaults)   
   2) lcpdata=0        # monthly mean 10day forecasts
-     ldeldata=0  ;;
-  3) lsplitdata=0 
-     lcpdata=1       
-     ldeldata=1  ;;
+     ldeldata=0   ;;
+  3) lsplitdata=0 ;;  # climate
+  4) lsplitdata=0     # B-matrix 
+     lcpdata=0        
+     lmeteo=0        
+     levtypes="ML" ;;
 esac
 
 ###
@@ -80,7 +86,7 @@ ecp -o ${bindir}/icon_rev.txt $ecfsdir
 # ensemble mean for EPS run
 
 if [[ %NENS% -gt 0 ]] ; then
-  for levtype in ML PL HL ; do
+  for levtype in ${levtypes} ; do
     \rm -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb
     cdo ensmean ${outdir}/001/${basename}_001_DOM01_${levtype}_0001.grb \
                 ${outdir}/002/${basename}_002_DOM01_${levtype}_0001.grb \
@@ -94,8 +100,9 @@ if [[ %NENS% -gt 0 ]] ; then
                 ${outdir}/010/${basename}_010_DOM01_${levtype}_0001.grb \
                 ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
-  \rm -f ${outdir}/METEOGRAM_patch001.nc
-  cdo ensmean   ${outdir}/001/METEOGRAM_patch001.nc \
+  if [[ $lmeteo = 1 ]] ; then
+    \rm -f ${outdir}/METEOGRAM_patch001.nc
+    cdo ensmean ${outdir}/001/METEOGRAM_patch001.nc \
                 ${outdir}/002/METEOGRAM_patch001.nc \
                 ${outdir}/003/METEOGRAM_patch001.nc \
                 ${outdir}/004/METEOGRAM_patch001.nc \
@@ -106,57 +113,58 @@ if [[ %NENS% -gt 0 ]] ; then
                 ${outdir}/009/METEOGRAM_patch001.nc \
                 ${outdir}/010/METEOGRAM_patch001.nc \
                 ${outdir}/METEOGRAM_patch001.nc
+  fi
 fi
 
 
 #-----------------------------------------------------------------------------
 # meteogram: rename and copy to ecfs
 
-outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
-outfile_mtg2=${outdir}/${basename}_meteogram.nc
-mv  $outfile_mtg1 $outfile_mtg2 || true
-if [[ -f $outfile_mtg2 ]] ; then
-  ecp -o $outfile_mtg2 $ecfsdir
-else
-  ecp $ecfsdir/$outfile_mtg2 .
+if [[ $lmeteo = 1 ]] ; then
+  outfile_mtg1=${outdir}/METEOGRAM_patch001.nc
+  outfile_mtg2=${outdir}/${basename}_meteogram.nc
+  mv  $outfile_mtg1 $outfile_mtg2 || true
+  if [[ -f $outfile_mtg2 ]] ; then
+    ecp -o $outfile_mtg2 $ecfsdir
+  else
+    ecp $ecfsdir/$outfile_mtg2 .
+  fi
+  if [[ $lcpdata = 1 ]] ; then
+    scp $outfile_mtg2 ecgb:${gatedir}
+  fi
+  smsevent meteogram_data
 fi
-if [[ $lcpdata = 1 ]] ; then
-  scp $outfile_mtg2 ecgb:${gatedir}
-fi
-smsevent meteogram_data
 
 
 #-----------------------------------------------------------------------------
 # GRIB: copy to ecfs
 
 if [[ %SIMMODE% != 3 ]] ; then
-for levtype in ML PL HL ; do
-  if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
-    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
-  else
-    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
-  fi
-done
-fi
-if [[ %SIMMODE% = 3 ]] ; then
-
-for levtype in ML PL HL ; do
-  if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.nc ]] ; then
-    ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.nc $ecfsdir
-  else
-    ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.nc ${outdir}
-  fi
-done
- for str in so1 so2 ; do
-  if [[ -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
-    ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
-  fi
- done
+  for levtype in ${levtypes} ; do
+    if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.grb ]] ; then
+      ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.grb $ecfsdir
+    else
+      ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.grb ${outdir}
+    fi
+  done
+else
+  for levtype in ${levtypes} ; do
+    if [[ -f ${outdir}/${basename}_DOM01_${levtype}_0001.nc ]] ; then
+      ecp -o ${outdir}/${basename}_DOM01_${levtype}_0001.nc $ecfsdir
+    else
+      ecp     $ecfsdir/${basename}_DOM01_${levtype}_0001.nc ${outdir}
+    fi
+  done
+  for str in so1 so2 ; do
+    if [[ -f ${outdir}/${basename}_${str}_DOM01_ML_0001.nc ]] ; then
+      ecp -o ${outdir}/${basename}_${str}_DOM01_ML_0001.nc $ecfsdir
+    fi
+  done
 fi
 
 if [[ %NENS% -gt 0 ]] ; then
   for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
-    for levtype in ML PL HL ; do
+    for levtype in ${levtypes} ; do
       if [[ -f ${outdir}/${nmem}/${basename}_${nmem}_DOM01_${levtype}_0001.grb ]] ; then
         ecp -o ${outdir}/${nmem}/${basename}_${nmem}_DOM01_${levtype}_0001.grb $ecfsdir/${nmem}
       else
@@ -173,7 +181,7 @@ fi
 if [[ $lsplitdata = 1 ]] ; then
 
   mkdir -p grb_data
-  for levtype1 in PL HL ML; do
+  for levtype1 in ${levtypes} ; do
     if [[ ${levtype1} = 'HL' ]] ; then
       grib_copy  ${basename}_DOM01_HL_0001.grb  \
         grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
@@ -190,6 +198,12 @@ if [[ $lsplitdata = 1 ]] ; then
                 grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true
       \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
     done
+  done
+
+# fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
+  for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
+    cdo copy ${ml_file}      ${ml_file}_temp
+    mv       ${ml_file}_temp ${ml_file}
   done
 
   ls -l grb_data
@@ -217,7 +231,7 @@ fi
 
 if [[ $ldeldata = 1 ]] ; then
   \rm -rf grb_data 
-  for levtype in ML PL HL ; do
+  for levtype in ${levtypes} ; do
     \rm -rf ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
 fi

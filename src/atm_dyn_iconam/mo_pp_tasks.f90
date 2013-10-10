@@ -50,7 +50,8 @@ MODULE mo_pp_tasks
     & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
-    & RH_METHOD_WMO, RH_METHOD_IFS, RH_METHOD_IFS_CLIP, vname_len
+    & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
+    & RH_METHOD_IFS_CLIP, vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -873,7 +874,7 @@ CONTAINS
         &                    pmsl_aux(:,1,:),                           &  ! out
         &                    nblks_c, npromz_c, p_patch%nlev )             ! in
 
-    CASE (PRES_MSL_METHOD_IFS) ! IFS extrapolation method
+    CASE (PRES_MSL_METHOD_IFS,PRES_MSL_METHOD_IFS_CORR) ! IFS extrapolation method
 
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_IFS")
       CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
@@ -882,10 +883,11 @@ CONTAINS
         &                 nblks_c, npromz_c, nlev,                            & !in
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1)      !out
       ! Interpolate pressure on z-level "0":
-      CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc, &  ! in
-        &                    pmsl_aux(:,1,:),                               &  ! out
-        &                    nblks_c, npromz_c, p_patch%nlev,               &  ! in
-        &                    vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1 ) ! in
+      CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc,   & ! in
+        &                    pmsl_aux(:,1,:),                                 & ! out
+        &                    nblks_c, npromz_c, p_patch%nlev,                 & ! in
+        &                    vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1, & ! in
+        &                    itype_pres_msl                                   ) ! in
       CALL vcoeff_deallocate(vcoeff)
 
     CASE DEFAULT

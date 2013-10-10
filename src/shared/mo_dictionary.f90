@@ -47,7 +47,7 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_dictionary
 
-  USE mo_exception,      ONLY: finish
+  USE mo_exception,      ONLY: finish, message_text
   USE mo_util_string,    ONLY: tolower    
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,       ONLY: find_next_free_unit
@@ -240,7 +240,8 @@ CONTAINS
       IF (PRESENT(default)) THEN
         dict_get = TRIM(default)
       ELSE
-        CALL finish(routine, "Requested dictionary key not found!")
+        WRITE(message_text,'(a,a,a)') 'Requested dictionary key ', TRIM(key), ' not found!'
+        CALL finish(routine, message_text)
       END IF
     ELSE
       dict_get = TRIM(dict%array(val_column,idx))

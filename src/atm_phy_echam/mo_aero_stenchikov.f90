@@ -37,19 +37,19 @@
 
 MODULE mo_aero_stenchikov
 
-  USE mo_kind,                 ONLY: wp
-  USE mo_model_domain,         ONLY: t_patch, p_patch
-  USE mo_parallel_config,      ONLY: nproma
-  USE mo_lrtm_par,             ONLY: nbndlw
-  USE mo_srtm_config,          ONLY: nbndsw=>jpsw
-  USE mo_exception,            ONLY: finish
-  USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close
-  USE mo_netcdf_read,          ONLY: netcdf_read_2d_time, netcdf_read_3d_time, netcdf_read_1d
-  USE mo_time_interpolation,   ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
-                                     nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
-  USE mo_physical_constants,   ONLY: rgrav, rd
-  USE mo_math_constants,       ONLY: deg2rad, pi_2
-!!$  USE mo_echam_phy_memory,     ONLY: prm_field
+  USE mo_kind,                   ONLY: wp
+  USE mo_model_domain,           ONLY: t_patch
+  USE mo_parallel_config,        ONLY: nproma
+  USE mo_lrtm_par,               ONLY: nbndlw
+  USE mo_srtm_config,            ONLY: nbndsw=>jpsw
+  USE mo_exception,              ONLY: finish
+  USE mo_netcdf_read,            ONLY: netcdf_open_input, netcdf_close
+  USE mo_netcdf_read,            ONLY: netcdf_read_2d_time, netcdf_read_3d_time, netcdf_read_1d
+  USE mo_time_interpolation,     ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
+                                       nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
+  USE mo_latitude_interpolation, ONLY: latitude_weights_li
+  USE mo_physical_constants,     ONLY: rgrav, rd
+  USE mo_math_constants,         ONLY: deg2rad, pi_2
 
   IMPLICIT NONE
 
@@ -246,7 +246,7 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
                         & ,kproma              ,kbdim            ,krow          &
                         & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat     &
                         & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat   &
-                        & ,norder                                               )
+                        & ,r_lat_clim           ,lat_clim         ,norder        )
 ! 2. Solar radiation
 ! 2.1 interpolate optical properties solar radiation
   DO jwl=1,nb_sw
@@ -632,34 +632,5 @@ END SUBROUTINE pressure_index
     
 !-------------------------------------------------------------------------
 ! 
-!> SUBROUTINE latitude_weights_li  -- calculate weights and indices for 
-!             linear latitude interpolation.
-
-  SUBROUTINE latitude_weights_li(jg                                                   &
-                               & ,kproma              ,kbdim            ,krow         &
-                               & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat    &
-                               & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat  &
-                               & ,n_order                                             )
-
-    ! n_order=1 if latitudes of climatology are in ascending (S->N), -1 if 
-    ! latitudes are in descending (N->S) order.
-    INTEGER, INTENT(in)               :: jg, kproma, kbdim, krow, n_order
-    REAL(wp), INTENT(inout)           :: wgt1_lat(kbdim), wgt2_lat(kbdim)
-    INTEGER, INTENT(inout)            :: inmw1_lat(kbdim), inmw2_lat(kbdim)
-    REAL(wp), INTENT(in)              :: p_lat_shift, p_rdeltalat
-
-    INTEGER                           :: jl
-    REAL(wp)                          :: zlat(kbdim)
-    
-    zlat(1:kproma)=p_patch(jg)%cells%center(1:kproma,krow)%lat
-    inmw1_lat(1:kproma)=MAX(INT(n_order*(zlat(1:kproma)-p_lat_shift)*p_rdeltalat+1),0)
-    inmw2_lat(1:kproma)=inmw1_lat(1:kproma)+1
-    wgt2_lat(1:kproma)=n_order*(zlat(1:kproma)-r_lat_clim(inmw1_lat(1:kproma)))*p_rdeltalat
-    wgt1_lat(1:kproma)=1.0_wp-wgt2_lat(1:kproma)
-!!$    write(0,*) '++++++++++++++++++++++++++++++'
-!!$    write(0,*) 'latitudes=',MAXVAL(zlat(1:kproma))
-!!$    write(0,*) (zlat(jl),inmw1_lat(jl),inmw2_lat(jl),wgt1_lat(jl),wgt2_lat(jl),jl=1,kproma)
-!!$    write(0,*) '++++++++++++++++++++++++++++++'
-  END SUBROUTINE latitude_weights_li
 
 END MODULE mo_aero_stenchikov

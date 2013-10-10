@@ -1108,13 +1108,27 @@ CONTAINS
       ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
 
 
+
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &
         &                   'tile point land cover class list', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE., lcontainer=.TRUE. )
+
+      ! fill the separate variables belonging to the container lc_class_t
+      ALLOCATE(p_ext_atm%lc_class_t_ptr(ntiles_total+ntiles_water))
+      DO jsfc = 1,ntiles_total + ntiles_water
+      WRITE(csfc,'(i2)') jsfc
+      CALL add_ref( p_ext_atm_list, 'lc_class_t', 'lc_class_t_'//TRIM(ADJUSTL(csfc)),  &
+        &           p_ext_atm%lc_class_t_ptr(jsfc)%p_2d,                               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+        &           hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB),&
+        &           ldims=shape2d_c, loutput=.TRUE. )
+      ENDDO
+
+
 
       ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
@@ -1142,6 +1156,14 @@ CONTAINS
         &           ldims=shape2d_c, loutput=.TRUE. )
       ENDDO
 
+
+      ! inv_frland_from_tiles      p_ext_atm%inv_frland_from_tiles(nproma,nblks_c)
+      cf_desc    = t_cf_var('inv_frland_from_tiles', '-', &
+        &                   'inverse of fr_land derived from land tiles', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'inv_frland_from_tiles', p_ext_atm%inv_frland_from_tiles,&
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                          &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.)
 
 
       ! Storage for table values - not sure if these dimensions are supported by add_var
@@ -2772,9 +2794,13 @@ CONTAINS
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
 
+    REAL(wp) :: scalfac       ! scaling factor for inflating dominating land fractions 
+                              ! to fr_land (or fr_land + fr_lake)
+    REAL(wp) :: zfr_land      ! fr_land derived from land tile fractions
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
+
     !-------------------------------------------------------------------------
 
     WRITE(message_text,'(a,i4)') &
@@ -2817,7 +2843,7 @@ CONTAINS
 !!                 The reason is not clear to me, thus the directives are commented out for the time being
 !! !$OMP PARALLEL
 !! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!! !$OMP            tile_mask,lu_subs,sum_frac,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! !$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -2830,6 +2856,8 @@ CONTAINS
          it_count(:)                   = 0 ! counter for tiles
 
          DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
+
            IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
              i_count=i_count+1
              ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
@@ -2837,7 +2865,6 @@ CONTAINS
              tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
              tile_mask(:)=.true.
              tile_mask(i_lc_water)=.false. ! exclude water points
-             ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
              ext_data(jg)%atm%lp_count(jb) = i_count
 
@@ -3024,10 +3051,62 @@ CONTAINS
          END DO ! jc
 
 
+! New version -> see below
+!!$         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
+!!$         ! lake index to a sum of 1
+!!$         IF (ntiles_lnd > 1) THEN
+!!$           DO jc = i_startidx, i_endidx
+!!$             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
+!!$                        SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
+!!$
+!!$             DO jt = 1, ntiles_total + MIN(2,ntiles_water)
+!!$               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
+!!$             ENDDO
+!!$           ENDDO
+!!$         ELSE ! overwrite fractional settings over water points if tile approach is turned off
+!!$           DO jc = i_startidx, i_endidx
+!!$             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
+!!$           ENDDO
+!!$         ENDIF
 
-         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
-         ! lake index to a sum of 1
+
+
+         ! Inflate dominating land-tile fractions to fr_land or fr_land + fr_lake, depending 
+         ! on whether a lake tile is present (fr_lake >= frlake_thrhld), or not 
+         ! (fr_lake < frlake_thrhld).
          IF (ntiles_lnd > 1) THEN
+           ! Inflate fractions for land points
+           DO ic = 1, ext_data(jg)%atm%lp_count(jb)
+
+             jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+
+             ! sum up fractions of dominating land tiles
+             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
+             IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
+               ! cell with lake point
+               ! inflate dominating land fractions to fr_land
+               scalfac = ext_data(jg)%atm%fr_land(jc,jb)/sum_frac
+             ELSE
+               ! cell without lake point
+               ! inflate dominating land fractions to (fr_land + fr_lake)
+               scalfac = (ext_data(jg)%atm%fr_land(jc,jb) + ext_data(jg)%atm%fr_lake(jc,jb))/sum_frac
+             ENDIF
+
+             ! inflate land fractions
+             DO jt = 1, ntiles_total
+               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) * scalfac
+             ENDDO
+           ENDDO  ! ic
+
+              
+           ! Inflate fractions for 
+           ! - sea-water only points 
+           ! - lake only points. 
+           ! As a side effect, fractions for land-only points (with 0<fr_sea<frsea_thrhld) 
+           ! are also corrected.
+           ! Note that, for simplicity, we loop over all points. At mixed land/water points this 
+           ! should do no harm, since these have already been inflated in the loop above.
            DO jc = i_startidx, i_endidx
              sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
                         SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
@@ -3035,7 +3114,8 @@ CONTAINS
              DO jt = 1, ntiles_total + MIN(2,ntiles_water)
                ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
              ENDDO
-           ENDDO
+           ENDDO  ! jc
+
          ELSE ! overwrite fractional settings over water points if tile approach is turned off
            DO jc = i_startidx, i_endidx
              ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
@@ -3043,6 +3123,16 @@ CONTAINS
          ENDIF
 
 
+         ! Compute inverse of fr_land based on land tile fractions.
+         ! Required for proper aggregation of land-only variables
+         DO jc = i_startidx, i_endidx
+           ext_data(jg)%atm%inv_frland_from_tiles(jc,jb) = 0._wp
+           zfr_land = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
+           IF (zfr_land > 0._wp) THEN
+             ext_data(jg)%atm%inv_frland_from_tiles(jc,jb) = 1._wp/zfr_land
+           ENDIF
+         ENDDO  ! jc
 
 
          IF (lsnowtile) THEN ! copy static external data fields to snow tile grid points
@@ -3197,7 +3287,10 @@ CONTAINS
           DO ic = 1, i_count
             jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
 
-            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+            ! note that frac_t must be re-scaled such that sum(frac_t(1:ntiles_lnd)) = 1
+            ! therefore we multiply by inv_frland_from_tiles
+            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
+              &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
 
             ! plant cover (aggregated)
             ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
@@ -3205,20 +3298,20 @@ CONTAINS
 
             ! root depth (aggregated)
             ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
-              &             + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
+              &              + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
 
             ! surface area index (aggregated)
             ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
-              &             + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
-              &             /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+              &              + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
+              &              /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
 
             ! evaporative soil area index (aggregated)
             ext_data(jg)%atm%eai(jc,jb) = ext_data(jg)%atm%eai(jc,jb)           &
-              &             +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
+              &              +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac 
 
             ! transpiration area index (aggregated)
             ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &
-              &             +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
+              &              +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac 
 
             ! minimal stomata resistance (aggregated)
             ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &

@@ -48,7 +48,7 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, MIURA3_MCYCL, ippm_vcfl, ippm_v,     &
+    &                               MIURA, FFSL_MCYCL, ippm_vcfl, ippm_v,       &
     &                               inol, ifluxl_m, ifluxl_sm, inol_v,          &
     &                               islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -224,11 +224,11 @@ CONTAINS
 
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > MIURA3_MCYCL) .OR.            &
+    IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_MCYCL) .OR.            &
       &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
-        &  '20,22, or 32 ')
+        &  '20,22,32 or 42 ')
     ENDIF
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN

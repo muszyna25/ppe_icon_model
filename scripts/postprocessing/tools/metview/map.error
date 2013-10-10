@@ -1,6 +1,6 @@
 # Metview Macro: ICON errors
 # 
-# run as: metview -b map.error dei2_005 T ml diff 20110101 00 20110102 00 1 R2B05
+# run as: metview4 -b map.error dei2_005 T ml diff 20110101 00 20110102 00 1 R2B05
 #
 # export PLOTDIR=metplots
 # export DATAFILE=grb_data/dei2_005_
@@ -195,8 +195,15 @@ case varname of
  'FR_SEAICE': varfile = 'icec'        end
  'H_SEAICE':  varfile = 'icetk'       end
  'T_SEAICE':  varfile = 'ist'         end
- 'W_SO'    :  varfile = '2.3.20'      end
+ 'W_SO'    :  varfile = '2.3.20'      end  # levtype =sfc
+ 'T_SO'    :  varfile = '2.3.18'      end  # levtype =sfc
 end case
+
+if varname = 'W_SO' or varname = 'T_SO' then
+  levtype2 = 'lnd'
+else
+  levtype2 = levtype
+end if
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
 varfile2 = varfile
@@ -291,7 +298,7 @@ for nd=1 to ndays do
 #--- read IFS data
 	
   if stat <> 'snap' then
-    case levtype of
+    case levtype2 of
       'pl':
         param = varname
         case varname of
@@ -436,7 +443,7 @@ for k=k1 to k2 by k3 do
   end if
   statistic = statistic & '   Mem:  '&nfc
 
-  if levtype = 'pl' or levtype = 'ml' then
+  if levtype = 'pl' or levtype = 'ml' or levtype2 = 'lnd' then
     title1 = title&'    L'&k
   else
     title1 = title 
@@ -452,7 +459,11 @@ for k=k1 to k2 by k3 do
   diff_level = max(-minvalue(var_data[k]),maxvalue(var_data[k]))
   diff_level = min(diff_level,10.0*rms)   # limit diff scale for noisy plot  
   if diff_level > 0.0 then
-    diff_level  = 4*round( diff_level/4, -round(log10(diff_level/4),0)+1 )
+    diff_level_2    = 4*round( diff_level/4, -round(log10(diff_level/4),0)   )
+    if diff_level_2 = 0 then
+      diff_level_2  = 4*round( diff_level/4, -round(log10(diff_level/4),0)+1 )
+    end if
+    diff_level = diff_level_2
   end if
 
  #custom contouring:
@@ -558,7 +569,8 @@ for k=k1 to k2 by k3 do
 
 end for
 
-shell('ls -lrt '&plotfile&'.L'&k&'.png')
+#km1=k-1
+##shell('ls -lrt '&plotfile&'.L'&km1&'.png')
 print('output: ',plotfile,'*.*')
 #shell('gv '&plotfile&'*.ps&')
 

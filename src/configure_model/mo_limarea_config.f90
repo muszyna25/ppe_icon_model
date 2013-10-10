@@ -68,6 +68,7 @@ MODULE mo_limarea_config
     CHARACTER(LEN=filename_max)   :: latbc_filename   ! prefix of latbc files
     CHARACTER(LEN=MAX_STRING_LEN) :: latbc_path       ! directory containing external latbc files
     REAL(wp)                      :: lc1, lc2         ! linear interpolation coefficients
+    LOGICAL                       :: lupdate_qvqc     ! switch to update qv, qc at boundary (only first grf_bdywidth_? layers)
 
   END TYPE t_latbc_config
   !------------------------------------------------------------------------

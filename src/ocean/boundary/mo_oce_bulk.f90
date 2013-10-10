@@ -560,8 +560,8 @@ CONTAINS
         IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
           ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
-          CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm)
-          CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+          CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
+          CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
           IF (l_forc_freshw) THEN
@@ -636,7 +636,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff, datetime)
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
@@ -677,7 +677,7 @@ CONTAINS
         IF (i_apply_bulk == 1) THEN
 
           IF (iforc_type == 2 .OR. iforc_type == 5) &
-            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
@@ -748,7 +748,7 @@ CONTAINS
 
         nbr_hor_points = p_patch%n_patch_cells
         nbr_points     = nproma * p_patch%nblks_c
-        ALLOCATE(buffer(nbr_points,4))
+        ALLOCATE(buffer(nbr_points,5))
         buffer(:,:) = 0.0_wp
 
       !
@@ -820,14 +820,15 @@ CONTAINS
       !
       ! Ice thickness, concentration, T1 and T2
         buffer(:,1) = RESHAPE(p_ice%hi  (:,1,:), (/nbr_points /) )
-        buffer(:,2) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
-        buffer(:,3) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
-        buffer(:,4) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
-        field_shape(3) = 4
+        buffer(:,2) = RESHAPE(p_ice%hs  (:,1,:), (/nbr_points /) )
+        buffer(:,3) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
+        buffer(:,4) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
+        buffer(:,5) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
+        field_shape(3) = 5
 #ifdef YAC_coupling
         CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
 #else
-        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
         IF ( info == 2 ) write_coupler_restart = .TRUE.
 
@@ -840,28 +841,32 @@ CONTAINS
       ! Apply wind stress - records 0 and 1 of field_id
 
       ! zonal wind stress
-        field_shape(3) = 1
+        field_shape(3) = 2
 #ifdef YAC_coupling
         CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
 #else
-        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
         IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
-            p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_u(:,:))
+            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
+            Qatm%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            Qatm%stress_x (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_xw(:,:))
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_x (:,:))
         ENDIF
       !
       ! meridional wind stress
 #ifdef YAC_coupling
         CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
 #else
-        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
         IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
-            p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_v(:,:))
+            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
+            Qatm%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            Qatm%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_yw(:,:))
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_y (:,:))
         ENDIF
       !
       ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
@@ -978,6 +983,11 @@ CONTAINS
           CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
           CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
           !---------------------------------------------------------------------
+
+        ELSE
+
+          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
         ENDIF
 

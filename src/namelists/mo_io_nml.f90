@@ -131,6 +131,10 @@ MODULE mo_io_nml
                                         !  from the beginning of the run, except of 
                                         !  TOT_PREC that would be accumulated
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
+                                        ! 1: GME-type extrapolation
+                                        ! 2: stepwise analytical integration
+                                        ! 3: IFS method
+                                        ! 4: IFS method with consistency correction
   INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
                                         ! 1: WMO: water only (e_s=e_s_water)
                                         ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice) 

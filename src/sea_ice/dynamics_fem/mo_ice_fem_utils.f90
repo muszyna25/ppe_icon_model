@@ -63,7 +63,7 @@ MODULE mo_ice_fem_utils
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_oce_math_operators,  ONLY: div_oce_3D
   USE mo_dynamics_config,     ONLY: nold
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D, map_edges2vert_3D
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
   USE mo_physical_constants,  ONLY: rhoi, Cd_ia, rho_ref
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
@@ -123,7 +123,7 @@ CONTAINS
   SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, Qatm, p_as, p_op_coeff )
 
     USE mo_ice,      ONLY: u_ice, v_ice, m_ice, a_ice, m_snow, u_w, v_w, &
-      &   stress_atmice_x, stress_atmice_y, elevation
+      &   stress_atmice_x, stress_atmice_y, elevation, sigma11, sigma12, sigma22
     USE mo_ice_iceparam, ONLY: C_d_io
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
@@ -315,6 +315,7 @@ CONTAINS
 ! Call FEM EVP
 !--------------------------------------------------------------------------------------------------
 
+    sigma11=0._wp; sigma12=0._wp; sigma22=0._wp
     CALL EVPdynamics
 
 !--------------------------------------------------------------------------------------------------
@@ -406,7 +407,6 @@ CONTAINS
     INTEGER :: ist, nblks_v
     INTEGER :: jb, jv
     INTEGER :: i_startblk, i_endblk, i_startidx_v, i_endidx_v
-    INTEGER :: rl_start, rl_end
 
     ! The denominator
     REAL(wp) :: rdeno
@@ -888,7 +888,7 @@ CONTAINS
 
     ! Reshape and copy ice velocities to ICON variables
     ALLOCATE(pad(nproma*fem_patch%nblks_v - fem_patch%n_patch_verts))
-    pad = -9999_wp
+    pad = -9999._wp
     u=RESHAPE(u_ice, SHAPE(u), pad)
     DEALLOCATE(pad)
 
@@ -922,7 +922,7 @@ CONTAINS
 
     ! Reshape and copy ice velocities to ICON variables
     ALLOCATE(pad(nproma*fem_patch%nblks_v - fem_patch%n_patch_verts))
-    pad = -9999_wp
+    pad = -9999
     i=RESHAPE(index, SHAPE(i), pad)
     DEALLOCATE(pad)
 
@@ -956,7 +956,7 @@ CONTAINS
 
     ! Reshape and copy fem variable to ICON variable
     ALLOCATE(pad(nproma*fem_patch%alloc_cell_blocks - fem_patch%n_patch_cells))
-    pad = -9999_wp
+    pad = -9999._wp
     s=RESHAPE(sigma, SHAPE(s), pad)
     DEALLOCATE(pad)
 

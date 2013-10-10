@@ -49,7 +49,7 @@ MODULE mo_echam_phy_interface
   USE mo_model_domain,      ONLY: t_patch
   USE mo_master_nml,        ONLY: lrestart
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
-  USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend, mean_charlen
+  USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp_rbf,          ONLY: rbf_vec_interpol_cell
@@ -470,7 +470,7 @@ CONTAINS
        nbr_hor_points = p_patch%n_patch_cells
        nbr_points     = nproma * p_patch%nblks_c
        
-       ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
+       ALLOCATE(buffer(nproma*p_patch%nblks_c,5))
        buffer(:,:) = 0.0_wp
 
        !
@@ -514,21 +514,24 @@ CONTAINS
        !
        buffer(:,:) = 0.0_wp
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
+       buffer(:,2) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iice), (/ nbr_points /) )
 
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, ierror )
 #else
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       field_shape(3) = 2
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! TAUY
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
+       buffer(:,2) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, ierror )
 #else
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
@@ -549,7 +552,6 @@ CONTAINS
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, ierror )
 #else
-       field_shape(3) = 2
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
@@ -645,21 +647,22 @@ CONTAINS
 #ifdef YAC_coupling
        CALL yac_fget ( field_id(7), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
 #else
-       field_shape(3) = 4
-       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
+       field_shape(3) = 5
+       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
          prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
+         prm_field(jg)%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
+         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%seaice(:,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
+         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
        ENDIF
 
        DEALLOCATE(buffer)

@@ -51,7 +51,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
-  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA,        &
+  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA, ADPO,  &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
   &                                     use_tracer_x_height, l_forc_freshw, l_skip_tracer
 USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -70,12 +70,12 @@ USE mo_sea_ice_types,             ONLY: t_sfc_flx
 !USE mo_oce_math_operators,        ONLY: div_oce_3D
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_impl_hom, tracer_diffusion_vert_expl
 USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_flux_horz
-USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical 
+USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical, adpo_vtrac_oce
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_E, sync_patch_array
 USE mo_timer,                     ONLY: timer_start, timer_stop,&
-  &                                     timer_dif_vert
+  &                                     timer_dif_vert, timer_adpo_vert
 USE mo_statistics,                ONLY: global_minmaxmean
 USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
 
@@ -107,7 +107,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)      :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)      :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET                :: p_os
   TYPE(t_ho_params),                 INTENT(INOUT) :: p_param
   TYPE(t_sfc_flx),                   INTENT(INOUT) :: p_sfc_flx
@@ -179,11 +179,11 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('3d_rel: AdvTracT forc'  ,p_os%p_aux%relax_3d_forc_T   ,str_module,idt_src)
-    CALL dbg_print('3d_rel: AdvTracT data'  ,p_os%p_aux%relax_3d_data_T   ,str_module,idt_src)
+    CALL dbg_print('3d_rel: AdvTracT forc', p_os%p_aux%relax_3d_forc_T, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracT data', p_os%p_aux%relax_3d_data_T, str_module,idt_src, in_subset=cells_in_domain)
     idt_src=2  ! output print level (1-5, fix)
     z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
-    CALL dbg_print('3d_relax: AdvTracT trac'  ,z_c                          ,str_module,idt_src)
+    CALL dbg_print('3d_relax: AdvTracT trac', z_c, str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
   END IF
@@ -209,11 +209,11 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%relax_3d_forc_S   ,str_module,idt_src)
-    CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%relax_3d_data_S   ,str_module,idt_src)
+    CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%relax_3d_forc_S   ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%relax_3d_data_S   ,str_module,idt_src, in_subset=cells_in_domain)
     idt_src=2  ! output print level (1-5, fix)
     z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
-    CALL dbg_print('3d_relax: AdvTracS trac'  ,z_c                          ,str_module,idt_src)
+    CALL dbg_print('3d_relax: AdvTracS trac'  ,z_c                        ,str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
   END IF
@@ -563,7 +563,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                                      & K_h, A_v,                           &
                                      & new_ocean_tracer, tracer_id)
 
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+  TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
   TYPE(t_ocean_tracer), TARGET   :: old_ocean_tracer
   TYPE(t_ocean_tracer), TARGET   :: new_ocean_tracer
 
@@ -581,6 +581,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   REAL(wp) :: div_diff_flx(nproma, n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
   REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
+  REAL(wp) :: trac_tmp(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !  tracer after vertical adpo
 
   INTEGER  :: jc,jk,jb
   INTEGER  :: z_dolic
@@ -601,6 +602,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   flux_horz   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   flux_vert   (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   div_diff_flx(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+  trac_tmp    (1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
   trac_new(:,:,:)  = 0.0_wp
 
 
@@ -635,6 +637,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('aft. AdvDiffHorz:flux horz',flux_horz,str_module,idt_src)
+  CALL dbg_print('bef. AdvVert: w_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src, in_subset=cells_in_domain)
   !---------------------------------------------------------------------
 
   !Shallow water is done with horizontal advection
@@ -665,16 +668,50 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   ELSEIF( iswm_oce /= 1) THEN
 
     IF ( l_with_vert_tracer_advection ) THEN
-      CALL advect_flux_vertical( p_patch_3D,                     &
-                               & old_ocean_tracer%concentration, &
-                               & p_os,                           &
-                               & bc_top_tracer,                  &
-                               & bc_bot_tracer,                  &
-                               & flux_vert,                      &
-                               & tracer_id)
+
+      IF (FLUX_CALCULATION_VERT == ADPO) THEN
+
+        IF (ltimer) CALL timer_start(timer_adpo_vert)
+
+        CALL adpo_vtrac_oce( p_patch_3D,                              &
+          &                  old_ocean_tracer%concentration,          &
+          &                  p_os%p_diag%w_time_weighted,             &
+          &                  dtime,                                   & 
+          &                  p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
+          &                  trac_tmp, tracer_id)
+
+        IF (use_tracer_x_height) THEN
+     !    new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
+     !      &   old_ocean_tracer%concentration_x_height(jc,jk,jb)          &
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), 'adpo advection and use_tracer_x_height=T not allowed')
+        ELSE
+          ! new tracer calculated directly by adpo_vtrac_oce
+          trac_old(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = trac_tmp(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)
+        ENDIF
+
+        IF (ltimer) CALL timer_stop(timer_adpo_vert)
+
+        ! vertical tracer flux (AdPO) set to zero
+        !flux_vert(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
+
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=4  ! output print level (1-5, fix)
+        CALL dbg_print('aft. AdvVertAdpo:trac_old',trac_old,str_module,idt_src, in_subset=cells_in_domain)
+        !---------------------------------------------------------------------
+
+      ELSE  !  adpo
+        CALL advect_flux_vertical( p_patch_3D,                     &
+                                 & old_ocean_tracer%concentration, &
+                                 & p_os,                           &
+                                 & bc_top_tracer,                  &
+                                 & bc_bot_tracer,                  &
+                                 & flux_vert,                      &
+                                 & tracer_id)
+      ENDIF  ! ADPO
+
     ELSE
       flux_vert(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
-    ENDIF
+    ENDIF  ! l_with_vert_tracer_advection
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)

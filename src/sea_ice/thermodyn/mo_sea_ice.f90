@@ -57,7 +57,8 @@ MODULE mo_sea_ice
     &                               Cd_ia
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer
+
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, &
     &                               ocean_restart_list, set_oce_tracer_info
   USE mo_var_list,            ONLY: add_var, add_ref, groups
@@ -1326,12 +1327,15 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_fast'
+
     !-------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_fast)
 
     ! #achim
-    IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN
+    SELECT CASE (i_ice_therm)
+    CASE (1)
       CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
             &   Tsurf,          &
             &   hi,             &
@@ -1341,9 +1345,8 @@ CONTAINS
             &   SWnet,          &
             &   nonsolar,       &
             &   dnonsolardT,    &
-            &   Tfw,            &
-            &   doy)
-    ELSE IF ( i_ice_therm == 2 ) THEN
+            &   Tfw)
+    CASE (2)
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          &
             &   T1,             &
@@ -1356,14 +1359,29 @@ CONTAINS
             &   nonsolar,       &
             &   dnonsolardT,    &
             &   Tfw)
-    ELSE IF ( i_ice_therm == 4 )  THEN
+    CASE (3)
+      IF ( .NOT. PRESENT(doy) ) THEN
+        CALL finish(TRIM(routine),'i_ice_therm = 3 not allowed in this context')
+      ENDIF
+      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+            &   Tsurf,          &
+            &   hi,             &
+            &   hs,             &
+            &   Qtop,           &
+            &   Qbot,           &
+            &   SWnet,          &
+            &   nonsolar,       &
+            &   dnonsolardT,    &
+            &   Tfw,            &
+            &   doy=doy)
+    CASE (4)
       WHERE ( hi(:,:) > 0._wp )
       Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
-        &               / (ci*rhoi*0.05_wp/pdtime-dnonsolardT+ki/hi))
+        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT+ki/hi))
       ELSEWHERE
         Tsurf(:,:) = Tf
       ENDWHERE
-    END IF
+    END SELECT
 
     ! New albedo based on the new surface temperature
     CALL set_ice_albedo(i_startidx_c, i_endidx_c, nbdim, kice, Tsurf, hi, hs, &
@@ -1383,7 +1401,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff, datetime)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     !TYPE(t_patch),            INTENT(IN)     :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
@@ -1394,15 +1412,10 @@ CONTAINS
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
 
-    ! For wind-stress ramping
-    REAL(wp) :: ramp
-    
     !-------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_slow)
@@ -1434,16 +1447,6 @@ CONTAINS
 
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
-
-    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
-    IF ( PRESENT(datetime) ) THEN
-      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
-        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      QatmAve%stress_x(:,:)  = ramp*QatmAve%stress_x(:,:)
-      QatmAve%stress_y(:,:)  = ramp*QatmAve%stress_y(:,:)
-      QatmAve%stress_xw(:,:) = ramp*QatmAve%stress_xw(:,:)
-      QatmAve%stress_yw(:,:) = ramp*QatmAve%stress_yw(:,:)
-    ENDIF
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
@@ -1857,8 +1860,6 @@ CONTAINS
   !!
   SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
 
-    USE mo_sea_ice_nml,         ONLY: hnull, hmin
-
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
@@ -1955,11 +1956,13 @@ CONTAINS
   !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
   !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
   !
-  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm)
+  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+
+    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
 
     !Local variables
@@ -1988,6 +1991,8 @@ CONTAINS
     INTEGER :: i, jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
+    ! For wind-stress ramping
+    REAL(wp) :: ramp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2128,6 +2133,14 @@ CONTAINS
     Qatm%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
     Qatm%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
 
+    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
+    IF ( PRESENT(datetime) ) THEN
+      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+      Qatm%stress_x(:,:)  = ramp*Qatm%stress_x(:,:)
+      Qatm%stress_y(:,:)  = ramp*Qatm%stress_y(:,:)
+    ENDIF
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('CalcBulk: stress_x'        ,Qatm%stress_x     ,str_module,idt_src)
@@ -2153,11 +2166,13 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
-  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
+  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+
+    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
 
     !Local variables
@@ -2184,6 +2199,8 @@ CONTAINS
     INTEGER :: jb, jc, i_startidx_c, i_endidx_c
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
+    ! For wind-stress ramping
+    REAL(wp) :: ramp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -2303,6 +2320,14 @@ CONTAINS
     C_ao(:,:)   = MIN( 2._wp, MAX(1.1_wp, 0.61_wp+0.063_wp*wspeed ) )*1e-3_wp
     Qatm%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
     Qatm%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
+
+    ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
+    IF ( PRESENT(datetime) ) THEN
+      ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
+        - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
+      Qatm%stress_xw(:,:) = ramp*Qatm%stress_xw(:,:)
+      Qatm%stress_yw(:,:) = ramp*Qatm%stress_yw(:,:)
+    ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)

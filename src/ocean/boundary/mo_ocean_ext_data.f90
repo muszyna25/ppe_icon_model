@@ -646,7 +646,7 @@ CONTAINS
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
 
         ! meridional wind speed
-        CALL read_netcdf_data (ncid, 'u_wind_10m', p_patch(jg)%n_patch_cells_g,          &
+        CALL read_netcdf_data (ncid, 'v_wind_10m', p_patch(jg)%n_patch_cells_g,          &
           &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                    no_tst, z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)

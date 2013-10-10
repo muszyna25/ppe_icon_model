@@ -79,6 +79,7 @@ MODULE mo_nh_latbc
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_run_config,          ONLY: iqv, iqc
   
   IMPLICIT NONE
   
@@ -821,6 +822,17 @@ MODULE mo_nh_latbc
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
+
+!DR Does not compile, since lnudge_qvqc is unknown (needs to be added to config state)
+!!$          IF (latbc_config% lnudge_qvqc) THEN
+!!$            p_nh_state%prog(tlev)%tracer(jc,jk,jb,iqv) = & 
+!!$              &   lc2 * p_latbc_data(read_latbc_tlev)%atm%qv(jc,jk,jb) &
+!!$              &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%qv(jc,jk,jb)
+!!$            
+!!$            p_nh_state%prog(tlev)%tracer(jc,jk,jb,iqc) = &
+!!$              &   lc2 * p_latbc_data(read_latbc_tlev)%atm%qc(jc,jk,jb) &
+!!$              &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%qc(jc,jk,jb)
+!!$          ENDIF
 
           p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
             &   lc2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &

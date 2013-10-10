@@ -2043,10 +2043,13 @@ MODULE mo_vertical_grid
     CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
-    i_startblk = p_patch%edges%start_blk(2,1)
+    !Use max resolution to calculate les_filter size
+    les_filter = les_config(1)%smag_constant * &
+                 (2._wp*p_patch%geometry_info%mean_cell_area*MAXVAL(z_me))**(1._wp/3._wp) 
 
+    i_startblk = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx,les_filter) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_e
 
       CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
@@ -2057,8 +2060,8 @@ MODULE mo_vertical_grid
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
 
          !Mixing length for LES
-         les_filter = les_config(1)%smag_constant * (p_patch%edges%quad_area(je,jb) * &
-                      p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
+         !les_filter = les_config(1)%smag_constant * (p_patch%edges%quad_area(je,jb) * &
+         !             p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
 
          p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
                       / ((les_filter/akt)**2+z_me(je,jk,jb)**2)

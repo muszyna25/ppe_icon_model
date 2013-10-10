@@ -43,7 +43,7 @@ MODULE mo_nh_supervise
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, nsteps, msg_level, &
     &                               ltransport, ntracer, lforcing, iforcing
@@ -54,7 +54,9 @@ MODULE mo_nh_supervise
     &                               process_mpi_stdio_id
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_sync,                ONLY: global_sum_array, global_max
- 
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+
   IMPLICIT NONE
 
   PRIVATE
@@ -538,39 +540,44 @@ CONTAINS
     REAL(wp) :: w_aux (patch%cells%end_blk(min_rlcell_int,MAX(1,patch%n_childdom)),patch%nlevp1)
     REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2)
 
-    INTEGER  :: i_nchdom
-    INTEGER  :: jb, jk, nlen, iendblk_c, iendblk_e, jg
+    INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
+    INTEGER  :: jb, jk, jg
     INTEGER  :: proc_id(2), keyval(2)
 
     !-----------------------------------------------------------------------
-    i_nchdom = MAX(1,patch%n_childdom)
-    iendblk_c = patch%cells%end_blk(min_rlcell_int,i_nchdom)
-    iendblk_e = patch%edges%end_blk(min_rledge_int,i_nchdom)
-    jg        = patch%id
+    i_nchdom    = MAX(1,patch%n_childdom)
+    istartblk_c = patch%cells%start_blk(grf_bdywidth_c+1,1)
+    istartblk_e = patch%edges%start_blk(grf_bdywidth_e+1,1)
+    iendblk_c   = patch%cells%end_blk(min_rlcell_int,i_nchdom)
+    iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
+    jg          = patch%id
+
+    IF (jg > 1 .OR. l_limited_area) THEN
+      vn_aux(1:istartblk_e,:) = 0._wp
+      w_aux (1:istartblk_c,:) = 0._wp
+    ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, iendblk_e
-      IF (jb /= iendblk_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = patch%edges%end_idx(min_rledge_int,i_nchdom)
-      ENDIF
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_e, iendblk_e
+
+      CALL get_indices_e(patch, jb, istartblk_e, iendblk_e, i_startidx, i_endidx, &
+                         grf_bdywidth_e+1, min_rledge_int)
+
       DO jk = 1, patch%nlev
-        vn_aux(jb,jk) = MAXVAL(ABS(vn(1:nlen,jk,jb)))
+        vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
       ENDDO
     END DO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, iendblk_c
-      IF (jb /=  iendblk_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = patch%cells%end_idx(min_rlcell_int,i_nchdom)
-      ENDIF
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_c, iendblk_c
+
+      CALL get_indices_c(patch, jb, istartblk_c, iendblk_c, i_startidx, i_endidx, &
+                         grf_bdywidth_c+1, min_rlcell_int)
+
       DO jk = 1, patch%nlevp1
-        w_aux(jb,jk) = MAXVAL(ABS(w(1:nlen,jk,jb)))
+        w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
       ENDDO
     END DO
 !$OMP END DO

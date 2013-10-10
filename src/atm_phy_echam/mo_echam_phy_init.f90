@@ -70,8 +70,6 @@ MODULE mo_echam_phy_init
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
-!   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
-
   ! radiation
   USE mo_radiation_config,     ONLY: ssi, tsi, ighg
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
@@ -79,7 +77,7 @@ MODULE mo_echam_phy_init
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
   ! vertical diffusion
-  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params, z0m_min
+  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params
   USE mo_vdiff_solver,         ONLY: init_vdiff_solver
 
   ! cumulus convection
@@ -89,7 +87,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
-  USE mo_ext_data_state,       ONLY: ext_data
+  ! USE mo_ext_data_state,       ONLY: ext_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
                                    & init_sfc_indices
 
@@ -102,14 +100,13 @@ MODULE mo_echam_phy_init
   USE mo_eta_coord_diag,       ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
                                    & prm_field, t_echam_phy_field, &
-                                   & prm_tend,  t_echam_phy_tend,  &
-                                   & mean_charlen
+                                   & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-  USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
-    & timer_prep_echam_phy
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
+                                   & timer_prep_echam_phy
 
   ! for AMIP boundary conditions
   USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
@@ -238,13 +235,6 @@ CONTAINS
     !< characteristic gridlength needed by sso and sometimes by
     !! convection and turbulence
     !--------------------------------------------------------------
-
-    DO jg= 1,ndomain
-      ! read it directly from the patch%geometry_info
-      mean_charlen(jg) = p_patch(jg)%geometry_info%mean_characteristic_length
-!       CALL sphere_cell_mean_char_length (p_patch(jg)%n_patch_cells_g, &
-!         & mean_charlen(jg))
-    ENDDO
 
     IF (phy_config%lamip) THEN
 !      DO jg= 1,ndomain ! only one file is defined, ie only for domain 1
@@ -551,7 +541,7 @@ CONTAINS
 ! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN
 
-             ALLOCATE(buffer(nproma*nblks_c,4))
+             ALLOCATE(buffer(nproma*nblks_c,5))
 
              nbr_hor_points = p_patch(jg)%n_patch_cells
              nbr_points     = nproma * p_patch(jg)%nblks_c
@@ -601,14 +591,17 @@ CONTAINS
              ! TAUX
              !
              buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
+             field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(1), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
+                                      buffer(1:nbr_hor_points,1:2), ierror )
              !
              ! TAUY
              !
              buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
              CALL ICON_cpl_put_init ( field_id(2), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
+                                      buffer(1:nbr_hor_points,1:2), ierror )
              !
              ! SFWFLX Note: the evap_tile should be properly updated and added
              !
@@ -618,7 +611,6 @@ CONTAINS
                   &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
 
-             field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
              !
@@ -692,21 +684,22 @@ CONTAINS
              !
              ! ICEOCE
              !
-             field_shape(3) = 4
+             field_shape(3) = 5
              CALL ICON_cpl_get_init ( field_id(10), field_shape, &
-                                      buffer(1:nbr_hor_points,1:4), info, ierror )
+                                      buffer(1:nbr_hor_points,1:5), info, ierror )
              IF ( info > 0 ) THEN
                buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
                field%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-               field%conc(:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
-               field%T1  (:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
-               field%T2  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
-               field%seaice(:,:) = field%conc(:,1,:)
+               field%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, nblks_c /) )
+               field%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
+               field%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
+               field%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, nblks_c /) )
                CALL sync_patch_array(sync_c, p_patch(jg), field%hi  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%conc(:,1,:))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%hs  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%seaice(:,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
                CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
+               field%seaice(:,:) = field%conc(:,1,:)
              ENDIF
 #endif
              DEALLOCATE(field_id)
@@ -897,12 +890,8 @@ CONTAINS
         field% ocv   (:,:)   = 0._wp
         field% mixlen(:,:,:) = -999._wp
 !$OMP END PARALLEL WORKSHARE
-       !IF (iwtr<=nsfc_type) field% z0m_tile(:,iwtr,:) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
-       !IF (iice<=nsfc_type) field% z0m_tile(:,iice,:) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
-       !IF (ilnd<=nsfc_type) field% z0m_tile(:,ilnd,:) = z0m_min ! or maybe a larger value?
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
-!        IF (ilnd<=nsfc_type) field% z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
         IF (ilnd<=nsfc_type) THEN
           field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
           field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?

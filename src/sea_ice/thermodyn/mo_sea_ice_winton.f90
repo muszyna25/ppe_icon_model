@@ -45,6 +45,7 @@ MODULE mo_sea_ice_winton
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,&
     &                               mu,mus,ci, alf, I_0
   USE mo_ocean_nml,           ONLY: no_tracer 
+  USE mo_sea_ice_nml,         ONLY: hci_layer
 !  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_state,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
@@ -158,7 +159,7 @@ CONTAINS
           ! dnonsolardT >0 for downward flux increasing with increasing Tsurf
           ! We add constant heat capacity to B to stabilize the atmosphere
           
-          B = -dnonsolardT(jc,k) + rhoi*0.10_wp*idt2*ci                                 ! Eq.  8
+          B = -dnonsolardT(jc,k) + rhoi*hci_layer/pdtime*ci                             ! Eq.  8
           A = -nonsolar(jc,k) - SWnet(jc,k)*( 1._wp - I ) - Tsurf(jc,k)*B               ! Eq.  7
 
           K1 =  4.0_wp*ki*ks/( ks*hi(jc,k) + 4.0_wp*ki*hs(jc,k) )                       ! Eq.  5

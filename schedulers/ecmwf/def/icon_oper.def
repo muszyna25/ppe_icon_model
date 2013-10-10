@@ -30,8 +30,8 @@
 set EXPNUM        "001"                #---experiment number---
 set EXPNUM2       "001"                #---experiment number used for score comparison---
 set SUITE2        "deia"               #---suite             used for score comparison---
-set FIRST_DATE    20130723
-set LAST_DATE     20131231
+set FIRST_DATE    20130929
+set LAST_DATE     20140131
 set MONTHS        000000               #---months to be run (not for oper)
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
@@ -415,7 +415,7 @@ suite $USER
 
     family endofmonth
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
-        trigger (post:YMD gt endofmonth:YMD) and (forecast:YMD gt endofmonth:YMD)
+        trigger (post:YMD gt endofmonth:YMD + 1)
 
         task testday
             on_ecgate
