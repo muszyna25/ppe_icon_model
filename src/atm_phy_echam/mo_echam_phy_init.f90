@@ -591,14 +591,17 @@ CONTAINS
              ! TAUX
              !
              buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             buffer(:,2) = RESHAPE ( field%u_stress_tile(:,:,iice), (/ nbr_points /) )
+             field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(1), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
+                                      buffer(1:nbr_hor_points,1:2), ierror )
              !
              ! TAUY
              !
              buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             buffer(:,2) = RESHAPE ( field%v_stress_tile(:,:,iice), (/ nbr_points /) )
              CALL ICON_cpl_put_init ( field_id(2), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), ierror )
+                                      buffer(1:nbr_hor_points,1:2), ierror )
              !
              ! SFWFLX Note: the evap_tile should be properly updated and added
              !
@@ -608,7 +611,6 @@ CONTAINS
                   &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
              buffer(:,2) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
 
-             field_shape(3) = 2
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
                                       buffer(1:nbr_hor_points,1:2), ierror )
              !

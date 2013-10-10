@@ -514,21 +514,24 @@ CONTAINS
        !
        buffer(:,:) = 0.0_wp
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
+       buffer(:,2) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iice), (/ nbr_points /) )
 
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, ierror )
 #else
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       field_shape(3) = 2
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
        ! TAUY
        !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
+       buffer(:,2) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iice), (/ nbr_points /) )
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, ierror )
 #else
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
        !
@@ -549,7 +552,6 @@ CONTAINS
 #ifdef YAC_coupling
        CALL yac_fput ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, ierror )
 #else
-       field_shape(3) = 2
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.

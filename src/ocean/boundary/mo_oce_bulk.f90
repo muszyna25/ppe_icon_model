@@ -830,30 +830,32 @@ CONTAINS
       ! Apply wind stress - records 0 and 1 of field_id
 
       ! zonal wind stress
-        field_shape(3) = 1
+        field_shape(3) = 2
 #ifdef YAC_coupling
         CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
 #else
-        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
         IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
+            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
             Qatm%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            !TODO: Add stress for ice
+            Qatm%stress_x (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
             CALL sync_patch_array(sync_c, p_patch, Qatm%stress_xw(:,:))
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_x (:,:))
         ENDIF
       !
       ! meridional wind stress
 #ifdef YAC_coupling
         CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
 #else
-        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
 #endif
         IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
+            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
             Qatm%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            !TODO: Add stress for ice
+            Qatm%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
             CALL sync_patch_array(sync_c, p_patch, Qatm%stress_yw(:,:))
+            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_y (:,:))
         ENDIF
       !
       ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
