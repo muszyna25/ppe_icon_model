@@ -73,10 +73,9 @@ MODULE mo_sea_ice_types
       &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fwbc        (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
       &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fwsice      (:,:),     & ! surface freshwater flux due to changes in sea ice         [m/s]
-      &  forc_fwfx        (:,:),     & ! sum of forcing surface freshwater flux                    [m/s]
+      &  forc_fwfx        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
-      &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
+      &  forc_hflx        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
       &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
       &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
       !                                  is relaxated, 3rd index refers to tracer id
@@ -93,12 +92,11 @@ MODULE mo_sea_ice_types
       &  forc_runoff_acc      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fwbc_acc        (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
       &  forc_fwrelax_acc     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fwsice_acc      (:,:),     & ! surface freshwater flux due to changes in sea ice         [m/s]
-      &  forc_fwfx_acc        (:,:),     & ! sum of forcing surface freshwater flux          [m/s]
+      &  forc_fwfx_acc        (:,:),     & ! diagnosed sum of forcing surface freshwater flux          [m/s]
       &  forc_hfrelax_acc     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
-      &  forc_hflx_acc        (:,:),     & ! sum of forcing surface heat flux                [W/m2]
+      &  forc_hflx_acc        (:,:),     & ! diagnosed sum of forcing surface heat flux                [W/m2]
       &  forc_tracer_acc      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax_acc(:,:,:)      ! tracer relaxation: contains data to which is relaxated
+      &  forc_tracer_relax_acc(:,:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:)

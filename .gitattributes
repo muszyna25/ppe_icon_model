@@ -1473,11 +1473,6 @@ src/ocean/attic/impl_vert_tracer_diff -text
 src/ocean/attic/mo_simple_expl_run -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
-src/ocean/boundary/mo_sea_ice.f90 -text
-src/ocean/boundary/mo_sea_ice_shared_sr.f90 -text
-src/ocean/boundary/mo_sea_ice_types.f90 -text
-src/ocean/boundary/mo_sea_ice_winton.f90 -text
-src/ocean/boundary/mo_sea_ice_zerolayer.f90 -text
 src/ocean/config/mo_ocean_config.f90 -text
 src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
@@ -1514,6 +1509,11 @@ src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_types.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
