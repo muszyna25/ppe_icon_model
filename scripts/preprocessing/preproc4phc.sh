@@ -5,7 +5,7 @@ set -x
 #==============================================================================
 # Usage:
 #   MODEL=icon GRID=R2B04 PHC_DIR=. FORCE=1 LEV=L20 ./preproc4phc.sh
-#   MODEL=mpiom GRID=GR15 PHC_DIR=. FORCE=1 LEV=L40 ./preproc4phc.sh
+#   MODEL=mpiom GRID=GR15 CDO=cdo CDODEV=/work/mh0287/users/ram/src/cdo/build/bin/cdo  LEV=L20 ./preproc4phc.sh
 #==============================================================================
 # CONFIGURATION
 #==============================================================================
@@ -38,14 +38,20 @@ case "${MODEL}" in
  icon)
    remapOperator=genbil
    gridSelect=ifs2icon_cell_grid
-   GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+   else
+     GRID=$(basename $GRID_FILE .nc)
+   fi
    targetGrid=./cell_grid-${GRID}-${MODEL}.nc
    ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
  mpiom)
    remapOperator=genbil
    gridSelect=''
-   GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
+   fi
    targetGrid=./cell_grid-${GRID}-${MODEL}.nc
    ${CDO} -f nc -sethalo,1,1 -random,${GRID_FILE} ${targetGrid}
    ;;
@@ -81,11 +87,11 @@ PHC_NOMISS='phc3.0-annual-nomiss.nc'
 cd ${PHC_DIR}
 $CDO -O merge ${PHC_FILES} $OLDPWD/${PHC_TMP}
 cd -
-$CDO -adipot -setcode,-1 -chname,SO,s,TempO,t ${PHC_TMP} ${PHC_MERGED}
+$CDODEV -adipot -setcode,-1 -chname,SO,s,TempO,t ${PHC_TMP} ${PHC_MERGED}
 
 #==============================================================================
 # filling of land points
-$CDODEV -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss1s -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss1s,4  -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
+$CDODEV -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss2 -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss2,4  -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
 
 #==============================================================================
 # horiz. interpolation for ICON or MPIOM target grid

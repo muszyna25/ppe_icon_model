@@ -1541,70 +1541,71 @@ END SUBROUTINE message
   IF (itype_heatcond == 2) THEN
 
 ! heat conductivity dependent on actual soil water content
-! based on Peters-Lidard et al. (1998) and Johansen (1975)
+! based on Peters-Lidard et al. (1998) and Johansen (1975),
 ! see also Block, Alexander (2007), Dissertation BTU Cottbus
     
     DO kso = 1, ke_soil+1
       DO i = istarts, iends
-!       IF (llandmask(i)) THEN          ! land-points only
-        zthetas = zporv(i)
+        zthetas = zporv(i)                                 ! porosity
+        zthliq  = zthetas - w_so_ice_now(i,kso)/zdzhs(kso) ! unfrozen volume fraction
+
+        zlamli  = 0.57_ireals                              ! thermal conductivity of water
+        zlamic  = 2.2_ireals                               ! thermal conductivity of ice
+        zlamq   = 7.7_ireals                               ! thermal conductivity of quartz
   
-        zlamli  = 0.57_ireals
-        zlamic  = 2.2_ireals
-        zthliq  = zthetas - (w_so_ice_now(i,kso)/zdzhs(kso))
-        zlamq   = 7.7_ireals
+        rsandf = zsandf(i)/100._ireals                     ! quartz content
   
-        rsandf=zsandf(i)/100._ireals
+        if (rsandf >= 0.2_ireals)  zlam0 = 2.0_ireals      ! thermal conductivity non-quartz
+        if (rsandf <  0.2_ireals)  zlam0 = 3.0_ireals
   
-        if (rsandf >= 0.2_ireals)  zlam0    =  2.0_ireals
-        if (rsandf < 0.2_ireals)   zlam0    =  3.0_ireals
+  ! saturated thermal conductivity
+
+        zlams = zlamq**rsandf * zlam0**(1._ireals-rsandf)  ! solids thermal conductivity
   
+       !zlamsat = (clamso(m_styp(i))**(1.0_ireals-zthetas)) * (zlamli**zthliq) &
+       !          * (zlamic**(zthetas-zthliq))
+        zlamsat = zlams**(1.0_ireals-zthetas) * zlamic**(zthetas-zthliq) * zlamli**zthliq
   
-        zlams   = zlamq**rsandf* zlam0**(1._ireals-rsandf)
-  
-  !      zlamsat = (clamso(m_styp(i))**(1.0_ireals-zthetas)) * (zlamli**zthliq) &
-  !                * (zlamic**(zthetas-zthliq))
-        zlamsat = (zlams**(1.0_ireals-zthetas)) * (zlamli**zthliq) * (zlamic**(zthetas-zthliq))
-  
-        zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)
+  ! dry thermal conductivity
+
+        zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)       ! dry density
         zlamdry = ( 0.135_ireals*zrhod + 64.7_ireals )                     &
                 / ( 2700.0_ireals - 0.947_ireals*zrhod )
+        ! missing: crushed rock formulation for dry thermal conductivity (see PL98)
   
-        zsri    = MIN(1.0_ireals, (w_so_now(i,kso)/zdzhs(kso)) / zthetas)
-  
-        IF ( zsri >= 0.05_ireals ) THEN
-         IF ( t_so_now(i,kso) < t0_melt) THEN
-          zKe = zsri
-         ELSE
-          zKe = 0.7*LOG10(zsri) + 1.0_ireals ! unfrozen coarse
-         ENDIF
-         zKe = MAX(0.0_ireals, (MIN(1.0_ireals, zKe)) )
-         hzalam(i,kso) = zKe*(zlamsat - zlamdry) + zlamdry
-        ELSE
-         hzalam(i,kso) = zlamdry
-        ENDIF
+  ! Kersten number
 
-        IF ( zsri >= 0.1_ireals ) THEN
-         IF ( t_so_now(i,kso) < t0_melt) THEN
+        zsri = MIN(1.0_ireals, w_so_now(i,kso)/zdzhs(kso) / zthetas) ! degree of saturation
+  
+        IF ( t_so_now(i,kso) < t0_melt) THEN                         ! frozen
           zKe = zsri
-         ELSE
-          zKe = LOG10(zsri) + 1.0_ireals  ! unfrozen fine
-         ENDIF
-         zKe = MAX(0.0_ireals, (MIN(1.0_ireals, zKe)) )
-         hzalam(i,kso) = zKe*(zlamsat - zlamdry) + zlamdry
+        ELSE                                                         ! unfrozen
+          zKe = 0.0_ireals
+          IF ( soiltyp_subs(i) == 3 .or. soiltyp_subs(i) == 4 ) THEN ! coarse soil
+            IF ( zsri >= 0.05_ireals ) THEN
+              zKe = 0.7_ireals*LOG10(zsri) + 1.0_ireals 
+            ENDIF
+          ELSE                                                       ! fine soil (other)
+            IF ( zsri >= 0.1_ireals ) THEN
+              zKe = LOG10(zsri) + 1.0_ireals
+            ENDIF
+          ENDIF
         ENDIF
-!       END IF  ! land-points
+        zKe = MAX(0.0_ireals, (MIN(1.0_ireals, zKe)) )
+
+  ! thermal conductivity
+
+        hzalam(i,kso) = zKe*(zlamsat - zlamdry) + zlamdry
+
       ENDDO
     ENDDO
-  
+
     DO kso = 1, ke_soil
       DO i = istarts, iends
-!       IF (llandmask(i)) THEN          ! land-points only
         ! mean heat conductivity
         zalam(i,kso) = hzalam(i,kso)*hzalam(i,kso+1)*(zmls(kso+1)-zmls(kso))    &
                        / ( hzalam(i,kso)*(zmls(kso+1)-zzhls(kso))                   &
                        +   hzalam(i,kso+1)*(zzhls(kso)-zmls(kso)) )
-!       END IF  ! land-points
       ENDDO
     ENDDO
   
@@ -1613,7 +1614,6 @@ END SUBROUTINE message
 ! heat conductivity based on assumption of a soil water content which is equal to the
 ! average between wilting point and field capacity
     DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
         zwqg         = 0.5_ireals*(zfcap(i) + zpwp(i))
         z4wdpv       = 4._ireals*zwqg/zporv(i)
         ! heat conductivity
@@ -1623,13 +1623,10 @@ END SUBROUTINE message
                       * MIN (z4wdpv, 1.0_ireals + (z4wdpv-1.0_ireals)   &
                       *(1.0_ireals+0.35_ireals*zdlam(i))              &
                       /(1.0_ireals+1.95_ireals*zdlam(i)))
-!      END IF  ! land-points
     ENDDO
     DO kso = 1, ke_soil
         DO i = istarts, iends
-!          IF (llandmask(i)) THEN          ! land-points only
             zalam(i,kso) = zalam(i,kso) + zalamtmp(i)
-!          END IF  ! land-points
         ENDDO
     ENDDO
   

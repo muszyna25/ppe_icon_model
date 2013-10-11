@@ -64,6 +64,8 @@
 #
   hfls               prm_lhflx
   hfss               prm_shflx
+  evspsbl            prm_evap
+
   tauu               prm_u_stress
   tauv               prm_v_stress
 #
