@@ -386,10 +386,10 @@ CONTAINS
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon1' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
         z_c2(:,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo                ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo   ,str_module,idt_src, in_subset=p_patch%cells%owned)
 
         IF (l_forc_freshw) THEN
           idt_src=3  ! output print level (1-5, fix)
@@ -1112,12 +1112,12 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL dbg_print('UpdSfc: Temp-relax'        ,z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Temp-relax'        ,z_c2, str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-t_top(:,:)
-      CALL dbg_print('UpdSfc: Temp-difference'   ,z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: Temp-difference'   ,z_c2, str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL dbg_print('UpdSfc: T-forc-trac [Km/s]',z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: T-forc-trac [Km/s]',z_c2, str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF  ! temperature_relaxation >=1
@@ -1135,7 +1135,7 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%forc_hflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF
@@ -1165,10 +1165,10 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=3  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF
@@ -1228,14 +1228,14 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-      CALL dbg_print('UpdSfc:S-relax: S*'        ,z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:S-relax: S*'        ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-s_top(:,:)
-      CALL dbg_print('UpdSfc:S-relax: S*-S'      ,z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:S-relax: S*-S'      ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:S-relax: trc [Km/s]',z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:S-relax: trc [Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF  !  irelax_2d_S >=1  salinity relaxation
@@ -1255,7 +1255,7 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:fwbc:forc_trac[Km/s]',z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:fwbc:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF
@@ -1271,9 +1271,9 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice   ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src)
+      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                  ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF
@@ -1284,7 +1284,7 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
@@ -1301,7 +1301,7 @@ CONTAINS
         END DO
       END DO
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: h-old+fwf    ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: h-old+fwf    ',p_os%p_prog(nold(1))%h  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     END IF
     
     ! apply volume flux correction: 
@@ -1310,7 +1310,7 @@ CONTAINS
     IF (limit_elevation .AND. dsec < dtime) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: h-old+corr   ',p_os%p_prog(nold(1))%h  ,str_module,idt_src)
+      CALL dbg_print('UpdSfc: h-old+corr   ',p_os%p_prog(nold(1))%h  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     END IF
 
   END SUBROUTINE update_sfcflx
@@ -2104,30 +2104,30 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,1)
-      CALL dbg_print('ReadFc: NCEP: stress-x'    ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: stress-x'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2)
-      CALL dbg_print('ReadFc: NCEP: stress-y'    ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: stress-y'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3)
-      CALL dbg_print('ReadFc: NCEP: SST'         ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: SST'         ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=4  ! output print level (1-5, fix)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4)
-      CALL dbg_print('ReadFc: NCEP: temp_2m'     ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: temp_2m'     ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5)
-      CALL dbg_print('ReadFc: NCEP: dpt_temp_2m' ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: dpt_temp_2m' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6)
-      CALL dbg_print('ReadFc: NCEP: scalar_wind' ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: scalar_wind' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7)
-      CALL dbg_print('ReadFc: NCEP: cloudiness'  ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: cloudiness'  ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8)
-      CALL dbg_print('ReadFc: NCEP: pressure'    ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: pressure'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9)
-      CALL dbg_print('ReadFc: NCEP: total solar' ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('ReadFc: NCEP: total solar' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
     ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10)
-    ! CALL dbg_print('ReadFc: NCEP: precip.'     ,z_c                     ,str_module,idt_src)
+    ! CALL dbg_print('ReadFc: NCEP: precip.'     ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
     ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11)
-    ! CALL dbg_print('ReadFc: NCEP: evaporation' ,z_c                     ,str_module,idt_src)
+    ! CALL dbg_print('ReadFc: NCEP: evaporation' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
     ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12)
-    ! CALL dbg_print('ReadFc: NCEP: runoff'      ,z_c                     ,str_module,idt_src)
+    ! CALL dbg_print('ReadFc: NCEP: runoff'      ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       idt_src=2  ! output print level (1-5, fix)

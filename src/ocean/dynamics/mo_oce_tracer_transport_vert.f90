@@ -522,9 +522,9 @@ CONTAINS
         IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
 
           ! calculation of volume transport, same as below with top boundary condition
-          !wupw_in    =     p_w(jc,1,jb)  + ABS(p_w(jc,1,jb))  ! consistent with MPIOM-code below
-          !wupw_in    =     p_w(jc,1,jb)                       ! consistent with MPIOM-docu; zero in jk=1: + ABS(p_w(jc,jk-1,jb))
-          wupw_in    = 0.0_wp                                  ! MPIOM-code (WTP)
+       !  wupw_in    =     p_w(jc,1,jb)  + ABS(p_w(jc,1,jb))  ! consistent with MPIOM-code below
+       !  wupw_in    =     p_w(jc,1,jb)                       ! consistent with MPIOM-docu; zero in jk=1: + ABS(p_w(jc,jk-1,jb))
+          wupw_in    = 0.0_wp                                 ! MPIOM-code (WTP)
           wupw_out   = ABS(p_w(jc,2,jb)) - p_w(jc,2,jb)
           advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
           advvol_out = wupw_out * 0.5_wp * p_dtime * cell_area(jc,jb)
