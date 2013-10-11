@@ -102,7 +102,7 @@
      if (Model.eq."ECHAM5") then
         vname = "svo"  ; var name given by afterburner 
      else
-        vname = VarName
+        vname = "ha_diag_rel_vort_c"
      end if
 
   else 
@@ -122,7 +122,7 @@
      if (Model.eq."ECHAM5") then
         vname = "sd"  ; var name given by afterburner 
      else
-        vname = VarName
+        vname = "ha_diag_div"
      end if
 
   else ; omega
@@ -140,7 +140,7 @@
      if (Model.eq."ECHAM5") then
         vname = "var135"  ; var name given by afterburner 
      else
-        vname = VarName
+        vname = "ha_diag_wpres_mc"
      end if
   end if
   end if

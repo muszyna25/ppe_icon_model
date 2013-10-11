@@ -253,9 +253,9 @@
   if (Model.eq."ICOHDC") then
 
      if (VarName.eq."T") then
-         var = File->T(tid(it),0,:)
+         var = File->ha_prog_TL01_temp(tid(it),0,:)
      else
-         var = File->PS(tid(it),:)
+         var = File->ha_prog_TL01_pres_sfc(tid(it),:)
          var = var*0.01
      end if
 
