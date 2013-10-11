@@ -140,6 +140,9 @@ INTERFACE add_fields
   MODULE PROCEDURE add_fields_3d
   MODULE PROCEDURE add_fields_2d
 END INTERFACE add_fields
+
+CHARACTER(len=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
+INTEGER            :: idt_src                      ! Level of detail for 1 line debug
 !
 !-------------------------------------------------------------------------
 
@@ -284,6 +287,17 @@ CONTAINS
           & p_os(jg)%p_prog(nold(1))%vn,         &
           & p_os(jg)%p_diag,                     &
           & p_op_coeff)
+
+        ! activate for calc_scalar_product_veloc_3D
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=2  ! output print level (1-5, fix)
+        CALL dbg_print('on entry: h-old'           ,p_os(jg)%p_prog(nold(1))%h ,str_module,idt_src)
+        idt_src=1  ! output print level (1-5, fix)
+        CALL dbg_print('on entry: h-new'           ,p_os(jg)%p_prog(nnew(1))%h ,str_module,idt_src)
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('HydOce: ScaProdVel kin'    ,p_os(jg)%p_diag%kin        ,str_module,idt_src)
+        CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,p_os(jg)%p_diag%ptp_vn     ,str_module,idt_src)
+        !---------------------------------------------------------------------
 
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
@@ -627,6 +641,7 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_runoff_acc  , p_sfc_flx%forc_runoff  , subset)
     CALL add_fields(p_sfc_flx%forc_fwbc_acc    , p_sfc_flx%forc_fwbc    , subset)
     CALL add_fields(p_sfc_flx%forc_fwrelax_acc , p_sfc_flx%forc_fwrelax , subset)
+    CALL add_fields(p_sfc_flx%forc_fwsice_acc  , p_sfc_flx%forc_fwsice  , subset)
     CALL add_fields(p_sfc_flx%forc_fwfx_acc    , p_sfc_flx%forc_fwfx    , subset)
     CALL add_fields(p_sfc_flx%forc_hfrelax_acc , p_sfc_flx%forc_hfrelax , subset)
     CALL add_fields(p_sfc_flx%forc_hflx_acc    , p_sfc_flx%forc_hflx    , subset)
@@ -660,6 +675,7 @@ CONTAINS
     p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwbc_acc         = p_sfc_flx%forc_fwbc_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwsice_acc       = p_sfc_flx%forc_fwsice_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwfx_acc         = p_sfc_flx%forc_fwfx_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc        /REAL(nsteps_since_last_output,wp)
@@ -692,6 +708,7 @@ CONTAINS
     p_sfc_flx%forc_runoff_acc       = 0.0_wp
     p_sfc_flx%forc_fwbc_acc         = 0.0_wp
     p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
+    p_sfc_flx%forc_fwsice_acc       = 0.0_wp
     p_sfc_flx%forc_fwfx_acc         = 0.0_wp
     p_sfc_flx%forc_hfrelax_acc      = 0.0_wp
     p_sfc_flx%forc_hflx_acc         = 0.0_wp

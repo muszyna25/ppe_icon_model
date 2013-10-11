@@ -3372,6 +3372,7 @@ CONTAINS
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
       CASE ('forc_fwrelax'); ptr2d => forcing%forc_fwrelax(:,:)
+      CASE ('forc_fwsice');  ptr2d => forcing%forc_fwsice(:,:)
       CASE ('forc_precip');  ptr2d => forcing%forc_precip(:,:)
       CASE ('forc_evap');    ptr2d => forcing%forc_evap(:,:)
       CASE ('forc_runoff');  ptr2d => forcing%forc_runoff(:,:)
