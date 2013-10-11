@@ -42,12 +42,17 @@ remapOperator_special=genbic
 case "${MODEL}" in
  icon)
       gridSelect=ifs2icon_cell_grid
-       GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+
+      if [ "x$GRID_FILE" = 'x' ]; then
+        GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+      else
+        GRID=$(basename $GRID_FILE .nc)
+      fi
       targetGrid=./cell_grid-${GRID}-${MODEL}.nc
       [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
  mpiom)
-       GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
+      GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
       targetGrid=./cell_grid-${GRID}-${MODEL}.nc
       [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -sethalo,1,1 -random,${GRID_FILE} ${targetGrid}
    ;;
