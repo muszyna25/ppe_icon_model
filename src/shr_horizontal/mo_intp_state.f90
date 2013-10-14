@@ -1836,7 +1836,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
     owner(j) = p_p%cells%decomp_info%owner_g(p_lp%cells%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%decomp_info%glb_index,  &
-    & p_p%cells%decomp_info%loc_index, comm_pat_glb_to_loc_c)
+    & p_p%cells%decomp_info, comm_pat_glb_to_loc_c)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_lp%n_patch_edges))
@@ -1844,7 +1844,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
     owner(j) = p_p%edges%decomp_info%owner_g(p_lp%edges%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_lp%n_patch_edges, owner, p_lp%edges%decomp_info%glb_index,  &
-    & p_p%edges%decomp_info%loc_index, comm_pat_glb_to_loc_e)
+    & p_p%edges%decomp_info, comm_pat_glb_to_loc_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_lp%n_patch_verts))
@@ -1852,7 +1852,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
     owner(j) = p_p%verts%decomp_info%owner_g(p_lp%verts%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_lp%n_patch_verts, owner, p_lp%verts%decomp_info%glb_index,  &
-    & p_p%verts%decomp_info%loc_index, comm_pat_glb_to_loc_v)
+    & p_p%verts%decomp_info, comm_pat_glb_to_loc_v)
   DEALLOCATE(owner)
 
   ! Some edge related values of the patch are only set in

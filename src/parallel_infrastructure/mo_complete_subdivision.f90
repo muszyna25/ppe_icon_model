@@ -751,13 +751,13 @@ CONTAINS
 
     ! Set communication patterns for boundary exchange
     CALL setup_comm_pattern(p%n_patch_cells, owner_c, p%cells%decomp_info%glb_index, &
-      & p%cells%decomp_info%loc_index, p%comm_pat_c)
+      & p%cells%decomp_info, p%comm_pat_c)
 
     CALL setup_comm_pattern(p%n_patch_edges, owner_e, p%edges%decomp_info%glb_index, &
-      & p%edges%decomp_info%loc_index, p%comm_pat_e)
+      & p%edges%decomp_info, p%comm_pat_e)
 
     CALL setup_comm_pattern(p%n_patch_verts, owner_v, p%verts%decomp_info%glb_index, &
-      & p%verts%decomp_info%loc_index, p%comm_pat_v)
+      & p%verts%decomp_info, p%comm_pat_v)
 
     DEALLOCATE(owner_c, owner_e, owner_v)
 
@@ -769,7 +769,7 @@ CONTAINS
     WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
 
     CALL setup_comm_pattern(jc, owner_c, p%cells%decomp_info%glb_index, &
-      & p%cells%decomp_info%loc_index, p%comm_pat_c1)
+      & p%cells%decomp_info, p%comm_pat_c1)
 
     DEALLOCATE(owner_c)
 
@@ -794,32 +794,32 @@ CONTAINS
 
     IF(p_pe_work == 0) THEN
       CALL setup_comm_pattern(p%n_patch_cells_g, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%loc_index, p%comm_pat_gather_c)
+        & p%cells%decomp_info, p%comm_pat_gather_c)
     ELSE
       ! We don't want to receive any data, i.e. the number of cells is 0
       ! and owner/global index are dummies!
       CALL setup_comm_pattern(0, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%loc_index, p%comm_pat_gather_c)
+        & p%cells%decomp_info, p%comm_pat_gather_c)
     ENDIF
 
     IF(p_pe_work == 0) THEN
       CALL setup_comm_pattern(p%n_patch_edges_g, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%loc_index, p%comm_pat_gather_e)
+        & p%edges%decomp_info, p%comm_pat_gather_e)
     ELSE
       ! We don't want to receive any data, i.e. the number of edges is 0
       ! and owner/global index are dummies!
       CALL setup_comm_pattern(0, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%loc_index, p%comm_pat_gather_e)
+        & p%edges%decomp_info, p%comm_pat_gather_e)
     ENDIF
 
     IF(p_pe_work == 0) THEN
       CALL setup_comm_pattern(p%n_patch_verts_g, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%loc_index, p%comm_pat_gather_v)
+        & p%verts%decomp_info, p%comm_pat_gather_v)
     ELSE
       ! We don't want to receive any data, i.e. the number of edges is 0
       ! and owner/global index are dummies!
       CALL setup_comm_pattern(0, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%loc_index, p%comm_pat_gather_v)
+        & p%verts%decomp_info, p%comm_pat_gather_v)
     ENDIF
 
     DEALLOCATE(tmp)
@@ -872,7 +872,7 @@ CONTAINS
     ENDDO
 
     CALL setup_comm_pattern(p_ploc%n_patch_cells, owner, p_ploc%cells%decomp_info%glb_index,  &
-      & p_pglb%cells%decomp_info%loc_index, p_ploc%comm_pat_glb_to_loc_c)
+      & p_pglb%cells%decomp_info, p_ploc%comm_pat_glb_to_loc_c)
 
     DEALLOCATE(owner)
 
@@ -894,7 +894,7 @@ CONTAINS
     ENDDO
 
     CALL setup_comm_pattern(p_ploc%n_patch_edges, owner, p_ploc%edges%decomp_info%glb_index,  &
-      & p_pglb%edges%decomp_info%loc_index, p_ploc%comm_pat_glb_to_loc_e)
+      & p_pglb%edges%decomp_info, p_ploc%comm_pat_glb_to_loc_e)
 
     DEALLOCATE(owner)
 
@@ -929,7 +929,7 @@ CONTAINS
     ENDDO
 
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner, p_pglb%cells%decomp_info%glb_index, &
-      & p_ploc%cells%decomp_info%loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
+      & p_ploc%cells%decomp_info, p_ploc%comm_pat_loc_to_glb_c_fbk)
 
     DEALLOCATE(owner)
 
@@ -958,7 +958,7 @@ CONTAINS
 
 
     CALL setup_comm_pattern(p_pglb%n_patch_edges, owner, p_pglb%edges%decomp_info%glb_index, &
-      & p_ploc%edges%decomp_info%loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
+      & p_ploc%edges%decomp_info, p_ploc%comm_pat_loc_to_glb_e_fbk)
 
     DEALLOCATE(owner)
 
@@ -1022,7 +1022,7 @@ CONTAINS
     ! Set up communication pattern
 
     CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-      & p_parent_patch%cells%decomp_info%loc_index, &
+      & p_parent_patch%cells%decomp_info, &
       & p_patch%comm_pat_interpolation_c)
 
     DEALLOCATE(owner, glb_index)
@@ -1073,7 +1073,7 @@ CONTAINS
       ! Set up communication pattern
 
       CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%loc_index, &
+        & p_parent_patch%cells%decomp_info, &
         & p_patch%comm_pat_interpol_scal_grf(n))
 
     ENDDO
@@ -1198,7 +1198,7 @@ CONTAINS
       ! Set up communication pattern
 
       CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%loc_index, &
+        & p_parent_patch%edges%decomp_info, &
         & p_patch%comm_pat_interpol_vec_grf(n))
 
     ENDDO
@@ -1337,7 +1337,7 @@ CONTAINS
       ! Set up communication pattern
 
       CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%loc_index, &
+        & p_parent_patch%cells%decomp_info, &
         & p_patch%comm_pat_interpol_scal_ubc(n))
 
     ENDDO
@@ -1461,7 +1461,7 @@ CONTAINS
       ! Set up communication pattern
 
       CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%loc_index, &
+        & p_parent_patch%edges%decomp_info, &
         & p_patch%comm_pat_interpol_vec_ubc(n))
 
     ENDDO
@@ -1699,12 +1699,14 @@ CONTAINS
         IF(.NOT.my_process_is_mpi_seq()) THEN
           IF(p_pe_work == 0) THEN
             CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
+              & p_patch(jg)%cells%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_c)
           ELSE
             ! We don't want to receive any data, i.e. the number of cells is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
+              & p_patch(jg)%cells%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_c)
           ENDIF
         ENDIF
 
@@ -1724,12 +1726,14 @@ CONTAINS
         IF(.NOT.my_process_is_mpi_seq()) THEN
           IF(p_pe_work == 0) THEN
             CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
+              & p_patch(jg)%edges%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_e)
           ELSE
             ! We don't want to receive any data, i.e. the number of edges is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
+              & p_patch(jg)%edges%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_e)
           ENDIF
         ENDIF
 
@@ -1749,12 +1753,14 @@ CONTAINS
         IF(.NOT.my_process_is_mpi_seq()) THEN
           IF(p_pe_work == 0) THEN
             CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
+              & p_patch(jg)%verts%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_v)
           ELSE
             ! We don't want to receive any data, i.e. the number of verts is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
+              & p_patch(jg)%verts%decomp_info, &
+              & p_phys_patch(jp)%comm_pat_gather_v)
           ENDIF
         ENDIF
 

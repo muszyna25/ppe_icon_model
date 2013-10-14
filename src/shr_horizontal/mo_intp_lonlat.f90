@@ -237,7 +237,8 @@
         &  TRIM("mo_intp_lonlat:compute_lonlat_intp_coeffs")
       INTEGER              :: i, j, jg, n_points,  &
         &                     ist, glb_idx, my_id, nthis_local_pts
-      INTEGER, ALLOCATABLE :: glb_owner(:), local_index(:)
+      INTEGER, ALLOCATABLE :: glb_owner(:)
+      TYPE(t_grid_domain_decomp_info) :: send_decomp_info
       TYPE(t_lon_lat_grid), POINTER  :: grid
       TYPE(t_gnat_tree)    :: gnat
 
@@ -280,7 +281,7 @@
             ! n_points     : total number of points in the RECEIVER array
             grid => lonlat_grid_list(i)%grid
             n_points = grid%lon_dim * grid%lat_dim
-            ALLOCATE( glb_owner(n_points), local_index(n_points), STAT=ist )
+            ALLOCATE( glb_owner(n_points), send_decomp_info%loc_index(n_points), STAT=ist )
             IF (ist /= SUCCESS) &
               CALL finish (routine, 'allocation for working arrays failed')
 
@@ -289,13 +290,13 @@
 
             ! glb_owner    : owner PE number of every point in the RECEIVER array
             glb_owner(:) = -1
-            ! local_index  : local index in the SENDER array.
+            ! send_decomp_info%loc_index  : local index in the SENDER array.
             ! positive on all positions owner by sender
-            local_index(:) = -1
+            send_decomp_info%loc_index(:) = -1
             DO j=1,nthis_local_pts
               glb_idx = lonlat_grid_list(i)%intp(jg)%global_idx(j)
               glb_owner  (glb_idx) = my_id
-              local_index(glb_idx) = j
+              send_decomp_info%loc_index(glb_idx) = j
             END DO
 
             ! on work root PE we have to gather owner ranks for all points
@@ -303,19 +304,21 @@
 
             IF (.NOT. my_process_is_mpi_seq()) THEN
               IF (my_process_is_mpi_workroot()) THEN
-                CALL setup_comm_pattern(n_points, glb_owner, local_index=local_index, &
+                CALL setup_comm_pattern(n_points, glb_owner, &
+                  &                     send_decomp_info=send_decomp_info, &
                   &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
               ELSE
                 ! We don't want to receive any data, i.e. the number of
                 ! lon-lat points is 0 and owner/global index are
                 ! dummies!
                 glb_owner(:) = -1
-                CALL setup_comm_pattern(0, glb_owner, local_index=local_index, &
+                CALL setup_comm_pattern(0, glb_owner, &
+                  &                     send_decomp_info=send_decomp_info, &
                   &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
               END IF
             END IF
 
-            DEALLOCATE( glb_owner, local_index, STAT=ist )
+            DEALLOCATE( glb_owner, send_decomp_info%loc_index, STAT=ist )
             IF (ist /= SUCCESS) &
               CALL finish (routine, 'deallocation for working arrays failed')
 

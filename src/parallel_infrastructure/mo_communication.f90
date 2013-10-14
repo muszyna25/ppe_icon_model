@@ -329,23 +329,22 @@ END FUNCTION idx_1d
 !!                locally distributed.
 !!                - If this argument is not present, we assume global_index=1,2.3,...
 !!
-!! local_index    Local index in the SENDER array.
-!!                This array must have the local index at the global
-!!                position for points which are local and a negative
-!!                value at every position which is not owned by the local PE.
+!! send_decomp_info domain decomposition information for the SENDER array
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_pat)
+SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, send_decomp_info, p_pat)
 
 !
 
    INTEGER, INTENT(IN)           :: n_points             ! Total number of points
    INTEGER, INTENT(IN)           :: owner(:)             ! Owner of every point
    INTEGER, INTENT(IN), OPTIONAL :: opt_global_index(:)  ! Global index of every point
-   INTEGER, INTENT(IN)           :: local_index(:)       ! Array mapping global indices to local ones
-                                                         ! valid on the remote side!
+   TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
+                                                         ! domain decomposition
+                                                         ! information of the
+                                                         ! SENDER array
 
    TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
 
@@ -506,8 +505,8 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_
    DO i = 1, p_pat%n_send
       np = send_src(i)
       IF(np<1) CALL finish('setup_comm_pattern','Got illegal index')
-      IF(np>SIZE(local_index)) CALL finish('setup_comm_pattern','Got illegal index')
-      np = local_index(np)
+      IF(np>SIZE(send_decomp_info%loc_index)) CALL finish('setup_comm_pattern','Got illegal index')
+      np = send_decomp_info%loc_index(np)
       if(np<0) CALL finish('setup_comm_pattern','Got illegal index')
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)

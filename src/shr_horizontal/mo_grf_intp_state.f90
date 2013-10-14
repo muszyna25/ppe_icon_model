@@ -501,7 +501,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
-    & p_lp%edges%decomp_info%loc_index, comm_pat_loc_to_glb_e)
+    & p_lp%edges%decomp_info, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
@@ -514,7 +514,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
-    & p_lp%cells%decomp_info%loc_index, comm_pat_loc_to_glb_c)
+    & p_lp%cells%decomp_info, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,4,p_lp%nblks_e))
@@ -693,7 +693,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     owner(j) = p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
-    & p_lp%edges%decomp_info%loc_index, comm_pat_loc_to_glb_e)
+    & p_lp%edges%decomp_info, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
@@ -701,7 +701,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     owner(j) = p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
-    & p_lp%cells%decomp_info%loc_index, comm_pat_loc_to_glb_c)
+    & p_lp%cells%decomp_info, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_c))
