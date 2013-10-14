@@ -488,9 +488,14 @@ CONTAINS
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fwsice', p_sfc_flx%forc_fwsice , &
+    CALL add_var(var_list, 'forc_fw_ice_impl', p_sfc_flx%forc_fw_ice_impl , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwsice', 'm/s', 'forc_fwsice', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_ice_impl', 'm/s', 'forc_fw_ice_impl', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'forc_fw_ice_vol', p_sfc_flx%forc_fw_ice_vol, &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fw_ice_vol', 'm/s', 'forc_fw_ice_vol', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
@@ -646,9 +651,14 @@ CONTAINS
     &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fwsice_acc', p_sfc_flx%forc_fwsice_acc, &
+    CALL add_var(var_list, 'forc_fw_ice_impl_acc', p_sfc_flx%forc_fw_ice_impl_acc, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwsice_acc', 'm/s', 'forc_fwsice_acc', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_ice_impl_acc', 'm/s', 'forc_fw_ice_impl_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'forc_fw_ice_vol_acc', p_sfc_flx%forc_fw_ice_vol_acc, &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_fw_ice_vol_acc', 'm/s', 'forc_fw_ice_vol_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
 
@@ -1829,10 +1839,11 @@ CONTAINS
 
     ! #slo# 2013-06
     ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
-    !  - fwsice is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
+    !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
     !  - no snow and no salinity of sea ice (Sice in mo_physical_constants)  yet
     !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
-    p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)
+    !p_sfc_flx%forc_fw_ice_vol(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)  ??? - Einar
+    p_sfc_flx%forc_fw_ice_impl(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)  ! incorrect
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 

@@ -81,8 +81,7 @@ USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, als, alv, zemiss_def, stbo, tmelt, tf,          &
-  &                               mu, clw, rho_ref, albedoW
+USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -149,7 +148,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     INTEGER  :: iniyear, curyear, offset
-    INTEGER  :: jc, jb, i, no_set
+    INTEGER  :: jc, jb, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -490,9 +489,9 @@ CONTAINS
             p_sfc_flx%forc_fw_bc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
             idt_src=2  ! output print level (1-5, fix)
-            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
+            CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
+            CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
           ENDIF
 
@@ -1185,13 +1184,13 @@ CONTAINS
     IF (i_sea_ice >= 1) THEN
 
       p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
-        &                            - p_sfc_flx%forc_fwsice(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+        &                            - p_sfc_flx%forc_fw_ice_impl(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: fwsice[m/s]'        ,p_sfc_flx%forc_fwsice ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: fw_ice_impl[m/s]',p_sfc_flx%forc_fw_ice_impl ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF
