@@ -63,7 +63,7 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
   & timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
-USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
+USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_local_index
 
 
 IMPLICIT NONE
@@ -503,11 +503,9 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, send_decomp_inf
    ! The indices in p_pat%send_src are global, convert to local
 
    DO i = 1, p_pat%n_send
-      np = send_src(i)
-      IF(np<1) CALL finish('setup_comm_pattern','Got illegal index')
-      IF(np>SIZE(send_decomp_info%loc_index)) CALL finish('setup_comm_pattern','Got illegal index')
-      np = send_decomp_info%loc_index(np)
-      if(np<0) CALL finish('setup_comm_pattern','Got illegal index')
+
+      np = get_local_index(send_decomp_info, send_src(i))
+      IF(np == -1) CALL finish('setup_comm_pattern','Got illegal index')
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
    ENDDO
