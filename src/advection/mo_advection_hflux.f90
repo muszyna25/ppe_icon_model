@@ -1228,11 +1228,6 @@ CONTAINS
     ELSE
       slev = 1
     END IF
-!!$    IF ( PRESENT(opt_elev) ) THEN
-!!$      elev = opt_elev
-!!$    ELSE
-!!$      elev = nlev
-!!$    END IF
 
     IF ( PRESENT(opt_ti_slev) ) THEN
       slev_ti = opt_ti_slev

@@ -841,17 +841,17 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, lcontainer=.TRUE., &
         &           loutput=.FALSE. )
 
-!!$      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
-!!$      DO jsfc = 1,ntiles_total
-!!$        WRITE(csfc,'(i2)') jsfc 
-!!$        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
-!!$               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
-!!$               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
-!!$               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-!!$               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
-!!$               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
-!!$               & ldims=shape2d_c, loutput=.TRUE.)
-!!$      ENDDO
+      ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
+               & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
+               & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+               & t_cf_var('plcov_t_'//csfc, '', '', DATATYPE_FLT32),     &
+               & t_grib2_var(2, 0, 4, ibits, GRID_REFERENCE, GRID_CELL), &
+               & ldims=shape2d_c, loutput=.TRUE.)
+      ENDDO
 
 
 
@@ -1014,7 +1014,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 0, 31, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'ndvi_max', p_ext_atm%ndvi_max, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.  )
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! proportion of actual value/maximum NDVI (at ini_datetime)
       !
