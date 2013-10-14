@@ -2004,7 +2004,7 @@ CONTAINS
         CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
 
-        ! IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
+        ! IF (.NOT.p_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE  ! access inner domain only
           IF (v_base%lsm_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
             nosea_c(jk)=nosea_c(jk)+1
             v_base%dolic_c(jc,jb) = jk
@@ -2067,7 +2067,7 @@ CONTAINS
         CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
         DO je = i_startidx, i_endidx
 
-!           IF (.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE  ! access inner domain only
+!           IF (.NOT.p_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE  ! access inner domain only
 
           ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
           iic1 = p_patch%edges%cell_idx(je,jb,1)
@@ -3467,48 +3467,48 @@ CONTAINS
         CALL get_index_range(all_cells, block, startidx, endidx)
         DO idx = startidx, endidx
           IF (patch_3D%surface_cell_sea_land_mask(idx, block) >= 0) THEN
-            patch_2D%cells%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            patch_2D%cells%decomp_info%halo_level(idx, block) = -1 !halo_levels_ceiling+1
             write(0,*) "Removed land cell at ", idx, block
           ENDIF
         ENDDO
       ENDDO
       ! recalculate cells subsets
-      CALL fill_subset(patch_2D%cells%all, patch_2D, patch_2D%cells%halo_level, &
+      CALL fill_subset(patch_2D%cells%all, patch_2D, patch_2D%cells%decomp_info%halo_level, &
         & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2D%cells%owned, patch_2D, patch_2D%cells%halo_level, 0, 0)
-      CALL fill_subset(patch_2D%cells%in_domain, patch_2D, patch_2D%cells%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%cells%owned, patch_2D, patch_2D%cells%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%cells%in_domain, patch_2D, patch_2D%cells%decomp_info%halo_level, 0, 0)
 
       ! edges
       DO block = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, block, startidx, endidx)
         DO idx = startidx, endidx
           IF (patch_3D%surface_edge_sea_land_mask(idx, block) == land) THEN
-            patch_2D%edges%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            patch_2D%edges%decomp_info%halo_level(idx, block) = -1 !halo_levels_ceiling+1
             write(0,*) "Removed land edge at ", idx, block
           ENDIF
         ENDDO
       ENDDO
       ! recalculate edges subsets
-      CALL fill_subset(patch_2D%edges%all, patch_2D, patch_2D%edges%halo_level, &
+      CALL fill_subset(patch_2D%edges%all, patch_2D, patch_2D%edges%decomp_info%halo_level, &
         & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2D%edges%owned, patch_2D, patch_2D%edges%halo_level, 0, 0)
-      CALL fill_subset(patch_2D%edges%in_domain, patch_2D, patch_2D%edges%halo_level, 0, 1)
+      CALL fill_subset(patch_2D%edges%owned, patch_2D, patch_2D%edges%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%edges%in_domain, patch_2D, patch_2D%edges%decomp_info%halo_level, 0, 1)
 
       ! verts
       DO block = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, block, startidx, endidx)
         DO idx = startidx, endidx
           IF (patch_3D%surface_vertex_sea_land_mask(idx, block) == land) THEN
-            patch_2D%verts%halo_level(idx, block) = -1 !halo_levels_ceiling+1
+            patch_2D%verts%decomp_info%halo_level(idx, block) = -1 !halo_levels_ceiling+1
             write(0,*) "Removed land vert at ", idx, block
           ENDIF
         ENDDO
       ENDDO
       ! recalculate verts subsets
-      CALL fill_subset(patch_2D%verts%all, patch_2D, patch_2D%verts%halo_level, &
+      CALL fill_subset(patch_2D%verts%all, patch_2D, patch_2D%verts%decomp_info%halo_level, &
         & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2D%verts%owned, patch_2D, patch_2D%verts%halo_level, 0, 0)
-      CALL fill_subset(patch_2D%verts%in_domain, patch_2D, patch_2D%verts%halo_level, 0, 1)
+      CALL fill_subset(patch_2D%verts%owned, patch_2D, patch_2D%verts%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%verts%in_domain, patch_2D, patch_2D%verts%decomp_info%halo_level, 0, 1)
 
     ENDIF
   END SUBROUTINE ocean_subsets_ignore_land
@@ -3533,12 +3533,12 @@ CONTAINS
 !      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block
 !        CALL get_index_range(patch_2D%edges%in_domain, block, startidx, endidx)
 !        DO idx = startidx, endidx
-!          IF (patch_2D%edges%halo_level(idx, block) /= 0) THEN
+!          IF (patch_2D%edges%decomp_info%halo_level(idx, block) /= 0) THEN
 !            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in hole ", patch_3D%surface_edge_sea_land_mask(idx, block), &
-!              & patch_2D%edges%halo_level(idx, block)
+!              & patch_2D%edges%decomp_info%halo_level(idx, block)
 !          ELSE
 !            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in set ", patch_3D%surface_edge_sea_land_mask(idx, block), &
-!              & patch_2D%edges%halo_level(idx, block)
+!              & patch_2D%edges%decomp_info%halo_level(idx, block)
 !          ENDIF
 !        ENDDO
 !      ENDDO
@@ -3551,12 +3551,12 @@ CONTAINS
       DO block = patch_2D%cells%in_domain%start_block, patch_2D%cells%in_domain%end_block
         CALL get_index_range(patch_2D%cells%in_domain, block, startidx, endidx)
         DO idx = startidx, endidx
-          IF (patch_2D%cells%halo_level(idx, block) /= 0) THEN
+          IF (patch_2D%cells%decomp_info%halo_level(idx, block) /= 0) THEN
             write(0,*) get_my_global_mpi_id(), ":", idx, block, " cell in hole ", patch_3D%surface_cell_sea_land_mask(idx, block), &
-              & patch_2D%cells%halo_level(idx, block)
+              & patch_2D%cells%decomp_info%halo_level(idx, block)
           ELSE
             write(0,*) get_my_global_mpi_id(), ":", idx, block, " cell in set ", patch_3D%surface_cell_sea_land_mask(idx, block), &
-              & patch_2D%cells%halo_level(idx, block)
+              & patch_2D%cells%decomp_info%halo_level(idx, block)
           ENDIF
         ENDDO
       ENDDO

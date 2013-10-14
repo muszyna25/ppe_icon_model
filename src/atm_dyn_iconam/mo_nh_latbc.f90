@@ -393,43 +393,43 @@ MODULE mo_nh_latbc
     ! read prognostic 3d fields
     !
     CALL read_netcdf_data_single( latbc_fileid, 'temp',   p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%temp   )
 
     CALL read_netcdf_data_single( latbc_fileid, 'u',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%u   )
 
     CALL read_netcdf_data_single( latbc_fileid, 'v',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm_in%v   )
 
     CALL read_netcdf_data_single( latbc_fileid, 'w',      p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlevp1,         p_latbc_data(tlev)%atm%w      )
 
     CALL read_netcdf_data_single( latbc_fileid, 'pres',   p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%pres   )
 
     CALL read_netcdf_data_single( latbc_fileid, 'qv',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qv     )
 
     CALL read_netcdf_data_single( latbc_fileid, 'qc',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qc     )
 
     CALL read_netcdf_data_single( latbc_fileid, 'qi',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qi     )
 
     CALL read_netcdf_data_single( latbc_fileid, 'qr',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qr     )
 
     CALL read_netcdf_data_single( latbc_fileid, 'qs',     p_patch%n_patch_cells_g,      &
-      &                           p_patch%n_patch_cells,  p_patch%cells%glb_index,      &
+      &                           p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,      &
       &                           p_patch%nlev,           p_latbc_data(tlev)%atm%qs     )
 
     !
@@ -612,42 +612,42 @@ MODULE mo_nh_latbc
     ! read IFS data
     !
     CALL read_netcdf_data_single( latbc_fileid, 'T', p_patch%n_patch_cells_g,           &
-                                  p_patch%n_patch_cells, p_patch%cells%glb_index,       &
+                                  p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,       &
                                   nlev_in, p_latbc_data(tlev)%atm_in%temp )
 
     IF (lread_vn) THEN
       CALL read_netcdf_data_single( latbc_fileid, 'VN', p_patch%n_patch_edges_g,        &
-        &                     p_patch%n_patch_edges, p_patch%edges%glb_index,           &
+        &                     p_patch%n_patch_edges, p_patch%edges%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%vn )
     ELSE
       CALL read_netcdf_data_single( latbc_fileid, 'U', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%u )
 
       CALL read_netcdf_data_single( latbc_fileid, 'V', p_patch%n_patch_cells_g,         &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%v )
     ENDIF
 
     CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,           &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%omega )
 
     CALL read_netcdf_data_single( latbc_fileid, 'QV', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qv )
 
     CALL read_netcdf_data_single( latbc_fileid, 'QC', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qc )
 
     CALL read_netcdf_data_single( latbc_fileid, 'QI', p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qi )
 
     IF (lread_qr) THEN
       CALL read_netcdf_data_single( latbc_fileid, 'QR', p_patch%n_patch_cells_g,        &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qr )
     ELSE
       p_latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
@@ -655,18 +655,18 @@ MODULE mo_nh_latbc
 
     IF (lread_qs) THEN
       CALL read_netcdf_data_single( latbc_fileid, 'QS', p_patch%n_patch_cells_g,        &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     nlev_in, p_latbc_data(tlev)%atm_in%qs )
     ELSE
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
     CALL read_netcdf_data( latbc_fileid, TRIM(psvar), p_patch%n_patch_cells_g,          &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%psfc )
 
     CALL read_netcdf_data( latbc_fileid, TRIM(geop_ml_var), p_patch%n_patch_cells_g,    &
-        &                     p_patch%n_patch_cells, p_patch%cells%glb_index,           &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%phi_sfc )
       
     !

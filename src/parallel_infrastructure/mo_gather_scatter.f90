@@ -201,7 +201,7 @@ CONTAINS
 !    WRITE(0,*) "UBOUND(in_array,2)= ", UBOUND(in_array,2)
 !    WRITE(0,*) "LBOUND(out_array,3)= ", LBOUND(out_array,3)
 !    WRITE(0,*) "UBOUND(out_array,3)= ", UBOUND(out_array,3)
-    CALL scatter_array_r2d_time(in_array, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_r2d_time(in_array, out_array, p_patch%cells%decomp_info%glb_index)
 
   END SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks
   !--------------------------------------------------------------------------------------
@@ -217,7 +217,7 @@ CONTAINS
 !    WRITE(0,*) "UBOUND(in_array,3)= ", UBOUND(in_array,3)
 !    WRITE(0,*) "LBOUND(out_array,4)= ", LBOUND(out_array,4)
 !    WRITE(0,*) "UBOUND(out_array,4)= ", UBOUND(out_array,4)
-    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%decomp_info%glb_index)
 
   END SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks
   !--------------------------------------------------------------------------------------
@@ -233,7 +233,7 @@ CONTAINS
       CALL reorder(in_array, out_array)
 #ifndef NOMPI
     ELSE
-      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%glb_index)
+      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
     ENDIF
 
@@ -1220,7 +1220,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_r2d
   !
@@ -1237,7 +1237,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_r3d
   !
@@ -1254,7 +1254,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_r2d
   !
@@ -1271,7 +1271,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_r3d
   !
@@ -1288,7 +1288,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_r2d
   !
@@ -1305,7 +1305,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_r3d
   !
@@ -1325,7 +1325,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_i2d
   !
@@ -1342,7 +1342,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_i3d
   !
@@ -1359,7 +1359,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_i2d
   !
@@ -1376,7 +1376,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_i3d
   !
@@ -1393,7 +1393,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_i2d
   !
@@ -1410,7 +1410,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_i3d
   !
@@ -1430,7 +1430,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_l2d
   !
@@ -1447,7 +1447,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%cells%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%cells%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_cells_l3d
   !
@@ -1464,7 +1464,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_l2d
   !
@@ -1481,7 +1481,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%edges%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%edges%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_edges_l3d
   !
@@ -1498,7 +1498,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_l2d
   !
@@ -1515,7 +1515,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%verts%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%verts%decomp_info%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_l3d
   !--------------------------------------------------------------------------------------

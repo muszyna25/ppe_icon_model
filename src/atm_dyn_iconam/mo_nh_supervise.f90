@@ -246,11 +246,11 @@ CONTAINS
         z4(1:nlen,jb) = z4(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*nh_state(jg)%metrics%geopot(1:nlen,jk,jb)*z0(1:nlen)
       ENDDO
-      WHERE(.NOT.patch(jg)%cells%owner_mask(:,jb)) z1(:,jb) = 0._wp
-      WHERE(.NOT.patch(jg)%cells%owner_mask(:,jb)) z2(:,jb) = 0._wp
-      WHERE(.NOT.patch(jg)%cells%owner_mask(:,jb)) z3(:,jb) = 0._wp
-      WHERE(.NOT.patch(jg)%cells%owner_mask(:,jb)) z4(:,jb) = 0._wp
-      WHERE(.NOT.patch(jg)%cells%owner_mask(:,jb)) diag%pres_sfc(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z1(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z2(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z3(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z4(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) diag%pres_sfc(:,jb) = 0._wp
     ENDDO
     z_mean_surfp = global_sum_array( diag%pres_sfc )/      &
       &     REAL(patch(jg)%n_patch_cells_g,wp)
@@ -316,7 +316,7 @@ CONTAINS
 
         ENDDO
 
-        WHERE(.NOT.patch(jg)%cells%owner_mask(:,:)) z_aux_tracer(:,:,jt) = 0._wp
+        WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,:)) z_aux_tracer(:,:,jt) = 0._wp
         z_total_tracer(jt) = global_sum_array(z_aux_tracer(:,:,jt))
 
       ENDDO  ! ntracer

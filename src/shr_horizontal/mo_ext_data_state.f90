@@ -2175,13 +2175,13 @@ CONTAINS
 
           ! get elevation [m]
           CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                    ext_data(jg)%atm%elevation_c)
           ! get land-sea-mask on cells, integer marks are:
           ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
           ! boundary land (1, cells and vertices), inner land (2)
           CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%lsm_ctr_c)
           ! Mask out ocean
           ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
@@ -2318,12 +2318,12 @@ CONTAINS
 
           ! triangle center
           CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%topography_c)
 
           ! triangle vertex
           CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
-            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
+            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%topography_v)
 
         ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
@@ -2331,12 +2331,12 @@ CONTAINS
           ! As extpar "knows" only the triangular grid, cells and vertices need to be switched here
           ! triangle center
           CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
-            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
+            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%topography_v)
 
           ! triangle vertex
           CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%topography_c)
 
         ENDIF
@@ -2348,11 +2348,11 @@ CONTAINS
         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
           CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
             &                     ext_data(jg)%atm%fr_land)
 
           CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
             &                     ext_data(jg)%atm%fr_glac)
 
 
@@ -2360,84 +2360,84 @@ CONTAINS
           CASE ( inwp )
 
             CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%plcov_mx)
 
             CALL read_netcdf_data (ncid, 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%lai_mx)
 
             CALL read_netcdf_data (ncid, 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%rootdp)
 
             CALL read_netcdf_data (ncid, 'RSMIN', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%rsmin)
 
             CALL read_netcdf_data (ncid, 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%for_d)
 
             CALL read_netcdf_data (ncid, 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%for_e)
 
             CALL read_netcdf_data (ncid, 'URBAN', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%urban)
 
             CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%z0)
 
             CALL read_netcdf_data (ncid, 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%ndvi_max)
 
             CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,            &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%soiltyp)
 
             CALL read_netcdf_lu (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,    &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction )
 
            
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
-                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
                 &                     ext_data(jg)%atm%emis_rad)
             ELSE
               ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
             ENDIF
 
             CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%t_cl)
 
             CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%sso_stdh)
 
             CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%sso_theta)
 
             CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%sso_gamma)
 
             CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%sso_sigma)
 
             CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%fr_lake)
 
             CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%depth_lk)
 
 
@@ -2449,31 +2449,31 @@ CONTAINS
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SS', &
                 &                    p_patch(jg)%n_patch_cells_g,     &
                 &                    p_patch(jg)%n_patch_cells,       &
-                &                    p_patch(jg)%cells%glb_index,     & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,     & 
                 &                    ext_data(jg)%atm_td%aer_ss)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_DUST',&
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%aer_dust)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_ORG', &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%aer_org)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SO4', &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%aer_so4)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_BC',  &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%aer_bc)
 
             ENDIF
@@ -2482,7 +2482,7 @@ CONTAINS
             CALL read_netcdf_data (ncid, nmonths_ext(jg), 'NDVI_MRAT', &
               &                    p_patch(jg)%n_patch_cells_g,        &
               &                    p_patch(jg)%n_patch_cells,          &
-              &                    p_patch(jg)%cells%glb_index,        &
+              &                    p_patch(jg)%cells%decomp_info%glb_index,        &
               &                    ext_data(jg)%atm_td%ndvi_mrat)
            
 
@@ -2493,19 +2493,19 @@ CONTAINS
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALB',     &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%alb_dif)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%albuv_dif)
 
               CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
                 &                    p_patch(jg)%n_patch_cells_g,      &
                 &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%glb_index,      & 
+                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
                 &                    ext_data(jg)%atm_td%albni_dif)
 
 !$OMP PARALLEL
@@ -2523,7 +2523,7 @@ CONTAINS
 
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
-                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
                 &                     ext_data(jg)%atm%emis_rad)
             ELSE
               ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
@@ -2669,7 +2669,7 @@ CONTAINS
         CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
           &                    p_patch(jg)%n_patch_cells_g,  &
           &                    p_patch(jg)%n_patch_cells,    &
-          &                    p_patch(jg)%cells%glb_index,  & 
+          &                    p_patch(jg)%cells%decomp_info%glb_index,  & 
           &                    nlev_o3,  nmonths,          &
           &                    ext_data(jg)%atm_td%O3)
 
@@ -2678,7 +2678,7 @@ CONTAINS
         !          CALL read_netcdf_data (ncid, TRIM(o3name), & 
         !            &                    p_patch(jg)%n_patch_verts_g,  &
         !            &                    p_patch(jg)%n_patch_verts,    & 
-        !            &                    p_patch(jg)%verts%glb_index,  &
+        !            &                    p_patch(jg)%verts%decomp_info%glb_index,  &
         !            &                    nlev_o3, nmonths,           &
         !            &                    ext_data(jg)%atm_td%O3)
         !
@@ -2734,7 +2734,7 @@ CONTAINS
 
          ENDIF    
          CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,im)) 
 
          IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
@@ -2756,7 +2756,7 @@ CONTAINS
 
          ENDIF    
          CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
 
          IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)

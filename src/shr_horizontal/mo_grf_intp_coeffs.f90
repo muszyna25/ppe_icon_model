@@ -392,7 +392,7 @@ DO jg = n_dom_start, n_dom-1
       DO jc = i_startidx, i_endidx
 
         IF (p_gcp%refin_ctrl(jc,jb) <= grf_fbk_start_c .AND. p_gcp%child_id(jc,jb) == icid .AND. &
-           p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
+           p_gcp%decomp_info%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
 
       ENDDO
     ENDDO

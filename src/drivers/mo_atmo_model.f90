@@ -690,13 +690,13 @@ CONTAINS
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
       CALL ICON_cpl_def_grid ( &
-        & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+        & grid_shape, p_patch(patch_no)%cells%decomp_info%glb_index, & ! input
         & grid_id, error_status )                          ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native cells are located.
       CALL ICON_cpl_def_location ( &
-        & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
+        & grid_id, grid_shape, p_patch(patch_no)%cells%decomp_info%owner_local, & ! input
         & p_pe_work,  & ! this owner id
         & error_status )                                            ! output
 

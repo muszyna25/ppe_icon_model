@@ -1522,7 +1522,7 @@ CONTAINS
     IF (ig > 1 .AND. ishift_child_id > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%glb_index,  &
+      CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,  &
         & p_p%cells%phys_id(:,:) )
     ENDDO
 
@@ -1534,7 +1534,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_real( REAL(array_c_int(:,ji),wp),            &
-          & p_p%n_patch_cells, p_p%cells%glb_index,     &
+          & p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,     &
           & p_p%cells%edge_orientation(:,:,ji) )
       ENDDO
     END DO
@@ -1544,7 +1544,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
         & p_p%cells%area(:,:) )
     ENDDO
 
@@ -1567,7 +1567,7 @@ CONTAINS
     IF (ig > 1 .AND. ishift_child_id > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%phys_id(:,:) )
     ENDDO
 
@@ -1578,8 +1578,8 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-          & p_p%cells%loc_index,         &
+        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
+          & p_p%cells%decomp_info%loc_index,         &
           & p_p%edges%cell_idx(:,:,ji),  &
           & p_p%edges%cell_blk(:,:,ji) )
       END DO
@@ -1592,8 +1592,8 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-          & p_p%verts%loc_index,         &
+        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
+          & p_p%verts%decomp_info%loc_index,         &
           & p_p%edges%vertex_idx(:,:,ji),  &
           & p_p%edges%vertex_blk(:,:,ji) )
       END DO
@@ -1605,7 +1605,7 @@ CONTAINS
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       CALL divide_real( REAL(array_e_int(:,1),wp),            &
-        & p_p%n_patch_edges, p_p%edges%glb_index,    &
+        & p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,    &
         & p_p%edges%system_orientation(:,:) )
     ENDDO
 
@@ -1614,7 +1614,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%center(:,:)%lon )
     ENDDO
 
@@ -1623,7 +1623,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%center(:,:)%lat )
     ENDDO
 
@@ -1632,7 +1632,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%primal_normal(:,:)%v1 )
     ENDDO
 
@@ -1641,7 +1641,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%primal_normal(:,:)%v2 )
     ENDDO
 
@@ -1650,7 +1650,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%dual_normal(:,:)%v1 )
     ENDDO
 
@@ -1659,7 +1659,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%dual_normal(:,:)%v2 )
     ENDDO
 
@@ -1668,7 +1668,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%primal_edge_length(:,:) )
     ENDDO
 
@@ -1677,7 +1677,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
         & p_p%edges%dual_edge_length(:,:) )
     ENDDO
 
@@ -1687,7 +1687,7 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+        CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
           & p_p%edges%edge_vert_length(:,:,ji) )
       ENDDO
     ENDDO
@@ -1698,7 +1698,7 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+        CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
           & p_p%edges%edge_cell_length(:,:,ji) )
       ENDDO
     ENDDO
@@ -1710,8 +1710,8 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-          & p_p%verts%loc_index,             &
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
+          & p_p%verts%decomp_info%loc_index,             &
           & p_p%verts%neighbor_idx(:,:,ji),  &
           & p_p%verts%neighbor_blk(:,:,ji) )
       END DO
@@ -1730,8 +1730,8 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-          & p_p%cells%loc_index,         &
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
+          & p_p%cells%decomp_info%loc_index,         &
           & p_p%verts%cell_idx(:,:,ji),  &
           & p_p%verts%cell_blk(:,:,ji) )
       END DO
@@ -1751,8 +1751,8 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-          & p_p%edges%loc_index,         &
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
+          & p_p%edges%decomp_info%loc_index,         &
           & p_p%verts%edge_idx(:,:,ji),  &
           & p_p%verts%edge_blk(:,:,ji) )
       END DO
@@ -1775,7 +1775,7 @@ CONTAINS
 
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%glb_index,  &
+      CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
         & p_p%verts%num_edges(:,:) )
     ENDDO
 
@@ -1788,7 +1788,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_real( REAL(array_v_int(:,ji),wp),            &
-          & p_p%n_patch_verts, p_p%verts%glb_index,     &
+          & p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,     &
           & p_p%verts%edge_orientation(:,:,ji) )
       END DO
     END DO
@@ -1798,7 +1798,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
         & p_p%verts%dual_area(:,:) )
     ENDDO
 
@@ -1990,7 +1990,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
         & p_p%cells%cartesian_center(:,:)%x(1) )
     ENDDO
 
@@ -1998,7 +1998,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
         & p_p%cells%cartesian_center(:,:)%x(2) )
     ENDDO
 
@@ -2006,7 +2006,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+      CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
         & p_p%cells%cartesian_center(:,:)%x(3) )
     ENDDO
 
@@ -2015,7 +2015,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_center(:,:)%x(1) )
     ENDDO
 
@@ -2023,7 +2023,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_center(:,:)%x(2) )
     ENDDO
 
@@ -2031,7 +2031,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_center(:,:)%x(3) )
     ENDDO
 
@@ -2039,7 +2039,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_dual_middle(:,:)%x(1) )
     ENDDO
 
@@ -2047,7 +2047,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_dual_middle(:,:)%x(2) )
     ENDDO
 
@@ -2055,7 +2055,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%cartesian_dual_middle(:,:)%x(3) )
     ENDDO
 
@@ -2063,7 +2063,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%primal_cart_normal(:,:)%x(1) )
     ENDDO
 
@@ -2071,7 +2071,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%primal_cart_normal(:,:)%x(2) )
     ENDDO
 
@@ -2079,7 +2079,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%primal_cart_normal(:,:)%x(3) )
     ENDDO
 
@@ -2087,7 +2087,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%dual_cart_normal(:,:)%x(1) )
     ENDDO
 
@@ -2095,7 +2095,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%dual_cart_normal(:,:)%x(2) )
     ENDDO
 
@@ -2103,7 +2103,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index, &
         & p_p%edges%dual_cart_normal(:,:)%x(3) )
     ENDDO
 
@@ -2111,7 +2111,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
         & p_p%verts%cartesian(:,:)%x(1) )
     ENDDO
 
@@ -2119,7 +2119,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
         & p_p%verts%cartesian(:,:)%x(2) )
     ENDDO
 
@@ -2127,7 +2127,7 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+      CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index, &
         & p_p%verts%cartesian(:,:)%x(3) )
     ENDDO
 

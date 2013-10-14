@@ -595,7 +595,7 @@ CONTAINS
     !
     ! mask generation : ... not yet defined ...
     !
-    ! We could use the patch_horz%cells%owner_local information
+    ! We could use the patch_horz%cells%decomp_info%owner_local information
     ! e.g. to mask out halo points. We do we get the info about what is local and what
     ! is remote.
     !
@@ -632,13 +632,13 @@ CONTAINS
     grid_shape(2) = ocean_patch_3d%p_patch_2d(patch_no)%n_patch_cells
 
     CALL icon_cpl_def_grid ( &
-      & grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%glb_index, & ! input
+      & grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%glb_index, & ! input
       & grid_id, error_status )                          ! output
 
     ! Marker for internal and halo points, a list which contains the
     ! rank where the native cells are located.
     CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%owner_local, & ! input
+      & grid_id, grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%owner_local, & ! input
       & p_pe_work,  & ! this owner id
       & error_status )                                            ! output
 

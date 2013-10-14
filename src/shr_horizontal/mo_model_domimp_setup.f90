@@ -208,7 +208,7 @@ CONTAINS
 
       DO je =  i_startidx, i_endidx
 
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
         ! compute Cartesian coordinates (needed for RBF initialization)
         ptr_patch%edges%inv_primal_edge_length(je,jb) = &
@@ -258,7 +258,7 @@ CONTAINS
 
       DO je =  i_startidx, i_endidx
 
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
         ! compute inverse dual edge length (undefined for refin_ctrl=1)
 
@@ -613,7 +613,7 @@ CONTAINS
         
         DO je = i_startidx, i_endidx
           
-          IF(.NOT.patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT.patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
           !
           ! get global indices of the edges of the two neighboring cells
           !
@@ -699,7 +699,7 @@ CONTAINS
         
         DO je = i_startidx, i_endidx
           
-          IF(.NOT.patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT.patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
           
           iie = 0
           !
@@ -857,7 +857,7 @@ CONTAINS
         
       DO je = i_startidx, i_endidx
           
-        IF(.NOT.patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
         !
         ! get global indices of the two neighboring cells
@@ -1207,18 +1207,18 @@ CONTAINS
     
     !--------------------------------------------------------------------------------
     ! aliasing the halo_level to decomp_domain
-    patch%cells%halo_level => patch%cells%decomp_domain
-    patch%edges%halo_level => patch%edges%decomp_domain
-    patch%verts%halo_level => patch%verts%decomp_domain
+    patch%cells%decomp_info%halo_level => patch%cells%decomp_info%decomp_domain
+    patch%edges%decomp_info%halo_level => patch%edges%decomp_info%decomp_domain
+    patch%verts%decomp_info%halo_level => patch%verts%decomp_info%decomp_domain
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN
-      patch%cells%halo_level(:,:) = 0
-      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
-      patch%edges%halo_level(:,:) = 0
-      patch%edges%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
-      patch%verts%halo_level(:,:) = 0
-      patch%verts%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
+      patch%cells%decomp_info%halo_level(:,:) = 0
+      patch%cells%decomp_info%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
+      patch%edges%decomp_info%halo_level(:,:) = 0
+      patch%edges%decomp_info%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
+      patch%verts%decomp_info%halo_level(:,:) = 0
+      patch%verts%decomp_info%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
     ENDIF
 
     ! calculate dummy cell block, index, if exists
@@ -1231,7 +1231,7 @@ CONTAINS
         patch%cells%dummy_cell_index = 1 ! we have a whole dummy block, ie alloc_cell_blocks = nblks_c + 1
         IF (patch%alloc_cell_blocks <= patch%nblks_c) &
           & CALL finish(method_name, "alloc_cell_blocks <= nblks_c")
-        patch%cells%halo_level(:,patch%alloc_cell_blocks) = -1
+        patch%cells%decomp_info%halo_level(:,patch%alloc_cell_blocks) = -1
       ENDIF
     ELSE
       patch%cells%dummy_cell_block = 0
@@ -1245,40 +1245,40 @@ CONTAINS
     !    fill_subset(range subset,  halo levels, start level, end level)
  !   subset, patch, mask, start_mask, end_mask, subset_name
     CALL fill_subset(subset=patch%cells%all, patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%all%is_in_domain   = .false.
     
     CALL fill_subset(subset=patch%cells%owned, patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%owned%is_in_domain = .true.
     
     CALL fill_subset(subset=patch%cells%in_domain, patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=0, end_mask=0, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
     patch%cells%in_domain%is_in_domain = .true.
     
     CALL fill_subset(subset=patch%cells%not_owned, patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_owned%is_in_domain = .false.
     
     CALL fill_subset(subset=patch%cells%not_in_domain,  patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_cells)
     patch%cells%not_in_domain%is_in_domain = .false.
     
     CALL fill_subset(subset=patch%cells%one_edge_in_domain, patch=patch, &
-      & mask=patch%cells%halo_level, start_mask=0, end_mask=1, located=on_cells)
+      & mask=patch%cells%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_cells)
     patch%cells%one_edge_in_domain%is_in_domain = .false.
     
 !    IF (get_my_mpi_work_id() == 0) THEN
-!      write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!      write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
 !    ENDIF
     IF (patch%cells%in_domain%no_of_holes > 0) THEN
       IF (get_my_process_type() == ocean_process) THEN
 !      IF (get_my_mpi_work_id() == 0) THEN
-!        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
 !        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner_mask:",patch%cells%owner_mask(:,:)
+!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
 !        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner:",patch%cells%owner_local(:)
+!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
 !        write(0,*) "=============================="
 !        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
 !        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
@@ -1292,11 +1292,11 @@ CONTAINS
 
     IF (patch%cells%one_edge_in_domain%no_of_holes > 0)  THEN
 !      IF (get_my_mpi_work_id() == 0) THEN
-!        write(0,*) "patch%cells%halo_level:",patch%cells%halo_level
+!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
 !        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner_mask:",patch%cells%owner_mask(:,:)
+!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
 !        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner:",patch%cells%owner_local(:)
+!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
 !        write(0,*) "=============================="
 !        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
 !        write(0,*) "subset blocks:", patch%cells%one_edge_in_domain%start_block, patch%cells%in_domain%end_block
@@ -1310,23 +1310,23 @@ CONTAINS
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(subset=patch%edges%all, patch=patch, &
-      & mask=patch%edges%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
+      & mask=patch%edges%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%all%is_in_domain   = .false.
     
     CALL fill_subset(subset=patch%edges%owned, patch=patch, &
-      & mask=patch%edges%halo_level, start_mask=0, end_mask=0, located=on_edges)
+      & mask=patch%edges%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_edges)
     patch%edges%owned%is_in_domain = .true.
     
     CALL fill_subset(subset=patch%edges%in_domain, patch=patch, &
-      & mask=patch%edges%halo_level, start_mask=0, end_mask=1, located=on_edges)
+      & mask=patch%edges%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_edges)
     patch%edges%in_domain%is_in_domain   = .true.
     
     CALL fill_subset(subset=patch%edges%not_owned, patch=patch, &
-      & mask=patch%edges%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_edges)
+      & mask=patch%edges%decomp_info%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_owned%is_in_domain   = .false.
     
     CALL fill_subset(subset=patch%edges%not_in_domain, patch=patch, &
-      & mask=patch%edges%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
+      & mask=patch%edges%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_in_domain%is_in_domain   = .false.
     
     IF (patch%edges%owned%no_of_holes > 0)  THEN
@@ -1336,7 +1336,7 @@ CONTAINS
         CALL warning(method_name, "patch%edges%in_domain no_of_holes > 0")
     ENDIF
 !    IF (get_my_mpi_work_id() == 0) THEN
-!      write(0,*) "patch%edges%halo_level:",patch%edges%halo_level
+!      write(0,*) "patch%edges%decomp_info%halo_level:",patch%edges%decomp_info%halo_level
 !      write(0,*) "=============================="
 !    ENDIF
 
@@ -1344,30 +1344,30 @@ CONTAINS
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(subset=patch%verts%all,  patch=patch, &
-      & mask=patch%verts%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
+      & mask=patch%verts%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%all%is_in_domain   = .false.
     
     CALL fill_subset(subset=patch%verts%owned, patch=patch, &
-      & mask=patch%verts%halo_level, start_mask=0, end_mask=0, located=on_vertices)
+      & mask=patch%verts%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_vertices)
     patch%verts%owned%is_in_domain   = .true.
     
     CALL fill_subset(subset=patch%verts%in_domain, patch=patch, &
-      & mask=patch%verts%halo_level, start_mask=0, end_mask=1, located=on_vertices)
+      & mask=patch%verts%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_vertices)
     patch%verts%in_domain%is_in_domain   = .true.
     
     CALL fill_subset(subset=patch%verts%not_owned, patch=patch, &
-      & mask=patch%verts%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_vertices)
+      & mask=patch%verts%decomp_info%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_owned%is_in_domain   = .false.
     
     CALL fill_subset(subset=patch%verts%not_in_domain, patch=patch, &
-      & mask=patch%verts%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
+      & mask=patch%verts%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_in_domain%is_in_domain   = .false.
           
     ! write some info:
     !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
-    !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", patch%edges%glb_index
-    !     write(0,*) get_my_mpi_work_id(), "egdes halo_level:", patch%edges%halo_level
-    !     write(0,*) get_my_mpi_work_id(), "egdes owner:", patch%edges%owner_local
+    !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", patch%edges%decomp_info%glb_index
+    !     write(0,*) get_my_mpi_work_id(), "egdes halo_level:", patch%edges%decomp_info%halo_level
+    !     write(0,*) get_my_mpi_work_id(), "egdes owner:", patch%edges%decomp_info%owner_local
     !     IF (get_my_mpi_work_id() == 0) CALL work_mpi_barrier()
     
   END SUBROUTINE fill_grid_subsets
@@ -1382,18 +1382,18 @@ CONTAINS
     
     !--------------------------------------------------------------------------------
     ! aliasing the halo_level to decomp_domain
-    patch%cells%halo_level => patch%cells%decomp_domain
-    patch%edges%halo_level => patch%edges%decomp_domain
-    patch%verts%halo_level => patch%verts%decomp_domain
+    patch%cells%decomp_info%halo_level => patch%cells%decomp_info%decomp_domain
+    patch%edges%decomp_info%halo_level => patch%edges%decomp_info%decomp_domain
+    patch%verts%decomp_info%halo_level => patch%verts%decomp_info%decomp_domain
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN
-      patch%cells%halo_level(:,:) = 0
-      patch%cells%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
-      patch%edges%halo_level(:,:) = 0
-      patch%edges%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
-      patch%verts%halo_level(:,:) = 0
-      patch%verts%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
+      patch%cells%decomp_info%halo_level(:,:) = 0
+      patch%cells%decomp_info%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
+      patch%edges%decomp_info%halo_level(:,:) = 0
+      patch%edges%decomp_info%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
+      patch%verts%decomp_info%halo_level(:,:) = 0
+      patch%verts%decomp_info%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
     ENDIF
 
     !--------------------------------------------------------------------------------

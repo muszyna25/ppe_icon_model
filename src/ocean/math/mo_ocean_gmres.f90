@@ -662,7 +662,7 @@ CONTAINS
       ELSE
         z(1:end_nproma,jb) = r(1:end_nproma,jb)*r(1:end_nproma,jb)
       ENDIF
-      WHERE(.NOT.patch_2d%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+      WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
     ENDDO
 !$OMP END DO
     
@@ -739,7 +739,7 @@ CONTAINS
           ELSE
             z(1:end_nproma,jb) = w(1:end_nproma,jb) * v(1:end_nproma,jb,k)
           ENDIF
-          WHERE(.NOT.patch_2d%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+          WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
         ENDDO
 !$OMP END DO
         h_aux = omp_global_sum_array(z)
@@ -783,7 +783,7 @@ CONTAINS
         ELSE
           z(1:end_nproma,jb) = w(1:end_nproma,jb)*w(1:end_nproma,jb)
         ENDIF
-        WHERE(.NOT.patch_2d%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+        WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
       ENDDO
 !$OMP END DO
       
@@ -1079,7 +1079,7 @@ CONTAINS
       ELSE
         z(1:end_nproma,jb) = r(1:end_nproma,jb)*r(1:end_nproma,jb)
       ENDIF
-      WHERE(.NOT.patch_2d%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+      WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
     ENDDO
 !$OMP END DO
     
@@ -1156,7 +1156,7 @@ CONTAINS
           ELSE
             z(1:end_nproma,jb) = w(1:end_nproma,jb) * v(1:end_nproma,jb,k)
           ENDIF
-          WHERE(.NOT.patch_2d%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+          WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
         ENDDO
 !$OMP END DO
         h_aux = omp_global_sum_array(z)
@@ -1200,7 +1200,7 @@ CONTAINS
         ELSE
           z(1:end_nproma,jb) = w(1:end_nproma,jb)*w(1:end_nproma,jb)
         ENDIF
-        WHERE(.NOT.patch_2d%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+        WHERE(.NOT.patch_2d%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
       ENDDO
 !$OMP END DO
       

@@ -310,7 +310,7 @@ CONTAINS
       
         !
         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,1))
 
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
@@ -326,7 +326,7 @@ CONTAINS
 
         ENDIF
         CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%sst_m(:,:,2))
 
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
@@ -348,7 +348,7 @@ CONTAINS
       
         !
         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,1))
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
@@ -363,7 +363,7 @@ CONTAINS
 
         ENDIF
         CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g, &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm_td%fr_ice_m(:,:,2))
 
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)

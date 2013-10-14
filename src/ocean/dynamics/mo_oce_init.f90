@@ -220,7 +220,7 @@ CONTAINS
     !  - 2011-11-01, >r7005: read one data set, annual mean only
     !  - "T": annual mean temperature
     CALL read_netcdf_data (ncid, 'T', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-      &                    p_patch%cells%glb_index, n_zlev, z_prog)
+      &                    p_patch%cells%decomp_info%glb_index, n_zlev, z_prog)
 
     IF (no_tracer>=1) THEN
       !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
@@ -234,7 +234,7 @@ CONTAINS
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
       CALL read_netcdf_data (ncid, 'S', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-        &                    p_patch%cells%glb_index, n_zlev, z_prog)
+        &                    p_patch%cells%decomp_info%glb_index, n_zlev, z_prog)
       p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
 
@@ -406,7 +406,7 @@ CONTAINS
     !  - read one data set, annual mean only
     !  - "T": annual mean temperature
     CALL read_netcdf_data (ncid, 'T', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-      &                    p_patch%cells%glb_index, z_relax)
+      &                    p_patch%cells%decomp_info%glb_index, z_relax)
 
     IF (no_tracer>=1) THEN
       p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
@@ -418,7 +418,7 @@ CONTAINS
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
       CALL read_netcdf_data (ncid, 'S', p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-        &                    p_patch%cells%glb_index, z_relax)
+        &                    p_patch%cells%decomp_info%glb_index, z_relax)
       p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
     END IF
 

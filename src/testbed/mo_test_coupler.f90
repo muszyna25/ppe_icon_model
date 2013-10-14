@@ -124,19 +124,19 @@ CONTAINS
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
 
        CALL ICON_cpl_def_grid ( &
-         & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+         & grid_shape, p_patch(patch_no)%cells%decomp_info%glb_index, & ! input
          & grid_id, error_status )                          ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native vertices are located.
       CALL ICON_cpl_def_location ( &
-        & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
+        & grid_id, grid_shape, p_patch(patch_no)%cells%decomp_info%owner_local, & ! input
         & p_pe_work,  & ! this owner id
         & error_status )                                            ! output
       write(0,*) "p_pe_work:",  p_pe_work
       DO i=grid_shape(1),grid_shape(2)
-        write(0,*) i, "global idx:", p_patch(patch_no)%cells%glb_index(i),&
-         & " owner:",  p_patch(patch_no)%cells%owner_local(i)
+        write(0,*) i, "global idx:", p_patch(patch_no)%cells%decomp_info%glb_index(i),&
+         & " owner:",  p_patch(patch_no)%cells%decomp_info%owner_local(i)
       ENDDO
       ! Define exchange fields
       !
@@ -233,7 +233,7 @@ CONTAINS
           IF ( nfld == nfld_fix ) THEN
              DO nb = 1, field_shape(3)
                 DO i = field_shape(1), field_shape(2)
-                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%glb_index(i),wp)
+                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%decomp_info%glb_index(i),wp)
                 ENDDO
              ENDDO
           ELSE
@@ -260,7 +260,7 @@ CONTAINS
           IF ( nfld == 4 + nfld_fix ) THEN
              DO nb = 1, field_shape(3)
                 DO i = field_shape(1), field_shape(2)
-                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%glb_index(i),wp)
+                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%decomp_info%glb_index(i),wp)
                 ENDDO
              ENDDO
           ELSE
@@ -290,10 +290,10 @@ CONTAINS
                 DO nb = 1, field_shape(3)
                    DO i = field_shape(1), field_shape(2)
 
-                      IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
-                        IF (recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp)) THEN
+                      IF ( p_patch(patch_no)%cells%decomp_info%owner_local(i) == p_pe_work ) THEN
+                        IF (recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%decomp_info%glb_index(i),wp)) THEN
                             WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',    &
-                                 &                    p_patch(patch_no)%cells%glb_index(i), &
+                                 &                    p_patch(patch_no)%cells%decomp_info%glb_index(i), &
                                  &                    ' but got ',                          &
                                  &                      recv_field(i,nb)
                             CALL message('mo_cpl_dummy_model', TRIM(message_text))
@@ -306,7 +306,7 @@ CONTAINS
                 DO nb = 1, field_shape(3)
                    DO i = field_shape(1), field_shape(2)
 
-                      IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
+                      IF ( p_patch(patch_no)%cells%decomp_info%owner_local(i) == p_pe_work ) THEN
                          IF ( recv_field(i,nb) /= real(nfld,wp) ) THEN
                             WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',   &
                                  &                            nfld,                        &

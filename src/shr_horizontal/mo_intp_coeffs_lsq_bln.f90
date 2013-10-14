@@ -281,7 +281,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
 
       DO jc = i_startidx, i_endidx
 
-        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
         cnt = 1
 
@@ -336,7 +336,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
 
       DO jc = i_startidx, i_endidx
 
-        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
         cnt = 1
 
@@ -634,7 +634,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       IF (ptr_patch%cell_type == 3 )THEN
         nverts  = 3
@@ -955,7 +955,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
         ! Take care that z_lsq_mat_c isn't singular
         z_lsq_mat_c(jc,:,:) = 0.0_wp
         DO js = 1, MIN(lsq_dim_unk, lsq_dim_c)
@@ -1082,7 +1082,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! 7. Save transposed Q-Matrix
       ptr_int_lsq%lsq_qtmat_c(jc,1:lsq_dim_unk,1:lsq_dim_c,jb)  =  &
@@ -1129,7 +1129,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ist = 0
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! A = U * SIGMA * transpose(V)
       !
@@ -1171,7 +1171,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       DO jjb = 1, lsq_dim_c 
         DO jjk = 1, lsq_dim_unk
           DO jc = i_startidx, i_endidx
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
             ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb) =            &
               &  ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb)         &
               &  + zv_t(jjk,jja,jc) /zs(jjk,jc) * zu(jjb,jjk,jc)  &
@@ -1391,7 +1391,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       IF (ptr_patch%cell_type == 3 )THEN
         nverts  = 3
@@ -1711,7 +1711,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
         ! Take care that z_lsq_mat_c isn't singular
         z_lsq_mat_c(jc,:,:) = 0.0_wp
         DO js = 1, MIN(lsq_dim_unk, lsq_dim_c)
@@ -1838,7 +1838,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! 7. Save transposed Q-Matrix
       ptr_int_lsq%lsq_qtmat_c(jc,1:lsq_dim_unk,1:lsq_dim_c,jb)  =  &
@@ -1885,7 +1885,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ist = 0
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! A = U * SIGMA * transpose(V)
       !
@@ -1927,7 +1927,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       DO jjb = 1, lsq_dim_c 
         DO jjk = 1, lsq_dim_unk
           DO jc = i_startidx, i_endidx
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
             ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb) =            &
               &  ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb)         &
               &  + zv_t(jjk,jja,jc) /zs(jjk,jc) * zu(jjb,jjk,jc)  &
@@ -2102,7 +2102,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
     DO je = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+      IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
       ! inverse distance averaging (former subroutine cell2edge_lin_int_coeff)
       ! For the hexagonal grid, this is also the direct distance averaging
@@ -2142,7 +2142,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
       DO je = i_startidx, i_endidx
 
-        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
         ! distance averaging
         ptr_int_state%v_1o2_e(je,1,jb) = ptr_patch%edges%edge_vert_length(je,jb,1)/&
@@ -2171,7 +2171,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
     DO jc = 1, nlen
 
-       IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
        ptr_int_state%verts_aw_cells(jc,:,jb) = 0.0_wp
 
@@ -2255,7 +2255,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
     DO jv = i_startidx, i_endidx
 
-       IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+       IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
        ptr_int_state%cells_aw_verts(jv,:,jb) = 0.0_wp
 
@@ -2330,7 +2330,7 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
     DO jv = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+      IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
 
       ! initialize moments

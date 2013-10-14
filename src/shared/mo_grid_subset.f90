@@ -36,7 +36,8 @@ MODULE mo_grid_subset
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: warning, finish
-  USE mo_model_domain,   ONLY: t_patch, t_subset_range, t_subset_range_index, t_subset_indexed
+  USE mo_model_domain,   ONLY: t_patch, t_subset_range, t_subset_range_index, &
+                               t_subset_indexed
   USE mo_mpi,            ONLY: get_my_mpi_work_id
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
   USE mo_parallel_config, ONLY: nproma
@@ -180,14 +181,14 @@ CONTAINS
     subset%entity_location = located
     SELECT CASE( subset%entity_location )
       CASE( on_cells )
-        local_index_array => patch%cells%loc_index
-        owner_local       => patch%cells%owner_local
+        local_index_array => patch%cells%decomp_info%loc_index
+        owner_local       => patch%cells%decomp_info%owner_local
       CASE( on_edges )
-        local_index_array => patch%edges%loc_index
-        owner_local       => patch%edges%owner_local
+        local_index_array => patch%edges%decomp_info%loc_index
+        owner_local       => patch%edges%decomp_info%owner_local
       CASE( on_vertices )
-        local_index_array => patch%verts%loc_index
-        owner_local       => patch%verts%owner_local
+        local_index_array => patch%verts%decomp_info%loc_index
+        owner_local       => patch%verts%decomp_info%owner_local
       CASE default
         CALL finish(method_name, "Unknown subset%entity_location")
     END SELECT

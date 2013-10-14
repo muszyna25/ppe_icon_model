@@ -305,7 +305,7 @@ CONTAINS
     ALLOCATE(rrtm_model_data%dynamics_owner(my_radiation_cells), STAT=return_status)
     DO j=1, my_radiation_cells
       rrtm_model_data%dynamics_owner(j) = &
-      & patch%cells%owner_g(rrtm_model_data%global_index(j))
+      & patch%cells%decomp_info%owner_g(rrtm_model_data%global_index(j))
     ENDDO
 
     ! create the receive communicator from the dynamics
@@ -314,7 +314,7 @@ CONTAINS
       & total_no_of_points = my_radiation_cells,             &
       & receive_from_owner = rrtm_model_data%dynamics_owner, &
       & my_global_index = rrtm_model_data%global_index,      &
-      & owners_local_index = patch%cells%loc_index,          &
+      & owners_local_index = patch%cells%decomp_info%loc_index,          &
       & allow_send_to_myself = .true. ,                      &
       & name = "radiation_rcv_from_dynamics" )
 

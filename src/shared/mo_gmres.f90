@@ -278,7 +278,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jk,jb)*r(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -353,7 +353,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*v(1:nlen,jk,jb,k)
        ENDDO
-       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -402,7 +402,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*w(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -649,7 +649,7 @@ CONTAINS
        nlen = end_nproma
      ENDIF
      z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-     WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+     WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
    ENDDO
 !$OMP END DO
 
@@ -725,7 +725,7 @@ CONTAINS
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -770,7 +770,7 @@ CONTAINS
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -1046,7 +1046,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 ! #slo# - 2011-03-02 - to be checked lsm_oce vs. owner_mask in this module
@@ -1126,7 +1126,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
@@ -1173,7 +1173,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.patch_2D%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
      !WHERE(v_base%lsm_e(:,1,:)>sea_boundary) z(:,:) = 0.0_wp
@@ -1436,7 +1436,7 @@ REAL(wp) :: sum_aux(nblks)
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-!      WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+!      WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -1514,7 +1514,7 @@ REAL(wp) :: sum_aux(nblks)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 
@@ -1560,7 +1560,7 @@ REAL(wp) :: sum_aux(nblks)
          nlen = end_nproma
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       WHERE(.NOT.patch_2D%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.patch_2D%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 

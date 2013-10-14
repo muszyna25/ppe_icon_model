@@ -399,7 +399,7 @@ ELEMENTAL INTEGER FUNCTION loc_idx_no_e(p_p, idx)
   IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
     loc_idx_no_e = 0
   ELSE
-    loc_idx_no_e = idx_no(p_p%edges%loc_index(idx))
+    loc_idx_no_e = idx_no(p_p%edges%decomp_info%loc_index(idx))
   ENDIF
 END FUNCTION loc_idx_no_e
 !-------------------------------------------------------------------------
@@ -414,7 +414,7 @@ ELEMENTAL INTEGER FUNCTION loc_blk_no_e(p_p, idx)
   IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
     loc_blk_no_e = 0
   ELSE
-    loc_blk_no_e = blk_no(p_p%edges%loc_index(idx))
+    loc_blk_no_e = blk_no(p_p%edges%decomp_info%loc_index(idx))
   ENDIF
 END FUNCTION loc_blk_no_e
 !-------------------------------------------------------------------------
@@ -429,7 +429,7 @@ ELEMENTAL INTEGER FUNCTION glb_idx_1d_e(p_p, idx, blk)
   IF(idx<=0 .or. blk<=0 .or. idx_1d(idx, blk)>p_p%n_patch_edges) THEN
     glb_idx_1d_e = 0
   ELSE
-    glb_idx_1d_e = p_p%edges%glb_index(idx_1d(idx, blk))
+    glb_idx_1d_e = p_p%edges%decomp_info%glb_index(idx_1d(idx, blk))
   ENDIF
 END FUNCTION glb_idx_1d_e
 !-------------------------------------------------------------------------
@@ -497,11 +497,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     jb = blk_no(j)
     je = idx_no(j)
     IF (p_p%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. p_p%edges%child_id(je,jb) == icid) THEN
-      owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+      owner(j) = p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
     ENDIF
   ENDDO
-  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%glb_index, &
-    & p_lp%edges%loc_index, comm_pat_loc_to_glb_e)
+  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
+    & p_lp%edges%decomp_info%loc_index, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
@@ -510,11 +510,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     jb = blk_no(j)
     jc = idx_no(j)
     IF (p_p%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. p_p%cells%child_id(jc,jb) == icid) THEN
-      owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+      owner(j) = p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
     ENDIF
   ENDDO
-  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%glb_index, &
-    & p_lp%cells%loc_index, comm_pat_loc_to_glb_c)
+  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
+    & p_lp%cells%decomp_info%loc_index, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,4,p_lp%nblks_e))
@@ -690,18 +690,18 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   ALLOCATE(owner(p_p%n_patch_edges))
   DO j = 1, p_p%n_patch_edges
-    owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+    owner(j) = p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
   ENDDO
-  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%glb_index, &
-    & p_lp%edges%loc_index, comm_pat_loc_to_glb_e)
+  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
+    & p_lp%edges%decomp_info%loc_index, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
   DO j = 1, p_p%n_patch_cells
-    owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+    owner(j) = p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
   ENDDO
-  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%glb_index, &
-    & p_lp%cells%loc_index, comm_pat_loc_to_glb_c)
+  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
+    & p_lp%cells%decomp_info%loc_index, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_c))

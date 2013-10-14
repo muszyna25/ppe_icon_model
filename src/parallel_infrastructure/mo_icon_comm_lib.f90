@@ -485,43 +485,43 @@ CONTAINS
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
     patch%sync_cells_not_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_cells,   patch%cells%owner_local, &
-      & patch%cells%glb_index, patch%cells%loc_index,   &
+      & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
+      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info%loc_index,   &
       & name="cells_not_in_domain" )
     patch%sync_cells_not_owned = patch%sync_cells_not_in_domain
                
     patch%sync_cells_one_edge_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_cells,   patch%cells%owner_local, &
-      & patch%cells%glb_index, patch%cells%loc_index,   &
-      & halo_level=patch%cells%halo_level, level_start=1, level_end=1,&
+      & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
+      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info%loc_index,   &
+      & halo_level=patch%cells%decomp_info%halo_level, level_start=1, level_end=1,&
       & name="cells_one_edge_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
     patch%sync_edges_not_owned = new_icon_comm_pattern(   &
-      & patch%n_patch_edges,   patch%edges%owner_local, &
-      & patch%edges%glb_index, patch%edges%loc_index,   &
+      & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
+      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info%loc_index,   &
       & name="edges_not_owned")
     
     patch%sync_edges_not_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_edges,   patch%edges%owner_local, &
-      & patch%edges%glb_index, patch%edges%loc_index,   &
-      & halo_level=patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+      & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
+      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info%loc_index,   &
+      & halo_level=patch%edges%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="edges_not_in_domain")
     
     ! halo verts comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
     patch%sync_verts_not_owned = new_icon_comm_pattern(   &
-      & patch%n_patch_verts,   patch%verts%owner_local, &
-      & patch%verts%glb_index, patch%verts%loc_index,   &
+      & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
+      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info%loc_index,   &
       & name="verts_not_owned" )
         
     patch%sync_verts_not_in_domain = new_icon_comm_pattern(  &
-      & patch%n_patch_verts,   patch%verts%owner_local, &
-      & patch%verts%glb_index, patch%verts%loc_index,   &
-      & halo_level=patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+      & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
+      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info%loc_index,   &
+      & halo_level=patch%verts%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="verts_not_in_domain" )
         
     CALL print_grid_comm_stats(patch%sync_cells_not_in_domain)

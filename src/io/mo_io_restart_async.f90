@@ -1819,16 +1819,16 @@ CONTAINS
 
         ! set reorder data on work PE
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-                              p_patch(jl)%cells%owner_mask, p_patch(jl)%cells%phys_id,    &
-                              p_patch(jl)%cells%glb_index, p_pd%cells)
+                              p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
+                              p_patch(jl)%cells%decomp_info%glb_index, p_pd%cells)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-                              p_patch(jl)%edges%owner_mask, p_patch(jl)%edges%phys_id,    &
-                              p_patch(jl)%edges%glb_index, p_pd%edges)
+                              p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
+                              p_patch(jl)%edges%decomp_info%glb_index, p_pd%edges)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-                              p_patch(jl)%verts%owner_mask, p_patch(jl)%verts%phys_id,    &
-                              p_patch(jl)%verts%glb_index, p_pd%verts)
+                              p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
+                              p_patch(jl)%verts%decomp_info%glb_index, p_pd%verts)
       ENDIF
 
       ! transfer reorder data to restart PEs

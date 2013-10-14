@@ -1713,18 +1713,18 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
   INTEGER, POINTER :: glb_index(:), loc_index(:)
 
   IF(type_idx == SYNC_C) THEN
-    glb_index => p_p%cells%glb_index
-    loc_index => p_lp%cells%loc_index
+    glb_index => p_p%cells%decomp_info%glb_index
+    loc_index => p_lp%cells%decomp_info%loc_index
     n_idx_l = p_p%n_patch_cells
     n_idx_g = p_p%n_patch_cells_g
   ELSEIF(type_idx == SYNC_E) THEN
-    glb_index => p_p%edges%glb_index
-    loc_index => p_lp%edges%loc_index
+    glb_index => p_p%edges%decomp_info%glb_index
+    loc_index => p_lp%edges%decomp_info%loc_index
     n_idx_l = p_p%n_patch_edges
     n_idx_g = p_p%n_patch_edges_g
   ELSEIF(type_idx == SYNC_V) THEN
-    glb_index => p_p%verts%glb_index
-    loc_index => p_lp%verts%loc_index
+    glb_index => p_p%verts%decomp_info%glb_index
+    loc_index => p_lp%verts%decomp_info%loc_index
     n_idx_l = p_p%n_patch_verts
     n_idx_g = p_p%n_patch_verts_g
   ELSE
@@ -1833,26 +1833,26 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 
   ALLOCATE(owner(p_lp%n_patch_cells))
   DO j = 1, p_lp%n_patch_cells
-    owner(j) = p_p%cells%owner_g(p_lp%cells%glb_index(j))
+    owner(j) = p_p%cells%decomp_info%owner_g(p_lp%cells%decomp_info%glb_index(j))
   ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%glb_index,  &
-    & p_p%cells%loc_index, comm_pat_glb_to_loc_c)
+  CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%decomp_info%glb_index,  &
+    & p_p%cells%decomp_info%loc_index, comm_pat_glb_to_loc_c)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_lp%n_patch_edges))
   DO j = 1, p_lp%n_patch_edges
-    owner(j) = p_p%edges%owner_g(p_lp%edges%glb_index(j))
+    owner(j) = p_p%edges%decomp_info%owner_g(p_lp%edges%decomp_info%glb_index(j))
   ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_edges, owner, p_lp%edges%glb_index,  &
-    & p_p%edges%loc_index, comm_pat_glb_to_loc_e)
+  CALL setup_comm_pattern(p_lp%n_patch_edges, owner, p_lp%edges%decomp_info%glb_index,  &
+    & p_p%edges%decomp_info%loc_index, comm_pat_glb_to_loc_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_lp%n_patch_verts))
   DO j = 1, p_lp%n_patch_verts
-    owner(j) = p_p%verts%owner_g(p_lp%verts%glb_index(j))
+    owner(j) = p_p%verts%decomp_info%owner_g(p_lp%verts%decomp_info%glb_index(j))
   ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_verts, owner, p_lp%verts%glb_index,  &
-    & p_p%verts%loc_index, comm_pat_glb_to_loc_v)
+  CALL setup_comm_pattern(p_lp%n_patch_verts, owner, p_lp%verts%decomp_info%glb_index,  &
+    & p_p%verts%decomp_info%loc_index, comm_pat_glb_to_loc_v)
   DEALLOCATE(owner)
 
   ! Some edge related values of the patch are only set in

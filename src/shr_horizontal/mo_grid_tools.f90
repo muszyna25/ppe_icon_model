@@ -110,8 +110,8 @@ CONTAINS
     ELSE
       CALL finish(method_name, "patch is not present")
     ENDIF
-    local_vertex_array => edge_subset%patch%verts%loc_index
-    owner_edge_local   => edge_subset%patch%edges%owner_local
+    local_vertex_array => edge_subset%patch%verts%decomp_info%loc_index
+    owner_edge_local   => edge_subset%patch%edges%decomp_info%owner_local
 
 
     my_proc_id = get_my_mpi_work_id()

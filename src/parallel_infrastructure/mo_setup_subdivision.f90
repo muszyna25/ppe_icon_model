@@ -445,24 +445,24 @@ CONTAINS
 
     ! loc_index is never output to NetCDF
 
-    DEALLOCATE(p%cells%loc_index)
-    DEALLOCATE(p%edges%loc_index)
-    DEALLOCATE(p%verts%loc_index)
+    DEALLOCATE(p%cells%decomp_info%loc_index)
+    DEALLOCATE(p%edges%decomp_info%loc_index)
+    DEALLOCATE(p%verts%decomp_info%loc_index)
     ! Allocate it again so that we don't get problems during patch destruction
-    ALLOCATE(p%cells%loc_index(1))
-    ALLOCATE(p%edges%loc_index(1))
-    ALLOCATE(p%verts%loc_index(1))
+    ALLOCATE(p%cells%decomp_info%loc_index(1))
+    ALLOCATE(p%edges%decomp_info%loc_index(1))
+    ALLOCATE(p%verts%decomp_info%loc_index(1))
 
     ! owner_g is identical everywhere and output only for the first patch
 
     IF(n>1) THEN
-      DEALLOCATE(p%cells%owner_g)
-      DEALLOCATE(p%edges%owner_g)
-      DEALLOCATE(p%verts%owner_g)
+      DEALLOCATE(p%cells%decomp_info%owner_g)
+      DEALLOCATE(p%edges%decomp_info%owner_g)
+      DEALLOCATE(p%verts%decomp_info%owner_g)
       ! Allocate it again
-      ALLOCATE(p%cells%owner_g(1))
-      ALLOCATE(p%edges%owner_g(1))
-      ALLOCATE(p%verts%owner_g(1))
+      ALLOCATE(p%cells%decomp_info%owner_g(1))
+      ALLOCATE(p%edges%decomp_info%owner_g(1))
+      ALLOCATE(p%verts%decomp_info%owner_g(1))
     ENDIF
 
   END SUBROUTINE discard_large_arrays
@@ -1098,13 +1098,13 @@ CONTAINS
     ! the lowest processor number is chosen
     !-----------------------------------------------------------------------------------------------
 
-    wrk_p_patch%cells%owner_g(:) = cell_owner(:)
+    wrk_p_patch%cells%decomp_info%owner_g(:) = cell_owner(:)
 
-    wrk_p_patch%edges%owner_g(:) = -1
-    wrk_p_patch%verts%owner_g(:) = -1
+    wrk_p_patch%edges%decomp_info%owner_g(:) = -1
+    wrk_p_patch%verts%decomp_info%owner_g(:) = -1
 
     DO j = 1, wrk_p_patch_g%n_patch_cells
-      iown = wrk_p_patch%cells%owner_g(j)
+      iown = wrk_p_patch%cells%decomp_info%owner_g(j)
       IF(iown<0) CYCLE
       mod_iown = MOD(iown,2)
 
@@ -1114,24 +1114,24 @@ CONTAINS
         jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
         jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
         je = idx_1d(jl_e, jb_e)
-        IF (wrk_p_patch%edges%owner_g(je) < 0) THEN
-          wrk_p_patch%edges%owner_g(je) = iown
-        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==0 .OR. &
-                 mod_iown==1 .AND. MOD(wrk_p_patch%edges%owner_g(je),2)==1) THEN
-          wrk_p_patch%edges%owner_g(je) = MAX(iown,wrk_p_patch%edges%owner_g(je))
+        IF (wrk_p_patch%edges%decomp_info%owner_g(je) < 0) THEN
+          wrk_p_patch%edges%decomp_info%owner_g(je) = iown
+        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%edges%decomp_info%owner_g(je),2)==0 .OR. &
+                 mod_iown==1 .AND. MOD(wrk_p_patch%edges%decomp_info%owner_g(je),2)==1) THEN
+          wrk_p_patch%edges%decomp_info%owner_g(je) = MAX(iown,wrk_p_patch%edges%decomp_info%owner_g(je))
         ELSE
-          wrk_p_patch%edges%owner_g(je) = MIN(iown,wrk_p_patch%edges%owner_g(je))
+          wrk_p_patch%edges%decomp_info%owner_g(je) = MIN(iown,wrk_p_patch%edges%decomp_info%owner_g(je))
         ENDIF
         jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
         jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
         jv = idx_1d(jl_v, jb_v)
-        IF (wrk_p_patch%verts%owner_g(jv) < 0) THEN
-          wrk_p_patch%verts%owner_g(jv) = iown
-        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==0 .OR. &
-                 mod_iown==1 .AND. MOD(wrk_p_patch%verts%owner_g(jv),2)==1) THEN
-          wrk_p_patch%verts%owner_g(jv) = MAX(iown,wrk_p_patch%verts%owner_g(jv))
+        IF (wrk_p_patch%verts%decomp_info%owner_g(jv) < 0) THEN
+          wrk_p_patch%verts%decomp_info%owner_g(jv) = iown
+        ELSE IF (mod_iown==0 .AND. MOD(wrk_p_patch%verts%decomp_info%owner_g(jv),2)==0 .OR. &
+                 mod_iown==1 .AND. MOD(wrk_p_patch%verts%decomp_info%owner_g(jv),2)==1) THEN
+          wrk_p_patch%verts%decomp_info%owner_g(jv) = MAX(iown,wrk_p_patch%verts%decomp_info%owner_g(jv))
         ELSE
-          wrk_p_patch%verts%owner_g(jv) = MIN(iown,wrk_p_patch%verts%owner_g(jv))
+          wrk_p_patch%verts%decomp_info%owner_g(jv) = MIN(iown,wrk_p_patch%verts%decomp_info%owner_g(jv))
         ENDIF
       ENDDO
     ENDDO
@@ -1145,13 +1145,13 @@ CONTAINS
           jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
           jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
           je = idx_1d(jl_e,jb_e)
-          IF (wrk_p_patch%edges%owner_g(je) == my_proc) flag2_e(je)=0
+          IF (wrk_p_patch%edges%decomp_info%owner_g(je) == my_proc) flag2_e(je)=0
           IF (order_type_of_halos == 0 .AND. flag2_e(je)==1) flag2_e(je)=0
 
           jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
           jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
           jv = idx_1d(jl_v, jb_v)
-          IF (wrk_p_patch%verts%owner_g(jv) == my_proc) flag2_v(jv)=0
+          IF (wrk_p_patch%verts%decomp_info%owner_g(jv) == my_proc) flag2_v(jv)=0
           IF ((order_type_of_halos == 0 .OR. order_type_of_halos == 2) &
               .AND. flag2_v(jv)==1) flag2_v(jv)=0
         ENDDO
@@ -1176,8 +1176,8 @@ CONTAINS
          max_ilev = 2*n_boundary_rows, &
          max_hw_cve = 2*max_hw, &
          flag2 = flag2_c, &
-         glb_index = wrk_p_patch%cells%glb_index, &
-         loc_index = wrk_p_patch%cells%loc_index, &
+         glb_index = wrk_p_patch%cells%decomp_info%glb_index, &
+         loc_index = wrk_p_patch%cells%decomp_info%loc_index, &
          start_idx = wrk_p_patch%cells%start_idx, &
          start_blk = wrk_p_patch%cells%start_blk, &
          end_idx = wrk_p_patch%cells%end_idx, &
@@ -1205,8 +1205,8 @@ CONTAINS
          max_ilev = 2*n_boundary_rows+1, &
          max_hw_cve = 2*max_hw + 1, &
          flag2 = flag2_e, &
-         glb_index = wrk_p_patch%edges%glb_index, &
-         loc_index = wrk_p_patch%edges%loc_index, &
+         glb_index = wrk_p_patch%edges%decomp_info%glb_index, &
+         loc_index = wrk_p_patch%edges%decomp_info%loc_index, &
          start_idx = wrk_p_patch%edges%start_idx, &
          start_blk = wrk_p_patch%edges%start_blk, &
          end_idx = wrk_p_patch%edges%end_idx, &
@@ -1234,8 +1234,8 @@ CONTAINS
          max_ilev = n_boundary_rows+1, &
          max_hw_cve = max_hw + 1, &
          flag2 = flag2_v, &
-         glb_index = wrk_p_patch%verts%glb_index, &
-         loc_index = wrk_p_patch%verts%loc_index, &
+         glb_index = wrk_p_patch%verts%decomp_info%glb_index, &
+         loc_index = wrk_p_patch%verts%decomp_info%loc_index, &
          start_idx = wrk_p_patch%verts%start_idx, &
          start_blk = wrk_p_patch%verts%start_blk, &
          end_idx = wrk_p_patch%verts%end_idx, &
@@ -1295,9 +1295,9 @@ CONTAINS
 
     ! decomp_domain is -1 for invalid locations (at the end of the last strip)
 
-    wrk_p_patch%cells%decomp_domain = -1
-    wrk_p_patch%edges%decomp_domain = -1
-    wrk_p_patch%verts%decomp_domain = -1
+    wrk_p_patch%cells%decomp_info%decomp_domain = -1
+    wrk_p_patch%edges%decomp_info%decomp_domain = -1
+    wrk_p_patch%verts%decomp_info%decomp_domain = -1
 
     !---------------------------------------------------------------------------------------
 
@@ -1306,26 +1306,26 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in global patch
+      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in global patch
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%cells%loc_index, &
+        CALL get_local_index(wrk_p_patch%cells%decomp_info%loc_index, &
           & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),&
           & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),&
           & wrk_p_patch%cells%neighbor_idx(jl,jb,i),      &
           & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
+        CALL get_local_index(wrk_p_patch%edges%decomp_info%loc_index, &
           & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),    &
           & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),    &
           & wrk_p_patch%cells%edge_idx(jl,jb,i),          &
           & wrk_p_patch%cells%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
+        CALL get_local_index(wrk_p_patch%verts%decomp_info%loc_index, &
           & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),  &
           & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),  &
           & wrk_p_patch%cells%vertex_idx(jl,jb,i),        &
@@ -1339,8 +1339,8 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in global patch
+      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in global patch
 
       ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
@@ -1365,7 +1365,7 @@ CONTAINS
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_g%cells%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
-      wrk_p_patch%cells%decomp_domain(jl,jb)      = flag2_c(wrk_p_patch%cells%glb_index(j))
+      wrk_p_patch%cells%decomp_info%decomp_domain(jl,jb)      = flag2_c(wrk_p_patch%cells%decomp_info%glb_index(j))
 
     ENDDO
 
@@ -1376,8 +1376,8 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Block index in global patch
+      jl_g = idx_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Line  index in global patch
 
       ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
@@ -1390,7 +1390,7 @@ CONTAINS
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_g%edges%child_id(jl_g,jb_g)
 
       wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%edges%decomp_domain(jl,jb) = flag2_e(wrk_p_patch%edges%glb_index(j))
+      wrk_p_patch%edges%decomp_info%decomp_domain(jl,jb) = flag2_e(wrk_p_patch%edges%decomp_info%glb_index(j))
 
     ENDDO
 
@@ -1401,13 +1401,13 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Block index in global patch
+      jl_g = idx_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Line  index in global patch
 
       wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lat
       wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lon
       wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
+      wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%decomp_info%glb_index(j))
 
     ENDDO
 

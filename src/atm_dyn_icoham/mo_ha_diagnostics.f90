@@ -355,15 +355,15 @@ MODULE mo_ha_diagnostics
 !$OMP END PARALLEL
 #endif
 
-      WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_mass(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:)) z_mass(:,:) = 0._wp
       z_total_mass = global_sum_array(z_mass)
 
-      WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_energy(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:)) z_energy(:,:) = 0._wp
       z_total_energy = global_sum_array(z_energy)
 
       IF (ntracer > 0) THEN
         DO jt=1, ntracer
-          WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_aux_tracer(:,:,jt) = 0._wp
+          WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:)) z_aux_tracer(:,:,jt) = 0._wp
           z_total_tracer(jt) = global_sum_array(z_aux_tracer(:,:,jt))
         ENDDO
       ENDIF
@@ -484,10 +484,10 @@ MODULE mo_ha_diagnostics
         ENDDO
       ENDDO
 
-      WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_mass(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:)) z_mass(:,:) = 0._wp
       z_total_mass = global_sum_array(z_mass)
 
-      WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:)) z_energy(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:)) z_energy(:,:) = 0._wp
       z_total_energy = global_sum_array(z_energy)
 
       nblks_v   = p_patch(jg)%nblks_v
@@ -512,9 +512,9 @@ MODULE mo_ha_diagnostics
         ENDDO
       ENDDO
 
-      WHERE(.NOT.p_patch(jg)%verts%owner_mask(:,:)) z_circulation(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%verts%decomp_info%owner_mask(:,:)) z_circulation(:,:) = 0._wp
       z_total_circulation = global_sum_array(z_circulation)
-      WHERE(.NOT.p_patch(jg)%verts%owner_mask(:,:)) z_enstrophy(:,:) = 0._wp
+      WHERE(.NOT.p_patch(jg)%verts%decomp_info%owner_mask(:,:)) z_enstrophy(:,:) = 0._wp
       z_total_enstrophy = global_sum_array(z_enstrophy)
 
       DEALLOCATE(z_circulation, z_enstrophy)

@@ -470,13 +470,13 @@ MODULE mo_surface_les
 !$OMP PARALLEL WORKSHARE
       var(:,:) = theta(:,jk,:)
 !$OMP END PARALLEL WORKSHARE
-      WHERE(.NOT.p_patch%cells%owner_mask(:,:)) var(:,:) = 0._wp
+      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       theta_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
 !$OMP PARALLEL WORKSHARE
       var(:,:) = qv(:,jk,:)
 !$OMP END PARALLEL WORKSHARE
-      WHERE(.NOT.p_patch%cells%owner_mask(:,:)) var(:,:) = 0._wp
+      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
 !$OMP PARALLEL

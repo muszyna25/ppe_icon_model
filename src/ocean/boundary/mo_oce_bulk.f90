@@ -1956,7 +1956,7 @@ CONTAINS
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
       ! &  iforc_len, nproma, p_patch%nblks_c
       !CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
-      !  &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+      !  &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
       !  &                    iforc_len, z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       !do jt=1,jtime
@@ -1983,7 +1983,7 @@ CONTAINS
       END IF
 
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
 
 
@@ -1993,7 +1993,7 @@ CONTAINS
 
       ! meridional wind stress
       CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,2) = z_flux(:,:,jt)
@@ -2001,7 +2001,7 @@ CONTAINS
 
       ! SST
       CALL read_netcdf_data (ncid, 'SST', p_patch%n_patch_cells_g,           &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
@@ -2017,7 +2017,7 @@ CONTAINS
 
       ! 2m-temperature
       CALL read_netcdf_data (ncid, 'temp_2m', p_patch%n_patch_cells_g,       &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
@@ -2025,7 +2025,7 @@ CONTAINS
 
       ! 2m dewpoint temperature
       CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
@@ -2033,7 +2033,7 @@ CONTAINS
 
       ! Scalar wind
       CALL read_netcdf_data (ncid, 'scalar_wind', p_patch%n_patch_cells_g,   &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
@@ -2041,7 +2041,7 @@ CONTAINS
 
       ! cloud cover
       CALL read_netcdf_data (ncid, 'cloud', p_patch%n_patch_cells_g,         &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
@@ -2049,7 +2049,7 @@ CONTAINS
 
       ! sea level pressure
       CALL read_netcdf_data (ncid, 'pressure', p_patch%n_patch_cells_g,      &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,8) = z_flux(:,:,jt)
@@ -2057,7 +2057,7 @@ CONTAINS
 
       ! total solar radiation
       CALL read_netcdf_data (ncid, 'tot_solar', p_patch%n_patch_cells_g,     &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+        &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
         ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
@@ -2065,7 +2065,7 @@ CONTAINS
 
       ! precipitation
   !   CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
-  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
@@ -2073,13 +2073,13 @@ CONTAINS
 
       ! evaporation or downward surface LW flux
   !   CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
-  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
   !   CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
-  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
@@ -2087,7 +2087,7 @@ CONTAINS
 
       ! runoff
   !   CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
-  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)

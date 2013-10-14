@@ -710,7 +710,7 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%owner_mask(je,jb) .AND.     &
+          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
               p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
           ENDIF
@@ -728,7 +728,7 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%owner_mask(je,jb) .AND.     &
+          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
               p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
             p_nh(jg)%metrics%nudge_e_idx(ic) = je
@@ -973,10 +973,10 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
 
       IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
-        z_offctr = MAXVAL(p_nh(jg)%metrics%vwind_impl_wgt,MASK=p_patch(jg)%cells%owner_mask(:,:))
+        z_offctr = MAXVAL(p_nh(jg)%metrics%vwind_impl_wgt,MASK=p_patch(jg)%cells%decomp_info%owner_mask(:,:))
         z_offctr = global_max(z_offctr) - 0.5_wp
         DO jk = 1, nlev
-          WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,:))
+          WHERE(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(:,:))
             z_maxslp(:,jk,:)  = -HUGE(0._wp)
             z_maxhgtd(:,jk,:) = -HUGE(0._wp)
           END WHERE
@@ -1209,7 +1209,7 @@ MODULE mo_vertical_grid
       ! Please note also that a patch may be completely empty on some processors,
       ! in this case MINVAL returns HUGE() so there is no special care needed.
 
-      nflat_gradp(jg) = MINVAL(flat_idx(:,:), MASK=p_patch(jg)%edges%owner_mask(:,:))
+      nflat_gradp(jg) = MINVAL(flat_idx(:,:), MASK=p_patch(jg)%edges%decomp_info%owner_mask(:,:))
       nflat_gradp(jg) = NINT(global_min(REAL(nflat_gradp(jg),wp)))
 
       ! Compute level indices of neighbor cells within which the local edge is located
@@ -1452,7 +1452,7 @@ MODULE mo_vertical_grid
               IF ( z_me(je,jk,jb) < z_aux2(je)) THEN
 
                 ! Save information needed for index list setup
-                IF (p_patch(jg)%edges%owner_mask(je,jb)) THEN
+                IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb)) THEN
                   imask(je,jk,jb) = 1
                   icount(jb)      = icount(jb) + 1
                   z_shift(je,jk,jb) = z_me(je,jk,jb) - z_aux2(je)
@@ -1783,7 +1783,7 @@ MODULE mo_vertical_grid
 
       DO jc = i_startidx, i_endidx
         IF ((z_maxslp_avg(jc,nlev,jb)>=thslp_zdiffu .OR. z_maxhgtd_avg(jc,nlev,jb)>=thhgtd_zdiffu) &
-            .AND. p_patch%cells%owner_mask(jc,jb)) THEN
+            .AND. p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
           ji = ji+1
           i_blklist(ji) = jb
           i_indlist(ji) = jc

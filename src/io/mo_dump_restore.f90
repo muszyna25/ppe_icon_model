@@ -1608,8 +1608,8 @@ CONTAINS
       CALL bvar_io(1,2,'patch.cells.center.lon',       p%cells%center(:,:)%lon)
       CALL bvar_io(1,2,'patch.cells.center.lat',       p%cells%center(:,:)%lat)
       CALL bvar_io(1,2,'patch.cells.refin_ctrl',       p%cells%refin_ctrl)
-      CALL bvar_io(1,2,'patch.cells.decomp_domain',    p%cells%decomp_domain)
-      CALL uvar_io(    'patch.cells.glb_index',        p%cells%glb_index)
+      CALL bvar_io(1,2,'patch.cells.decomp_domain',    p%cells%decomp_info%decomp_domain)
+      CALL uvar_io(    'patch.cells.glb_index',        p%cells%decomp_info%glb_index)
       CALL bvar_io(1,2,'patch.cells.cart_center.x1',   p%cells%cartesian_center(:,:)%x(1))
       CALL bvar_io(1,2,'patch.cells.cart_center.x2',   p%cells%cartesian_center(:,:)%x(2))
       CALL bvar_io(1,2,'patch.cells.cart_center.x3',   p%cells%cartesian_center(:,:)%x(3))
@@ -1619,14 +1619,14 @@ CONTAINS
       CALL bvar_io(1,2,'patch.cells.edge_orientation', p%cells%edge_orientation)
       CALL bvar_io(1,2,'patch.cells.area',             p%cells%area)
       CALL bvar_io(1,2,'patch.cells.f_c',              p%cells%f_c)
-      CALL bvar_io(1,2,'patch.cells.owner_mask',       p%cells%owner_mask)
-      CALL uvar_io(    'patch.cells.owner_local',      p%cells%owner_local)
+      CALL bvar_io(1,2,'patch.cells.owner_mask',       p%cells%decomp_info%owner_mask)
+      CALL uvar_io(    'patch.cells.owner_local',      p%cells%decomp_info%owner_local)
      ENDIF
     ENDIF
     CALL uidx_io  (    'patch.cells.start_index',      p%cells%start_idx,p%cells%start_blk)
     CALL uidx_io  (    'patch.cells.end_index',        p%cells%end_idx,  p%cells%end_blk)
     IF(netcdf_read .OR. my_record==1) & ! Note: owner_g has to be stored only once
-    CALL uvar_io  (    'patch.cells.owner_g',          p%cells%owner_g)
+    CALL uvar_io  (    'patch.cells.owner_g',          p%cells%decomp_info%owner_g)
 
 
     IF(p%n_patch_edges>0) THEN
@@ -1635,8 +1635,8 @@ CONTAINS
       CALL bidx_io(1,2,'patch.edges.child_index',      p%edges%child_idx,  p%edges%child_blk)
       CALL bvar_io(1,2,'patch.edges.child_id',         p%edges%child_id)
       CALL bvar_io(1,2,'patch.edges.refin_ctrl',             p%edges%refin_ctrl)
-      CALL bvar_io(1,2,'patch.edges.decomp_domain',          p%edges%decomp_domain)
-      CALL uvar_io(    'patch.edges.glb_index',              p%edges%glb_index)
+      CALL bvar_io(1,2,'patch.edges.decomp_domain',          p%edges%decomp_info%decomp_domain)
+      CALL uvar_io(    'patch.edges.glb_index',              p%edges%decomp_info%glb_index)
       CALL bvar_io(1,2,'patch.edges.cart_center.x1',   p%edges%cartesian_center(:,:)%x(1))
       CALL bvar_io(1,2,'patch.edges.cart_center.x2',   p%edges%cartesian_center(:,:)%x(2))
       CALL bvar_io(1,2,'patch.edges.cart_center.x3',   p%edges%cartesian_center(:,:)%x(3))
@@ -1680,20 +1680,20 @@ CONTAINS
       CALL bvar_io(1,2,'patch.edges.area_edge',              p%edges%area_edge)
       CALL bvar_io(1,2,'patch.edges.quad_area',              p%edges%quad_area)
       CALL bvar_io(1,2,'patch.edges.f_e',                    p%edges%f_e)
-      CALL bvar_io(1,2,'patch.edges.owner_mask',             p%edges%owner_mask)
+      CALL bvar_io(1,2,'patch.edges.owner_mask',             p%edges%decomp_info%owner_mask)
      ENDIF
     ENDIF
     CALL uidx_io  (    'patch.edges.start_index',            p%edges%start_idx, p%edges%start_blk)
     CALL uidx_io  (    'patch.edges.end_index',              p%edges%end_idx,   p%edges%end_blk)
     IF(netcdf_read .OR. my_record==1) & ! Note: owner_g has to be stored only once
-    CALL uvar_io  (    'patch.edges.owner_g',                p%edges%owner_g)
+    CALL uvar_io  (    'patch.edges.owner_g',                p%edges%decomp_info%owner_g)
 
     IF(p%n_patch_verts>0) THEN
       CALL bvar_io(1,2,'patch.verts.vertex.lon',       p%verts%vertex(:,:)%lon)
       CALL bvar_io(1,2,'patch.verts.vertex.lat',       p%verts%vertex(:,:)%lat)
       CALL bvar_io(1,2,'patch.verts.refin_ctrl',       p%verts%refin_ctrl)
-      CALL bvar_io(1,2,'patch.verts.decomp_domain',    p%verts%decomp_domain)
-      CALL uvar_io(    'patch.verts.glb_index',        p%verts%glb_index)
+      CALL bvar_io(1,2,'patch.verts.decomp_domain',    p%verts%decomp_info%decomp_domain)
+      CALL uvar_io(    'patch.verts.glb_index',        p%verts%decomp_info%glb_index)
       CALL bvar_io(1,2,'patch.verts.cartesian.x1',     p%verts%cartesian(:,:)%x(1))
       CALL bvar_io(1,2,'patch.verts.cartesian.x2',     p%verts%cartesian(:,:)%x(2))
       CALL bvar_io(1,2,'patch.verts.cartesian.x3',     p%verts%cartesian(:,:)%x(3))
@@ -1707,13 +1707,13 @@ CONTAINS
       CALL bvar_io(1,2,'patch.verts.num_edges',        p%verts%num_edges)
       CALL bvar_io(1,2,'patch.verts.dual_area',        p%verts%dual_area)
       CALL bvar_io(1,2,'patch.verts.f_v',              p%verts%f_v)
-      CALL bvar_io(1,2,'patch.verts.owner_mask',       p%verts%owner_mask)
+      CALL bvar_io(1,2,'patch.verts.owner_mask',       p%verts%decomp_info%owner_mask)
      ENDIF
     ENDIF
     CALL uidx_io  (    'patch.verts.start_index',      p%verts%start_idx, p%verts%start_blk)
     CALL uidx_io  (    'patch.verts.end_index',        p%verts%end_idx,   p%verts%end_blk)
     IF(netcdf_read .OR. my_record==1) & ! Note: owner_g has to be stored only once
-    CALL uvar_io  (    'patch.verts.owner_g',          p%verts%owner_g)
+    CALL uvar_io  (    'patch.verts.owner_g',          p%verts%decomp_info%owner_g)
 
     IF(lfull) THEN
       CALL comm_pat_io('comm_pat_c',                   p%comm_pat_c)
@@ -2901,12 +2901,12 @@ CONTAINS
     CALL patch_io(p, lfull)
 
     ! Restore local index arrays since these are not saved due to size
-    CALL restore_loc_index(p%n_patch_cells, p%n_patch_cells_g, p%cells%glb_index, &
-                           p%cells%loc_index)
-    CALL restore_loc_index(p%n_patch_edges, p%n_patch_edges_g, p%edges%glb_index, &
-                           p%edges%loc_index)
-    CALL restore_loc_index(p%n_patch_verts, p%n_patch_verts_g, p%verts%glb_index, &
-                           p%verts%loc_index)
+    CALL restore_loc_index(p%n_patch_cells, p%n_patch_cells_g, p%cells%decomp_info%glb_index, &
+                           p%cells%decomp_info%loc_index)
+    CALL restore_loc_index(p%n_patch_edges, p%n_patch_edges_g, p%edges%decomp_info%glb_index, &
+                           p%edges%decomp_info%loc_index)
+    CALL restore_loc_index(p%n_patch_verts, p%n_patch_verts_g, p%verts%decomp_info%glb_index, &
+                           p%verts%decomp_info%loc_index)
 
   END SUBROUTINE restore_patch_netcdf
 

@@ -852,7 +852,7 @@ CONTAINS
           ! set local triangle index, block:
           meteogram_data%station(jc,jb)%tri_idx_local(1:2) = tri_idx(1:2,jc,jb)
           ! translate local index to global index:
-          glb_index = ptr_patch%cells%glb_index(idx_1d(tri_idx(1,jc,jb), &
+          glb_index = ptr_patch%cells%decomp_info%glb_index(idx_1d(tri_idx(1,jc,jb), &
             &                                          tri_idx(2,jc,jb)))
           meteogram_data%station(jc,jb)%tri_idx(1:2) =  &
             &  (/ idx_no(glb_index), blk_no(glb_index) /)

@@ -1012,7 +1012,7 @@ CONTAINS
       CALL get_index_range(p_patch%verts%all, jb, i_startidx_v, i_endidx_v) 
       DO jv = i_startidx_v,i_endidx_v
         k=k+1
-        globList_nod2D(k) = p_patch%verts%glb_index(k)
+        globList_nod2D(k) = p_patch%verts%decomp_info%glb_index(k)
       ENDDO
     ENDDO
 
@@ -1024,7 +1024,7 @@ CONTAINS
       CALL get_index_range(p_patch%cells%all, jb, i_startidx_c, i_endidx_c) 
       DO jc = i_startidx_c,i_endidx_c
         k=k+1
-        globList_elem2D(k) = p_patch%cells%glb_index(k)
+        globList_elem2D(k) = p_patch%cells%decomp_info%glb_index(k)
       ENDDO
     ENDDO
 

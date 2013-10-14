@@ -153,7 +153,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
               ! Sum must be taken over owned points of nest overlap region only
               IF (p_gcp%refin_ctrl(jc,jb) <= grf_fbk_start_c .AND. p_gcp%child_id(jc,jb) == jgc .AND. &
-                p_gcp%owner_mask(jc,jb)) &
+                p_gcp%decomp_info%owner_mask(jc,jb)) &
                 cell_volume(jc,jk,jb) = p_gcp%area(jc,jb)*p_nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb)
             ENDDO
           ENDDO

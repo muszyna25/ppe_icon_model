@@ -638,7 +638,7 @@ DO jb = i_startblk, i_endblk
       (p_parent_prog%pres_sfc(jc,jb)-p_parent_save%pres_sfc(jc,jb))*p_patch(jgp)%cells%area(jc,jb)
   ENDDO
   ! Sum must be taken over inner domain only, the halos must be masked out!
-  WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb)) parent_tend(:,jb) = 0._wp
+  WHERE(.NOT.p_patch(jgp)%cells%decomp_info%owner_mask(:,jb)) parent_tend(:,jb) = 0._wp
 ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

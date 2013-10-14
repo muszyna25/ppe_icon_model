@@ -46,7 +46,7 @@ MODULE mo_sync
 
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
-USE mo_model_domain,       ONLY: t_patch
+USE mo_model_domain,       ONLY: t_patch, t_grid_domain_decomp_info
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
 USE mo_math_constants,     ONLY: pi
@@ -571,20 +571,20 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    IF(typ == SYNC_C .OR. typ == SYNC_C1) THEN
       ndim   = p_patch%n_patch_cells
       ndim_g = p_patch%n_patch_cells_g
-      p_glb_index => p_patch%cells%glb_index
-      p_decomp_domain => p_patch%cells%decomp_domain
+      p_glb_index => p_patch%cells%decomp_info%glb_index
+      p_decomp_domain => p_patch%cells%decomp_info%decomp_domain
       ityp = typ
    ELSE IF(typ == SYNC_E) THEN
       ndim   = p_patch%n_patch_edges
       ndim_g = p_patch%n_patch_edges_g
-      p_glb_index => p_patch%edges%glb_index
-      p_decomp_domain => p_patch%edges%decomp_domain
+      p_glb_index => p_patch%edges%decomp_info%glb_index
+      p_decomp_domain => p_patch%edges%decomp_info%decomp_domain
       ityp = typ
    ELSE IF(typ == SYNC_V) THEN
       ndim   = p_patch%n_patch_verts
       ndim_g = p_patch%n_patch_verts_g
-      p_glb_index => p_patch%verts%glb_index
-      p_decomp_domain => p_patch%verts%decomp_domain
+      p_glb_index => p_patch%verts%decomp_info%glb_index
+      p_decomp_domain => p_patch%verts%decomp_info%decomp_domain
       ityp = typ
    ELSE IF(typ == 0) THEN
       ! typ == 0 may be set for quick checks without knowing the type of the array.
@@ -593,20 +593,20 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       IF(ndim3 == p_patch%nblks_c) THEN
          ndim   = p_patch%n_patch_cells
          ndim_g = p_patch%n_patch_cells_g
-         p_glb_index => p_patch%cells%glb_index
-         p_decomp_domain => p_patch%cells%decomp_domain
+         p_glb_index => p_patch%cells%decomp_info%glb_index
+         p_decomp_domain => p_patch%cells%decomp_info%decomp_domain
          ityp = SYNC_C
       ELSE IF(ndim3 == p_patch%nblks_e) THEN
          ndim   = p_patch%n_patch_edges
          ndim_g = p_patch%n_patch_edges_g
-         p_glb_index => p_patch%edges%glb_index
-         p_decomp_domain => p_patch%edges%decomp_domain
+         p_glb_index => p_patch%edges%decomp_info%glb_index
+         p_decomp_domain => p_patch%edges%decomp_info%decomp_domain
          ityp = SYNC_E
       ELSE IF(ndim3 == p_patch%nblks_v) THEN
          ndim   = p_patch%n_patch_verts
          ndim_g = p_patch%n_patch_verts_g
-         p_glb_index => p_patch%verts%glb_index
-         p_decomp_domain => p_patch%verts%decomp_domain
+         p_glb_index => p_patch%verts%decomp_info%glb_index
+         p_decomp_domain => p_patch%verts%decomp_info%decomp_domain
          ityp = SYNC_V
       ELSE
          CALL finish('check_patch_array','typ==0 but unknown blocksize of array')
@@ -834,18 +834,18 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
   ENDIF
 
   IF(type_idx == SYNC_C) THEN
-    glb_index => p_patch%cells%glb_index
-    loc_index => p_patch%cells%loc_index
+    glb_index => p_patch%cells%decomp_info%glb_index
+    loc_index => p_patch%cells%decomp_info%loc_index
     n_idx = p_patch%n_patch_cells
     n_idx_g = p_patch%n_patch_cells_g
   ELSEIF(type_idx == SYNC_E) THEN
-    glb_index => p_patch%edges%glb_index
-    loc_index => p_patch%edges%loc_index
+    glb_index => p_patch%edges%decomp_info%glb_index
+    loc_index => p_patch%edges%decomp_info%loc_index
     n_idx = p_patch%n_patch_edges
     n_idx_g = p_patch%n_patch_edges_g
   ELSEIF(type_idx == SYNC_V) THEN
-    glb_index => p_patch%verts%glb_index
-    loc_index => p_patch%verts%loc_index
+    glb_index => p_patch%verts%decomp_info%glb_index
+    loc_index => p_patch%verts%decomp_info%loc_index
     n_idx = p_patch%n_patch_verts
     n_idx_g = p_patch%n_patch_verts_g
   ELSE

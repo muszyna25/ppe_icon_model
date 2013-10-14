@@ -976,9 +976,9 @@ CONTAINS
 
       CALL p_bcast(n_dims, bcast_root(), p_comm_work_2_io)
 
-      CALL p_bcast(p_patch(jg)%cells%owner_g, bcast_root(), p_comm_work_2_io)
-      CALL p_bcast(p_patch(jg)%edges%owner_g, bcast_root(), p_comm_work_2_io)
-      CALL p_bcast(p_patch(jg)%verts%owner_g, bcast_root(), p_comm_work_2_io)
+      CALL p_bcast(p_patch(jg)%cells%decomp_info%owner_g, bcast_root(), p_comm_work_2_io)
+      CALL p_bcast(p_patch(jg)%edges%decomp_info%owner_g, bcast_root(), p_comm_work_2_io)
+      CALL p_bcast(p_patch(jg)%verts%decomp_info%owner_g, bcast_root(), p_comm_work_2_io)
 
       ! Send name of grid file for building vlist
       CALL p_bcast(p_patch(jg)%grid_filename, bcast_root(), p_comm_work_2_io)
@@ -1001,14 +1001,14 @@ CONTAINS
 
       ! cells
 
-      n = COUNT(p_patch(jg)%cells%owner_g(:) == p_pe_work)
+      n = COUNT(p_patch(jg)%cells%decomp_info%owner_g(:) == p_pe_work)
       patch_owner_info(jg)%n_own_cells = n
       ALLOCATE(patch_owner_info(jg)%own_cell_idx(n))
       ALLOCATE(patch_owner_info(jg)%own_cell_blk(n))
 
       n = 0
       DO i = 1, p_patch(jg)%n_patch_cells
-        IF(p_patch(jg)%cells%owner_mask(idx_no(i),blk_no(i))) THEN
+        IF(p_patch(jg)%cells%decomp_info%owner_mask(idx_no(i),blk_no(i))) THEN
           n = n+1
           patch_owner_info(jg)%own_cell_idx(n) = idx_no(i)
           patch_owner_info(jg)%own_cell_blk(n) = blk_no(i)
@@ -1018,14 +1018,14 @@ CONTAINS
 
       ! edges
 
-      n = COUNT(p_patch(jg)%edges%owner_g(:) == p_pe_work)
+      n = COUNT(p_patch(jg)%edges%decomp_info%owner_g(:) == p_pe_work)
       patch_owner_info(jg)%n_own_edges = n
       ALLOCATE(patch_owner_info(jg)%own_edge_idx(n))
       ALLOCATE(patch_owner_info(jg)%own_edge_blk(n))
 
       n = 0
       DO i = 1, p_patch(jg)%n_patch_edges
-        IF(p_patch(jg)%edges%owner_mask(idx_no(i),blk_no(i))) THEN
+        IF(p_patch(jg)%edges%decomp_info%owner_mask(idx_no(i),blk_no(i))) THEN
           n = n+1
           patch_owner_info(jg)%own_edge_idx(n) = idx_no(i)
           patch_owner_info(jg)%own_edge_blk(n) = blk_no(i)
@@ -1035,14 +1035,14 @@ CONTAINS
 
       ! verts
 
-      n = COUNT(p_patch(jg)%verts%owner_g(:) == p_pe_work)
+      n = COUNT(p_patch(jg)%verts%decomp_info%owner_g(:) == p_pe_work)
       patch_owner_info(jg)%n_own_verts = n
       ALLOCATE(patch_owner_info(jg)%own_vert_idx(n))
       ALLOCATE(patch_owner_info(jg)%own_vert_blk(n))
 
       n = 0
       DO i = 1, p_patch(jg)%n_patch_verts
-        IF(p_patch(jg)%verts%owner_mask(idx_no(i),blk_no(i))) THEN
+        IF(p_patch(jg)%verts%decomp_info%owner_mask(idx_no(i),blk_no(i))) THEN
           n = n+1
           patch_owner_info(jg)%own_vert_idx(n) = idx_no(i)
           patch_owner_info(jg)%own_vert_blk(n) = blk_no(i)

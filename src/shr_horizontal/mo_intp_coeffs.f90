@@ -305,7 +305,7 @@ CONTAINS
         ENDIF
         DO jc = 1, nlen
           
-          IF(.NOT.p_ce%owner_mask(jc,jb)) CYCLE
+          IF(.NOT.p_ce%decomp_info%owner_mask(jc,jb)) CYCLE
           
           n_edges = p_ce%num_edges(jc,jb)
           DO je1 = 1, n_edges
@@ -363,7 +363,7 @@ CONTAINS
         ENDIF
         DO je = 1, nlen
           
-          IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
+          IF(.NOT.p_ed%decomp_info%owner_mask(je,jb)) CYCLE
           
           incr = 0
           DO jc = 1, 2
@@ -491,7 +491,7 @@ CONTAINS
       ENDIF
       DO jc = 1, nlen
         
-        IF(.NOT.p_ce%owner_mask(jc,jb)) CYCLE
+        IF(.NOT.p_ce%decomp_info%owner_mask(jc,jb)) CYCLE
         
         IF (.NOT. lplane) THEN
           CALL gvec2cvec(0.0_wp,1.0_wp,p_ce%center(jc,jb)%lon,p_ce%center(jc,jb)%lat, &
@@ -543,7 +543,7 @@ CONTAINS
       ENDIF
       DO jv = 1, nlen
         
-        IF(.NOT.p_ve%owner_mask(jv,jb)) CYCLE
+        IF(.NOT.p_ve%decomp_info%owner_mask(jv,jb)) CYCLE
         
         IF (.NOT. lplane) THEN
           CALL gvec2cvec(0.0_wp,1.0_wp,p_ve%vertex(jv,jb)%lon,p_ve%vertex(jv,jb)%lat, &
@@ -603,7 +603,7 @@ CONTAINS
         ENDIF
         DO je = 1, nlen
           
-          IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
+          IF(.NOT.p_ed%decomp_info%owner_mask(je,jb)) CYCLE
           
           IF (.NOT. lplane) THEN
             CALL gvec2cvec(0.0_wp,1.0_wp,p_ed%center(je,jb)%lon,p_ed%center(je,jb)%lat, &
@@ -683,7 +683,7 @@ CONTAINS
         ENDIF
         DO je = 1, nlen
           
-          IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
+          IF(.NOT.p_ed%decomp_info%owner_mask(je,jb)) CYCLE
           
           incr    = 0
           
@@ -1086,7 +1086,7 @@ CONTAINS
       
       DO jc = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
         
         yloc = ptr_patch%cells%center(jc,jb)%lat
         xloc = ptr_patch%cells%center(jc,jb)%lon
@@ -1259,7 +1259,7 @@ CONTAINS
       
       DO jc = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
         
         ! line and block indices of the neighbouring cells
         
@@ -1342,7 +1342,7 @@ CONTAINS
         
         DO jc = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
           
           ilc1 = ptr_patch%cells%neighbor_idx(jc,jb,1)
           ibc1 = ptr_patch%cells%neighbor_blk(jc,jb,1)
@@ -1378,7 +1378,7 @@ CONTAINS
         
         DO jc = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
           
           ! For mass conservation, wgt_loc_sum/area should be 1 for each cell
           ! The deviation therefrom is termed residuum here.
@@ -1404,7 +1404,7 @@ CONTAINS
           
           DO jc = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
             
             ! line and block indices of the neighbouring cells
             
@@ -1451,7 +1451,7 @@ CONTAINS
           
           DO jc = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
             
             ! Modify weighting coefficients
             
@@ -1486,7 +1486,7 @@ CONTAINS
           
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
             ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
@@ -1575,7 +1575,7 @@ CONTAINS
           
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
             ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
@@ -1698,7 +1698,7 @@ CONTAINS
           
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ile1 = ptr_patch%edges%quad_idx(je,jb,1)
             ibe1 = ptr_patch%edges%quad_blk(je,jb,1)
@@ -2032,7 +2032,7 @@ CONTAINS
       DO je = 1, 9-ptr_patch%cell_type
         DO jv = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+          IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
           
           IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE
           
@@ -2160,7 +2160,7 @@ CONTAINS
         DO je1 = 1, 4
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ile = ptr_patch%edges%quad_idx(je,jb,je1)
             ibe = ptr_patch%edges%quad_blk(je,jb,je1)
@@ -2200,7 +2200,7 @@ CONTAINS
         
         DO je = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
           
           ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
           ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
@@ -2249,7 +2249,7 @@ CONTAINS
         DO je1 = 1, 2
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ile = ptr_patch%edges%quad_idx(je,jb,je1)
             ibe = ptr_patch%edges%quad_blk(je,jb,je1)
@@ -2281,7 +2281,7 @@ CONTAINS
         DO je1 = 3, 4
           DO je = i_startidx, i_endidx
             
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
             
             ile = ptr_patch%edges%quad_idx(je,jb,je1)
             ibe = ptr_patch%edges%quad_blk(je,jb,je1)
@@ -2337,7 +2337,7 @@ CONTAINS
         
         DO je = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
           
           ! transform primal normal to cartesian vector z_pn_k
           z_pn_k%x=ptr_patch%edges%primal_cart_normal(je,jb)%x
@@ -2621,7 +2621,7 @@ CONTAINS
       DO je = 1, ptr_patch%cell_type
         DO jc = i_startidx, i_endidx
           
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
           
           ile = ptr_patch%cells%edge_idx(jc,jb,je)
           ibe = ptr_patch%cells%edge_blk(jc,jb,je)
@@ -2787,7 +2787,7 @@ CONTAINS
       
       DO je =  i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         ! compute inverse primal edge length
         ! (dual follows below in the rl_start=2 section)
@@ -2839,7 +2839,7 @@ CONTAINS
       
       DO je =  i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         ! compute inverse dual edge length (undefined for refin_ctrl=1)
         
@@ -3146,7 +3146,7 @@ CONTAINS
       
       DO jc =  i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
         
         DO je = 1, ptr_patch%cells%num_edges(jc,jb)
           
@@ -3399,7 +3399,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         !
         ! 1. neighboring cell centers
@@ -3585,7 +3585,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         !
         ! For the current edge transform normal and tangential unit vectors
@@ -3687,7 +3687,7 @@ CONTAINS
 
       DO je = i_startidx, i_endidx
 
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
         ! 1. CC of neighboring cell centers; z index is 0
         cc_edge = ptr_patch%edges%cartesian_center(je,jb)
@@ -3926,7 +3926,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         !
         ! 1. project edge-vertices and the centers of the neighboring cells
@@ -4099,7 +4099,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         
         ! get line and block indices of edge-neighbours (cells)
@@ -4268,7 +4268,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         !
         ! 1. Get distance vector of edge-vertices and the centers of the neighboring cells
@@ -4425,7 +4425,7 @@ CONTAINS
       
       DO je = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+        IF(.NOT.ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
         
         
         ! get line and block indices of edge-neighbours (cells)
@@ -4621,7 +4621,7 @@ CONTAINS
       
       DO jc = i_startidx, i_endidx
         
-        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+        IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
         
         ! loop over triangle vertices
 !CDIR EXPAND=3
@@ -5704,8 +5704,8 @@ CONTAINS
 !         
 !         ! Go only over edges where at least one neighboring triangle is not in the halo
 !         IF(il_c1<=0 .OR. il_c2<=0) CYCLE
-!         IF(.NOT.ptr_patch%cells%owner_mask(il_c1,ib_c1) .AND. &
-!           & .NOT.ptr_patch%cells%owner_mask(il_c2,ib_c2) ) CYCLE
+!         IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(il_c1,ib_c1) .AND. &
+!           & .NOT.ptr_patch%cells%decomp_info%owner_mask(il_c2,ib_c2) ) CYCLE
 !         
 !         cc_c1 = gc2cc(ptr_patch%cells%center(il_c1, ib_c1))
 !         cc_c2 = gc2cc(ptr_patch%cells%center(il_c2, ib_c2))
@@ -5957,7 +5957,7 @@ CONTAINS
 !       vert_idx_loop: DO jv =  i_startidx, i_endidx
 !         
 !         ! #slo# consider only vertices of the inner domain
-!         IF(.NOT.ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+!         IF(.NOT.ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 !         
 !         ! current number of edges around vertex (5 or 6)
 !         cc_v0        = gc2cc(ptr_patch%verts%vertex(jv,jb))

@@ -253,7 +253,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jk,jb)*r(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.curr_patch%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -331,7 +331,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*v(1:nlen,jk,jb,k)
        ENDDO
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.curr_patch%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 
@@ -381,7 +381,7 @@ CONTAINS
        DO jk = 2,ndim2
          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jk,jb)*w(1:nlen,jk,jb)
        ENDDO
-       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0._wp
+       WHERE(.NOT.curr_patch%edges%decomp_info%owner_mask(:,jb)) z(:,jb) = 0._wp
      ENDDO
 !$OMP END DO
 

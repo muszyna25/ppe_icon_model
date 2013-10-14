@@ -615,13 +615,13 @@ MODULE mo_nh_jabw_exp
         ENDIF
 
         DO jc = 1, nlen
-          IF (ptr_patch%cells%owner_mask(jc,jb)) & 
+          IF (ptr_patch%cells%decomp_info%owner_mask(jc,jb)) & 
             z_area(jc,jb) = ptr_patch%cells%area(jc,jb)
         ENDDO !jc
 
         DO jk = 1, nlev
           DO jc = 1, nlen
-            IF (ptr_patch%cells%owner_mask(jc,jb)) & 
+            IF (ptr_patch%cells%decomp_info%owner_mask(jc,jb)) & 
               z_aux(jc,jk,jb) = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb) &
                               * ptr_nh_prog%tracer(jc,jk,jb,iqv) *ptr_patch%cells%area(jc,jb)
           ENDDO !jc

@@ -1364,7 +1364,7 @@ CONTAINS
           ntotal = ntotal + 1
           cell_indices(1,ntotal) = jc
           cell_indices(2,ntotal) = jb
-          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+          cell_indices(3,ntotal) = p_patch%cells%decomp_info%glb_index(idx_1d(jc,jb))
         END DO
       END DO
     ELSE
@@ -1374,11 +1374,11 @@ CONTAINS
           &                i_startidx, i_endidx, &
           &                rl_start, rl_end)
         DO jc=i_startidx,i_endidx
-          IF(.NOT. p_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. p_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
           ntotal = ntotal + 1
           cell_indices(1,ntotal) = jc
           cell_indices(2,ntotal) = jb
-          cell_indices(3,ntotal) = p_patch%cells%glb_index(idx_1d(jc,jb))
+          cell_indices(3,ntotal) = p_patch%cells%decomp_info%glb_index(idx_1d(jc,jb))
         END DO
       END DO
     END IF
@@ -1632,7 +1632,7 @@ CONTAINS
 
       IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
         gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
-        in(j)%glb_index = p_patch%cells%glb_index(gidx)
+        in(j)%glb_index = p_patch%cells%decomp_info%glb_index(gidx)
       END IF
     END DO
 

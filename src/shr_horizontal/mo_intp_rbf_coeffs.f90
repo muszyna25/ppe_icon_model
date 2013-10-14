@@ -262,7 +262,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       !
       ! get the global line and block indices of the edges of each neighbor
@@ -373,7 +373,7 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! Local point
       ptr_int%rbf_c2grad_idx(1,jc,jb) = jc
@@ -514,7 +514,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 
     DO jv = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+      IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
       istencil = 6
       ll_pent = .FALSE.
@@ -817,7 +817,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
           DO jc = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(jc) = 0
               CYCLE
@@ -861,7 +861,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
         ELSE ! use generic, unvectorizable version of arc_length_v
           DO jc = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(jc) = 0
               CYCLE
@@ -918,7 +918,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
       !
       ! Solve immediately for coefficients
       !
@@ -949,7 +949,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
         DO jc = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
           IF (je2 > istencil(jc)) CYCLE
           !
@@ -982,7 +982,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       ELSE ! use generic, unvectorizable version of arc_length_v
         DO jc = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
           IF (je2 > istencil(jc)) CYCLE
           !
@@ -1037,7 +1037,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     DO jc = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+      IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
       ! Ensure that sum of interpolation coefficients is correct
 
@@ -1155,7 +1155,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 !CDIR NODEP
         DO jc = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+          IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
           ile = ptr_int%rbf_vec_idx_c(je,jc,jb)
           ibe = ptr_int%rbf_vec_blk_c(je,jc,jb)
@@ -1344,7 +1344,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
           DO jv = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
+            IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(jv) = 0
               CYCLE
@@ -1391,7 +1391,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
         ELSE ! use generic, unvectorizable version of arc_length_v
           DO jv = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
+            IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(jv) = 0
               CYCLE
@@ -1451,7 +1451,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
     DO jv = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+      IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
       !
       ! Solve immediately for coefficients
@@ -1484,7 +1484,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
         DO jv = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+          IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
           IF (je2 > istencil(jv)) CYCLE
 
@@ -1518,7 +1518,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
       ELSE  ! use generic, unvectorizable version of arc_length_v
         DO jv = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+          IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
           IF (je2 > istencil(jv)) CYCLE
 
@@ -1574,7 +1574,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
     DO jv = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+      IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
 
       ! Ensure that sum of interpolation coefficients is correct
 
@@ -1772,7 +1772,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
           DO je = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(je) = 0
               CYCLE
@@ -1818,7 +1818,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
         ELSE ! use generic, unvectorizable version of arc_length_v
           DO je = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
+            IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) THEN
               ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
               istencil(je) = 0
               CYCLE
@@ -1878,7 +1878,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
     DO je = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+      IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
       !
       ! Solve immediately for coefficients
@@ -1906,7 +1906,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
         DO je = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
           IF (je2 > istencil(je)) CYCLE
           !
@@ -1936,7 +1936,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
       ELSE ! use generic, unvectorizable version of arc_length_v
         DO je = i_startidx, i_endidx
 
-          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+          IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
           IF (je2 > istencil(je)) CYCLE
           !
@@ -1980,7 +1980,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
     DO je = i_startidx, i_endidx
 
-      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+      IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
 
       ! Ensure that sum of interpolation coefficients is correct
 

@@ -143,50 +143,50 @@ CONTAINS
 !CDIR NOIEXPAND
     CALL deallocate_basic_patch(p_patch)
 
-    DEALLOCATE( p_patch%cells%decomp_domain,  stat=ist )
+    DEALLOCATE( p_patch%cells%decomp_info%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch cell decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%cells%owner_mask,  stat=ist )
+    DEALLOCATE( p_patch%cells%decomp_info%owner_mask,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch cell owner_mask failed')
     ENDIF
-    DEALLOCATE( p_patch%cells%glb_index,  &
-      & p_patch%cells%loc_index,  &
-      & p_patch%cells%owner_local,  &
-      & p_patch%cells%owner_g,  stat=ist )
+    DEALLOCATE( p_patch%cells%decomp_info%glb_index,  &
+      & p_patch%cells%decomp_info%loc_index,  &
+      & p_patch%cells%decomp_info%owner_local,  &
+      & p_patch%cells%decomp_info%owner_g,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch cell data failed')
     ENDIF
 
-    DEALLOCATE( p_patch%edges%decomp_domain,  stat=ist )
+    DEALLOCATE( p_patch%edges%decomp_info%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%owner_mask,  stat=ist )
+    DEALLOCATE( p_patch%edges%decomp_info%owner_mask,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge owner_mask failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%glb_index,  &
-      & p_patch%edges%loc_index,  &
-      & p_patch%edges%owner_local,  &
-      & p_patch%edges%owner_g,  stat=ist )
+    DEALLOCATE( p_patch%edges%decomp_info%glb_index,  &
+      & p_patch%edges%decomp_info%loc_index,  &
+      & p_patch%edges%decomp_info%owner_local,  &
+      & p_patch%edges%decomp_info%owner_g,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge data failed')
     ENDIF
 
-    DEALLOCATE( p_patch%verts%decomp_domain,  stat=ist )
+    DEALLOCATE( p_patch%verts%decomp_info%decomp_domain,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch vert decomp_domain failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%owner_mask,  stat=ist )
+    DEALLOCATE( p_patch%verts%decomp_info%owner_mask,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch vert owner_mask failed')
     ENDIF
-    DEALLOCATE( p_patch%verts%glb_index,  &
-      & p_patch%verts%loc_index,  &
-      & p_patch%verts%owner_local,  &
-      & p_patch%verts%owner_g,  stat=ist )
+    DEALLOCATE( p_patch%verts%decomp_info%glb_index,  &
+      & p_patch%verts%decomp_info%loc_index,  &
+      & p_patch%verts%decomp_info%owner_local,  &
+      & p_patch%verts%decomp_info%owner_g,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch vert data failed')
     ENDIF
@@ -701,18 +701,18 @@ CONTAINS
     ENDIF
 
     IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
-      ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
-      ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
-      ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
+      ALLOCATE( p_patch%cells%decomp_info%decomp_domain(nproma,p_patch%alloc_cell_blocks) )
+      ALLOCATE( p_patch%cells%decomp_info%owner_mask(nproma,p_patch%alloc_cell_blocks) )
+      ALLOCATE( p_patch%cells%decomp_info%glb_index(p_patch%n_patch_cells) )
+      ALLOCATE( p_patch%cells%decomp_info%owner_local(p_patch%n_patch_cells))
+      ALLOCATE( p_patch%cells%decomp_info%loc_index(p_patch%n_patch_cells_g) )
+      ALLOCATE( p_patch%cells%decomp_info%owner_g(p_patch%n_patch_cells_g))
 
       IF (my_process_is_mpi_seq()) THEN
-        p_patch%cells%decomp_domain(:,:) = 0
-        p_patch%cells%owner_mask(:,:)    = .true.
-        p_patch%cells%owner_local(:)     = 0
-        p_patch%cells%owner_g(:)         = 0
+        p_patch%cells%decomp_info%decomp_domain(:,:) = 0
+        p_patch%cells%decomp_info%owner_mask(:,:)    = .true.
+        p_patch%cells%decomp_info%owner_local(:)     = 0
+        p_patch%cells%decomp_info%owner_g(:)         = 0
       ENDIF
 
     ENDIF
@@ -755,18 +755,18 @@ CONTAINS
 
 
     IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%edges%decomp_domain(nproma,p_patch%nblks_e) )
-      ALLOCATE( p_patch%edges%owner_mask(nproma,p_patch%nblks_e) )
-      ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
-      ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
-      ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
-      ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
+      ALLOCATE( p_patch%edges%decomp_info%decomp_domain(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%decomp_info%owner_mask(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%decomp_info%glb_index(p_patch%n_patch_edges) )
+      ALLOCATE( p_patch%edges%decomp_info%loc_index(p_patch%n_patch_edges_g) )
+      ALLOCATE( p_patch%edges%decomp_info%owner_g(p_patch%n_patch_edges_g))
+      ALLOCATE( p_patch%edges%decomp_info%owner_local(p_patch%n_patch_edges))
 
       IF (my_process_is_mpi_seq()) THEN
-        p_patch%edges%decomp_domain(:,:) = 0
-        p_patch%edges%owner_mask(:,:)    = .true.
-        p_patch%edges%owner_local(:)     = 0
-        p_patch%edges%owner_g(:)         = 0
+        p_patch%edges%decomp_info%decomp_domain(:,:) = 0
+        p_patch%edges%decomp_info%owner_mask(:,:)    = .true.
+        p_patch%edges%decomp_info%owner_local(:)     = 0
+        p_patch%edges%decomp_info%owner_g(:)         = 0
       ENDIF
 
     ENDIF
@@ -793,18 +793,18 @@ CONTAINS
     ENDIF
 
     IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%verts%decomp_domain(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%owner_mask(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
-      ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
-      ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
-      ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
+      ALLOCATE( p_patch%verts%decomp_info%decomp_domain(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%decomp_info%owner_mask(nproma,p_patch%nblks_v) )
+      ALLOCATE( p_patch%verts%decomp_info%glb_index(p_patch%n_patch_verts) )
+      ALLOCATE( p_patch%verts%decomp_info%loc_index(p_patch%n_patch_verts_g) )
+      ALLOCATE( p_patch%verts%decomp_info%owner_g(p_patch%n_patch_verts_g))
+      ALLOCATE( p_patch%verts%decomp_info%owner_local(p_patch%n_patch_verts))
 
       IF (my_process_is_mpi_seq()) THEN
-        p_patch%verts%decomp_domain(:,:) = 0
-        p_patch%verts%owner_mask(:,:)    = .true.
-        p_patch%verts%owner_local(:)     = 0
-        p_patch%verts%owner_g(:)         = 0
+        p_patch%verts%decomp_info%decomp_domain(:,:) = 0
+        p_patch%verts%decomp_info%owner_mask(:,:)    = .true.
+        p_patch%verts%decomp_info%owner_local(:)     = 0
+        p_patch%verts%decomp_info%owner_g(:)         = 0
       ENDIF
 
     ENDIF
@@ -872,43 +872,43 @@ CONTAINS
     ! Everywhere 0 or .true. with the exception of unused entries
 
     IF (iopmode /= 3) THEN
-      p_patch%cells%decomp_domain = 0
-      p_patch%edges%decomp_domain = 0
-      p_patch%verts%decomp_domain = 0
-      p_patch%cells%owner_mask = .TRUE.
-      p_patch%edges%owner_mask = .TRUE.
-      p_patch%verts%owner_mask = .TRUE.
+      p_patch%cells%decomp_info%decomp_domain = 0
+      p_patch%edges%decomp_info%decomp_domain = 0
+      p_patch%verts%decomp_info%decomp_domain = 0
+      p_patch%cells%decomp_info%owner_mask = .TRUE.
+      p_patch%edges%decomp_info%owner_mask = .TRUE.
+      p_patch%verts%decomp_info%owner_mask = .TRUE.
 
-      p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = -1
-      p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
-      p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
+      p_patch%cells%decomp_info%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = -1
+      p_patch%edges%decomp_info%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
+      p_patch%verts%decomp_info%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
 
-      p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = .FALSE.
-      p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
-      p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
+      p_patch%cells%decomp_info%owner_mask(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = .FALSE.
+      p_patch%edges%decomp_info%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
+      p_patch%verts%decomp_info%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
 
       ! The following arrays are currently never needed for non parallel runs,
       ! we set them nontheless.
 
       DO jc = 1, p_patch%n_patch_cells
-        p_patch%cells%glb_index(jc) = jc
-        p_patch%cells%loc_index(jc) = jc
-        p_patch%cells%owner_g(jc) = 0
-        p_patch%cells%owner_local(jc) = 0
+        p_patch%cells%decomp_info%glb_index(jc) = jc
+        p_patch%cells%decomp_info%loc_index(jc) = jc
+        p_patch%cells%decomp_info%owner_g(jc) = 0
+        p_patch%cells%decomp_info%owner_local(jc) = 0
       ENDDO
 
       DO je = 1, p_patch%n_patch_edges
-        p_patch%edges%glb_index(je) = je
-        p_patch%edges%loc_index(je) = je
-        p_patch%edges%owner_g(je) = 0
-        p_patch%edges%owner_local(je) = 0
+        p_patch%edges%decomp_info%glb_index(je) = je
+        p_patch%edges%decomp_info%loc_index(je) = je
+        p_patch%edges%decomp_info%owner_g(je) = 0
+        p_patch%edges%decomp_info%owner_local(je) = 0
       ENDDO
 
       DO jv = 1, p_patch%n_patch_verts
-        p_patch%verts%glb_index(jv) = jv
-        p_patch%verts%loc_index(jv) = jv
-        p_patch%verts%owner_g(jv) = 0
-        p_patch%verts%owner_local(jv) = 0
+        p_patch%verts%decomp_info%glb_index(jv) = jv
+        p_patch%verts%decomp_info%loc_index(jv) = jv
+        p_patch%verts%decomp_info%owner_g(jv) = 0
+        p_patch%verts%decomp_info%owner_local(jv) = 0
       ENDDO
     ENDIF
 

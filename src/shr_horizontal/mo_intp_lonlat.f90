@@ -603,7 +603,7 @@
 
           DO jc = i_startidx, i_endidx
 
-            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+            IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
 
             cnt = 1
 
