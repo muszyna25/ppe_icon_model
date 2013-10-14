@@ -73,7 +73,7 @@ MODULE mo_parallel_nml
     & config_max_sr_buffer_size => max_send_recv_buffer_size, &
     & config_use_dycore_barrier => use_dycore_barrier,        &
     & config_itype_exch_barrier => itype_exch_barrier,        &
-    & config_use_sp_output      => use_sp_output,             &
+    & config_use_dp_mpi2io      => use_dp_mpi2io,             &
     & config_icon_comm_method   => icon_comm_method,          &
     & config_max_no_of_comm_var => max_no_of_comm_variables,  &
     & config_max_no_of_comm_proc => max_no_of_comm_processes, &
@@ -91,9 +91,9 @@ MODULE mo_parallel_nml
     &  '$Id$'
 
 
-       
+
   CONTAINS
-  
+
   !-------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -120,7 +120,7 @@ MODULE mo_parallel_nml
     CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if div_from_file
     INTEGER :: redrad_split_factor
 
-    ! Flag if (in case of merged domains) physical domains shall be considered for 
+    ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
     LOGICAL :: ldiv_phys_dom
 
@@ -155,18 +155,18 @@ MODULE mo_parallel_nml
     INTEGER :: max_no_of_comm_processes
     INTEGER :: max_no_of_comm_patterns
     INTEGER :: sync_barrier_mode
-    
+
     ! Type of parallel I/O
     INTEGER :: pio_type
     INTEGER :: num_io_procs
 
     ! Number of restart PEs (0 means, worker 0 writes restart (to be backward compatible)
     INTEGER :: num_restart_procs
-    
-    ! Type of (halo) communication: 
+
+    ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
-    ! 3 = asynchronous communication within dynamical core with global memory 
+    ! 3 = asynchronous communication within dynamical core with global memory
     !     for exchange buffers (not yet implemented)
     INTEGER :: itype_comm
 
@@ -187,10 +187,10 @@ MODULE mo_parallel_nml
 
     INTEGER :: nproma    ! inner loop length/vector length
 
-    INTEGER :: openmp_threads  
+    INTEGER :: openmp_threads
 
-    LOGICAL :: use_sp_output
-    
+    LOGICAL :: use_dp_mpi2io
+
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -203,7 +203,7 @@ MODULE mo_parallel_nml
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
-      & use_sp_output, itype_exch_barrier,  &
+      & use_dp_mpi2io, itype_exch_barrier,                &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
@@ -224,8 +224,8 @@ MODULE mo_parallel_nml
     division_file_name(:) = ""
     radiation_division_file_name(:) = ""
     redrad_split_factor = config_redrad_split_factor
-     
-    ! Flag if (in case of merged domains) physical domains shall be considered for 
+
+    ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
     ldiv_phys_dom = .TRUE.
 
@@ -244,7 +244,7 @@ MODULE mo_parallel_nml
     use_dycore_barrier = config_use_dycore_barrier
     use_physics_barrier= config_use_physics_barrier
     itype_exch_barrier = 0
-    
+
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
     l_test_openmp = .FALSE.
@@ -258,18 +258,18 @@ MODULE mo_parallel_nml
     max_no_of_comm_processes  = config_max_no_of_comm_proc
     max_no_of_comm_patterns   = config_max_no_of_comm_patt
     sync_barrier_mode = 0
-          
+
     ! Type of parallel I/O
     pio_type = 1
     num_io_procs = 0
 
     ! Number of restart output PEs; if 0, worker 0 does the work
     num_restart_procs = 0
-    
-    ! Type of (halo) communication: 
+
+    ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
-    ! 3 = asynchronous communication within dynamical core with global memory 
+    ! 3 = asynchronous communication within dynamical core with global memory
     !     for exchange buffers (not yet implemented)
     itype_comm = 1
 
@@ -282,7 +282,7 @@ MODULE mo_parallel_nml
     ! inner loop length/vector length
     nproma = 1
     openmp_threads = -1 ! < 0 means do not use this value
-    
+
     ! parallel_radiation
     parallel_radiation_mode(:) = 0
 !     parallel_radiation_omp = .false.
@@ -290,8 +290,8 @@ MODULE mo_parallel_nml
 !     radiation_threads = 1
 !     nh_stepping_threads = 1
 
-    ! output in single precision
-    use_sp_output = .FALSE.
+    ! MPI gather to output processes in DOUBLE PRECISION
+    use_dp_mpi2io = .TRUE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -304,7 +304,7 @@ MODULE mo_parallel_nml
     END IF
 
     !--------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes) 
+    ! Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('parallel_nml', STATUS=istat)
@@ -315,7 +315,7 @@ MODULE mo_parallel_nml
       IF (my_process_is_stdio()) WRITE(temp_settings(), parallel_nml)     ! write settings to temporary text file
     END SELECT
     CALL close_nml
-    
+
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
@@ -329,7 +329,7 @@ MODULE mo_parallel_nml
     IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_nml)
 
     !-----------------------------------------------------
-    ! fill_parallel_nml_configure       
+    ! fill_parallel_nml_configure
     config_n_ghost_rows        = n_ghost_rows
     config_division_method(:)  = division_method(:)
     config_division_file_name(:) = division_file_name(:)
@@ -349,7 +349,7 @@ MODULE mo_parallel_nml
 !     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
     config_openmp_threads         = openmp_threads
-    
+
     config_use_icon_comm       = use_icon_comm
     config_icon_comm_debug     = icon_comm_debug
     config_icon_comm_method    = icon_comm_method
@@ -365,10 +365,10 @@ MODULE mo_parallel_nml
     config_use_dycore_barrier   = use_dycore_barrier
     config_use_physics_barrier  = use_physics_barrier
     config_itype_exch_barrier   = itype_exch_barrier
-    config_use_sp_output        = use_sp_output
+    config_use_dp_mpi2io        = use_dp_mpi2io
     !-----------------------------------------------------
     CALL check_parallel_configuration()
-    
+
   END SUBROUTINE read_parallel_namelist
   !-------------------------------------------------------------------------
 

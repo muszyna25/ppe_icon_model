@@ -1,5 +1,5 @@
 !>
-!!        
+!!
 !! @par Revision History
 !!   Created by Leonidas Linardakis, MPI-M, 2011-05-07
 !!
@@ -53,26 +53,26 @@ MODULE mo_parallel_config
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  num_restart_procs,                                        &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
-       &  use_dycore_barrier, itype_exch_barrier, use_sp_output,    &
+       &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  redrad_split_factor
   PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
        & ext_div_medial_redrad_cluster, ext_div_from_file
-       
+
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output
-  
+
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
-  
+
   INTEGER :: openmp_threads = -1 ! < 0 means this value is not used,
                                  ! instead the system's value will be used
-  
+
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
@@ -88,7 +88,7 @@ MODULE mo_parallel_config
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
   INTEGER :: redrad_split_factor = 6
 
-  ! Flag if (in case of merged domains) physical domains shall be considered for 
+  ! Flag if (in case of merged domains) physical domains shall be considered for
   ! computing the domain decomposition
   LOGICAL :: ldiv_phys_dom = .FALSE.
 
@@ -107,11 +107,11 @@ MODULE mo_parallel_config
   LOGICAL :: use_dycore_barrier = .false. ! acivate an mpi barrier before the dycore
                                           ! to synchronize MPI tasks
   LOGICAL :: use_physics_barrier = .false. ! activate mpi barrier after the physics
-                                            
+
   INTEGER :: itype_exch_barrier = 0  ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
                                      ! 2: put an mpi barrier after MPI_WAIT to synchronize MPI tasks
                                      ! 3: 1+2
-  
+
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
   LOGICAL :: l_test_openmp = .false.
@@ -129,24 +129,24 @@ MODULE mo_parallel_config
   INTEGER :: max_no_of_comm_patterns   = 32
   INTEGER :: icon_comm_method = 1
   INTEGER :: sync_barrier_mode = 0
-  
+
   LOGICAL :: icon_comm_openmp = .false.
-  
+
   ! Flag whether async restart output is used, it is set in the main program:
   LOGICAL :: use_async_restart_output = .FALSE.
-  
+
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
-  
+
   INTEGER :: num_io_procs = 0
 
   ! The number of PEs used for writing restart files (0 means, the worker PE0 writes)
   INTEGER :: num_restart_procs = 0
 
-  ! Type of (halo) communication: 
+  ! Type of (halo) communication:
   ! 1 = synchronous communication with local memory for exchange buffers
   ! 2 = synchronous communication with global memory for exchange buffers
-  ! 3 = asynchronous communication within dynamical core with global memory 
+  ! 3 = asynchronous communication within dynamical core with global memory
   !     for exchange buffers (not yet implemented)
   INTEGER :: itype_comm = 1
 
@@ -159,18 +159,18 @@ MODULE mo_parallel_config
 !   INTEGER :: radiation_ompthreads   = 1
 !   INTEGER :: nh_stepping_ompthreads = 1
 
-  ! Flag. Enable this flag if output fields shall be gathered and written in
-  ! single-precision. The resulting files are identical to the "normal"
-  ! operation with double-precision, since the NetCDF is finally converted to
-  ! single precision by the NetCDF library itself.
+  ! Flag. Enable this flag if output fields shall be gathered in
+  ! DOUBLE PRECISION. The resulting files are identical to the "normal"
+  ! operation with simple REAL, since NetCDFs are written in single precision
+  ! anyway by default and GRIB2 has 16 or 24 bit per data word.
   !
-  LOGICAL :: use_sp_output
+  LOGICAL :: use_dp_mpi2io
 
 CONTAINS
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE check_parallel_configuration()
- 
+
 !   !local variables
 !     INTEGER :: i_status, my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
@@ -249,13 +249,13 @@ CONTAINS
     ! for safety only
     IF(num_io_procs < 0) num_io_procs = 0
     IF(num_restart_procs < 0) num_restart_procs = 0
-  
+
 #endif
 
   END SUBROUTINE check_parallel_configuration
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE set_nproma(new_nproma)
@@ -265,7 +265,7 @@ CONTAINS
 
   END SUBROUTINE set_nproma
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   INTEGER FUNCTION get_nproma()

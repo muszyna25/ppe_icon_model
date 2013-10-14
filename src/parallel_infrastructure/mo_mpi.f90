@@ -6953,11 +6953,11 @@ CONTAINS
 
 
   FUNCTION p_mpi_wtime()
-    REAL :: p_mpi_wtime
+    REAL(dp) :: p_mpi_wtime
 #ifndef NOMPI
     p_mpi_wtime = MPI_Wtime()
 #else
-    p_mpi_wtime = 0.
+    p_mpi_wtime = 0d0
 #endif
   END FUNCTION p_mpi_wtime
 

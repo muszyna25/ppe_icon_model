@@ -26,7 +26,7 @@ MODULE mo_name_list_output
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif 
+#endif
 ! USE_CRAY_POINTER
 
   USE mo_kind,                      ONLY: wp, i8, dp, sp
@@ -41,30 +41,30 @@ MODULE mo_name_list_output
   USE mo_var_metadata,              ONLY: t_var_metadata, POST_OP_NONE
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
     &                                     level_type_il, lev_type_str
-  ! MPI Communication routines      
+  ! MPI Communication routines
   USE mo_mpi,                       ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop,               &
     &                                     get_my_mpi_work_id, p_max,                                &
     &                                     get_my_mpi_work_communicator, p_mpi_wtime
-  ! MPI Communicators               
+  ! MPI Communicators
   USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
-  ! MPI Data types                  
+  ! MPI Data types
   USE mo_mpi,                       ONLY: p_int, p_int_i8, &
     &                                     p_real_dp, p_real_sp
-  ! MPI Process type intrinsics     
+  ! MPI Process type intrinsics
   USE mo_mpi,                       ONLY: my_process_is_stdio, my_process_is_mpi_test,              &
                                           my_process_is_mpi_workroot, my_process_is_mpi_seq,        &
                                           my_process_is_io
-  ! MPI Process IDs                 
+  ! MPI Process IDs
   USE mo_mpi,                       ONLY: process_mpi_all_test_id, process_mpi_all_workroot_id,     &
                                           process_mpi_stdio_id
-  ! MPI Process group sizes         
+  ! MPI Process group sizes
   USE mo_mpi,                       ONLY: process_mpi_io_size, num_work_procs, p_n_work
-  ! Processor numbers               
+  ! Processor numbers
   USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
-                                    
+
   USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_sp_output
-                                    
+  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io
+
   USE mo_run_config,                ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd,        &
     &                                     msg_level, output_mode, ltestcase
   USE mo_datetime,                  ONLY: t_datetime, cly360day_to_date
@@ -103,7 +103,7 @@ MODULE mo_name_list_output
   USE mo_lonlat_grid,               ONLY: t_lon_lat_grid, compute_lonlat_specs,                     &
     &                                     rotate_latlon_grid
   USE mo_intp_data_strc,            ONLY: lonlat_grid_list
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
   IMPLICIT NONE
@@ -305,15 +305,15 @@ CONTAINS
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
 
     ELSE
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
-#endif 
+#endif
 ! NOMPI
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
@@ -323,9 +323,9 @@ CONTAINS
 #ifndef NOMPI
 #ifndef __ICON_OCEAN_ONLY__
     ENDIF
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
-#endif 
+#endif
 ! NOMPI
 
     DEALLOCATE(output_file)
@@ -483,7 +483,7 @@ CONTAINS
             CALL meteogram_flush_file(jg)
           END IF
         END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
         CALL compute_wait_for_async_io()
       END IF
@@ -496,11 +496,11 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
-#endif 
+#endif
 ! NOMPI
 
     ! Check if files have to be (re)opened
@@ -571,7 +571,7 @@ CONTAINS
             'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
              ' by PE ',p_pe
           CALL message(routine, text,all_print=.TRUE.)
-#endif 
+#endif
 ! __SX__
 
         ENDIF
@@ -584,7 +584,7 @@ CONTAINS
             CALL io_proc_write_name_list(output_file(i), &
               &          (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
           ENDIF
-#endif 
+#endif
 ! NOMPI
         ELSE
           CALL write_name_list(output_file(i), &
@@ -641,7 +641,7 @@ CONTAINS
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
         CALL compute_start_async_io(datetime, sim_time, last_step)
     ENDIF
-#endif 
+#endif
 ! NOMPI
 
     ! Close output file when the related model domain has stopped execution
@@ -664,9 +664,9 @@ CONTAINS
   INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
-#endif 
+#endif
 ! __SUNPRO_F95
-#endif 
+#endif
 ! NOMPI
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
@@ -705,7 +705,7 @@ CONTAINS
     ! In case of async IO: Lock own window before writing to it
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpierr)
-#endif 
+#endif
 ! NOMPI
 
     ! ----------------------------------------------------
@@ -748,7 +748,7 @@ CONTAINS
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
       ENDIF
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
       IF (info%lcontained) THEN
@@ -862,7 +862,7 @@ CONTAINS
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
       CASE default
         CALL finish(routine,'unknown grid type')
@@ -923,20 +923,7 @@ CONTAINS
         IF(my_process_is_mpi_workroot()) THEN
 
           ! De-block the array
-          IF(use_sp_output) THEN
-            ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            IF (idata_type == iREAL) THEN
-              DO jk = 1, nlevs
-                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
-              ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
-              DO jk = 1, nlevs
-                r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
-              ENDDO
-            END IF
-          ELSE
+          IF (use_dp_mpi2io) THEN
             ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
             IF (idata_type == iREAL) THEN
@@ -949,6 +936,19 @@ CONTAINS
                 r_out_dp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), dp)
               ENDDO
             END IF
+          ELSE
+            ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            IF (idata_type == iREAL) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO jk = 1, nlevs
+                r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
+              ENDDO
+            END IF
           ENDIF
 
           ! ------------------
@@ -956,9 +956,7 @@ CONTAINS
           ! ------------------
           !
           ! compare results on worker PEs and test PE
-          IF (p_test_run                    .AND. &
-            & .NOT. use_async_name_list_io  .AND. &
-            & .NOT. use_sp_output) THEN
+          IF (p_test_run  .AND.  .NOT. use_async_name_list_io  .AND.  use_dp_mpi2io) THEN
             ! Currently we don't do the check for REAL*4, we would need
             ! p_send/p_recv for this type
             IF(.NOT. my_process_is_mpi_test()) THEN
@@ -996,10 +994,10 @@ CONTAINS
         ! ----------
 
         IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
-          IF(use_sp_output) THEN
-            CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
-          ELSE
+          IF (use_dp_mpi2io) THEN
             CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
+          ELSE
+            CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
           ENDIF
           IF (lkeep_in_sync) CALL streamSync(of%cdiFileID)
         ENDIF
@@ -1008,11 +1006,11 @@ CONTAINS
         IF (ALLOCATED(r_tmp))  DEALLOCATE(r_tmp)
         IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
 
-        IF(my_process_is_mpi_workroot()) THEN
-          IF(use_sp_output) THEN
-            DEALLOCATE(r_out_sp, STAT=ierrstat)
-          ELSE
+        IF (my_process_is_mpi_workroot()) THEN
+          IF (use_dp_mpi2io) THEN
             DEALLOCATE(r_out_dp, STAT=ierrstat)
+          ELSE
+            DEALLOCATE(r_out_sp, STAT=ierrstat)
           END IF
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
         ENDIF
@@ -1026,18 +1024,7 @@ CONTAINS
         ! just copy the OWN DATA points to the memory window
 
         DO jk = 1, nlevs
-          IF(use_sp_output) THEN
-            IF (idata_type == iREAL) THEN
-              DO i = 1, p_ri%n_own
-                mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
-              ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
-              DO i = 1, p_ri%n_own
-                mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
-              ENDDO
-            END IF
-          ELSE
+          IF (use_dp_mpi2io) THEN
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
                 mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
@@ -1048,9 +1035,21 @@ CONTAINS
                 mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
+          ELSE
+            IF (idata_type == iREAL) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
+            IF (idata_type == iINTEGER) THEN
+              DO i = 1, p_ri%n_own
+                mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO
+
       END IF
 
       ! clean up
@@ -1063,7 +1062,7 @@ CONTAINS
     ! In case of async IO: Done writing to memory window, unlock it
     IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
       CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
-#endif 
+#endif
 ! NOMPI
 
   END SUBROUTINE write_name_list
@@ -1144,7 +1143,7 @@ CONTAINS
         CALL meteogram_init(meteogram_output_config(jg), jg)
       END IF
     END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
     ! Initialize name list output, this is a collective call for all PEs
@@ -1161,7 +1160,7 @@ CONTAINS
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
     ! Enter I/O loop
 
@@ -1185,7 +1184,7 @@ CONTAINS
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
     ENDDO
@@ -1201,7 +1200,7 @@ CONTAINS
         CALL meteogram_finalize(jg)
       END IF
     END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
@@ -1211,7 +1210,7 @@ CONTAINS
     CALL p_stop
 
     STOP
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
   END SUBROUTINE name_list_io_main_proc
@@ -1227,41 +1226,46 @@ CONTAINS
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
-#endif 
+#endif
 ! __SUNPRO_F95
 
-    TYPE (t_output_file), INTENT(IN), TARGET :: of
-    LOGICAL, INTENT(IN) :: l_first_write
+    TYPE (t_output_file), TARGET, INTENT(IN) :: of
+    LOGICAL                     , INTENT(IN) :: l_first_write
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::io_proc_write_name_list"
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
-    INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
-      &     lonlat_id, i_log_dom, ierrstat
+    INTEGER                        :: nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
+      &                               lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
-    INTEGER :: voff(0:num_work_procs-1)
-    REAL(sp), ALLOCATABLE :: var1_sp(:), var2_sp(:), var3_sp(:,:)
-    REAL(dp), ALLOCATABLE :: var1_dp(:), var2_dp(:), var3_dp(:,:)
+    INTEGER                        :: voff(0:num_work_procs-1)
+    REAL(sp), ALLOCATABLE          :: var1_sp(:), var2_sp(:), var3_sp(:,:)
+    REAL(dp), ALLOCATABLE          :: var1_dp(:), var2_dp(:), var3_dp(:,:)
     TYPE (t_var_metadata), POINTER :: info
-    TYPE(t_reorder_info), POINTER  :: p_ri
-    CHARACTER*10 ctime
-    REAL(wp) :: t_get, t_write, t_copy, t_intp, t_0, mb_get, mb_wr
+    TYPE(t_reorder_info) , POINTER :: p_ri
+    LOGICAL                        :: have_GRIB
 
+    !-- for timing
+    CHARACTER(len=10)              :: ctime
+    REAL(dp)                       :: t_get, t_write, t_copy, t_intp, t_0, mb_get, mb_wr
+
+  !------------------------------------------------------------------------------------------------
 #if defined (__SX__) && !defined (NOMPI)
 ! It may be necessary that var1 is in global memory on NEC
 ! (Note: this is only allowed when we compile with MPI.)
 !CDIR GM_ARRAY(var1)
-#endif 
+#endif
 ! __SX__
 
-    t_get   = 0._wp
-    t_write = 0._wp
-    t_copy  = 0._wp
-    t_intp  = 0._wp
-    mb_get  = 0._wp
-    mb_wr   = 0._wp
-
     CALL date_and_time(TIME=ctime)
-    WRITE(0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
+
+    t_get   = 0.d0
+    t_write = 0.d0
+    t_copy  = 0.d0
+    t_intp  = 0.d0
+    mb_get  = 0.d0
+    mb_wr   = 0.d0
+
 
     ! Get maximum number of data points in a slice and allocate tmp variables
 
@@ -1280,7 +1284,7 @@ CONTAINS
         nval = MAX(nval, p_ri%n_glb)
       END IF
     END DO
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
     nlev_max = 1
@@ -1289,10 +1293,10 @@ CONTAINS
       IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
     ENDDO
 
-    IF(use_sp_output) THEN
-      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(-1:nval), STAT=ierrstat)
-    ELSE
+    IF (use_dp_mpi2io) THEN
       ALLOCATE(var1_dp(nval*nlev_max), var2_dp(-1:nval), STAT=ierrstat)
+    ELSE
+      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(-1:nval), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -1330,7 +1334,7 @@ CONTAINS
           lonlat_id = info%hor_interp%lonlat_id
           i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
         CASE DEFAULT
@@ -1346,19 +1350,19 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
-        t_0 = REAL(p_mpi_wtime(),wp)
+        t_0 = p_mpi_wtime()
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
-        IF(use_sp_output) THEN
-          CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-            &          nval, p_real_sp, mpi_win, mpierr)
-        ELSE
+        IF (use_dp_mpi2io) THEN
           CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
             &          nval, p_real_dp, mpi_win, mpierr)
+        ELSE
+          CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+            &          nval, p_real_sp, mpi_win, mpierr)
         ENDIF
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
-        t_get  = t_get  + REAL(p_mpi_wtime(),wp)-t_0
+        t_get  = t_get  + p_mpi_wtime() - t_0
         mb_get = mb_get + nval
 
         ! Update the offset in var1
@@ -1380,67 +1384,81 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = REAL(p_mpi_wtime(),wp)
-      IF(use_sp_output) THEN
-        ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
-      ELSE
+      t_0 = p_mpi_wtime()
+      have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+      IF (use_dp_mpi2io .OR. have_GRIB) THEN
         ALLOCATE(var3_dp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      ELSE
+        ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-      DO jk = 1, nlevs
+
+      LevelLoop: DO jk = 1, nlevs
+
         nv_off = 0
-        DO np = 0, num_work_procs-1
-          IF(use_sp_output) THEN
-            var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
-            var2_sp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-          ELSE
+        IF (use_dp_mpi2io) THEN
+
+          DO np = 0, num_work_procs-1
             var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
             var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-          ENDIF
-          nv_off = nv_off+p_ri%pe_own(np)
-          voff(np) = voff(np)+p_ri%pe_own(np)
-        ENDDO
-        IF(use_sp_output) THEN
-          DO i = 1, p_ri%n_glb
-            var3_sp(i,jk) = var2_sp(p_ri%reorder_index(i))
+            nv_off   = nv_off+p_ri%pe_own(np)
+            voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
-        ELSE
-          DO i = 1, p_ri%n_glb
-            var3_dp(i,jk) = var2_dp(p_ri%reorder_index(i))
-          ENDDO
-        ENDIF
-      ENDDO ! Loop over levels
-      t_copy = t_copy + REAL(p_mpi_wtime(),wp)-t_0
 
-      t_0 = REAL(p_mpi_wtime(),wp)
-      IF(use_sp_output) THEN
-        CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
-        mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
-      ELSE
+          var3_dp(1:p_ri%n_glb,jk) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
+
+        ELSE
+
+          DO np = 0, num_work_procs-1
+            var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
+            var2_sp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
+            nv_off   = nv_off+p_ri%pe_own(np)
+            voff(np) = voff(np)+p_ri%pe_own(np)
+          ENDDO
+
+          IF (have_GRIB) THEN
+            ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
+            var3_dp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
+          ELSE
+            var3_sp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
+          END IF
+
+        ENDIF
+
+      ENDDO LevelLoop
+      t_copy = t_copy + p_mpi_wtime() - t_0
+
+
+      t_0 = p_mpi_wtime()
+      IF (use_dp_mpi2io .OR. have_GRIB) THEN
         CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
         mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
-      ENDIF
-      t_write = t_write + REAL(p_mpi_wtime(),wp)-t_0
-
-      IF(use_sp_output) THEN
-        DEALLOCATE(var3_sp, STAT=ierrstat)
-      ELSE
+        t_write = t_write + p_mpi_wtime() - t_0
         DEALLOCATE(var3_dp, STAT=ierrstat)
+      ELSE
+        CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
+        mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
+        t_write = t_write + p_mpi_wtime() - t_0
+        DEALLOCATE(var3_sp, STAT=ierrstat)
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ENDDO ! Loop over output variables
 
-    IF(use_sp_output) THEN
-      DEALLOCATE(var1_sp, var2_sp, STAT=ierrstat)
-    ELSE
+    IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
+    ELSE
+      DEALLOCATE(var1_sp, var2_sp, STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
+
+    !
+    !-- timing report
+    !
     CALL date_and_time(TIME=ctime)
-    WRITE(0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
+    WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
     ! Convert mb_get/mb_wr to MB
     mb_get = mb_get*8*1.d-6
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
@@ -1453,14 +1471,14 @@ CONTAINS
            & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
       CALL message('',message_text)
     ENDIF
-#endif 
+#endif
 ! __SX__
 
     ! Convert mb_get/mb_wr to MB
-    IF(use_sp_output) THEN
-      mb_get = mb_get*4*1.d-6
-    ELSE
+    IF (use_dp_mpi2io) THEN
       mb_get = mb_get*8*1.d-6
+    ELSE
+      mb_get = mb_get*4*1.d-6
     ENDIF
     mb_wr = mb_wr*4*1.d-6 ! always 4 byte since dp output is implicitly converted to sp
     ! PRINT *,' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
@@ -1625,7 +1643,7 @@ CONTAINS
   END SUBROUTINE compute_shutdown_async_io
 
   !-------------------------------------------------------------------------------------------------
-#endif 
+#endif
 ! NOMPI
 
 END MODULE mo_name_list_output

@@ -33,7 +33,7 @@ MODULE mo_name_list_output_init
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_grib2,                             ONLY: t_grib2_var
   USE mo_cf_convention,                     ONLY: t_cf_var
-                                            
+
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
@@ -49,28 +49,28 @@ MODULE mo_name_list_output_init
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
   USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
-  ! MPI Communication routines              
+  ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator
-  ! MPI Communicators                       
+  ! MPI Communicators
   USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
-  ! MPI Data types                          
+  ! MPI Data types
   USE mo_mpi,                               ONLY: p_int, p_int_i8, &
     &                                             p_real_dp, p_real_sp
-  ! MPI Process type intrinsics             
+  ! MPI Process type intrinsics
   USE mo_mpi,                               ONLY: my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
     &                                             my_process_is_mpi_seq, my_process_is_io
-  ! MPI Process IDs                         
+  ! MPI Process IDs
   USE mo_mpi,                               ONLY: process_mpi_stdio_id
-  ! MPI Process group sizes                 
+  ! MPI Process group sizes
   USE mo_mpi,                               ONLY: process_mpi_io_size, num_work_procs, p_n_work
-  ! Processor numbers                       
+  ! Processor numbers
   USE mo_mpi,                               ONLY: p_pe_work, p_io_pe0
-                                            
+
   USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_sp_output
-                                            
+  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
+
   USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
     &                                             msg_level, output_mode, ltestcase,              &
     &                                             number_of_grid_used
@@ -97,13 +97,13 @@ MODULE mo_name_list_output_init
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
-  ! post-ops                                
+  ! post-ops
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
-                                            
+
   USE mo_ocean_nml,                         ONLY: n_zlev
   USE mo_oce_state,                         ONLY: set_zlev
-                                            
-#ifndef __ICON_OCEAN_ONLY__                 
+
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_lnd_jsbach_config,                 ONLY: lnd_jsbach_config
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
@@ -491,7 +491,7 @@ CONTAINS
           ENDDO DOM_LOOP
         END IF
       ENDIF
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
       p_onl%cur_bounds_triple= 1
@@ -623,9 +623,9 @@ CONTAINS
   INCLUDE "mpif.h"
 #else
   USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
-#endif 
+#endif
 ! __SUNPRO_F95
-#endif 
+#endif
 ! NOMPI
 
     LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
@@ -711,7 +711,7 @@ CONTAINS
 #else
     ! bcast_root is not used in this case
     bcast_root = 0
-#endif 
+#endif
 ! NOMPI
 
     ! ---------------------------------------------------------------------------
@@ -857,7 +857,7 @@ CONTAINS
         END IF
       END IF
     END IF
-#endif 
+#endif
 ! NOMPI
 
     ! Set the number of domains in output and the patch reorder information
@@ -1031,7 +1031,7 @@ CONTAINS
 
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
-#endif 
+#endif
 ! NOMPI
 
     CALL message(routine,'Done')
@@ -1255,7 +1255,7 @@ CONTAINS
           &          bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
       ENDIF
-#endif 
+#endif
 ! NOMPI
 
     ENDDO ! jp
@@ -1278,11 +1278,11 @@ CONTAINS
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg))
         ENDIF
-#endif 
+#endif
 ! NOMPI
       END DO ! jg
     ENDDO ! jl
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
   END SUBROUTINE set_patch_info
@@ -1649,7 +1649,7 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif 
+#endif
 ! NOMPI
 
     ! Get offset within result array
@@ -1672,7 +1672,7 @@ CONTAINS
                         p_comm_work, mpierr)
 #else
     glbidx_glb(:) = glbidx_own(:)
-#endif 
+#endif
 ! NOMPI
 
     ! Get reorder_index
@@ -1787,7 +1787,7 @@ CONTAINS
                        p_comm_work, mpierr)
 #else
     p_ri%pe_own(0) = p_ri%n_own
-#endif 
+#endif
 ! NOMPI
 
     ! Get offset within result array
@@ -1951,7 +1951,7 @@ CONTAINS
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
     ELSE
 
@@ -2244,7 +2244,7 @@ CONTAINS
       DEALLOCATE(lbounds, ubounds, levels)
       !
       ! Specific soil axis for Runoff_s
-      ! 
+      !
       of%cdiZaxisID(ZA_depth_runoff_s) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
       ALLOCATE(levels(1))
@@ -2254,7 +2254,7 @@ CONTAINS
       DEALLOCATE(levels)
       !
       ! Specific soil axis for Runoff_g
-      ! 
+      !
       of%cdiZaxisID(ZA_depth_runoff_g) = &
         & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
       ALLOCATE(levels(1))
@@ -2358,7 +2358,7 @@ CONTAINS
       !
 
       !
-      ! Lake bottom (we define it as a layer in order to be able to re-set 
+      ! Lake bottom (we define it as a layer in order to be able to re-set
       ! either the first- or secondFixedSurfaces if necessary)
       !
       of%cdiZaxisID(ZA_lake_bottom)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
@@ -2381,7 +2381,7 @@ CONTAINS
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_lake_bottom_half), "m")
       DEALLOCATE(levels)
       !
-      ! Mixing layer (we define it as a layer in order to be able to re-set 
+      ! Mixing layer (we define it as a layer in order to be able to re-set
       ! either the first- or secondFixedSurfaces if necessary)
       !
       of%cdiZaxisID(ZA_mix_layer)  = zaxisCreate(ZAXIS_MIX_LAYER, 1)
@@ -2456,7 +2456,7 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 
     ELSE ! oce
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
@@ -2472,7 +2472,7 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 #ifndef __ICON_OCEAN_ONLY__
     ENDIF
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
 
@@ -2961,7 +2961,7 @@ CONTAINS
       ! preliminary HACK for identifying tile based variables
       CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",                 &
         &                    grib_conf%localNumberOfExperiment)
-      
+
       CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
 
       IF (grib_conf%localDefinitionNumber == 254) THEN
@@ -3052,7 +3052,7 @@ CONTAINS
       IF (zaxisID /= CDI_UNDEFID) THEN
 
 !DR *********** FOR TESTING *************
-        ! If desired, re-set 
+        ! If desired, re-set
         ! ZA_HYBRID       -> ZA_REFERENCE
         ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
         ! for testing purposes
@@ -3120,7 +3120,7 @@ CONTAINS
         ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
         !
         ! HHL     : typeOfSecondFixedSurface = 101
-        ! HSURF   : typeOfSecondFixedSurface = 101 
+        ! HSURF   : typeOfSecondFixedSurface = 101
         ! HBAS_CON: typeOfSecondFixedSurface = 101
         ! HTOP_CON: typeOfSecondFixedSurface = 101
         ! HTOP_DC : typeOfSecondFixedSurface = 101
@@ -3198,8 +3198,8 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> FUNCTION get_id:
   !  Search for name in String-Array name_list containing all variables for which
-  !  typeOfSecondFixedSurface or typeOfFirstFixedSurface must be re-set. Returns variable-ID 
-  !  which is used to determine the proper typeOfSecondFixedSurface/typeOfFirstFixedSurface 
+  !  typeOfSecondFixedSurface or typeOfFirstFixedSurface must be re-set. Returns variable-ID
+  !  which is used to determine the proper typeOfSecondFixedSurface/typeOfFirstFixedSurface
   !  from second_tos/first_tos. If no match is found, get_id is set to -1.
   !
   !
@@ -3222,7 +3222,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !> FUNCTION get_numberOfVGridUsed
-  !  Depending on the vertical axis chosen for ICON (ivctype), it gives back the value for 
+  !  Depending on the vertical axis chosen for ICON (ivctype), it gives back the value for
   !  the GRIB2-key 'numberOVGridUsed'. Here, we adhere to the COSMO implementation:
   !
   !  |       Description               |  ivctype  |  numberOfVGridUsed  |
@@ -3322,7 +3322,7 @@ CONTAINS
 
     IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
@@ -3513,7 +3513,7 @@ CONTAINS
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif 
+#endif
 ! __SUNPRO_F95
 
     INTEGER :: jp, i, iv, nlevs
@@ -3527,7 +3527,7 @@ CONTAINS
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #else
     TYPE(c_ptr) :: c_mem_ptr
-#endif 
+#endif
 ! USE_CRAY_POINTER
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
@@ -3572,7 +3572,7 @@ CONTAINS
             i_log_dom = output_file(i)%log_patch_id
             n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
             mem_size  = mem_size + INT(nlevs*n_own,i8)
-#endif 
+#endif
 ! __ICON_OCEAN_ONLY__
 
           CASE DEFAULT
@@ -3595,12 +3595,12 @@ CONTAINS
 
     ! mem_size is calculated as number of variables above, get number of bytes
 
-    ! Get the amount of bytes per REAL*4 or REAL*8 variable (as used in MPI
+    ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
-    IF(use_sp_output) THEN
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
-    ELSE
+    IF (use_dp_mpi2io) THEN
       CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+    ELSE
+      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
     ENDIF
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
@@ -3611,12 +3611,12 @@ CONTAINS
 #ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
 
-    IF(use_sp_output) THEN
-      tmp_ptr_sp = iptr
-      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
-    ELSE
+    IF (use_dp_mpi2io) THEN
       tmp_ptr_dp = iptr
       CALL set_mem_ptr_dp(tmp_dp, INT(mem_size))
+    ELSE
+      tmp_ptr_sp = iptr
+      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
     ENDIF
 #else
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
@@ -3640,20 +3640,20 @@ CONTAINS
     NULLIFY(mem_ptr_dp)
 
 #ifdef __SX__
-    IF(use_sp_output) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ INT(mem_size) /) )
-    ELSE
+    IF (use_dp_mpi2io) THEN
       CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
+    ELSE
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ INT(mem_size) /) )
     ENDIF
 #else
-    IF(use_sp_output) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ mem_size /) )
-    ELSE
+    IF (use_dp_mpi2io) THEN
       CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
+    ELSE
+      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ mem_size /) )
     ENDIF
-#endif 
+#endif
 ! __SX__
-#endif 
+#endif
 ! USE_CRAY_POINTER
 
     rma_cache_hint = MPI_INFO_NULL
@@ -3663,17 +3663,17 @@ CONTAINS
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
     CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif 
+#endif
 ! __xlC__
 
     ! Create memory window for communication
-    IF(use_sp_output) THEN
-      mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,mpi_win,mpierr )
-    ELSE
+    IF (use_dp_mpi2io) THEN
       mem_ptr_dp(:) = 0._dp
       CALL MPI_Win_create( mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,mpi_win,mpierr )
+    ELSE
+      mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
         &                  p_comm_work_io,mpi_win,mpierr )
     ENDIF
     IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
@@ -3681,12 +3681,12 @@ CONTAINS
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
     IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-#endif 
+#endif
 ! __xlC__
 
   END SUBROUTINE init_memory_window
 
-#endif 
+#endif
 ! NOMPI
 
 END MODULE mo_name_list_output_init
