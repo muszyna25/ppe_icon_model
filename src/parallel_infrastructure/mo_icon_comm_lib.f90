@@ -50,7 +50,7 @@ MODULE mo_icon_comm_lib
 
   USE mo_grid_subset,    ONLY: block_no, index_no
   USE mo_model_domain,    ONLY: t_patch
-  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_local_index
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
      & process_mpi_all_comm, work_mpi_barrier, p_stop, &
@@ -816,8 +816,9 @@ CONTAINS
     DO i=1,no_of_recv_requests
       p_comm_pattern => grid_comm_pattern%send(i)
       DO point_idx = 1, p_comm_pattern%no_of_points
-        local_idx = send_decomp_info%loc_index(p_comm_pattern%global_index(point_idx))
-        IF ( local_idx < 0 ) &
+        local_idx = get_local_index(send_decomp_info, &
+          &                         p_comm_pattern%global_index(point_idx))
+        IF ( local_idx == -1 ) &
           & CALL finish(method_name,'Wrong local index')
         p_comm_pattern%block_no(point_idx) = block_no(local_idx)
         p_comm_pattern%index_no(point_idx) = index_no(local_idx)
