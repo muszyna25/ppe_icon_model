@@ -166,6 +166,7 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
+ itype_rh                     = 2
  lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
 /
 &run_nml
@@ -245,7 +246,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 3   ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 3   ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -261,12 +262,14 @@ cat > ${atmo_namelist} << EOF
 &lnd_nml
  ntiles                       = 5       ! number of tiles
  nlev_snow                    = 2       ! 2 for multi-level snow
- lmulti_snow                  = .TRUE.  ! true: multi-level snow, false: single-level snow
- idiag_snowfrac               = 3
+ lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
+ idiag_snowfrac               = 4
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
+ llake                        = .false.
  itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
  itype_interception           = 1       ! 1: off/default, 2: on
 /
 &radiation_nml
@@ -293,6 +296,7 @@ cat > ${atmo_namelist} << EOF
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 4
+ divdamp_type                 = 3
  l_open_ubc                   = .TRUE.
  l_nest_rcf                   = .TRUE.
  l_masscorr_nest              = .TRUE.
@@ -301,7 +305,7 @@ cat > ${atmo_namelist} << EOF
  thslp_zdiffu                 = 0.02
  thhgtd_zdiffu                = 125.
  htop_moist_proc              = 22500.
- hbot_qvsubstep               = 24000.
+ hbot_qvsubstep               = 22500.
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
@@ -322,14 +326,14 @@ cat > ${atmo_namelist} << EOF
  ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
  itype_hlimit                 = 3,4,4,4,4,0
- ihadv_tracer                 = 32,2,2,2,2,0
+ ihadv_tracer                 = 42,2,2,2,2,0
 /
 &diffusion_nml
  hdiff_order                  = 5
  itype_vn_diffu               = 1
  itype_t_diffu                = 2
- hdiff_efdt_ratio             = 17.5
- hdiff_smag_fac               = 0.05
+ hdiff_efdt_ratio             = 36.0
+ hdiff_smag_fac               = 0.015
  lhdiff_vn                    = .TRUE.
  lhdiff_temp                  = .TRUE.
  hdiff_multfac                = 1.0
@@ -348,7 +352,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo                        = 1
- n_iter_smooth_topo           = 0
+ n_iter_smooth_topo           = 1
  heightdiff_threshold         = 3000.
  extpar_filename              = '${extpar_filename}'
 /

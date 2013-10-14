@@ -209,7 +209,7 @@ cat > ${atmo_namelist} << EOF
  hl_varlist                   = ${hl_varlist}
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
- reg_lon_def                  =  0., 1.0, 359.  
+ reg_lon_def                  =  0., 1.0, 359.
  reg_lat_def                  = 90.,-1.0, -90.
 !namespace                    = "ECMWF"                   ! may give problems with metview - leave default ecmwf
 /
@@ -273,7 +273,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 10  ! 1: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 10  ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -297,13 +297,13 @@ cat > ${atmo_namelist} << EOF
  ntiles                       = 3
  nlev_snow                    = 2       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
- itype_heatcond               = 1
  idiag_snowfrac               = 4
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
  llake                        = .false.
  itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
 /
 &radiation_nml
  irad_o3                      = 7
