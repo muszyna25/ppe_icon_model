@@ -144,53 +144,9 @@ CONTAINS
 !CDIR NOIEXPAND
     CALL deallocate_basic_patch(p_patch)
 
-    DEALLOCATE( p_patch%cells%decomp_info%decomp_domain,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch cell decomp_domain failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%decomp_info%owner_mask,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch cell owner_mask failed')
-    ENDIF
-    DEALLOCATE( p_patch%cells%decomp_info%glb_index,  &
-      & p_patch%cells%decomp_info%loc_index,  &
-      & p_patch%cells%decomp_info%owner_local,  &
-      & p_patch%cells%decomp_info%owner_g,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch cell data failed')
-    ENDIF
-
-    DEALLOCATE( p_patch%edges%decomp_info%decomp_domain,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch edge decomp_domain failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%decomp_info%owner_mask,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch edge owner_mask failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%decomp_info%glb_index,  &
-      & p_patch%edges%decomp_info%loc_index,  &
-      & p_patch%edges%decomp_info%owner_local,  &
-      & p_patch%edges%decomp_info%owner_g,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch edge data failed')
-    ENDIF
-
-    DEALLOCATE( p_patch%verts%decomp_info%decomp_domain,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch vert decomp_domain failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%decomp_info%owner_mask,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch vert owner_mask failed')
-    ENDIF
-    DEALLOCATE( p_patch%verts%decomp_info%glb_index,  &
-      & p_patch%verts%decomp_info%loc_index,  &
-      & p_patch%verts%decomp_info%owner_local,  &
-      & p_patch%verts%decomp_info%owner_g,  stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  (routine,  'deallocate for patch vert data failed')
-    ENDIF
+    call deallocate_decomp_info(p_patch%cells%decomp_info)
+    call deallocate_decomp_info(p_patch%edges%decomp_info)
+    call deallocate_decomp_info(p_patch%verts%decomp_info)
 
     DEALLOCATE(p_patch%cells%phys_id,    stat=ist )
     IF(ist/=success)THEN
@@ -350,6 +306,22 @@ CONTAINS
 
 
     CALL deallocate_patch_cartesian( p_patch )
+
+  CONTAINS
+
+    SUBROUTINE deallocate_decomp_info( decomp_info )
+
+      TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
+
+      INTEGER :: ist
+
+      DEALLOCATE( decomp_info%glb_index, decomp_info%loc_index,  &
+        decomp_info%owner_local, decomp_info%owner_g, &
+        decomp_info%owner_mask, decomp_info%decomp_domain, stat=ist )
+      IF(ist/=success)THEN
+        CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
+      ENDIF
+    END SUBROUTINE deallocate_decomp_info
 
   END SUBROUTINE deallocate_patch
   !-------------------------------------------------------------------------
