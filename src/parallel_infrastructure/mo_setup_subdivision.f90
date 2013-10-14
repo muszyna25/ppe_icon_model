@@ -60,6 +60,7 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
   USE mo_mpi,                ONLY: p_bcast, p_sum, proc_split, get_my_global_mpi_id, global_mpi_barrier
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -1176,8 +1177,7 @@ CONTAINS
          max_ilev = 2*n_boundary_rows, &
          max_hw_cve = 2*max_hw, &
          flag2 = flag2_c, &
-         glb_index = wrk_p_patch%cells%decomp_info%glb_index, &
-         loc_index = wrk_p_patch%cells%decomp_info%loc_index, &
+         decomp_info = wrk_p_patch%cells%decomp_info, &
          start_idx = wrk_p_patch%cells%start_idx, &
          start_blk = wrk_p_patch%cells%start_blk, &
          end_idx = wrk_p_patch%cells%end_idx, &
@@ -1205,8 +1205,7 @@ CONTAINS
          max_ilev = 2*n_boundary_rows+1, &
          max_hw_cve = 2*max_hw + 1, &
          flag2 = flag2_e, &
-         glb_index = wrk_p_patch%edges%decomp_info%glb_index, &
-         loc_index = wrk_p_patch%edges%decomp_info%loc_index, &
+         decomp_info = wrk_p_patch%edges%decomp_info, &
          start_idx = wrk_p_patch%edges%start_idx, &
          start_blk = wrk_p_patch%edges%start_blk, &
          end_idx = wrk_p_patch%edges%end_idx, &
@@ -1234,8 +1233,7 @@ CONTAINS
          max_ilev = n_boundary_rows+1, &
          max_hw_cve = max_hw + 1, &
          flag2 = flag2_v, &
-         glb_index = wrk_p_patch%verts%decomp_info%glb_index, &
-         loc_index = wrk_p_patch%verts%decomp_info%loc_index, &
+         decomp_info = wrk_p_patch%verts%decomp_info, &
          start_idx = wrk_p_patch%verts%start_idx, &
          start_blk = wrk_p_patch%verts%start_blk, &
          end_idx = wrk_p_patch%verts%end_idx, &
@@ -1407,7 +1405,8 @@ CONTAINS
       wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lat
       wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lon
       wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%decomp_info%glb_index(j))
+      wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = &
+        flag2_v(wrk_p_patch%verts%decomp_info%glb_index(j))
 
     ENDDO
 
@@ -1446,8 +1445,7 @@ CONTAINS
   SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
        max_childdom, nchilddom, patch_id, nblks, npromz, cell_type, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
-       flag2, glb_index, loc_index, &
-       start_idx, start_blk, end_idx, end_blk, &
+       flag2, decomp_info, start_idx, start_blk, end_idx, end_blk, &
        start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
        order_type_of_halos, l_cell_correction, refin_ctrl, refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, max_childdom, &
@@ -1456,7 +1454,7 @@ CONTAINS
     INTEGER, INTENT(in) :: order_type_of_halos
     LOGICAL, INTENT(in) :: l_cell_correction
     INTEGER, INTENT(in) :: flag2(:), refin_ctrl(:, :)
-    INTEGER, INTENT(inout) :: glb_index(:), loc_index(:)
+    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:, :), INTENT(inout) :: &
          start_idx, start_blk, end_idx, end_blk
     INTEGER, DIMENSION(min_rlcve:, :), INTENT(in) :: &
@@ -1482,11 +1480,11 @@ CONTAINS
           DO j = 1, n_patch_cve_g
             IF (flag2(j)==0) THEN
               n = n + 1
-              glb_index(n) = j
-              loc_index(j) = n
+              decomp_info%glb_index(n) = j
+              decomp_info%loc_index(j) = n
               lcount(j) = .TRUE.
             ELSE
-              loc_index(j) = -(n+1)
+              decomp_info%loc_index(j) = -(n+1)
             ENDIF
           ENDDO
       CASE (1)
@@ -1497,11 +1495,11 @@ CONTAINS
             irl0 = refin_ctrl(jl,jb)
             IF (refinement_predicate(flag2(j), irl0)) THEN
               n = n + 1
-              glb_index(n) = j
-              loc_index(j) = n
+              decomp_info%glb_index(n) = j
+              decomp_info%loc_index(j) = n
               lcount(j) = .TRUE.
             ELSE
-              loc_index(j) = -(n+1)
+              decomp_info%loc_index(j) = -(n+1)
             ENDIF
           ENDDO
 !        ENDIF
@@ -1518,14 +1516,14 @@ CONTAINS
       ! halo cells; they are set below
       DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
-        CALL get_local_index(loc_index, &
+        CALL get_local_index(decomp_info%loc_index, &
           & start_idx_g(i,j),           &
           & start_blk_g(i,j),           &
           & start_idx(i,j),             &
           & start_blk(i,j),             &
           & +1 )
 !CDIR IEXPAND
-        CALL get_local_index(loc_index, &
+        CALL get_local_index(decomp_info%loc_index, &
           & end_idx_g(i,j),             &
           & end_blk_g(i,j),             &
           & end_idx(i,j),               &
@@ -1552,8 +1550,8 @@ CONTAINS
         DO j = 1, n_patch_cve_g
           IF (flag2(j) > ref_flag) THEN
             n = n + 1
-            glb_index(n) = j
-            loc_index(j) = n
+            decomp_info%glb_index(n) = j
+            decomp_info%loc_index(j) = n
             ! This ensures that just the first point found at this irlev is saved as start point
             IF (start_idx(irlev,1)==-9999) THEN
               start_idx(irlev,:) = idx_no(n) ! line index
@@ -1578,8 +1576,8 @@ CONTAINS
             DO j = 1, n_patch_cve_g
               IF (flag2(j) == ilev .AND. .NOT. lcount(j)) THEN
                 n = n + 1
-                glb_index(n) = j
-                loc_index(j) = n
+                decomp_info%glb_index(n) = j
+                decomp_info%loc_index(j) = n
                 jb = blk_no(n) ! block index
                 jl = idx_no(n) ! line index
                 ! This ensures that just the first point found at this irlev is saved as start point
