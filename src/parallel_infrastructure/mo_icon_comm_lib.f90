@@ -572,8 +572,8 @@ CONTAINS
     
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns), &
       & total_no_of_points, receive_from_owner, my_global_index,            &
-      & send_decomp_info%loc_index, allow_send_to_myself, halo_level,       &
-      & level_start, level_end, name)
+      & send_decomp_info, allow_send_to_myself, halo_level, level_start,    &
+      & level_end, name)
 
 
   END FUNCTION new_icon_comm_pattern
@@ -582,14 +582,16 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE setup_grid_comm_pattern(grid_comm_pattern, total_no_of_points, &
-    & receive_from_owner, my_global_index, owners_local_index,  allow_send_to_myself,   &
+    & receive_from_owner, my_global_index, send_decomp_info,  allow_send_to_myself,   &
     & halo_level, level_start, level_end, name)
-!    & owner, my_global_index, owners_local_index, name)
 
-    
     TYPE(t_grid_comm_pattern), INTENT(inout) :: grid_comm_pattern
     INTEGER, INTENT(in) :: total_no_of_points
-    INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:), owners_local_index(:)
+    INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:)
+    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
+                                                   ! domain decomposition
+                                                   ! information of the
+                                                   ! SENDER array
     LOGICAL, INTENT(in), OPTIONAL :: allow_send_to_myself
     INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
     CHARACTER(*), INTENT(in) :: name
@@ -814,7 +816,7 @@ CONTAINS
     DO i=1,no_of_recv_requests
       p_comm_pattern => grid_comm_pattern%send(i)
       DO point_idx = 1, p_comm_pattern%no_of_points
-        local_idx = owners_local_index(p_comm_pattern%global_index(point_idx))
+        local_idx = send_decomp_info%loc_index(p_comm_pattern%global_index(point_idx))
         IF ( local_idx < 0 ) &
           & CALL finish(method_name,'Wrong local index')
         p_comm_pattern%block_no(point_idx) = block_no(local_idx)
