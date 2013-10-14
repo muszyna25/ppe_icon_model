@@ -281,22 +281,23 @@
             ! n_points     : total number of points in the RECEIVER array
             grid => lonlat_grid_list(i)%grid
             n_points = grid%lon_dim * grid%lat_dim
-            ALLOCATE( glb_owner(n_points), send_decomp_info%loc_index(n_points), STAT=ist )
+            ALLOCATE( glb_owner(n_points), STAT=ist )
             IF (ist /= SUCCESS) &
               CALL finish (routine, 'allocation for working arrays failed')
 
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
+            ! send_decomp_info: decomposition information about data in SENDER array.
+            CALL generate_decomp_info(lonlat_grid_list(i)%intp(jg)%global_idx,&
+              &                       nthis_local_pts, n_points, &
+              &                       send_decomp_info)
+
             ! glb_owner    : owner PE number of every point in the RECEIVER array
             glb_owner(:) = -1
-            ! send_decomp_info%loc_index  : local index in the SENDER array.
-            ! positive on all positions owner by sender
-            send_decomp_info%loc_index(:) = -1
             DO j=1,nthis_local_pts
               glb_idx = lonlat_grid_list(i)%intp(jg)%global_idx(j)
               glb_owner  (glb_idx) = my_id
-              send_decomp_info%loc_index(glb_idx) = j
             END DO
 
             ! on work root PE we have to gather owner ranks for all points
@@ -318,9 +319,10 @@
               END IF
             END IF
 
-            DEALLOCATE( glb_owner, send_decomp_info%loc_index, STAT=ist )
+            DEALLOCATE( glb_owner, STAT=ist )
             IF (ist /= SUCCESS) &
               CALL finish (routine, 'deallocation for working arrays failed')
+            CALL deallocate_decomp_info(send_decomp_info)
 
             ! resize global data structures, after the setup only
             ! local information is needed:
@@ -332,6 +334,38 @@
 
       END DO ! i
       IF (dbg_level > 5) CALL message(routine, "Done")
+
+    CONTAINS
+
+      SUBROUTINE generate_decomp_info(glb_index, loc_n, glb_n, decomp_info)
+
+        INTEGER, INTENT(IN) :: loc_n, glb_n
+        INTEGER, INTENT(IN) :: glb_index(loc_n)
+        TYPE(t_grid_domain_decomp_info), INTENT(OUT) :: decomp_info
+
+        INTEGER :: i, ist
+
+        ALLOCATE(decomp_info%loc_index(glb_n), STAT=ist)
+        IF (ist /= SUCCESS) &
+          CALL finish (routine, 'allocation for decomp_info failed')
+        ! loc_index is positive on all positions owner by sender
+        decomp_info%loc_index(:) = -1
+        DO i = 1, loc_n
+          send_decomp_info%loc_index(glb_index(i)) = i
+        END DO
+      END SUBROUTINE generate_decomp_info
+
+      SUBROUTINE deallocate_decomp_info(decomp_info)
+
+        TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
+
+        INTEGER :: ist
+
+        DEALLOCATE(decomp_info%loc_index, STAT=ist)
+        IF (ist /= SUCCESS) &
+          CALL finish (routine, 'deallocation for decomp_info failed')
+
+      END SUBROUTINE deallocate_decomp_info
 
     END SUBROUTINE compute_lonlat_intp_coeffs
 
