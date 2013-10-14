@@ -42,6 +42,7 @@ MODULE mo_reorder_patches
     &                           idx_no, blk_no, idx_1d
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
 
   IMPLICIT NONE
   PRIVATE
@@ -107,11 +108,9 @@ CONTAINS
     CALL reorder_array_pos(pp%cells%vertex_blk,      idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%edge_orientation,idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%refin_ctrl,      idx_old2new,      pp%nblks_c, pp%npromz_c)
-    CALL reorder_array_pos(pp%cells%decomp_info%owner_mask,      idx_old2new,      pp%nblks_c, pp%npromz_c)
     IF (ALLOCATED(pp%cells%ddqz_z_full)) THEN
       CALL reorder_array_pos(pp%cells%ddqz_z_full,     idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 3)
     END IF
-    CALL reorder_array_pos(pp%cells%decomp_info%decomp_domain,   idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%f_c,             idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%area,            idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%center,          idx_old2new,      pp%nblks_c, pp%npromz_c)
@@ -119,7 +118,8 @@ CONTAINS
 !    IF (ASSOCIATED(pp%cells%radiation_owner)) THEN
 !      CALL reorder_array_pos(pp%cells%radiation_owner, idx_old2new,      pp%n_patch_cells)
 !    END IF
-    CALL reorder_array_pos(pp%cells%decomp_info%owner_local,     idx_old2new,      pp%n_patch_cells)
+    CALL reorder_decomp_info(pp%cells%decomp_info, idx_old2new, &
+      &                      pp%n_patch_cells, pp%nblks_c, pp%npromz_c)
 
     ! ----------------------------------------------
     ! in this patch: translate position and contents
@@ -138,9 +138,6 @@ CONTAINS
     ! in this patch: translate contents of verts data structure
     CALL reorder_array_content(pp%verts%cell_idx, pp%verts%cell_blk, idx_old2new, &
       &                        pp%nblks_v, pp%npromz_v, 1, 2)
-
-    CALL reorder_array_content(pp%cells%decomp_info%loc_index, pp%cells%decomp_info%glb_index, idx_old2new, pp%n_patch_cells)
-    CALL reorder_array_pos(pp%cells%decomp_info%glb_index,       idx_old2new,      pp%n_patch_cells)
 
     ! -----------------------------------
     ! in parent patch: translate contents
@@ -230,17 +227,12 @@ CONTAINS
     CALL reorder_array_pos(pp%edges%cartesian_dual_middle,  idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%f_e,                    idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%refin_ctrl,             idx_old2new,      pp%nblks_e, pp%npromz_e)
-    CALL reorder_array_pos(pp%edges%decomp_info%owner_mask,             idx_old2new,      pp%nblks_e, pp%npromz_e)
-
-    CALL reorder_array_pos(pp%edges%decomp_info%owner_local,           idx_old2new,       pp%n_patch_edges)
-    CALL reorder_array_pos(pp%edges%decomp_info%decomp_domain,         idx_old2new,       pp%nblks_e, pp%npromz_e)
+    CALL reorder_decomp_info(pp%edges%decomp_info, idx_old2new, &
+      &                      pp%n_patch_edges, pp%nblks_e, pp%npromz_e)
 
     ! ----------------------------------------------
     ! in this patch: translate contents
     ! ----------------------------------------------
-
-    CALL reorder_array_content(pp%edges%decomp_info%loc_index, pp%edges%decomp_info%glb_index, idx_old2new, pp%n_patch_edges)
-    CALL reorder_array_pos(pp%edges%decomp_info%glb_index,             idx_old2new,       pp%n_patch_edges)
 
     CALL reorder_array_content(pp%edges%quad_idx, pp%edges%quad_blk, idx_old2new, &
       &                        pp%nblks_e, pp%npromz_e, 1, 2, opt_lcatch_zeros=.TRUE.)
@@ -307,17 +299,12 @@ CONTAINS
     CALL reorder_array_pos(pp%verts%f_v,                    idx_old2new,      pp%nblks_v, pp%npromz_v)
     CALL reorder_array_pos(pp%verts%cartesian,              idx_old2new,      pp%nblks_v, pp%npromz_v)
     CALL reorder_array_pos(pp%verts%refin_ctrl,             idx_old2new,      pp%nblks_v, pp%npromz_v)
-    CALL reorder_array_pos(pp%verts%decomp_info%owner_mask,             idx_old2new,      pp%nblks_v, pp%npromz_v)
-    CALL reorder_array_pos(pp%verts%decomp_info%decomp_domain,          idx_old2new,      pp%nblks_v, pp%npromz_v)
-
-    CALL reorder_array_pos(pp%verts%decomp_info%owner_local,           idx_old2new,       pp%n_patch_verts)
+    CALL reorder_decomp_info(pp%verts%decomp_info, idx_old2new, &
+      &                      pp%n_patch_verts, pp%nblks_v, pp%npromz_v)
 
     ! ----------------------------------------------
     ! in this patch: translate position and contents
     ! ----------------------------------------------
-
-    CALL reorder_array_content(pp%verts%decomp_info%loc_index, pp%verts%decomp_info%glb_index, idx_old2new, pp%n_patch_verts)
-    CALL reorder_array_pos(pp%verts%decomp_info%glb_index,             idx_old2new,       pp%n_patch_verts)
 
     CALL reorder_array_content(pp%verts%neighbor_idx, pp%verts%neighbor_blk, idx_old2new, &
       &                        pp%nblks_v, pp%npromz_v, 1, 2, opt_lcatch_zeros=.TRUE.)
@@ -337,7 +324,18 @@ CONTAINS
 
   END SUBROUTINE reorder_verts
 
+  SUBROUTINE reorder_decomp_info(decomp_info, idx_old2new, n, nblks, npromz)
 
+    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
+    INTEGER, INTENT(IN) :: idx_old2new(:) ! permutation array
+    INTEGER, INTENT(IN) :: n, nblks, npromz
+
+    CALL reorder_array_pos(decomp_info%owner_mask, idx_old2new, nblks, npromz)
+    CALL reorder_array_pos(decomp_info%decomp_domain, idx_old2new, nblks, npromz)
+    CALL reorder_array_pos(decomp_info%owner_local, idx_old2new, n)
+    CALL reorder_array_content(decomp_info%loc_index, decomp_info%glb_index, idx_old2new, n)
+    CALL reorder_array_pos(decomp_info%glb_index, idx_old2new, n)
+  END SUBROUTINE reorder_decomp_info
 
   !> reorder array entries according to a given permutation array.
   !  2D implementation, INTEGERS.
