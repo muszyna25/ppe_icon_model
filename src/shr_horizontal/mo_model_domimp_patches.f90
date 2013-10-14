@@ -116,7 +116,9 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, &
+                                   p_patch_local_parent
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
@@ -1578,10 +1580,9 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
-          & p_p%cells%decomp_info%loc_index,         &
-          & p_p%edges%cell_idx(:,:,ji),  &
-          & p_p%edges%cell_blk(:,:,ji) )
+        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, &
+          & p_p%edges%decomp_info%glb_index, p_p%cells%decomp_info, &
+          & p_p%edges%cell_idx(:,:,ji), p_p%edges%cell_blk(:,:,ji) )
       END DO
     END DO
 
@@ -1592,10 +1593,9 @@ CONTAINS
     DO ji = 1, 2
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%decomp_info%glb_index,  &
-          & p_p%verts%decomp_info%loc_index,         &
-          & p_p%edges%vertex_idx(:,:,ji),  &
-          & p_p%edges%vertex_blk(:,:,ji) )
+        CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, &
+          & p_p%edges%decomp_info%glb_index, p_p%verts%decomp_info, &
+          & p_p%edges%vertex_idx(:,:,ji), p_p%edges%vertex_blk(:,:,ji) )
       END DO
     END DO
 
@@ -1710,10 +1710,9 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
-          & p_p%verts%decomp_info%loc_index,             &
-          & p_p%verts%neighbor_idx(:,:,ji),  &
-          & p_p%verts%neighbor_blk(:,:,ji) )
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
+          & p_p%verts%decomp_info%glb_index, p_p%verts%decomp_info, &
+          & p_p%verts%neighbor_idx(:,:,ji), p_p%verts%neighbor_blk(:,:,ji) )
       END DO
     END DO
 
@@ -1730,10 +1729,9 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
-          & p_p%cells%decomp_info%loc_index,         &
-          & p_p%verts%cell_idx(:,:,ji),  &
-          & p_p%verts%cell_blk(:,:,ji) )
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
+          & p_p%verts%decomp_info%glb_index, p_p%cells%decomp_info, &
+          & p_p%verts%cell_idx(:,:,ji), p_p%verts%cell_blk(:,:,ji) )
       END DO
     END DO
 
@@ -1751,10 +1749,9 @@ CONTAINS
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
-        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%decomp_info%glb_index,  &
-          & p_p%edges%decomp_info%loc_index,         &
-          & p_p%verts%edge_idx(:,:,ji),  &
-          & p_p%verts%edge_blk(:,:,ji) )
+        CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
+          & p_p%verts%decomp_info%glb_index, p_p%edges%decomp_info, &
+          & p_p%verts%edge_idx(:,:,ji), p_p%verts%edge_blk(:,:,ji) )
       END DO
     END DO
 
@@ -2302,7 +2299,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Rainer Johanni (2011-12-04)
   !!
-  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, loc_index, &
+  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, decomp_info, &
     & idx_array_out, blk_array_out )
 
     ! input array
@@ -2311,8 +2308,8 @@ CONTAINS
     INTEGER, INTENT(in) :: nvals
     ! global index of values
     INTEGER, INTENT(in) :: glb_index(:)
-    ! local index
-    INTEGER, INTENT(in) :: loc_index(:)
+    ! decomposition information
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     ! output array
     INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
 
@@ -2324,12 +2321,12 @@ CONTAINS
 
       ! get global index in divided array
       j_g = p_idx_array_in(glb_index(j))
-      IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
+      IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) THEN
         ! Just for safety, this should not happen, set result to 0
         j_l = 0
       ELSE
         ! get local index
-        j_l = loc_index(j_g)
+        j_l = decomp_info%loc_index(j_g)
         IF(j_l < 0) j_l = -j_g
       END IF
       ! handle values outside local domain in the same way as get_local_index
