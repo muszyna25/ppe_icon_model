@@ -46,7 +46,8 @@ MODULE mo_sync
 
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
-USE mo_model_domain,       ONLY: t_patch, t_grid_domain_decomp_info
+USE mo_model_domain,       ONLY: t_patch
+USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
 USE mo_math_constants,     ONLY: pi

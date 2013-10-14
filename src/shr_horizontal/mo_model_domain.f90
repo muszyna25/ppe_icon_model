@@ -106,6 +106,7 @@ MODULE mo_model_domain
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
+  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
 
   IMPLICIT NONE
 
@@ -121,7 +122,6 @@ MODULE mo_model_domain
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
   PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
-  PUBLIC :: t_grid_domain_decomp_info
 
   !PUBLIC :: t_patch_ocean
   PUBLIC :: t_patch_3D
@@ -203,45 +203,6 @@ MODULE mo_model_domain
   END TYPE t_tangent_vectors
 
   ! !grid_cell class - corresponds to triangles
-
-  TYPE t_grid_domain_decomp_info
-
-    ! Owner mask:
-    ! For cells this is the same as decomp_domain(:,:)==0
-    ! index1=nproma, index2=1,nblks_c
-    ! For edges, this can not be derived from decomp_domain:
-    ! edges at the border are assigned the PE with the bigger number
-    ! index1=nproma, index2=1,nblks_e    ! For verts, this can not be derived from decomp_domain:
-    ! verts at the border are assigned the PE with the bigger number
-    ! index1=nproma, index2=1,nblks_v
-    LOGICAL, ALLOCATABLE :: owner_mask(:,:)
-
-    ! The following is only used internally for the coupler
-    ! and the icon_comm_lib
-    INTEGER, ALLOCATABLE :: owner_local(:)
-
-    ! The following is only used internally for domain decomposition
-    INTEGER, ALLOCATABLE :: glb_index(:)
-    INTEGER, ALLOCATABLE :: loc_index(:)
-
-    ! Global array of owners
-    INTEGER, ALLOCATABLE :: owner_g(:)
-
-    ! Domain decomposition flag:
-    ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-    ! For cells:
-    ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
-    ! index1=nproma, index2=1,nblks_c
-    ! For edges:
-    ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
-    ! index1=nproma, index2=1,nblks_e
-    ! For verts:
-    ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
-    ! index1=nproma, index2=1,nblks_v
-    INTEGER, POINTER :: decomp_domain(:,:)
-
-    INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
-  END TYPE
 
   TYPE t_grid_cells
 

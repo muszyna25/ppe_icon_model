@@ -60,6 +60,7 @@
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
       &                               HINTP_TYPE_LONLAT_NNB
     USE mo_model_domain,        ONLY: t_patch
+    USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
     USE mo_timer,               ONLY: timer_start, timer_stop,                              &

@@ -58,6 +58,7 @@ MODULE mo_decomposition_tools
   PUBLIC :: get_no_of_cells_per_subdomain
   PUBLIC :: divide_geometric_medial
   PUBLIC :: read_ascii_decomposition
+  PUBLIC :: t_grid_domain_decomp_info
 
   PRIVATE
 
@@ -89,6 +90,45 @@ MODULE mo_decomposition_tools
     
   END TYPE t_decomposition_structure
   !------------------------------
+
+  TYPE t_grid_domain_decomp_info
+
+    ! Owner mask:
+    ! For cells this is the same as decomp_domain(:,:)==0
+    ! index1=nproma, index2=1,nblks_c
+    ! For edges, this can not be derived from decomp_domain:
+    ! edges at the border are assigned the PE with the bigger number
+    ! index1=nproma, index2=1,nblks_e    ! For verts, this can not be derived from decomp_domain:
+    ! verts at the border are assigned the PE with the bigger number
+    ! index1=nproma, index2=1,nblks_v
+    LOGICAL, ALLOCATABLE :: owner_mask(:,:)
+
+    ! The following is only used internally for the coupler
+    ! and the icon_comm_lib
+    INTEGER, ALLOCATABLE :: owner_local(:)
+
+    ! The following is only used internally for domain decomposition
+    INTEGER, ALLOCATABLE :: glb_index(:)
+    INTEGER, ALLOCATABLE :: loc_index(:)
+
+    ! Global array of owners
+    INTEGER, ALLOCATABLE :: owner_g(:)
+
+    ! Domain decomposition flag:
+    ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
+    ! For cells:
+    ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
+    ! index1=nproma, index2=1,nblks_c
+    ! For edges:
+    ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
+    ! index1=nproma, index2=1,nblks_e
+    ! For verts:
+    ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
+    ! index1=nproma, index2=1,nblks_v
+    INTEGER, POINTER :: decomp_domain(:,:)
+
+    INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
+  END TYPE
 
   INTERFACE divide_geometric_medial
     MODULE PROCEDURE decomp_geom_medial_ret

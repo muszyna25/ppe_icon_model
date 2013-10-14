@@ -63,6 +63,7 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
   & timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
+USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
 
 
 IMPLICIT NONE
