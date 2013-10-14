@@ -192,6 +192,7 @@ USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_ocean_nml,           ONLY: idisc_scheme
+USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 
 
 
@@ -1710,21 +1711,22 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
   INTEGER :: jb, jl, i_l, i_g, n_idx_l, n_idx_g
   REAL(wp) :: z_idxi(UBOUND(idxi,1),UBOUND(idxi,2))
   REAL(wp) :: z_idxo(UBOUND(idxo,1),UBOUND(idxo,2))
-  INTEGER, POINTER :: glb_index(:), loc_index(:)
+  INTEGER, POINTER :: glb_index(:)
+  TYPE(t_grid_domain_decomp_info), POINTER :: local_decomp_info
 
   IF(type_idx == SYNC_C) THEN
     glb_index => p_p%cells%decomp_info%glb_index
-    loc_index => p_lp%cells%decomp_info%loc_index
+    local_decomp_info => p_lp%cells%decomp_info
     n_idx_l = p_p%n_patch_cells
     n_idx_g = p_p%n_patch_cells_g
   ELSEIF(type_idx == SYNC_E) THEN
     glb_index => p_p%edges%decomp_info%glb_index
-    loc_index => p_lp%edges%decomp_info%loc_index
+    local_decomp_info => p_lp%edges%decomp_info
     n_idx_l = p_p%n_patch_edges
     n_idx_g = p_p%n_patch_edges_g
   ELSEIF(type_idx == SYNC_V) THEN
     glb_index => p_p%verts%decomp_info%glb_index
-    loc_index => p_lp%verts%decomp_info%loc_index
+    local_decomp_info => p_lp%verts%decomp_info
     n_idx_l = p_p%n_patch_verts
     n_idx_g = p_p%n_patch_verts_g
   ELSE
@@ -1759,9 +1761,7 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
         idxo(jl,jb) = 0
         blko(jl,jb) = 0
       ELSE
-        i_l = loc_index(i_g)
-        ! Determine what to do with nonlocal values (like in get_local_idx_blk):
-        if(i_l<0) i_l = MAX(ABS(i_l)-1,1)
+        i_l = get_valid_local_index(local_decomp_info, i_g)
         idxo(jl,jb) = idx_no(i_l)
         blko(jl,jb) = blk_no(i_l)
       ENDIF
