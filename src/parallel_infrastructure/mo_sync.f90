@@ -813,7 +813,7 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
   INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
   LOGICAL :: remap
   REAL(wp), ALLOCATABLE :: z_idx(:,:)
-  INTEGER, POINTER :: glb_index(:), loc_index(:)
+  TYPE(t_grid_domain_decomp_info), POINTER :: decomp_info
 
   ! opt_remap: Flag if index values pointing outside local domain
   ! should be remapped to values within local domain
@@ -835,18 +835,15 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
   ENDIF
 
   IF(type_idx == SYNC_C) THEN
-    glb_index => p_patch%cells%decomp_info%glb_index
-    loc_index => p_patch%cells%decomp_info%loc_index
+    decomp_info => p_patch%cells%decomp_info
     n_idx = p_patch%n_patch_cells
     n_idx_g = p_patch%n_patch_cells_g
   ELSEIF(type_idx == SYNC_E) THEN
-    glb_index => p_patch%edges%decomp_info%glb_index
-    loc_index => p_patch%edges%decomp_info%loc_index
+    decomp_info => p_patch%edges%decomp_info
     n_idx = p_patch%n_patch_edges
     n_idx_g = p_patch%n_patch_edges_g
   ELSEIF(type_idx == SYNC_V) THEN
-    glb_index => p_patch%verts%decomp_info%glb_index
-    loc_index => p_patch%verts%decomp_info%loc_index
+    decomp_info => p_patch%verts%decomp_info
     n_idx = p_patch%n_patch_verts
     n_idx_g = p_patch%n_patch_verts_g
   ELSE
@@ -870,7 +867,7 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
       IF(i_l <= 0 .or. i_l > n_idx) THEN
         z_idx(jl,jb) = 0._wp
       ELSE
-        z_idx(jl,jb) = REAL(glb_index(i_l),wp)
+        z_idx(jl,jb) = REAL(decomp_info%glb_index(i_l),wp)
       ENDIF
 
     END DO
@@ -889,7 +886,7 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
         idx(jl,jb) = idx_no(0)
         blk(jl,jb) = blk_no(0)
       ELSE
-        i_l = loc_index(i_g)
+        i_l = decomp_info%loc_index(i_g)
         ! Determine what to do with nonlocal values
         IF(i_l<0) THEN
           IF(remap) THEN
