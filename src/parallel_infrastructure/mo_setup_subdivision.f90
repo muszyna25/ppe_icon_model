@@ -818,7 +818,9 @@ CONTAINS
 
     CALL compute_flag_lists(flag2_c_list, flag2_v_list, flag2_e_list, &
       &                     n2_ilev_c, n2_ilev_v, n2_ilev_e, &
-      &                     n_boundary_rows, owned_edges, owned_verts, &
+      &                     n_boundary_rows, &
+    ! removed arguments because NEC has some problems with them...
+    !  &                     owned_edges, owned_verts, &
       &                     order_type_of_halos)
 
     !-----------------------------------------------------------------------------------------------
@@ -1274,7 +1276,9 @@ CONTAINS
 
     SUBROUTINE compute_flag_lists(flag2_c_list, flag2_v_list, flag2_e_list, &
       &                           n2_ilev_c, n2_ilev_v, n2_ilev_e, &
-      &                           n_boundary_rows, owned_edges, owned_verts, &
+      &                           n_boundary_rows, &
+    ! removed arguments because NEC has some problems with them...
+    !  &                           owned_edges, owned_verts, &
       &                           order_type_of_halos)
       INTEGER, INTENT(IN) :: n_boundary_rows
       TYPE(nb_flag_list_elem), INTENT(OUT) :: &
@@ -1282,7 +1286,8 @@ CONTAINS
         flag2_e_list(0:2*n_boundary_rows+1)
       INTEGER, INTENT(OUT) :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
         &  n2_ilev_e(0:2*n_boundary_rows+1)
-      INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
+      ! removed arguments because NEC has some problems with them...
+      ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
       INTEGER :: n, i, ic, j, jv, je, jl, jb, jl_e, jb_e, jl_v, jb_v, ilev, &
@@ -1353,7 +1358,10 @@ CONTAINS
 
         CALL compute_flag_lists_short(flag2_c_list, flag2_v_list, flag2_e_list, &
           &                           n2_ilev_c, n2_ilev_v, n2_ilev_e, &
-          &                           n_boundary_rows, owned_edges, owned_verts)
+          &                           n_boundary_rows &
+        ! removed arguments because NEC has some problems with them...
+        !  &                           ,owned_edges, owned_verts &
+                                      )
 
         RETURN
       END IF
@@ -1744,15 +1752,18 @@ CONTAINS
 
     SUBROUTINE compute_flag_lists_short(flag2_c_list, flag2_v_list, &
       &                                 flag2_e_list, n2_ilev_c, n2_ilev_v, &
-      &                                 n2_ilev_e, n_boundary_rows, &
-      &                                 owned_edges, owned_verts)
+      &                                 n2_ilev_e, n_boundary_rows &
+    ! removed arguments because NEC has some problems with them...
+    !  &                                 ,owned_edges, owned_verts &
+                                        )
       INTEGER, INTENT(IN) :: n_boundary_rows
       TYPE(nb_flag_list_elem), INTENT(OUT) :: &
         flag2_c_list(0:2*n_boundary_rows), flag2_v_list(0:n_boundary_rows+1), &
         flag2_e_list(0:2*n_boundary_rows+1)
       INTEGER, INTENT(OUT) :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
         &  n2_ilev_e(0:2*n_boundary_rows+1)
-      INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
+      ! removed arguments because NEC has some problems with them...
+      ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
 
       INTEGER :: i
 
