@@ -1207,14 +1207,6 @@ CONTAINS
 
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially
-    IF (my_process_is_mpi_seq()) THEN
-      patch%cells%decomp_info%halo_level(:,:) = 0
-      patch%cells%decomp_info%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
-      patch%edges%decomp_info%halo_level(:,:) = 0
-      patch%edges%decomp_info%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
-      patch%verts%decomp_info%halo_level(:,:) = 0
-      patch%verts%decomp_info%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
-    ENDIF
 
     ! calculate dummy cell block, index, if exists
     ! set level halo to -1
@@ -1374,17 +1366,6 @@ CONTAINS
   SUBROUTINE read_grid_subsets(ncid, patch)
     INTEGER, INTENT(in) :: ncid
     TYPE(t_patch), INTENT(inout) :: patch
-
-    !--------------------------------------------------------------------------------
-    ! make sure the levels are correct when running sequentially
-    IF (my_process_is_mpi_seq()) THEN
-      patch%cells%decomp_info%halo_level(:,:) = 0
-      patch%cells%decomp_info%halo_level(patch%npromz_c + 1 :nproma, patch%alloc_cell_blocks) = -1
-      patch%edges%decomp_info%halo_level(:,:) = 0
-      patch%edges%decomp_info%halo_level(patch%npromz_e + 1 :nproma, patch%nblks_e) = -1
-      patch%verts%decomp_info%halo_level(:,:) = 0
-      patch%verts%decomp_info%halo_level(patch%npromz_v + 1 :nproma, patch%nblks_v) = -1
-    ENDIF
 
     !--------------------------------------------------------------------------------
     CALL fill_grid_subset_names(patch)
