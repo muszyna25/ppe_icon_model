@@ -47,6 +47,7 @@ MODULE mo_complete_subdivision
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D, p_patch,      &
     &                              p_patch_local_parent,  &
     &                              p_phys_patch
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -410,20 +411,20 @@ CONTAINS
       DO i=1,p_patch%cell_type
 
 !CDIR IEXPAND
-        CALL remap_index(p_patch%cells%decomp_info%loc_index, &
-          & p_patch%cells%neighbor_idx(jl,jb,i),      &
+        CALL remap_index(p_patch%cells%decomp_info, &
+          & p_patch%cells%neighbor_idx(jl,jb,i),    &
           & p_patch%cells%neighbor_blk(jl,jb,i))
 
         ! edge_idx and vertex_idx should not need a remap !!!
         ! This is only left here if there should change something in the decomposition
 !CDIR IEXPAND
-        CALL remap_index(p_patch%edges%decomp_info%loc_index, &
-          & p_patch%cells%edge_idx(jl,jb,i),          &
+        CALL remap_index(p_patch%edges%decomp_info, &
+          & p_patch%cells%edge_idx(jl,jb,i),        &
           & p_patch%cells%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL remap_index(p_patch%verts%decomp_info%loc_index, &
-          & p_patch%cells%vertex_idx(jl,jb,i),        &
+        CALL remap_index(p_patch%verts%decomp_info, &
+          & p_patch%cells%vertex_idx(jl,jb,i),      &
           & p_patch%cells%vertex_blk(jl,jb,i))
 
       ENDDO
@@ -484,23 +485,23 @@ CONTAINS
       IF (p_patch%edges%refin_ctrl(jl,jb) /= 1) THEN
         DO i=1,2
 !CDIR IEXPAND
-          CALL remap_index(p_patch%cells%decomp_info%loc_index, &
-            & p_patch%edges%cell_idx(jl,jb,i),          &
+          CALL remap_index(p_patch%cells%decomp_info, &
+            & p_patch%edges%cell_idx(jl,jb,i),        &
             & p_patch%edges%cell_blk(jl,jb,i))
         ENDDO
       ENDIF
 
       DO i=1,4
 !CDIR IEXPAND
-        CALL remap_index(p_patch%verts%decomp_info%loc_index, &
-          & p_patch%edges%vertex_idx(jl,jb,i),        &
+        CALL remap_index(p_patch%verts%decomp_info, &
+          & p_patch%edges%vertex_idx(jl,jb,i),      &
           & p_patch%edges%vertex_blk(jl,jb,i))
       ENDDO
 
       DO i=1,4
 !CDIR IEXPAND
-        CALL remap_index(p_patch%edges%decomp_info%loc_index, &
-          & p_patch%edges%quad_idx(jl,jb,i),          &
+        CALL remap_index(p_patch%edges%decomp_info, &
+          & p_patch%edges%quad_idx(jl,jb,i),        &
           & p_patch%edges%quad_blk(jl,jb,i))
       ENDDO
 
@@ -551,18 +552,18 @@ CONTAINS
       DO i=1,9-p_patch%cell_type
 
 !CDIR IEXPAND
-        CALL remap_index(p_patch%verts%decomp_info%loc_index, &
-          & p_patch%verts%neighbor_idx(jl,jb,i),      &
+        CALL remap_index(p_patch%verts%decomp_info, &
+          & p_patch%verts%neighbor_idx(jl,jb,i),    &
           & p_patch%verts%neighbor_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL remap_index(p_patch%edges%decomp_info%loc_index, &
-          & p_patch%verts%edge_idx(jl,jb,i),          &
+        CALL remap_index(p_patch%edges%decomp_info, &
+          & p_patch%verts%edge_idx(jl,jb,i),        &
           & p_patch%verts%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL remap_index(p_patch%cells%decomp_info%loc_index, &
-          & p_patch%verts%cell_idx(jl,jb,i),          &
+        CALL remap_index(p_patch%cells%decomp_info, &
+          & p_patch%verts%cell_idx(jl,jb,i),        &
           & p_patch%verts%cell_blk(jl,jb,i))
       ENDDO
 
@@ -1815,9 +1816,9 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Oct 2011
   !!
-  SUBROUTINE remap_index(loc_index, l_idx, l_blk)
+  SUBROUTINE remap_index(decomp_info, l_idx, l_blk)
 
-    INTEGER, INTENT(in) :: loc_index(:)
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     INTEGER, INTENT(inout) :: l_idx, l_blk
 
     INTEGER :: j_l, j_g
@@ -1827,9 +1828,9 @@ CONTAINS
     j_g = idx_1d(-l_idx, l_blk) ! Global index
 
     ! Safety check only, global index should be in correct range
-    IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) CALL finish('remap_index','Invalid global index')
+    IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) CALL finish('remap_index','Invalid global index')
 
-    j_l = loc_index(j_g)
+    j_l = decomp_info%loc_index(j_g)
 
     ! Safety check only, local index should be negative
     IF(j_l >= 0) CALL finish('remap_index','Invalid local index')
