@@ -47,10 +47,15 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_dictionary
 
+#ifdef __ICON__
   USE mo_exception,      ONLY: finish, message_text
   USE mo_util_string,    ONLY: tolower    
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,       ONLY: find_next_free_unit
+#else
+  USE mo_utilities,      ONLY: finish, message_text, tolower, SUCCESS, &
+    &                          find_next_free_unit
+#endif
 
   IMPLICIT NONE
 
