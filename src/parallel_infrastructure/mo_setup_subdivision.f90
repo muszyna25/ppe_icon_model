@@ -1913,6 +1913,19 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: flag2_union(:,:)
 
+    ! if all cells/vertices/edges have flag == 0
+    IF ((n2_ilev(0) == n_patch_cve) .AND. (n2_ilev(0) == n_patch_cve_g)) THEN
+
+      CALL build_patch_start_end_short(n_patch_cve, n_patch_cve_g, &
+        max_childdom, nchilddom, patch_id, nblks, npromz, cell_type, &
+        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
+        flag2_list, n2_ilev, decomp_info, &
+        start_idx, start_blk, end_idx, end_blk, &
+        start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+        order_type_of_halos, l_cell_correction)
+      RETURN
+    END IF
+
     ALLOCATE(flag2_union(n_patch_cve, 2))
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
@@ -2161,6 +2174,187 @@ CONTAINS
     END DO
 
   END SUBROUTINE build_patch_start_end
+
+  SUBROUTINE build_patch_start_end_short(n_patch_cve, n_patch_cve_g, &
+       max_childdom, nchilddom, patch_id, nblks, npromz, cell_type, &
+       min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
+       flag2_list, n2_ilev, decomp_info, &
+       start_idx, start_blk, end_idx, end_blk, &
+       start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+       order_type_of_halos, l_cell_correction)
+    INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, max_childdom, &
+         nchilddom, patch_id, nblks, npromz, cell_type, &
+         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
+    INTEGER, INTENT(in) :: order_type_of_halos
+    LOGICAL, INTENT(in) :: l_cell_correction
+    INTEGER, INTENT(in) :: n2_ilev(0:)
+    TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
+    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(inout) :: &
+         start_idx, start_blk, end_idx, end_blk
+    INTEGER, DIMENSION(min_rlcve:, :), INTENT(in) :: &
+         start_idx_g, start_blk_g, end_idx_g, end_blk_g
+
+    INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, exec_sequence
+
+    ! if all cells/vertices/edges have flag == 0
+    IF ((n2_ilev(0) /= n_patch_cve) .OR. (n2_ilev(0) /= n_patch_cve_g)) &
+      CALL finish("build_patch_start_end_short", &
+          &       "arguments do not fit for this routine")
+
+    IF (ANY(order_type_of_halos == (/0,1,2/))) THEN
+      decomp_info%glb_index(:) = flag2_list(0)%idx(:)
+      decomp_info%loc_index(:) = flag2_list(0)%idx(:)
+    ELSE
+      CALL finish("build_patch_start_end_short", "Uknown order_type_of_halos")
+    END IF
+
+    ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
+    ! This must be done here since it depends on the special (monotonic)
+    ! setting of the loc_index array.
+
+    DO j=1,max_childdom
+      ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
+      ! halo cells; they are set below
+      DO i=min_rlcve_int,max_rlcve
+!CDIR IEXPAND
+        CALL get_local_idx_blk(decomp_info, &
+          & start_idx_g(i,j),             &
+          & start_blk_g(i,j),             &
+          & start_idx(i,j),               &
+          & start_blk(i,j),               &
+          & +1 )
+!CDIR IEXPAND
+        CALL get_local_idx_blk(decomp_info, &
+          & end_idx_g(i,j),               &
+          & end_blk_g(i,j),               &
+          & end_idx(i,j),                 &
+          & end_blk(i,j),                 &
+          & -1 )
+      ENDDO
+    ENDDO
+
+    ! Preset remaining index sections with dummy values
+    start_idx(min_rlcve:min_rlcve_int-1, :) = -9999
+    start_blk(min_rlcve:min_rlcve_int-1, :) = -9999
+    end_idx(min_rlcve:min_rlcve_int-1, :)   = -9999
+    end_blk(min_rlcve:min_rlcve_int-1, :)   = -9999
+
+    SELECT CASE(order_type_of_halos)
+    CASE (0,2)
+      ! processing local parent grid
+      !
+      ! Gather all halo cells/edges/verts at the end of the patch.
+      ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
+      irlev = min_rlcve_int-1
+
+      ! Set end index when the last point is processed
+      start_idx(min_rlcve:irlev-1,:) = start_idx(irlev,1)
+      start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
+      end_idx(min_rlcve:irlev,:) = idx_no(n_patch_cve)
+      end_blk(min_rlcve:irlev,:) = blk_no(n_patch_cve)
+
+    CASE(1)
+      ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
+      ! at the end. They are sorted by the flag2 value and will be placed at the
+      ! index levels between min_rlcve_int-1 and min_rlcve
+      ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
+      ! cannot be used here
+
+      irlev = MAX(min_rlcve, min_rlcve_int - 1)  ! index section into which the halo points are put
+
+      ! Just in case that no grid point is found (may happen for ilev=1)
+      IF (.NOT. l_cell_correction) THEN
+        start_idx(irlev,:) = end_idx(irlev+1,nchilddom)+1
+        start_blk(irlev,:) = end_blk(irlev+1,nchilddom)
+        end_idx(irlev,:)   = end_idx(irlev+1,nchilddom)
+        end_blk(irlev,:)   = end_blk(irlev+1,nchilddom)
+      ENDIF
+
+      ! Fill start and end indices for remaining index sections
+      IF (patch_id == 0) THEN
+        ilev1 = min_rlcve_int
+        ilev_st = 1
+      ELSE
+        ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
+        ilev_st = max_ilev + 1
+      ENDIF
+      IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+        DO ilev = 2, max_hw_cve, 2
+          irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+          start_idx(irlev,:) = end_idx(irlev+1,1) + 1
+          start_blk(irlev,:) = end_blk(irlev+1,1)
+          end_idx(irlev,:)   = end_idx(irlev+1,1)
+          end_blk(irlev,:)   = end_blk(irlev+1,1)
+        ENDDO
+      ENDIF
+      DO ilev = ilev_st,max_hw_cve
+        irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+        start_idx(irlev,:) = end_idx(ilev1,1) + 1
+        start_blk(irlev,:) = end_blk(ilev1,1)
+        end_idx(irlev,:)   = end_idx(ilev1,1)
+        end_blk(irlev,:)   = end_blk(ilev1,1)
+      ENDDO
+    END SELECT
+
+    ! exec_sequence only serves the purpose to retain the execution
+    ! sequence for these three correction as it was in the previous
+    ! code version, it might be irrelevant.
+    ! see redmine issue #3924
+    DO exec_sequence = 0, 1
+      IF (.NOT. l_cell_correction .AND. exec_sequence == 0 &
+           .OR. l_cell_correction .AND. exec_sequence == 1) THEN
+        ! If a PE owns only nest boundary points, it may happen that
+        ! one or more index sections of halo cells/verts/edges are
+        ! empty. These are filled here
+        IF (start_blk(0,1)     > end_blk(min_rlcve_int,nchilddom) &
+             .OR. start_blk(0,1) == end_blk(min_rlcve_int,nchilddom) &
+             .AND. start_idx(0,1) > end_idx(min_rlcve_int,nchilddom) ) THEN
+          DO i = min_rlcve_int-1, min_rlcve, -1
+            IF (start_idx(i,1) == -9999 .OR. &
+                 start_blk(i,1) == -9999 .OR. &
+                 end_idx(i,1)   == -9999 .OR. &
+                 end_blk(i,1)   == -9999 ) THEN
+              start_idx(i,:) = start_idx(i+1,1)
+              start_blk(i,:) = start_blk(i+1,1)
+              end_idx(i,:)   = end_idx(i+1,1)
+              end_blk(i,:)   = end_blk(i+1,1)
+            ENDIF
+          ENDDO
+        ENDIF
+
+        ! Finally, fill start indices of halo rows with meaningful
+        ! values for empty patches (which occur when processor
+        ! splitting is applied)
+        IF (nblks <= 0 .OR. npromz <= 0) THEN
+          DO i=min_rlcve,min_rlcve_int-1
+            start_idx(i,:) = start_idx(min_rlcve_int,1)
+            start_blk(i,:) = start_blk(min_rlcve_int,1)
+            end_idx(i,:)   = end_idx(min_rlcve_int,1)
+            end_blk(i,:)   = end_blk(min_rlcve_int,1)
+          ENDDO
+        ENDIF
+      END IF
+      ! special treatment for sequential runs with trivial decomposition
+      IF (exec_sequence == 0 .AND. SUM(n2_ilev(1:)) == 0) THEN
+        end_idx(min_rlcve:min_rlcve_int-1,:) &
+             = end_idx(min_rlcve_int, nchilddom)
+        end_blk(min_rlcve:min_rlcve_int-1,:) &
+             = end_blk(min_rlcve_int, nchilddom)
+        IF (end_idx(min_rlcve_int, nchilddom) == nproma) THEN
+          start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   end_blk(min_rlcve_int, nchilddom) + 1
+          start_idx(min_rlcve:min_rlcve_int-1,:) = 1
+        ELSE
+          start_idx(min_rlcve:min_rlcve_int-1,:) = &
+               &    end_idx(min_rlcve_int, nchilddom) + 1
+          start_blk(min_rlcve:min_rlcve_int-1,:) = &
+               &   end_blk(min_rlcve_int, nchilddom)
+        END IF
+      END IF
+    END DO
+
+  END SUBROUTINE build_patch_start_end_short
 
   !-------------------------------------------------------------------------
   !>
