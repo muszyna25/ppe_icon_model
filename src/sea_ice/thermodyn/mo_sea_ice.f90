@@ -433,9 +433,9 @@ CONTAINS
     &          t_cf_var('forc_hflx', 'm/s', 'forc_hflx', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fwfx', p_sfc_flx%forc_fwfx , &
+    CALL add_var(var_list, 'forc_fw_tot', p_sfc_flx%forc_fw_tot , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwfx', 'm/s', 'forc_fwfx', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_tot', 'm/s', 'forc_fw_tot', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
@@ -473,9 +473,9 @@ CONTAINS
     &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fwbc', p_sfc_flx%forc_fwbc , &
+    CALL add_var(var_list, 'forc_fw_bc', p_sfc_flx%forc_fw_bc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwbc', 'm/s', 'forc_fwbc', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_bc', 'm/s', 'forc_fw_bc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
@@ -591,9 +591,9 @@ CONTAINS
     &          t_cf_var('forc_hflx_acc', 'm/s', 'forc_hflx_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fwfx_acc', p_sfc_flx%forc_fwfx_acc , &
+    CALL add_var(var_list, 'forc_fw_tot_acc', p_sfc_flx%forc_fw_tot_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwfx_acc', 'm/s', 'forc_fwfx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_tot_acc', 'm/s', 'forc_fw_tot_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_swflx_acc', p_sfc_flx%forc_swflx_acc , &
@@ -631,9 +631,9 @@ CONTAINS
     &          t_cf_var('forc_runoff_acc', 'm/s', 'forc_runoff_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fwbc_acc', p_sfc_flx%forc_fwbc_acc , &
+    CALL add_var(var_list, 'forc_fw_bc_acc', p_sfc_flx%forc_fw_bc_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwbc_acc', 'm/s', 'forc_fwbc_acc', DATATYPE_FLT32),&
+    &          t_cf_var('forc_fw_bc_acc', 'm/s', 'forc_fw_bc_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
@@ -1769,7 +1769,7 @@ CONTAINS
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
     !
-    ! TODO: divide precw/preci from forc_fwbc calculated in mo_oce_bulk/update_sfcflx
+    ! TODO: divide precw/preci from forc_fw_bc calculated in mo_oce_bulk/update_sfcflx
     ! Change in height is calculated in update_sfcflx as well - no temperature change due to precip yet
     ! should not be done here:
     !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap

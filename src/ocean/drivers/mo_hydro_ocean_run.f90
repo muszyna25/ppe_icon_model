@@ -639,10 +639,10 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_precip_acc  , p_sfc_flx%forc_precip  , subset)
     CALL add_fields(p_sfc_flx%forc_evap_acc    , p_sfc_flx%forc_evap    , subset)
     CALL add_fields(p_sfc_flx%forc_runoff_acc  , p_sfc_flx%forc_runoff  , subset)
-    CALL add_fields(p_sfc_flx%forc_fwbc_acc    , p_sfc_flx%forc_fwbc    , subset)
+    CALL add_fields(p_sfc_flx%forc_fw_bc_acc   , p_sfc_flx%forc_fw_bc   , subset)
     CALL add_fields(p_sfc_flx%forc_fwrelax_acc , p_sfc_flx%forc_fwrelax , subset)
     CALL add_fields(p_sfc_flx%forc_fwsice_acc  , p_sfc_flx%forc_fwsice  , subset)
-    CALL add_fields(p_sfc_flx%forc_fwfx_acc    , p_sfc_flx%forc_fwfx    , subset)
+    CALL add_fields(p_sfc_flx%forc_fw_tot_acc  , p_sfc_flx%forc_fw_tot  , subset)
     CALL add_fields(p_sfc_flx%forc_hfrelax_acc , p_sfc_flx%forc_hfrelax , subset)
     CALL add_fields(p_sfc_flx%forc_hflx_acc    , p_sfc_flx%forc_hflx    , subset)
     DO jtrc=1,no_tracer
@@ -673,10 +673,10 @@ CONTAINS
     p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fwbc_acc         = p_sfc_flx%forc_fwbc_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fw_bc_acc        = p_sfc_flx%forc_fw_bc_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwsice_acc       = p_sfc_flx%forc_fwsice_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fwfx_acc         = p_sfc_flx%forc_fwfx_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fw_tot_acc       = p_sfc_flx%forc_fw_tot_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_tracer_acc       = p_sfc_flx%forc_tracer_acc      /REAL(nsteps_since_last_output,wp)
@@ -706,10 +706,10 @@ CONTAINS
     p_sfc_flx%forc_precip_acc       = 0.0_wp
     p_sfc_flx%forc_evap_acc         = 0.0_wp
     p_sfc_flx%forc_runoff_acc       = 0.0_wp
-    p_sfc_flx%forc_fwbc_acc         = 0.0_wp
+    p_sfc_flx%forc_fw_bc_acc        = 0.0_wp
     p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
     p_sfc_flx%forc_fwsice_acc       = 0.0_wp
-    p_sfc_flx%forc_fwfx_acc         = 0.0_wp
+    p_sfc_flx%forc_fw_tot_acc       = 0.0_wp
     p_sfc_flx%forc_hfrelax_acc      = 0.0_wp
     p_sfc_flx%forc_hflx_acc         = 0.0_wp
     p_sfc_flx%forc_tracer_acc       = 0.0_wp

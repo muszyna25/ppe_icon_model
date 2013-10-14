@@ -2246,7 +2246,7 @@ CONTAINS
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
       END IF 
-      CALL addVar(TimeVar('forc_fwfx',&
+      CALL addVar(TimeVar('forc_fw_tot',&
         &                 'sum of forcing net freshwater flux',&
         &                 'm/s',16,128,&
 !       &                 'm/month',16,128,&
@@ -2276,7 +2276,7 @@ CONTAINS
         &                   gridCellID(k_jg),&
         &                   zaxisID_surface(k_jg)),&
         &           k_jg)
-   !    CALL addVar(TimeVar('forc_fwbc',&
+   !    CALL addVar(TimeVar('forc_fw_bc',&
    !    &                   'forcing net freshwater flux from boundary condition',&
    !    &                   'm/s',16,128,&
    !    &                   vlistID(k_jg),&
@@ -3370,13 +3370,13 @@ CONTAINS
       CASE ('forc_slflx');   ptr2d => forcing%forc_slflx(:,:)
       CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
       CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
-      CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
+      CASE ('forc_fw_tot');  ptr2d => forcing%forc_fw_tot(:,:)
       CASE ('forc_fwrelax'); ptr2d => forcing%forc_fwrelax(:,:)
       CASE ('forc_fwsice');  ptr2d => forcing%forc_fwsice(:,:)
       CASE ('forc_precip');  ptr2d => forcing%forc_precip(:,:)
       CASE ('forc_evap');    ptr2d => forcing%forc_evap(:,:)
       CASE ('forc_runoff');  ptr2d => forcing%forc_runoff(:,:)
-      CASE ('forc_fwbc');    ptr2d => forcing%forc_fwbc(:,:)
+      CASE ('forc_fw_bc');   ptr2d => forcing%forc_fw_bc(:,:)
       CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin_grad');     ptr3d => p_diag%grad
       CASE('Ekin');          ptr3d => p_diag%kin

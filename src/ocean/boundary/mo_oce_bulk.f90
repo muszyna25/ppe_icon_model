@@ -402,51 +402,18 @@ CONTAINS
 
       END IF  !  iforc_type=2 or 5
 
-      IF (iforc_type == 3) THEN
+      !IF (iforc_type == 3) THEN
 
         !-------------------------------------------------------------------------
+        ! #slo# This is a first try for "simple flux coupling" - not used anymore >r14000
         ! Apply surface heat and freshwater fluxes (records 4 and 5)
         ! 4:  hflx(:,:)   !  net surface heat flux               [W/m2]
         ! 5:  fwbc(:,:)   !  net freshwater flux                 [m/s]
 
-        p_sfc_flx%forc_hflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
-          &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        p_sfc_flx%forc_fwbc(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
-          &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
-
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: frc3 Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc3 Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        !---------------------------------------------------------------------
-
-        ! #slo# This is a first try for "simple flux coupling"
-        IF (i_sea_ice >= 1) THEN
-          Qatm%SWnet  (:,i,:)   = 0.0_wp  ! not available - very hot shot
-          DO i = 1, p_ice%kice
-            Qatm%LWnet  (:,i,:)   = p_sfc_flx%forc_hflx(:,:)
-          ENDDO
-          Qatm%sens   (:,:,:) = 0.0_wp
-          Qatm%lat    (:,:,:) = 0.0_wp
-          Qatm%dsensdT(:,:,:) = 0.0_wp
-          Qatm%dlatdT (:,:,:) = 0.0_wp
-          Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
-
-          ! Fluxes into the water are the same as into the ice
-          Qatm%SWnetw (:,:)   = 0.0_wp  ! not available - very hot shot
-          Qatm%LWnetw (:,:)   = p_sfc_flx%forc_hflx(:,:)
-          Qatm%sensw  (:,:)   = 0.0_wp
-          Qatm%latw   (:,:)   = 0.0_wp
-
-          ! p_sfc_flx%forc_hflx is recalculated in upper_ocean_TS in mo_sea_ice.f90, called by
-          ! ice_slow
-
-        ENDIF
-
-      END IF
+      !END IF
       
-      ! this is used for "intermediate complexity flux forcing"
-      IF (iforc_type == 4) THEN
+      ! this is used for "intermediate complexity flux forcing" - not used anymore >r14000
+      !IF (iforc_type == 4) THEN
 
         !-------------------------------------------------------------------------
         ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
@@ -457,57 +424,8 @@ CONTAINS
         ! 8:  precip(:,:)  !  total precipitation flux            [m/s]
         ! 9:  evap(:,:)    !  evaporation flux                    [m/s]
 
-        p_sfc_flx%forc_swflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
-        p_sfc_flx%forc_lwflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
-        p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,6) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
-        p_sfc_flx%forc_slflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
-        p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
-        p_sfc_flx%forc_evap(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
-          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-        ! sum of fluxes for ocean boundary condition
-        p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
-          &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
-        p_sfc_flx%forc_fwbc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
-
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: frc4 SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Precip.'      ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Evaporation'  ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: frc4 Freshw. Flux' ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        !---------------------------------------------------------------------
-
-        ! call of sea ice model
-        IF (i_sea_ice >= 1) THEN
-
-          Qatm%SWnet  (:,1,:) = p_sfc_flx%forc_swflx(:,:)
-          Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
-          Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
-          Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
-          Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
-          Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-          Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
-          Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
-          Qatm%dsensdT(:,:,:) = 0.0_wp
-          Qatm%dlatdT (:,:,:) = 0.0_wp
-          Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
-
-          ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
-          !  done in mo_sea_ice:upper_ocean_TS
-
-        ENDIF  ! i_sea_ice
-
-      ENDIF  ! i_forc_type == 4
+      !ENDIF  ! i_forc_type == 4
 
       IF (temperature_relaxation == 2)  THEN
 
@@ -569,12 +487,12 @@ CONTAINS
             ! TODO: evaporation of ice and snow must be implemented
             ! check: sea ice class =1  p_ice%conc(:,1,:) or sum of ice classes p_ice%concSum(:,:)
             p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref) * (1.0_wp-p_ice%conc(:,1,:))
-            p_sfc_flx%forc_fwbc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
+            p_sfc_flx%forc_fw_bc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
             idt_src=2  ! output print level (1-5, fix)
             CALL dbg_print('UpdSfc: OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_fwbc',p_sfc_flx%forc_fwbc  &
+            CALL dbg_print('UpdSfc: OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
           ENDIF
 
@@ -885,7 +803,7 @@ CONTAINS
             CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_precip(:,:))
             CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evap(:,:))
             ! sum of fluxes for ocean boundary condition
-            p_sfc_flx%forc_fwbc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
+            p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
         END IF
       ! ENDIF ! l_forc_freshw
       !
@@ -956,7 +874,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fwbc      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fw_bc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         DEALLOCATE(buffer)
@@ -1250,12 +1168,12 @@ CONTAINS
     IF (l_forc_freshw) THEN
 
       p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
-        &                            - p_sfc_flx%forc_fwbc(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+        &                            - p_sfc_flx%forc_fw_bc(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:fwbc:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc:forc_trac[Km/s]',z_c2,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ENDIF
@@ -1280,11 +1198,11 @@ CONTAINS
 
     ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     IF (no_tracer >1) THEN
-      p_sfc_flx%forc_fwfx(:,:) = (p_sfc_flx%forc_fwbc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
+      p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: sum-fwfx[m/s]',p_sfc_flx%forc_fwfx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: sum-fw_tot[m/s]',p_sfc_flx%forc_fw_tot,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
@@ -1297,7 +1215,7 @@ CONTAINS
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%forc_fw_tot(jc,jb)*dtime
         END DO
       END DO
       idt_src=1  ! output print level (1-5, fix)
