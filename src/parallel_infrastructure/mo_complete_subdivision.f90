@@ -47,7 +47,8 @@ MODULE mo_complete_subdivision
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D, p_patch,      &
     &                              p_patch_local_parent,  &
     &                              p_phys_patch
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
+    &                              get_valid_local_index
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
@@ -612,7 +613,7 @@ CONTAINS
         jc_g = idx_1d(p_pp%cells%child_idx(jl,jb,i),p_pp%cells%child_blk(jl,jb,i))
         IF(jc_g<1 .OR. jc_g>p_pc%n_patch_cells_g) &
           & CALL finish('set_parent_child_relations','Invalid cell child index in global parent')
-        jc = p_pc%cells%decomp_info%loc_index(jc_g)
+        jc = get_local_index(p_pc%cells%decomp_info, jc_g)
         IF(jc <= 0) &
           & CALL finish('set_parent_child_relations','cell child index outside child domain')
         p_pp%cells%child_blk(jl,jb,i) = blk_no(jc)
@@ -643,10 +644,8 @@ CONTAINS
         ENDIF
 
         jc_g = idx_1d(p_pp%edges%child_idx(jl,jb,i),p_pp%edges%child_blk(jl,jb,i))
-        IF(jc_g<1 .OR. jc_g>p_pc%n_patch_edges_g) &
-          & CALL finish('set_parent_child_relations','Inv. edge child index in global parent')
-        jc = p_pc%edges%decomp_info%loc_index(ABS(jc_g))
-        IF(jc <= 0) &
+        jc = get_valid_local_index(p_pc%edges%decomp_info, jc_g, .TRUE.)
+        IF(jc == 0) &
           & CALL finish('set_parent_child_relations','edge child index outside child domain')
         p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
         p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
@@ -669,7 +668,7 @@ CONTAINS
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
         & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
 
-      jp = p_pp%cells%decomp_info%loc_index(jp_g)
+      jp = get_local_index(p_pp%cells%decomp_info, jp_g)
       IF(jp <= 0) THEN
         p_pc%cells%parent_blk(jl,jb) = 0
         p_pc%cells%parent_idx(jl,jb) = 0
@@ -691,7 +690,7 @@ CONTAINS
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
         & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
 
-      jp = p_pp%edges%decomp_info%loc_index(jp_g)
+      jp = get_local_index(p_pp%edges%decomp_info, jp_g)
       IF(jp <= 0) THEN
         p_pc%edges%parent_blk(jl,jb) = 0
         p_pc%edges%parent_idx(jl,jb) = 0
@@ -1801,7 +1800,7 @@ CONTAINS
   !>
   !!               Calculates local line/block indices l_idx, l_blk
   !!               from global line/block indices g_idx, g_blk
-  !!               using the mapping in loc_index
+  !!               using the mapping in decomp_info
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
@@ -1821,23 +1820,11 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     INTEGER, INTENT(inout) :: l_idx, l_blk
 
-    INTEGER :: j_l, j_g
+    INTEGER :: j_l
 
     IF(l_idx>=0) RETURN ! Nothing to do
 
-    j_g = idx_1d(-l_idx, l_blk) ! Global index
-
-    ! Safety check only, global index should be in correct range
-    IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) CALL finish('remap_index','Invalid global index')
-
-    j_l = decomp_info%loc_index(j_g)
-
-    ! Safety check only, local index should be negative
-    IF(j_l >= 0) CALL finish('remap_index','Invalid local index')
-
-    ! Remap in the same way as previously in get_local_idx_blk (for compatibility only)
-    j_l = MAX(ABS(j_l)-1,1)
-
+    j_l = MAX(get_valid_local_index(decomp_info, idx_1d(-l_idx, l_blk)), 1)
     l_idx = idx_no(j_l)
     l_blk = blk_no(j_l)
 
