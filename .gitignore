@@ -25,10 +25,6 @@ contrib/monika/*.settings
 contrib/monika/.cproject
 contrib/monika/.project
 contrib/monika/icon-dev
-contrib/xmlparse/*.settings
-contrib/xmlparse/.cproject
-contrib/xmlparse/.project
-contrib/xmlparse/icon-dev
 data/*.settings
 data/.cproject
 data/.project
