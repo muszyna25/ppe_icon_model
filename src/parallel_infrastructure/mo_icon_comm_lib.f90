@@ -50,6 +50,7 @@ MODULE mo_icon_comm_lib
 
   USE mo_grid_subset,    ONLY: block_no, index_no
   USE mo_model_domain,    ONLY: t_patch
+  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
      & process_mpi_all_comm, work_mpi_barrier, p_stop, &
@@ -486,13 +487,13 @@ CONTAINS
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
     patch%sync_cells_not_in_domain = new_icon_comm_pattern( &
       & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
-      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info%loc_index,   &
+      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info, &
       & name="cells_not_in_domain" )
     patch%sync_cells_not_owned = patch%sync_cells_not_in_domain
                
     patch%sync_cells_one_edge_in_domain = new_icon_comm_pattern( &
       & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
-      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info%loc_index,   &
+      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info, &
       & halo_level=patch%cells%decomp_info%halo_level, level_start=1, level_end=1,&
       & name="cells_one_edge_in_domain" )
             
@@ -501,12 +502,12 @@ CONTAINS
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
     patch%sync_edges_not_owned = new_icon_comm_pattern(   &
       & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
-      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info%loc_index,   &
+      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info, &
       & name="edges_not_owned")
     
     patch%sync_edges_not_in_domain = new_icon_comm_pattern( &
       & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
-      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info%loc_index,   &
+      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info, &
       & halo_level=patch%edges%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="edges_not_in_domain")
     
@@ -515,12 +516,12 @@ CONTAINS
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
     patch%sync_verts_not_owned = new_icon_comm_pattern(   &
       & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
-      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info%loc_index,   &
+      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info, &
       & name="verts_not_owned" )
         
     patch%sync_verts_not_in_domain = new_icon_comm_pattern(  &
       & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
-      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info%loc_index,   &
+      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info, &
       & halo_level=patch%verts%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
       & name="verts_not_in_domain" )
         
@@ -547,27 +548,32 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   INTEGER FUNCTION new_icon_comm_pattern(total_no_of_points, &
-    & receive_from_owner, my_global_index, owners_local_index,  allow_send_to_myself, &
-    & halo_level, level_start, level_end, name)
+    & receive_from_owner, my_global_index, send_decomp_info, &
+    & allow_send_to_myself, halo_level, level_start, level_end, name)
 
     INTEGER, INTENT(in) :: total_no_of_points
-    INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:), owners_local_index(:)
+    INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:)
+    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
+                                                   ! domain decomposition
+                                                   ! information of the
+                                                   ! SENDER array
     LOGICAL, INTENT(in), OPTIONAL :: allow_send_to_myself
     INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
     CHARACTER(*), INTENT(in) :: name
 
     max_comm_patterns = max_comm_patterns + 1
     IF (max_comm_patterns > allocated_comm_patterns) THEN
-      CALL finish("new_icon_comm_pattern","max_comm_patterns > allocated_comm_patterns")
+      CALL finish("new_icon_comm_pattern", &
+        &         "max_comm_patterns > allocated_comm_patterns")
     ENDIF
        
     grid_comm_pattern_list(max_comm_patterns)%id = max_comm_patterns
     new_icon_comm_pattern = max_comm_patterns
     
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns), &
-      & total_no_of_points, receive_from_owner, my_global_index, owners_local_index,    &
-      & allow_send_to_myself,                                                           &
-      & halo_level, level_start, level_end, name)
+      & total_no_of_points, receive_from_owner, my_global_index,            &
+      & send_decomp_info%loc_index, allow_send_to_myself, halo_level,       &
+      & level_start, level_end, name)
 
 
   END FUNCTION new_icon_comm_pattern

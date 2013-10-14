@@ -314,7 +314,7 @@ CONTAINS
       & total_no_of_points = my_radiation_cells,             &
       & receive_from_owner = rrtm_model_data%dynamics_owner, &
       & my_global_index = rrtm_model_data%global_index,      &
-      & owners_local_index = patch%cells%decomp_info%loc_index,          &
+      & send_decomp_info = patch%cells%decomp_info,          &
       & allow_send_to_myself = .true. ,                      &
       & name = "radiation_rcv_from_dynamics" )
 
