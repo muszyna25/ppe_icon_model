@@ -1347,6 +1347,17 @@ CONTAINS
 
       ! collect cells of level 0
       n2_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
+
+      IF ((n2_ilev_c(0) == wrk_p_patch_g%n_patch_cells) .AND. &
+        & (n2_ilev_c(0) == wrk_p_patch_g%n_patch_cells_g)) THEN
+
+        CALL compute_flag_lists_short(flag2_c_list, flag2_v_list, flag2_e_list, &
+          &                           n2_ilev_c, n2_ilev_v, n2_ilev_e, &
+          &                           n_boundary_rows, owned_edges, owned_verts)
+
+        RETURN
+      END IF
+
       ALLOCATE(flag2_c_list(0)%idx(n2_ilev_c(0)))
 
       j = 0
@@ -1730,6 +1741,114 @@ CONTAINS
 
       DEALLOCATE(temp_cells, temp_vertices, temp_edges, edge_cells, pack_mask)
     END SUBROUTINE compute_flag_lists
+
+    SUBROUTINE compute_flag_lists_short(flag2_c_list, flag2_v_list, &
+      &                                 flag2_e_list, n2_ilev_c, n2_ilev_v, &
+      &                                 n2_ilev_e, n_boundary_rows, &
+      &                                 owned_edges, owned_verts)
+      INTEGER, INTENT(IN) :: n_boundary_rows
+      TYPE(nb_flag_list_elem), INTENT(OUT) :: &
+        flag2_c_list(0:2*n_boundary_rows), flag2_v_list(0:n_boundary_rows+1), &
+        flag2_e_list(0:2*n_boundary_rows+1)
+      INTEGER, INTENT(OUT) :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
+        &  n2_ilev_e(0:2*n_boundary_rows+1)
+      INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
+
+      INTEGER :: i
+
+      !---------------------------------------------------------------------
+      ! flag_c_list(-1)%idx empty dummy list
+      ! flag_c_list(0)%idx  all cells jg where cell_owner(jg) == my_proc
+      ! flag_c_list(j)%idx j in 1..n_boundary_cells all cells bordering
+      !                    on cells in flag_c_list(j - 1)
+      ! flag_e_list(-1)%idx empty dummy list
+      ! flag_e_list(j)%idx all edges where an adjacent cell is in
+      !                    flag_c_list(j)%idx for minimal j,
+      !                    i.e. no other cell in list flag_c_list(k)%idx
+      !                    with k < j is adjacent to the edge
+      ! flag_v_list(-1)%idx empty dummy list
+      ! flag_v_list(j)%idx all vertices where an adjacent cell is in
+      !                    flag_c_list(j)%idx for minimal j,
+      !                    i.e. no other cell in list flag_c_list(k)%idx
+      !                    with k < j is adjacent to the vertex
+      !------------------------------------------------------------------------
+      ! The purpose of the second set of flags is to control moving the
+      ! halo points to the end of the index vector for nearly all cells
+      ! even if order_type_of_halos = 1
+      !------------------------------------------------------------------------
+      ! flag2_e_list(0)%idx all edges which are owned by the local process
+      ! flag2_e_list(1)%idx all edges adjacent to cells in flag_c_list(0)
+      !                     but owned by other tasks
+      ! flag2_e_list(2*i)%idx where i > 0, edges in idx are ONLY adjacent
+      !                       to cells in flag_c_list(i)%idx
+      ! flag2_e_list(2*i+1)%idx where i > 0, edges adjacent to one cell in
+      !                         flag_c_list(i) and either
+      !                            one cell in flag_c_list(i+1)
+      !                         or edge is an outer edge,
+      !                            i.e. adjacent to only one cell
+      ! flag2_c_list(0)%idx == flag_c_list(0)%idx
+      ! flag2_c_list(2*j-1)%idx where j > 0, contains all cells from
+      !                         flag_c_list(j) which are
+      !                         adjacent to cells in flag_c_list(j-1)
+      ! flag2_c_list(2*j)%idx   where j > 0, contains all cells from
+      !                         flag_c_list(j) which are NOT
+      !                         adjacent to cells in flag_c_list(j-1)
+      ! flag2_v_list(0)%idx contains all vertices from flag_v_list(0)%idx
+      !                         owned by the current task
+      ! flag2_v_list(1)%idx contains all vertices from flag_v_list(0)%idx
+      !                     NOT owned by the current task
+      ! flag2_v_list(j)%idx for j > 1 == flag_v_list(j-1)%idx
+      !------------------------------------------------------------------------
+
+      !--------------------------------------------------------------------------
+      ! compute flag2 arrays
+      !--------------------------------------------------------------------------
+
+      IF ((COUNT(cell_owner(:)==my_proc) /= wrk_p_patch_g%n_patch_cells) .OR. &
+        & (wrk_p_patch_g%n_patch_cells /= wrk_p_patch_g%n_patch_cells_g)) &
+        CALL finish("compute_flag_lists_short", &
+          &         "cell_owner content does not fit for this routine")
+
+      ! set n2_ilev_cve arrays
+      n2_ilev_c(:) = 0
+      n2_ilev_v(:) = 0
+      n2_ilev_e(:) = 0
+      n2_ilev_c(0) = wrk_p_patch_g%n_patch_cells
+      n2_ilev_v(0) = wrk_p_patch_g%n_patch_verts
+      n2_ilev_e(0) = wrk_p_patch_g%n_patch_edges
+
+      ! allocate and set flag2_cve_list arrays
+      ALLOCATE(flag2_c_list(0)%idx(wrk_p_patch_g%n_patch_cells), &
+        &      flag2_v_list(0)%idx(wrk_p_patch_g%n_patch_verts), &
+        &      flag2_v_list(1)%idx(0), &
+        &      flag2_e_list(0)%idx(wrk_p_patch_g%n_patch_edges), &
+        &      flag2_e_list(1)%idx(0))
+
+      DO i = 1, wrk_p_patch_g%n_patch_cells
+        flag2_c_list(0)%idx(i) = i
+      END DO
+
+      DO i = 1, wrk_p_patch_g%n_patch_verts
+        flag2_v_list(0)%idx(i) = i
+      END DO
+
+      DO i = 1, wrk_p_patch_g%n_patch_edges
+        flag2_e_list(0)%idx(i) = i
+      END DO
+
+      DO i = 1, n_boundary_rows
+
+        ALLOCATE(flag2_c_list(2*i-1)%idx(0), flag2_c_list(2*i)%idx(0), &
+          &      flag2_v_list(i+1)%idx(0), &
+          &      flag2_e_list(2*i)%idx(0), flag2_e_list(2*i+1)%idx(0))
+      END DO
+
+      ! allocate and set owner arrays
+      ALLOCATE(owned_verts(wrk_p_patch_g%n_patch_verts), &
+        &      owned_edges(wrk_p_patch_g%n_patch_edges))
+      owned_verts(:) = flag2_v_list(0)%idx(:)
+      owned_edges(:) = flag2_e_list(0)%idx(:)
+    END SUBROUTINE compute_flag_lists_short
 
   END SUBROUTINE divide_patch
 
