@@ -130,8 +130,8 @@ CONTAINS
     owned_edges = 0
     IF (max_allocation_size > 1) &
       & local_vertex_1d_index(1) = local_vertex_array(global_vertex_array(1))
-    DO i=2, max_allocation_size
 
+    DO i=2, max_allocation_size
       ! get a pair of vertices
       local_vertex_1d_index(2) = local_vertex_array(global_vertex_array(i))
 
@@ -153,14 +153,12 @@ CONTAINS
             tmp_edge_block_array(owned_edges) = edge_block
             tmp_edge_index_array(owned_edges) = edge_index
             tmp_orientation(owned_edges)      = edge_orientation
-         ENDIF
-       ENDIF
+          ENDIF
+        ENDIF
+      ENDIF
 
-     ENDIF
-
-     ! get next pair
-     local_vertex_1d_index(1) = local_vertex_1d_index(2)
-
+      ! get next pair
+      local_vertex_1d_index(1) = local_vertex_1d_index(2)
     ENDDO
 
     !now fill the edge_subset if not empty

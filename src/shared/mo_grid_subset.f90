@@ -50,7 +50,6 @@ MODULE mo_grid_subset
   PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   PUBLIC :: fill_subset, get_index_range
-  PUBLIC :: fill_subset_from_global_index
   PUBLIC :: read_subset, write_subset
   PUBLIC :: block_no, index_no, index_1d
 
@@ -152,89 +151,9 @@ CONTAINS
 !     ENDIF
 
   END SUBROUTINE fill_subset
-  !----------------------------------------------------
 
   !----------------------------------------------------
-  !>
-  ! Fills the subset_indexed with the indexes defined by the global_index_array
-  ! The global_index_array end is define either by its size or the first non-positive integer
-  SUBROUTINE fill_subset_from_global_index(subset, patch, global_index_array, subset_name, located)
-    TYPE(t_subset_indexed), INTENT(inout) :: subset
-    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
-    INTEGER :: global_index_array(:)   ! intent in
-    INTEGER, INTENT(in) :: located     ! =on_cells, on_edges, or on_vertices
-    CHARACTER(len=32), OPTIONAL :: subset_name
 
-    INTEGER :: my_proc_id, i, max_allocation_size, owned_indexes, local_idx
-    INTEGER, ALLOCATABLE :: tmp_local_index_array(:)
-    INTEGER, POINTER :: local_index_array(:), owner_local(:)
-
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:fill_subset_from_global_index"
-    subset%size               = 0
-    subset%recommended_stride = 0
-    subset%entity_location    = 0
-    subset%patch              => patch
-    NULLIFY(subset%vertical_levels)
-
-    my_proc_id = get_my_mpi_work_id()
-
-    subset%entity_location = located
-    SELECT CASE( subset%entity_location )
-      CASE( on_cells )
-        local_index_array => patch%cells%decomp_info%loc_index
-        owner_local       => patch%cells%decomp_info%owner_local
-      CASE( on_edges )
-        local_index_array => patch%edges%decomp_info%loc_index
-        owner_local       => patch%edges%decomp_info%owner_local
-      CASE( on_vertices )
-        local_index_array => patch%verts%decomp_info%loc_index
-        owner_local       => patch%verts%decomp_info%owner_local
-      CASE default
-        CALL finish(method_name, "Unknown subset%entity_location")
-    END SELECT
-
-    ! temporary array for keeping track of what's local
-    max_allocation_size = SIZE(global_index_array)
-    DO i=1, max_allocation_size
-      IF ( global_index_array(i) <= 0 ) EXIT
-    ENDDO
-    IF ( global_index_array(i) <= 0) &
-       max_allocation_size = i - 1
-
-    ALLOCATE(tmp_local_index_array(max_allocation_size))
-
-    owned_indexes = 0
-    DO i=1, max_allocation_size
-      local_idx = local_index_array(global_index_array(i))
-      IF (local_idx > 0) THEN
-        IF (owner_local(local_idx) == my_proc_id) THEN
-          owned_indexes = owned_indexes + 1
-          tmp_local_index_array(owned_indexes) = local_idx
-        ENDIF
-     ENDIF
-    ENDDO
-
-    !now fill the subset if not empty
-    IF (owned_indexes > 0) THEN
-
-      subset%size  = owned_indexes
-      subset%recommended_stride = 1  ! needs to be calculated
-      ALLOCATE(subset%block(owned_indexes), subset%idx(owned_indexes))
-
-      DO i=1, owned_indexes
-        subset%block(i) = block_no(tmp_local_index_array(i))
-        subset%idx(i)   = index_no(tmp_local_index_array(i))
-      ENDDO
-
-    ENDIF
-
-    DEALLOCATE(tmp_local_index_array)
-
-  END SUBROUTINE fill_subset_from_global_index
-  !----------------------------------------------------
-
-
-  !----------------------------------------------------
   SUBROUTINE get_index_range(subset_range, current_block, start_index, end_index)
     TYPE(t_subset_range), INTENT(in) :: subset_range
     INTEGER, INTENT(in) :: current_block
