@@ -1309,24 +1309,24 @@ CONTAINS
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%cells%decomp_info%loc_index, &
-          & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),&
-          & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),&
-          & wrk_p_patch%cells%neighbor_idx(jl,jb,i),      &
+        CALL get_local_index(wrk_p_patch%cells%decomp_info, &
+          & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),  &
+          & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),  &
+          & wrk_p_patch%cells%neighbor_idx(jl,jb,i),        &
           & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%decomp_info%loc_index, &
-          & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%cells%edge_idx(jl,jb,i),          &
+        CALL get_local_index(wrk_p_patch%edges%decomp_info, &
+          & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),      &
+          & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),      &
+          & wrk_p_patch%cells%edge_idx(jl,jb,i),            &
           & wrk_p_patch%cells%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%decomp_info%loc_index, &
-          & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),  &
-          & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),  &
-          & wrk_p_patch%cells%vertex_idx(jl,jb,i),        &
+        CALL get_local_index(wrk_p_patch%verts%decomp_info, &
+          & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),    &
+          & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),    &
+          & wrk_p_patch%cells%vertex_idx(jl,jb,i),          &
           & wrk_p_patch%cells%vertex_blk(jl,jb,i))
 
       ENDDO
@@ -1516,18 +1516,18 @@ CONTAINS
       ! halo cells; they are set below
       DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
-        CALL get_local_index(decomp_info%loc_index, &
-          & start_idx_g(i,j),           &
-          & start_blk_g(i,j),           &
-          & start_idx(i,j),             &
-          & start_blk(i,j),             &
+        CALL get_local_index(decomp_info, &
+          & start_idx_g(i,j),             &
+          & start_blk_g(i,j),             &
+          & start_idx(i,j),               &
+          & start_blk(i,j),               &
           & +1 )
 !CDIR IEXPAND
-        CALL get_local_index(decomp_info%loc_index, &
-          & end_idx_g(i,j),             &
-          & end_blk_g(i,j),             &
-          & end_idx(i,j),               &
-          & end_blk(i,j),               &
+        CALL get_local_index(decomp_info, &
+          & end_idx_g(i,j),               &
+          & end_blk_g(i,j),               &
+          & end_idx(i,j),                 &
+          & end_blk(i,j),                 &
           & -1 )
       ENDDO
       ! Preset remaining index sections with dummy values
@@ -1688,16 +1688,16 @@ CONTAINS
   !>
   !!               Calculates local line/block indices l_idx, l_blk
   !!               from global line/block indices g_idx, g_blk
-  !!               using the mapping in loc_index
+  !!               using the mapping in decomp_info
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE get_local_index(loc_index, g_idx, g_blk, l_idx, l_blk, opt_mode)
+  SUBROUTINE get_local_index(decomp_info, g_idx, g_blk, l_idx, l_blk, opt_mode)
 
     !
-
-    INTEGER, INTENT(in) :: loc_index(:), g_idx, g_blk
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    INTEGER, INTENT(in) :: g_idx, g_blk
     INTEGER, INTENT(in), OPTIONAL :: opt_mode
 
     INTEGER, INTENT(out) :: l_idx, l_blk
@@ -1723,7 +1723,7 @@ CONTAINS
 
     ! If j_g is invalid, return 0
 
-    IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
+    IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) THEN
       l_idx = idx_no(0)
       l_blk = blk_no(0)
       RETURN
@@ -1732,7 +1732,7 @@ CONTAINS
     ! Get local index corresponding to j_g; if this is outside the local domain,
     ! do what was requested by the mode setting
 
-    j_l = loc_index(j_g)
+    j_l = decomp_info%loc_index(j_g)
 
     IF(j_l < 0) THEN
       ! Please note: ABS(j_l) is the (last valid one + 1) or n_local+1 if after the last one
