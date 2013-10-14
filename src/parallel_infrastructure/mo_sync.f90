@@ -64,7 +64,7 @@ USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
                                  exchange_data_mult, t_comm_pattern,           &
-                                 blk_no, idx_no, idx_1d, exchange_data_gm
+                                 blk_no, idx_no, idx_1d
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
@@ -81,8 +81,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
           global_sum_array2, global_sum_array3,                       &
-          sync_patch_array_mult,                                      &
-          global_min, global_max, sync_patch_array_gm,                &
+          sync_patch_array_mult, global_min, global_max,              &
           sync_patch_array_4de3, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks,                    &
           cumulative_sync_patch_array, complete_cumulative_sync
@@ -406,107 +405,6 @@ SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
 
 END SUBROUTINE sync_patch_array_4de3
 
-!>
-!! Does boundary exchange for up to 5 3D cell-based fields or a 4D field.
-!!
-!! @par Revision History
-!! Optimized version by Guenther Zaengl, Apr 2010, based on routines
-!! developed by Rainer Johanni
-!!
-SUBROUTINE sync_patch_array_gm(typ, p_patch, nfields, send_buf, recv_buf, f3din1, f3din2, &
-                               f3din3, f3din4, f3din5, f4din, lpart4d)
-
-   INTEGER, INTENT(IN)             :: typ
-   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   INTEGER,     INTENT(IN)         :: nfields
-
-   REAL(wp) , INTENT(INOUT) :: send_buf(:,:),recv_buf(:,:)
-
-   REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
-                                         f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
-   LOGICAL, OPTIONAL, INTENT(IN)     :: lpart4d
-
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-   TYPE(t_comm_pattern), POINTER :: p_pat
-   INTEGER :: i
-   INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
-   LOGICAL :: l_part4d ! Allows to synchronize only part of a 4D field
-
-!-----------------------------------------------------------------------
-
-    IF(typ == SYNC_C) THEN
-      p_pat => p_patch%comm_pat_c
-    ELSE IF(typ == SYNC_E) THEN
-      p_pat => p_patch%comm_pat_e
-    ELSE IF(typ == SYNC_V) THEN
-      p_pat => p_patch%comm_pat_v
-    ELSE IF(typ == SYNC_C1) THEN
-      p_pat => p_patch%comm_pat_c1
-    ENDIF
-
-    IF (PRESENT(lpart4d)) THEN
-      l_part4d = lpart4d
-    ELSE
-      l_part4d = .FALSE.
-    ENDIF
-
-   ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run .AND. do_sync_checks) THEN
-!$OMP BARRIER
-!$OMP MASTER
-     IF (PRESENT(f4din)) THEN
-       ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
-       DO i = 1, nfields
-         arr3(:,:,:) = f4din(:,:,:,i)
-         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
-       ENDDO
-       DEALLOCATE(arr3)
-     ENDIF
-     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
-     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, 'sync')
-     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
-     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, 'sync')
-     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, 'sync')
-!$OMP END MASTER
-!$OMP BARRIER
-   ENDIF
-
-   ! Boundary exchange for work PEs
-   IF(my_process_is_mpi_parallel()) THEN
-     IF (PRESENT(f4din)) THEN
-       IF (.NOT. l_part4d .AND. nfields/=UBOUND(f4din,4)) &
-         CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = nfields*SIZE(f4din,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv4d=f4din)
-     ELSE IF (PRESENT(f3din5)) THEN
-       IF (nfields<5) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)+SIZE(f3din4,2)+SIZE(f3din5,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1=f3din1,  &
-                               recv2=f3din2, recv3=f3din3, recv4=f3din4, recv5=f3din5)
-     ELSE IF (PRESENT(f3din4)) THEN
-       IF (nfields<4) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)+SIZE(f3din4,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1=f3din1,  &
-                               recv2=f3din2, recv3=f3din3, recv4=f3din4)
-     ELSE IF (PRESENT(f3din3)) THEN
-       IF (nfields<3) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)+SIZE(f3din3,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1=f3din1, &
-                               recv2=f3din2, recv3=f3din3)
-     ELSE IF (PRESENT(f3din2)) THEN
-       IF (nfields<2) CALL finish('sync_patch_array_mult','inconsistent arguments')
-       ndim2tot = SIZE(f3din1,2)+SIZE(f3din2,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1=f3din1, &
-                               recv2=f3din2)
-     ELSE IF (PRESENT(f3din1)) THEN
-       ndim2tot = SIZE(f3din1,2)
-       CALL exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1=f3din1)
-     ELSE
-       CALL finish('sync_patch_array_gm','missing or inconsistent arguments')
-     ENDIF
-   ENDIF
-
-END SUBROUTINE sync_patch_array_gm
 
 !-------------------------------------------------------------------------
 !

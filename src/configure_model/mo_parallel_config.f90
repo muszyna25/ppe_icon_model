@@ -49,7 +49,7 @@ MODULE mo_parallel_config
        &  div_from_file, div_geometric, div_metis, division_method, &
        &  division_file_name, radiation_division_file_name, &
        &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
-       &  p_test_run, l_test_openmp, exch_msgsize,                  &
+       &  p_test_run, l_test_openmp,                                &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  num_restart_procs,                                        &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
@@ -154,11 +154,7 @@ MODULE mo_parallel_config
   ! 1 = irecv, send
   ! 2 = isend, recv
   ! 3 = irecv, isend
-  ! 4 = irecv, send with message blocking (maximum message size is given by exch_msgsize)
   INTEGER :: iorder_sendrecv = 1
-
-  ! maximum message size if iorder_sendrecv = 4
-  INTEGER :: exch_msgsize = 8192 ! 64 KB with REAL*8
 
 !   INTEGER :: radiation_ompthreads   = 1
 !   INTEGER :: nh_stepping_ompthreads = 1

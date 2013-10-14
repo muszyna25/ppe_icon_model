@@ -75,8 +75,7 @@ MODULE mo_solve_nonhydro
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
   USE mo_advection_traj,    ONLY: btraj
-  USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
-                                  sync_patch_array_gm
+  USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
                                   timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
@@ -108,13 +107,12 @@ MODULE mo_solve_nonhydro
   !! @par Revision History
   !! Development started by Guenther Zaengl on 2010-02-03
   !!
-  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
+  SUBROUTINE solve_nh (p_nh, p_patch, p_int, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
                        lprep_adv, lstep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
-    TYPE(t_buffer_memory),     INTENT(INOUT) :: bufr
     TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
@@ -1285,27 +1283,14 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
     ENDIF
 
+!$OMP END PARALLEL
+
     !-------------------------
     ! communication phase
-
     IF (timers_level > 5) THEN
-!$OMP MASTER
       CALL timer_stop(timer_solve_nh_p1)
       CALL timer_start(timer_solve_nh_exch)
-!$OMP END MASTER
     ENDIF
-
-    IF (itype_comm == 2) THEN
-      ! use OpenMP-parallelized communication using global memory for buffers
-      IF (istep == 1) THEN
-        CALL sync_patch_array_gm(SYNC_E,p_patch,2,bufr%send_e2,bufr%recv_e2,&
-             p_nh%prog(nnew)%vn,z_rho_e)
-      ELSE
-        CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh%prog(nnew)%vn)
-      ENDIF
-    ENDIF
-
-!$OMP END PARALLEL
 
     IF (use_icon_comm) THEN 
       IF (istep == 1) THEN
@@ -2198,32 +2183,21 @@ MODULE mo_solve_nonhydro
 !OMP END DO
 
     ENDIF
+!$OMP END PARALLEL
 
     !-------------------------
     ! communication phase
 
     IF (timers_level > 5) THEN
-!$OMP MASTER
       CALL timer_stop(timer_solve_nh_p2)
       CALL timer_start(timer_solve_nh_exch)
-!$OMP END MASTER
     ENDIF
-
-    IF (itype_comm == 2) THEN
-      ! use OpenMP-parallelized communication using global memory for buffers
-      IF (istep == 1) THEN ! Only w is updated in the predictor step
-        CALL sync_patch_array_gm(SYNC_C,p_patch,1,bufr%send_c1,bufr%recv_c1,p_nh%prog(nnew)%w)
-      ELSE IF (istep == 2) THEN
-        ! Synchronize all prognostic variables
-        CALL sync_patch_array_gm(SYNC_C,p_patch,3,bufr%send_c3,bufr%recv_c3,                &
-                                 p_nh%prog(nnew)%rho,p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
-      ENDIF
-    ENDIF
-
-!$OMP END PARALLEL
 
     IF (use_icon_comm) THEN 
-      IF (istep == 1) THEN ! Only w is updated in the predictor step
+      IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN
+        CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
+            & name="solve_step1_w")
+      ELSE IF (istep == 1) THEN ! Only w is updated in the predictor step
         CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
       ELSE IF (istep == 2) THEN

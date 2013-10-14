@@ -49,7 +49,7 @@ MODULE mo_nh_stepping
 !
 
   USE mo_kind,                ONLY: wp, i8
-  USE mo_nonhydro_state,      ONLY: bufr, p_nh_state
+  USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
     & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
   USE mo_diffusion_config,     ONLY: diffusion_config
@@ -1140,22 +1140,22 @@ MODULE mo_nh_stepping
           ! step because no other filtering of the interpolated velocity field is done
           IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
               init_mode /= MODE_DWDANA) THEN
-            CALL diffusion_tria(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,            &
-              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .TRUE.)
+            CALL diffusion_tria(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,  &
+              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
           ENDIF
 
-          IF (itype_comm <= 2) THEN
+          IF (itype_comm == 1) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg), prep_adv(jg), &
-              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),   &
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
               lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
             IF (lcall_hdiff) &
-              CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
-                p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
+              CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,   &
+                p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
           ELSE
 
-            CALL finish ( 'mo_nh_stepping', 'asynchronous halo communication currently not implemented')
+            CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
           ENDIF
 
         ELSE ! hexagonal case
@@ -2080,20 +2080,7 @@ MODULE mo_nh_stepping
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
         &    'w_traj, rhodz_mc_now, rhodz_mc_new, topflx_tra failed' )
     ENDIF
-    DEALLOCATE(bufr(jg)%send_c1, &
-      &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
-      &      bufr(jg)%send_e1,bufr(jg)%recv_e1,bufr(jg)%send_e2, &
-      &      bufr(jg)%recv_e2,bufr(jg)%send_e3,bufr(jg)%recv_e3, &
-      &      bufr(jg)%send_v2,bufr(jg)%recv_v2, STAT=ist )
-    IF (ist /= SUCCESS) &
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',  &
-      &    'deallocation of MPI exchange buffers failed' )
   ENDDO
-
-  DEALLOCATE( bufr, STAT=ist )
-  IF (ist /= SUCCESS) &
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
-      &    'deallocation of bufr failed' )
 
   DEALLOCATE( prep_adv, STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -2136,12 +2123,7 @@ MODULE mo_nh_stepping
   CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
 
 !-----------------------------------------------------------------------
-  ! Allocate global buffers for MPI communication
-  ALLOCATE(bufr(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-    &      'allocation of buffer for MPI communication failed' )
-  ENDIF
+
   !
   ! allocate axiliary fields for transport
   !
@@ -2228,35 +2210,6 @@ MODULE mo_nh_stepping
     prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
-
-    ! Allocate global buffers for MPI communication
-    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel()) THEN
-      ALLOCATE(bufr(jg)%send_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_send), &
-        &      bufr(jg)%recv_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_recv), &
-        &      bufr(jg)%send_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_send), &
-        &      bufr(jg)%recv_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_recv), &
-        &      bufr(jg)%send_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_send), &
-        &      bufr(jg)%recv_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_recv)  )
-    ELSE
-      ALLOCATE(bufr(jg)%send_c1 (1,1), &
-        &      bufr(jg)%recv_c1 (1,1), &
-        &      bufr(jg)%send_c3 (1,1), &
-        &      bufr(jg)%recv_c3 (1,1), &
-        &      bufr(jg)%send_e1 (1,1), &
-        &      bufr(jg)%recv_e1 (1,1), &
-        &      bufr(jg)%send_e2 (1,1), &
-        &      bufr(jg)%recv_e2 (1,1), &
-        &      bufr(jg)%send_e3 (1,1), &
-        &      bufr(jg)%recv_e3 (1,1), &
-        &      bufr(jg)%send_v2 (1,1), &
-        &      bufr(jg)%recv_v2 (1,1)  )
-    ENDIF
 
   ENDDO
 

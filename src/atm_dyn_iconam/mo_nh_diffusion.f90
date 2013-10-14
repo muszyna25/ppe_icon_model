@@ -69,7 +69,7 @@ MODULE mo_nh_diffusion
   USE mo_gridref_config,      ONLY: denom_diffu_v
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
-                                    sync_patch_array_mult, sync_patch_array_gm
+                                    sync_patch_array_mult
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
@@ -94,14 +94,13 @@ MODULE mo_nh_diffusion
   !! Initial release by Guenther Zaengl, DWD (2010-10-13), based on an earlier
   !! version initially developed by Almut Gassmann, MPI-M
   !!
-  SUBROUTINE  diffusion_tria(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,bufr,dtime,linit)
+  SUBROUTINE  diffusion_tria(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,dtime,linit)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
     TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog), INTENT(inout)    :: p_nh_prog  !< single nh prognostic state
     TYPE(t_nh_diag), INTENT(inout)    :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_buffer_memory), INTENT(INOUT) :: bufr
     REAL(wp), INTENT(in)            :: dtime      !< time step
     LOGICAL,  INTENT(in)            :: linit      !< initial call or runtime call
 
@@ -298,11 +297,6 @@ MODULE mo_nh_diffusion
       ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      IF (itype_comm == 2) THEN
-        ! use OpenMP-parallelized communication using global memory for buffers
-        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
-      ENDIF
 
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -535,11 +529,6 @@ MODULE mo_nh_diffusion
       ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      IF (itype_comm == 2) THEN
-        ! use OpenMP-parallelized communication using global memory for buffers
-        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
-      ENDIF
 
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -815,11 +804,6 @@ MODULE mo_nh_diffusion
       ENDDO
 !$OMP END DO
     ENDIF ! w diffusion
-
-    IF (itype_comm == 2) THEN
-      ! use OpenMP-parallelized communication using global memory for buffers
-      CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh_prog%vn)
-    ENDIF
 
 !$OMP END PARALLEL
 

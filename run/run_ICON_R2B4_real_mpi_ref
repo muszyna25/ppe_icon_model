@@ -212,7 +212,6 @@ cat > ${atmo_namelist} << EOF
  iorder_sendrecv = 1
  itype_comm = 1
  itype_exch_barrier = 0
- exch_msgsize = 16384
 /
 &grid_nml
  cell_type = 3            ! triangular cells

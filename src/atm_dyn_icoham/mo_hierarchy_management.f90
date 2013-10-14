@@ -113,7 +113,6 @@ MODULE mo_hierarchy_management
   USE mo_held_suarez_interface, ONLY: held_suarez_interface
   USE mo_hierarchy_management_intp
   USE mo_mpi,                 ONLY: push_glob_comm, pop_glob_comm, proc_split
-  USE mo_communication,       ONLY: start_delayed_exchange, do_delayed_exchange
   USE mo_ldf_test,            ONLY: ldf_temp
 
   IMPLICIT NONE
@@ -1005,9 +1004,6 @@ CONTAINS
         CALL compute_tendencies( ha_dyn_config%ltheta_dyn, p_patch(jg), &
                                  p_hydro_state(jg),n_new,n_sav1,rdt_loc )
 
-        ! See mo_nh_stepping.f90 for remarks about start_delayed_exchange
-        IF(proc_split) CALL start_delayed_exchange ! Data exchanges will be buffered
-
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1046,8 +1042,6 @@ CONTAINS
           ENDIF
 
         ENDDO
-
-        IF(proc_split) CALL do_delayed_exchange ! actually execute exchanges
 
         iret = util_cputime(tu, ts)
         t_1 = tu+ts

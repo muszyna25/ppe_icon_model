@@ -1099,21 +1099,13 @@ Sequence of send/receive calls: \\
  1 = irecv/send \\
  2 = isend/recv  \\
  3 = isend/irecv \\
- 4 = irecv/send with message size blocking  &
-\tabularnewline
-
-\hline 
-exch\_msgsize &
-I & 8192 & &
-Blocking size of exchange messages & iorder\_sendrecv = 4
 \tabularnewline
 
 \hline 
 itype\_comm &
 I & 1& &
 1: use local memory for exchange buffers \\
-2: use global memory for exchange buffers \\
-3: asynchronous halo communication for dynamical core (NH tria only)&
+3: asynchronous halo communication for dynamical core (currently deactivated)&
 \tabularnewline
 
 \hline 

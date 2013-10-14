@@ -60,7 +60,6 @@ MODULE mo_parallel_nml
     & config_pio_type            => pio_type,            &
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
-    & config_exch_msgsize        => exch_msgsize,        &
 !     & config_radiation_threads   => radiation_ompthreads,   &
 !     & config_nh_stepping_threads => nh_stepping_ompthreads, &
     & config_nproma              => nproma,                 &
@@ -175,11 +174,7 @@ MODULE mo_parallel_nml
     ! 1 = irecv, send
     ! 2 = isend, recv
     ! 3 = irecv, isend
-    ! 4 = irecv, send with message blocking (maximum message size is given by exch_msgsize)
     INTEGER :: iorder_sendrecv
-
-    ! maximum message size if iorder_sendrecv = 4
-    INTEGER :: exch_msgsize
 
     !--------------------------------------------
     ! namelist for parallel radiation
@@ -208,7 +203,7 @@ MODULE mo_parallel_nml
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
-      & use_sp_output, itype_exch_barrier, exch_msgsize, &
+      & use_sp_output, itype_exch_barrier,  &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
@@ -282,11 +277,7 @@ MODULE mo_parallel_nml
     ! 1 = irecv, send
     ! 2 = isend, recv
     ! 3 = irecv, isend
-    ! 4 = irecv, send with message blocking (maximum message size is given by exch_msgsize)
     iorder_sendrecv = 1
-
-    ! maximum message size if iorder_sendrecv = 4
-    exch_msgsize = 8192  ! this means 64 KB for real*8 
 
     ! inner loop length/vector length
     nproma = 1
@@ -354,7 +345,6 @@ MODULE mo_parallel_nml
     config_pio_type            = pio_type
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
-    config_exch_msgsize        = exch_msgsize
 !     config_radiation_threads   = radiation_threads
 !     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
