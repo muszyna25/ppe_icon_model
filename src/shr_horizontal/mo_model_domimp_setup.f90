@@ -1204,12 +1204,7 @@ CONTAINS
 
     INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_setup:fill_grid_subsets'
-    
-    !--------------------------------------------------------------------------------
-    ! aliasing the halo_level to decomp_domain
-    patch%cells%decomp_info%halo_level => patch%cells%decomp_info%decomp_domain
-    patch%edges%decomp_info%halo_level => patch%edges%decomp_info%decomp_domain
-    patch%verts%decomp_info%halo_level => patch%verts%decomp_info%decomp_domain
+
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN
@@ -1379,12 +1374,7 @@ CONTAINS
   SUBROUTINE read_grid_subsets(ncid, patch)
     INTEGER, INTENT(in) :: ncid
     TYPE(t_patch), INTENT(inout) :: patch
-    
-    !--------------------------------------------------------------------------------
-    ! aliasing the halo_level to decomp_domain
-    patch%cells%decomp_info%halo_level => patch%cells%decomp_info%decomp_domain
-    patch%edges%decomp_info%halo_level => patch%edges%decomp_info%decomp_domain
-    patch%verts%decomp_info%halo_level => patch%verts%decomp_info%decomp_domain
+
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially
     IF (my_process_is_mpi_seq()) THEN

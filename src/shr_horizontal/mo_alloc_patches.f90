@@ -817,6 +817,8 @@ CONTAINS
       INTEGER, INTENT(IN) :: n, n_g, n_blk
 
       ALLOCATE( decomp_info%decomp_domain(nproma,n_blk) )
+      ! aliasing the halo_level to decomp_domain
+      decomp_info%halo_level => decomp_info%decomp_domain
       ALLOCATE( decomp_info%owner_mask(nproma,n_blk) )
       ALLOCATE( decomp_info%glb_index(n) )
       ALLOCATE( decomp_info%loc_index(n_g) )
