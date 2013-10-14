@@ -89,10 +89,6 @@ doc/technical/dwd_database/pics/.cproject
 doc/technical/dwd_database/pics/.project
 doc/technical/dwd_database/pics/icon-dev
 doc/technical/icon-dev
-doc/templates/*.settings
-doc/templates/.cproject
-doc/templates/.project
-doc/templates/icon-dev
 externals/*.settings
 externals/.cproject
 externals/.project

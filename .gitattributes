@@ -208,11 +208,6 @@ doc/technical/notes_remap.pdf -text
 doc/technical/notes_remap.tex -text
 doc/technical/remap_intersect.pdf -text
 doc/technical/transport_arlists.tex -text
-doc/templates/README -text
-doc/templates/template_function.f90 -text
-doc/templates/template_main.f90 -text
-doc/templates/template_module.f90 -text
-doc/templates/template_subroutine.f90 -text
 externals/mtime/include/libmtime.h -text
 externals/mtime/include/mtime_calendar.h -text
 externals/mtime/include/mtime_calendar360day.h -text
@@ -1608,6 +1603,11 @@ src/shr_horizontal/mo_model_domimp_setup.f90 -text
 src/shr_horizontal/mo_nonlinear_adv.f90 -text
 src/shr_horizontal/mo_reorder_patches.f90 -text
 src/shr_horizontal/mo_smooth_topo.f90 -text
+src/templates/README -text
+src/templates/function.f90_template -text
+src/templates/module.f90_template -text
+src/templates/program.f90_template -text
+src/templates/subroutine.f90_template -text
 src/testbed/mo_icon_testbed_config.f90 -text
 src/testbed/mo_icon_testbed_nml.f90 -text
 src/testbed/mo_test_communication.f90 -text
