@@ -131,7 +131,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600               ! model timestep in seconds
+ dtime       = 450                ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
@@ -155,7 +155,7 @@ cat > ${ocean_namelist} << EOF
 !  ml_varlist       = 'wet_c','group:ice_default','group:ice_diag'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -192,13 +192,13 @@ cat > ${ocean_namelist} << EOF
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  k_veloc_v          = 2.5E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h       = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h            = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
+  k_pot_temp_h       = 50.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v       = 1.25E-6    ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h            = 50.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v            = 1.25E-6    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
@@ -224,11 +224,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only
-   gibraltar(1:10)              = 2371,2374
-   denmark_strait(1:10)         = 2436,2471
-   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
-   indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
-   scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+!  gibraltar(1:10)              = 2371,2374
+!  denmark_strait(1:10)         = 2436,2471
+!  drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+!  indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+!  scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
 /
 &io_nml
   out_expname   = '${EXPNAME}'
