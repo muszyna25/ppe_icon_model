@@ -51,6 +51,7 @@ MODULE mo_alloc_patches
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -676,8 +677,6 @@ CONTAINS
     !                  iopmode=2: allocate only parallelization-related arrays
     !                  iopmode=3: allocate all but the parallelization-related arrays
 
-    INTEGER :: jc, je, jv
-
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
     ! - nblks_e
@@ -698,23 +697,6 @@ CONTAINS
       ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
       ALLOCATE( p_patch%cells%area(nproma,p_patch%alloc_cell_blocks) )
       ALLOCATE( p_patch%cells%f_c(nproma,p_patch%alloc_cell_blocks) )
-    ENDIF
-
-    IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%cells%decomp_info%decomp_domain(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%decomp_info%owner_mask(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%decomp_info%glb_index(p_patch%n_patch_cells) )
-      ALLOCATE( p_patch%cells%decomp_info%owner_local(p_patch%n_patch_cells))
-      ALLOCATE( p_patch%cells%decomp_info%loc_index(p_patch%n_patch_cells_g) )
-      ALLOCATE( p_patch%cells%decomp_info%owner_g(p_patch%n_patch_cells_g))
-
-      IF (my_process_is_mpi_seq()) THEN
-        p_patch%cells%decomp_info%decomp_domain(:,:) = 0
-        p_patch%cells%decomp_info%owner_mask(:,:)    = .true.
-        p_patch%cells%decomp_info%owner_local(:)     = 0
-        p_patch%cells%decomp_info%owner_g(:)         = 0
-      ENDIF
-
     ENDIF
 
     !
@@ -753,24 +735,6 @@ CONTAINS
       ALLOCATE( p_patch%edges%f_e(nproma,p_patch%nblks_e) )
     ENDIF
 
-
-    IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%edges%decomp_info%decomp_domain(nproma,p_patch%nblks_e) )
-      ALLOCATE( p_patch%edges%decomp_info%owner_mask(nproma,p_patch%nblks_e) )
-      ALLOCATE( p_patch%edges%decomp_info%glb_index(p_patch%n_patch_edges) )
-      ALLOCATE( p_patch%edges%decomp_info%loc_index(p_patch%n_patch_edges_g) )
-      ALLOCATE( p_patch%edges%decomp_info%owner_g(p_patch%n_patch_edges_g))
-      ALLOCATE( p_patch%edges%decomp_info%owner_local(p_patch%n_patch_edges))
-
-      IF (my_process_is_mpi_seq()) THEN
-        p_patch%edges%decomp_info%decomp_domain(:,:) = 0
-        p_patch%edges%decomp_info%owner_mask(:,:)    = .true.
-        p_patch%edges%decomp_info%owner_local(:)     = 0
-        p_patch%edges%decomp_info%owner_g(:)         = 0
-      ENDIF
-
-    ENDIF
-
     !
     ! !grid verts
     !
@@ -792,22 +756,28 @@ CONTAINS
       ALLOCATE( p_patch%verts%f_v(nproma,p_patch%nblks_v) )
     ENDIF
 
+    !
+    ! ! decomp_info for cells, edges and verts
+    !
     IF (iopmode /= 3) THEN
-      ALLOCATE( p_patch%verts%decomp_info%decomp_domain(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%decomp_info%owner_mask(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%decomp_info%glb_index(p_patch%n_patch_verts) )
-      ALLOCATE( p_patch%verts%decomp_info%loc_index(p_patch%n_patch_verts_g) )
-      ALLOCATE( p_patch%verts%decomp_info%owner_g(p_patch%n_patch_verts_g))
-      ALLOCATE( p_patch%verts%decomp_info%owner_local(p_patch%n_patch_verts))
 
-      IF (my_process_is_mpi_seq()) THEN
-        p_patch%verts%decomp_info%decomp_domain(:,:) = 0
-        p_patch%verts%decomp_info%owner_mask(:,:)    = .true.
-        p_patch%verts%decomp_info%owner_local(:)     = 0
-        p_patch%verts%decomp_info%owner_g(:)         = 0
-      ENDIF
+      CALL allocate_decomp_info(p_patch%cells%decomp_info, &
+        &                  p_patch%n_patch_cells, p_patch%n_patch_cells_g, &
+        &                  p_patch%alloc_cell_blocks)
+      CALL allocate_decomp_info(p_patch%edges%decomp_info, &
+        &                  p_patch%n_patch_edges, p_patch%n_patch_edges_g, &
+        &                  p_patch%nblks_e)
+      CALL allocate_decomp_info(p_patch%verts%decomp_info, &
+        &                  p_patch%n_patch_verts, p_patch%n_patch_verts_g, &
+        &                  p_patch%nblks_v)
 
-    ENDIF
+      CALL init_decomp_info(p_patch%cells%decomp_info, p_patch%npromz_c, &
+        &                   p_patch%alloc_cell_blocks)
+      CALL init_decomp_info(p_patch%edges%decomp_info, p_patch%npromz_e, &
+        &                   p_patch%nblks_e)
+      CALL init_decomp_info(p_patch%verts%decomp_info, p_patch%npromz_v, &
+        &                   p_patch%nblks_v)
+    END IF
 
     ! Set all newly allocated arrays to 0
 
@@ -866,53 +836,51 @@ CONTAINS
       p_patch%verts%f_v = 0._wp
     ENDIF
 
-    ! Set values which are needed for parallel runs
-    ! to the correct values for a single patch owner
-    ! decomp_domain/owner mask:
-    ! Everywhere 0 or .true. with the exception of unused entries
+    IF (iopmode /= 2) CALL allocate_patch_cartesian( p_patch )
 
-    IF (iopmode /= 3) THEN
-      p_patch%cells%decomp_info%decomp_domain = 0
-      p_patch%edges%decomp_info%decomp_domain = 0
-      p_patch%verts%decomp_info%decomp_domain = 0
-      p_patch%cells%decomp_info%owner_mask = .TRUE.
-      p_patch%edges%decomp_info%owner_mask = .TRUE.
-      p_patch%verts%decomp_info%owner_mask = .TRUE.
+  CONTAINS
 
-      p_patch%cells%decomp_info%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = -1
-      p_patch%edges%decomp_info%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
-      p_patch%verts%decomp_info%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
+    SUBROUTINE allocate_decomp_info(decomp_info, n, n_g, n_blk)
+      TYPE(t_grid_domain_decomp_info), INTENT(OUT) :: decomp_info
+      INTEGER, INTENT(IN) :: n, n_g, n_blk
 
-      p_patch%cells%decomp_info%owner_mask(p_patch%npromz_c+1:nproma,p_patch%alloc_cell_blocks) = .FALSE.
-      p_patch%edges%decomp_info%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
-      p_patch%verts%decomp_info%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
+      ALLOCATE( decomp_info%decomp_domain(nproma,n_blk) )
+      ALLOCATE( decomp_info%owner_mask(nproma,n_blk) )
+      ALLOCATE( decomp_info%glb_index(n) )
+      ALLOCATE( decomp_info%loc_index(n_g) )
+      ALLOCATE( decomp_info%owner_g(n_g))
+      ALLOCATE( decomp_info%owner_local(n))
+    END SUBROUTINE allocate_decomp_info
+
+    SUBROUTINE init_decomp_info(decomp_info, npromz, n_blk)
+      TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
+      INTEGER, INTENT(IN) :: npromz, n_blk
+
+      INTEGER :: j
+
+      ! Set values which are needed for parallel runs
+      ! to the correct values for a single patch owner
+      ! decomp_domain/owner mask:
+      ! Everywhere 0 or .true. with the exception of unused entries
+
+      decomp_info%decomp_domain = 0
+      decomp_info%owner_mask = .TRUE.
+
+      decomp_info%decomp_domain(npromz+1:nproma,n_blk) = -1
+      decomp_info%owner_mask(npromz+1:nproma,n_blk) = .FALSE.
 
       ! The following arrays are currently never needed for non parallel runs,
-      ! we set them nontheless.
+      ! we set them nonetheless.
+      ! MoHa: ...do they really need to be initialised?
 
-      DO jc = 1, p_patch%n_patch_cells
-        p_patch%cells%decomp_info%glb_index(jc) = jc
-        p_patch%cells%decomp_info%loc_index(jc) = jc
-        p_patch%cells%decomp_info%owner_g(jc) = 0
-        p_patch%cells%decomp_info%owner_local(jc) = 0
+      DO j = 1, SIZE(decomp_info%glb_index(:))
+        decomp_info%glb_index(j) = j
+        decomp_info%loc_index(j) = j
       ENDDO
+      decomp_info%owner_g(:) = 0
+      decomp_info%owner_local(:) = 0
 
-      DO je = 1, p_patch%n_patch_edges
-        p_patch%edges%decomp_info%glb_index(je) = je
-        p_patch%edges%decomp_info%loc_index(je) = je
-        p_patch%edges%decomp_info%owner_g(je) = 0
-        p_patch%edges%decomp_info%owner_local(je) = 0
-      ENDDO
-
-      DO jv = 1, p_patch%n_patch_verts
-        p_patch%verts%decomp_info%glb_index(jv) = jv
-        p_patch%verts%decomp_info%loc_index(jv) = jv
-        p_patch%verts%decomp_info%owner_g(jv) = 0
-        p_patch%verts%decomp_info%owner_local(jv) = 0
-      ENDDO
-    ENDIF
-
-    IF (iopmode /= 2) CALL allocate_patch_cartesian( p_patch )
+    END SUBROUTINE init_decomp_info
 
   END SUBROUTINE allocate_remaining_patch
   !-------------------------------------------------------------------------
