@@ -1809,7 +1809,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Maps indices which point outside domain (returned as <0 by get_local_index)
+  !! Maps indices which point outside domain (returned as <0 by get_local_idx_blk)
   !! to valid ones which are from the same set of neighbors for the given
   !! cell/edge/vert
   !!
@@ -1835,7 +1835,7 @@ CONTAINS
     ! Safety check only, local index should be negative
     IF(j_l >= 0) CALL finish('remap_index','Invalid local index')
 
-    ! Remap in the same way as previously in get_local_index (for compatibility only)
+    ! Remap in the same way as previously in get_local_idx_blk (for compatibility only)
     j_l = MAX(ABS(j_l)-1,1)
 
     l_idx = idx_no(j_l)

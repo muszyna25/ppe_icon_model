@@ -893,7 +893,7 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
             ! Remap index to positive value like in mo_subdivision/remap_index
             i_l = MAX(ABS(i_l)-1,1)
           ELSE
-            ! Set it to negative global index like in mo_subdivision/get_local_index
+            ! Set it to negative global index like in mo_subdivision/get_local_idx_blk
             i_l = -i_g
           ENDIF
         ENDIF

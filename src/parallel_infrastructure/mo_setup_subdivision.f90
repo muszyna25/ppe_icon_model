@@ -1309,21 +1309,21 @@ CONTAINS
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%cells%decomp_info, &
+        CALL get_local_idx_blk(wrk_p_patch%cells%decomp_info, &
           & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),  &
           & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),  &
           & wrk_p_patch%cells%neighbor_idx(jl,jb,i),        &
           & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%edges%decomp_info, &
+        CALL get_local_idx_blk(wrk_p_patch%edges%decomp_info, &
           & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),      &
           & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),      &
           & wrk_p_patch%cells%edge_idx(jl,jb,i),            &
           & wrk_p_patch%cells%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
-        CALL get_local_index(wrk_p_patch%verts%decomp_info, &
+        CALL get_local_idx_blk(wrk_p_patch%verts%decomp_info, &
           & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),    &
           & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),    &
           & wrk_p_patch%cells%vertex_idx(jl,jb,i),          &
@@ -1516,14 +1516,14 @@ CONTAINS
       ! halo cells; they are set below
       DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
-        CALL get_local_index(decomp_info, &
+        CALL get_local_idx_blk(decomp_info, &
           & start_idx_g(i,j),             &
           & start_blk_g(i,j),             &
           & start_idx(i,j),               &
           & start_blk(i,j),               &
           & +1 )
 !CDIR IEXPAND
-        CALL get_local_index(decomp_info, &
+        CALL get_local_idx_blk(decomp_info, &
           & end_idx_g(i,j),               &
           & end_blk_g(i,j),               &
           & end_idx(i,j),                 &
@@ -1569,7 +1569,7 @@ CONTAINS
           ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
           ! at the end. They are sorted by the flag2 value and will be placed at the
           ! index levels between min_rlcve_int-1 and min_rlcve
-          ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_index
+          ! Note: this index range is empty on exit of prepare_gridref; therefore, get_local_idx_blk
           ! cannot be used here
           DO ilev = 1, max_ilev
             irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
@@ -1693,7 +1693,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE get_local_index(decomp_info, g_idx, g_blk, l_idx, l_blk, opt_mode)
+  SUBROUTINE get_local_idx_blk(decomp_info, g_idx, g_blk, l_idx, l_blk, opt_mode)
 
     !
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
@@ -1748,7 +1748,7 @@ CONTAINS
     l_idx = idx_no(j_l)
     l_blk = blk_no(j_l)
 
-  END SUBROUTINE get_local_index
+  END SUBROUTINE get_local_idx_blk
   !-------------------------------------------------------------------------
   !>
   !! Makes a area subdivision for a subset of wrk_p_patch.

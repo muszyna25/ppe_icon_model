@@ -2329,7 +2329,7 @@ CONTAINS
         j_l = decomp_info%loc_index(j_g)
         IF(j_l < 0) j_l = -j_g
       END IF
-      ! handle values outside local domain in the same way as get_local_index
+      ! handle values outside local domain in the same way as get_local_idx_blk
       idx_array_out(jl,jb) = idx_no(j_l)
       blk_array_out(jl,jb) = blk_no(j_l)
     END DO

@@ -1760,7 +1760,7 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
         blko(jl,jb) = 0
       ELSE
         i_l = loc_index(i_g)
-        ! Determine what to do with nonlocal values (like in get_local_index):
+        ! Determine what to do with nonlocal values (like in get_local_idx_blk):
         if(i_l<0) i_l = MAX(ABS(i_l)-1,1)
         idxo(jl,jb) = idx_no(i_l)
         blko(jl,jb) = blk_no(i_l)
