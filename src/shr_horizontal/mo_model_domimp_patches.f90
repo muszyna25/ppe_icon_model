@@ -1322,6 +1322,16 @@ CONTAINS
            & patch%edges%cell_blk(:,:,ji) )
     END DO
 
+    ! p_p%edges%vertex_idx(:,:,:)
+    ! p_p%edges%vertex_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
+    DO ji = 1, 2
+      CALL reshape_idx( array_e_int(:,ji), patch%nblks_e, patch%npromz_e, &
+           & patch%edges%vertex_idx(:,:,ji),  &
+           & patch%edges%vertex_blk(:,:,ji) )
+    END DO
+
     ! END NEW SUBDIV
 
 
