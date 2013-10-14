@@ -69,7 +69,7 @@ MODULE mo_grid_tools
   
 CONTAINS
 
- !----------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
   ! Fills the edges subset defined by the global_vertex_array.
   ! Also returns the relative orientation
@@ -120,10 +120,11 @@ CONTAINS
     ! temporary array for keeping track of what's local
     max_allocation_size = SIZE(global_vertex_array)
     DO i=1, max_allocation_size
-      IF ( global_vertex_array(i) <= 0 ) EXIT
+      IF ( global_vertex_array(i) <= 0 ) THEN
+        max_allocation_size = i - 1
+        EXIT
+      ENDIF
     ENDDO
-    IF ( global_vertex_array(i) <= 0) &
-       max_allocation_size = i - 1
 
     ALLOCATE(tmp_edge_block_array(max_allocation_size), &
       & tmp_edge_index_array(max_allocation_size),      &
