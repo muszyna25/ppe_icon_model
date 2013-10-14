@@ -118,7 +118,7 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, &
                                    p_patch_local_parent
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_valid_local_index
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
@@ -2321,14 +2321,7 @@ CONTAINS
 
       ! get global index in divided array
       j_g = p_idx_array_in(glb_index(j))
-      IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) THEN
-        ! Just for safety, this should not happen, set result to 0
-        j_l = 0
-      ELSE
-        ! get local index
-        j_l = decomp_info%loc_index(j_g)
-        IF(j_l < 0) j_l = -j_g
-      END IF
+      j_l = get_valid_local_index(decomp_info, j_g, .TRUE.)
       ! handle values outside local domain in the same way as get_local_idx_blk
       idx_array_out(jl,jb) = idx_no(j_l)
       blk_array_out(jl,jb) = blk_no(j_l)
