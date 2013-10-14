@@ -59,6 +59,8 @@ MODULE mo_decomposition_tools
   PUBLIC :: divide_geometric_medial
   PUBLIC :: read_ascii_decomposition
   PUBLIC :: t_grid_domain_decomp_info
+  PUBLIC :: get_local_index
+  PUBLIC :: get_valid_local_index
 
   PRIVATE
 
@@ -133,6 +135,11 @@ MODULE mo_decomposition_tools
   INTERFACE divide_geometric_medial
     MODULE PROCEDURE decomp_geom_medial_ret
     MODULE PROCEDURE decomp_geometric_medial
+  END INTERFACE
+
+  INTERFACE get_valid_local_index
+    MODULE PROCEDURE get_valid_local_index
+    MODULE PROCEDURE get_valid_local_index_
   END INTERFACE
   
   !------------------------------
@@ -1335,8 +1342,67 @@ CONTAINS
   END SUBROUTINE sort_array_by_row
   !-------------------------------------------------------------------------
 
+  ! returns the local index for a given global index
+  ! in case the global index is not valid -1 is returned
+  ELEMENTAL FUNCTION get_local_index(decomp_info, glb_index)
 
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    INTEGER, INTENT(in) :: glb_index
+    INTEGER :: get_local_index
 
+    INTEGER :: local_index
+
+    IF (glb_index > SIZE(decomp_info%loc_index) .OR. glb_index < 1) THEN
+      get_local_index = -1
+    ELSE
+      local_index = decomp_info%loc_index(glb_index)
+      get_local_index = MERGE(local_index, -1, local_index > 0)
+    END IF
+
+  END FUNCTION get_local_index
+
+  ! returns the local index for a given global index
+  ! in case the global index is not valid, the index
+  ! of the next smaller index is return, in case there
+  ! is no smaller index 0 is returned
+  ELEMENTAL FUNCTION get_valid_local_index(decomp_info, glb_index)
+
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    INTEGER, INTENT(in) :: glb_index
+    INTEGER :: get_valid_local_index
+
+    IF (glb_index > SIZE(decomp_info%loc_index) .OR. glb_index < 1) THEN
+
+      get_valid_local_index = 0
+    ELSE
+      get_valid_local_index = &
+        MERGE(decomp_info%loc_index(glb_index), &
+        &   - decomp_info%loc_index(glb_index) - 1, &
+        &     decomp_info%loc_index(glb_index) >= 0)
+    END IF
+
+  END FUNCTION get_valid_local_index
+
+  ! returns the local index for a given global index
+  ! in case the global index is not valid, the index
+  ! of the next greater index is return, in case there
+  ! is no greater index the maximum local index + 1 is returned
+  ELEMENTAL FUNCTION get_valid_local_index_(decomp_info, glb_index, use_next)
+
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    INTEGER, INTENT(in) :: glb_index
+    INTEGER :: get_valid_local_index_
+    LOGICAL, INTENT(in) :: use_next
+
+    IF (glb_index > SIZE(decomp_info%loc_index) .OR. &
+      & glb_index < 1) THEN
+
+      get_valid_local_index_ = 0
+    ELSE
+      get_valid_local_index_ = ABS(decomp_info%loc_index(glb_index))
+    END IF
+
+  END FUNCTION get_valid_local_index_
 
 END MODULE mo_decomposition_tools
 
