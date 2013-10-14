@@ -73,6 +73,7 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
@@ -390,33 +391,22 @@ END SUBROUTINE construct_2d_gridref_state
 !-------------------------------------------------------------------------
 !!
 !>
-!! Get local idx_no for edges
+!! Get local idx_no and blk_no
 !!
-ELEMENTAL INTEGER FUNCTION loc_idx_no_e(p_p, idx)
-  TYPE(t_patch), INTENT(IN) :: p_p
-  INTEGER, INTENT(IN) :: idx
+ELEMENTAL SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
 
-  IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
-    loc_idx_no_e = 0
-  ELSE
-    loc_idx_no_e = idx_no(p_p%edges%decomp_info%loc_index(idx))
-  ENDIF
-END FUNCTION loc_idx_no_e
-!-------------------------------------------------------------------------
-!!
-!>
-!! Get local blk_no for edges
-!!
-ELEMENTAL INTEGER FUNCTION loc_blk_no_e(p_p, idx)
-  TYPE(t_patch), INTENT(IN) :: p_p
-  INTEGER, INTENT(IN) :: idx
+  TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
+  INTEGER, INTENT(IN) :: glb_index
+  INTEGER, INTENT(OUT) :: loc_idx, loc_blk
 
-  IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
-    loc_blk_no_e = 0
-  ELSE
-    loc_blk_no_e = blk_no(p_p%edges%decomp_info%loc_index(idx))
-  ENDIF
-END FUNCTION loc_blk_no_e
+  INTEGER :: valid_local_index
+
+  valid_local_index = get_valid_local_index(decomp_info, glb_index, .TRUE.)
+
+  loc_idx = idx_no(valid_local_index)
+  loc_blk = blk_no(valid_local_index)
+END SUBROUTINE loc_idx_blk_no
+
 !-------------------------------------------------------------------------
 !!
 !>
@@ -574,23 +564,27 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     n = 0
     DO k = 1, grf_vec_dim_1
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-      p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
+        &                 p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e), &
+        &                 p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e))
     ENDDO
     DO k = 1, grf_vec_dim_1
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-      p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
+        &                 p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e), &
+        &                 p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e))
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-      p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
+        &                 p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e), &
+        &                 p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e))
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
-      p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
+        &                 p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e), &
+        &                 p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e))
     ENDDO
   ENDIF
 
