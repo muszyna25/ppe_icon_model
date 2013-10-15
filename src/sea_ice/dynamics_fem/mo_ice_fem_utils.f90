@@ -55,7 +55,7 @@ MODULE mo_ice_fem_utils
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message
-  USE mo_intp,                ONLY: cells2verts_scalar
+  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea

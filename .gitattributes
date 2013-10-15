@@ -1585,6 +1585,8 @@ src/shr_horizontal/mo_grf_nudgintp.f90 -text
 src/shr_horizontal/mo_grf_ubcintp.f90 -text
 src/shr_horizontal/mo_grid_geometry_info.f90 -text
 src/shr_horizontal/mo_grid_tools.f90 -text
+src/shr_horizontal/mo_icon_interpolation_scalar.f90 -text
+src/shr_horizontal/mo_icon_interpolation_vector.f90 -text
 src/shr_horizontal/mo_intp.f90 -text
 src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
