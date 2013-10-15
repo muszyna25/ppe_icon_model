@@ -291,7 +291,7 @@ MODULE mo_parallel_nml
 !     nh_stepping_threads = 1
 
     ! MPI gather to output processes in DOUBLE PRECISION
-    use_dp_mpi2io = .TRUE.
+    use_dp_mpi2io = .FALSE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
