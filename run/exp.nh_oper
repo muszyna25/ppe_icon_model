@@ -139,16 +139,6 @@ cat > ${atmo_namelist} << EOF
  zpbl2       = 1000. 
  l_sst_in    = .true.
 /
-&io_nml
- itype_pres_msl = 3
- itype_rh       = 2
-/
-&nh_pzlev_nml
- nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
- nzlev       = 10     ! number of z level output (attention: levels in [m] and top-down)
- plevels     = 20000,30000,50000,70000,85000
- zlevels     = 10000,8000,6000,5000,4000,3000,2000,1000,500,100
-/
 &run_nml
  num_lev        = 90
  lvert_nest     = .true.
@@ -179,7 +169,7 @@ cat > ${atmo_namelist} << EOF
  inwp_sso        = 1
  inwp_gwd        = 1
  inwp_surface    = 1
- latm_above_top  = .false.,.true.
+ latm_above_top  = .false.
  efdt_min_raylfric = 7200.
  itype_z0         = 2
 /
@@ -191,14 +181,14 @@ cat > ${atmo_namelist} << EOF
  rat_sea = 9.0
 /
 &lnd_nml
- ntiles      = 3
- nlev_snow   = 2
- lmulti_snow = .true.
+ ntiles      = 3      !!! 1 for assimilation cycle
+ nlev_snow   = 2      !!! 1 for assimilation cycle
+ lmulti_snow = .true. !!! .false. for assimilation cycle
  itype_heatcond = 1
  idiag_snowfrac = 4
  lsnowtile = .false.
  lseaice   = .true.
- llake     = .false.
+ llake     = .false.  !!! optional: .true. for assimilation cycle
  itype_lndtbl = 3
 /
 &radiation_nml
@@ -283,6 +273,16 @@ cat > ${atmo_namelist} << EOF
  itopo          = 1
  n_iter_smooth_topo = 1
  heightdiff_threshold = 3000.
+/
+&io_nml
+ itype_pres_msl = 3
+ itype_rh       = 2
+/
+&nh_pzlev_nml
+ nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
+ nzlev       = 10     ! number of z level output (attention: levels in [m] and top-down)
+ plevels     = 20000,30000,50000,70000,85000
+ zlevels     = 10000,8000,6000,5000,4000,3000,2000,1000,500,100
 /
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
