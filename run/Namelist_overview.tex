@@ -1155,8 +1155,8 @@ Size of the send/receive buffers for the icon\_comm\_lib. &
 
 \hline 
 use\_dp\_mpi2io &
-L & .FALSE. & &
- Enable this flag if output fields shall be gathered and written in
+L & .TRUE. & &
+ Disable this flag if output fields shall be gathered and written in
  single-precision. &
 \tabularnewline
 
@@ -6049,7 +6049,8 @@ model expects {\bf height based} coordinates. For further information see <icon 
 
 \begin{changeitem}{parallel\_nml}{ 2013-08-14 }{ 14164 }
   \begin{itemize}
-   \item The namelist parameter use\_sp\_output has been renamed into use\_dp\_mpi2io.
+   \item The namelist parameter \textbf{use\_sp\_output} has been replaced by an equivalent switch \textbf{use\_dp\_mpi2io}
+         (with an inverse meaning, i.e. we have \textbf{use\_dp\_mpi2io = .NOT. use\_sp\_output}).
   \end{itemize}
 \end{changeitem}
 
