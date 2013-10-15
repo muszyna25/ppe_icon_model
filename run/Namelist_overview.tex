@@ -1154,7 +1154,7 @@ Size of the send/receive buffers for the icon\_comm\_lib. &
 \tabularnewline
 
 \hline 
-use\_sp\_output &
+use\_dp\_mpi2io &
 L & .FALSE. & &
  Enable this flag if output fields shall be gathered and written in
  single-precision. &
@@ -6046,6 +6046,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
          The namelist parameter \textbf{nlev\_in} has become obsolete in r12700 and has been removed.
   \end{itemize}
 \end{changeitem}
+
+\begin{changeitem}{parallel\_nml}{ 2013-08-14 }{ 14164 }
+  \begin{itemize}
+   \item The namelist parameter use\_sp\_output has been renamed into use\_dp\_mpi2io.
+  \end{itemize}
+\end{changeitem}
+
 
 % --------------------------------------------------------------------------------------------
 
