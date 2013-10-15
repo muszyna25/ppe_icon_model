@@ -305,6 +305,8 @@ CONTAINS
 
             ! Add oceanic heat flux to energy available at the bottom of the ice.
             ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + zHeatOceI(jc,k,jb)
+            ! 1. Snow fall
+            ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*dtime*rho_ref/rhos
       
             ! for energy flux surplus
             IF ( ice%Qtop(jc,k,jb) > 0.0_wp ) THEN 

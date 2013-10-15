@@ -1253,7 +1253,8 @@ CONTAINS
     IF (init_oce_prog == 1) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp &
           &     .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:) = 2._wp
+        ice%hi(:,1,:) = 2.0_wp
+        ice%hs(:,1,:) = 0.2_wp
         ice%conc(:,1,:) = 0.95_wp
       ENDWHERE
 !      IF ( no_tracer < 2 ) THEN

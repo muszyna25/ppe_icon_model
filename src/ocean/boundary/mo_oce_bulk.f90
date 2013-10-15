@@ -488,6 +488,10 @@ CONTAINS
             p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref) * (1.0_wp-p_ice%conc(:,1,:))
             p_sfc_flx%forc_fw_bc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
               &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
+            Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:) ! Rain that falls on the ice falls through it
+            WHERE ( ANY( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+              Qatm%rpreci(:,:) = p_sfc_flx%forc_precip(:,:)
+            ENDWHERE
             idt_src=2  ! output print level (1-5, fix)
             CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
               &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
