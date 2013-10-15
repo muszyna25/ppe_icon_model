@@ -132,8 +132,8 @@ CONTAINS
 
     IF (iequations == 3) THEN
       hdiff_order          = 5
-      hdiff_efdt_ratio     = 15.0_wp
-      hdiff_smag_fac       = 0.025_wp
+      hdiff_efdt_ratio     = 36.0_wp
+      hdiff_smag_fac       = 0.015_wp
     ELSE
       hdiff_order          = 4
       hdiff_efdt_ratio     = 1.0_wp
@@ -145,7 +145,7 @@ CONTAINS
     hdiff_multfac        = 1.0_wp
     hdiff_tv_ratio       = 1.0_wp
     itype_vn_diffu       = 1
-    itype_t_diffu        = 1
+    itype_t_diffu        = 2
 
     k2_pres_max          = -99.0_wp                                                    
     k2_klev_max          = 0

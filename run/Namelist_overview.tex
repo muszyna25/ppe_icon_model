@@ -2252,14 +2252,16 @@ cell\_type=3
 \hline 
 rayleigh\_coeff&
 R(n\_dom)& 0.05& &
-Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004)&
+Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
+higher values are recommended for R2B6 or finer resolution&
 cell\_type=3
 \tabularnewline
 
 \hline 
 damp\_height&
 R(n\_dom)& 45000& m&
-Height at which Rayleigh damping of vertical wind starts&
+Height at which Rayleigh damping of vertical wind starts (needs to be adjusted to model top height; the damping
+layer should have a depth of at least 20 km when the model top is above the stratopause)&
 \tabularnewline
 
 \hline 
@@ -2270,10 +2272,10 @@ Height above which moist physics and advection of cloud and precipitation variab
 
 \hline 
 hbot\_qvsubstep&
-R& 24000.0& m&
-Height above which QV is advected with substepping scheme (must be larger than htop\_moist\_proc)&
+R& 22500.0& m&
+Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
 cell\_type=3 and \\
-ihadv\_tracer=22 or 32
+ihadv\_tracer=22, 32 or 42
 \tabularnewline
 
 \hline 
@@ -2286,21 +2288,21 @@ cell\_type=6, hdiff\_order=3 (Smagorinski)
 \hline 
 vwind\_offctr&
 R& 0.15& &
-Off-centering in vertical wind solver&
+Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.&
 cell\_type=3
 \tabularnewline
 
 \hline 
 rhotheta\_offctr&
 R& -0.1& &
-Off-centering of density and potential temperature at interface level &
+Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids) &
 cell\_type=3
 \tabularnewline
 
 \hline 
 veladv\_offctr&
 R& 0.25& &
-Off-centering of velocita advection in corrector step &
+Off-centering of velocity advection in corrector step &
 cell\_type=3
 \tabularnewline
 
@@ -2314,11 +2316,10 @@ Type of vertical coordinate:\\
 
 \hline 
 iadv\_rcf&
-I& 4& &
-reduced calling frequency (rcf) for transport\\
+I& 5& &
+reduced calling frequency (rcf) for transport/diffusion/physics \\
 1: no rcf (every dynamics-step)\\
-2: transport every 2. step \\
-4: $\dots$  \\
+n>1: transport every n-th step \\
 Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
 \tabularnewline
 
@@ -2364,7 +2365,7 @@ lhdiff\_rcf = .TRUE.
 
 \hline 
 divdamp\_type&
-I& 2 & &
+I& 3 & &
 Type of divergence damping: \\ 
 2 = divergence damping acting on 2D divergence \\
 3 = divergence damping acting on 3D divergence &
@@ -2433,15 +2434,17 @@ cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t
 
 \hline 
 exner\_expol&
-R& 0.5& &
-Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient&
+R& 1./3.& &
+Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient.
+This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.&
 cell\_type=3
 \tabularnewline
 
 \hline 
 l\_open\_ubc&
 L& .FALSE.& &
-.TRUE.: Use open upper boundary condition (rather than w=0) to better conserve sea-level pressure in the presence of diabatic heating&
+.TRUE.: Use open upper boundary condition (rather than w=0) to allow vertical motions related to diabatic heating to
+extend beyond the model top&
 cell\_type=3
 \tabularnewline
 
@@ -2573,7 +2576,7 @@ Order of $\nabla$ operator for diffusion:& \tabularnewline
 background diffusion as specified via hdiff\_efdt\_ratio&
 \tabularnewline
 & & & &
-defaults: 2 for hexagonal model, 4 for triangular model; for triangular NH model, 5 is strongly recommended!&
+defaults: 2 for hexagonal model, 4 for hydrostatic triangular model, 5 for nonhydrostatic triangular NH model&
 \tabularnewline
 & & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
 (cf. k2\_pres\_max and k2\_klev\_max below); 
@@ -2592,7 +2595,7 @@ Reconstruction method used for Smagorinsky diffusion: \\
 
 \hline 
 itype\_t\_diffu&
-I& 1 & &
+I& 2 & &
 Discretization of temperature diffusion: \\
 1: $K_h \nabla^2 T$ \\
 2: $\nabla \cdot (K_h \nabla T)$  & iequations=3, hdiff\_order=3 or 5
@@ -2618,10 +2621,10 @@ hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 
 \hline 
 hdiff\_efdt\_ratio&
-R& 1.0 (hydro) \\ 15.0 (NH) & &
+R& 1.0 (hydro) \\ 36.0 (NH) & &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (only for triangles currently; 
-for triangular NH model, values between 10 and 20 are recommended when using hdiff\_order=5) &
+for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 \hline 
@@ -2651,7 +2654,7 @@ n\_dom>1\tabularnewline
 
 \hline 
 hdiff\_smag\_fac&
-R& 0.15 (hydro) \\ 0.025 (NH)& &
+R& 0.15 (hydro) \\ 0.015 (NH)& &
 Scaling factor for Smagorinsky diffusion&
 for triangles only with iequations=3, for hexagons with hdiff\_order=3
 \tabularnewline
@@ -6047,12 +6050,19 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{parallel\_nml}{ 2013-10-14 }{ 14160 }
+  \begin{itemize}
+   \item The namelist parameter exch\_msgsize has been removed together with the option iorder\_sendrecv=4.
+  \end{itemize}
+\end{changeitem}
+
 \begin{changeitem}{parallel\_nml}{ 2013-08-14 }{ 14164 }
   \begin{itemize}
    \item The namelist parameter \textbf{use\_sp\_output} has been replaced by an equivalent switch \textbf{use\_dp\_mpi2io}
          (with an inverse meaning, i.e. we have \textbf{use\_dp\_mpi2io = .NOT. use\_sp\_output}).
   \end{itemize}
 \end{changeitem}
+
 
 
 % --------------------------------------------------------------------------------------------

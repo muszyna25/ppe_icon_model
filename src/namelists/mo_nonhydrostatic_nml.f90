@@ -196,7 +196,7 @@ CONTAINS
                      ! Velocity tendency is recomputed for predictor step only after physics calls
 
     ! reduced calling frequency for transport
-    iadv_rcf = 4  ! reduced calling frequency (transport time step = 4* dynamics time step)
+    iadv_rcf = 5  ! reduced calling frequency (transport time step = 5* dynamics time step)
 
     ! reduced calling frequency also for horizontal diffusion
     lhdiff_rcf = .TRUE.  ! new default since 2012-05-09 after successful testing
@@ -215,7 +215,7 @@ CONTAINS
     divdamp_order = 4
 
     ! Type of divergence damping
-    divdamp_type = 2
+    divdamp_type = 3
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
@@ -224,8 +224,8 @@ CONTAINS
     htop_moist_proc = 22500._wp
 
     !use half the transport time step above 24 km to ensure CFL stability
-    !     (requires choosing ihadv_tracer(1) = 22 or 32!)
-    hbot_qvsubstep  = 24000._wp
+    !     (requires choosing ihadv_tracer(1) = 22, 32 or 42!)
+    hbot_qvsubstep  = 22500._wp
 
     ! type of Rayleigh damping
     rayleigh_type     = 2._wp           ! Klemp-type Rayleigh damping
@@ -248,17 +248,17 @@ CONTAINS
     ! Use truly horizontal pressure-gradient computation to ensure numerical stability
     ! without heavy orography smoothing
     igradp_method     = 3
-    ! Extrapolate Exner function by 1/2 time step for computing the horizontal pressure gradient
+    ! Extrapolate Exner function by 1/3 time step for computing the horizontal pressure gradient
     ! Tests indicate that for coarse resolutions (R2B5 or coarser), optimal stability is reached
     ! for values between 1/2 and 2/3, whereas for high resolutions, where stability limitations
     ! arise from large-amplitude breaking gravity waves rather than sound wave reflections, values
-    ! between 1/3 and 1/2 are better.
-    exner_expol       = 0.5_wp
+    ! around 1/3 are better.
+    exner_expol       = 1._wp/3._wp
     ! TRUE: use the open upper boundary condition
     l_open_ubc        = .FALSE.
     ! Synchronize nesting calls with large (transport) time steps
     l_nest_rcf        = .TRUE.
-    ! 2 child dynamcis substeps
+    ! 2 child dynamics substeps (DO NOT CHANGE!!! The code will not work correctly with other values)
     nest_substeps     = 2
     ! TRUE: apply mass conservation correction computed for feedback in the nested domain, too
     l_masscorr_nest   = .FALSE.
