@@ -90,14 +90,14 @@ if test ! -f "${targetWeight_general}" -o "$FORCE" -eq 1 ;then
     echo "GRID variable has to been set correctly!"
     exit 1
   fi
-  $CDO -P ${THREADS} ${remapOperator_general},${targetGrid} -fillmiss -ifthen ${lsmFile} -seltimestep,1 ${_test_file} ${targetWeight_general}
+  $CDO -P ${THREADS} ${remapOperator_general},${targetGrid} -fillmiss -ifnotthen ${lsmFile} -seltimestep,1 ${_test_file} ${targetWeight_general}
 fi
 if test ! -f "${targetWeight_special}" -o "$FORCE" -eq 1 ;then
   if test ! -f "${targetGrid}" ; then
     echo "GRID variable has to been set correctly!"
     exit 1
   fi
-  $CDO -P ${THREADS} ${remapOperator_special},${targetGrid} -fillmiss -ifthen ${lsmFile} -seltimestep,1 ${_test_file} ${targetWeight_special}
+  $CDO -P ${THREADS} ${remapOperator_special},${targetGrid} -fillmiss -ifnotthen ${lsmFile} -seltimestep,1 ${_test_file} ${targetWeight_special}
 fi
 #==============================================================================
 # jobs files for use of GNU parallel
@@ -118,7 +118,7 @@ for file in $(ls ${OMIP_DIR}/${OMIP_FILES}); do
 
   _oFile=fillmiss_$fileBasename
    oFile=remapped_$fileBasename
-  echo -n "$CDO settaxis,2001-01-01,12:00:00,1day -fillmiss -ifthen ${lsmFile}  $file ${_oFile};" >> jobs
+  echo -n "$CDO settaxis,2001-01-01,12:00:00,1day -fillmiss -ifnotthen ${lsmFile}  $file ${_oFile};" >> jobs
   echo -n "$CDO remap,${targetGrid},${targetWeight} ${_oFile} ${oFile}" >> jobs
   echo "" >> jobs
 
@@ -135,7 +135,7 @@ fi
 #==============================================================================
 # some postprocessing for ICON
 if [ "x${MODEL}" = 'xicon' ] ; then
-  ncrename -d Time,time ${TARGET_MODEL_OUTPUT}
+  ncrename -d Time,time -v Time,time ${TARGET_MODEL_OUTPUT}
 fi
 #==============================================================================
 # clean up
