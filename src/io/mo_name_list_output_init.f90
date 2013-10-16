@@ -2145,6 +2145,12 @@ CONTAINS
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_reference_half_hhl), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_reference_half_hhl), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_reference_half_hhl), levels)  !necessary for NetCDF
+      ! set numberOfVGridUsed
+      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
+      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
+      !
+      ! UUID not yet available - write dummy UUID
+      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
       DEALLOCATE(lbounds, ubounds, levels)
 
 
