@@ -641,6 +641,8 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_runoff_acc     , p_sfc_flx%forc_runoff     , subset)
     CALL add_fields(p_sfc_flx%forc_fw_bc_acc      , p_sfc_flx%forc_fw_bc      , subset)
     CALL add_fields(p_sfc_flx%forc_fwrelax_acc    , p_sfc_flx%forc_fwrelax    , subset)
+    CALL add_fields(p_sfc_flx%forc_fw_bc_oce_acc  , p_sfc_flx%forc_fw_bc_oce  , subset)
+    CALL add_fields(p_sfc_flx%forc_fw_bc_ice_acc  , p_sfc_flx%forc_fw_bc_ice  , subset)
     CALL add_fields(p_sfc_flx%forc_fw_ice_impl_acc, p_sfc_flx%forc_fw_ice_impl, subset)
     CALL add_fields(p_sfc_flx%forc_fw_ice_vol_acc,  p_sfc_flx%forc_fw_ice_vol , subset)
     CALL add_fields(p_sfc_flx%forc_fw_tot_acc     , p_sfc_flx%forc_fw_tot     , subset)
@@ -675,6 +677,8 @@ CONTAINS
     p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_bc_acc        = p_sfc_flx%forc_fw_bc_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fw_bc_oce_acc    = p_sfc_flx%forc_fw_bc_oce_acc   /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fw_bc_ice_acc    = p_sfc_flx%forc_fw_bc_ice_acc   /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_ice_impl_acc  = p_sfc_flx%forc_fw_ice_impl_acc /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_ice_vol_acc   = p_sfc_flx%forc_fw_ice_vol_acc  /REAL(nsteps_since_last_output,wp)
@@ -709,6 +713,8 @@ CONTAINS
     p_sfc_flx%forc_evap_acc         = 0.0_wp
     p_sfc_flx%forc_runoff_acc       = 0.0_wp
     p_sfc_flx%forc_fw_bc_acc        = 0.0_wp
+    p_sfc_flx%forc_fw_bc_oce_acc    = 0.0_wp
+    p_sfc_flx%forc_fw_bc_ice_acc    = 0.0_wp
     p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
     p_sfc_flx%forc_fw_ice_vol_acc   = 0.0_wp
     p_sfc_flx%forc_fw_tot_acc       = 0.0_wp
