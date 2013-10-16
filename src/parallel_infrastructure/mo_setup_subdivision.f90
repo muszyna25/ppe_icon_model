@@ -807,15 +807,29 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
     INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc
 
+#ifdef __PGIC__
+    TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
+      flag2_v_list(:), flag2_e_list(:)
+    INTEGER, ALLOCATABLE :: n2_ilev_c(:), n2_ilev_v(:), n2_ilev_e(:)
+#else
     TYPE(nb_flag_list_elem) :: flag2_c_list(0:2*n_boundary_rows), &
          flag2_v_list(0:n_boundary_rows+1), flag2_e_list(0:2*n_boundary_rows+1)
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
          n2_ilev_e(0:2*n_boundary_rows+1)
+#endif
     INTEGER, ALLOCATABLE :: owned_edges(:), owned_verts(:)
     INTEGER :: ierror
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
+#ifdef __PGIC__
+    ALLOCATE(flag2_c_list(0:2*n_boundary_rows), &
+      &      flag2_v_list(0:n_boundary_rows+1), &
+      &      flag2_e_list(0:2*n_boundary_rows+1), &
+      &      n2_ilev_c(0:2*n_boundary_rows), &
+      &      n2_ilev_v(0:n_boundary_rows+1), &
+      &      n2_ilev_e(0:2*n_boundary_rows+1))
+#endif
     CALL compute_flag_lists(flag2_c_list, flag2_v_list, flag2_e_list, &
       &                     n2_ilev_c, n2_ilev_v, n2_ilev_e, &
       &                     n_boundary_rows, &
