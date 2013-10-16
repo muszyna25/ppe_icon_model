@@ -6,13 +6,42 @@ set -x
 # Usage:
 #   MODEL=icon GRID=R2B04 PHC_DIR=. FORCE=1 LEV=L20 ./preproc4phc.sh
 #   MODEL=mpiom GRID=GR15 CDO=cdo CDODEV=/work/mh0287/users/ram/src/cdo/build/bin/cdo  LEV=L20 ./preproc4phc.sh
+#
+# Requirements:
+#   cdo 1.6.2, nco
 #==============================================================================
 # CONFIGURATION
 #==============================================================================
-# input
-PHC_POOL_DIR='/pool/data/SEP/data_sources/PHC3.0/DATA'
-     PHC_DIR=${PHC_DIR:-${PHC_POOL_DIR}}
-   PHC_FILES='PHC__3.0__SO__1x1__annual.nc  PHC__3.0__TempO__1x1__annual.nc'
+# input data
+          PHC_POOL_DIR='/pool/data/SEP/data_sources/PHC3.0/DATA'
+               PHC_DIR=${PHC_DIR:-${PHC_POOL_DIR}}
+             PHC_FILES='PHC__3.0__SO__1x1__annual.nc  PHC__3.0__TempO__1x1__annual.nc'
+# input grids
+ ICON_GRID_DIR_DEFAULT='/pool/data/ICON/ocean_data/ocean_grid'
+         ICON_GRID_DIR=${ICON_GRID_DIR:-${ICON_GRID_DIR_DEFAULT}}
+
+MPIOM_GRID_DIR_DEFAULT="/pool/data/MPIOM/${GRID}"
+        MPIOM_GRID_DIR=${MPIOM_GRID_DIR:-${MPIOM_GRID_DIR_DEFAULT}}
+#------------------------------------------------------------------------------
+# compute $GRID_FILE/$GRID based on given value of GRID_FILE
+case "${MODEL}" in
+ icon)
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+   else
+     GRID=$(basename $GRID_FILE .nc)
+   fi
+   ;;
+ mpiom)
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
+   else
+     extname=$(echo $GRID_FILE | rev | cut -d '.' -f 1 | rev)
+     GRID=$(basename $GRID_FILE .${extname})
+   fi
+   ;;
+ *) echo "Unsupported model! Use 'icon' or 'mpiom'."; exit 1;;
+esac
 #==============================================================================
 # output
               MODEL=${MODEL:-icon}
@@ -24,35 +53,19 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
   TARGET_MODEL_SURF=${TARGET}_${MODEL}_${GRID}_surf.nc
 #==============================================================================
 # internals
-                   CDO=${CDO:-cdo}
-                CDODEV=${CDODEV:-cdo-dev}
-               THREADS=${THREADS:-8}
+                CDO=${CDO:-cdo}
+             CDODEV=${CDODEV:-cdo-dev}
+            THREADS=${THREADS:-8}
 #==============================================================================
-# basic input directories
- ICON_GRID_DIR_DEFAULT='/pool/data/ICON/ocean_data/ocean_grid'
-         ICON_GRID_DIR=${ICON_GRID_DIR:-${ICON_GRID_DIR_DEFAULT}}
-
-MPIOM_GRID_DIR_DEFAULT="/pool/data/MPIOM/${GRID}"
-        MPIOM_GRID_DIR=${MPIOM_GRID_DIR:-${MPIOM_GRID_DIR_DEFAULT}}
+targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
    remapOperator=genbil
    gridSelect=ifs2icon_cell_grid
-   if [ "x$GRID_FILE" = 'x' ]; then
-     GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
-   else
-     GRID=$(basename $GRID_FILE .nc)
-   fi
-   targetGrid=./cell_grid-${GRID}-${MODEL}.nc
    ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
  mpiom)
    remapOperator=genbil
-   gridSelect=''
-   if [ "x$GRID_FILE" = 'x' ]; then
-     GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
-   fi
-   targetGrid=./cell_grid-${GRID}-${MODEL}.nc
    ${CDO} -f nc -sethalo,1,1 -random,${GRID_FILE} ${targetGrid}
    ;;
  *) echo "Unsupported model! Use 'icon' or 'mpiom'."; exit 1;;
@@ -73,7 +86,7 @@ esac
    PHC_TMP='_phc3.0-annual.nc'
 PHC_MERGED='phc3.0-annual.nc'
 PHC_NOMISS='phc3.0-annual-nomiss.nc'
- TEMPFILES="${PHC_TMP}" # ${PHC_MERGED}"
+ TEMPFILES="${PHC_TMP}"
 #==============================================================================
  FORCE=${FORCE:-0} # re-create interpolation weights/grids
 #==============================================================================
@@ -116,6 +129,18 @@ $CDO -sellevel,10 ${TARGET_MODEL_NOMISS} ${TARGET_MODEL_SURF}
 # vertical interpolation
 $CDO -intlevelx,${remapLevels} ${TARGET_MODEL_NOMISS} ${TARGET_MODEL_OUTPUT}
 
+#==============================================================================
+# some postprocessing for ICON
+if [ "x${MODEL}" = 'xicon' ]; then
+  ncrename -v tho,T ${TARGET_MODEL_OUTPUT}
+  ncrename -v s,S   ${TARGET_MODEL_OUTPUT}
+  ncrename -v tho,T ${TARGET_MODEL_SURF}
+  ncrename -v s,S   ${TARGET_MODEL_SURF}
+
+  ncrename -d lev,level ${TARGET_MODEL_OUTPUT}
+  ncrename -d lev,level ${TARGET_MODEL_SURF}
+
+fi
 #==============================================================================
 # clean up
 for file in ${TEMPFILES}; do

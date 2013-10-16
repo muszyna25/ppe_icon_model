@@ -9,10 +9,36 @@ set -x
 #==============================================================================
 # CONFIGURATION
 #==============================================================================
-# input
+# input data
 OMIP_POOL_DIR='/pool/data/MPIOM/setup/omip_365_era15'
      OMIP_DIR=${OMIP_DIR:-${OMIP_POOL_DIR}}
-   OMIP_FILES='[a-k,m-z]*.nc'
+   OMIP_FILES='[0-9,a-k,m-z]*.nc'
+# input grids
+ ICON_GRID_DIR_DEFAULT='/pool/data/ICON/ocean_data/ocean_grid'
+         ICON_GRID_DIR=${ICON_GRID_DIR:-${ICON_GRID_DIR_DEFAULT}}
+
+MPIOM_GRID_DIR_DEFAULT="/pool/data/MPIOM/${GRID}"
+        MPIOM_GRID_DIR=${MPIOM_GRID_DIR:-${MPIOM_GRID_DIR_DEFAULT}}
+#------------------------------------------------------------------------------
+# compute $GRID_FILE/$GRID based on given value of GRID_FILE
+case "${MODEL}" in
+ icon)
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
+   else
+     GRID=$(basename $GRID_FILE .nc)
+   fi
+   ;;
+ mpiom)
+   if [ "x$GRID_FILE" = 'x' ]; then
+     GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
+   else
+     extname=$(echo $GRID_FILE | rev | cut -d '.' -f 1 | rev)
+     GRID=$(basename $GRID_FILE .${extname})
+   fi
+   ;;
+ *) echo "Unsupported model! Use 'icon' or 'mpiom'."; exit 1;;
+esac
 #==============================================================================
 # output
               MODEL=${MODEL:-icon}
@@ -29,32 +55,17 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
             THREADS=${THREADS:-8}
               FORCE=${FORCE:-0}
 #==============================================================================
-# basic input directories
- ICON_GRID_DIR_DEFAULT='/pool/data/ICON/ocean_data/ocean_grid'
-         ICON_GRID_DIR=${ICON_GRID_DIR:-${ICON_GRID_DIR_DEFAULT}}
-
-MPIOM_GRID_DIR_DEFAULT="/pool/data/MPIOM/${GRID}"
-        MPIOM_GRID_DIR=${MPIOM_GRID_DIR:-${MPIOM_GRID_DIR_DEFAULT}}
-#==============================================================================
 # remapping setup
 remapOperator_general=genbil
 remapOperator_special=genbic
+targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
-      gridSelect=ifs2icon_cell_grid
-
-      if [ "x$GRID_FILE" = 'x' ]; then
-        GRID_FILE=$(ls ${ICON_GRID_DIR}/icon${GRID}*etop*planet.nc | head -1)
-      else
-        GRID=$(basename $GRID_FILE .nc)
-      fi
-      targetGrid=./cell_grid-${GRID}-${MODEL}.nc
-      [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
+   gridSelect=ifs2icon_cell_grid
+   [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
  mpiom)
-      GRID_FILE="${MPIOM_GRID_DIR}/${GRID}s.nc"
-      targetGrid=./cell_grid-${GRID}-${MODEL}.nc
-      [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -sethalo,1,1 -random,${GRID_FILE} ${targetGrid}
+   [[ ! -f ${targetGrid} ]] && ${CDO} -f nc -sethalo,1,1 -random,${GRID_FILE} ${targetGrid}
    ;;
  *) echo "Unsupported model! Use 'icon' or 'mpiom'."; exit 1;;
 esac
@@ -108,7 +119,7 @@ for file in $(ls ${OMIP_DIR}/${OMIP_FILES}); do
   _oFile=fillmiss_$fileBasename
    oFile=remapped_$fileBasename
   echo -n "$CDO settaxis,2001-01-01,12:00:00,1day -fillmiss -ifthen ${lsmFile}  $file ${_oFile};" >> jobs
-  echo -n "$CDO remap,${targetGrid},${targetWeight} ${_oFile} ${oFile};" >> jobs
+  echo -n "$CDO remap,${targetGrid},${targetWeight} ${_oFile} ${oFile}" >> jobs
   echo "" >> jobs
 
   oFiles+=" $oFile"
@@ -120,6 +131,11 @@ cat jobs | parallel -j ${THREADS}
 if [ $MERGE = 0 ]; then
   [[ -f ${TARGET_MODEL_OUTPUT} ]] && rm ${TARGET_MODEL_OUTPUT}
   $CDO merge ${oFiles} ${TARGET_MODEL_OUTPUT}
+fi
+#==============================================================================
+# some postprocessing for ICON
+if [ "x${MODEL}" = 'xicon' ] ; then
+  ncrename -d Time,time ${TARGET_MODEL_OUTPUT}
 fi
 #==============================================================================
 # clean up
