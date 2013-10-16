@@ -10,9 +10,9 @@ set -x
 # CONFIGURATION
 #==============================================================================
 # input data
-OMIP_POOL_DIR='/pool/data/MPIOM/setup/omip_365_era15'
-     OMIP_DIR=${OMIP_DIR:-${OMIP_POOL_DIR}}
-   OMIP_FILES='[0-9,a-k,m-z]*.nc'
+         OMIP_POOL_DIR='/pool/data/MPIOM/setup/omip_365_era15'
+              OMIP_DIR=${OMIP_DIR:-${OMIP_POOL_DIR}}
+            OMIP_FILES='[0-9,a-k,m-z]*.nc'
 # input grids
  ICON_GRID_DIR_DEFAULT='/pool/data/ICON/ocean_data/ocean_grid'
          ICON_GRID_DIR=${ICON_GRID_DIR:-${ICON_GRID_DIR_DEFAULT}}
@@ -45,8 +45,9 @@ esac
                GRID=${GRID:-R2B04}
              TARGET=${TARGET:-omip}
                 LEV=${LEV:-forcing}
+            TIMEAVG=${TIMEAVG:-daily}
          _test_file="${OMIP_DIR}/runoff.nc"
-TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
+TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}-${TIMEAVG}.nc
               MERGE=${MERGE:-0}
 #==============================================================================
 # internals
@@ -103,7 +104,8 @@ fi
 # jobs files for use of GNU parallel
 [[ -f jobs ]] && rm jobs
 # array for output files for later merge
-typeset -A oFiles
+typeset -A  oFiles
+typeset -A _oFiles
 # cleanup old intermediate stuff
 [[ -f $(ls -1 remapped_*.nc) ]] && rm remapped_*nc
 [[ -f $(ls -1 fillmiss_*.nc) ]] && rm fillmiss_*nc
@@ -123,6 +125,7 @@ for file in $(ls ${OMIP_DIR}/${OMIP_FILES}); do
   echo "" >> jobs
 
   oFiles+=" $oFile"
+ _oFiles+=" $_oFile"
 done
 # perform parallel processing of ${THREADS} processes
 cat jobs | parallel -j ${THREADS}
@@ -130,7 +133,25 @@ cat jobs | parallel -j ${THREADS}
 # merge together
 if [ $MERGE = 0 ]; then
   [[ -f ${TARGET_MODEL_OUTPUT} ]] && rm ${TARGET_MODEL_OUTPUT}
-  $CDO merge ${oFiles} ${TARGET_MODEL_OUTPUT}
+  $CDO merge ${oFiles} _${TARGET_MODEL_OUTPUT}
+  #==============================================================================
+  # time averaging
+  case "${TIMEAVG}" in
+    daily)
+      mv _${TARGET_MODEL_OUTPUT} ${TARGET_MODEL_OUTPUT}
+      ;;
+    monthly)
+      cdo monmean _${TARGET_MODEL_OUTPUT} ${TARGET_MODEL_OUTPUT}
+      oFiles+=" _${TARGET_MODEL_OUTPUT}"
+      ;;
+    annual)
+      cdo yearmean _${TARGET_MODEL_OUTPUT} ${TARGET_MODEL_OUTPUT}
+      oFiles+=" _${TARGET_MODEL_OUTPUT}"
+      ;;
+    *)
+      echo "Wrong value for TIMEAVG! Use only: daily, monthly or annual."
+      exit 1
+  esac
 fi
 #==============================================================================
 # some postprocessing for ICON
@@ -139,7 +160,7 @@ if [ "x${MODEL}" = 'xicon' ] ; then
 fi
 #==============================================================================
 # clean up
-for file in ${TEMPFILES}; do
+for file in ${TEMPFILES} ${_oFiles} ${oFiles}; do
   [[ -f $file ]] && rm $file
 done
 #==============================================================================

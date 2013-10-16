@@ -137,8 +137,8 @@ if [ "x${MODEL}" = 'xicon' ]; then
   ncrename -v tho,T ${TARGET_MODEL_SURF}
   ncrename -v s,S   ${TARGET_MODEL_SURF}
 
-  ncrename -d lev,level ${TARGET_MODEL_OUTPUT}
-  ncrename -d lev,level ${TARGET_MODEL_SURF}
+  ncrename -d lev,level -v lev,level ${TARGET_MODEL_OUTPUT}
+  ncrename -d lev,level -v lev,level ${TARGET_MODEL_SURF}
 
 fi
 #==============================================================================
