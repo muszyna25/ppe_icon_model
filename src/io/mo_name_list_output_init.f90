@@ -2150,7 +2150,7 @@ CONTAINS
       CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
       !
       ! UUID not yet available - write dummy UUID
-      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
+      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half_hhl), uuidOfVGrid_string ) !uuidOfVGrid
       DEALLOCATE(lbounds, ubounds, levels)
 
 
