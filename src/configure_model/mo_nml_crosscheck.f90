@@ -953,17 +953,6 @@ CONTAINS
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)
 
-    !---------------------------------------------------------------
-    ! Restart runs are disabled for the "old" asynchronous output
-    ! mode implemented in MODULE mo_io_vlist
-    ! (potential deadlock observed).
-    !---------------------------------------------------------------
-
-    IF (is_restart_run() .AND. output_mode%l_vlist .AND. (num_io_procs>0)) THEN
-      CALL finish('atm_crosscheck', &
-        &         'Restart runs are disabled for the "old" asynchronous output!')
-    END IF
-
     CALL land_crosscheck()
     
   END  SUBROUTINE atm_crosscheck

@@ -100,8 +100,7 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
-USE mo_output,                 ONLY: init_output_files, &
-  &                                  create_restart_file, write_output_oce! , write_output
+USE mo_output,                 ONLY: create_restart_file
 USE mo_fortran_tools,          ONLY: assign_if_present
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
@@ -402,9 +401,6 @@ CONTAINS
       IF (output_mode%l_nml) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
       ENDIF
-      IF (output_mode%l_vlist) THEN
-        CALL write_output_oce( datetime, time_config%sim_time(1),patch_3D, p_os)
-      ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
@@ -414,12 +410,6 @@ CONTAINS
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
     END IF
-
-    ! If it's time, close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep,n_files())==0).AND.jstep/=nsteps  .AND. output_mode%l_vlist ) THEN
-      jfile = jfile +1
-      CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=patch_3D%p_patch_2D)
-    ENDIF
 
 !   ! close the current output file and trigger a new one
 !   IF (istime4newoutputfile(jstep)) THEN

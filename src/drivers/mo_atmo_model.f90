@@ -123,7 +123,6 @@ MODULE mo_atmo_model
     &                                   destroy_lonlat_grid_list
 
   ! I/O
-  USE mo_io_async,                ONLY: vlist_io_main_proc, use_async_vlist_io
   USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
@@ -337,18 +336,9 @@ CONTAINS
         use_async_name_list_io = .TRUE.
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
-        IF (output_mode%l_vlist) THEN
-          output_mode%l_vlist = .FALSE.
-          CALL message(routine,'vlist I/O scheme has been disabled because combining it&
-            & with namelist I/O is not possible for asynchronous output.')
-        ENDIF
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
           CALL name_list_io_main_proc(isample=iadv_rcf)
         END IF
-      ELSE  IF (output_mode%l_vlist) THEN
-        use_async_vlist_io = .TRUE.
-        CALL message(routine,'asynchronous vlist I/O scheme is enabled.')
-        IF (my_process_is_io()) CALL vlist_io_main_proc
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
         ! Shut down MPI
         CALL p_stop
@@ -361,9 +351,6 @@ CONTAINS
       !
       IF (output_mode%l_nml) THEN
         CALL message(routine,'synchronous namelist I/O scheme is enabled.')
-      ENDIF
-      IF (output_mode%l_vlist) THEN
-        CALL message(routine,'synchronous vlist I/O scheme is enabled.')
       ENDIF
     ENDIF
 

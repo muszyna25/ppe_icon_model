@@ -132,7 +132,7 @@ MODULE mo_run_nml
                             
 
   !> output mode (logicals)
-  !  one or multiple of "none", "vlist", "nml", "totint"
+  !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
 
   ! dump/restore file names, may contain keywords
@@ -330,14 +330,13 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       &  TRIM('mo_run_nml:parse_output_mode')
-    CHARACTER(len=32) :: valid_names(4)
+    CHARACTER(len=32) :: valid_names(3)
     INTEGER :: i
 
     ! define a list of valid names, check if user input is valid:
     valid_names(1) = "none"
-    valid_names(2) = "vlist"
-    valid_names(3) = "nml"
-    valid_names(4) = "totint"
+    valid_names(2) = "nml"
+    valid_names(3) = "totint"
     DO i=1,max_output_modes
       IF (TRIM(output(i)) /= "") THEN
         IF (one_of(output(i), valid_names) == -1) THEN
@@ -349,17 +348,16 @@ CONTAINS
     ! for each logical of type t_output_mode, check if the
     ! corresponding keyword is in the list of strings
     om%l_none   = ( one_of("none",   output(:)) /= -1)
-    om%l_vlist  = ( one_of("vlist",  output(:)) /= -1)
     om%l_nml    = ( one_of("nml",    output(:)) /= -1)
     om%l_totint = ( one_of("totint", output(:)) /= -1)
 
     ! consistency checks:
     !
-    IF (.NOT. (om%l_vlist .OR. om%l_nml .OR. om%l_totint)) THEN
+    IF (.NOT. (om%l_nml .OR. om%l_totint)) THEN
       om%l_none = .TRUE.
     END IF
     ! error: "none" has been chosen in combination with others:
-    IF (om%l_none .AND. (om%l_vlist .OR. om%l_nml .OR. om%l_totint)) THEN
+    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint)) THEN
       CALL finish(routine, "Syntax error when setting output to 'none'.")
     END IF
     

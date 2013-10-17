@@ -70,8 +70,7 @@ MODULE mo_ha_stepping
   USE mo_ha_prog_util,        ONLY: copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output
   USE mo_expensive_functions, ONLY: convert_t2theta
-  USE mo_output,              ONLY: init_output_files, write_output, &
-                                  & create_restart_file
+  USE mo_output,              ONLY: create_restart_file
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
@@ -325,11 +324,9 @@ CONTAINS
     ! scheme). In some schemes (e.g. leapfrog), the step n values will be
     ! modified within this integration cycle. Therefore at the end of the
     ! cycle, we write out variables of time step n rather than n+1.
-    l_vlist_output = output_mode%l_vlist .AND. &
-      & ((jstep==nsteps) .OR. is_output_time(jstep))
     l_nml_output   = output_mode%l_nml     .AND. &
       & ((jstep==nsteps) .OR. istime4name_list_output(sim_time(1)))
-    l_outputtime = l_vlist_output .OR. l_nml_output
+    l_outputtime = l_nml_output
 
     IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
       l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
@@ -382,29 +379,16 @@ CONTAINS
         CALL print_datetime(datetime)
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
       ENDIF
-      IF (l_vlist_output) THEN
-        CALL message(TRIM(routine),'Output (vlist) at:')
-        CALL print_datetime(datetime)
-        CALL write_output( datetime )
-        l_have_output = .TRUE.
-      ENDIF
 
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
     ENDIF !is_output_time(jstep)
 
-    ! If it's time, close the current output file and trigger a new one
-    IF (output_mode%l_vlist .AND. jstep/=1 .AND. (MOD(jstep-1,n_file)==0) .AND. jstep/=nsteps) THEN
-      jfile = jfile +1
-      CALL init_output_files(jfile,lclose=l_have_output)
-    ENDIF
-
     !--------------------------------------------------------------------------
     ! Diagnose global integrals
     !--------------------------------------------------------------------------
-    IF (l_diagtime) &
-    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
-                                    ext_data(1:n_dom), nnow(1:n_dom) )
+    IF (l_diagtime) CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
+                                                    ext_data(1:n_dom), nnow(1:n_dom) )
 
 
     !--------------------------------------------------------------------------

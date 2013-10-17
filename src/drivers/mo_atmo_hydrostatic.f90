@@ -62,8 +62,6 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_io_restart,           ONLY: read_restart_files
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
-  USE mo_output,               ONLY: init_output_files, close_output_files,&
-                                     write_output
   USE mo_name_list_output_init, ONLY: init_name_list_output
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
@@ -190,7 +188,6 @@ CONTAINS
     ! initial conditions.
 
       jfile = 1
-      CALL init_output_files(jfile, lclose=.FALSE.)
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
           ! Mis-use optional parameter last_step=.TRUE to force output of initial state.
@@ -202,10 +199,6 @@ CONTAINS
           CALL write_name_list_output( time_config%cur_datetime, 0._wp, .TRUE. )
         ENDIF
 
-        IF (output_mode%l_vlist) THEN        
-          CALL write_output( time_config%cur_datetime )
-          l_have_output = .TRUE.
-        ENDIF
       ENDIF
 
 
@@ -218,7 +211,6 @@ CONTAINS
 
 !LK - following DR in mo_atmo_nonhydrostatic.f90: may need to be fine-tuned later on
 !LK      IF (n_io.le.(nsteps-1)) THEN
-         CALL init_output_files(jfile, lclose=.FALSE.)
          l_have_output = .TRUE.
 !LK      ELSE
 !LK         l_have_output = .FALSE.
@@ -277,13 +269,6 @@ CONTAINS
     IF (output_mode%l_nml) THEN    
       CALL close_name_list_output
     ENDIF
-
-    IF (output_mode%l_vlist) THEN        
-      IF (l_have_output) THEN
-        CALL close_output_files
-      ENDIF
-    ENDIF
-    IF (msg_level > 5) CALL message(TRIM(method_name),'close_output_files is done')
 
   END SUBROUTINE destruct_atmo_hydrostatic
 

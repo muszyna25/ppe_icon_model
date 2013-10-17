@@ -100,8 +100,7 @@ MODULE mo_nh_stepping
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday, &
                                     rdaylen, date_to_time
-  USE mo_output,              ONLY: init_output_files, write_output,  &
-    &                               create_restart_file
+  USE mo_output,              ONLY: create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
@@ -343,12 +342,6 @@ MODULE mo_nh_stepping
     IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
       CALL adjust_boundary_data ( p_patch(1), datetime, nnow(1), p_nh_state(1) )
 
-    IF (output_mode%l_vlist) THEN
-      CALL write_output( datetime )
-      CALL message(TRIM(routine),'Initial Output')
-      l_have_output = .TRUE.
-    END IF
-
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output( datetime, 0._wp, .FALSE. )
     END IF
@@ -419,7 +412,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jstep, jg, kstep
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
-    &                                     l_vlist_output, l_nml_output, &
+    &                                     l_nml_output, &
     &                                     l_supervise_total_integrals,  &
     &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
@@ -555,8 +548,6 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
-    l_vlist_output = output_mode%l_vlist .AND. &
-                  & ((jstep==nsteps) .OR. istime4output(time_config%sim_time(1)+dtime))
     l_nml_output   = output_mode%l_nml   .AND. &
       &              ((jstep==nsteps) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
@@ -566,7 +557,7 @@ MODULE mo_nh_stepping
     ! - last time step
     ! - output interval, "old" vlist output
     ! - output interval, "new" output_nml
-    l_outputtime = l_vlist_output .OR. l_nml_output
+    l_outputtime = l_nml_output
  
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:
@@ -623,13 +614,6 @@ MODULE mo_nh_stepping
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
-
-      IF  (l_vlist_output) THEN
-        CALL write_output( datetime, time_config%sim_time(1) )
-        CALL message('','Output at:')
-        CALL print_datetime(datetime)
-        l_have_output = .TRUE.
-      ENDIF
       IF (l_nml_output) THEN
         CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
         ! l_have_output must not be set here, this triggers the close
@@ -673,16 +657,6 @@ MODULE mo_nh_stepping
     IF ((global_cell_type == 6) .AND. l_supervise_total_integrals) THEN
       CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,     &
            &                             nnow(1:n_dom),  nnow_rcf(1:n_dom) )
-    ENDIF
-
-
-    ! close the current output file and trigger a new one
-    IF (MOD(jstep,n_file) == 0 .AND. jstep/=nsteps .AND. &
-      & output_mode%l_vlist ) THEN
-
-      jfile = jfile +1
-      call init_output_files(jfile,lclose=l_have_output)
-
     ENDIF
 
 

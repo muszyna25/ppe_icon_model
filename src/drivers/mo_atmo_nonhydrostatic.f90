@@ -39,7 +39,6 @@ USE mo_mpi,                  ONLY: my_process_is_stdio
 USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
   &                                timer_stop, timer_model_init
 USE mo_master_control,       ONLY: is_restart_run
-USE mo_output,               ONLY: init_output_files, close_output_files
 USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
@@ -278,7 +277,7 @@ CONTAINS
     !     Setup of meteogram output
     !---------------------------------------------------------------------
 
-    IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
+    IF (output_mode%l_nml) THEN
       DO jg =1,n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           ! For dry test cases: do not sample moist variables
@@ -344,7 +343,6 @@ CONTAINS
       ! initial conditions.
 
       jfile = 1
-      CALL init_output_files(jfile, lclose=.FALSE.)
 
     ELSE
     ! No need to write out the initial condition, thus no output
@@ -355,7 +353,6 @@ CONTAINS
 
 !DR may need to be fine-tuned later on
 !DR      IF (n_io.le.(nsteps-1)) THEN
-         CALL init_output_files(jfile, lclose=.FALSE.)
          l_have_output = .TRUE.  
 !DR      ELSE
 !DR         l_have_output = .FALSE.
@@ -430,15 +427,12 @@ CONTAINS
     CALL destruct_nwp_lnd_state( p_lnd_state )
 
     ! Delete output variable lists
-    IF (output_mode%l_vlist) THEN
-      IF (l_have_output) CALL close_output_files
-    END IF
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
     END IF
 
     ! finalize meteogram output
-    IF ((output_mode%l_nml) .OR. (output_mode%l_vlist)) THEN
+    IF (output_mode%l_nml) THEN
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_finalize(jg)

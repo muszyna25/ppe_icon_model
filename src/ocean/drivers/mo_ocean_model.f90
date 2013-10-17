@@ -39,14 +39,11 @@ MODULE mo_ocean_model
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_output,              ONLY: init_output_files, write_output_oce, close_output_files
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: iequations
-  
-  USE mo_io_async,            ONLY: vlist_io_main_proc
   
   !  USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
@@ -210,17 +207,6 @@ CONTAINS
       ! Initialize the first output file which will contain also the
       ! initial conditions.
       jfile = 1
-      CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2d=ocean_patch_3d%p_patch_2d)
-      IF (lwrite_initial)       CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2d=ocean_patch_3d%p_patch_2d)
-      IF (lwrite_initial) THEN
-        !IF (output_mode%l_nml) THEN
-        !  CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
-        !ENDIF
-        IF (output_mode%l_vlist) THEN
-          CALL write_output_oce( time_config%cur_datetime,z_sim_time=(/1.0_wp/),&
-            & p_patch_3d=ocean_patch_3d, p_os=ocean_state)
-        ENDIF
-      ENDIF
       l_have_output = .TRUE.
     ELSE
       ! No need to write out the initial condition, thus no output
@@ -228,12 +214,7 @@ CONTAINS
       ! output if n_io <= integration_length.
 
       CALL get_restart_attribute('next_output_file',jfile)
-      !      IF (n_io.le.nsteps) THEN
-      CALL init_output_files(jfile, lclose=.FALSE.,p_patch_2d=ocean_patch_3d%p_patch_2d)
       l_have_output = .TRUE.
-      !      ELSE
-      !         l_have_output = .FALSE.
-      !      END IF
 
     END IF ! (not) is_restart_run()
 
@@ -298,12 +279,6 @@ CONTAINS
 
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
-    ENDIF
-
-    IF (output_mode%l_vlist) THEN
-      IF (l_have_output) THEN
-        CALL close_output_files
-      ENDIF
     ENDIF
 
     CALL destruct_icon_communication()
@@ -377,11 +352,6 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. Import patches
     !-------------------------------------------------------------------
-    ! If we belong to the I/O PEs just call vlist_io_main_proc before reading patches.
-    ! This routine will never return
-
-    IF (my_process_is_io()) CALL vlist_io_main_proc
-
     CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
       & l_restore_states=lrestore_states, patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)

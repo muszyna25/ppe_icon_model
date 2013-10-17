@@ -90,8 +90,6 @@ MODULE mo_test_nh_communication
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
-  USE mo_output,              ONLY: init_output_files, write_output,  &
-    &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &

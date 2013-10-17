@@ -215,16 +215,16 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     IF(UBOUND(in_field,1) /= nproma) THEN
-      CALL finish('mo_io_vlist/gather_array2','Illegal 1st array dimension')
+      CALL finish('mo_io_util/gather_array2','Illegal 1st array dimension')
     ENDIF
 !     IF(p_io/=p_test_pe .AND. p_io/=p_work_pe0) THEN ! Safety check only
-!       CALL finish('mo_io_vlist/gather_array2','Illegal I/O PE number for this routine')
+!       CALL finish('mo_io_util/gather_array2','Illegal I/O PE number for this routine')
 !     ENDIF
 
     IF(typ == GATHER_C) THEN
 
       IF(UBOUND(in_field,3) /= p_patch%alloc_cell_blocks) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
+        CALL finish('mo_io_util/gather_array2','Illegal 3rd array dimension')
       dim1 = nproma
       dim3 = (p_patch%n_patch_cells_g-1)/nproma+1
 
@@ -235,7 +235,7 @@ CONTAINS
     ELSE IF(typ == GATHER_E) THEN
 
       IF(UBOUND(in_field,3) /= p_patch%nblks_e) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
+        CALL finish('mo_io_util/gather_array2','Illegal 3rd array dimension')
       dim1 = nproma
       dim3 = (p_patch%n_patch_edges_g-1)/nproma+1
 
@@ -246,7 +246,7 @@ CONTAINS
     ELSE IF(typ == GATHER_V) THEN
 
       IF(UBOUND(in_field,3) /= p_patch%nblks_v) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
+        CALL finish('mo_io_util/gather_array2','Illegal 3rd array dimension')
       dim1 = nproma
       dim3 = (p_patch%n_patch_verts_g-1)/nproma+1
 
@@ -256,7 +256,7 @@ CONTAINS
 
     ELSE
 
-      CALL finish('mo_io_vlist/gather_array2','Illegal type parameter')
+      CALL finish('mo_io_util/gather_array2','Illegal type parameter')
 
       ! To get rid of compiler warnings (by gcc) about variables which may be used uninitialized,
       ! define these varaibles also here. They are not used since the "finish" above stops
@@ -270,7 +270,7 @@ CONTAINS
     IF (PRESENT(opt_out_field_3d)) THEN
       ALLOCATE(opt_out_field_3d%ptr(dim1, UBOUND(in_field,2), dim3), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
-        CALL finish ('mo_io_vlist/gather_array2', 'allocation failed')
+        CALL finish ('mo_io_util/gather_array2', 'allocation failed')
       ENDIF
       tmp_field => opt_out_field_3d%ptr
     ELSE
@@ -296,7 +296,7 @@ CONTAINS
                 ELSE
                   WRITE(0,*)'Error ',jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
                ENDIF
-              CALL message('mo_io_vlist/gather_array2','Sync error test PE/worker PEs')
+              CALL message('mo_io_util/gather_array2','Sync error test PE/worker PEs')
             ENDIF
           ENDDO
         ENDDO

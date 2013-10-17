@@ -106,7 +106,7 @@ MODULE mo_run_config
 
  
     !> output mode (string)
-    !  one or multiple of "none", "vlist", "nml", "totint"
+    !  one or multiple of "none", "nml", "totint"
     INTEGER, PARAMETER :: max_output_modes = 5
     CHARACTER(len=32) :: output(max_output_modes)
 
@@ -207,9 +207,9 @@ MODULE mo_run_config
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
 
     !> output mode (logicals)
-    !  one or multiple of "none", "vlist", "nml", "totint"
+    !  one or multiple of "none", "nml", "totint"
     TYPE t_output_mode
-      LOGICAL :: l_none, l_vlist, l_nml, l_totint
+      LOGICAL :: l_none, l_nml, l_totint
     END TYPE t_output_mode
 
     TYPE (t_output_mode) output_mode
