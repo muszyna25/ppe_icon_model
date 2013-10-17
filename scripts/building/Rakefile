@@ -183,7 +183,7 @@ $excludeFiles = lambda {|build|
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
   list << " --exclude='.svn/*'" << " --exclude=config/set-up.info" << " --exclude='**/*.ps'" << " --exclude='**/*.pdf'" << " --exclude='**/*.png'"
-  list << " --exclude='**/*.log'" << " --exclude='**/*.gif'" << " --exclude='**/*.avi'" << " --exclude='experiments/*'"
+  list << " --exclude='**/*.log'" << " --exclude='**/*.gif'" << " --exclude='**/*.avi'" << " --exclude='experiments/*'" << " --exclude='grids/backup'" << " --exclude='scripts/**/*.nc'"<< " --exclude='scripts/**/*.grb'"
   list
 }
 
