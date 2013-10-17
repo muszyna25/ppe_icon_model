@@ -74,10 +74,9 @@ link_source_list src/testcases "mo_ape_params.f90"
 cd ${icon_dev}/run
 run_scripts=`ls *oce*`
 run_scripts="$run_scripts exec.iconrun"
-echo $run_scripts
 cd -
 
-link_source_list run run_scripts
+link_source_list run "$run_scripts"
 
 link_source_list config all
 
