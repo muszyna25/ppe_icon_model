@@ -1,6 +1,7 @@
 MODULE mo_util_file
 
   USE, INTRINSIC ::  ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
+  USE mo_kind, ONLY : i8
   
   IMPLICIT NONE
   
@@ -184,7 +185,7 @@ CONTAINS
   END FUNCTION util_tmpnam
 
   FUNCTION util_filesize(filename) RESULT(flen)
-    INTEGER(KIND=8) :: flen
+    INTEGER(KIND=i8) :: flen
     CHARACTER(len=*), INTENT(in) :: filename
     flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
   END FUNCTION util_filesize

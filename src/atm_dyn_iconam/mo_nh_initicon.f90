@@ -41,7 +41,7 @@
 
 MODULE mo_nh_initicon
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, i8
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
@@ -379,7 +379,7 @@ MODULE mo_nh_initicon
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
     INTEGER :: jg, vlistID, jlev, mpi_comm
-    INTEGER(KIND=8) :: flen_fg, flen_ana                     ! filesize in bytes
+    INTEGER(KIND=i8) :: flen_fg, flen_ana                     ! filesize in bytes
     LOGICAL :: l_exist
 
     CALL cdiDefMissval(cdimissval) 
