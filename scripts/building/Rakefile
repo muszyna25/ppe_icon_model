@@ -160,7 +160,7 @@ $remoteConnection = lambda {|build|
 $configureCall = lambda {|build|
   configureCall = ''
   configureCall << "#{$builds[build][:preConf]};" unless $builds[build][:preConf].nil?
-  configureCall << "COMPILER=#{$builds[build][:CC]} "
+  configureCall << "COMPILER=#{$builds[build][:CC].nil? ? 'gcc' : $builds[build][:CC]} "
   configureCall << './configure'
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
   configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
@@ -183,6 +183,7 @@ $excludeFiles = lambda {|build|
   list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
   list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
   list << " --exclude='.svn/*'" << " --exclude=config/set-up.info" << " --exclude='**/*.ps'" << " --exclude='**/*.pdf'" << " --exclude='**/*.png'"
+  list << " --exclude='**/*.log'" << " --exclude='**/*.gif'" << " --exclude='**/*.avi'" << " --exclude='experiments/*'"
   list
 }
 
