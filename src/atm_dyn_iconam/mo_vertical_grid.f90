@@ -633,8 +633,15 @@ MODULE mo_vertical_grid
                              ABS(p_nh(jg)%metrics%ddxt_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
                              ABS(p_nh(jg)%metrics%ddxt_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
 
+            z_diff = MAX(ABS(p_nh(jg)%metrics%ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))      &
+                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
+                         ABS(p_nh(jg)%metrics%ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))      &
+                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
+                         ABS(p_nh(jg)%metrics%ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))      &
+                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
+
             ! Empirically determined values to ensure stability over steep slopes
-            z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp)
+            z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp, MIN(0.25_wp,2.5e-4_wp*(z_diff-250._wp)))
             z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
 
             p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
