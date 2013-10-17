@@ -162,6 +162,7 @@ MODULE mo_ocean_nml
   !INTEGER            :: FLUX_CALCULATION_VERT = UPWIND   ! consistent with l_edge_based=.FALSE.
   INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.
   INTEGER            :: FLUX_CALCULATION_VERT = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.
+  LOGICAL            :: l_adpo_flowstrength   = .TRUE.     ! .TRUE.: activate second condition for adpo weight
 
 
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
@@ -334,7 +335,7 @@ MODULE mo_ocean_nml
     &                 expl_vertical_tracer_diff,                           &
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
-    &                 dhdtw_abort,                                         &
+    &                 dhdtw_abort, l_adpo_flowstrength,                    &
     &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
