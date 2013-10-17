@@ -340,7 +340,7 @@ CONTAINS
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
               ist = 10  ! sea ice
             ELSE
-              ist = ext_data%atm%soiltyp(jc,jb)
+              ist = 9   ! sea water 
             ENDIF
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
@@ -741,7 +741,7 @@ CONTAINS
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
               ist = 10  ! sea ice
             ELSE
-              ist = ext_data%atm%soiltyp(jc,jb)
+              ist = 9   ! sea water
             ENDIF
 
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
