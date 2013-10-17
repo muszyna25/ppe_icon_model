@@ -183,7 +183,7 @@ MODULE mo_io_vlist
   USE mo_mrw_test,              ONLY: mountctr_lon_deg, mountctr_lat_deg,         &
     &                                 mountctr_height, mount_half_width,          &
     &                                 mount_u0
-  USE mo_nh_testcases,          ONLY: nh_test_name, mount_height,                 &
+  USE mo_nh_testcases_nml,      ONLY: nh_test_name, mount_height,                 &
     &                                 torus_domain_length, nh_brunt_vais, nh_u0,  &
     &                                 nh_t0, jw_up,                               &
     &                                 rotate_axis_deg, lhs_nh_vn_ptb,             &

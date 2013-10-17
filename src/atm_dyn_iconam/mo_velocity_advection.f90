@@ -62,7 +62,7 @@ MODULE mo_velocity_advection
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, &
     &                             min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_nh_testcases,      ONLY: nh_test_name
+  USE mo_nh_testcases_nml,  ONLY: nh_test_name
   USE mo_nh_dcmip_gw,       ONLY: fcfugal
 
 

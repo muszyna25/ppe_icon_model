@@ -46,7 +46,7 @@ MODULE mo_ape_params
   USE mo_constants,          ONLY: pi=>api, tmelt
 #endif
 #ifndef __ICON_OCEAN_ONLY__
-  USE mo_nh_testcases,       ONLY: ape_sst_val
+  USE mo_nh_testcases_nml,   ONLY: ape_sst_val
 #endif
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_exception,          ONLY: finish

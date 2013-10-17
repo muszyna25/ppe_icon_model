@@ -56,7 +56,7 @@ MODULE mo_nh_held_suarez_interface
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_physical_constants,    ONLY: rd_o_cpd
 !!$  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
-  USE mo_nh_testcases,          ONLY: lhs_fric_heat
+  USE mo_nh_testcases_nml,      ONLY: lhs_fric_heat
   USE mo_timer,                 ONLY: ltimer, timer_start, timer_stop, timer_held_suarez_intr
 
 

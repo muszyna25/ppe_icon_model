@@ -70,7 +70,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
   USE mo_util_phys,            ONLY: nwp_dyn_gust, nwp_dyn_gust1
   USE mo_run_config,           ONLY: ltestcase
-  USE mo_nh_testcases,         ONLY: nh_test_name
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
     &                                isub_water, isub_lake, isub_seaice
 

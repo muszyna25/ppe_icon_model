@@ -80,8 +80,8 @@ MODULE mo_nh_stepping
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys, start_time, end_time, &
     &                               global_cell_type
-  USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
-    &                               rotate_axis_deg, lcoupled_rho
+  USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase 
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv

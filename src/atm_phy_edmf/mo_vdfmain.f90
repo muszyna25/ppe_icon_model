@@ -424,7 +424,7 @@ USE mo_surfexcdriver,ONLY : surfexcdriver
 USE mo_surfpp       ,ONLY : surfpp
 
 USE mo_run_config,   ONLY : ltestcase
-USE mo_nh_testcases, ONLY : nh_test_name
+USE mo_nh_testcases_nml, ONLY : nh_test_name
 USE mo_nh_torus_exp ,ONLY : cbl_stevens_fluxes
 
 IMPLICIT NONE

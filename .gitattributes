@@ -1454,6 +1454,7 @@ src/namelists/mo_ls_forcing_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_mtgrm_nml.f90 -text
 src/namelists/mo_nh_pzlev_nml.f90 -text
+src/namelists/mo_nh_testcases_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
@@ -1640,6 +1641,7 @@ src/testcases/mo_nh_jabw_exp.f90 -text
 src/testcases/mo_nh_lim_area_testcases.f90 -text
 src/testcases/mo_nh_mrw_exp.f90 -text
 src/testcases/mo_nh_pa_test.f90 -text
+src/testcases/mo_nh_rce_exp.f90 -text
 src/testcases/mo_nh_testcases.f90 -text
 src/testcases/mo_nh_torus_exp.f90 -text
 src/testcases/mo_nh_wk_exp.f90 -text

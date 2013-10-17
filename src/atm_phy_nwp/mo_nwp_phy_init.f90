@@ -117,7 +117,7 @@ MODULE mo_nwp_phy_init
 
   USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases,        ONLY: nh_test_name, ape_sst_case
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case
   USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run

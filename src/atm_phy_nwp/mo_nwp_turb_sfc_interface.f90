@@ -71,7 +71,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_nwp_vdiff_driver,     ONLY: vdiff
   USE mo_vdfouter,             ONLY: vdfouter
   USE mo_run_config,           ONLY: ltestcase
-  USE mo_nh_testcases,         ONLY: nh_test_name
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
                                    & lmulti_snow, isub_water, isub_lake, isub_seaice,  &

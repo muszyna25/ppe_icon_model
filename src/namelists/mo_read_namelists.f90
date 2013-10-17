@@ -73,7 +73,7 @@ MODULE mo_read_namelists
 
   USE mo_initicon_nml        ,ONLY: read_initicon_namelist
   USE mo_ha_testcases        ,ONLY: read_ha_testcase_namelist
-  USE mo_nh_testcases        ,ONLY: read_nh_testcase_namelist
+  USE mo_nh_testcases_nml    ,ONLY: read_nh_testcase_namelist
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
 
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist

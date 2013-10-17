@@ -98,7 +98,7 @@ MODULE mo_nml_crosscheck
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
+  USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all

@@ -42,7 +42,7 @@ MODULE mo_nh_prog_util
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_prog
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
 
@@ -51,7 +51,7 @@ MODULE mo_nh_prog_util
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: nh_prog_add_random
+  PUBLIC :: nh_prog_add_random,init_nh_state_prog_isoRest
 
 CONTAINS
   !-------------
@@ -189,6 +189,23 @@ CONTAINS
 
   END SUBROUTINE nh_prog_add_random
   !-----------------------------------------------------------------------------
-  
+  !-----------------------------------------------------------------------------
+  !>
+  !! Set the prognostic state vector to a resting isothermal state.
+  !!
+  SUBROUTINE init_nh_state_prog_isoRest( ptemp, ppres_sfc, pt_prog, pt_diag )
+
+    REAL(wp),INTENT(IN) :: ptemp
+    REAL(wp),INTENT(IN) :: ppres_sfc
+
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
+    TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
+
+    pt_prog%vn       = 0._wp
+    pt_diag%temp     = ptemp
+    pt_diag%pres_sfc = ppres_sfc
+
+  END SUBROUTINE init_nh_state_prog_isoRest
+
 
 END MODULE mo_nh_prog_util
