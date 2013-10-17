@@ -90,10 +90,9 @@ MODULE mo_nonhydro_state
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
-    &                                ZA_HYBRID_HALF, ZA_SURFACE, ZA_MEANSEA,         &
-    &                                ZA_REFERENCE, ZA_REFERENCE_HALF_HHL,            &
-    &                                DATATYPE_FLT32, DATATYPE_PACK16, FILETYPE_NC2,  &
-    &                                TSTEP_CONSTANT
+    &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
+    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
+    &                                FILETYPE_NC2, TSTEP_CONSTANT
 
   IMPLICIT NONE
 
@@ -2047,8 +2046,7 @@ MODULE mo_nonhydro_state
       &                   'geometric height at half level center', DATATYPE_FLT32)
     grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF_HHL, cf_desc, grib2_desc, &
-!DR                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF_HHL, cf_desc, grib2_desc, &
                 & ldims=shape3d_chalf,                                          & 
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &

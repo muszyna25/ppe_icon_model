@@ -2187,6 +2187,22 @@ CONTAINS
       CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
 
+      ! HYBRID (special version for HHL)
+      !
+      of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
+      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
+      DO k = 1, nlevp1
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      END DO
+      ubounds(1:nlevp1) = 0._dp
+      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
+      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
+      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
+      DEALLOCATE(lbounds, ubounds, levels)
+      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
+
+
       !
       ! Define axis for output on mean sea level
       !
@@ -3067,6 +3083,8 @@ CONTAINS
             zaxisID = of%cdiZaxisID(ZA_reference)
           ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
             zaxisID = of%cdiZaxisID(ZA_reference_half)
+          ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
+            zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
           ENDIF
         ENDIF
 !DR*********WILL BE REMOVED SOON**********
