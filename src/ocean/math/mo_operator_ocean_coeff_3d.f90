@@ -2137,10 +2137,10 @@ CONTAINS
     owned_cells => p_patch%cells%owned
     owned_verts => p_patch%verts%owned
 
-!$OMP PARALLEL
+!!$OMP PARALLEL
     ! 1) coefficients for divergence
-!$OMP DO PRIVATE(cell_block, start_index, end_index, cell_index, neigbor, &
-!$OMP edge_index, edge_block, level) ICON_OMP_DEFAULT_SCHEDULE
+!!$OMP DO PRIVATE(cell_block, start_index, end_index, cell_index, neigbor, &
+!!$OMP edge_index, edge_block, level) ICON_OMP_DEFAULT_SCHEDULE
     DO cell_block = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, cell_block, start_index, end_index)
       DO cell_index = start_index, end_index
@@ -2162,11 +2162,11 @@ CONTAINS
         ENDDO !neigbor
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block
-!$OMP ENDDO NOWAIT
+!!$OMP ENDDO NOWAIT
 
     ! 2) coefficients for curl
-!$OMP DO PRIVATE(vertex_block, start_index, end_index, vertex_index, neigbor, &
-!$OMP edge_index, edge_block, level) ICON_OMP_DEFAULT_SCHEDULE
+!!$OMP DO PRIVATE(vertex_block, start_index, end_index, vertex_index, neigbor, &
+!!$OMP edge_index, edge_block, level) ICON_OMP_DEFAULT_SCHEDULE
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
       DO vertex_index = start_index, end_index
@@ -2186,11 +2186,11 @@ CONTAINS
         ENDDO !neigbor
       ENDDO ! vertex_index = start_index, end_index
     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
-!$OMP END DO NOWAIT
+!!$OMP END DO NOWAIT
 
 
     ! 4) coefficients for gradient
-!$OMP DO PRIVATE(edge_block, start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!!$OMP DO PRIVATE(edge_block, start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
@@ -2205,8 +2205,8 @@ CONTAINS
 
       ENDDO ! edge_index = start_index, end_index
     ENDDO  ! edge_block
-!$OMP ENDDO NOWAIT
-!$OMP END PARALLEL
+!!$OMP ENDDO NOWAIT
+!!$OMP END PARALLEL
 
     ! no need to synchronize all elements of p_coeff%grad_coeff
 !     CALL sync_patch_array(sync_e, p_patch, p_coeff%grad_coeff)
