@@ -881,8 +881,8 @@ CONTAINS
     !    z_mflx_low      (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
     
     
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
@@ -899,13 +899,14 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO
-    !ICON_OMP_END_PARALLEL
+!ICON_OMP_END_DO
     
     ! no need to sync since we compute on cells_in_domain
     ! CALL sync_patch_array(SYNC_E, patch_2d,z_mflx_low)
     ! CALL sync_patch_array(SYNC_E, patch_2d, z_anti)
     
+!ICON_OMP_DO PRIVATE(jb,start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
+!ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
@@ -954,8 +955,8 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-    ! !$OMP END DO
-    ! !$OMP END PARALLEL
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
     
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
