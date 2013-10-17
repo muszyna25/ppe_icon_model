@@ -99,7 +99,7 @@ cat > ${atmo_namelist} << EOF
  iforcing    = ${iforcing}  !
  ntracer     = 0                ! number of tracers - default 0
  msg_level   = 10           ! detailed report during integration
- output="vlist",
+ output="nml",
  ltimer = .TRUE.
  timers_level = 10
  activate_sync_timers = .TRUE.
@@ -133,6 +133,12 @@ cat > ${atmo_namelist} << EOF
  lwrite_pres      = .TRUE.
  lwrite_z3        = .TRUE.
  lwrite_omega     = .TRUE.
+/
+&output_nml
+  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  steps_per_file   = ${steps_per_file}
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  ml_varlist       = 'fr_seaice'
 /
 EOF
 #-----------------------------------------------------------------------------
