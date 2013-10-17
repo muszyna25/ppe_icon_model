@@ -59,6 +59,7 @@ MODULE mo_io_restart_async
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
   USE mo_name_list_output_init,   ONLY: output_file
+  USE mo_name_list_output_types,  ONLY: max_z_axes
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
@@ -133,9 +134,6 @@ MODULE mo_io_restart_async
   ! maximumm number of verticale axes
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 15
 
-  ! maximum number of z axes
-  INTEGER, PARAMETER :: MAX_Z_AXES                = 33    ! must be >= dim(cdiZaxisID) in mo_name_list_output_types
-
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
   CHARACTER(LEN=*), PARAMETER :: MODEL_TITLE              = 'ICON simulation'
@@ -196,7 +194,7 @@ MODULE mo_io_restart_async
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiZaxisIDs(MAX_Z_AXES)
+    INTEGER                     :: cdiZaxisIDs(max_z_axes)
     INTEGER                     :: cdiTimeIndex
 
   END TYPE t_restart_file

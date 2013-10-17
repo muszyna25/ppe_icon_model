@@ -27,7 +27,7 @@ MODULE mo_name_list_output_types
 
   PRIVATE
   ! constants:
-  PUBLIC :: l_output_phys_patch
+  PUBLIC :: l_output_phys_patch,max_z_axes
   PUBLIC :: REMAP_NONE
   PUBLIC :: REMAP_REGULAR_LATLON
   PUBLIC :: msg_io_start
@@ -92,6 +92,7 @@ MODULE mo_name_list_output_types
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
+  INTEGER, PARAMETER :: max_z_axes = 34
 
   !------------------------------------------------------------------------------------------------
   ! DERIVED DATA TYPES
@@ -292,7 +293,7 @@ MODULE mo_name_list_output_types
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(34) ! All types of possible Zaxis ID's
+    INTEGER                     :: cdiZaxisID(max_z_axes) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
     INTEGER                     :: cdiInstID      ! output generating institute
