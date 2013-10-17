@@ -54,7 +54,7 @@ MODULE mo_sea_ice
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci, &
-    &                               Cd_ia
+    &                               Cd_ia, sice
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer
@@ -1767,10 +1767,12 @@ CONTAINS
       & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
       & heatOceW,      &! heat flux into ocean through open water areas           [W/m^2]
       & delHice,       &! average change in ice thickness within a grid cell      [m]
-      & snowiceave!,    &! average snow to ice conversion within a grid cell       [m]
-!      & evap,          &! evaporated water                                        [m]
-!      & preci,         &! solid precipitation                                     [m]
-!      & precw           ! liquid precipitation                                    [m]
+      & delHsnow,      &! average change in snow thickness within a grid cell     [m]
+      & snowiceave,    &! average snow to ice conversion within a grid cell       [m]
+      & sss,           &! sea surface salinity                                    [psu]
+      & preci,         &! solid precipitation rate                                [m/s]
+      & precw           ! liquid precipitation rate                               [m/s]
+      !& evap,          &! evaporated water                                       [psu]
 
     ! Needs work with FB_BGC_OCE etc.
     !REAL(wp)         :: swsum
@@ -1784,8 +1786,9 @@ CONTAINS
     ! Ocean points only
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
-    !precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
-    !preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
+    sss             (:,:)   = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    precw           (:,:)   = QatmAve% rprecw (:,:)
+    preci           (:,:)   = QatmAve% rpreci (:,:)
     !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
@@ -1803,9 +1806,9 @@ CONTAINS
     ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:)
 
     ! Calculate average change in ice thickness and the snow-to-ice conversion
-    Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
-      &                       ice%conc(:,:,:),2)
-    snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),2)
+    Delhice   (:,:) = SUM( ( ice%hi(:,:,:) - ice%hiold(:,:,:) )*ice%conc(:,:,:), 2 )
+    Delhsnow  (:,:) = SUM( ( ice%hs(:,:,:) - ice%hsold(:,:,:) )*ice%conc(:,:,:), 2 )
+    snowiceave(:,:) = SUM( ice%snow_to_ice(:,:,:)*ice% conc(:,:,:), 2 )
 
 
     ! Calculate heat input through formerly ice covered and through open water areas
@@ -1853,8 +1856,14 @@ CONTAINS
     !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
     !  - no snow and no salinity of sea ice (Sice in mo_physical_constants)  yet
     !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
-    !p_sfc_flx%forc_fw_ice_vol(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)  ??? - Einar
-    !p_sfc_flx%forc_fw_ice_impl(:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)  ! incorrect
+    p_sfc_flx%forc_fw_ice_vol (:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)        &
+      &                              -Delhsnow(:,:)*rhos/(rho_ref*dtime)        &
+      &                              + precw(:,:)*ice%concSum(:,:)
+    WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
+      p_sfc_flx%forc_fw_bc_ice (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
+        &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
+        &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                           ! Snow melt
+    ENDWHERE
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
 
@@ -1890,6 +1899,7 @@ CONTAINS
 
     INTEGER  :: k
     REAL(wp) :: sst(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
     REAL(wp) :: old_conc(nproma,p_patch%alloc_cell_blocks)
     ! h_0 from Hibler (1979)
@@ -1909,6 +1919,7 @@ CONTAINS
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
+    sss = p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
     ice % newice(:,:) = 0.0_wp
     ! This is where new ice forms
@@ -1917,6 +1928,11 @@ CONTAINS
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
         &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
+      ! Add freshwater for new-ice formation
+      p_sfc_flx%forc_fw_ice_vol(:,:)  = p_sfc_flx%forc_fw_ice_vol(:,:)          &
+        &   - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)
+      p_sfc_flx%forc_fw_bc_ice (:,:) = p_sfc_flx%forc_fw_bc_ice(:,:)    &
+        &   - (1._wp-sice/sss(:,:))*(1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)
 
       old_conc (:,:)   = ice%conc(:,1,:)
       ice%conc (:,1,:) = min( 1._wp, &

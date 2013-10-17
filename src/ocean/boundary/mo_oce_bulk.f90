@@ -484,19 +484,17 @@ CONTAINS
           IF (l_forc_freshw) THEN
             ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
             ! TODO: evaporation of ice and snow must be implemented
-            ! check: sea ice class =1  p_ice%conc(:,1,:) or sum of ice classes p_ice%concSum(:,:)
-            p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref) * (1.0_wp-p_ice%conc(:,1,:))
-            p_sfc_flx%forc_fw_bc(:,:) = (p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) + &
-              &                         p_sfc_flx%forc_runoff(:,:))*p_patch_3d%wet_c(:,1,:)
-            Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:) ! Rain that falls on the ice falls through it
-            WHERE ( ANY( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+            p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
+            p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) & 
+              &                        *( p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) )
+            ! Precipitation on ice is snow when we're below the freezing point
+            WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
               Qatm%rpreci(:,:) = p_sfc_flx%forc_precip(:,:)
+              Qatm%rprecw(:,:) = 0._wp
+            ELSEWHERE
+              Qatm%rpreci(:,:) = 0._wp
+              Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:)
             ENDWHERE
-            idt_src=2  ! output print level (1-5, fix)
-            CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
-              &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-            CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
-              &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
           ENDIF
 
           ! TODO:
@@ -538,6 +536,16 @@ CONTAINS
         Qatm%albvisdifw = albedoW
         Qatm%albnirdirw = albedoW
         Qatm%albnirdifw = albedoW
+
+        IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+          p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
+            &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:) 
+          idt_src=2  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
+            &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
+            &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        ENDIF
 
         ! #slo# 2012-12:
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
