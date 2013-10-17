@@ -100,11 +100,11 @@ MODULE mo_util_file
   INTERFACE
     FUNCTION private_filesize(filename) RESULT(flen) BIND(C,NAME='util_filesize')
 #if defined(__SX__) || defined (__SUNPRO_F95)
-      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LONG, C_CHAR
 #else
-      IMPORT :: C_INT, C_CHAR
+      IMPORT :: C_LONG, C_CHAR
 #endif
-      INTEGER(C_INT) :: flen
+      INTEGER(C_LONG) :: flen
 #if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
 #else
@@ -184,7 +184,7 @@ CONTAINS
   END FUNCTION util_tmpnam
 
   FUNCTION util_filesize(filename) RESULT(flen)
-    INTEGER :: flen
+    INTEGER(KIND=8) :: flen
     CHARACTER(len=*), INTENT(in) :: filename
     flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
   END FUNCTION util_filesize

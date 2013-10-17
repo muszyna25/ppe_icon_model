@@ -379,7 +379,7 @@ MODULE mo_nh_initicon
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::open_init_files"
     INTEGER :: jg, vlistID, jlev, mpi_comm
-    INTEGER :: flen_fg, flen_ana                     ! filesize in bytes
+    INTEGER(KIND=8) :: flen_fg, flen_ana                     ! filesize in bytes
     LOGICAL :: l_exist
 
     CALL cdiDefMissval(cdimissval) 

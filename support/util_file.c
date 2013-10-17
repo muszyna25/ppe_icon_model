@@ -68,7 +68,7 @@ int util_tmpnam(char *filename)
   return strlen(filename);
 }
 
-int util_filesize(char *filename)
+long int util_filesize(char *filename)
 {
   struct stat statbuf;
 
@@ -77,5 +77,5 @@ int util_filesize(char *filename)
       return 0;
     }
 
-  return ((int) statbuf.st_size);
+  return ((long int) statbuf.st_size);
 }
