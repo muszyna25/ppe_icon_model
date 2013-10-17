@@ -1137,7 +1137,7 @@ CONTAINS
               &                              -z_relax*(s_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
-            ! this flux is applied as volume condition in surface equation in fill_rhs4surface_eq_ab
+            ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
             p_sfc_flx%forc_fwrelax(jc,jb) = (z_forc_tracer_old-p_sfc_flx%forc_tracer(jc,jb,2)) / s_top(jc,jb)
 
           ELSE
@@ -1165,7 +1165,7 @@ CONTAINS
     ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
 
     ! Freshwater forcing activated as boundary condition in vertical Diffusion D, see above
-    ! Vertical diffusion term for salinity Q_S in tracer equation is
+    ! Vertical diffusion term for salinity Q_S in tracer equation and freshwater forcing W_s is
     !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
 
     IF (l_forc_freshw) THEN
@@ -1181,23 +1181,23 @@ CONTAINS
 
     ENDIF
 
-    !-------------------------------------------------------------------------
-    ! Add freshwater forcing due to sea ice (and snow changes)
-    !  - added as forcing to vertical Diffusion as above
+ !  !-------------------------------------------------------------------------
+ !  ! Add freshwater forcing due to sea ice (and snow changes)
+ !  !  - added as forcing to vertical Diffusion as above
 
-    IF (i_sea_ice >= 1) THEN
+ !  IF (i_sea_ice >= 1) THEN
 
-      p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
-        &                            - p_sfc_flx%forc_fw_ice_impl(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+ !    p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
+ !      &                            - p_sfc_flx%forc_fw_ice_impl(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: fw_ice_impl[m/s]',p_sfc_flx%forc_fw_ice_impl ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
+ !    !---------DEBUG DIAGNOSTICS-------------------------------------------
+ !    idt_src=2  ! output print level (1-5, fix)
+ !    CALL dbg_print('UpdSfc: fw_ice_impl[m/s]',p_sfc_flx%forc_fw_ice_impl ,str_module,idt_src, in_subset=p_patch%cells%owned)
+ !    z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
+ !    CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+ !    !---------------------------------------------------------------------
 
-    ENDIF
+ !  ENDIF
 
     ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     IF (no_tracer >1) THEN

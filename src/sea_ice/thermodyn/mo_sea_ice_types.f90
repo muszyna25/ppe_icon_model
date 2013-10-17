@@ -72,39 +72,37 @@ MODULE mo_sea_ice_types
       &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
       &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fw_bc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
-      &  forc_fw_bc_oce   (:,:),     & ! sum of forcing surface freshwater flux at open ocean      [m/s]
-      &  forc_fw_bc_ice   (:,:),     & ! sum of forcing surface freshwater flux under sea ice      [m/s]
+      &  forc_fw_bc_oce   (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
+      &  forc_fw_bc_ice   (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
+      &  forc_fw_ice_vol  (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
       &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fw_ice_impl (:,:),     & ! implied surface freshwater flux due to phase changes in sea ice model [m/s]
-      &  forc_fw_ice_vol  (:,:),     & ! surface freshwater volume flux due to phase changes in sea ice model  [m/s]
-      &  forc_fw_tot      (:,:),     & ! sum of forcing surface freshwater flux                    [m/s]
+      &  forc_fw_tot      (:,:),     & ! sum of forcing surface freshwater including relaxation    [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
       &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
       &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
       &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
       !                                  is relaxated, 3rd index refers to tracer id               [K; psu]
       !
-      !  accumulations variables
-      &  forc_wind_u_acc      (:,:),     & ! forcing of zonal component of velocity equation           [Pa]
-      &  forc_wind_v_acc      (:,:),     & ! forcing of meridional component of velocity equation      [Pa]
-      &  forc_swflx_acc       (:,:),     & ! surface short wave heat flux                              [W/m2]
-      &  forc_lwflx_acc       (:,:),     & ! surface long wave heat flux                               [W/m2]
-      &  forc_ssflx_acc       (:,:),     & ! surface sensible heat flux                                [W/m2]
-      &  forc_slflx_acc       (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  forc_precip_acc      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_evap_acc        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff_acc      (:,:),     & ! river runoff flux                                         [m/s]
-      &  forc_fw_bc_acc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
-      &  forc_fw_bc_oce_acc   (:,:),     & ! sum of forcing surface freshwater flux at open ocean      [m/s]
-      &  forc_fw_bc_ice_acc   (:,:),     & ! sum of forcing surface freshwater flux under sea ice      [m/s]
-      &  forc_fwrelax_acc     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fw_ice_impl_acc (:,:),     & ! implied surface freshwater flux due to phase changes in sea ice model [m/s]
-      &  forc_fw_ice_vol_acc  (:,:),     & ! surface freshwater volume flux due to phase changes in sea ice model  [m/s]
-      &  forc_fw_tot_acc      (:,:),     & ! sum of forcing surface freshwater flux                    [m/s]
-      &  forc_hfrelax_acc     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
-      &  forc_hflx_acc        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      &  forc_tracer_acc      (:,:,:),   & ! forcing of tracer in vertical duffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax_acc(:,:,:)      ! tracer relaxation: contains data to which is relaxated    [K; psu]
+      !  accumulations variables - comments see above
+      &  forc_wind_u_acc      (:,:),     &
+      &  forc_wind_v_acc      (:,:),     &
+      &  forc_swflx_acc       (:,:),     &
+      &  forc_lwflx_acc       (:,:),     &
+      &  forc_ssflx_acc       (:,:),     &
+      &  forc_slflx_acc       (:,:),     &
+      &  forc_precip_acc      (:,:),     &
+      &  forc_evap_acc        (:,:),     &
+      &  forc_runoff_acc      (:,:),     &
+      &  forc_fw_bc_acc       (:,:),     &
+      &  forc_fw_bc_oce_acc   (:,:),     &
+      &  forc_fw_bc_ice_acc   (:,:),     &
+      &  forc_fwrelax_acc     (:,:),     &
+      &  forc_fw_ice_vol_acc  (:,:),     &
+      &  forc_fw_tot_acc      (:,:),     &
+      &  forc_hfrelax_acc     (:,:),     &
+      &  forc_hflx_acc        (:,:),     &
+      &  forc_tracer_acc      (:,:,:),   &
+      &  forc_tracer_relax_acc(:,:,:)     
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: forc_wind_cc(:,:)

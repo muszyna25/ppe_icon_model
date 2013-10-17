@@ -99,22 +99,21 @@ TYPE t_oce_monitor
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
     REAL(wp) :: absolute_vertical_velocity
-    REAL(wp) :: forc_swflx    ! surface short wave heat flux                              [W/m2]
-    REAL(wp) :: forc_lwflx    ! surface long wave heat flux                               [W/m2]
-    REAL(wp) :: forc_ssflx    ! surface sensible heat flux                                [W/m2]
-    REAL(wp) :: forc_slflx    ! surface latent heat flux                                  [W/m2]
-    REAL(wp) :: forc_precip   ! total precipitation flux                                  [m/s]
-    REAL(wp) :: forc_evap     ! evaporation flux                                          [m/s]
-    REAL(wp) :: forc_runoff   ! river runoff flux                                         [m/s]
-    REAL(wp) :: forc_fw_bc    ! sum of forcing surface freshwater flux from BC            [m/s]
-    REAL(wp) :: forc_fwrelax  ! diagnosed surface freshwater flux due to relaxation       [m/s]
-    REAL(wp) :: forc_fw_bc_oce   ! sum of forcing surface freshwater flux at open ocean   [m/s]
-    REAL(wp) :: forc_fw_bc_ice   ! sum of forcing surface freshwater flux under sea ice   [m/s]
-    REAL(wp) :: forc_fw_ice_impl ! implied surface freshwater flux due to phase changes in sea ice model [m/s]
-    REAL(wp) :: forc_fw_ice_vol  ! surface freshwater volume flux due to phase changes in sea ice model  [m/s]
-    REAL(wp) :: forc_fw_tot   ! diagnosed sum of forcing surface freshwater flux          [m/s]
-    REAL(wp) :: forc_hfrelax  ! diagnosed surface heat flux due to relaxation             [m/s]
-    REAL(wp) :: forc_hflx     ! diagnosed sum of forcing surface heat flux                [W/m2]
+    REAL(wp) :: forc_swflx
+    REAL(wp) :: forc_lwflx
+    REAL(wp) :: forc_ssflx
+    REAL(wp) :: forc_slflx
+    REAL(wp) :: forc_precip 
+    REAL(wp) :: forc_evap   
+    REAL(wp) :: forc_runoff 
+    REAL(wp) :: forc_fw_bc  
+    REAL(wp) :: forc_fwrelax
+    REAL(wp) :: forc_fw_bc_oce 
+    REAL(wp) :: forc_fw_bc_ice 
+    REAL(wp) :: forc_fw_ice_vol
+    REAL(wp) :: forc_fw_tot 
+    REAL(wp) :: forc_hfrelax
+    REAL(wp) :: forc_hflx   
 
     REAL(wp) :: ice_volume_nh !                                                           [km3]
     REAL(wp) :: ice_volume_sh !                                                           [km3]
@@ -134,7 +133,7 @@ END TYPE t_oce_monitor
 TYPE t_oce_timeseries
 
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(len=40), DIMENSION(37)  :: names = (/ &
+    CHARACTER(len=40), DIMENSION(36)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -154,7 +153,6 @@ TYPE t_oce_timeseries
       & "forc_fw_bc_oce                          ", &
       & "forc_fw_bc_ice                          ", &
       & "forc_fwrelax                            ", &
-      & "forc_fw_ice_impl                        ", &
       & "forc_fw_ice_vol                         ", &
       & "forc_fw_tot                             ", &
       & "forc_hfrelax                            ", &
@@ -253,7 +251,6 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
   oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_oce             = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_ice             = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
-  oce_ts%oce_diagnostics(0:nsteps)%forc_fw_ice_impl           = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fw_ice_vol            = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_fw_tot                = 0.0_wp
   oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
@@ -559,7 +556,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
         monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
         monitor%forc_fw_bc_oce    = monitor%forc_fw_bc_oce    + p_sfc_flx%forc_fw_bc_oce(jc,jb)*prism_area
         monitor%forc_fw_bc_ice    = monitor%forc_fw_bc_ice    + p_sfc_flx%forc_fw_bc_ice(jc,jb)*prism_area
-        monitor%forc_fw_ice_impl  = monitor%forc_fw_ice_impl  + p_sfc_flx%forc_fw_ice_impl(jc,jb)*prism_area
         monitor%forc_fw_ice_vol   = monitor%forc_fw_ice_vol   + p_sfc_flx%forc_fw_ice_vol (jc,jb)*prism_area
         monitor%forc_fw_tot  = monitor%forc_fw_tot  + p_sfc_flx%forc_fw_tot(jc,jb)*prism_area
         monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
@@ -632,7 +628,6 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   monitor%forc_fw_bc_oce             = global_sum_array(monitor%forc_fw_bc_oce)/surface_area
   monitor%forc_fw_bc_ice             = global_sum_array(monitor%forc_fw_bc_ice)/surface_area
   monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
-  monitor%forc_fw_ice_impl           = global_sum_array(monitor%forc_fw_ice_impl)/surface_area
   monitor%forc_fw_ice_vol            = global_sum_array(monitor%forc_fw_ice_vol)/surface_area
   monitor%forc_fw_tot                = global_sum_array(monitor%forc_fw_tot)/surface_area
   monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
@@ -707,8 +702,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
       & monitor%forc_fw_bc_oce, &
       & monitor%forc_fw_bc_ice, &
       & monitor%forc_fwrelax, &
-      & monitor%forc_fw_ice_impl,  &
-      & monitor%forc_fw_ice_vol,  &
+      & monitor%forc_fw_ice_vol, &
       & monitor%forc_fw_tot, &
       & monitor%forc_hfrelax, &
       & monitor%forc_hflx, &
