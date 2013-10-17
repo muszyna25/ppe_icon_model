@@ -58,7 +58,8 @@ MODULE mo_nwp_sfc_interp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: process_sfcfields, smi_to_sm_mass
+  PUBLIC :: process_sfcfields
+  PUBLIC :: smi_to_sm_mass
 
 CONTAINS
 
@@ -226,7 +227,7 @@ CONTAINS
 
 
       ! (re)-initialize error flag
-      lerr=.FALSE.
+      lerr = .FALSE.
 
       ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
@@ -319,7 +320,7 @@ CONTAINS
   !>
   !! SUBROUTINE smi_to_sm_mass
   !!
-  !! Conversion of soil moisture index  into TERRA soil moisture [m]
+  !! Conversion of soil moisture index into TERRA soil moisture [m]
   !!   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
   !!   safety: min=air dryness point, max=pore volume
   !!
@@ -328,82 +329,120 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by P Ripodas, DWD(2013-05)
-  !! extracted from process_sfcfields
-  !!
-  !-------------
+  !! - extracted from process_sfcfields
+  !! Modification by Daniel Reinert, DWD (2013-10-17)
+  !! - updated soil moisture initialization according to process_sfcfields
+  !
+  SUBROUTINE smi_to_sm_mass(p_patch, wsoil)
 
-  SUBROUTINE smi_to_sm_mass(p_patch, smoist)
 
-
-    TYPE(t_patch), INTENT(IN) :: p_patch
-    REAL(wp), INTENT(INOUT)  :: smoist(:,:,:)    !soil moist index in
-                                                 !soil moisture mass out
-                                                 ! (nproma,nlev_soil,nblks)
+    TYPE(t_patch), INTENT(IN)    :: p_patch
+    REAL(wp),      INTENT(INOUT) :: wsoil(:,:,:)!soil moisture index in
+                                                !soil moisture mass out [mm H2O]
+                                                ! (nproma,nlev_soil,nblks)
     ! LOCAL VARIABLES
+    !
+    REAL(wp) :: zwsoil(nproma)        ! local soil moisture field
+    INTEGER  :: i_count, ic           ! counter
+    INTEGER  :: jg, jb, jk, jc, nlen
+    LOGICAL  :: lerr                  ! error flag
 
-    INTEGER  ::  jg, jb, jk, jc, nlen
-
+    CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_sm_mass'
 !-------------
 
-    jg   = p_patch%id
+    jg = p_patch%id
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,nlen)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,zwsoil)
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
         nlen = nproma
       ELSE
         nlen = p_patch%npromz_c
       ENDIF
+
+
+      ! (re)-initialize error flag
+      lerr = .FALSE.
+
+      ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
+      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
+      !   safety: min=air dryness point, max=pore volume
       DO jk = 1, nlev_soil-1
-        DO jc = 1, nlen
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) smoist(jc,jk,jb) = &
-            & dzsoil_icon(jk) * &
-            & MIN(0.364_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) smoist(jc,jk,jb) = &
-            & dzsoil_icon(jk) * &
-            & MIN(0.445_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+        ! loop over target (ICON) land points only
+        i_count = ext_data(jg)%atm%lp_count(jb)
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) smoist(jc,jk,jb) = &
-            & dzsoil_icon(jk) * &
-            & MIN(0.455_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+        zwsoil(:) = 0._wp
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) smoist(jc,jk,jb)= &
-            & dzsoil_icon(jk) * &
-            & MIN(0.475_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) smoist(jc,jk,jb)= &
-            & dzsoil_icon(jk) * &
-            & MIN(0.507_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+          SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
+            CASE (1,2)  !ice,rock
+            ! set wsoil to 0 for ice and rock
+            zwsoil(jc) = 0._wp
 
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) smoist(jc,jk,jb)= &
-            & dzsoil_icon(jk) * &
-            & MIN(0.863_wp,&
-            & MAX((smoist(jc,jk,jb)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+            CASE(3)  !sand
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.364_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
 
-          ! We need to catch problematic coast cases: IFS-ocean, ICON-land - &
-          ! for moisture 
-          smoist(jc,jk,jb) =  &
-            &               MIN(dzsoil_icon(jk), MAX(0.0_wp, smoist(jc,jk,jb)))
- 
-        ENDDO
-      ENDDO
+            CASE(4)  !sandyloam
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.445_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+
+            CASE(5)  !loam
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.455_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+
+            CASE(6)  !clayloam
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.475_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+
+            CASE(7)  !clay
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.507_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+
+            CASE(8)  !peat
+            zwsoil(jc) = dzsoil_icon(jk) * MIN(0.863_wp, &
+            & MAX((wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+
+            CASE(9,10)!sea water, sea ice
+            ! ERROR landpoint has soiltype sea water or sea ice
+            lerr = .TRUE.
+          END SELECT
+
+          ! We need to catch problematic coast cases: ICON-land but IFS/GME-ocean &
+          ! for moisture (and in principle for temperature as well)
+          ! 
+          ! can we do better than this??
+          IF ( wsoil(jc,jb,jk) <= -999._wp )  THEN   ! check for missing value
+            ! set dummy value (50% of pore volume)
+            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
+          ENDIF
+
+        ENDDO  ! ic
+        ! overwrite wsoil
+        wsoil(1:nlen,jb,jk) = zwsoil(1:nlen)
+      ENDDO  ! jk
+
+
       ! assume no-gradient condition for soil moisture reservoir layer
       DO jc = 1, nlen
-        smoist(jc,nlev_soil,jb) = smoist(jc,nlev_soil-1,jb)*          &
+        wsoil(jc,nlev_soil,jb) = wsoil(jc,nlev_soil-1,jb)*          &
                                         dzsoil_icon(nlev_soil)/dzsoil_icon(nlev_soil-1)
       ENDDO
 
-    ENDDO
+      IF (lerr) THEN
+        CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
+      ENDIF
+
+    ENDDO  ! jb
 !$OMP END DO 
 !$OMP END PARALLEL
 
   END SUBROUTINE smi_to_sm_mass
+
 
 END MODULE mo_nwp_sfc_interp
