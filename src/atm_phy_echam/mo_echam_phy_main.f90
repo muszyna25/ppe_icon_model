@@ -1267,7 +1267,7 @@ CONTAINS
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, ntrac,  &! in
 !0        &        jb,                                    &! in
-          &        pdtime, psteplen, phy_config%lcover, &! in
+          &        pdtime, psteplen,         &! in
           &        field% presi_old(:,:,jb), &! in
 !0        &        field% presi_new(:,:,jb), &! in
           &        field% presm_old(:,:,jb), &! in
@@ -1281,8 +1281,7 @@ CONTAINS
           &        field% q(:,:,jb,iqc),     &! in. xlm1
           &        field% q(:,:,jb,iqi),     &! in. xim1
 !0        &        field% q(:,:,jb,iqt:),    &! in. xtm1
-          &        zqtvar_prod, zhmixtau, zvmixtau, &! in
-          &        zbetaa, zbetab, zbetass, invb,   &! in (from "cover")
+          &        invb,                      &! in (from "cover")
           &        zqtec,                     &! inout (there is a clip inside)
           &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
           &         tend% temp(:,:,jb),       &! inout.  tte
@@ -1290,8 +1289,6 @@ CONTAINS
           &         tend% q(:,:,jb,iqc),      &! inout. xlte
           &         tend% q(:,:,jb,iqi),      &! inout. xite
           &         tend% q(:,:,jb,iqt:),     &! inout. xtte
-          &        field% xvar  (:,:,jb),     &! inout
-          &        field% xskew (:,:,jb),     &! inout
           &        field% aclc  (:,:,jb),     &! out
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
