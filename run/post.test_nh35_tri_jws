@@ -18,7 +18,7 @@ ICONDIR=${DIR%/*}
 #
 EXPN="test_nh35_tri_jws"
 grid_name="iconR2B04-grid"
-ExpName="${EXPN}_${grid_name}"
+ExpName="${EXPN}_${grid_name}_DOM01_ML"
 Root=2
 Bis=4
 ver_res="L35"
@@ -51,6 +51,7 @@ echo "gridopt=\"${gridopt}\""                            >> ${set_env}
 #
 
 export NCARG_USRRESFILE=${ICONDIR}/scripts/postprocessing/.hluresfile
+export VarN="pres"
 
 # Start postprocessing script
 echo "-- ---------------------------------------------------------"

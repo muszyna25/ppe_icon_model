@@ -108,7 +108,8 @@ export GridFileN="${DIRI}/${grid_name}.nc"
 #--------------------------------------------------------------------------
 
 #plot variable 'VarN' with dimension 'VarD' (momentarily only VarN="PS" and VarD=2 possible)
-export VarN="PS"
+VarN=${VarN:-PS}
+export VarN
 export VarD=2
 
 #Plot file format, pdf, ps...
