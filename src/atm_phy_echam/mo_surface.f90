@@ -279,7 +279,7 @@ CONTAINS
         & wind_air         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
         & wind_10m         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
         & lwrad_srf_down   = pemterall(1:kproma) + lwup(1:kproma),                      & ! in
-        & swrad_srf_down   = ptrsolall(1:kproma),                                       & ! in
+        & swrad_srf_net    = ptrsolall(1:kproma),                                       & ! in
         & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
         & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
         & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
