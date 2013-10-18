@@ -35,20 +35,25 @@
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
 #
+R=2
+B=4
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
 end_date="2008-09-13T00:00:00Z"
 ndays_restart=60
-dt_restart=`expr ${ndays_restart} \* 86400`
+ndays_checkp=2
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=320
-dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
-dt_file=`expr 30 \* 86400 `  # 30 days per file
-dt_data=`expr 1 \* 86400 `   # output daily
-dt_checkpoint=`expr 2 \* 86400 `  # write restart file every 2 days
+dtime=300
+(( dt_data       = 1   * 3600 ))
+(( dt_diag       = 1   * 3600 ))
+(( dt_file       = 30    * 86400 ))
+(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_restart    = ndays_restart * 86400 ))
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -136,9 +141,8 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
-  steps_per_file   = ${steps_per_file}
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       = 'fr_seaice'
+  output_filename  = "${EXPNAME}_iconR${R}B0${B}-grid"
+  ml_varlist       = 'fr_seaice','group:atmo_zl_vars','group:nh_prog_vars','group:atmo_derived_vars'
 /
 EOF
 #-----------------------------------------------------------------------------
