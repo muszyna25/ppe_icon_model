@@ -83,7 +83,7 @@ MODULE mo_cloud
 CONTAINS
 
 SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
-                         , klev,     klevp1,   ktrac            &
+                         , klev,     klevp1                     &
                          , pdelta_time, ptime_step_len          &
 ! - INPUT  2D .
                          , paphm1                               &
@@ -96,7 +96,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 ! - in and out, 2D
                          , pqtec,    pxtec                      &
                          , ptte                                 &
-                         , pqte,     pxlte,     pxite,  pxtte   &
+                         , pqte,     pxlte,     pxite           &
                          , paclc                                &
 ! - OUTPUT 1D .
                          , paclcov,  pqvi                       &
@@ -105,7 +105,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 ! - OUTPUT 2D .
                          , prelhum                              &
                          , ptte_prc, pqte_prc                   &
-                         , pxlte_prc,pxite_prc, pxtte_prc   )
+                         , pxlte_prc,pxite_prc   )
 !
 !     *Cloud* computes large-scale water phase changes, precipitation,
 !             cloud cover, and vertical integrals of specific humidity,
@@ -164,7 +164,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !  pqte     : tendency of specific humidity accumulated
 !  pxlte    : tendency of cloud liquid water accumulated
 !  pxite    : tendency of cloud ice
-!  pxtte    : tendency of tracer (aerosol etc)
 !  paclc    : cloud cover  (now diagnosed in cover)
 !
 !     Output arguments.
@@ -240,11 +239,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp),INTENT(INOUT) :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
   REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)          ! OUT
 
-!---Included for in-cloud scavenging (Philip Stier, 28/03/01):----------
-  INTEGER, INTENT(IN)    :: ktrac
-  REAL(dp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
-!---End Included for scavenging-----------------------------------------
-  REAL(dp),INTENT(OUT)   :: pxtte_prc(kbdim,klev,ktrac)
 !
 !   Temporary arrays
 !
@@ -316,7 +310,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
      pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)
     pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)
     pxite_prc(1:kproma,:)   = pxite(1:kproma,:)
-    pxtte_prc(1:kproma,:,:) = pxtte(1:kproma,:,:)
 !
 ! Executable statements
 !
@@ -1703,7 +1696,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
        pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
        pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
-       pxtte_prc(1:kproma,:,:) = pxtte(1:kproma,:,:) - pxtte_prc(1:kproma,:,:)
 
   RETURN
 END SUBROUTINE cloud

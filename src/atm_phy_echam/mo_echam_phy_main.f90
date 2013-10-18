@@ -1265,11 +1265,9 @@ CONTAINS
         field% rsfl(:,jb) = 0._wp
         field% ssfl(:,jb) = 0._wp
 
-        CALL cloud(jce, nbdim, jks, nlev, nlevp1, ntrac,  &! in
-!0        &        jb,                                    &! in
+        CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        pdtime, psteplen,         &! in
           &        field% presi_old(:,:,jb), &! in
-!0        &        field% presi_new(:,:,jb), &! in
           &        field% presm_old(:,:,jb), &! in
           &        field% presm_new(:,:,jb), &! in
           &        field% temp (:,:,jb),     &! in. tm1
@@ -1280,7 +1278,6 @@ CONTAINS
           &        field% q(:,:,jb,iqv),     &! in.  qm1
           &        field% q(:,:,jb,iqc),     &! in. xlm1
           &        field% q(:,:,jb,iqi),     &! in. xim1
-!0        &        field% q(:,:,jb,iqt:),    &! in. xtm1
           &        invb,                      &! in (from "cover")
           &        zqtec,                     &! inout (there is a clip inside)
           &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
@@ -1288,7 +1285,6 @@ CONTAINS
           &         tend% q(:,:,jb,iqv),      &! inout.  qte
           &         tend% q(:,:,jb,iqc),      &! inout. xlte
           &         tend% q(:,:,jb,iqi),      &! inout. xite
-          &         tend% q(:,:,jb,iqt:),     &! inout. xtte
           &        field% aclc  (:,:,jb),     &! out
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
@@ -1300,8 +1296,7 @@ CONTAINS
           &        tend%temp_cld(:,:,jb),     &! out
           &        tend%   q_cld(:,:,jb,iqv), &! out
           &        tend%   q_cld(:,:,jb,iqc), &! out
-          &        tend%   q_cld(:,:,jb,iqi), &! out
-          &        tend%   q_cld(:,:,jb,iqt:) )! out
+          &        tend%   q_cld(:,:,jb,iqi)  )! out
 
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
 !0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
