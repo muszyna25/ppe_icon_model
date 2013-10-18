@@ -885,6 +885,8 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      z_mflx_low(:,:,jb) = 0.0_wp
+      z_anti(:,:,jb)     = 0.0_wp
       DO je = start_index, end_index
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,jb), end_level)
           !IF( patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
