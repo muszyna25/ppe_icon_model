@@ -198,7 +198,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: ptemp
     REAL(wp),INTENT(IN) :: ppres_sfc
 
-    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
+    TYPE(t_nh_prog),    INTENT(INOUT) :: pt_prog      !!the prognostic variables
     TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
 
     pt_prog%vn       = 0._wp
