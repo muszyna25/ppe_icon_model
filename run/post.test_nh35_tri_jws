@@ -58,7 +58,7 @@ echo "-- ---------------------------------------------------------"
 echo "-- error_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-./error_postpro_driver.bash ${set_env}
+#./error_postpro_driver.bash ${set_env}
 STATUS=$?
 
 echo "-- ---------------------------------------------------------"
