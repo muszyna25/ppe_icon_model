@@ -196,11 +196,8 @@ CONTAINS
     REAL(wp) :: zdeclination_sun
     REAL(wp) :: ztime_dateline
 
-!!$    REAL(wp) :: zdoy, zra, zdec, zdis, zen1, zen2, zen3
-
     REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon 
 
-!!$    REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -1067,8 +1064,14 @@ CONTAINS
       field% evap(jcs:jce,jb)= 0._wp
       zqtvar_prod(jcs:jce,:) = 0._wp
 
-      tend% u_vdf(jcs:jce,:,jb) = 0._wp
-      tend% v_vdf(jcs:jce,:,jb) = 0._wp
+      tend%    u_vdf(jcs:jce,:,jb)      = 0._wp
+      tend%    v_vdf(jcs:jce,:,jb)      = 0._wp
+      tend% temp_vdf(jcs:jce,:,jb)      = 0._wp
+      tend%    q_vdf(jcs:jce,:,jb,iqv)  = 0._wp
+      tend%    q_vdf(jcs:jce,:,jb,iqc)  = 0._wp
+      tend%    q_vdf(jcs:jce,:,jb,iqi)  = 0._wp
+      tend%    q_vdf(jcs:jce,:,jb,iqt:) = 0._wp
+
     ENDIF !lvdiff
 
     !-------------------------------------------------------------------
@@ -1247,8 +1250,11 @@ CONTAINS
 
       ilab(jcs:jce,1:nlev) = 0
 
-      tend% u_cnv(jcs:jce,:,jb) = 0._wp
-      tend% v_cnv(jcs:jce,:,jb) = 0._wp
+      tend%    u_cnv(jcs:jce,:,jb)      = 0._wp
+      tend%    v_cnv(jcs:jce,:,jb)      = 0._wp
+      tend% temp_cnv(jcs:jce,:,jb)      = 0._wp
+      tend%    q_cnv(jcs:jce,:,jb,iqv)  = 0._wp
+      tend%    q_cnv(jcs:jce,:,jb,iqt:) = 0._wp
 
     ENDIF !lconv
 
@@ -1311,6 +1317,12 @@ CONTAINS
       field% rsfl (jcs:jce,  jb) = 0._wp
       field% ssfl (jcs:jce,  jb) = 0._wp
       field% aclc (jcs:jce,:,jb) = 0._wp
+
+      tend% temp_cld(jcs:jce,:,jb)      = 0._wp
+      tend%    q_cld(jcs:jce,:,jb,iqv)  = 0._wp
+      tend%    q_cld(jcs:jce,:,jb,iqc)  = 0._wp
+      tend%    q_cld(jcs:jce,:,jb,iqi)  = 0._wp
+      tend%    q_cld(jcs:jce,:,jb,iqt:) = 0._wp
 
     ENDIF !lcond
 
