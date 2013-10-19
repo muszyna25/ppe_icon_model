@@ -66,8 +66,8 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  rcpd,  vtmpc2, vpp_ch4,   &
-    &                                vpp_n2o, rcvd
+    &                                stbo,  vpp_ch4, vpp_n2o,         &
+    &                                cpd, cpv, cvd, cvv
 
   USE mo_datetime,             ONLY: rdaylen
 
@@ -1431,8 +1431,7 @@ CONTAINS
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
 
-    REAL(wp) :: sum_lw(kbdim), sum_sw(kbdim), corr_lw(kbdim), corr_sw(kbdim), &
-                swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim)
+    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim)
 
     ! local scalars
     REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, trsolclr
@@ -1460,10 +1459,10 @@ CONTAINS
     
     IF (l_use_cv) THEN
       ! Conversion factor for heating rates - use heat capacity at constant volume for NH model
-      zconv(jcs:jce,1:klev) = rcvd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(cvd+(cvv-cvd)*pqv(jcs:jce,1:klev)))
     ELSE
       ! Conversion factor for heating rates - use heat capacity at constant pressure for hydrostatic model
-      zconv(jcs:jce,1:klev) = rcpd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(cpd+(cpv-cpd)*pqv(jcs:jce,1:klev)))
     ENDIF
 
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
