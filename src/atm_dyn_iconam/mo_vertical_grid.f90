@@ -287,21 +287,6 @@ MODULE mo_vertical_grid
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (msg_level >= 15) THEN
-   !  WRITE(message_text,'(a,3E15.5)') 'vertical height and GEOPOT  = ',&
-   !       &  MINVAL(p_nh(jg)%metrics%geopot_agl(:,:,:)),&
-   !       &  MINVAL( p_nh(jg)%metrics%geopot_agl_ifc(:,:,:)),&
-   !       &  MINVAL(p_nh(jg)%metrics%dgeopot_mc(:,:,:))
-   !     CALL message('', TRIM(message_text))
-
-      DO jk = 1, nlev
-       WRITE(message_text,'(a,i4,3E15.5)') 'GEOPOT full/half,dgeopot  = ',jk,&
-          &  p_nh(jg)%metrics%geopot_agl(1,jk,2), p_nh(jg)%metrics%geopot_agl_ifc(1,jk,2),&
-          &  p_nh(jg)%metrics%dgeopot_mc(1,jk,2)
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDDO
-    ENDIF
-
       ! For the tangential slope we need temporarily also the height
       ! at the vertices
       ALLOCATE(z_ifv(nproma,nlevp1,p_patch(jg)%nblks_v))
