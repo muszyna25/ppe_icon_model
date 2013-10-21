@@ -1810,6 +1810,9 @@ CONTAINS
     Delhsnow  (:,:) = SUM( ( ice%hs(:,:,:) - ice%hsold(:,:,:) )*ice%conc(:,:,:), 2 )
     snowiceave(:,:) = SUM( ice%snow_to_ice(:,:,:)*ice% conc(:,:,:), 2 )
 
+    CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module,5)
+    CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module,5)
+
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)

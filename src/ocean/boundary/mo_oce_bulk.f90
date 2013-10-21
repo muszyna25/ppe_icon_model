@@ -495,7 +495,6 @@ CONTAINS
               Qatm%rpreci(:,:) = 0._wp
               Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:)
             ENDWHERE
-
           ENDIF
 
           ! TODO:
@@ -538,24 +537,6 @@ CONTAINS
         Qatm%albnirdirw = albedoW
         Qatm%albnirdifw = albedoW
 
-        IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
-
-          p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
-            &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:) 
-
-          !---------DEBUG DIAGNOSTICS-------------------------------------------
-          idt_src=2  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc  &
-            &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  &
-            &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc:OMIP/NCEP:fw_bc_oce',p_sfc_flx%forc_fw_bc_oce  &
-            &   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          !---------------------------------------------------------------------
-
-        ENDIF
-
         ! #slo# 2012-12:
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         ! diagnosis of 4 parts is stored in p_sfc_flx%forc_swflx/lwflx/ssflx/slflx
@@ -575,6 +556,16 @@ CONTAINS
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+        IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+          p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
+            &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
+          idt_src=2  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:    :forc_fw_bc_ice',p_sfc_flx%forc_fw_bc_ice,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:    :forc_fw_bc_oce',p_sfc_flx%forc_fw_bc_oce,str_module,idt_src, in_subset=p_patch%cells%owned)
+        ENDIF
+
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
@@ -1145,7 +1136,9 @@ CONTAINS
             ! 
             ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
-            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%concsum(jc,jb))*z_relax
+            !   TODO: p_ice%conc: class 1 of sea ice is used - must be generalized
+            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
+            !IF (i_sea_ice >= 1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
 
             z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
@@ -1196,16 +1189,27 @@ CONTAINS
 
     ENDIF
 
-    ! Sum of freshwater volume flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
-    ! TODO - comment more precisely
-    !  - add implicit freshwater flux due to relaxation to volume forcing term
+ !  !-------------------------------------------------------------------------
+ !  ! Add freshwater forcing due to sea ice (and snow changes)
+ !  !  - added as forcing to vertical Diffusion as above
+
+ !  IF (i_sea_ice >= 1) THEN
+
+ !    p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
+ !      &                            - p_sfc_flx%forc_fw_ice_impl(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+
+ !    !---------DEBUG DIAGNOSTICS-------------------------------------------
+ !    idt_src=2  ! output print level (1-5, fix)
+ !    CALL dbg_print('UpdSfc: fw_ice_impl[m/s]',p_sfc_flx%forc_fw_ice_impl ,str_module,idt_src, in_subset=p_patch%cells%owned)
+ !    z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
+ !    CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+ !    !---------------------------------------------------------------------
+
+ !  ENDIF
+
+    ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     IF (no_tracer >1) THEN
-      ! TODO - check once more - #slo# 2013-10-17
-      !p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
-      p_sfc_flx%forc_fw_tot(:,:) = p_sfc_flx%forc_runoff(:,:)     + &
-        &                          p_sfc_flx%forc_fw_ice_vol(:,:) + &
-        &                          p_sfc_flx%forc_fw_bc_oce(:,:)  + &
-        &                          p_sfc_flx%forc_fwrelax(:,:)
+      p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
