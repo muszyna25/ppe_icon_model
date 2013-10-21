@@ -872,11 +872,11 @@ CONTAINS
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
-    z_tracer_new_low(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    z_tracer_max    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    z_tracer_min    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    r_m             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    ! z_tracer_new_low(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    ! z_tracer_max    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    ! z_tracer_min    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    ! r_m             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+    ! r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
     !    z_anti          (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
     !    z_mflx_low      (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
     
@@ -911,6 +911,10 @@ CONTAINS
 !ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+
+      z_tracer_max    (:,:,jb) = 0.0_wp
+      z_tracer_min    (:,:,jb) = 0.0_wp
+
       DO jc = start_index, end_index
 
         ! get prism thickness
@@ -921,6 +925,7 @@ CONTAINS
             !            inv_prism_thick_new = 1.0_wp / patch_3D%p_patch_1D(1)%del_zlev_m(jk) ! should be calclulated only once
             inv_prism_thick_new(jk) = patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
         ENDDO
+
         
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
 
@@ -960,10 +965,13 @@ CONTAINS
     
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
-    CALL sync_patch_array(sync_c1, patch_2d,  z_tracer_max)
-    CALL sync_patch_array(sync_c1, patch_2d,  z_tracer_min)
-    
+    CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
+
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+
+      r_m(:,:,jb) = 0.0_wp
+      r_p(:,:,jb) = 0.0_wp
+
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
 
