@@ -107,11 +107,6 @@ MODULE mo_nh_initicon_types
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg_default, grp_vars_ana_default
-
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_fg_default, ngrp_vars_ana_default
-
   END TYPE t_pi_sfc
 
 
@@ -123,6 +118,11 @@ MODULE mo_nh_initicon_types
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
+
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg_default, grp_vars_ana_default
+
+    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_fg_default, ngrp_vars_ana_default
 
     TYPE (t_pi_atm_in) :: atm_in
     TYPE (t_pi_sfc_in) :: sfc_in

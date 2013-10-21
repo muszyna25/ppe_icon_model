@@ -48,7 +48,7 @@ MODULE mo_initicon_config
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: l_sst_in
-  PUBLIC :: l_ana_sfc     
+  PUBLIC :: lread_ana     
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
@@ -72,8 +72,9 @@ MODULE mo_initicon_config
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
-  LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
-                            ! file dwdana_filename   
+  LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
+                            ! dwdana_filename. If .FALSE., ICON is soleyly started 
+                            ! from first guess fields.   
 
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain

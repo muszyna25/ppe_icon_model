@@ -53,7 +53,7 @@ MODULE mo_initicon_nml
     & config_zpbl1              => zpbl1,             &
     & config_zpbl2              => zpbl2,             &
     & config_l_sst_in           => l_sst_in,          &
-    & config_l_ana_sfc          => l_ana_sfc,         &
+    & config_lread_ana          => lread_ana,         &
     & config_ifs2icon_filename  => ifs2icon_filename, &
     & config_dwdfg_filename     => dwdfg_filename,    &
     & config_dwdana_filename    => dwdana_filename,   &
@@ -82,8 +82,9 @@ MODULE mo_initicon_nml
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
   LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
-  LOGICAL  :: l_ana_sfc     ! If true, read surface/soil analysis fields from analysis
-                            ! file dwdana_filename   
+  LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
+                            ! dwdana_filename. If .FALSE., ICON is soleyly started 
+                            ! from first guess fields.   
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
@@ -110,7 +111,7 @@ MODULE mo_initicon_nml
 
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,   &
-                          nlevsoil_in, l_sst_in, l_ana_sfc,              &
+                          nlevsoil_in, l_sst_in, lread_ana,              &
                           ifs2icon_filename, dwdfg_filename,             &
                           dwdana_filename, filetype, ana_varlist,        &
                           ana_varnames_map_file
@@ -148,8 +149,8 @@ CONTAINS
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
   l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
-  l_ana_sfc   = .TRUE.      ! true: read soil/surface analysis fields from 
-                            !       analysis file dwdana_filename 
+  lread_ana   = .TRUE.      ! true: read analysis fields from file dwdana_filename
+                            ! false: start ICON from first guess file (no analysis) 
   filetype    = -1          ! "-1": undefined
   ana_varlist = ''          ! list of mandatory analysis fields. This list can include a subset 
                             ! or the entire set of default analysis fields. If any of these fields
@@ -187,7 +188,7 @@ CONTAINS
   config_zpbl1              = zpbl1
   config_zpbl2              = zpbl2
   config_l_sst_in           = l_sst_in
-  config_l_ana_sfc          = l_ana_sfc
+  config_lread_ana          = lread_ana
   config_ifs2icon_filename  = ifs2icon_filename
   config_dwdfg_filename     = dwdfg_filename
   config_dwdana_filename    = dwdana_filename
@@ -215,6 +216,14 @@ CONTAINS
       &  'ana_varnames_map_file required, but missing.')
     ENDIF
   ENDIF 
+
+  ! Check whther an analysis file is provided, if lread_ana=.TRUE.
+  IF (lread_ana) THEN
+    IF (dwdana_filename ==' ') THEN
+    CALL finish( TRIM(routine),                         &
+      &  'dwdana_filename required, but missing.')
+    ENDIF
+  ENDIF
 
   ! write the contents of the namelist to an ASCII file
 

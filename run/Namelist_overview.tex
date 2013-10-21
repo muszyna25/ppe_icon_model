@@ -1753,11 +1753,10 @@ init\_mode=2
 \tabularnewline
 
 \hline
-l\_ana\_sfc&
+lread\_ana&
 L & .TRUE.& &
-Logical switch. If true, soil/surface analysis fields are read from the analysis file dwdfg\_filename
-If false, soil/surface analysis is not read. First guess is used, instead. &
-init\_mode=1
+If .FALSE., ICON is started from first guess only. Analysis field is not required, and skipped if provided. &
+init\_mode=1,3
 \tabularnewline
 
 
@@ -1788,7 +1787,7 @@ Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1
+and \texttt{idom} defining the current patch. & init\_mode=1,3
 \tabularnewline
 
 \hline
@@ -6066,6 +6065,14 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item The above-mentioned namelist parameter \textbf{use\_dp\_mpi2io} got the default
          .FALSE. By this, the output data are sent now in single precision to the output processes.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: l\_ana\_sfc}{ 2013-10-21 }{ 14280 }
+  \begin{itemize}
+   \item The above-mentioned namelist parameter \textbf{l\_ana\_sfc} has been replaced by \textbf{lread\_ana}. The default 
+         is set to .TRUE., meaning that analysis fields are required and read on default. With lread\_ana=.FALSE. ICON is able to start from 
+         first guess fields only.
   \end{itemize}
 \end{changeitem}
 
