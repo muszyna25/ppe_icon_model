@@ -840,7 +840,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
     
-    ! CALL timer_start(timer_hflx_limiter)
     !-------------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2d%edges%in_domain
@@ -967,6 +966,9 @@ CONTAINS
     !    field is free of any new extrema.
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
 
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,start_index, end_index, jc, jk, inv_prism_thick_new, &
+!ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
 
       r_m(:,:,jb) = 0.0_wp
@@ -1057,6 +1059,8 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
     
     ! Synchronize r_m and r_p
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, r_m, r_p)
@@ -1065,6 +1069,8 @@ CONTAINS
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
@@ -1092,9 +1098,9 @@ CONTAINS
         END DO
       ENDDO
     ENDDO
-    
-    ! CALL timer_stop(timer_hflx_limiter)
-    
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
   END SUBROUTINE hflx_limiter_oce_mo
   !-------------------------------------------------------------------------
   
