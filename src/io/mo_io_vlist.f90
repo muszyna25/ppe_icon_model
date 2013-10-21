@@ -189,7 +189,6 @@ MODULE mo_io_vlist
     &                                 rotate_axis_deg, lhs_nh_vn_ptb,             &
     &                                 hs_nh_vn_ptb_scale, qv_max,                 &
     &                                 ape_sst_case, ape_sst_val
-    !&                                rh_at_1000hpa,linit_tracer_fv
   USE mo_nh_mrw_exp,            ONLY: u0_mrw, mount_height_mrw,                   &
     &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
     &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
