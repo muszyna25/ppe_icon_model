@@ -386,27 +386,27 @@ CONTAINS
 
             CASE(3)  !sand
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.364_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+            & MAX((wsoil(jc,jk,jb)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
 
             CASE(4)  !sandyloam
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.445_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
+            & MAX((wsoil(jc,jk,jb)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
 
             CASE(5)  !loam
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.455_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
+            & MAX((wsoil(jc,jk,jb)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
 
             CASE(6)  !clayloam
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.475_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
+            & MAX((wsoil(jc,jk,jb)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
 
             CASE(7)  !clay
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.507_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+            & MAX((wsoil(jc,jk,jb)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
 
             CASE(8)  !peat
             zwsoil(jc) = dzsoil_icon(jk) * MIN(0.863_wp, &
-            & MAX((wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+            & MAX((wsoil(jc,jk,jb)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
 
             CASE(9,10)!sea water, sea ice
             ! ERROR landpoint has soiltype sea water or sea ice
@@ -417,14 +417,14 @@ CONTAINS
           ! for moisture (and in principle for temperature as well)
           ! 
           ! can we do better than this??
-          IF ( wsoil(jc,jb,jk) <= -999._wp )  THEN   ! check for missing value
+          IF ( wsoil(jc,jk,jb) <= -999._wp )  THEN   ! check for missing value
             ! set dummy value (50% of pore volume)
             zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
           ENDIF
 
         ENDDO  ! ic
         ! overwrite wsoil
-        wsoil(1:nlen,jb,jk) = zwsoil(1:nlen)
+        wsoil(1:nlen,jk,jb) = zwsoil(1:nlen)
       ENDDO  ! jk
 
 
