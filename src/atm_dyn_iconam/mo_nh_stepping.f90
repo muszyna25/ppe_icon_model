@@ -249,17 +249,17 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (datetime, n_file, jfile, n_checkpoint,  &
-    &                             n_diag, l_have_output )
+  SUBROUTINE perform_nh_stepping (datetime, jfile, n_checkpoint, n_diag, l_have_output )
 !
-  INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
   TYPE(t_simulation_status)            :: simulation_status
 
-  CHARACTER(*), PARAMETER :: routine = "perform_nh_stepping"
+!!$  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$    &  routine = 'mo_nh_stepping:perform_nh_stepping'
 
   INTEGER                              :: jg
 
@@ -366,8 +366,7 @@ MODULE mo_nh_stepping
 ! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 ! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 ! 
-!     CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
-!       &                       l_have_output )
+!     CALL perform_nh_timeloop (datetime, jfile, n_checkpoint, n_diag, l_have_output )
 !     CALL model_end_ompthread()
 ! 
 ! !$OMP SECTION
@@ -379,8 +378,7 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint, n_diag, &
-                              l_have_output )
+    CALL perform_nh_timeloop (datetime, jfile, n_checkpoint, n_diag, l_have_output )
 !   ENDIF
 
   CALL deallocate_nh_stepping ()
@@ -397,13 +395,13 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (datetime, n_file, jfile, n_checkpoint,   &
+  SUBROUTINE perform_nh_timeloop (datetime, jfile, n_checkpoint,   &
                                &  n_diag, l_have_output )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
-  INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
@@ -420,7 +418,7 @@ MODULE mo_nh_stepping
   TYPE(t_datetime)                     :: datetime_old
 
   INTEGER           :: nsoil(n_dom), nsnow
-  REAL(wp)          :: latbc_elapsed, elapsed_time_global
+  REAL(wp)          :: elapsed_time_global
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -1697,8 +1695,8 @@ MODULE mo_nh_stepping
 
     LOGICAL, INTENT(IN) :: linit ! switch for computing additional diagnostics for initial output
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
@@ -1795,8 +1793,8 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE diag_for_output_phys
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_stepping:diag_for_output_phys'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_nh_stepping:diag_for_output_phys'
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices

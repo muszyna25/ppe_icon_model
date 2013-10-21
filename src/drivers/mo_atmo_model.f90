@@ -224,8 +224,6 @@ CONTAINS
 
     INTEGER :: error_status
 
-    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
-
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
 

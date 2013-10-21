@@ -111,7 +111,7 @@ CONTAINS
   !---------------------------------------------------------------------
   SUBROUTINE atmo_nonhydrostatic
     
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
+!!$    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
     CALL construct_atmo_nonhydrostatic()
     
@@ -123,7 +123,7 @@ CONTAINS
 
     CALL perform_nh_stepping(  &
       &                       time_config%cur_datetime,       &
-      &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
+      &                       jfile, n_chkpt, n_diag, l_have_output  )
  
     IF (ltimer) CALL print_timer
 
