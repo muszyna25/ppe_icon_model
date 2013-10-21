@@ -827,7 +827,7 @@ CONTAINS
     REAL(wp) :: z_min, z_max                         !< minimum/maximum value in cell and neighboring cells
     REAL(wp) :: z_signum                                       !< sign of antidiffusive velocity
     REAL(wp) :: p_p, p_m                                       !< sum of antidiffusive fluxes into and out of cell jc
-    REAL(wp) :: prism_thick_old, inv_prism_thick_new
+    REAL(wp) :: prism_thick_old(n_zlev), inv_prism_thick_new(n_zlev)
     INTEGER, DIMENSION(:,:,:), POINTER ::  cell_of_edge_idx, cell_of_edge_blk   !< Pointer to line and block indices of two
     !< neighbor cells (array)
     INTEGER, DIMENSION(:,:,:), POINTER :: neighbor_cell_idx, neighbor_cell_blk  !< Pointer to line and block indices of three
@@ -912,20 +912,18 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
+
+        ! get prism thickness
+        inv_prism_thick_new(start_level) = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_new(jc,jb))
+        prism_thick_old(start_level)     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level)           + h_old(jc,jb)
+        DO jk = start_level+1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
+            prism_thick_old (jk)    = patch_3d%p_patch_1d(1)%del_zlev_m(jk)
+            !            inv_prism_thick_new = 1.0_wp / patch_3D%p_patch_1D(1)%del_zlev_m(jk) ! should be calclulated only once
+            inv_prism_thick_new(jk) = patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
+        ENDDO
         
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
-          
-          ! replace with merge
-          IF (jk == start_level) THEN
-            inv_prism_thick_new = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level)+h_new(jc,jb))
-            prism_thick_old     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_old(jc,jb)
-          ELSE
-            prism_thick_old     = patch_3d%p_patch_1d(1)%del_zlev_m(jk)
-            !            inv_prism_thick_new = 1.0_wp / patch_3D%p_patch_1D(1)%del_zlev_m(jk) ! should be calclulated only once
-            inv_prism_thick_new = patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
-          ENDIF
-          !
-          
+
           ! IF( patch_3D%lsm_c(jc,jk,jb) > sea_boundary ) &
           !& CALL finish("","patch_3D%lsm_c(jc,jk,jb) > sea_boundar")
           
@@ -941,8 +939,8 @@ CONTAINS
           !
           ! 3. Compute the updated low order solution z_tracer_new_low
           ! IF( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-          z_tracer_new_low(jc,jk,jb) = (p_cc(jc,jk,jb) * prism_thick_old     &
-            & - dtime * z_fluxdiv_c) * inv_prism_thick_new
+          z_tracer_new_low(jc,jk,jb) = (p_cc(jc,jk,jb) * prism_thick_old(jk)     &
+            & - dtime * z_fluxdiv_c) * inv_prism_thick_new(jk)
           
           ! precalculate local maximum/minimum of current tracer value and low order
           ! updated value
@@ -968,18 +966,18 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
-        DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
-          
-          ! replace with merge
-          IF (jk == start_level) THEN
-            inv_prism_thick_new = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level)+h_new(jc,jb))
-            prism_thick_old     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_old(jc,jb)
-          ELSE
-            prism_thick_old     = patch_3d%p_patch_1d(1)%del_zlev_m(jk)
+
+        ! get prism thickness
+        inv_prism_thick_new(start_level) = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_new(jc,jb))
+        ! prism_thick_old(start_level)     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level)           + h_old(jc,jb)
+        DO jk = start_level+1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
+            ! prism_thick_old (jk)    = patch_3d%p_patch_1d(1)%del_zlev_m(jk)
             !            inv_prism_thick_new = 1.0_wp / patch_3D%p_patch_1D(1)%del_zlev_m(jk) ! should be calclulated only once
-            inv_prism_thick_new = patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
-          ENDIF
-          !
+            inv_prism_thick_new(jk) = patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
+        ENDDO
+
+        DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
+                    !
           ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
           !    between the high order fluxes (given by the FFSL-scheme) and the low order
           !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
@@ -991,18 +989,18 @@ CONTAINS
           !& CALL finish("","patch_3D%lsm_c(jc,jk,jb) > sea_boundar")
           
           z_mflx_anti(1) =                                                        &
-            & dtime * p_op_coeff%div_coeff(jc,jk,jb,1) * inv_prism_thick_new  &
+            & dtime * p_op_coeff%div_coeff(jc,jk,jb,1) * inv_prism_thick_new(jk)  &
             & * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
           
           z_mflx_anti(2) =                                                         &
-            & dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) * inv_prism_thick_new  &
+            & dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) * inv_prism_thick_new(jk)  &
             & * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
           
           z_mflx_anti(3) =                                                         &
-            & dtime * p_op_coeff%div_coeff(jc,jk,jb,3) * inv_prism_thick_new   &
+            & dtime * p_op_coeff%div_coeff(jc,jk,jb,3) * inv_prism_thick_new(jk)   &
             & * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
           
-          IF( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          !  IF( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             !          ! max value of cell and its neighbors
             !          ! also look back to previous time step
             !          z_max = MAX( z_tracer_max(jc,jk,jb),                          &
@@ -1015,11 +1013,11 @@ CONTAINS
             !            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
             !            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
             !            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
-          ENDIF
+          !  ENDIF
           z_max = z_tracer_max(jc,jk,jb)
           z_min = z_tracer_min(jc,jk,jb)
           DO cell_connect = 1, 3
-            IF (neighbor_cell_idx(jc,jb,cell_connect) > 0) THEN
+!            IF (neighbor_cell_idx(jc,jb,cell_connect) > 0) THEN
               IF (patch_3d%p_patch_1d(1)% &
                 & dolic_c(neighbor_cell_idx(jc,jb,cell_connect), neighbor_cell_blk(jc,jb,cell_connect)) >= jk) THEN
                 z_max = MAX(z_max, &
@@ -1027,7 +1025,7 @@ CONTAINS
                 z_min = MIN(z_min, &
                   & z_tracer_min(neighbor_cell_idx(jc,jb,cell_connect),jk,neighbor_cell_blk(jc,jb,cell_connect)))
               ENDIF
-            ENDIF
+!            ENDIF
           ENDDO
           
           ! Sum of all incoming antidiffusive fluxes into cell jc
