@@ -82,15 +82,15 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: bb(kbdim,klev,ih:iqv)
 
-    REAL(wp),INTENT(OUT)   :: plhflx_gbm(kbdim)
-    REAL(wp),INTENT(OUT)   :: pshflx_gbm(kbdim)
-    REAL(wp),INTENT(OUT)   :: pevap_gbm(kbdim)
+    REAL(wp),INTENT(INOUT) :: plhflx_gbm(kbdim)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pshflx_gbm(kbdim)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pevap_gbm(kbdim)   ! OUT
 
     REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pevap_tile(kbdim,ksfc_type)    ! OUT
 
-    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: dshflx_dT_tile(kbdim,ksfc_type)  ! OUT
 
     REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim) ! present for JSBACH land
 

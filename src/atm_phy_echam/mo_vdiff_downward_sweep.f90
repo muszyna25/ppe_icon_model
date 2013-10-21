@@ -148,17 +148,17 @@ CONTAINS
 
     ! Variables with intent(out)
 
-    REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific 
-                                                        !< humidity at sfc.
-                                                        !< (step t-dt)
+    REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific     out
+                                                          !< humidity at sfc.
+                                                          !< (step t-dt)
 !! TODO: ME
 !!    REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 !    REAL(wp) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 
-    INTEGER, INTENT(OUT) :: ihpbl (kbdim)  !< PBL height given as level index
-    REAL(wp),INTENT(OUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
+    INTEGER, INTENT(INOUT) :: ihpbl (kbdim)  !< PBL height given as level index    out
+    REAL(wp),INTENT(INOUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
 
-    REAL(wp),INTENT(OUT) ::        &
+    REAL(wp),INTENT(INOUT) ::      &   ! out
       & pri      (kbdim,klev)     ,&!< Richardson number
       & pmixlen  (kbdim,klev)     ,&!< mixing length
       & pcfm     (kbdim,klev)     ,&!< exchange coeff. for u, v
@@ -172,7 +172,7 @@ CONTAINS
     ! Coefficient matrices and right-hand-side vectors.
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
  
-    REAL(wp),INTENT(OUT) ::             &
+    REAL(wp),INTENT(INOUT) ::           &  ! out
       & aa     (kbdim,klev,3,nmatrix)  ,&!< coeff. matrices, all variables
       & aa_btm (kbdim,3,ksfc_type,imh:imqv),&!< last row of coeff. matrix of heat and moisture
       & bb     (kbdim,klev,nvar_vdiff) ,&!< r.h.s., all variables
@@ -180,7 +180,7 @@ CONTAINS
 
     ! Other variables to be passed on to the second part of turbulence solver
 
-    REAL(wp),INTENT(OUT) ::         &
+    REAL(wp),INTENT(INOUT) ::       &  ! out
       & pfactor_sfc(kbdim)         ,&!< prefactor for the exchange coeff.
       & pcpt_tile (kbdim,ksfc_type),&!< dry static energy at surface
       & pcptgz    (kbdim,klev)     ,&!< dry static energy
@@ -189,7 +189,7 @@ CONTAINS
       & pzthvvar  (kbdim,klev)     ,&!<
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
-    REAL(wp), OPTIONAL, INTENT(OUT) :: pch_tile(kbdim,ksfc_type)
+    REAL(wp), OPTIONAL, INTENT(INOUT) :: pch_tile(kbdim,ksfc_type)  ! out
 
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface

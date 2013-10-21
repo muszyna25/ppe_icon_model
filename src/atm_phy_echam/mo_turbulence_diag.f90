@@ -130,32 +130,32 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: ptkem0 (kbdim,klev)
 #endif
 
-    REAL(wp),INTENT(OUT) :: pcptgz(kbdim,klev)   !< dry static energy
-    INTEGER, INTENT(OUT) :: ihpbl(kbdim)         !< grid level index of PBL top
-    REAL(wp),INTENT(OUT) :: pghabl(kbdim)        !< geopotential of PBL top
+    REAL(wp),INTENT(INOUT) :: pcptgz(kbdim,klev)   !< dry static energy    out
+    INTEGER, INTENT(INOUT) :: ihpbl(kbdim)         !< grid level index of PBL top    out
+    REAL(wp),INTENT(INOUT) :: pghabl(kbdim)        !< geopotential of PBL top    out
 
-    REAL(wp),INTENT(OUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv
-    REAL(wp),INTENT(OUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at intermediate step
-    REAL(wp),INTENT(OUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step
+    REAL(wp),INTENT(INOUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv    out
+    REAL(wp),INTENT(INOUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at intermediate step    out
+    REAL(wp),INTENT(INOUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step    out
 
-    REAL(wp),INTENT(OUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v
-    REAL(wp),INTENT(OUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers
-    REAL(wp),INTENT(OUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx
-    REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE
-    REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for variance of theta_v
-    REAL(wp),INTENT(OUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coefficients
-    REAL(wp),INTENT(OUT) :: prhoh   (kbdim,klevm1) !< air density at half levels
+    REAL(wp),INTENT(INOUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v    out
+    REAL(wp),INTENT(INOUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers    out
+    REAL(wp),INTENT(INOUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx    out
+    REAL(wp),INTENT(INOUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE    out
+    REAL(wp),INTENT(INOUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for variance of theta_v    out
+    REAL(wp),INTENT(INOUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coefficients    out
+    REAL(wp),INTENT(INOUT) :: prhoh   (kbdim,klevm1) !< air density at half levels    out
 
     ! _b denotes the values at the bottom level (the klev-th full level)
-    REAL(wp),INTENT(OUT) :: ptheta_b (kbdim)  !< potential temperature
-    REAL(wp),INTENT(OUT) :: pthetav_b(kbdim)  !< virtual potential temperature
-    REAL(wp),INTENT(OUT) :: pthetal_b(kbdim)  !< liquid (and ice?) potential temperature
-    REAL(wp),INTENT(OUT) :: pqsat_b  (kbdim)  !< specific humidity at saturation
-    REAL(wp),INTENT(OUT) :: plh_b    (kbdim)  !< latent heat
+    REAL(wp),INTENT(INOUT) :: ptheta_b (kbdim)  !< potential temperature    out
+    REAL(wp),INTENT(INOUT) :: pthetav_b(kbdim)  !< virtual potential temperature    out
+    REAL(wp),INTENT(INOUT) :: pthetal_b(kbdim)  !< liquid (and ice?) potential temperature    out
+    REAL(wp),INTENT(INOUT) :: pqsat_b  (kbdim)  !< specific humidity at saturation    out
+    REAL(wp),INTENT(INOUT) :: plh_b    (kbdim)  !< latent heat    out
 
     ! Just for output
-    REAL(wp),INTENT(OUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half levels
-    REAL(wp),INTENT(OUT) :: pmixlen (kbdim,klevm1) !< mixing length
+    REAL(wp),INTENT(INOUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half levels    out
+    REAL(wp),INTENT(INOUT) :: pmixlen (kbdim,klevm1) !< mixing length    out
 
     ! Local variables
     ! - Variables defined at full levels

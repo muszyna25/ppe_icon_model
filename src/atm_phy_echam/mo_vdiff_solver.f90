@@ -224,8 +224,8 @@ CONTAINS
     REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)      !< reciprocal of layer thickness, full levels
     REAL(wp),INTENT(IN) :: prdph    (kbdim,klevm1)    !< reciprocal of layer thickness, half levels
 
-    REAL(wp),INTENT(OUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices
-    REAL(wp),INTENT(OUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv) 
+    REAL(wp),INTENT(INOUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices    out
+    REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)   !  out
                                      !< last (the klev-th) row of the coeff. matrices 
                                      !< of dry static energy and moisture
 
@@ -448,8 +448,8 @@ CONTAINS
     REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)
     REAL(wp),INTENT(IN) :: aa       (kbdim,klev,3,nmatrix)
 
-    REAL(wp),INTENT(OUT) :: bb    (kbdim,klev,nvar_vdiff)
-    REAL(wp),INTENT(OUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
+    REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  ! OUT
+    REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)  ! OUT
 
     ! Local variables
 
@@ -640,10 +640,10 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
-    REAL(wp),INTENT(OUT) :: pen_h (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT) :: pfn_h (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT) :: pen_qv(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT) :: pfn_qv(kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pen_h (kbdim,ksfc_type)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pfn_h (kbdim,ksfc_type)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pen_qv(kbdim,ksfc_type)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pfn_qv(kbdim,ksfc_type)  ! OUT
 
     REAL(wp),OPTIONAL,INTENT(IN)    :: pcair(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN)    :: pcsat(kbdim)
@@ -819,20 +819,20 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
 
-    REAL(wp),INTENT(OUT) :: pute_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pvte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: ptte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT) :: pxvarprod(kbdim,klev) !< "pvdiffp" in echam
+    REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pqte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxtte_vdf(kbdim,klev,ktrac)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxvarprod(kbdim,klev) !< "pvdiffp" in echam   OUT
 
-    REAL(wp),INTENT(OUT) :: pz0m    (kbdim)
+    REAL(wp),INTENT(INOUT) :: pz0m    (kbdim)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptke    (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pthvvar (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pthvsig (kbdim)
-    REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: pthvvar (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pthvsig (kbdim)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pvmixtau(kbdim,klev)  ! OUT
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
@@ -856,6 +856,7 @@ CONTAINS
       pute_vdf (1:kproma,1:itop-1)   = 0._wp
       pvte_vdf (1:kproma,1:itop-1)   = 0._wp
       ptte_vdf (1:kproma,1:itop-1)   = 0._wp
+      pqte_vdf (1:kproma,1:itop-1)   = 0._wp
       pxlte_vdf(1:kproma,1:itop-1)   = 0._wp
       pxite_vdf(1:kproma,1:itop-1)   = 0._wp
       pxtte_vdf(1:kproma,1:itop-1,:) = 0._wp

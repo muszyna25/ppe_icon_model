@@ -202,9 +202,9 @@ REAL(dp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
            pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
            paphp1(kbdim,klevp1),                                       &
            pverv(kbdim,klev)
-REAL(dp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-REAL(dp),INTENT(OUT) :: ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)
-REAL(dp),INTENT(OUT) :: pxtte_cnv(kbdim,klev,ktrac)
+REAL(dp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)  ! OUT
+REAL(dp),INTENT(INOUT) :: ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)  ! OUT
+REAL(dp),INTENT(INOUT) :: pxtte_cnv(kbdim,klev,ktrac)                 ! OUT
 REAL(dp),INTENT(INOUT) :: prsfc(kbdim), pssfc(kbdim)   !OUT
            
 REAL(dp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &

@@ -214,10 +214,10 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
   REAL(wp),INTENT(INOUT) ::  paclc(kbdim,klev)
   REAL(wp),INTENT(INOUT) ::  pxvar(kbdim,klev),    pxskew(kbdim,klev)
 
-  INTEGER, INTENT(OUT)   ::  knvb(kbdim)
-  REAL(wp),INTENT(OUT)   ::  printop(kbdim)
-  REAL(wp),INTENT(OUT)   ::  pbetaa(kbdim,klev),   pbetab(kbdim,klev)
-  REAL(wp),INTENT(OUT)   ::  pbetass(kbdim,klev)
+  INTEGER, INTENT(INOUT)   ::  knvb(kbdim)                               ! out
+  REAL(wp),INTENT(INOUT)   ::  printop(kbdim)                            ! out
+  REAL(wp),INTENT(INOUT)   ::  pbetaa(kbdim,klev),   pbetab(kbdim,klev)  ! out
+  REAL(wp),INTENT(INOUT)   ::  pbetass(kbdim,klev)                       ! out
 !
 ! Local variables -----------------------------------------------
 !

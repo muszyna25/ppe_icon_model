@@ -98,16 +98,16 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
 
   ! array arguments with intent(OUT):
   ! 1D
-  REAL(wp), INTENT(out)   :: pustrgw(kbdim)       ! u-gravity wave stress
-  REAL(wp), INTENT(out)   :: pvstrgw(kbdim)       ! v-gravity wave stress
-  REAL(wp), INTENT(out)   :: pvdisgw(kbdim)       ! dissipation by gravity wave drag
+  REAL(wp), INTENT(inout)   :: pustrgw(kbdim)       ! u-gravity wave stress    out
+  REAL(wp), INTENT(inout)   :: pvstrgw(kbdim)       ! v-gravity wave stress    out
+  REAL(wp), INTENT(inout)   :: pvdisgw(kbdim)       ! dissipation by gravity wave drag    out
 
 #ifdef __ICON__
   ! array arguments with intent(OUT):
   ! 2D
-  REAL(wp), INTENT(out)   :: pdt_sso(kbdim,klev)  ! sso tendency of temperature
-  REAL(wp), INTENT(out)   :: pdu_sso(kbdim,klev)  ! sso tendency of zonal wind
-  REAL(wp), INTENT(out)   :: pdv_sso(kbdim,klev)  ! sso tendency of wind
+  REAL(wp), INTENT(inout)   :: pdt_sso(kbdim,klev)  ! sso tendency of temperature    out
+  REAL(wp), INTENT(inout)   :: pdu_sso(kbdim,klev)  ! sso tendency of zonal wind    out
+  REAL(wp), INTENT(inout)   :: pdv_sso(kbdim,klev)  ! sso tendency of wind    out
 #else
   ! array arguments with intent(INOUT):
   ! 2D
@@ -288,9 +288,9 @@ SUBROUTINE orodrag( kproma, kbdim,  klev,                            &
 
   ! array arguments with intent(INOUT):
   ! Input 2D
-  REAL(wp), INTENT(out) :: pte(kbdim,klev)     ! tendency of temperature
-  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
-  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
+  REAL(wp), INTENT(inout) :: pte(kbdim,klev)     ! tendency of temperature        (out)
+  REAL(wp), INTENT(inout) :: pvol(kbdim,klev)    ! tendency of meridional wind    (out)
+  REAL(wp), INTENT(inout) :: pvom(kbdim,klev)    ! tendency of zonal wind         (out)
 
   !  Local scalars:
   INTEGER :: jl, jk, ji
@@ -1217,9 +1217,9 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
 
   ! array arguments with intent(OUT):
   ! Input 2D
-  REAL(wp), INTENT(out) :: pte(kbdim,klev)     ! tendency of temperature
-  REAL(wp), INTENT(out) :: pvol(kbdim,klev)    ! tendency of meridional wind
-  REAL(wp), INTENT(out) :: pvom(kbdim,klev)    ! tendency of zonal wind
+  REAL(wp), INTENT(inout) :: pte(kbdim,klev)     ! tendency of temperature        (out)
+  REAL(wp), INTENT(inout) :: pvol(kbdim,klev)    ! tendency of meridional wind    (out)
+  REAL(wp), INTENT(inout) :: pvom(kbdim,klev)    ! tendency of zonal wind         (out)
 
   ! Local scalars:
   INTEGER :: jl, jk

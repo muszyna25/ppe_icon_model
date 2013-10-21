@@ -57,16 +57,16 @@ MODULE mo_gw_hines
 
   USE mo_exception,            ONLY: message_text, message, finish 
 
-  USE mo_kind,       ONLY: wp
+  USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
 
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,&
+  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,&
     & timer_gw_hines
 
-  USE mo_math_constants,      ONLY: cos45, one_third
-  USE mo_fast_math_lib,       ONLY: vec_cbrt ! cube root
+  USE mo_math_constants,       ONLY: cos45, one_third
+  USE mo_fast_math_lib,        ONLY: vec_cbrt ! cube root
 
 !!$  USE mo_geoloc,               ONLY: ilat
 !!$  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
@@ -197,9 +197,9 @@ CONTAINS
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(out) :: tend_t_gwh(nbdim,nlev)  ! tendency of temperature
-    REAL(wp) ,INTENT(out) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind
-    REAL(wp) ,INTENT(out) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind
+    REAL(wp) ,INTENT(inout) :: tend_t_gwh(nbdim,nlev)  ! tendency of temperature   ! out
+    REAL(wp) ,INTENT(inout) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind    ! out
+    REAL(wp) ,INTENT(inout) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind ! out
 
     !  Local arrays for ccc/mam hines gwd scheme:
 

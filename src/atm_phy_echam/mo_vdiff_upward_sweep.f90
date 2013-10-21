@@ -151,23 +151,23 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
   
-    REAL(wp),INTENT(OUT) :: pute_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pvte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: ptte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
+    REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pqte_vdf (kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: pxtte_vdf(kbdim,klev,ktrac)  ! OUT
   
     ! Some other diagnostics
   
-    REAL(wp),INTENT(OUT) :: pxvarprod    (kbdim,klev) !< shear production 
-                                                      !< of the variance of total water
-    REAL(wp),INTENT(OUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale
-    REAL(wp),INTENT(OUT) :: pz0m         (kbdim)      !< grid-box mean roughness height
-    REAL(wp),INTENT(OUT) :: pthvvar      (kbdim,klev) !< variance of virtual potential temperature 
-                                                      !< at the new time step t
-    REAL(wp),INTENT(OUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )
+    REAL(wp),INTENT(INOUT) :: pxvarprod    (kbdim,klev) !< shear production
+                                                      !< of the variance of total water    out
+    REAL(wp),INTENT(INOUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale    out
+    REAL(wp),INTENT(INOUT) :: pz0m         (kbdim)      !< grid-box mean roughness height    out
+    REAL(wp),INTENT(INOUT) :: pthvvar      (kbdim,klev) !< variance of virtual potential temperature
+                                                      !< at the new time step t    out
+    REAL(wp),INTENT(INOUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )    out
     REAL(wp),INTENT(INOUT) :: ptke       (kbdim,klev)
 
   

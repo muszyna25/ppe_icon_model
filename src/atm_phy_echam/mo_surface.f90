@@ -172,14 +172,14 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: zhsoil(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: tte_corr(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: z0h_lnd(kbdim), z0m_lnd(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdir(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdir(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albvisdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT)   :: albnirdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_rad(kbdim) ! OUT
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: surface_temperature_eff(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_lnd(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_rad(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: surface_temperature_eff(kbdim) ! OUT
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)

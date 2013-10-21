@@ -24,7 +24,7 @@ CONTAINS
     REAL(dp), INTENT(in), DIMENSION(:) :: &
          lai,      &
          par
-    REAL(dp), INTENT(out) :: conductance(SIZE(lai,DIM=1))
+    REAL(dp), INTENT(inout) :: conductance(SIZE(lai,DIM=1)) ! out
   
 
     ! Local variables

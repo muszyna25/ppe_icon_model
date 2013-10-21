@@ -108,8 +108,8 @@ REAL(dp) :: zsheat(kbdim)
 !
 REAL(dp) :: zrcpm ! reciprocal value of specific heat of moist air
 
-REAL(dp),INTENT(OUT) ::  ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)
-REAL(dp),INTENT(OUT) :: pxtte_cnv(kbdim,klev,ktrac)
+REAL(dp),INTENT(INOUT) ::  ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)  ! OUT
+REAL(dp),INTENT(INOUT) :: pxtte_cnv(kbdim,klev,ktrac)                  ! OUT
 
 !----Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)-----------
 REAL(dp) ::  pludel(kbdim,klev),       pludei(kbdim,klev),              &

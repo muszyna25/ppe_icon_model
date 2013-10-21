@@ -60,7 +60,7 @@ CONTAINS
     INTEGER, INTENT(IN)  :: kbdim, kproma
     REAL(wp),INTENT(IN)  :: ppsfc (kbdim)   !< surface pressure
     REAL(wp),INTENT(IN)  :: ptsfc (kbdim)   !< SST
-    REAL(wp),INTENT(OUT) :: pqs   (kbdim)   !< saturation specific humidity
+    REAL(wp),INTENT(INOUT) :: pqs   (kbdim)   !< saturation specific humidity ! out
 
     INTEGER  :: itemp  !< temperature*1000
     INTEGER  :: jc     !< column index
