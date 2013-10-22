@@ -405,6 +405,7 @@ USE mo_edmf_param   ,ONLY : &
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA  ,&                                         !fcttre.f
                 & ntiles_edmf
+USE mo_physical_constants,  ONLY:  p0ref, rd_o_cpd
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
                             isub_water, isub_seaice
@@ -705,6 +706,13 @@ REAL(KIND=JPRB)       ZTMEAN
 REAL(KIND=JPRB) ::    ZCFNC1  
 !xxx
 
+!Parameters for RICO case
+REAL(KIND=JPRB), PARAMETER :: c_h = 0.001094_jprb
+REAL(KIND=JPRB), PARAMETER :: c_q = 0.001133_jprb
+REAL(KIND=JPRB), PARAMETER :: th0_rico = 298.5_jprb
+REAL(KIND=JPRB), PARAMETER :: psfc = 101540._jprb
+REAL(KIND=JPRB) mwind, th_l
+
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
 !INTERFACE
@@ -938,6 +946,7 @@ CALL SURFEXCDRIVER( &
 ! output data, diagnostics
 !dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDTHIS &
 
+
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
 DO JL=KIDIA,KFDIA
@@ -978,7 +987,6 @@ DO JL=KIDIA,KFDIA
   ENDIF
 
 ! sea ice fluxes (mean flux stored in '_soil' flux)
-!
 !  JT = isub_seaice
 !  ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
 !    SHFL_SOIL_T(JL,JT)
@@ -989,36 +997,43 @@ DO JL=KIDIA,KFDIA
 !  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 !  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 
-  IF (LDLAND(JL)) THEN
-    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
-    ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
-    ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
-   !ZKMFL(JL) = calculated as mean of TESSEL tiles in surfexcdriver
-  END IF
-
 ! test: fixed surface fluxes
-
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
-! optional SCM case definition after Stevens(2007)
-  IF (ltestcase .AND. nh_test_name=='CBL') THEN
-    CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
-                           & ZRHO         , T_G(JL)      , &
-                           & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
+! optional SCM case definition after Stevens(2007) for dry BL
+
+  IF (ltestcase) THEN
+    SELECT CASE(nh_test_name)
+    CASE ('CBL')
+      ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+      CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
+                             & ZRHO         , T_G(JL)      , &
+                             & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
+    CASE ('RICO')
+      mwind = SQRT(PUM1(JL,KLEV)**2 + PVM1(JL,KLEV)**2) 
+      th_l  = PTM1(JL,KLEV) * (p0ref/PAPM1(JL,KLEV))**rd_o_cpd  
+      ZEXTSHF(JL) = - c_h * mwind * (th0_rico - th_l)
+      ZEXTLHF(JL) = - c_q * mwind * (qv_s(JL) - PQM1(JL,KLEV) )
+    END SELECT
   ENDIF
 
 ENDDO
 
+!          FLUX BOUNDARY CONDITION
 
-!debug
-DO JL=KIDIA,KFDIA
- if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0) then
-  write(*,*) 'vdfmain2: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
- endif
+DO JL=KIDIA,KFDIA  
+  IF (LDLAND(JL) .OR. LLSFCFLX) THEN
+    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+    ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
+    ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
+   !ZKMFL(JL) = calculated as mean of TESSEL tiles in surfexcdriver
+    IF (LLSFCFLX) THEN      ! ATTENTION: surface momentum flux
+      ZKMFL(JL) = 0.0_JPRB  ! needs to be calculated in surfexcdriver!!!
+    END IF
+  END IF
 ENDDO
-!xxxxx
 
 
 !     ------------------------------------------------------------------
@@ -1036,21 +1051,6 @@ DO JL=KIDIA,KFDIA
   KVARTOP(JL)  = 0
 ENDDO
 ITOP=1  !ITOP is used in some solvers. ITOP=1 means: always integrate over whole atmosphere depth
-
-
-!          FLUX BOUNDARY CONDITION
-
-IF (LLSFCFLX) THEN
-  DO JL=KIDIA,KFDIA
-    !fixed prescribed surface fluxes
-    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
-    ZKHFL(JL) = ZEXTSHF(JL) / ( RCPD*(1.0_JPRB+RVTMP2*PQM1(JL,KLEV)) ) / ZRHO
-    ZKQFL(JL) = ZEXTLHF(JL) / RLVTT / ZRHO
-!amk ATTENTION: surface momentum flux needs to be calculated in surfexcdriver!!!
-    ZKMFL(JL) = 0.0_JPRB
-!xxx
-  ENDDO
-ENDIF
 
 
 !*         4.5  BOUNDARY LAYER HEIGHT FOR DIANOSTICS ONLY
