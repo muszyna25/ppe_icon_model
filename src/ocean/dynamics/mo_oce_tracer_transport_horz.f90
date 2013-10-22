@@ -370,19 +370,19 @@ CONTAINS
   !!
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE upwind_hflux_oce_mimetic( patch_3d, flux_cc,p_op_coeff,&
-    & pupflux_e, opt_start_level, opt_end_level )
+    & edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_cartesian_coordinates)      :: flux_cc(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_operator_coeff), INTENT(in) :: p_op_coeff
-    REAL(wp), INTENT(inout)            :: pupflux_e(nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)            :: edge_upwind_flux(nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level    ! optional vertical end level
     ! local variables
     !INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
     INTEGER :: start_level, end_level
     INTEGER :: start_index, end_index
-    INTEGER :: je, jk, jb, il_c, ib_c         !< index of edge, vert level, block
+    INTEGER :: je, jk, jb        !< index of edge, vert level, block
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
@@ -390,7 +390,6 @@ CONTAINS
     edges_in_domain => patch_2d%edges%in_domain
     
     !-----------------------------------------------------------------------
-    
     IF ( PRESENT(opt_start_level) ) THEN
       start_level = opt_start_level
     ELSE
@@ -401,9 +400,7 @@ CONTAINS
     ELSE
       end_level = n_zlev
     END IF
-    !iilc => patch_2d%edges%cell_idx
-    !iibc => patch_2d%edges%cell_blk
-    !
+
     ! advection is done with 1st order upwind scheme,
     ! i.e. a piecewise constant approx. of the cell centered values
     ! is used.
@@ -412,34 +409,40 @@ CONTAINS
     !
     ! line and block indices of two neighboring cells
     ! loop through all patch edges (and blocks)
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
-      
-      DO jk = start_level, end_level
-        DO je = start_index, end_index
+      edge_upwind_flux(:,:,jb) = 0.0_wp
+      DO je = start_index, end_index
+        DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,jb), end_level)
           !
           ! compute the first order upwind flux; notice
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          IF ( patch_3d%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+          ! IF ( patch_3d%lsm_e(je,jk,jb) <= sea_boundary ) THEN
             
-            il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
-            ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
+          edge_upwind_flux(je,jk,jb) = &
+            & DOT_PRODUCT(flux_cc(&
+            & p_op_coeff%upwind_cell_idx(je,jk,jb), jk, p_op_coeff%upwind_cell_blk(je,jk,jb))%x, &
+            & patch_2d%edges%primal_cart_normal(je,jb)%x)
             
-            pupflux_e(je,jk,jb)=&
-              & DOT_PRODUCT(flux_cc(il_c,jk,ib_c)%x,patch_2d%edges%primal_cart_normal(je,jb)%x)
-            
-            !    write(999,*)'upwind flux -h',je,jk,jb,z_pub_flux_e_up(je,jk,jb),pupflux_e(je,jk,jb)&
-            !    &, pvn_e(je,jk,jb),&
-            !    &pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
-          ENDIF
+          !    write(999,*)'upwind flux -h',je,jk,jb,z_pub_flux_e_up(je,jk,jb),edge_upwind_flux(je,jk,jb)&
+          !    &, pvn_e(je,jk,jb),&
+          !    &pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
+          ! ENDIF
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
     
   END SUBROUTINE upwind_hflux_oce_mimetic
+  !-----------------------------------------------------------------------
+
   !-----------------------------------------------------------------------
   !>
   !! First order upwind scheme for horizontal tracer advection
@@ -449,14 +452,13 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  !!  mpi parallelized LL
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE central_hflux_oce_mimetic( patch_3d, flux_cc,&
-    & pupflux_e, opt_start_level, opt_end_level )
+    & edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d                                  !< patch on which computation is performed
     TYPE(t_cartesian_coordinates)     :: flux_cc  (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)           :: pupflux_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)           :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level    ! optional vertical end level
     ! local variables
@@ -491,9 +493,11 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      pupflux_e(:,:,jb) = 0.0_wp
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      edge_upwind_flux(:,:,jb) = 0.0_wp
       DO je = start_index, end_index
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,jb), end_level)
           !
@@ -505,14 +509,17 @@ CONTAINS
           flux_mean_e%x=0.5_wp*(flux_cc(iilc(je,jb,1),jk,iibc(je,jb,1))%x&
             & +flux_cc(iilc(je,jb,2),jk,iibc(je,jb,2))%x)
             
-          pupflux_e(je,jk,jb)=DOT_PRODUCT(flux_mean_e%x,&
+          edge_upwind_flux(je,jk,jb)=DOT_PRODUCT(flux_mean_e%x,&
             & patch_2d%edges%primal_cart_normal(je,jb)%x)
           ! ENDIF
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE central_hflux_oce_mimetic
+  !-------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------------
   !>
@@ -529,14 +536,13 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI (2010-09-06)
   !! - adapted to hydrostatic ocean core
   !!
-  !!  mpi parallelized LL
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE upwind_hflux_oce( patch_3d, pvar_c, pvn_e, pupflux_e, opt_start_level, opt_end_level )
+  SUBROUTINE upwind_hflux_oce( patch_3d, pvar_c, pvn_e, edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(in)              :: pvar_c   (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)      !< advected cell centered variable
     REAL(wp), INTENT(in)              :: pvn_e    (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)       !< normal velocity on edges
-    REAL(wp), INTENT(inout)             :: pupflux_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)             :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level    ! optional vertical end level
     ! local variables
@@ -573,9 +579,11 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
-      pupflux_e(:,:,jb) = 0.0_wp
+      edge_upwind_flux(:,:,jb) = 0.0_wp
       DO je = start_index, end_index
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,jb), end_level)
           !
@@ -583,12 +591,14 @@ CONTAINS
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          pupflux_e(je,jk,jb) =  &
+          edge_upwind_flux(je,jk,jb) =  &
             & laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
             & pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE upwind_hflux_oce
   !-----------------------------------------------------------------------
@@ -602,14 +612,13 @@ CONTAINS
   !! @par Revision History
   !! Peter korn, MPI-M, 2011
   !!
-  !!  mpi parallelized LL
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE central_hflux_oce( patch_3d, pvar_c, pvn_e, pupflux_e )
+  SUBROUTINE central_hflux_oce( patch_3d, pvar_c, pvn_e, edge_upwind_flux )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: pvar_c   (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: pvn_e    (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)     !< normal velocity on edges
-    REAL(wp), INTENT(inout)           :: pupflux_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)           :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< variable in which the upwind flux is stored
     
     ! local variables
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
@@ -626,9 +635,11 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      pupflux_e(:,:,jb) = 0.0_wp
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      edge_upwind_flux(:,:,jb) = 0.0_wp
       DO je = start_index, end_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
           !
@@ -637,9 +648,9 @@ CONTAINS
           ! compute final conservative update using the discrete
           ! div operator
          !  IF ( patch_3d%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-           pupflux_e(je,jk,jb) =  0.5_wp*pvn_e(je,jk,jb)             &
-             & *( pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1))      &
-             & +pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)))     !&
+           edge_upwind_flux(je,jk,jb) =  0.5_wp * pvn_e(je,jk,jb)  &
+             & * (   pvar_c(iilc(je,jb,1), jk, iibc(je,jb,1))      &
+             &     + pvar_c(iilc(je,jb,2), jk, iibc(je,jb,2)))     !&
             !               &          +0.5_wp*pvn_e(je,jk,jb)*pvn_e(je,jk,jb)*dtime&
             !               &          * patch_2d%edges%inv_dual_edge_length(je,jb)   &
             !               &        *( pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))      &
@@ -648,9 +659,13 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
   END SUBROUTINE central_hflux_oce
   !-------------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------------
   !>
   !! First order scheme for horizontal tracer advection
   !!
@@ -664,14 +679,14 @@ CONTAINS
   !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
   !!
   SUBROUTINE mimetic_miura_hflux_oce( patch_3d,pvar_c, pvn_e, &
-    & p_op_coeff, pflux_e, &
+    & p_op_coeff, edge_upwind_flux, &
     & opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: pvar_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< advected cell centered variable
     REAL(wp), INTENT(inout)           :: pvn_e (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< normal velocity on edges
     TYPE(t_operator_coeff)            :: p_op_coeff
-    REAL(wp), INTENT(inout)           :: pflux_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
+    REAL(wp), INTENT(inout)           :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level      ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level      ! optional vertical end level
     
@@ -711,13 +726,13 @@ CONTAINS
     ! !       DO jk = start_level, end_level
     ! !         DO je = start_index, end_index          !
     ! !           IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-    ! !              pupflux_e(je,jk,jb) =  &
+    ! !              edge_upwind_flux(je,jk,jb) =  &
     ! !              &  laxfr_upflux( pvn_e(je,jk,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
     ! !              &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-    ! ! !write(*,*)'upwind miura',je,jk,jb,pupflux_e(je,jk,jb),pflux_e(je,jk,jb), pvn_e(je,jk,jb)!,&
+    ! ! !write(*,*)'upwind miura',je,jk,jb,edge_upwind_flux(je,jk,jb),edge_upwind_flux(je,jk,jb), pvn_e(je,jk,jb)!,&
     ! ! !&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
     ! !           ELSE
-    ! !             pupflux_e(je,jk,jb) = 0.0_wp
+    ! !             edge_upwind_flux(je,jk,jb) = 0.0_wp
     ! !           ENDIF
     ! !         END DO  ! end loop over edges
     ! !       END DO  ! end loop over levels
@@ -745,24 +760,30 @@ CONTAINS
     CALL sync_patch_array(sync_e, patch_2d, z_gradc)
     !3b:
     CALL map_edges2cell_3d( patch_3d, z_gradc,p_op_coeff, z_gradc_cc)
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, il_c, ib_c)  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      pflux_e(:,:,jb) = 0.0_wp
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      edge_upwind_flux(:,:,jb) = 0.0_wp
       DO je = start_index, end_index
         DO jk = start_level, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
     !    IF ( patch_3d%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-          il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
-          ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
+          il_c = p_op_coeff%upwind_cell_idx(je,jk,jb)
+          ib_c = p_op_coeff%upwind_cell_blk(je,jk,jb)
 
-          pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
-            & *(pvar_c(il_c,jk,ib_c)&
-            & +DOT_PRODUCT(p_op_coeff%moved_edge_position_cc(je,jk,jb)%x  &
-            & -p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x,&
-            & z_gradc_cc(il_c,jk,ib_c)%x))
+          edge_upwind_flux(je,jk,jb) = pvn_e(je,jk,jb)&
+            & *( pvar_c(il_c, jk, ib_c) +          &
+            &    DOT_PRODUCT(                    &
+            &      p_op_coeff%moved_edge_position_cc(je,jk,jb)%x -    &
+            &        p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x,  &
+            &      z_gradc_cc(il_c, jk, ib_c)%x))
    !     ENDIF
         END DO
       END DO
     END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE mimetic_miura_hflux_oce
   !-------------------------------------------------------------------------
