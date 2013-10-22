@@ -882,288 +882,6 @@ dynamics, transport, physics etc.
 
 
 %------------------------------------------------------------------------------
-% master_nml: the minimum one needs to specify about an integration
-%------------------------------------------------------------------------------
-\subsection{master\_nml}
-\begin{longtab}
-
-\hline
-l\_restart&
-L & .FALSE. & &
-If .TRUE.: Current experiment is started from a restart.&
-\tabularnewline
-
-\hline
-model\_base\_dir &
-C & ' ' & &
-General path which may be used in file names of other name lists:
-If a file name contains the keyword "\texttt{<path>}", then this
-\texttt{model\_base\_dir} will be substituted.
- &
-\tabularnewline
-
-\end{longtab}
-
-\subsection{master\_model\_nml (repeated for each model)}
-\begin{longtab}
-
-\hline
-model\_name &
-C & & &
-Character string for naming this component.&
-\tabularnewline
-
-\hline
-model\_namelist\_ filename &
-C & & &
-File name containing the model namelists.&
-\tabularnewline
-
-\hline
-model\_type &
-I & 0 & &
-Identifies which component to run.
-atmosphere=1, ocean=2, radiation=3,
-dummy\_model=99 &
-\tabularnewline
-
-\hline
-model\_min\_rank &
-I & 0 & &
-Start MPI rank for this model.&
-\tabularnewline
-
-\hline
-model\_max\_rank &
-I & -1 & &
-End MPI rank for this model.&
-\tabularnewline
-
-\hline
-model\_inc\_rank &
-I & 0 & &
-Stride of MPI ranks.&
-\tabularnewline
-
-\hline
-model\_restart\_info \_filename &
-C & restart.info & &
-Name (including full path) of the restart info file for this model&
-\tabularnewline
-
-\end{longtab}
-
-%------------------------------------------------------------------------------
-% time_nml
-%------------------------------------------------------------------------------
-\subsection{time\_nml}
-\begin{longtab}
-
-\hline
-dt\_restart &
-R & 86400.*30.& s &
-Length of restart cycle in seconds.
-Note that the frequency of writing restart files is controlled by
-io\_nml:dt\_checkpoint. If the value of dt\_checkpoint resulting from
-model default or user's specification is longer than dt\_restart,
-it will be reset (by the model) to dt\_restart so
-that at least one restart file is generated during the restart cycle.
-If dt\_restart is larger than but not a multiple of dt\_checkpoint,
-restart file will NOT be generated at the end of the restart cycle.
-&
-\tabularnewline
-
-\hline
-calendar&
-I& 1& &
-Calendar type: \\
-0=Julian/Gregorian \\
-1=proleptic Gregorian\\
-2=30day/month,360day/year &
-\tabularnewline
-
-\hline
-ini\_datetime\_string &
-C & '2008-09-01T00:00:00Z' &&
-Initial date and time of the simulation&
-\tabularnewline
-
-\hline
-end\_datetime\_string &
-C & 2008-09-01T01:40:00Z' &&
-End date and time of the simulation&
-\tabularnewline
-
-\hline
-&&&& Length of the run&
-\tabularnewline
-&&&& If "nsteps" in run\_nml (see below) is positive, then nsteps*dtime
-is used to compute the end date and time of the run.&
-\tabularnewline
-&&&& Else the initial date and time, the end date and time, dt\_restart,
-as well as the time step are used to compute "nsteps".&
-\tabularnewline
-
-\end{longtab}
-
-
-%------------------------------------------------------------------------------
-% parallel_nml:
-%------------------------------------------------------------------------------
-\subsection{parallel\_nml}
-\begin{longtab}
-
-\hline
-nproma &
-I & 1& &
-chunk length&
-\tabularnewline
-
-\hline
-n\_ghost\_rows &
-I & 1& &
-number of halo cell rows&
-\tabularnewline
-
-\hline
-division\_method &
-I & 1& &
-method of domain decomposition\\
-0: read in from file \\
-1: use built-in geometric subdivision \\
-2: use METIS&
-\tabularnewline
-
-
-\hline
-division\_file\_name &
-C &  & &
-Name of division file &
-division\_method = 0
-\tabularnewline
-
-\hline
-ldiv\_phys\_dom &
-L & .TRUE. & &
-.TRUE.: split into physical domains before computing domain decomposition (in case of merged domains)\\
-(This reduces load imbalance; turning off this option is not recommended except for very small processor numbers) &
-division\_method = 1
-\tabularnewline
-
-\hline
-p\_test\_run &
-L & .FALSE.& &
-.TRUE. means verification run for MPI parallelization (PE 0
-processes full domain) &
-\tabularnewline
-
-\hline
-l\_test\_openmp &
-L & .FALSE.& &
-if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
-the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
-p\_test\_run = .TRUE.
-\tabularnewline
-
-\hline
-l\_log\_checks &
-L & .FALSE.& &
-if .TRUE. messages are generated during each synchonization step
-(use for debugging only)&
-\tabularnewline
-
-\hline
-l\_fast\_sum &
-L & .FALSE.& &
-if .TRUE., use fast (not processor-configuration-invariant) global summation&
-\tabularnewline
-
-\hline
-use\_dycore\_barrier &
-L & .FALSE.& &
-if .TRUE., set an MPI barrier at the beginning of the nonhydrostatic solver (do not use for production runs!)&
-\tabularnewline
-
-\hline
-itype\_exch\_barrier &
-I & 0 & &
-1: set an MPI barrier at the beginning of each MPI exchange call\\
-2: set an MPI barrier after each MPI WAIT call \\
-3: 1+2 (do not use for production runs!) &
-\tabularnewline
-
-\hline
-iorder\_sendrecv &
-I & 1& &
-Sequence of send/receive calls: \\
- 1 = irecv/send \\
- 2 = isend/recv  \\
- 3 = isend/irecv \\
-\tabularnewline
-
-\hline
-itype\_comm &
-I & 1& &
-1: use local memory for exchange buffers \\
-3: asynchronous halo communication for dynamical core (currently deactivated)&
-\tabularnewline
-
-\hline
-num\_io\_procs &
-I & 0& &
-Number of I/O processors (running exclusively for doing I/O)&
-\tabularnewline
-
-\hline
-pio\_type &
-I & 1& &
-Type of parallel I/O. Only used if number of I/O processors greater number of domains.
-Experimental!&
-\tabularnewline
-
-% % \hline
-% % nh\_stepping\_threads &
-% % I & 1& &
-% % The number of OpenMP threads to be used by the non-hydrostatic dycore. Only used if the \_\_OMP\_RADIATION\_\_
-% % flag is set during compilation. Experimental! &
-% % \tabularnewline
-% %
-% % \hline
-% % radiation\_threads &
-% % I & 1& &
-% % The number of OpenMP threads to be used by the radiation. Only used if the \_\_OMP\_RADIATION\_\_
-% % flag is set during compilation. Experimental! &
-% % \tabularnewline
-
-\hline
-use\_icon\_comm &
-L & .FALSE. & &
-Enable the use of MPI bulk communication through the icon\_comm\_lib &
-\tabularnewline
-
-\hline
-icon\_comm\_debug &
-L & .FALSE. & &
-Enable debug mode for the icon\_comm\_lib &
-\tabularnewline
-
-\hline
-max\_send\_recv \_buffer\_size &
-I & 131072 & &
-Size of the send/receive buffers for the icon\_comm\_lib. &
-\tabularnewline
-
-\hline
-use\_dp\_mpi2io &
-L & .FALSE. & &
- Enable this flag if output fields shall be gathered by the output processes in DOUBLE PRECISION. &
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_parallel\_nml.f90
-
-%------------------------------------------------------------------------------
 % coupling_nml:
 %------------------------------------------------------------------------------
 \subsection{coupling\_nml}
@@ -1231,222 +949,528 @@ L &
 
 Defined and used in: src/namelists/mo\_coupling\_nml.f90
 
-%------------------------------------------------------------------------------
-% run_nml
-%------------------------------------------------------------------------------
-\subsection{run\_nml}
 
+%-----------------------------------------------------------------------------
+% diffusion_nml: horizontal (numerical) diffusion
+%-----------------------------------------------------------------------------
+\subsection{diffusion\_nml}
 \begin{longtab}
 
 \hline
-ldump\_states&
-L & .FALSE.& &
-Dump patch/interpolation/grid refinement state of every
-patch (after subdivision in case of a parallel run)
-to a Netcdf file and exit program.&
+lhdiff\_temp&
+L& .TRUE. & &
+Diffusion on the temperature field&
 \tabularnewline
 
 \hline
-lrestore\_states&
-L & .FALSE.& &
-Restore patch/interpolation/grid refinement states
-from NetCDF dump files instead of calculating them.&
+lhdiff\_vn&
+L& .TRUE. & &
+Diffusion on the horizontal wind field&
 \tabularnewline
 
 \hline
-dump\_filename&
-C &
-&
-&
-Filename of dump/restore files,
-default: ''\texttt{<path>dump\_<proc><gridfile>}''.
-May contain the keyword \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, \texttt{<proc>} substituted by ``procXofY\_'',
-and the grid filename \texttt{<gridfile>}. &
+lhdiff\_w&
+L& .TRUE. & &
+Diffusion on the vertical wind field&
 \tabularnewline
 
 \hline
-dd\_filename&
-C &
-&
-&
-Filename of NetCDF domain decomposition dump files,
-default: ''\texttt{<path>dd\_<gridfile>}''.
-May contain the keyword \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir},
-and the grid filename \texttt{<gridfile>}. &
+hdiff\_order&
+I& 4 (hydro) \\ 5 (NH)& &
+Order of $\nabla$ operator for diffusion:& \tabularnewline
+& & & & -1: no diffusion& \tabularnewline
+& & & & 2: $\nabla^{2}$ diffusion (not available for NH model on triangles!)& \tabularnewline
+& & & & 3: Smagorinsky $\nabla^{2}$ diffusion
+(includes frictional heating for the hexagonal model if lhdiff\_temp=.TRUE.) &
+\tabularnewline
+& & & & 4: $\nabla^{4}$ diffusion&
+\tabularnewline
+& & & &
+5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
+background diffusion as specified via hdiff\_efdt\_ratio&
+\tabularnewline
+& & & &
+defaults: 2 for hexagonal model, 4 for hydrostatic triangular model, 5 for nonhydrostatic triangular NH model&
+\tabularnewline
+& & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
+(cf. k2\_pres\_max and k2\_klev\_max below);
+$\nabla^{4}$ for the lower levels.  &
+24 and 42 currently allowed only in the hydrostatic atm model
+(run\_nml:iequation = 1 or 2).
 \tabularnewline
 
 \hline
-l\_one\_file\_per\_patch&
-L & .FALSE.& &
-Use one file per patch for all processors.\\
-This will decrease the amount of files used for dump/restore
-considerably, especially for massively parallel runs on hundreds
-or thousands of processors.\\
-Time for dumping will increase since the file has to be written sequentially,
-the time for restore should stay roughly the same, however.&
-ldump\_states=.TRUE. or lrestore\_states=.TRUE.
+itype\_vn\_diffu&
+I& 1 & &
+Reconstruction method used for Smagorinsky diffusion: \\
+1: u/v reconstruction at vertices only \\
+2: u/v reconstruction at cells and vertices& iequations=3, hdiff\_order=3 or 5
 \tabularnewline
 
 \hline
-ldump\_dd&
-L & .FALSE.& &
-Dump the domain decomposition (and a few related fields).
-This can be done either in a parallel run or in a single-CPU run.
-When done in a parallel run, the domain decoposition
-is for the number of parallel processes in use.
-When done in a single-CPU run, nproc\_dd (see below) determines
-the number of processes for the decomposition.
-Uses always only one file per patch,&
+itype\_t\_diffu&
+I& 2 & &
+Discretization of temperature diffusion: \\
+1: $K_h \nabla^2 T$ \\
+2: $\nabla \cdot (K_h \nabla T)$  & iequations=3, hdiff\_order=3 or 5
 \tabularnewline
 
 \hline
-lread\_dd&
-L & .FALSE.& &
-Read the domain decomposition when dumped with ldump\_dd.
-&
+k2\_pres\_max&
+R& -99.& Pa &
+Pressure level above which $\nabla^2$ diffusion is applied.&
+hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 \tabularnewline
 
 \hline
-nproc\_dd&
-I & 1 & &
-Number of processors for the target domain decomposition
-(only relevant when running on a single processor).&
-ldump\_dd = TRUE and a single processor run
+k2\_klev\_max&
+I& 0&&
+Index of the vertical level till which (from the model top)
+$\nabla^2$ diffusion is applied.
+If a positive value is specified for k2\_pres\_max,
+k2\_klev\_max is reset accordingly during the initialization
+of a model run.&
+hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
 \tabularnewline
 
 \hline
-nsteps &
-I & 0 & &
-number of time steps of this run.&
+hdiff\_efdt\_ratio&
+R& 1.0 (hydro) \\ 36.0 (NH) & &
+ratio of e-folding time to time step (or 2{*} time step when using
+a 3 time level time stepping scheme) (only for triangles currently;
+for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 \hline
-dtime &
-R & 600.0& s&
-time step&
-\tabularnewline
-
-
-\hline
-ltestcase &
-L & .TRUE.& &
-Idealized testcase runs&
+hdiff\_w\_efdt\_ratio&
+R& 15.0  & &
+ratio of e-folding time to time step for diffusion on vertical wind speed & iequations=3
 \tabularnewline
 
 \hline
-ldynamics&
-L& .TRUE.& &
-Compute adiabatic dynamic tendencies&
+hdiff\_min\_efdt\_ratio&
+R& 1.0 & &
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
 \tabularnewline
 
 \hline
-iforcing&
-I&
-0&
-&
-Forcing of dynamics and transport by parameterized processes. Use positive indices for the
-atmosphere and negative indices for the ocean.\\
-0: no forcing\\
-1: Held-Suarez forcing\\
-2: ECHAM forcing\\
-3: NWP forcing\\
-4: local diabatic forcing without physics\\
-5: local diabatic forcing with physics\\
--1: MPIOM forcing (to be done)&
+hdiff\_tv\_ratio&
+R& 1.0& &
+Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
 \tabularnewline
 
 \hline
-ltransport&
-L& .FALSE.& &
-Compute large-scale tracer transport&
-\tabularnewline
+hdiff\_multfac&
+R& 1.0& &
+Multiplication factor of normalized diffusion coefficient for nested
+domains&
+n\_dom>1\tabularnewline
 
 \hline
-ntracer&
-I& 0& &
-Number of advected tracers handled by the large-scale transport scheme&
-\tabularnewline
-
-\hline
-lvert\_nest &
-L & .FALSE.& &
-If set to .true. vertical nesting is switched on (i.e.\ variable number of vertical levels) &
-\tabularnewline
-
-\hline
-num\_lev&
-I(max\_dom)& 31& &
-Number of full levels (atm.) for each domain&
-lvert\_nest=.TRUE.
-\tabularnewline
-
-\hline
-nshift&
-I(max\_dom)& 0& &
-vertical half level of parent domain which coincides with
-upper boundary of the current domain&
-lvert\_nest=.TRUE.
-\tabularnewline
-
-\hline
-ltimer&
-L & .TRUE.& &
-TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
-\tabularnewline
-
-\hline
-timers\_level&
-I & 1& &
-&
-\tabularnewline
-
-\hline
-activate\_sync\_timers&
-L & F& &
-TRUE: Timer for monitoring runtime of communication routines (FALSE = off)&
-\tabularnewline
-
-\hline
-msg\_level&
-I & 10& &
-controls how much printout is written during runtime. \\
-For values less than 5, only the time step is written.&
-\tabularnewline
-
-\hline
-msg\_timestamp&
-L & .FALSE.& &
-If .TRUE., precede output messages by time stamp.&
-\tabularnewline
-
-\hline
-test\_mode&
-I & 0& &
-Setting a value larger than 0 activates a dummy mode in which time stepping is changed
-into just doing iterations, and MPI communication is replaced by copying some value from
-the send buffer into the receive buffer (does not work with nesting and reduced radiation
-grid because the send buffer may then be empty on some PEs) & iequations = 3
-\tabularnewline
-
-\hline
-output &
-C(:)& ``nml'',''totint'' & &
-Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
-\begin{itemize}
-\item ``none'': switch off all output;
-\item ``vlist'' : old, vlist-based output mode;
-\item``nml'': new output mode (cf.\ \texttt{output\_nml});
-\item``totint'': computation of total integrals.
-\end{itemize}
-If the \texttt{output} namelist parameter is not set explicitly, the default setting ``nml'',''totint'' is assumed.
- &
+hdiff\_smag\_fac&
+R& 0.15 (hydro) \\ 0.015 (NH)& &
+Scaling factor for Smagorinsky diffusion&
+for triangles only with iequations=3, for hexagons with hdiff\_order=3
 \tabularnewline
 
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_run\_nml.f90
+Defined and used in: src/namelists/mo\_diffusion\_nml.f90
+
+
+%-----------------------------------------------------------------------------
+% dynamics_nml:
+%-----------------------------------------------------------------------------
+\subsection{dynamics\_nml}
+This namelist is relevant if run\_nml:ldynamics=.TRUE.
+
+\begin{longtab}
+
+\hline
+iequations&
+I& 1& &
+Equations and prognostic variables. Use positive indices for the atmosphere
+and negative indices for the ocean.&\tabularnewline
+&&&&0: shallow water model&\tabularnewline
+&&&&1: hydrostatic atmosphere, T&\tabularnewline
+&&&&2: hydrostatic atm., $\theta$$\cdot$dp&\tabularnewline
+&&&&3: non-hydrostatic atmosphere&\tabularnewline
+&&&&-1: hydrostatic ocean&
+\tabularnewline
+
+
+\hline
+idiv\_method&
+I& 1& &
+Method for divergence computation:&
+grid\_nml:cell\_type=3\tabularnewline
+& & & & 1: Standard Gaussian integral. Hydrostatic atm.~model:
+for unaveraged normal components,
+Non-hydrostatic atm.~model: for averaged normal components &
+\tabularnewline
+& & & & 2: bilinear averaging of divergence& \tabularnewline
+
+\hline
+divavg\_cntrwgt&
+R& 0.5& &
+Weight of central cell for divergence averaging&
+idiv\_method= 2
+\tabularnewline
+
+\hline
+sw\_ref\_height &
+R &  0.9*2.94e4/g& m &
+Reference height of shallow water model used for
+linearization in the semi-implicit time stepping scheme&
+\tabularnewline
+
+\hline
+lcoriolis &
+L & .TRUE.& &
+Coriolis force&
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_dynamics\_nml.f90
+
+
+%------------------------------ switches for ECHAM physics
+
+
+%------------------------------------------------------------------------------
+% echam_conv_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_conv\_nml}
+
+\begin{longtab}
+
+\hline
+iconv&
+I & 1 &&
+Choice of cumulus convection scheme.\par
+1: Nordeng scheme\par
+2: Tiedtke scheme\par
+3: hybrid scheme &
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+ncvmicro&
+I & 0 &&
+Choice of convective microphysics scheme.&
+
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+lmfpen &
+L& .TRUE.&&
+Switch on penetrative convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+lmfmid &
+L& .TRUE.&&
+Switch on midlevel convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+lmfdd &
+L& .TRUE.&&
+Switch on cumulus downdraft.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+lmfdudv &
+L& .TRUE.&&
+Switch on cumulus friction.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+cmftau &
+R & 10800. &&
+Characteristic convective adjustment time scale.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+cmfctop &
+R & 0.3 &&
+Fractional convective mass flux (valid range [0,1])
+across the top of cloud &
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+cprcon &
+R & 1.0e-4 &&
+Coefficient for determining conversion from cloud water to rain.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+cminbuoy &
+R & 0.025 &&
+Minimum excess buoyancy.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+entrpen &
+R & 1.0e-4 &&
+Entrainment rate for penetrative convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\hline
+dlev &
+R & 3.e4 & Pa &
+Critical thickness necessary for the onset of convective precipitation.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_echam\_conv\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% echam_phy_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_phy\_nml}
+
+\begin{longtab}
+
+lrad &
+L& .TRUE.&&
+Switch on radiation.& iforcing = 2
+\tabularnewline
+
+\hline
+lvdiff &
+L& .TRUE.&&
+Switch on turbulent mixing (i.e. vertical diffusion).&
+iforcing = 2
+\tabularnewline
+
+\hline
+lconv &
+L& .TRUE.&&
+Switch on cumulus convection.& iforcing = 2
+\tabularnewline
+
+\hline
+lcond &
+L& .TRUE.&&
+Switch on large scale condensation.& iforcing = 2
+\tabularnewline
+
+\hline
+lcover &
+L& .FALSE.&&
+.TRUE. for prognostic cloud cover scheme, .FALSE. for diagnostic scheme.&
+iforcing = 2\par
+Note: lcover = .TRUE. runs, but has not been evaluated (yet) in ICON.
+\tabularnewline
+
+\hline
+lgw\_hines &
+L& .FALSE.&&
+.TRUE. for atmospheric gravity wave drag by the Hines scheme&
+iforcing = 2\par
+\tabularnewline
+
+\hline
+lssodrag &
+L& .FALSE.&&
+.TRUE. for subgrid scale orographic drag& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+llandsurf &
+L& .FALSE.&&
+.TRUE. for surface exchanges& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+lice &
+L& .FALSE.&&
+.TRUE. for sea-ice temperature calculation& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+lmeltpond &
+L& .FALSE.&&
+.TRUE. for calculation of meltponds& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+lhd &
+L& .FALSE.&&
+.TRUE. for hydrologic discharge model& iforcing = 2\par
+{\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+lmlo &
+L& .FALSE.&&
+.TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+dt\_rad &
+R&
+3600.&
+second&
+time interval of full radiation computation&
+run\_nml/iforcing = iecham
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_echam\_phy\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% gribout_nml:
+%------------------------------------------------------------------------------
+\subsection{gribout\_nml}
+\begin{longtab}
+
+\hline
+significanceOfReferenceTime &
+I& 1& &
+Significance of reference time\\
+- GRIB2 code table 1.2 &
+filetype=2
+\tabularnewline
+
+\hline
+productionStatusOfProcessedData&
+I& 1 & &
+Production status of data\\
+- GRIB2 code table 1.3 &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfProcessedData&
+I& 1 & &
+Type of data \\
+- GRIB2 code table 1.4 &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfGeneratingProcess&
+I& 2 & &
+Type of generating process \\
+- GRIB2 code table 4.3 &
+filetype=2
+\tabularnewline
+
+\hline
+backgroundProcess&
+I& 0 & &
+Background process \\
+- GRIB2 code table backgroundProcess.table &
+filetype=2
+\tabularnewline
+
+\hline
+generatingProcessIdentifier&
+I(n\_dom)& 1 & &
+generating Process Identifier \\
+- GRIB2 code table generatingProcessIdentifier.table &
+filetype=2
+\tabularnewline
+
+\hline
+localDefinitionNumber&
+I& 254 & &
+local Definition Number\\
+- GRIB2 code table grib2LocalSectionNumber.78.table &
+filetype=2
+\tabularnewline
+
+\hline
+localNumberOfExperiment&
+I& 1 & &
+local Number of Experiment &
+filetype=2
+\tabularnewline
+
+\hline
+generatingCenter&
+I& -1 & &
+Output generating center. If this key is not set, center information is taken from the grid file\\
+DWD: 78 \\
+MPIMET: 98 \\
+ECMWF: 98 &
+filetype=2
+\tabularnewline
+
+\hline
+generatingSubcenter&
+I& -1 & &
+Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file\\
+DWD: 255\\
+MPIMET: 232\\
+ECMWF: 0 &
+filetype=2
+\tabularnewline
+
+\hline
+ldate\_grib\_act&
+L& .TRUE. & &
+GRIB creation date\\
+.TRUE.: add creation date\\
+.FALSE.: add dummy date &
+filetype=2
+\tabularnewline
+
+\hline
+productDefinitionTemplateNumber&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfEnsembleForecast&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+numberOfForecastsInEnsemble&
+I& -1 & &
+Local definiton for ensemble products,
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+perturbationNumber&
+I& -1 & &
+Local definiton for ensemble products,
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_gribout\_nml.f90
 
 
 %-------------------------------------------------------------------
@@ -1707,6 +1731,205 @@ n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
 
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
+
+%------------------------------------------------------------------------------
+% gw_hines_nml:
+%------------------------------------------------------------------------------
+\subsection{gw\_hines\_nml (Scope: lgw\_hines = .TRUE. in echam\_phy\_nml)}
+
+\begin{longtab}
+
+\hline
+lheatcal    &
+L           &
+.FALSE.     &&
+.TRUE.: compute drag, heating rate and diffusion coefficient from the dissipation of gravity waves&
+\tabularnewline
+&&&&
+.FALSE.: compute drag only &
+\tabularnewline
+
+\hline
+emiss\_lev  &
+I           &
+10          &&
+Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
+\tabularnewline
+
+\hline
+rmscon      &
+R           &
+1.0         &
+m/s         &
+Root mean square gravity wave wind at the emission level &
+\tabularnewline
+
+\hline
+kstar       &
+R           &
+5.0e-5      &
+1/m         &
+Typical gravity wave horizontal wavenumber &
+\tabularnewline
+
+\hline
+m\_min      &
+R           &
+0.0         &
+1/m         &
+Minimum bound in  vertical wavenumber &
+\tabularnewline
+
+\hline
+lrmscon\_lat &
+L            &
+.FALSE.      &
+             &
+.TRUE.:  use latitude dependent rms wind &
+\tabularnewline
+&&&& - |latitude| >= lat\_rmscon: use rmscon &
+\tabularnewline
+&&&& - |latitude| <= lat\_rmscon\_eq: use rmscon\_eq &
+\tabularnewline
+&&&& - lat\_rmscon\_eq < |latitude| < lat\_rmscon: use linear interpolation between rmscon\_eq and rmscon &
+\tabularnewline
+&&&& .FALSE.: use globally constant rms wind rmscon &
+\tabularnewline
+
+\hline
+lat\_rmscon\_eq &
+R               &
+5.0             &
+deg N           &
+rmscon\_eq is used equatorward of this latitude &
+lrmscon\_lat = .TRUE.
+\tabularnewline
+
+\hline
+lat\_rmscon     &
+R               &
+10.0            &
+deg N           &
+rmscon is used polward of this latitude &
+lrmscon\_lat = .TRUE.
+\tabularnewline
+
+\hline
+rmscon\_eq      &
+R               &
+1.2             &
+m/s             &
+is used equatorward of latitude lat\_rmscon\_eq &
+lrmscon\_lat = .TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
+
+
+%-----------------------------------------------------------------------------
+% ha_dyn_nml: hydrostatic atm dynamics
+%-----------------------------------------------------------------------------
+\subsection{ha\_dyn\_nml}
+
+This namelist is relevant if
+run\_nml:ldynamics=.TRUE.
+and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
+
+\begin{longtab}
+
+\hline
+itime\_scheme&
+I& 4& &
+Time integration scheme:& \tabularnewline
+& & & & 11: pure advection (no dynamics)& \tabularnewline
+& & & & 12: 2 time level semi implicit (not yet implemented)&
+\tabularnewline
+& & & & 13: 3 time level explicit&
+\tabularnewline
+& & & & 14: 3 time level with semi implicit correction&
+\tabularnewline
+& & & & 15: standard 4th-order Runge-Kutta method (4-stage)&
+\tabularnewline
+& & & & 16: SSPRK(5,4) scheme (5-stage)&
+\tabularnewline
+
+\hline
+ileapfrog\_startup&
+I& 1& &
+How to integrate the first time step when the leapfrog scheme
+is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
+itime\_scheme= 13 or 14 \tabularnewline
+
+\hline
+asselin\_coeff&
+R& 0.1& &
+Asselin filter coefficient&
+itime\_scheme= 13 or 14 \tabularnewline
+
+\hline
+si\_2tls &
+R & 0.6 & &
+weight of time step n+1. Valid range: [0,1] &
+itime\_scheme=12\tabularnewline
+
+\hline
+si\_expl\_scheme &
+I & 2 & &
+scheme for the explicit part used in the 2 time level
+semi-implicit time stepping scheme. 1 = Euler forward;
+2 = Adams-Bashforth 2nd order &
+itime\_scheme=12\tabularnewline
+
+\hline
+si\_cmin&
+R & 30.0 & m/s&
+semi implicit correction is done for eigenmodes with speeds larger
+than si\_cmin&
+itime\_scheme=14 and lsi\_3d=.FALSE.\tabularnewline
+
+\hline
+si\_coeff&
+R & 1.0 & &
+weight of the semi implicit correction&
+itime\_scheme=14 \tabularnewline
+
+\hline
+si\_offctr&
+R & 0.7 & &
+&
+itime\_scheme=14 \tabularnewline
+
+\hline
+si\_rtol &
+R & 1.0e-3 & &
+relative tolerance for GMRES solver&
+itime\_scheme=14 \tabularnewline
+
+\hline
+lsi\_3d&
+L& .FALSE.& &
+3D GMRES solver or decomposistion into 2D problems&
+lshallow\_water=.FALSE. and itime\_scheme=14\tabularnewline
+\hline
+
+\hline
+ldry\_dycore &
+L & .TRUE. & &
+Assume dry atmosphere &
+iequations$\in$\{1,2\}
+\tabularnewline
+
+\hline
+lref\_temp &
+L & .FALSE. & &
+Set a background temperature profile as base state
+when computing the pressure gradient force &
+iequations$\in$\{1,2\}
+\tabularnewline
+
+\end{longtab}
 
 
 %------------------------------------------------------------------------------
@@ -1979,689 +2202,6 @@ value is not higher or lower than the stencil point values.&
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
 
 
-
-%-----------------------------------------------------------------------------
-% dynamics_nml:
-%-----------------------------------------------------------------------------
-\subsection{dynamics\_nml}
-This namelist is relevant if run\_nml:ldynamics=.TRUE.
-
-\begin{longtab}
-
-\hline
-iequations&
-I& 1& &
-Equations and prognostic variables. Use positive indices for the atmosphere
-and negative indices for the ocean.&\tabularnewline
-&&&&0: shallow water model&\tabularnewline
-&&&&1: hydrostatic atmosphere, T&\tabularnewline
-&&&&2: hydrostatic atm., $\theta$$\cdot$dp&\tabularnewline
-&&&&3: non-hydrostatic atmosphere&\tabularnewline
-&&&&-1: hydrostatic ocean&
-\tabularnewline
-
-
-\hline
-idiv\_method&
-I& 1& &
-Method for divergence computation:&
-grid\_nml:cell\_type=3\tabularnewline
-& & & & 1: Standard Gaussian integral. Hydrostatic atm.~model:
-for unaveraged normal components,
-Non-hydrostatic atm.~model: for averaged normal components &
-\tabularnewline
-& & & & 2: bilinear averaging of divergence& \tabularnewline
-
-\hline
-divavg\_cntrwgt&
-R& 0.5& &
-Weight of central cell for divergence averaging&
-idiv\_method= 2
-\tabularnewline
-
-\hline
-sw\_ref\_height &
-R &  0.9*2.94e4/g& m &
-Reference height of shallow water model used for
-linearization in the semi-implicit time stepping scheme&
-\tabularnewline
-
-\hline
-lcoriolis &
-L & .TRUE.& &
-Coriolis force&
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_dynamics\_nml.f90
-
-
-%------------------------------------------------------------------------------
-% limarea_nml:
-%------------------------------------------------------------------------------
-\subsection{limarea\_nml (Scope: l\_limited\_area=1 in grid\_nml)}
-
-\begin{longtab}
-
-\hline
-itype\_latbc&
-I & 0& &
-Type of lateral boundary nudging. Nudge from\\
-0: the initial date,\\
-1: IFS data analysis/forecast,\\
-2: ICON output data (with the identical 3d grid)&
-\tabularnewline
-
-\hline
-dtime\_latbc&
-R &
-43200.0& s
-&
-Time step size of boundary data
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-nlev\_latbc&
-I &
-0& s
-&
-Number of vertical levels in boundary data
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-latbc\_filename&
-C &
-&
-&
-Filename of boundary data input file, default:\\
-''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
-keyword ''\texttt{<path>}'' which will be substituted by
-\texttt{latbc\_path}.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-latbc\_path&
-C &
-&
-&
-Absolute path to boundary data.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-lupdate\_qvqc&
-L &
-.FALSE.
-&
-&
-Switch to update $q_v$, $q_c$ from available boundary data. Only first ''\texttt{grf\_bdywidth\_c}'' cells and ''\texttt{grf\_bdywidth\_e}'' edges are updated.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_limarea\_nml.f90
-
-
-
-%-----------------------------------------------------------------------------
-% ha_dyn_nml: hydrostatic atm dynamics
-%-----------------------------------------------------------------------------
-\subsection{ha\_dyn\_nml}
-
-This namelist is relevant if
-run\_nml:ldynamics=.TRUE.
-and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
-
-\begin{longtab}
-
-\hline
-itime\_scheme&
-I& 4& &
-Time integration scheme:& \tabularnewline
-& & & & 11: pure advection (no dynamics)& \tabularnewline
-& & & & 12: 2 time level semi implicit (not yet implemented)&
-\tabularnewline
-& & & & 13: 3 time level explicit&
-\tabularnewline
-& & & & 14: 3 time level with semi implicit correction&
-\tabularnewline
-& & & & 15: standard 4th-order Runge-Kutta method (4-stage)&
-\tabularnewline
-& & & & 16: SSPRK(5,4) scheme (5-stage)&
-\tabularnewline
-
-\hline
-ileapfrog\_startup&
-I& 1& &
-How to integrate the first time step when the leapfrog scheme
-is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
-itime\_scheme= 13 or 14 \tabularnewline
-
-\hline
-asselin\_coeff&
-R& 0.1& &
-Asselin filter coefficient&
-itime\_scheme= 13 or 14 \tabularnewline
-
-\hline
-si\_2tls &
-R & 0.6 & &
-weight of time step n+1. Valid range: [0,1] &
-itime\_scheme=12\tabularnewline
-
-\hline
-si\_expl\_scheme &
-I & 2 & &
-scheme for the explicit part used in the 2 time level
-semi-implicit time stepping scheme. 1 = Euler forward;
-2 = Adams-Bashforth 2nd order &
-itime\_scheme=12\tabularnewline
-
-\hline
-si\_cmin&
-R & 30.0 & m/s&
-semi implicit correction is done for eigenmodes with speeds larger
-than si\_cmin&
-itime\_scheme=14 and lsi\_3d=.FALSE.\tabularnewline
-
-\hline
-si\_coeff&
-R & 1.0 & &
-weight of the semi implicit correction&
-itime\_scheme=14 \tabularnewline
-
-\hline
-si\_offctr&
-R & 0.7 & &
-&
-itime\_scheme=14 \tabularnewline
-
-\hline
-si\_rtol &
-R & 1.0e-3 & &
-relative tolerance for GMRES solver&
-itime\_scheme=14 \tabularnewline
-
-\hline
-lsi\_3d&
-L& .FALSE.& &
-3D GMRES solver or decomposistion into 2D problems&
-lshallow\_water=.FALSE. and itime\_scheme=14\tabularnewline
-\hline
-
-\hline
-ldry\_dycore &
-L & .TRUE. & &
-Assume dry atmosphere &
-iequations$\in$\{1,2\}
-\tabularnewline
-
-\hline
-lref\_temp &
-L & .FALSE. & &
-Set a background temperature profile as base state
-when computing the pressure graident force &
-iequations$\in$\{1,2\}
-\tabularnewline
-
-\end{longtab}
-
-
-
-%-----------------------------------------------------------------------------
-% nonhydrostatic_nml:
-%-----------------------------------------------------------------------------
-\subsection{nonhydrostatic\_nml (relevant if run\_nml:iequations=3)}
-
-\begin{longtab}
-
-\hline
-itime\_scheme&
-I& 4& &
-Options for predictor-corrector time-stepping scheme:& \tabularnewline
-& & & &
-4: Contravariant vertical velocity is computed in the predictor step only,
-   velocity tendencies are computed in the corrector step only (most efficient option) \\
-5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
-   stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)\\
-6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive) &
-iequations=3 and cell\_type=3
-\tabularnewline
-
-\hline
-rayleigh\_type&
-I& 2& &
-Type of Rayleigh damping\\
-1: CLASSICAL (requires velocity reference state!)\\
-2: Klemp (2008) type &
-cell\_type=3
-\tabularnewline
-
-\hline
-rayleigh\_coeff&
-R(n\_dom)& 0.05& &
-Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
-higher values are recommended for R2B6 or finer resolution&
-cell\_type=3
-\tabularnewline
-
-\hline
-damp\_height&
-R(n\_dom)& 45000& m&
-Height at which Rayleigh damping of vertical wind starts (needs to be adjusted to model top height; the damping
-layer should have a depth of at least 20 km when the model top is above the stratopause)&
-\tabularnewline
-
-\hline
-htop\_moist\_proc&
-R& 22500.0& m&
-Height above which moist physics and advection of cloud and precipitation variables are turned off&
-\tabularnewline
-
-\hline
-hbot\_qvsubstep&
-R& 22500.0& m&
-Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
-cell\_type=3 and \\
-ihadv\_tracer=22, 32 or 42
-\tabularnewline
-
-\hline
-k2\_updamp\_coeff&
-R& 2.0e6& &
-enhanced 2nd order diffusion coefficient in upper damping layer&
-cell\_type=6, hdiff\_order=3 (Smagorinski)
-\tabularnewline
-
-\hline
-vwind\_offctr&
-R& 0.15& &
-Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.&
-cell\_type=3
-\tabularnewline
-
-\hline
-rhotheta\_offctr&
-R& -0.1& &
-Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids) &
-cell\_type=3
-\tabularnewline
-
-\hline
-veladv\_offctr&
-R& 0.25& &
-Off-centering of velocity advection in corrector step &
-cell\_type=3
-\tabularnewline
-
-\hline
-ivctype&
-I& 2& &
-Type of vertical coordinate:\\
-1: Gal-Chen hybrid \\
-2: SLEVE (uses sleve\_nml)&
-\tabularnewline
-
-\hline
-iadv\_rcf&
-I& 5& &
-reduced calling frequency (rcf) for transport/diffusion/physics \\
-1: no rcf (every dynamics-step)\\
-n>1: transport every n-th step \\
-Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
-\tabularnewline
-
-\hline
-lhdiff\_rcf&
-L& .TRUE. & &
-.TRUE.: Compute diffusion only at advection time steps (in this case,
-divergence damping is applied in the dynamical core)
-& cell\_type=3
-\tabularnewline
-
-\hline
-lextra\_diffu&
-L& .TRUE. & &
-.TRUE.: Apply additional momentum diffusion at grid points close to the stability limit for vertical advection (becomes effective
-extremely rarely in practice; this is mostly an emergency fix for pathological cases with very large orographic gravity waves)
-& cell\_type=3
-\tabularnewline
-
-\hline
-lbackward\_integr&
-L& .FALSE. & &
-.TRUE.: Integrate backward in time (preparation for testing a digital filter initialization)
-& cell\_type=3
-\tabularnewline
-
-\hline
-divdamp\_fac&
-R& 0.004& &
-Scaling factor for divergence damping&
-lhdiff\_rcf = .TRUE.
-\tabularnewline
-
-\hline
-divdamp\_order&
-I& 4& &
-Order of divergence damping: \\
-2 = second-order divergence damping \\
-4 = fourth-order divergence damping \\
-24 = combined second-order and fourth-order divergence damping (use for data assimilation cycle only!) &
-lhdiff\_rcf = .TRUE.
-\tabularnewline
-
-\hline
-divdamp\_type&
-I& 3 & &
-Type of divergence damping: \\
-2 = divergence damping acting on 2D divergence \\
-3 = divergence damping acting on 3D divergence &
-lhdiff\_rcf = .TRUE.
-\tabularnewline
-
-\hline
-l\_nest\_rcf&
-L& .TRUE.& &
-Synchronize interpolation/feedback calls with advection (transport) time steps.
-l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
-cell\_type=3
-\tabularnewline
-
-\hline
-l\_masscorr\_nest&
-L& .FALSE.& &
-.TRUE.: Apply mass conservation correction also in nested domain &
-cell\_type=3
-\tabularnewline
-
-\hline
-iadv\_rhotheta&
-I& 2& &
-Advection method for rho and rhotheta:\\
-1: simple second-order upwind-biased scheme \\
-2: 2nd order Miura horizontal &
-cell\_type=3 \tabularnewline
-& & & & 3: 3rd order Miura horizontal (not recommended)&
-\tabularnewline
-
-\hline
-igradp\_method&
-I& 3& &
-Discretization of horizontal pressure gradient:\\
-1: conventional discretization with metric correction term\\
-2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
-3: Similar discretization as option 2, but uses hydrostatic approximation
-for downward extrapolation over steep slopes \\
-4: Cubic/quadratic polynomial interpolation for pressure reconstruction \\
-5: Same as 4, but hydrostatic approximation for downward extrapolation over steep slopes &
-cell\_type=3
-\tabularnewline
-
-\hline
-l\_zdiffu\_t&
-L& .TRUE.& &
-.TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp = .true.
-\tabularnewline
-
-\hline
-thslp\_zdiffu&
-R& 0.025& &
-Slope threshold above which truly horizontal temperature diffusion is activated&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
-\tabularnewline
-
-\hline
-thhgtd\_zdiffu&
-R& 200& m&
-Threshold of height difference between neighboring grid points above which
-truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
-\tabularnewline
-
-\hline
-exner\_expol&
-R& 1./3.& &
-Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient.
-This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.&
-cell\_type=3
-\tabularnewline
-
-\hline
-l\_open\_ubc&
-L& .FALSE.& &
-.TRUE.: Use open upper boundary condition (rather than w=0) to allow vertical motions related to diabatic heating to
-extend beyond the model top&
-cell\_type=3
-\tabularnewline
-
-\hline
-ltheta\_up\_hori &
-L& .FALSE.& &
-upstream biased horizontal advection for theta (see also upstr\_beta)&
-cell\_type=6
-\tabularnewline
-
-\hline
-upstr\_beta &
-R& 1.0& &
-Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
-cell\_type=6
-\tabularnewline
-
-\hline
-gmres\_rtol\_nh &
-R& 1.0e-6& &
-relative tolerance for convergence in gmres solver &
-cell\_type=6
-\tabularnewline
-
-\hline
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
-
-%-----------------------------------------------------------------------------
-% sleve_nml:
-%-----------------------------------------------------------------------------
-\subsection{sleve\_nml (relevant if nonhydrostatic\_nml:ivctype=2)}
-\begin{longtab}
-
-\hline
-min\_lay\_thckn&
-R& 50& m&
-Layer thickness of lowermost layer; specifying zero or a negative value leads to constant layer thicknesses
-determined by top\_height and nlev&
-\tabularnewline
-
-\hline
-top\_height&
-R& 23500.0& m&
-Height of model top&
-\tabularnewline
-
-\hline
-stretch\_fac&
-R& 1.0& &
-Stretching factor to vary distribution of model levels;
-values $<$1 increase the layer thickness near the model top&
-\tabularnewline
-
-\hline
-decay\_scale\_1&
-R& 4000& m&
-Decay scale of large-scale topography component&
-\tabularnewline
-
-\hline
-decay\_scale\_2&
-R& 2500& m&
-Decay scale of small-scale topography component&
-\tabularnewline
-
-\hline
-decay\_exp&
-R& 1.2& &
-Exponent of decay function&
-\tabularnewline
-
-\hline
-flat\_height &
-R& 16000& m&
-Height above which the coordinate surfaces are flat&
-\tabularnewline
-
-\hline
-lread\_smt &
-L& .FALSE.& &
-read smoothed topography from file (TRUE) or compute internally (FALSE)&
-\tabularnewline
-
-\hline
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_sleve\_nml.f90
-
-
-%-----------------------------------------------------------------------------
-% diffusion_nml: horizontal (numerical) diffusion
-%-----------------------------------------------------------------------------
-\subsection{diffusion\_nml}
-\begin{longtab}
-
-\hline
-lhdiff\_temp&
-L& .TRUE. & &
-Diffusion on the temperature field&
-\tabularnewline
-
-\hline
-lhdiff\_vn&
-L& .TRUE. & &
-Diffusion on the horizontal wind field&
-\tabularnewline
-
-\hline
-lhdiff\_w&
-L& .TRUE. & &
-Diffusion on the vertical wind field&
-\tabularnewline
-
-\hline
-hdiff\_order&
-I& 4 (hydro) \\ 5 (NH)& &
-Order of $\nabla$ operator for diffusion:& \tabularnewline
-& & & & -1: no diffusion& \tabularnewline
-& & & & 2: $\nabla^{2}$ diffusion (not available for NH model on triangles!)& \tabularnewline
-& & & & 3: Smagorinsky $\nabla^{2}$ diffusion
-(includes frictional heating for the hexagonal model if lhdiff\_temp=.TRUE.) &
-\tabularnewline
-& & & & 4: $\nabla^{4}$ diffusion&
-\tabularnewline
-& & & &
-5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
-background diffusion as specified via hdiff\_efdt\_ratio&
-\tabularnewline
-& & & &
-defaults: 2 for hexagonal model, 4 for hydrostatic triangular model, 5 for nonhydrostatic triangular NH model&
-\tabularnewline
-& & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
-(cf. k2\_pres\_max and k2\_klev\_max below);
-$\nabla^{4}$ for the lower levels.  &
-24 and 42 currently allowed only in the hydrostatic atm model
-(run\_nml:iequation = 1 or 2).
-\tabularnewline
-
-\hline
-itype\_vn\_diffu&
-I& 1 & &
-Reconstruction method used for Smagorinsky diffusion: \\
-1: u/v reconstruction at vertices only \\
-2: u/v reconstruction at cells and vertices& iequations=3, hdiff\_order=3 or 5
-\tabularnewline
-
-\hline
-itype\_t\_diffu&
-I& 2 & &
-Discretization of temperature diffusion: \\
-1: $K_h \nabla^2 T$ \\
-2: $\nabla \cdot (K_h \nabla T)$  & iequations=3, hdiff\_order=3 or 5
-\tabularnewline
-
-\hline
-k2\_pres\_max&
-R& -99.& Pa &
-Pressure level above which $\nabla^2$ diffusion is applied.&
-hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
-\tabularnewline
-
-\hline
-k2\_klev\_max&
-I& 0&&
-Index of the vertical level till which (from the model top)
-$\nabla^2$ diffusion is applied.
-If a positive value is specified for k2\_pres\_max,
-k2\_klev\_max is reset accordingly during the initialization
-of a model run.&
-hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
-\tabularnewline
-
-\hline
-hdiff\_efdt\_ratio&
-R& 1.0 (hydro) \\ 36.0 (NH) & &
-ratio of e-folding time to time step (or 2{*} time step when using
-a 3 time level time stepping scheme) (only for triangles currently;
-for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
-\tabularnewline
-
-\hline
-hdiff\_w\_efdt\_ratio&
-R& 15.0  & &
-ratio of e-folding time to time step for diffusion on vertical wind speed & iequations=3
-\tabularnewline
-
-\hline
-hdiff\_min\_efdt\_ratio&
-R& 1.0 & &
-minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
-\tabularnewline
-
-\hline
-hdiff\_tv\_ratio&
-R& 1.0& &
-Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
-\tabularnewline
-
-\hline
-hdiff\_multfac&
-R& 1.0& &
-Multiplication factor of normalized diffusion coefficient for nested
-domains&
-n\_dom>1\tabularnewline
-
-\hline
-hdiff\_smag\_fac&
-R& 0.15 (hydro) \\ 0.015 (NH)& &
-Scaling factor for Smagorinsky diffusion&
-for triangles only with iequations=3, for hexagons with hdiff\_order=3
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_diffusion\_nml.f90
-
-
 %------------------------------------------------------------------------------
 % io_nml:
 %------------------------------------------------------------------------------
@@ -2924,391 +2464,449 @@ will be removed after some testing phase
 Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
-
 %------------------------------------------------------------------------------
-% output_nml:
+% les_nml:
 %------------------------------------------------------------------------------
-\subsection{output\_nml}
-
-Please note: There may be several instances of
-output\_nml in the namelist file, every one defining a list of variables with
-separate attributes for output.
+\subsection{les\_nml (parameters for LES turbulence scheme; valid for inwp\_turb=5)}
 
 \begin{longtab}
 
 \hline
-filetype &
-I&4& &
-One of CDI's FILETYPE\_XXX constants.
-Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
-&
+sst & R & 300 & K &
+sea surface temperature for idealized LES simulations &
+nh\_test\_name=CBL, RICO\\
+isrfc\_type=5,4
 \tabularnewline
 
 \hline
- mode &
-I&2& &
- 1 = forecast mode, 2 = climate mode \\
- In climate mode the time axis of the output file
- is set to TAXIS\_ABSOLUTE. In forecast mode it is set
- to TAXIS\_RELATIVE. Till now the forecast mode only
- works if the output is at multiples of 1 hour
-&
+shflx & R & -999 & Km/s &
+Kinematic sensible heat flux at surface &
+isrfc\_type = 2
 \tabularnewline
 
 \hline
- taxis\_tunit &
-I&3& &
- 3 = TUNIT\_HOUR , 2 = TUNIT\_MINUTE \\
- Time unit of the TAXIS\_RELATIVE time axis.
- For a complete list of possible values see cdi.inc
- Till now it only works for taxis\_tunit=3
-& mode=1
+lhflx & R & -999 & m/s &
+Kinematic latent heat flux at surface &
+isrfc\_type = 2
 \tabularnewline
 
 \hline
- dom(:) &
-I&-1& &
- Array of domains for which this name-list is used.
- If not specified (or specified as -1 as the first array member),
- this name-list will be used for all domains. \\
- Attention: Depending on the setting of the parameter l\_output\_phys\_patch
- these are either logical or physical domain numbers!
-&
+isrfc\_type & I & 1 &  &
+surface type \\
+1 = TERRA land physics \\
+2 = fixed surface fluxes \\
+3 = fixed buoyancy fluxes \\
+4 = RICO test case \\
+5 = fixed SST &
 \tabularnewline
 
 \hline
- output\_time\_unit &
-I&1& &
- 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-&
+ufric & R & -999 & m/s &
+friction velocity for idealized LES simulations &
 \tabularnewline
 
 \hline
- output\_bounds(3,:) &
-R&None& &
- post-processing times in units defined by output\_time\_unit: start, end, increment.
- There may be specified several triples (up to 100) which must be in increasing order.
-&
+is\_dry\_cbl & L & .FALSE. &  &
+switch for dry convective boundary layer simulations &
 \tabularnewline
 
 \hline
- steps\_per\_file &
-I&100& &
- Max number of output steps in one output file. If this number is reached, a new output
- file will be opened.
-&
+karman\_constant & R & 0.4 &  &
+von Karman constant &
 \tabularnewline
 
 \hline
- include\_last &
-L&.TRUE.& &
- Flag whether to include the last time step
-&
+smag\_constant & R & 0.12 &  &
+Smagorinsky constant &
 \tabularnewline
 
 \hline
- output\_grid &
-L&.FALSE.& &
- Flag whether grid information is output (in NetCDF output)
-&
+turb\_prandtl & R & 0.333333 &  &
+turbulent Prandtl number &
 \tabularnewline
 
 \hline
- output\_filename &
-C&None& &
- Output filename prefix (which may include path).
- Domain number, level type, file number and extension will be added,
- according to the format given in namelist parameter ``filename\_format''.
-&
+bflux & R & -999 &  m$^2$/s$^3$ &
+buoyancy flux for idealized LES simulations (Stevens 2007) &
+isrfc\_type=3
 \tabularnewline
 
 \hline
- filename\_format &
-C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
- Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
-&
+tran\_coeff & R & -999 &  m/s &
+transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
+isrfc\_type=3
 \tabularnewline
 
-\hline
- lwrite\_ready &
-L&.FALSE.& &
- Flag if a "ready file" (sentinel file) should be written at the end of each output stage.
-&
-\tabularnewline
-
-\hline
- ready\_directory &
-C&None& &
- Output directory for ready files.
-&
-\tabularnewline
-
-\hline
- ml\_varlist(:) &
-C&None& &
- Name of model level fields to be output.
-&
-\tabularnewline
-
-\hline
- pl\_varlist(:) &
-C&None& &
- Name of pressure level fields to be output.
-&
-\tabularnewline
-
-\hline
- hl\_varlist(:) &
-C&None& &
- Name of height level fields to be output.
-&
-\tabularnewline
-
-
-\hline
- il\_varlist(:) &
-C&None& &
- Name of isentropic level fields to be output.
-&
-\tabularnewline
-
-\hline
- p\_levels(:) &
-R&None& hPa &
- pressure levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
-
-&
-\tabularnewline
-
-\hline
- h\_levels(:) &
-R&None& m &
- height levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
-&
-\tabularnewline
-
-\hline
- i\_levels(:) &
-R&None& K &
- isentropic levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
-&
-\tabularnewline
-
-\hline
- remap &
-I&0& &
- interpolate horizontally, 0: none, 1: to regular lat-lon grid
-&
-\tabularnewline
-
-\hline
- reg\_lon\_def(3) &
-R&None& &
- The regular grid points are specified by three values: start, increment, end given in degrees.
-It contains all grid points $start + k * increment <= end$, where $k$ is an integer.
-For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
-Instead of defining an increment it is also possible to prescribe the number of grid points, where it is expected that this
-value is larger than 5.0.
-&
-remap=1
-\tabularnewline
-
-\hline
- reg\_lat\_def(3) &
-R&None& &
- start, increment, end latitude in degrees.
- See reg\_lon\_def for details.
-&
-remap=1
-\tabularnewline
-
-\hline
- north\_pole(2) &
-R&0,90& &
- definition of north pole for rotated lon-lat grids.
-&
-\tabularnewline
-
-\hline
 \end{longtab}
 
-\paragraph{Variable Groups:}
-Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
-sets of common variables can be added to the output:
-\begin{tabbing}
-\hspace*{0.4\textwidth} \= \kill
-\texttt{group:all}                     \>      output of all variables (caution: do not combine with \underline{mixed} vertical interpolation) \\
-\texttt{group:atmo\_ml\_vars}          \>      basic atmospheric variables on model levels                          \\
-\texttt{group:atmo\_pl\_vars},
-\texttt{group:atmo\_zl\_vars}          \>      same set as atmo\_ml\_vars, but except pres and height, respectively \\
-\texttt{group:nh\_prog\_vars}          \>      additional prognostic variables of the nonhydrostatic model          \\
-\texttt{group:atmo\_derived\_vars}     \>      derived atmospheric variables                                        \\
-\texttt{group:rad\_vars}               \>                                                                           \\
-\texttt{group:precip\_vars}            \>                                                                           \\
-\texttt{group:cloud\_diag}             \>                                                                           \\
-\texttt{group:pbl\_vars}               \>                                                                           \\
-\texttt{group:phys\_tendencies}        \>                                                                           \\
-\texttt{group:land\_vars}              \>                                                                           \\
-\texttt{group:multisnow\_vars}         \>     tile-averaged variables
-\end{tabbing}
-
-\paragraph{Keyword substitution in output filename (\texttt{filename\_format}):}
-\begin{tabbing}
-\hspace*{0.4\textwidth} \= \kill
-\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\
-\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
-\texttt{physdom}           \>  substituted by physical patch ID                         \\
-\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
-\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
-\texttt{jfile}             \>  substituted by output file counter                       \\
-\texttt{ddhhmmss}          \>  substituted by day-hour-minute-second string
-\end{tabbing}
-
-
-Defined and used in: src/namelists/mo\_name\_list\_output.f90
+Defined and used in: src/namelists/mo\_les\_nml.f90
 
 
 %------------------------------------------------------------------------------
-% gribout_nml:
+% limarea_nml:
 %------------------------------------------------------------------------------
-\subsection{gribout\_nml}
+\subsection{limarea\_nml (Scope: l\_limited\_area=1 in grid\_nml)}
+
 \begin{longtab}
 
 \hline
-significanceOfReferenceTime &
-I& 1& &
-Significance of reference time\\
-- GRIB2 code table 1.2 &
-filetype=2
+itype\_latbc&
+I & 0& &
+Type of lateral boundary nudging. Nudge from\\
+0: the initial date,\\
+1: IFS data analysis/forecast,\\
+2: ICON output data (with the identical 3d grid)&
 \tabularnewline
 
 \hline
-productionStatusOfProcessedData&
-I& 1 & &
-Production status of data\\
-- GRIB2 code table 1.3 &
-filetype=2
+dtime\_latbc&
+R &
+43200.0& s
+&
+Time step size of boundary data
+&
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline
-typeOfProcessedData&
-I& 1 & &
-Type of data \\
-- GRIB2 code table 1.4 &
-filetype=2
+nlev\_latbc&
+I &
+0& s
+&
+Number of vertical levels in boundary data
+&
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline
-typeOfGeneratingProcess&
-I& 2 & &
-Type of generating process \\
-- GRIB2 code table 4.3 &
-filetype=2
+latbc\_filename&
+C &
+&
+&
+Filename of boundary data input file, default:\\
+''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
+keyword ''\texttt{<path>}'' which will be substituted by
+\texttt{latbc\_path}.
+&
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline
-backgroundProcess&
-I& 0 & &
-Background process \\
-- GRIB2 code table backgroundProcess.table &
-filetype=2
+latbc\_path&
+C &
+&
+&
+Absolute path to boundary data.
+&
+itype\_latbc $\ge$ 1
 \tabularnewline
 
 \hline
-generatingProcessIdentifier&
-I(n\_dom)& 1 & &
-generating Process Identifier \\
-- GRIB2 code table generatingProcessIdentifier.table &
-filetype=2
+lupdate\_qvqc&
+L &
+.FALSE.
+&
+&
+Switch to update $q_v$, $q_c$ from available boundary data. Only first ''\texttt{grf\_bdywidth\_c}'' cells and ''\texttt{grf\_bdywidth\_e}'' edges are updated.
+&
+itype\_latbc $\ge$ 1
 \tabularnewline
 
-\hline
-localDefinitionNumber&
-I& 254 & &
-local Definition Number\\
-- GRIB2 code table grib2LocalSectionNumber.78.table &
-filetype=2
-\tabularnewline
-
-\hline
-localNumberOfExperiment&
-I& 1 & &
-local Number of Experiment &
-filetype=2
-\tabularnewline
-
-\hline
-generatingCenter&
-I& -1 & &
-Output generating center. If this key is not set, center information is taken from the grid file\\
-DWD: 78 \\
-MPIMET: 98 \\
-ECMWF: 98 &
-filetype=2
-\tabularnewline
-
-\hline
-generatingSubcenter&
-I& -1 & &
-Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file\\
-DWD: 255\\
-MPIMET: 232\\
-ECMWF: 0 &
-filetype=2
-\tabularnewline
-
-\hline
-ldate\_grib\_act&
-L& .TRUE. & &
-GRIB creation date\\
-.TRUE.: add creation date\\
-.FALSE.: add dummy date &
-filetype=2
-\tabularnewline
-
-\hline
-productDefinitionTemplateNumber&
-I& -1 & &
-Local definiton for ensemble products
-(only set if value changed from default) &
-filetype=2
-\tabularnewline
-
-\hline
-typeOfEnsembleForecast&
-I& -1 & &
-Local definiton for ensemble products
-(only set if value changed from default) &
-filetype=2
-\tabularnewline
-
-\hline
-numberOfForecastsInEnsemble&
-I& -1 & &
-Local definiton for ensemble products,
-(only set if value changed from default) &
-filetype=2
-\tabularnewline
-
-\hline
-perturbationNumber&
-I& -1 & &
-Local definiton for ensemble products,
-(only set if value changed from default) &
-filetype=2
-\tabularnewline
-
-\hline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_gribout\_nml.f90
+Defined and used in: src/namelists/mo\_limarea\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% nwp_lnd_nml:
+%------------------------------------------------------------------------------
+\subsection{lnd\_nml}
+
+\begin{longtab}
+
+nlev\_snow &
+I&
+2&
+&
+number of snow layers\\
+for {\tt lmulti\_snow=.true.}&
+lmulti\_snow=.true.
+\tabularnewline
+\hline
+ntiles &
+I&
+1&
+&
+number of tiles&
+\tabularnewline
+
+\hline
+lsnowtile &
+L&
+.FALSE.&
+&
+.TRUE.: consider snow-covered and snow-free tiles separately &
+ntiles>1
+\tabularnewline
+
+\hline
+frlnd\_thrhld &
+R&
+0.05&
+&
+fraction threshold for creating a land grid point &
+ntiles>1
+\tabularnewline
+
+\hline
+frlake\_thrhld &
+R&
+0.05&
+&
+fraction threshold for creating a lake grid point &
+ntiles>1
+\tabularnewline
+\hline
+frsea\_thrhld &
+R&
+0.05&
+&
+fraction threshold for creating a sea grid point &
+ntiles>1
+\tabularnewline
+
+\hline
+frlndtile\_thrhld &
+R&
+0.05&
+&
+fraction threshold for retaining the respective tile for a grid point&
+ntiles>1
+\tabularnewline
+
+\hline
+nztlev &
+I&
+2&
+&
+used time integration scheme&
+\tabularnewline
+\hline
+lmulti\_snow &
+L&
+.TRUE.&
+&
+.TRUE. for use of multi-layer snow model&
+\tabularnewline
+
+\hline
+max\_toplaydepth &
+R &
+0.25&
+m &
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
+\tabularnewline
+
+\hline
+idiag\_snowfrac &
+I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2--4 = more advanced experimental methods &
+\tabularnewline
+
+\hline
+itype\_lndtbl &
+I & 1 &  & Table values used for associating surface parameters to land-cover classes: 1 = defaults from extpar,
+2 = IFS values for globcover classes (currently no effect in case of glc2000 data) &
+\tabularnewline
+
+\hline
+lseaice &
+L&
+.TRUE.&
+&
+.TRUE. for use of sea-ice model&
+\tabularnewline
+\hline
+llake &
+L&
+.FALSE.&
+&
+.TRUE. for use of lake model&
+\tabularnewline
+\hline
+sstice\_mode &
+I&
+1&
+&
+1: SST and sea ice fraction are read from the analysis and kept constant. The
+sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are updated daily, based on climatological monthly
+means\\
+3: SST and sea ice fraction are updated daily, based on actual monthly means\\
+4: SST and sea ice fraction are updated daily, based on actual daily means,
+not yet implemented&
+iequations=3\\
+iforcing=3
+\tabularnewline
+\hline
+sst\_td\_filename &
+C&
+&
+&
+Filename of SST input files for time dependent SST.
+Default is "<path>SST\_<year>\_<month>\_<gridfile>". May contain the
+keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
+\hline
+ci\_td\_filename &
+C&
+&
+&
+Filename of sea ice fraction input files for time dependent sea ice fraction.
+Default is "<path>CI\_<year>\_<month>\_<gridfile>". May contain
+the keyword <path> which will be substituted by model\_base\_dir&
+sstice\_mode=2,3
+\tabularnewline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_lnd\_nwp\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% ls_forcing_nml:
+%------------------------------------------------------------------------------
+\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
+
+\begin{longtab}
+
+\hline
+is\_ls\_forcing& L & .FALSE. &  &
+switch for enabling large-scale (LS) forcing on torus grid &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline
+is\_subsidence\_moment & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for momentum equations&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline
+is\_subsidence\_heat & L & .FALSE. &  &
+switch for enabling LS vertical advection due to subsidence for thermal equations &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+
+\hline
+is\_advection & L & .FALSE. &  &
+switch for enabling LS horizontal advection (currently only for thermal equations)&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline
+is\_rad\_forcing & L & .FALSE. &  &
+switch for enabling radiative forcing &
+is\_plane\_torus=.TRUE. \\
+inwp\_rad=.FALSE.
+\tabularnewline
+
+\hline
+is\_geowind & L & .FALSE. &  &
+switch for enabling geostrophic wind &
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+\hline
+is\_theta & L & .FALSE. &  &
+switch to indicate that the prescribed radiative forcing is for potential temperature &
+is\_plane\_torus=.TRUE. \\
+is\_rad\_forcing=.TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_ls\_forcing\_nml.f90
+
+
+\subsection{master\_model\_nml (repeated for each model)}
+\begin{longtab}
+
+\hline
+model\_name &
+C & & &
+Character string for naming this component.&
+\tabularnewline
+
+\hline
+model\_namelist\_ filename &
+C & & &
+File name containing the model namelists.&
+\tabularnewline
+
+\hline
+model\_type &
+I & 0 & &
+Identifies which component to run.
+atmosphere=1, ocean=2, radiation=3,
+dummy\_model=99 &
+\tabularnewline
+
+\hline
+model\_min\_rank &
+I & 0 & &
+Start MPI rank for this model.&
+\tabularnewline
+
+\hline
+model\_max\_rank &
+I & -1 & &
+End MPI rank for this model.&
+\tabularnewline
+
+\hline
+model\_inc\_rank &
+I & 0 & &
+Stride of MPI ranks.&
+\tabularnewline
+
+\hline
+model\_restart\_info \_filename &
+C & restart.info & &
+Name (including full path) of the restart info file for this model&
+\tabularnewline
+
+\end{longtab}
+
+
+%------------------------------------------------------------------------------
+% master_nml: the minimum one needs to specify about an integration
+%------------------------------------------------------------------------------
+\subsection{master\_nml}
+\begin{longtab}
+
+\hline
+l\_restart&
+L & .FALSE. & &
+If .TRUE.: Current experiment is started from a restart.&
+\tabularnewline
+
+\hline
+model\_base\_dir &
+C & ' ' & &
+General path which may be used in file names of other name lists:
+If a file name contains the keyword "\texttt{<path>}", then this
+\texttt{model\_base\_dir} will be substituted.
+ &
+\tabularnewline
+
+\end{longtab}
 
 
 %------------------------------------------------------------------------------
@@ -3363,7 +2961,6 @@ list of meteogram stations (triples with lat, lon, name string)&
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_mtgrm\_nml.f90
-
 
 
 %------------------------------------------------------------------------------
@@ -3422,125 +3019,259 @@ iequations=3\\
 Defined and used in: src/namelists/mo\_nh\_pzlev\_nml.f90
 
 
-
-%------------------------------------------------------------------------------
-% transport_nml:
-%------------------------------------------------------------------------------
-\subsection{transport\_nml (used if run\_nml/ltransport=.TRUE.)}
+%-----------------------------------------------------------------------------
+% nonhydrostatic_nml:
+%-----------------------------------------------------------------------------
+\subsection{nonhydrostatic\_nml (relevant if run\_nml:iequations=3)}
 
 \begin{longtab}
 
-lvadv\_tracer&
-L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
-& &       & & FALSE: do not compute vertical tracer advection &
+\hline
+itime\_scheme&
+I& 4& &
+Options for predictor-corrector time-stepping scheme:& \tabularnewline
+& & & &
+4: Contravariant vertical velocity is computed in the predictor step only,
+   velocity tendencies are computed in the corrector step only (most efficient option) \\
+5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
+   stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)\\
+6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive) &
+iequations=3 and cell\_type=3
 \tabularnewline
 
 \hline
-ihadv\_tracer&
-I(ntracer)&
-2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport & \tabularnewline
-& & & & 1: upwind (1st order) & \tabularnewline
-& & & & 2: miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
-& & & & 3: miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
-& & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
-& & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
-& & & & 22: combination of miura and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 32: combination of miura3 and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 42: combination of FFSL and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 5: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
-
-\hline
-ivadv\_tracer&
-I(ntracer)&
-3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport& \tabularnewline
-& & & & 1: upwind (1st order)& \tabularnewline
-& & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 30: ppm (3rd order)& \tabularnewline
-
-\hline
-lstrang &
-L& .FALSE.& & splitting into fractional steps & \tabularnewline
-& & & & - second order Strang splitting (.TRUE.) & \tabularnewline
-& & & & - first order Godunov splitting (.FALSE.)& \tabularnewline
-
-\hline
-ctracer\_list&
-C& ''& & list of tracer names &
+rayleigh\_type&
+I& 2& &
+Type of Rayleigh damping\\
+1: CLASSICAL (requires velocity reference state!)\\
+2: Klemp (2008) type &
+cell\_type=3
 \tabularnewline
 
 \hline
-itype\_hlimit&
-I(ntracer)&
-3& & Type of limiter for horizontal transport:& \tabularnewline
-& & 4& & 0: no limiter& \tabularnewline
-& & & & 3: monotonous flux limiter& ihadv\_tracer$\,\ne\,$'iup3[4]'\tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-\hline
-itype\_vlimit&
-I(ntracer)&
-1& & Type of limiter for vertical transport:& \tabularnewline
-& & & & 0: no limiter& \tabularnewline
-& & & & 1: semi-monotone slope limiter& \tabularnewline
-& & & & 2: monotonous slope limiter& \tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-\hline
-niter\_fct&
-I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+rayleigh\_coeff&
+R(n\_dom)& 0.05& &
+Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
+higher values are recommended for R2B6 or finer resolution&
+cell\_type=3
 \tabularnewline
 
 \hline
-beta\_fct&
-R& 1.0& & factor for multiplicative spreading of range of permissible values (limiter) \\
-\textcolor{red}{Tentative suggestion: beta\_fct=1.0015}& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+damp\_height&
+R(n\_dom)& 45000& m&
+Height at which Rayleigh damping of vertical wind starts (needs to be adjusted to model top height; the damping
+layer should have a depth of at least 20 km when the model top is above the stratopause)&
 \tabularnewline
 
 \hline
-iord\_backtraj&
-I& 1& & order of backward trajectory calculation:& \tabularnewline
-& & & & 1: first order& \tabularnewline
-& & & & 2: second order (iterative; currently 1 iteration hardcoded)& ihadv\_tracer='miura'
+htop\_moist\_proc&
+R& 22500.0& m&
+Height above which moist physics and advection of cloud and precipitation variables are turned off&
 \tabularnewline
 
 \hline
-igrad\_c\_miura&
-I& 1& & Method for gradient reconstruction at cell center for 2nd order miura& \tabularnewline
-& & & & 1: Least-squares (linear, non-consv)& ihadv\_tracer=2\tabularnewline
-& & & & 2: Green-Gauss&
+hbot\_qvsubstep&
+R& 22500.0& m&
+Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
+cell\_type=3 and \\
+ihadv\_tracer=22, 32 or 42
 \tabularnewline
 
 \hline
-ivcfl\_max&
+k2\_updamp\_coeff&
+R& 2.0e6& &
+enhanced 2nd order diffusion coefficient in upper damping layer&
+cell\_type=6, hdiff\_order=3 (Smagorinski)
+\tabularnewline
+
+\hline
+vwind\_offctr&
+R& 0.15& &
+Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.&
+cell\_type=3
+\tabularnewline
+
+\hline
+rhotheta\_offctr&
+R& -0.1& &
+Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids) &
+cell\_type=3
+\tabularnewline
+
+\hline
+veladv\_offctr&
+R& 0.25& &
+Off-centering of velocity advection in corrector step &
+cell\_type=3
+\tabularnewline
+
+\hline
+ivctype&
+I& 2& &
+Type of vertical coordinate:\\
+1: Gal-Chen hybrid \\
+2: SLEVE (uses sleve\_nml)&
+\tabularnewline
+
+\hline
+iadv\_rcf&
 I& 5& &
-determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
-ivadv\_tracer=3
+reduced calling frequency (rcf) for transport/diffusion/physics \\
+1: no rcf (every dynamics-step)\\
+n>1: transport every n-th step \\
+Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
 \tabularnewline
 
 \hline
-llsq\_svd&
-L&
-.FALSE.&
-&
-use QR decomposition (FALSE) or SV decomposition (TRUE) for least squares design matrix A&
+lhdiff\_rcf&
+L& .TRUE. & &
+.TRUE.: Compute diffusion only at advection time steps (in this case,
+divergence damping is applied in the dynamical core)
+& cell\_type=3
 \tabularnewline
 
 \hline
-lclip\_tracer&
-L& .FALSE.& & Clipping of negative values&
+lextra\_diffu&
+L& .TRUE. & &
+.TRUE.: Apply additional momentum diffusion at grid points close to the stability limit for vertical advection (becomes effective
+extremely rarely in practice; this is mostly an emergency fix for pathological cases with very large orographic gravity waves)
+& cell\_type=3
 \tabularnewline
 
 \hline
-upstr\_beta\_adv&
-R& 1.0& & parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
-ihadv\_tracer=iup3
+lbackward\_integr&
+L& .FALSE. & &
+.TRUE.: Integrate backward in time (preparation for testing a digital filter initialization)
+& cell\_type=3
 \tabularnewline
+
+\hline
+divdamp\_fac&
+R& 0.004& &
+Scaling factor for divergence damping&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline
+divdamp\_order&
+I& 4& &
+Order of divergence damping: \\
+2 = second-order divergence damping \\
+4 = fourth-order divergence damping \\
+24 = combined second-order and fourth-order divergence damping (use for data assimilation cycle only!) &
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline
+divdamp\_type&
+I& 3 & &
+Type of divergence damping: \\
+2 = divergence damping acting on 2D divergence \\
+3 = divergence damping acting on 3D divergence &
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline
+l\_nest\_rcf&
+L& .TRUE.& &
+Synchronize interpolation/feedback calls with advection (transport) time steps.
+l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
+cell\_type=3
+\tabularnewline
+
+\hline
+l\_masscorr\_nest&
+L& .FALSE.& &
+.TRUE.: Apply mass conservation correction also in nested domain &
+cell\_type=3
+\tabularnewline
+
+\hline
+iadv\_rhotheta&
+I& 2& &
+Advection method for rho and rhotheta:\\
+1: simple second-order upwind-biased scheme \\
+2: 2nd order Miura horizontal &
+cell\_type=3 \tabularnewline
+& & & & 3: 3rd order Miura horizontal (not recommended)&
+\tabularnewline
+
+\hline
+igradp\_method&
+I& 3& &
+Discretization of horizontal pressure gradient:\\
+1: conventional discretization with metric correction term\\
+2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
+3: Similar discretization as option 2, but uses hydrostatic approximation
+for downward extrapolation over steep slopes \\
+4: Cubic/quadratic polynomial interpolation for pressure reconstruction \\
+5: Same as 4, but hydrostatic approximation for downward extrapolation over steep slopes &
+cell\_type=3
+\tabularnewline
+
+\hline
+l\_zdiffu\_t&
+L& .TRUE.& &
+.TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp = .true.
+\tabularnewline
+
+\hline
+thslp\_zdiffu&
+R& 0.025& &
+Slope threshold above which truly horizontal temperature diffusion is activated&
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+\tabularnewline
+
+\hline
+thhgtd\_zdiffu&
+R& 200& m&
+Threshold of height difference between neighboring grid points above which
+truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+\tabularnewline
+
+\hline
+exner\_expol&
+R& 1./3.& &
+Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient.
+This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.&
+cell\_type=3
+\tabularnewline
+
+\hline
+l\_open\_ubc&
+L& .FALSE.& &
+.TRUE.: Use open upper boundary condition (rather than w=0) to allow vertical motions related to diabatic heating to
+extend beyond the model top&
+cell\_type=3
+\tabularnewline
+
+\hline
+ltheta\_up\_hori &
+L& .FALSE.& &
+upstream biased horizontal advection for theta (see also upstr\_beta)&
+cell\_type=6
+\tabularnewline
+
+\hline
+upstr\_beta &
+R& 1.0& &
+Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
+cell\_type=6
+\tabularnewline
+
+\hline
+gmres\_rtol\_nh &
+R& 1.0e-6& &
+relative tolerance for convergence in gmres solver &
+cell\_type=6
+\tabularnewline
+
 \hline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_advection\_nml.f90
+Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
 
 
 %------------------------------------------------------------------------------
@@ -4017,6 +3748,430 @@ NetCDF file with RRTM Cloud Optical Properties for ECHAM6. &
 Defined and used in: src/namelists/mo\_atm\_phy\_nwp\_nml.f90
 
 
+\subsection{ocean\_physics\_nml}
+
+\begin{longtab}
+
+\hline
+i\_sea\_ice    & I & 1  && 0: No sea ice, 1: Include sea ice& \tabularnewline
+&&&& .FALSE.: compute drag only & \tabularnewline
+\hline
+richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
+\hline
+l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
+
+\end{longtab}
+
+
+%------------------------------------------------------------------------------
+% output_nml:
+%------------------------------------------------------------------------------
+\subsection{output\_nml}
+
+Please note: There may be several instances of
+output\_nml in the namelist file, every one defining a list of variables with
+separate attributes for output.
+
+\begin{longtab}
+
+\hline
+filetype &
+I&4& &
+One of CDI's FILETYPE\_XXX constants.
+Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
+&
+\tabularnewline
+
+\hline
+ mode &
+I&2& &
+ 1 = forecast mode, 2 = climate mode \\
+ In climate mode the time axis of the output file
+ is set to TAXIS\_ABSOLUTE. In forecast mode it is set
+ to TAXIS\_RELATIVE. Till now the forecast mode only
+ works if the output is at multiples of 1 hour
+&
+\tabularnewline
+
+\hline
+ taxis\_tunit &
+I&3& &
+ 3 = TUNIT\_HOUR , 2 = TUNIT\_MINUTE \\
+ Time unit of the TAXIS\_RELATIVE time axis.
+ For a complete list of possible values see cdi.inc
+ Till now it only works for taxis\_tunit=3
+& mode=1
+\tabularnewline
+
+\hline
+ dom(:) &
+I&-1& &
+ Array of domains for which this name-list is used.
+ If not specified (or specified as -1 as the first array member),
+ this name-list will be used for all domains. \\
+ Attention: Depending on the setting of the parameter l\_output\_phys\_patch
+ these are either logical or physical domain numbers!
+&
+\tabularnewline
+
+\hline
+ output\_time\_unit &
+I&1& &
+ 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+&
+\tabularnewline
+
+\hline
+ output\_bounds(3,:) &
+R&None& &
+ post-processing times in units defined by output\_time\_unit: start, end, increment.
+ There may be specified several triples (up to 100) which must be in increasing order.
+&
+\tabularnewline
+
+\hline
+ steps\_per\_file &
+I&100& &
+ Max number of output steps in one output file. If this number is reached, a new output
+ file will be opened.
+&
+\tabularnewline
+
+\hline
+ include\_last &
+L&.TRUE.& &
+ Flag whether to include the last time step
+&
+\tabularnewline
+
+\hline
+ output\_grid &
+L&.FALSE.& &
+ Flag whether grid information is output (in NetCDF output)
+&
+\tabularnewline
+
+\hline
+ output\_filename &
+C&None& &
+ Output filename prefix (which may include path).
+ Domain number, level type, file number and extension will be added,
+ according to the format given in namelist parameter ``filename\_format''.
+&
+\tabularnewline
+
+\hline
+ filename\_format &
+C&see description.& &
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
+ Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
+&
+\tabularnewline
+
+\hline
+ lwrite\_ready &
+L&.FALSE.& &
+ Flag if a "ready file" (sentinel file) should be written at the end of each output stage.
+&
+\tabularnewline
+
+\hline
+ ready\_directory &
+C&None& &
+ Output directory for ready files.
+&
+\tabularnewline
+
+\hline
+ ml\_varlist(:) &
+C&None& &
+ Name of model level fields to be output.
+&
+\tabularnewline
+
+\hline
+ pl\_varlist(:) &
+C&None& &
+ Name of pressure level fields to be output.
+&
+\tabularnewline
+
+\hline
+ hl\_varlist(:) &
+C&None& &
+ Name of height level fields to be output.
+&
+\tabularnewline
+
+
+\hline
+ il\_varlist(:) &
+C&None& &
+ Name of isentropic level fields to be output.
+&
+\tabularnewline
+
+\hline
+ p\_levels(:) &
+R&None& hPa &
+ pressure levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
+
+&
+\tabularnewline
+
+\hline
+ h\_levels(:) &
+R&None& m &
+ height levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ i\_levels(:) &
+R&None& K &
+ isentropic levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ remap &
+I&0& &
+ interpolate horizontally, 0: none, 1: to regular lat-lon grid
+&
+\tabularnewline
+
+\hline
+ reg\_lon\_def(3) &
+R&None& &
+ The regular grid points are specified by three values: start, increment, end given in degrees.
+It contains all grid points $start + k * increment <= end$, where $k$ is an integer.
+For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
+Instead of defining an increment it is also possible to prescribe the number of grid points, where it is expected that this
+value is larger than 5.0.
+&
+remap=1
+\tabularnewline
+
+\hline
+ reg\_lat\_def(3) &
+R&None& &
+ start, increment, end latitude in degrees.
+ See reg\_lon\_def for details.
+&
+remap=1
+\tabularnewline
+
+\hline
+ north\_pole(2) &
+R&0,90& &
+ definition of north pole for rotated lon-lat grids.
+&
+\tabularnewline
+
+\hline
+\end{longtab}
+
+\paragraph{Variable Groups:}
+Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
+sets of common variables can be added to the output:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{group:all}                     \>      output of all variables (caution: do not combine with \underline{mixed} vertical interpolation) \\
+\texttt{group:atmo\_ml\_vars}          \>      basic atmospheric variables on model levels                          \\
+\texttt{group:atmo\_pl\_vars},
+\texttt{group:atmo\_zl\_vars}          \>      same set as atmo\_ml\_vars, but except pres and height, respectively \\
+\texttt{group:nh\_prog\_vars}          \>      additional prognostic variables of the nonhydrostatic model          \\
+\texttt{group:atmo\_derived\_vars}     \>      derived atmospheric variables                                        \\
+\texttt{group:rad\_vars}               \>                                                                           \\
+\texttt{group:precip\_vars}            \>                                                                           \\
+\texttt{group:cloud\_diag}             \>                                                                           \\
+\texttt{group:pbl\_vars}               \>                                                                           \\
+\texttt{group:phys\_tendencies}        \>                                                                           \\
+\texttt{group:land\_vars}              \>                                                                           \\
+\texttt{group:multisnow\_vars}         \>     tile-averaged variables
+\end{tabbing}
+
+\paragraph{Keyword substitution in output filename (\texttt{filename\_format}):}
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\
+\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
+\texttt{physdom}           \>  substituted by physical patch ID                         \\
+\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
+\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
+\texttt{jfile}             \>  substituted by output file counter                       \\
+\texttt{ddhhmmss}          \>  substituted by day-hour-minute-second string
+\end{tabbing}
+
+
+Defined and used in: src/namelists/mo\_name\_list\_output.f90
+
+
+%------------------------------------------------------------------------------
+% parallel_nml:
+%------------------------------------------------------------------------------
+\subsection{parallel\_nml}
+\begin{longtab}
+
+\hline
+nproma &
+I & 1& &
+chunk length&
+\tabularnewline
+
+\hline
+n\_ghost\_rows &
+I & 1& &
+number of halo cell rows&
+\tabularnewline
+
+\hline
+division\_method &
+I & 1& &
+method of domain decomposition\\
+0: read in from file \\
+1: use built-in geometric subdivision \\
+2: use METIS&
+\tabularnewline
+
+
+\hline
+division\_file\_name &
+C &  & &
+Name of division file &
+division\_method = 0
+\tabularnewline
+
+\hline
+ldiv\_phys\_dom &
+L & .TRUE. & &
+.TRUE.: split into physical domains before computing domain decomposition (in case of merged domains)\\
+(This reduces load imbalance; turning off this option is not recommended except for very small processor numbers) &
+division\_method = 1
+\tabularnewline
+
+\hline
+p\_test\_run &
+L & .FALSE.& &
+.TRUE. means verification run for MPI parallelization (PE 0
+processes full domain) &
+\tabularnewline
+
+\hline
+l\_test\_openmp &
+L & .FALSE.& &
+if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
+the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
+p\_test\_run = .TRUE.
+\tabularnewline
+
+\hline
+l\_log\_checks &
+L & .FALSE.& &
+if .TRUE. messages are generated during each synchonization step
+(use for debugging only)&
+\tabularnewline
+
+\hline
+l\_fast\_sum &
+L & .FALSE.& &
+if .TRUE., use fast (not processor-configuration-invariant) global summation&
+\tabularnewline
+
+\hline
+use\_dycore\_barrier &
+L & .FALSE.& &
+if .TRUE., set an MPI barrier at the beginning of the nonhydrostatic solver (do not use for production runs!)&
+\tabularnewline
+
+\hline
+itype\_exch\_barrier &
+I & 0 & &
+1: set an MPI barrier at the beginning of each MPI exchange call\\
+2: set an MPI barrier after each MPI WAIT call \\
+3: 1+2 (do not use for production runs!) &
+\tabularnewline
+
+\hline
+iorder\_sendrecv &
+I & 1& &
+Sequence of send/receive calls: \\
+ 1 = irecv/send \\
+ 2 = isend/recv  \\
+ 3 = isend/irecv \\
+\tabularnewline
+
+\hline
+itype\_comm &
+I & 1& &
+1: use local memory for exchange buffers \\
+3: asynchronous halo communication for dynamical core (currently deactivated)&
+\tabularnewline
+
+\hline
+num\_io\_procs &
+I & 0& &
+Number of I/O processors (running exclusively for doing I/O)&
+\tabularnewline
+
+\hline
+pio\_type &
+I & 1& &
+Type of parallel I/O. Only used if number of I/O processors greater number of domains.
+Experimental!&
+\tabularnewline
+
+% % \hline
+% % nh\_stepping\_threads &
+% % I & 1& &
+% % The number of OpenMP threads to be used by the non-hydrostatic dycore. Only used if the \_\_OMP\_RADIATION\_\_
+% % flag is set during compilation. Experimental! &
+% % \tabularnewline
+% %
+% % \hline
+% % radiation\_threads &
+% % I & 1& &
+% % The number of OpenMP threads to be used by the radiation. Only used if the \_\_OMP\_RADIATION\_\_
+% % flag is set during compilation. Experimental! &
+% % \tabularnewline
+
+\hline
+use\_icon\_comm &
+L & .FALSE. & &
+Enable the use of MPI bulk communication through the icon\_comm\_lib &
+\tabularnewline
+
+\hline
+icon\_comm\_debug &
+L & .FALSE. & &
+Enable debug mode for the icon\_comm\_lib &
+\tabularnewline
+
+\hline
+max\_send\_recv \_buffer\_size &
+I & 131072 & &
+Size of the send/receive buffers for the icon\_comm\_lib. &
+\tabularnewline
+
+\hline
+use\_dp\_mpi2io &
+L & .FALSE. & &
+ Enable this flag if output fields shall be gathered by the output processes in DOUBLE PRECISION. &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_parallel\_nml.f90
+
+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
@@ -4159,383 +4314,530 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 
 
 %------------------------------------------------------------------------------
-% nwp_lnd_nml:
+% run_nml
 %------------------------------------------------------------------------------
-\subsection{lnd\_nml}
+\subsection{run\_nml}
 
 \begin{longtab}
 
-nlev\_snow &
-I&
-2&
-&
-number of snow layers\\
-for {\tt lmulti\_snow=.true.}&
-lmulti\_snow=.true.
-\tabularnewline
 \hline
-ntiles &
-I&
-1&
-&
-number of tiles&
+ldump\_states&
+L & .FALSE.& &
+Dump patch/interpolation/grid refinement state of every
+patch (after subdivision in case of a parallel run)
+to a Netcdf file and exit program.&
 \tabularnewline
 
 \hline
-lsnowtile &
+lrestore\_states&
+L & .FALSE.& &
+Restore patch/interpolation/grid refinement states
+from NetCDF dump files instead of calculating them.&
+\tabularnewline
+
+\hline
+dump\_filename&
+C &
+&
+&
+Filename of dump/restore files,
+default: ''\texttt{<path>dump\_<proc><gridfile>}''.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, \texttt{<proc>} substituted by ``procXofY\_'',
+and the grid filename \texttt{<gridfile>}. &
+\tabularnewline
+
+\hline
+dd\_filename&
+C &
+&
+&
+Filename of NetCDF domain decomposition dump files,
+default: ''\texttt{<path>dd\_<gridfile>}''.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir},
+and the grid filename \texttt{<gridfile>}. &
+\tabularnewline
+
+\hline
+l\_one\_file\_per\_patch&
+L & .FALSE.& &
+Use one file per patch for all processors.\\
+This will decrease the amount of files used for dump/restore
+considerably, especially for massively parallel runs on hundreds
+or thousands of processors.\\
+Time for dumping will increase since the file has to be written sequentially,
+the time for restore should stay roughly the same, however.&
+ldump\_states=.TRUE. or lrestore\_states=.TRUE.
+\tabularnewline
+
+\hline
+ldump\_dd&
+L & .FALSE.& &
+Dump the domain decomposition (and a few related fields).
+This can be done either in a parallel run or in a single-CPU run.
+When done in a parallel run, the domain decoposition
+is for the number of parallel processes in use.
+When done in a single-CPU run, nproc\_dd (see below) determines
+the number of processes for the decomposition.
+Uses always only one file per patch,&
+\tabularnewline
+
+\hline
+lread\_dd&
+L & .FALSE.& &
+Read the domain decomposition when dumped with ldump\_dd.
+&
+\tabularnewline
+
+\hline
+nproc\_dd&
+I & 1 & &
+Number of processors for the target domain decomposition
+(only relevant when running on a single processor).&
+ldump\_dd = TRUE and a single processor run
+\tabularnewline
+
+\hline
+nsteps &
+I & 0 & &
+number of time steps of this run.&
+\tabularnewline
+
+\hline
+dtime &
+R & 600.0& s&
+time step&
+\tabularnewline
+
+
+\hline
+ltestcase &
+L & .TRUE.& &
+Idealized testcase runs&
+\tabularnewline
+
+\hline
+ldynamics&
+L& .TRUE.& &
+Compute adiabatic dynamic tendencies&
+\tabularnewline
+
+\hline
+iforcing&
+I&
+0&
+&
+Forcing of dynamics and transport by parameterized processes. Use positive indices for the
+atmosphere and negative indices for the ocean.\\
+0: no forcing\\
+1: Held-Suarez forcing\\
+2: ECHAM forcing\\
+3: NWP forcing\\
+4: local diabatic forcing without physics\\
+5: local diabatic forcing with physics\\
+-1: MPIOM forcing (to be done)&
+\tabularnewline
+
+\hline
+ltransport&
+L& .FALSE.& &
+Compute large-scale tracer transport&
+\tabularnewline
+
+\hline
+ntracer&
+I& 0& &
+Number of advected tracers handled by the large-scale transport scheme&
+\tabularnewline
+
+\hline
+lvert\_nest &
+L & .FALSE.& &
+If set to .true. vertical nesting is switched on (i.e.\ variable number of vertical levels) &
+\tabularnewline
+
+\hline
+num\_lev&
+I(max\_dom)& 31& &
+Number of full levels (atm.) for each domain&
+lvert\_nest=.TRUE.
+\tabularnewline
+
+\hline
+nshift&
+I(max\_dom)& 0& &
+vertical half level of parent domain which coincides with
+upper boundary of the current domain&
+lvert\_nest=.TRUE.
+\tabularnewline
+
+\hline
+ltimer&
+L & .TRUE.& &
+TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
+\tabularnewline
+
+\hline
+timers\_level&
+I & 1& &
+&
+\tabularnewline
+
+\hline
+activate\_sync\_timers&
+L & F& &
+TRUE: Timer for monitoring runtime of communication routines (FALSE = off)&
+\tabularnewline
+
+\hline
+msg\_level&
+I & 10& &
+controls how much printout is written during runtime. \\
+For values less than 5, only the time step is written.&
+\tabularnewline
+
+\hline
+msg\_timestamp&
+L & .FALSE.& &
+If .TRUE., precede output messages by time stamp.&
+\tabularnewline
+
+\hline
+test\_mode&
+I & 0& &
+Setting a value larger than 0 activates a dummy mode in which time stepping is changed
+into just doing iterations, and MPI communication is replaced by copying some value from
+the send buffer into the receive buffer (does not work with nesting and reduced radiation
+grid because the send buffer may then be empty on some PEs) & iequations = 3
+\tabularnewline
+
+\hline
+output &
+C(:)& ``nml'',''totint'' & &
+Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
+\begin{itemize}
+\item ``none'': switch off all output;
+\item ``vlist'' : old, vlist-based output mode;
+\item``nml'': new output mode (cf.\ \texttt{output\_nml});
+\item``totint'': computation of total integrals.
+\end{itemize}
+If the \texttt{output} namelist parameter is not set explicitly, the default setting ``nml'',''totint'' is assumed.
+ &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_run\_nml.f90
+
+
+\subsection{sea\_ice\_nml}
+
+\begin{longtab}
+
+  \hline
+  i\_ice\_therm &
+  I             &
+  2             &&
+  Switch for thermodynamic model: \\
+  1: Zero-layer model \\
+  2: Two layer Winton (2000) model \\
+  3: Zero-layer model with analytical forcing (for diagnostics) \\
+  4: Zero-layer model for atmosphere-only runs (for diagnostics) &
+  In an ocean run i\_sea\_ice must be >=1. In an atmospheric run the ice surface type must be defined.
+  \tabularnewline
+
+  i\_ice\_dyn   &
+  I             &
+  0             &&
+  Switch for sea-ice dynamics: \\
+  0: No dynamics \\
+  1: FEM dynamics (from AWI) &
+  \tabularnewline
+
+  i\_ice\_albedo        &
+  I                     &
+  1                     &&
+  Switch for albedo model. Only one is implemented so far. &
+  \tabularnewline
+
+  i\_Qio\_type          &
+  I                     &
+  2                     &&
+  Switch for ice-ocean heat-flux calculation method: \\
+  1: Proportional to ocean cell thickness (like MPI-OM) \\
+  2: Proportional to speed difference between ice and ocean &
+  Defaults to 1 when i\_ice\_dyn=0 and 2 otherwise.
+  \tabularnewline
+
+  kice  &
+  I     &
+  1     &&
+  Number of ice classes (must be one for now) &
+  \tabularnewline
+
+  hnull &
+  R     &
+  0.5   &
+  m     &
+  Hibler's $h_0$ parameter for new-ice growth. &
+  \tabularnewline
+
+  hmin  &
+  R     &
+  0.05  &
+  m     &
+  Minimum sea-ice thickness allowed. &
+  \tabularnewline
+
+  ramp\_wind    &
+  R             &
+  10            &
+  days          &
+  Number of days it takes the wind to reach correct strength. Only used at the start of an OMIP/NCEP simulation (not after restart). &
+  \tabularnewline
+
+\end{longtab}
+
+
+%-----------------------------------------------------------------------------
+% sleve_nml:
+%-----------------------------------------------------------------------------
+\subsection{sleve\_nml (relevant if nonhydrostatic\_nml:ivctype=2)}
+\begin{longtab}
+
+\hline
+min\_lay\_thckn&
+R& 50& m&
+Layer thickness of lowermost layer; specifying zero or a negative value leads to constant layer thicknesses
+determined by top\_height and nlev&
+\tabularnewline
+
+\hline
+top\_height&
+R& 23500.0& m&
+Height of model top&
+\tabularnewline
+
+\hline
+stretch\_fac&
+R& 1.0& &
+Stretching factor to vary distribution of model levels;
+values $<$1 increase the layer thickness near the model top&
+\tabularnewline
+
+\hline
+decay\_scale\_1&
+R& 4000& m&
+Decay scale of large-scale topography component&
+\tabularnewline
+
+\hline
+decay\_scale\_2&
+R& 2500& m&
+Decay scale of small-scale topography component&
+\tabularnewline
+
+\hline
+decay\_exp&
+R& 1.2& &
+Exponent of decay function&
+\tabularnewline
+
+\hline
+flat\_height &
+R& 16000& m&
+Height above which the coordinate surfaces are flat&
+\tabularnewline
+
+\hline
+lread\_smt &
+L& .FALSE.& &
+read smoothed topography from file (TRUE) or compute internally (FALSE)&
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_sleve\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% time_nml
+%------------------------------------------------------------------------------
+\subsection{time\_nml}
+\begin{longtab}
+
+\hline
+dt\_restart &
+R & 86400.*30.& s &
+Length of restart cycle in seconds.
+Note that the frequency of writing restart files is controlled by
+io\_nml:dt\_checkpoint. If the value of dt\_checkpoint resulting from
+model default or user's specification is longer than dt\_restart,
+it will be reset (by the model) to dt\_restart so
+that at least one restart file is generated during the restart cycle.
+If dt\_restart is larger than but not a multiple of dt\_checkpoint,
+restart file will NOT be generated at the end of the restart cycle.
+&
+\tabularnewline
+
+\hline
+calendar&
+I& 1& &
+Calendar type: \\
+0=Julian/Gregorian \\
+1=proleptic Gregorian\\
+2=30day/month,360day/year &
+\tabularnewline
+
+\hline
+ini\_datetime\_string &
+C & '2008-09-01T00:00:00Z' &&
+Initial date and time of the simulation&
+\tabularnewline
+
+\hline
+end\_datetime\_string &
+C & 2008-09-01T01:40:00Z' &&
+End date and time of the simulation&
+\tabularnewline
+
+\hline
+&&&& Length of the run&
+\tabularnewline
+&&&& If "nsteps" in run\_nml (see below) is positive, then nsteps*dtime
+is used to compute the end date and time of the run.&
+\tabularnewline
+&&&& Else the initial date and time, the end date and time, dt\_restart,
+as well as the time step are used to compute "nsteps".&
+\tabularnewline
+
+\end{longtab}
+
+
+
+
+
+
+%------------------------------------------------------------------------------
+% transport_nml:
+%------------------------------------------------------------------------------
+\subsection{transport\_nml (used if run\_nml/ltransport=.TRUE.)}
+
+\begin{longtab}
+
+lvadv\_tracer&
+L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
+& &       & & FALSE: do not compute vertical tracer advection &
+\tabularnewline
+
+\hline
+ihadv\_tracer&
+I(ntracer)&
+2& & Tracer specific method to compute horizontal advection:& \tabularnewline
+& & 5& & 0: no horiz. transport & \tabularnewline
+& & & & 1: upwind (1st order) & \tabularnewline
+& & & & 2: miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
+& & & & 3: miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
+& & & & 22: combination of miura and miura with subcycling& if cell\_type=3 \tabularnewline
+& & & & 32: combination of miura3 and miura with subcycling& if cell\_type=3 \tabularnewline
+& & & & 42: combination of FFSL and miura with subcycling& if cell\_type=3 \tabularnewline
+& & & & 5: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
+
+\hline
+ivadv\_tracer&
+I(ntracer)&
+3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
+& & & & 0: no vert. transport& \tabularnewline
+& & & & 1: upwind (1st order)& \tabularnewline
+& & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
+& & & & 30: ppm (3rd order)& \tabularnewline
+
+\hline
+lstrang &
+L& .FALSE.& & splitting into fractional steps & \tabularnewline
+& & & & - second order Strang splitting (.TRUE.) & \tabularnewline
+& & & & - first order Godunov splitting (.FALSE.)& \tabularnewline
+
+\hline
+ctracer\_list&
+C& ''& & list of tracer names &
+\tabularnewline
+
+\hline
+itype\_hlimit&
+I(ntracer)&
+3& & Type of limiter for horizontal transport:& \tabularnewline
+& & 4& & 0: no limiter& \tabularnewline
+& & & & 3: monotonous flux limiter& ihadv\_tracer$\,\ne\,$'iup3[4]'\tabularnewline
+& & & & 4: positive definite flux limiter& \tabularnewline
+
+\hline
+itype\_vlimit&
+I(ntracer)&
+1& & Type of limiter for vertical transport:& \tabularnewline
+& & & & 0: no limiter& \tabularnewline
+& & & & 1: semi-monotone slope limiter& \tabularnewline
+& & & & 2: monotonous slope limiter& \tabularnewline
+& & & & 4: positive definite flux limiter& \tabularnewline
+
+\hline
+niter\_fct&
+I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+\tabularnewline
+
+\hline
+beta\_fct&
+R& 1.0& & factor for multiplicative spreading of range of permissible values (limiter) \\
+\textcolor{red}{Tentative suggestion: beta\_fct=1.0015}& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+\tabularnewline
+
+\hline
+iord\_backtraj&
+I& 1& & order of backward trajectory calculation:& \tabularnewline
+& & & & 1: first order& \tabularnewline
+& & & & 2: second order (iterative; currently 1 iteration hardcoded)& ihadv\_tracer='miura'
+\tabularnewline
+
+\hline
+igrad\_c\_miura&
+I& 1& & Method for gradient reconstruction at cell center for 2nd order miura& \tabularnewline
+& & & & 1: Least-squares (linear, non-consv)& ihadv\_tracer=2\tabularnewline
+& & & & 2: Green-Gauss&
+\tabularnewline
+
+\hline
+ivcfl\_max&
+I& 5& &
+determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
+ivadv\_tracer=3
+\tabularnewline
+
+\hline
+llsq\_svd&
 L&
 .FALSE.&
 &
-.TRUE.: consider snow-covered and snow-free tiles separately &
-ntiles>1
+use QR decomposition (FALSE) or SV decomposition (TRUE) for least squares design matrix A&
 \tabularnewline
 
 \hline
-frlnd\_thrhld &
-R&
-0.05&
-&
-fraction threshold for creating a land grid point &
-ntiles>1
+lclip\_tracer&
+L& .FALSE.& & Clipping of negative values&
 \tabularnewline
 
 \hline
-frlake\_thrhld &
-R&
-0.05&
-&
-fraction threshold for creating a lake grid point &
-ntiles>1
+upstr\_beta\_adv&
+R& 1.0& & parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
+ihadv\_tracer=iup3
 \tabularnewline
-\hline
-frsea\_thrhld &
-R&
-0.05&
-&
-fraction threshold for creating a sea grid point &
-ntiles>1
-\tabularnewline
-
-\hline
-frlndtile\_thrhld &
-R&
-0.05&
-&
-fraction threshold for retaining the respective tile for a grid point&
-ntiles>1
-\tabularnewline
-
-\hline
-nztlev &
-I&
-2&
-&
-used time integration scheme&
-\tabularnewline
-\hline
-lmulti\_snow &
-L&
-.TRUE.&
-&
-.TRUE. for use of multi-layer snow model&
-\tabularnewline
-
-\hline
-max\_toplaydepth &
-R &
-0.25&
-m &
-maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
-\tabularnewline
-
-\hline
-idiag\_snowfrac &
-I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2--4 = more advanced experimental methods &
-\tabularnewline
-
-\hline
-itype\_lndtbl &
-I & 1 &  & Table values used for associating surface parameters to land-cover classes: 1 = defaults from extpar,
-2 = IFS values for globcover classes (currently no effect in case of glc2000 data) &
-\tabularnewline
-
-\hline
-lseaice &
-L&
-.TRUE.&
-&
-.TRUE. for use of sea-ice model&
-\tabularnewline
-\hline
-llake &
-L&
-.FALSE.&
-&
-.TRUE. for use of lake model&
-\tabularnewline
-\hline
-sstice\_mode &
-I&
-1&
-&
-1: SST and sea ice fraction are read from the analysis and kept constant. The
-sea ice fraction can be modified by the seaice model.\\
-2: SST and sea ice fraction are updated daily, based on climatological monthly
-means\\
-3: SST and sea ice fraction are updated daily, based on actual monthly means\\
-4: SST and sea ice fraction are updated daily, based on actual daily means,
-not yet implemented&
-iequations=3\\
-iforcing=3
-\tabularnewline
-\hline
-sst\_td\_filename &
-C&
-&
-&
-Filename of SST input files for time dependent SST.
-Default is "<path>SST\_<year>\_<month>\_<gridfile>". May contain the
-keyword <path> which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
-\tabularnewline
-\hline
-ci\_td\_filename &
-C&
-&
-&
-Filename of sea ice fraction input files for time dependent sea ice fraction.
-Default is "<path>CI\_<year>\_<month>\_<gridfile>". May contain
-the keyword <path> which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
-\tabularnewline
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_lnd\_nwp\_nml.f90
-
-
-%------------------------------ switches for ECHAM physics
-
-%------------------------------------------------------------------------------
-% echam_phy_nml:
-%------------------------------------------------------------------------------
-\subsection{echam\_phy\_nml}
-
-\begin{longtab}
-
-lrad &
-L& .TRUE.&&
-Switch on radiation.& iforcing = 2
-\tabularnewline
-
-\hline
-lvdiff &
-L& .TRUE.&&
-Switch on turbulent mixing (i.e. vertical diffusion).&
-iforcing = 2
-\tabularnewline
-
-\hline
-lconv &
-L& .TRUE.&&
-Switch on cumulus convection.& iforcing = 2
-\tabularnewline
-
-\hline
-lcond &
-L& .TRUE.&&
-Switch on large scale condensation.& iforcing = 2
-\tabularnewline
-
-\hline
-lcover &
-L& .FALSE.&&
-.TRUE. for prognostic cloud cover scheme, .FALSE. for diagnostic scheme.&
-iforcing = 2\par
-Note: lcover = .TRUE. runs, but has not been evaluated (yet) in ICON.
-\tabularnewline
-
-\hline
-lgw\_hines &
-L& .FALSE.&&
-.TRUE. for atmospheric gravity wave drag by the Hines scheme&
-iforcing = 2\par
-\tabularnewline
-
-\hline
-lssodrag &
-L& .FALSE.&&
-.TRUE. for subgrid scale orographic drag& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-llandsurf &
-L& .FALSE.&&
-.TRUE. for surface exchanges& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-lice &
-L& .FALSE.&&
-.TRUE. for sea-ice temperature calculation& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-lmeltpond &
-L& .FALSE.&&
-.TRUE. for calculation of meltponds& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-lhd &
-L& .FALSE.&&
-.TRUE. for hydrologic discharge model& iforcing = 2\par
-{\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-lmlo &
-L& .FALSE.&&
-.TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
-dt\_rad &
-R&
-3600.&
-second&
-time interval of full radiation computation&
-run\_nml/iforcing = iecham
-\tabularnewline
-
 \hline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_echam\_phy\_nml.f90
-
-
-%------------------------------------------------------------------------------
-% echam_conv_nml:
-%------------------------------------------------------------------------------
-\subsection{echam\_conv\_nml}
-
-\begin{longtab}
-
-\hline
-iconv&
-I & 1 &&
-Choice of cumulus convection scheme.\par
-1: Nordeng scheme\par
-2: Tiedtke scheme\par
-3: hybrid scheme &
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-ncvmicro&
-I & 0 &&
-Choice of convective microphysics scheme.&
-
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-lmfpen &
-L& .TRUE.&&
-Switch on penetrative convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-lmfmid &
-L& .TRUE.&&
-Switch on midlevel convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-lmfdd &
-L& .TRUE.&&
-Switch on cumulus downdraft.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-lmfdudv &
-L& .TRUE.&&
-Switch on cumulus friction.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-cmftau &
-R & 10800. &&
-Characteristic convective adjustment time scale.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-cmfctop &
-R & 0.3 &&
-Fractional convective mass flux (valid range [0,1])
-across the top of cloud &
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-cprcon &
-R & 1.0e-4 &&
-Coefficient for determining conversion from cloud water to rain.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-cminbuoy &
-R & 0.025 &&
-Minimum excess buoyancy.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-entrpen &
-R & 1.0e-4 &&
-Entrainment rate for penetrative convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\hline
-dlev &
-R & 3.e4 & Pa &
-Critical thickness necessary for the onset of convective precipitation.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_echam\_conv\_nml.f90
-
-
-%------------------------------------------------------------------------------
-% vdiff_nml:
-%------------------------------------------------------------------------------
-\subsection{vdiff\_nml}
-
-\begin{longtab}
-
-\hline
-lsfc\_mon\_flux &
-L& .TRUE.&&
-Switch on surface momentum flux.& lvdiff = .TRUE.
-\tabularnewline
-
-\hline
-lsfc\_heat\_flux &
-L                & .TRUE.           & &
-Switch on surface sensible and latent heat flux.& lvdiff = .TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_vdiff\_nml.f90
+Defined and used in: src/namelists/mo\_advection\_nml.f90
 
 
 %------------------------------------------------------------------------------
@@ -4658,324 +4960,31 @@ lconst\_z0=.TRUE.
 
 Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
 
+
 %------------------------------------------------------------------------------
-% les_nml:
+% vdiff_nml:
 %------------------------------------------------------------------------------
-\subsection{les\_nml (parameters for LES turbulence scheme; valid for inwp\_turb=5)}
+\subsection{vdiff\_nml}
 
 \begin{longtab}
 
 \hline
-sst & R & 300 & K &
-sea surface temperature for idealized LES simulations &
-nh\_test\_name=CBL, RICO\\
-isrfc\_type=5,4
+lsfc\_mon\_flux &
+L& .TRUE.&&
+Switch on surface momentum flux.& lvdiff = .TRUE.
 \tabularnewline
 
 \hline
-shflx & R & -999 & Km/s &
-Kinematic sensible heat flux at surface &
-isrfc\_type = 2
-\tabularnewline
-
-\hline
-lhflx & R & -999 & m/s &
-Kinematic latent heat flux at surface &
-isrfc\_type = 2
-\tabularnewline
-
-\hline
-isrfc\_type & I & 1 &  &
-surface type \\
-1 = TERRA land physics \\
-2 = fixed surface fluxes \\
-3 = fixed buoyancy fluxes \\
-4 = RICO test case \\
-5 = fixed SST &
-\tabularnewline
-
-\hline
-ufric & R & -999 & m/s &
-friction velocity for idealized LES simulations &
-\tabularnewline
-
-\hline
-is\_dry\_cbl & L & .FALSE. &  &
-switch for dry convective boundary layer simulations &
-\tabularnewline
-
-\hline
-karman\_constant & R & 0.4 &  &
-von Karman constant &
-\tabularnewline
-
-\hline
-smag\_constant & R & 0.12 &  &
-Smagorinsky constant &
-\tabularnewline
-
-\hline
-turb\_prandtl & R & 0.333333 &  &
-turbulent Prandtl number &
-\tabularnewline
-
-\hline
-bflux & R & -999 &  m$^2$/s$^3$ &
-buoyancy flux for idealized LES simulations (Stevens 2007) &
-isrfc\_type=3
-\tabularnewline
-
-\hline
-tran\_coeff & R & -999 &  m/s &
-transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
-isrfc\_type=3
+lsfc\_heat\_flux &
+L                & .TRUE.           & &
+Switch on surface sensible and latent heat flux.& lvdiff = .TRUE.
 \tabularnewline
 
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_les\_nml.f90
-
-%------------------------------------------------------------------------------
-% ls_forcing_nml:
-%------------------------------------------------------------------------------
-\subsection{ls\_forcing\_nml (parameters for large-scale forcing; valid for torus geometry)}
-
-\begin{longtab}
-
-\hline
-is\_ls\_forcing& L & .FALSE. &  &
-switch for enabling large-scale (LS) forcing on torus grid &
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-\hline
-is\_subsidence\_moment & L & .FALSE. &  &
-switch for enabling LS vertical advection due to subsidence for momentum equations&
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-\hline
-is\_subsidence\_heat & L & .FALSE. &  &
-switch for enabling LS vertical advection due to subsidence for thermal equations &
-is\_plane\_torus=.TRUE.
-\tabularnewline
+Defined and used in: src/namelists/mo\_vdiff\_nml.f90
 
 
-\hline
-is\_advection & L & .FALSE. &  &
-switch for enabling LS horizontal advection (currently only for thermal equations)&
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-\hline
-is\_geowind & L & .FALSE. &  &
-switch for enabling geostrophic wind &
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-\hline
-is\_rad\_forcing & L & .FALSE. &  &
-switch for enabling radiative forcing &
-is\_plane\_torus=.TRUE. \\
-inwp\_rad=.FALSE.
-\tabularnewline
-
-\hline
-is\_geowind & L & .FALSE. &  &
-switch for enabling geostrophic wind &
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-\hline
-is\_theta & L & .FALSE. &  &
-switch to indicate that the prescribed radiative forcing is for potential temperature &
-is\_plane\_torus=.TRUE. \\
-is\_rad\_forcing=.TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_ls\_forcing\_nml.f90
-
-
-%------------------------------------------------------------------------------
-% gw_hines_nml:
-%------------------------------------------------------------------------------
-\subsection{gw\_hines\_nml (Scope: lgw\_hines = .TRUE. in echam\_phy\_nml)}
-
-\begin{longtab}
-
-\hline
-lheatcal    &
-L           &
-.FALSE.     &&
-.TRUE.: compute drag, heating rate and diffusion coefficient from the dissipation of gravity waves&
-\tabularnewline
-&&&&
-.FALSE.: compute drag only &
-\tabularnewline
-
-\hline
-emiss\_lev  &
-I           &
-10          &&
-Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
-\tabularnewline
-
-\hline
-rmscon      &
-R           &
-1.0         &
-m/s         &
-Root mean square gravity wave wind at the emission level &
-\tabularnewline
-
-\hline
-kstar       &
-R           &
-5.0e-5      &
-1/m         &
-Typical gravity wave horizontal wavenumber &
-\tabularnewline
-
-\hline
-m\_min      &
-R           &
-0.0         &
-1/m         &
-Minimum bound in  vertical wavenumber &
-\tabularnewline
-
-\hline
-lrmscon\_lat &
-L            &
-.FALSE.      &
-             &
-.TRUE.:  use latitude dependent rms wind &
-\tabularnewline
-&&&& - |latitude| >= lat\_rmscon: use rmscon &
-\tabularnewline
-&&&& - |latitude| <= lat\_rmscon\_eq: use rmscon\_eq &
-\tabularnewline
-&&&& - lat\_rmscon\_eq < |latitude| < lat\_rmscon: use linear interpolation between rmscon\_eq and rmscon &
-\tabularnewline
-&&&& .FALSE.: use globally constant rms wind rmscon &
-\tabularnewline
-
-\hline
-lat\_rmscon\_eq &
-R               &
-5.0             &
-deg N           &
-rmscon\_eq is used equatorward of this latitude &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-\hline
-lat\_rmscon     &
-R               &
-10.0            &
-deg N           &
-rmscon is used polward of this latitude &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-\hline
-rmscon\_eq      &
-R               &
-1.2             &
-m/s             &
-is used equatorward of latitude lat\_rmscon\_eq &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
-
-\subsection{ocean\_physics\_nml}
-
-\begin{longtab}
-
-\hline
-i\_sea\_ice    & I & 1  && 0: No sea ice, 1: Include sea ice& \tabularnewline
-&&&& .FALSE.: compute drag only & \tabularnewline
-\hline
-richardson\_factor\_tracer  & I & 0.5e-5 & m/s&  & \tabularnewline
-\hline
-richardson\_factor\_veloc  & I & 0.5e-5 & m/s&  & \tabularnewline
-\hline
-l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
-
-\end{longtab}
-
-\subsection{sea\_ice\_nml}
-
-\begin{longtab}
-
-  \hline
-  i\_ice\_therm &
-  I             &
-  2             &&
-  Switch for thermodynamic model: \\
-  1: Zero-layer model \\
-  2: Two layer Winton (2000) model \\
-  3: Zero-layer model with analytical forcing (for diagnostics) \\
-  4: Zero-layer model for atmosphere-only runs (for diagnostics) &
-  In an ocean run i\_sea\_ice must be >=1. In an atmospheric run the ice surface type must be defined.
-  \tabularnewline
-
-  i\_ice\_dyn   &
-  I             &
-  0             &&
-  Switch for sea-ice dynamics: \\
-  0: No dynamics \\
-  1: FEM dynamics (from AWI) &
-  \tabularnewline
-
-  i\_ice\_albedo        &
-  I                     &
-  1                     &&
-  Switch for albedo model. Only one is implemented so far. &
-  \tabularnewline
-
-  i\_Qio\_type          &
-  I                     &
-  2                     &&
-  Switch for ice-ocean heat-flux calculation method: \\
-  1: Proportional to ocean cell thickness (like MPI-OM) \\
-  2: Proportional to speed difference between ice and ocean &
-  Defaults to 1 when i\_ice\_dyn=0 and 2 otherwise.
-  \tabularnewline
-
-  kice  &
-  I     &
-  1     &&
-  Number of ice classes (must be one for now) &
-  \tabularnewline
-
-  hnull &
-  R     &
-  0.5   &
-  m     &
-  Hibler's $h_0$ parameter for new-ice growth. &
-  \tabularnewline
-
-  hmin  &
-  R     &
-  0.05  &
-  m     &
-  Minimum sea-ice thickness allowed. &
-  \tabularnewline
-
-  ramp\_wind    &
-  R             &
-  10            &
-  days          &
-  Number of days it takes the wind to reach correct strength. Only used at the start of an OMIP/NCEP simulation (not after restart). &
-  \tabularnewline
-
-\end{longtab}
 
 \section{Namelist parameters for testcases (NAMELIST\_ICON)}
 
