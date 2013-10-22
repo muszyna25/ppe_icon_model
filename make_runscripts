@@ -163,7 +163,8 @@ check_accept_script()
    if [[ $use_openmp = "yes" ]] ; then
      case $check_accepted_filename in
      *test*oce*)
-        accepted_script="false"  #  ocean does not run with openmp
+        # accepted_script="false"  #  ocean does not run with openmp
+        accepted_script="true"    # try the ocean openmp for the buildbot runs  
         ;;
      esac
    fi
