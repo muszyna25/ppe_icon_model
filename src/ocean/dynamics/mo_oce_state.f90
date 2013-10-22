@@ -95,6 +95,7 @@ MODULE mo_oce_state
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   USE mo_ocean_config,        ONLY: ignore_land_points
 
+  USE mo_oce_check_consistency, ONLY: ocean_check_level_sea_land_mask
   IMPLICIT NONE
   PRIVATE
 
@@ -3387,10 +3388,12 @@ CONTAINS
         &                                           patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,jk,:) )
       global_ocean_volume = global_ocean_volume + patch_3D%p_patch_1D(1)%ocean_volume(jk)
     END DO
+    !-------------------------------------------------
     patch_3D%p_patch_1D(1)%ocean_volume(n_zlev+1) = global_ocean_volume
     !-------------------------------------------------
     CALL complete_ocean_subsets(patch_3D)
 
+    CALL ocean_check_level_sea_land_mask(patch_3D)
 
   END SUBROUTINE init_patch_3D
   !------------------------------------------------------------------------------------

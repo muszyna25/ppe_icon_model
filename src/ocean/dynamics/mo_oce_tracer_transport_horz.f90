@@ -50,7 +50,7 @@ MODULE mo_oce_tracer_transport_horz
     & l_with_horz_tracer_advection,            &
     & l_horz_limiter_advection
   USE mo_util_dbg_prnt,             ONLY: dbg_print
-  USE mo_parallel_config,           ONLY: nproma
+  USE mo_parallel_config,           ONLY: nproma, p_test_run
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
@@ -871,14 +871,15 @@ CONTAINS
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
-    ! z_tracer_new_low(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    ! z_tracer_max    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    ! z_tracer_min    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    ! r_m             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    ! r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
-    !    z_anti          (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
-    !    z_mflx_low      (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
-    
+    IF ( p_test_run ) THEN
+      ! z_tracer_new_low(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+      z_tracer_max    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+      z_tracer_min    (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+      r_m             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+      r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
+      !    z_anti          (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
+      !    z_mflx_low      (1:nproma,1:n_zlev,1:patch_2d%nblks_e) = 0.0_wp
+    ENDIF
     
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -911,8 +912,10 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
 
-      z_tracer_max    (:,:,jb) = 0.0_wp
-      z_tracer_min    (:,:,jb) = 0.0_wp
+      ! the number of levels are checked when using them
+      ! so no zeroeing is required
+      ! z_tracer_max    (:,:,jb) = 0.0_wp
+      ! z_tracer_min    (:,:,jb) = 0.0_wp
 
       DO jc = start_index, end_index
 
@@ -971,8 +974,10 @@ CONTAINS
 !ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
 
-      r_m(:,:,jb) = 0.0_wp
-      r_p(:,:,jb) = 0.0_wp
+      ! The dolic_e is the min of the neigboring dolic_c, so
+      ! zeroeing of r_m, r_p is not required
+      ! r_m(:,:,jb) = 0.0_wp
+      ! r_p(:,:,jb) = 0.0_wp
 
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
@@ -1075,9 +1080,11 @@ CONTAINS
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,jb), end_level)
-          
           ! IF( patch_3D%lsm_e(je,jk,jb) <= sea_boundary ) THEN
           z_signum = SIGN(1._wp, z_anti(je,jk,jb))
+
+          ! The dolic_e is the min of the neigboring dolic_c, so
+          ! zeroeing of r_m, r_p is not required
           
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
