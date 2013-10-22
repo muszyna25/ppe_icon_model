@@ -96,6 +96,7 @@ MODULE mo_oce_tracer_transport_horz
   
   INTEGER, PARAMETER :: top=1
 CONTAINS
+
   !-----------------------------------------------------------------------
   !>
   !! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
@@ -103,7 +104,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
-  !!  mpi parallelized LL
   SUBROUTINE advect_diffuse_flux_horz( patch_3d,          &
     & trac_old,            &
     & p_os,                &
@@ -146,9 +146,7 @@ CONTAINS
     z_div_adv_h   (:,:,:) = 0.0_wp
     z_div_diff_h  (:,:,:) = 0.0_wp
     z_diff_flux_h (:,:,:) = 0.0_wp
-    
-    CALL sync_patch_array(sync_e, patch_2d, p_os%p_diag%vn_time_weighted)
-    
+
     !Calculate tracer fluxes at edges
     !This step takes already the edge length into account
     !but not the edge height
@@ -203,7 +201,7 @@ CONTAINS
         ! !-------------------------------------------------------------------------------
         !compute new edge
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb, start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, start_index, end_index)
           DO je = start_index, end_index
@@ -335,7 +333,7 @@ CONTAINS
     
     !Final step: calculate sum of advective and diffusive horizontal fluxes
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb, start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
@@ -883,7 +881,7 @@ CONTAINS
     ENDIF
     
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       z_mflx_low(:,:,jb) = 0.0_wp
@@ -908,7 +906,7 @@ CONTAINS
     ! CALL sync_patch_array(SYNC_E, patch_2d,z_mflx_low)
     ! CALL sync_patch_array(SYNC_E, patch_2d, z_anti)
     
-!ICON_OMP_DO PRIVATE(jb,start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
 !ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
@@ -971,7 +969,7 @@ CONTAINS
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
 
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb,start_index, end_index, jc, jk, inv_prism_thick_new, &
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, &
 !ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
 
@@ -1076,7 +1074,7 @@ CONTAINS
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb,start_index, end_index, je, jk, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
