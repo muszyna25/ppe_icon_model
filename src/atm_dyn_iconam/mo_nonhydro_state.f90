@@ -84,6 +84,7 @@ MODULE mo_nonhydro_state
   USE mo_var_metadata,         ONLY: t_var_metadata, t_tracer_meta
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
+  USE mo_gribout_config,       ONLY: gribout_config
   USE mo_art_config,           ONLY: t_art_config,art_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -92,7 +93,7 @@ MODULE mo_nonhydro_state
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
     &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                FILETYPE_NC2, TSTEP_CONSTANT
+    &                                DATATYPE_PACK24, FILETYPE_NC2, TSTEP_CONSTANT
 
   IMPLICIT NONE
 
@@ -438,6 +439,7 @@ MODULE mo_nonhydro_state
       &        shape4d_c(4)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
+    INTEGER :: DATATYPE_PACK_VAR  !< variably "entropy" for some thermodynamic fields
 
     CHARACTER(len=4) suffix
 
@@ -465,6 +467,15 @@ MODULE mo_nonhydro_state
     nlevp1 = p_patch%nlevp1
 
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
+
+    IF (gribout_config(p_patch%id)%typeOfGeneratingProcess == 0) THEN  ! analysis
+      ! higher accuracy for atmospheric thermodynamic fields
+      DATATYPE_PACK_VAR = DATATYPE_PACK24
+    ELSE
+      ! standard accuracy for atmospheric thermodynamic fields
+      DATATYPE_PACK_VAR = DATATYPE_PACK16
+    ENDIF
+
 
     ! predefined array shapes
     shape3d_e     = (/nproma, nlev,   nblks_e  /)
@@ -514,7 +525,7 @@ MODULE mo_nonhydro_state
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 3, 10, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'rho'//suffix, p_prog%rho,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
       &           ldims=shape3d_c,                                             &
@@ -523,7 +534,7 @@ MODULE mo_nonhydro_state
     ! theta_v      p_prog%theta_v(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', &
       &                   'virtual potential temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 0, 15, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 15, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'theta_v'//suffix, p_prog%theta_v, &
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,             &
       &           ldims=shape3d_c,                                                    &
@@ -936,6 +947,8 @@ MODULE mo_nonhydro_state
       &        shape3d_ubcp1(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
+    INTEGER :: DATATYPE_PACK_VAR  !< variably "entropy" for some thermodynamic fields
+
     INTEGER :: jt
 
     CHARACTER(LEN=2) :: ctrc
@@ -958,6 +971,14 @@ MODULE mo_nonhydro_state
     ENDIF
 
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
+
+    IF (gribout_config(p_patch%id)%typeOfGeneratingProcess == 0) THEN  ! analysis
+      ! higher accuracy for atmospheric thermodynamic fields
+      DATATYPE_PACK_VAR = DATATYPE_PACK24
+    ELSE
+      ! standard accuracy for atmospheric thermodynamic fields
+      DATATYPE_PACK_VAR = DATATYPE_PACK16
+    ENDIF
 
     ! predefined array shapes
     shape2d_c     = (/nproma,          nblks_c    /)
@@ -1131,7 +1152,7 @@ MODULE mo_nonhydro_state
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('air_temperature', 'K', 'Temperature', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
@@ -1159,7 +1180,7 @@ MODULE mo_nonhydro_state
     ! pres         p_diag%pres(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('air_pressure', 'Pa', 'Pressure', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres', p_diag%pres,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE. ,                           &
