@@ -18,8 +18,9 @@ case "$fortran_compiler" in
       config_compiler=xlf
       CC       = mpcc_r
       OPTFLAGS = -q64 -O2  -qmaxmem=-1 -qstrict -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint
-      INFOFLAGS= -qlistopt -qphsinfo -qreport=hotlist -bnoquiet -V
-      INFOFLAGS= -qlistopt -qphsinfo -bnoquiet -V
+#      INFOFLAGS= -qlistopt -qreport=hotlist -qphsinfo -bnoquiet -V
+#      INFOFLAGS= -qlistopt -qreport=hotlist
+      INFOFLAGS= -qlistopt
       DEBUGFLAGS= -g -qcheck -qstackprotect=all
       GENFLAGS = $INFOFLAGS 
       CFLAGS   = $GENFLAGS -Dextname -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -qlanglvl=stdc99
