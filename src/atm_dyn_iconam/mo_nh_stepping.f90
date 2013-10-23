@@ -96,7 +96,8 @@ MODULE mo_nh_stepping
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
                                     outer_boundary_nudging, nest_boundary_nudging, &
-                                    prep_rho_bdy_nudging, density_boundary_nudging
+                                    prep_rho_bdy_nudging, density_boundary_nudging,&
+                                    prep_outer_bdy_nudging
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday, &
                                     rdaylen, date_to_time
@@ -339,7 +340,7 @@ MODULE mo_nh_stepping
     CALL pp_scheduler_process(simulation_status)
 
     ! fix the first grf_bdywidth(=4) boundary cell-layers
-    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+    IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL adjust_boundary_data ( p_patch(1), datetime, nnow(1), p_nh_state(1) )
 
     IF (output_mode%l_nml) THEN
@@ -459,7 +460,7 @@ MODULE mo_nh_stepping
     CALL add_time(dtime,0,0,0,datetime)
 
     ! read boundary data if necessary
-    IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+    IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
     IF (msg_level >= 2 .OR. jstep == 1 .OR. MOD(jstep,100) == 0) THEN
@@ -804,50 +805,19 @@ MODULE mo_nh_stepping
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
-    IF (jg == 1 .AND. l_limited_area) THEN
+    IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
 
       n_save = nsav2(jg)
-   !   CALL message(TRIM(routine), TRIM(message_text))
-
-      IF (latbc_config%itype_latbc .GT. 0) THEN
-        
-        ! update the coefficients for the linear interpolation
-        CALL update_lin_interc( datetime )
-        latbc_lc1 = latbc_config%lc1
-        latbc_lc2 = latbc_config%lc2
-
+      n_now = nnow(jg)
 !$OMP PARALLEL
 !$OMP WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%vn &
-          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%vn
-        p_nh_state(jg)%prog(n_save)%w = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%w &
-          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%w
-        p_nh_state(jg)%prog(n_save)%rho = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%rho &
-          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
-          + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
+      p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
+      p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
+      p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
+      p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
-          
-      ELSE IF (linit_dyn(jg)) THEN
-
-        n_now = nnow(jg)
-!$OMP PARALLEL
-!$OMP WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
-        p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
-        p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
-
-      ENDIF
         
-      ! tracer(nsav2) is currently not allocated in mo_nonhydro_state;
-      ! thus, there is no tracer relaxation
-      ! IF (ltransport) &
-      !   p_nh_state(jg)%prog(n_save)%tracer = p_nh_state(jg)%prog(n_now)%tracer
-
     ENDIF
 
     ! This executes one time step for the global domain and two steps for nested domains
@@ -933,21 +903,38 @@ MODULE mo_nh_stepping
         n_upt_rcf = nnow_rcf(jg)
       ENDIF
 
-      IF ( l_limited_area .AND. jg == 1 ) THEN
-        ! Perform interpolation of lateral boundary data from a driving model
-        ! This routine still has to be written...
-        ! Boundary data should be written to time level nnow, boundary tendencies
-        ! and nudging increments (or, alternatively, the full fields) should be
-        ! written to the grf_tend fields
+      ! Update nudging tendency fields for limited-area mode
+      IF (jg == 1 .AND. l_limited_area .AND. lstep_adv(jg)) THEN
 
-        if (latbc_config%itype_latbc .GT. 0) &
-          &   CALL adjust_boundary_data ( p_patch(jg), datetime, &
-          &                               nnow(jg), p_nh_state(jg) )
+        n_save = nsav2(jg)
+
+        IF (latbc_config%itype_latbc > 0) THEN ! update target field of relaxation
+          ! update the coefficients for the linear interpolation
+          CALL update_lin_interc( datetime )
+          latbc_lc1 = latbc_config%lc1
+          latbc_lc2 = latbc_config%lc2
+
+!$OMP PARALLEL
+!$OMP WORKSHARE
+          p_nh_state(jg)%prog(n_save)%vn = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%vn &
+            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%vn
+          p_nh_state(jg)%prog(n_save)%w = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%w &
+            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%w
+          p_nh_state(jg)%prog(n_save)%rho = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%rho &
+            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%rho
+          p_nh_state(jg)%prog(n_save)%theta_v = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
+            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+        ENDIF
+
+        CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_save),   &
+          p_nh_state(jg)%prog(n_now),p_nh_state(jg)%metrics,p_nh_state(jg)%diag)
 
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
-
-        CALL outer_boundary_nudging (jg, nnow(jg),nnow_rcf(jg),nsav2(jg),lstep_adv(jg))
+        CALL outer_boundary_nudging (jg, nnow(jg), REAL(iadv_rcf,wp))
       ENDIF
+
       ! Note: boundary nudging in nested domains (if feedback is turned off) is
       ! applied in solve_nh for velocity components and in SR nest_boundary_nudging
       ! (called at the advective time step) for thermodynamical and tracer variables
@@ -1070,8 +1057,9 @@ MODULE mo_nh_stepping
 
         IF (p_patch(jg)%cell_type == 3) THEN
 
-          IF (jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-            l_bdy_nudge = .TRUE. ! apply boundary nudging if feedback is turned off
+          IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
+            ! apply boundary nudging if feedback is turned off and in limited-area mode
+            l_bdy_nudge = .TRUE. 
           ELSE
             l_bdy_nudge = .FALSE.
           ENDIF
@@ -2077,7 +2065,7 @@ MODULE mo_nh_stepping
       &    't_elapsed_phy failed' )
   ENDIF
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) THEN
+  IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
     CALL deallocate_latbc_data(p_patch(1))
   ENDIF
 
@@ -2186,7 +2174,7 @@ MODULE mo_nh_stepping
   ENDDO
 
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc .GT. 0)) &
+  IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
     &   CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
 
 END SUBROUTINE allocate_nh_stepping

@@ -79,7 +79,7 @@ MODULE mo_nh_latbc
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_run_config,          ONLY: iqv, iqc
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   
   IMPLICIT NONE
   
@@ -118,10 +118,10 @@ MODULE mo_nh_latbc
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
   SUBROUTINE prepare_latbc_data(p_patch, p_int_state, p_nh_state, ext_data)
-    TYPE(t_patch),          INTENT(IN)  :: p_patch
-    TYPE(t_int_state),      INTENT(IN)  :: p_int_state
-    TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
-    TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
+    TYPE(t_patch),          INTENT(IN)   :: p_patch
+    TYPE(t_int_state),      INTENT(IN)   :: p_int_state
+    TYPE(t_nh_state),       INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
+    TYPE(t_external_data),  INTENT(IN)   :: ext_data    !< external data on the global domain
 
     ! local variables
     INTEGER       :: mpi_comm
@@ -240,7 +240,7 @@ MODULE mo_nh_latbc
   SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, ext_data, datetime, &
     &                         lopt_check_read, lopt_time_incr )
     TYPE(t_patch),          INTENT(IN)    :: p_patch
-    TYPE(t_nh_state),       INTENT(IN)    :: p_nh_state  !< nonhydrostatic state on the global domain
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)    :: p_int
     TYPE(t_external_data),  INTENT(IN)    :: ext_data    !< external data on the global domain
     TYPE(t_datetime),       INTENT(INOUT) :: datetime    !< current time
@@ -271,7 +271,7 @@ MODULE mo_nh_latbc
       CALL date_to_time(datetime)
       tdiff = (last_latbc_datetime%calday - datetime%calday + &
         last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-      IF (tdiff .GE. 0.) RETURN
+      IF (tdiff >= 0.) RETURN
     ENDIF
 
     ! Prepare the last_latbc_datetime for the next time level
@@ -279,6 +279,14 @@ MODULE mo_nh_latbc
       CALL add_time( latbc_config%dtime_latbc, 0, 0, 0, last_latbc_datetime )
       CALL date_to_time(last_latbc_datetime)
     ENDIF
+
+    ! Adjust read/last indices
+    !
+    ! New boundary data time-level is always read in p_latbc_data(read_latbc_tlev),
+    ! whereas p_latbc_data(last_latbc_tlev) always holds the last read boundary data
+    !
+    read_latbc_tlev = last_latbc_tlev 
+    last_latbc_tlev = 3 - read_latbc_tlev
 
     !
     ! start reading boundary data
@@ -292,13 +300,8 @@ MODULE mo_nh_latbc
       CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data )
     END SELECT
 
-    ! Adjust read/last indices
-    !
-    ! New boundary data time-level is always read in p_latbc_data(read_latbc_tlev),
-    ! whereas p_latbc_data(last_latbc_tlev) always holds the last read boundary data
-    !
-    read_latbc_tlev = last_latbc_tlev 
-    last_latbc_tlev = 3 - read_latbc_tlev
+    ! Compute tendencies for nest boundary update
+    CALL compute_boundary_tendencies(p_patch, p_nh_state)
 
   END SUBROUTINE read_latbc_data
   !-------------------------------------------------------------------------
@@ -874,6 +877,119 @@ MODULE mo_nh_latbc
   END SUBROUTINE adjust_boundary_data
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !! Initial version by G. Zaengl, DWD (2013-10-22)
+  !!
+  SUBROUTINE compute_boundary_tendencies ( p_patch, p_nh )
+    TYPE(t_patch),    INTENT(IN)    :: p_patch
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh
+
+    ! Local variables
+    INTEGER                         :: i_startblk, i_endblk, &
+      &                                i_startidx, i_endidx
+    INTEGER                         :: jc, jk, jb, je
+    INTEGER                         :: nlev, nlevp1
+    REAL(wp)                        :: rdt
+
+    nlev = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
+
+    ! Inverse value of boundary update frequency
+    rdt = 1._wp/latbc_config%dtime_latbc
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    ! a) Boundary tendency of horizontal velocity
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, grf_bdywidth_e)
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          p_nh%diag%grf_tend_vn(je,jk,jb) = rdt * (            &
+            &   p_latbc_data(read_latbc_tlev)%atm%vn(je,jk,jb) &
+            & - p_latbc_data(last_latbc_tlev)%atm%vn(je,jk,jb) )
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+
+    ! b) Boundary tendencies of variables at cell centers
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, grf_bdywidth_c)
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+          p_nh%diag%grf_tend_rho(jc,jk,jb) = rdt * (            &
+            &   p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
+            & - p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb) )
+
+          p_nh%diag%grf_tend_thv(jc,jk,jb) = rdt * (                &
+            &   p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
+            & - p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb) )
+
+          p_nh%diag%grf_tend_w(jc,jk,jb) = rdt * (            &
+            &   p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
+            & - p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb) )
+
+        ENDDO
+      ENDDO
+
+      DO jc = i_startidx, i_endidx
+        p_nh%diag%grf_tend_w(jc,nlevp1,jb) = rdt * (            &
+          &   p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
+          & - p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb) )
+      ENDDO
+
+      IF (ltransport) THEN
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqv) =  rdt * (   &
+              &   p_latbc_data(read_latbc_tlev)%atm%qv(jc,jk,jb) &
+              & - p_latbc_data(last_latbc_tlev)%atm%qv(jc,jk,jb) )
+
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqc) =  rdt * (   &
+              &   p_latbc_data(read_latbc_tlev)%atm%qc(jc,jk,jb) &
+              & - p_latbc_data(last_latbc_tlev)%atm%qc(jc,jk,jb) )
+
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqi) =  rdt * (   &
+              &   p_latbc_data(read_latbc_tlev)%atm%qi(jc,jk,jb) &
+              & - p_latbc_data(last_latbc_tlev)%atm%qi(jc,jk,jb) )
+
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqr) =  rdt * (   &
+              &   p_latbc_data(read_latbc_tlev)%atm%qr(jc,jk,jb) &
+              & - p_latbc_data(last_latbc_tlev)%atm%qr(jc,jk,jb) )
+
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqs) =  rdt * (   &
+              &   p_latbc_data(read_latbc_tlev)%atm%qs(jc,jk,jb) &
+              & - p_latbc_data(last_latbc_tlev)%atm%qs(jc,jk,jb) )
+          ENDDO
+        ENDDO
+      ENDIF
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE compute_boundary_tendencies
+  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   !>
@@ -887,10 +1003,9 @@ MODULE mo_nh_latbc
 
     CALL date_to_time(datetime)
     CALL date_to_time(last_latbc_datetime)
-    latbc_config%lc2 = (last_latbc_datetime%calday - datetime%calday + &
-      last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-    latbc_config%lc2 = latbc_config%lc2 / latbc_config%dtime_latbc
-    latbc_config%lc1 = 1._wp - latbc_config%lc2
+    latbc_config%lc1 = (last_latbc_datetime%calday - datetime%calday + &
+      last_latbc_datetime%caltime - datetime%caltime) * rdaylen / latbc_config%dtime_latbc
+    latbc_config%lc2 = 1._wp - latbc_config%lc1
 
   END SUBROUTINE update_lin_interc
   !-------------------------------------------------------------------------
