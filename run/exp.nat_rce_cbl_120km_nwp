@@ -35,7 +35,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-09-01T00:00:00Z"
+end_date="2009-08-01T00:00:00Z"
 ndays_restart=40
 dt_restart=`expr ${ndays_restart} \* 86400`
 dt_checkpoint=`expr 40 \* 86400 `
@@ -198,14 +198,14 @@ cat >> ${atmo_namelist} << EOF
   ctracer_list  = '12345'
 /
 &diffusion_nml
- hdiff_order      = 5 ! default for NH
- hdiff_efdt_ratio = 15.0 ! recommended for NH when using hdiff_order = 5
- hdiff_smag_fac   = 0.025  ! default for NH
+! hdiff_order      = 5 ! default for NH
+! hdiff_efdt_ratio = 15.0 ! recommended for NH when using hdiff_order = 5
+! hdiff_smag_fac   = 0.025  ! default for NH
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,2592000.,21600.      ! start, end, increment 
+ output_bounds    = 0.,31104000.,21600.      ! start, end, increment 
  steps_per_file   = 100
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 0                ! lon/lat output
