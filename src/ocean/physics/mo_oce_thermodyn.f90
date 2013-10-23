@@ -1,3 +1,5 @@
+
+!---------------------------------------------------------------------------------------
 !>
 !! Provide an implementation of the ocean thermodynamics
 !!
@@ -402,7 +404,6 @@ CONTAINS
   !!
   SUBROUTINE calc_density_lin_eos(p_patch_3d, tracer, rho)
     !
-    !!
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
     REAL(wp),    INTENT(in)       :: tracer(:,:,:,:)     !< input of S and T
     REAL(wp), INTENT(inout)       :: rho   (:,:,:)       !< density
@@ -481,35 +482,34 @@ CONTAINS
   !---------------------------------------------------------------------------
   
   !---------------------------------------------------------------------------
-  !!  mpi parallelized LL (no sync required)
+  !>
+  ! !DESCRIPTION:
+  !
+  !  Calculation of the density as a function of salinity and temperature
+  !  using the Jackett et al. (2006) equation of state. It uses exactly the
+  !  same polynomial formulation as in McDougall et al. (2003), implemented
+  !  in subroutine calculate_density_MDJWF03_EOS, but with a revised set of
+  !  coefficients.
+  !
+  !  Check values are:
+  !
+  !    rho(theta=25 degC, S=35 PSU, p=2000 dbar) = 1031.65212332355 kg/m^3
+  !    rho(theta=20 degC, S=20 PSU, p=1000 dbar) = 1017.84289041198 kg/m^3
+  !
+  !  Reference:
+  !
+  !    Jackett, D.R., T.J. McDougall, D.G. Wright, R. Feistel, and S.M. Griffies,
+  !    2006: Algorithms for Density, Potential Temperature, Conservative
+  !    Temperature, and the Freezing Temperature of Seawater. JAOT, 23, 1709-1728
+  !
+  !    McDougall, T.J., D.R. Jackett, D.G. Wright, and R. Feistel,  2003:
+  !    Accurate and Computationally Efficient Algorithms for Potential
+  !    Temperature and Density of Seawater. JAOT, 20, 730-741
+  !
+  ! !REVISION HISTORY:
+  ! implemented by Peter Herrmann (2009)
+  !
   SUBROUTINE calc_density_jmdwfg06_eos(p_patch_3d, tracer, rho)
-    !
-    ! !DESCRIPTION:
-    !
-    !  Calculation of the density as a function of salinity and temperature
-    !  using the Jackett et al. (2006) equation of state. It uses exactly the
-    !  same polynomial formulation as in McDougall et al. (2003), implemented
-    !  in subroutine calculate_density_MDJWF03_EOS, but with a revised set of
-    !  coefficients.
-    !
-    !  Check values are:
-    !
-    !    rho(theta=25 degC, S=35 PSU, p=2000 dbar) = 1031.65212332355 kg/m^3
-    !    rho(theta=20 degC, S=20 PSU, p=1000 dbar) = 1017.84289041198 kg/m^3
-    !
-    !  Reference:
-    !
-    !    Jackett, D.R., T.J. McDougall, D.G. Wright, R. Feistel, and S.M. Griffies,
-    !    2006: Algorithms for Density, Potential Temperature, Conservative
-    !    Temperature, and the Freezing Temperature of Seawater. JAOT, 23, 1709-1728
-    !
-    !    McDougall, T.J., D.R. Jackett, D.G. Wright, and R. Feistel,  2003:
-    !    Accurate and Computationally Efficient Algorithms for Potential
-    !    Temperature and Density of Seawater. JAOT, 20, 730-741
-    !
-    ! !REVISION HISTORY:
-    ! implemented by Peter Herrmann (2009)
-    !
     TYPE(t_patch_3d ),TARGET, INTENT(in):: p_patch_3d
     REAL(wp),    INTENT(in)                    :: tracer(:,:,:,:)
     REAL(wp), INTENT(inout)                    :: rho(:,:,:)       !< density
@@ -568,34 +568,34 @@ CONTAINS
 
 
   !----------------------------------------------------------------
+  !>
+  ! !DESCRIPTION:
+  !
+  !  Calculation of the density as a function of salinity and temperature
+  !  using the Jackett et al. (2006) equation of state. It uses exactly the
+  !  same polynomial formulation as in McDougall et al. (2003), implemented
+  !  in subroutine calculate_density_MDJWF03_EOS, but with a revised set of
+  !  coefficients.
+  !
+  !  Check values are:
+  !
+  !    rho(theta=25 degC, S=35 PSU, p=2000 dbar) = 1031.65212332355 kg/m^3 1031.6505605657569 1031.6505605657569
+  !    rho(theta=20 degC, S=20 PSU, p=1000 dbar) = 1017.84289041198 kg/m^3
+  !
+  !  Reference:
+  !
+  !    Jackett, D.R., T.J. McDougall, D.G. Wright, R. Feistel, and S.M. Griffies,
+  !    2006: Algorithms for Density, Potential Temperature, Conservative
+  !    Temperature, and the Freezing Temperature of Seawater. JAOT, 23, 1709-1728
+  !
+  !    McDougall, T.J., D.R. Jackett, D.G. Wright, and R. Feistel,  2003:
+  !    Accurate and Computationally Efficient Algorithms for Potential
+  !    Temperature and Density of Seawater. JAOT, 20, 730-741
+  !
+  ! !REVISION HISTORY:
+  ! implemented by Peter Herrmann (2009)
+  !
   FUNCTION calc_density_jmdwfg06_eos_func(tracer_t, tracer_s, p) result(rho)
-    !
-    ! !DESCRIPTION:
-    !
-    !  Calculation of the density as a function of salinity and temperature
-    !  using the Jackett et al. (2006) equation of state. It uses exactly the
-    !  same polynomial formulation as in McDougall et al. (2003), implemented
-    !  in subroutine calculate_density_MDJWF03_EOS, but with a revised set of
-    !  coefficients.
-    !
-    !  Check values are:
-    !
-    !    rho(theta=25 degC, S=35 PSU, p=2000 dbar) = 1031.65212332355 kg/m^3 1031.6505605657569 1031.6505605657569
-    !    rho(theta=20 degC, S=20 PSU, p=1000 dbar) = 1017.84289041198 kg/m^3
-    !
-    !  Reference:
-    !
-    !    Jackett, D.R., T.J. McDougall, D.G. Wright, R. Feistel, and S.M. Griffies,
-    !    2006: Algorithms for Density, Potential Temperature, Conservative
-    !    Temperature, and the Freezing Temperature of Seawater. JAOT, 23, 1709-1728
-    !
-    !    McDougall, T.J., D.R. Jackett, D.G. Wright, and R. Feistel,  2003:
-    !    Accurate and Computationally Efficient Algorithms for Potential
-    !    Temperature and Density of Seawater. JAOT, 20, 730-741
-    !
-    ! !REVISION HISTORY:
-    ! implemented by Peter Herrmann (2009)
-    !
     REAL(wp), INTENT(in)       :: tracer_t
     REAL(wp), INTENT(in)       :: tracer_s
     REAL(wp), INTENT(in)       :: p
@@ -665,7 +665,6 @@ CONTAINS
   !! Code below is an adaption of Sergey Danilov's implementation in
   !! the AWI Finite-Volume model.
   !!
-  !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_density_jm_eos(p_patch_3d, tracer, rho)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
@@ -746,17 +745,16 @@ CONTAINS
   !----------------------------------------------------------------
   
   !----------------------------------------------------------------
-  !!  mpi parallelized LL (no sync required)
+  !
+  ! !DESCRIPTION:
+  !
+  !!  Calculates density as a function of potential temperature and salinity
+  !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is copied from MPIOM
+  !! @par Revision History
+  !! Initial version by Peter Korn, MPI-M (2011)
+  !!
   SUBROUTINE calc_density_mpiom(p_patch_3d, tracer, rho)
-    !
-    ! !DESCRIPTION:
-    !
-    !!  Calculates density as a function of potential temperature and salinity
-    !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
-    !! The code below is copied from MPIOM
-    !! @par Revision History
-    !! Initial version by Peter Korn, MPI-M (2011)
-    !!
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
     REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
@@ -856,20 +854,18 @@ CONTAINS
     
   END FUNCTION calc_density_mpiom_func
   !-------------------------------------------------------------------------
-
   
   !-------------------------------------------------------------------------
+  !>
+  ! !DESCRIPTION:
+  !
+  !!  Calculates density as a function of potential temperature and salinity
+  !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is copied from MPIOM
+  !! @par Revision History
+  !! Initial version by Peter Korn, MPI-M (2011)
+  !!
   SUBROUTINE calc_potential_density_mpiom(p_patch_3d, tracer, rhopot)
-    !
-    ! !DESCRIPTION:
-    !
-    !!  Calculates density as a function of potential temperature and salinity
-    !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
-    !! The code below is copied from MPIOM
-    !! @par Revision History
-    !! Initial version by Peter Korn, MPI-M (2011)
-    !!
-    !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
     REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
     REAL(wp), INTENT(inout)                :: rhopot(:,:,:)
@@ -980,17 +976,15 @@ CONTAINS
   !-------------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------------------
-  !!  mpi parallelized LL (no sync required)
+  !>
+  ! !DESCRIPTION:
+  !
+  !!  Calculates potential tempertaure from in-situ temperature.
+  !!  Formula described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! @par Revision History
+  !! Initial version by Peter Korn, MPI-M (2011)
+  !!
   SUBROUTINE convert_insitu2pot_temp(p_patch_3d, rho_ref, temp_insitu, sal, temp_pot)
-    !
-    ! !DESCRIPTION:
-    !
-    !!  Calculates potential tempertaure from in-situ temperature.
-    !!  Formula described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
-    !! @par Revision History
-    !! Initial version by Peter Korn, MPI-M (2011)
-    !!
-    !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
     REAL(wp)                      :: rho_ref
     REAL(wp)                      :: temp_insitu(:,:,:)
@@ -1051,9 +1045,7 @@ CONTAINS
     
   END FUNCTION convert_insitu2pot_temp_func
   !-------------------------------------------------------------------------------------
-  
-  
-  
+
   
   !-------------------------------------------------------------------------------------
   SUBROUTINE convert_pot_temp2insitu(p_patch_3d,trac_t, trac_s, temp_insitu)
