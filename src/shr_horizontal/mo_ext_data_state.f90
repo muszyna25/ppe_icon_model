@@ -2944,12 +2944,28 @@ CONTAINS
 
                END DO
 
+               ! fix for non-dominant land points
+               !!! only active for 'old' extpar datasets (20131009 and earlier) !!!
                IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
-                 ! fix for non-dominant land points: reset soil type to sandy loam ...
-                 ext_data(jg)%atm%soiltyp(jc,jb) = 4
-                 ! ... and reset ndviratio to 0.5
-                 ptr_ndviratio(jc,jb) = 0.5_wp
+                 IF (ext_data(jg)%atm%soiltyp(jc,jb) == 9) THEN  ! sea water
+                   ! reset soil type to sandy loam ...
+                   ext_data(jg)%atm%soiltyp(jc,jb) = 4
+                 ENDIF
+                 IF (ptr_ndviratio(jc,jb) <= 0.0_wp) THEN  ! here: 0=extpar_missval
+                   ! ... and reset ndviratio
+                   ptr_ndviratio(jc,jb) = 0.5_wp
+                 ENDIF
+                 IF (ext_data(jg)%atm%ndvi_max(jc,jb) <= 0.0_wp ) THEN  ! here: 0=extpar_missval
+                   ! ... and reset ndvi_max to meaningful value (needed for plant cover)
+                   ext_data(jg)%atm%ndvi_max(jc,jb) = 0.8_wp
+                 ENDIF
                ENDIF
+!!$               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
+!!$                 ! fix for non-dominant land points: reset soil type to sandy loam ...
+!!$                 ext_data(jg)%atm%soiltyp(jc,jb) = 4
+!!$                 ! ... and reset ndviratio to 0.5
+!!$                 ptr_ndviratio(jc,jb) = 0.5_wp
+!!$               ENDIF
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
 
@@ -3003,6 +3019,21 @@ CONTAINS
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
                END DO
              END IF ! ntiles
+           ELSE  ! fr_land(jc,jb)<= frlnd_thrhld
+             ! measures for land-specific fields that are also defined on non-dominating land points:
+             !
+             ! for_d, for_e: only accessed via land point index list 
+             !               -> non-dominant land points do not matter when running without tiles
+             ! urban : currently unused
+             ! rootdp, rsmin, lai_mx, plcov_mx, ndvi_max : only accessed via land point index list
+             ! ndvi_mrat -> ndviratio : only accessed via land point index list
+             ! soiltyp :
+             ! 
+             ! glacier fraction
+             ext_data(jg)%atm%fr_glac(jc,jb) = 0._wp  ! for frlnd_thrhld=0.5 (i.e. without tiles) this is 
+                                                      ! identical to what has previously been done within 
+                                                      ! EXTPAR crosschecks.
+             ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp  ! note that this one is used rather than fr_glac !!
            ENDIF
 
 
@@ -3049,25 +3080,6 @@ CONTAINS
            ! for seaice points.
 
          END DO ! jc
-
-
-! New version -> see below
-!!$         ! Normalize land-cover fractions over the land tile indices plus the sea-water and 
-!!$         ! lake index to a sum of 1
-!!$         IF (ntiles_lnd > 1) THEN
-!!$           DO jc = i_startidx, i_endidx
-!!$             sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd)) + &
-!!$                        SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water:isub_lake))
-!!$
-!!$             DO jt = 1, ntiles_total + MIN(2,ntiles_water)
-!!$               ext_data(jg)%atm%lc_frac_t(jc,jb,jt) = ext_data(jg)%atm%lc_frac_t(jc,jb,jt) / sum_frac
-!!$             ENDDO
-!!$           ENDDO
-!!$         ELSE ! overwrite fractional settings over water points if tile approach is turned off
-!!$           DO jc = i_startidx, i_endidx
-!!$             ext_data(jg)%atm%lc_frac_t(jc,jb,1) = 1._wp
-!!$           ENDDO
-!!$         ENDIF
 
 
 
