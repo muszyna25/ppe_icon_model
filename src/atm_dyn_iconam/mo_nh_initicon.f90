@@ -624,7 +624,7 @@ MODULE mo_nh_initicon
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon)
 
     
     ! Finally copy the results to the prognostic model variables

@@ -59,8 +59,7 @@ MODULE mo_nh_vert_interp
   USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_initicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
-                                    l_coarse2fine_mode
+  USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -120,12 +119,13 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon)
+  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, nlev_in, initicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
+    INTEGER,                INTENT(IN)       :: nlev_in
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
 
     ! LOCAL VARIABLES
@@ -142,7 +142,7 @@ CONTAINS
 
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
-      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, initicon(jg))
+      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, nlev_in, initicon(jg))
 
       ! Apply boundary interpolation for u and v because the outer nest boundary
       ! points would remain undefined otherwise
@@ -212,12 +212,13 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon)
+  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, nlev_in, initicon)
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
+    INTEGER,                INTENT(IN)       :: nlev_in
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
 
 

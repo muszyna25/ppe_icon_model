@@ -684,7 +684,7 @@ MODULE mo_nh_latbc
     !
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
-    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, p_latbc_data(tlev))
+    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev_in, p_latbc_data(tlev))
 
   END SUBROUTINE read_latbc_ifs_data
   !-------------------------------------------------------------------------
