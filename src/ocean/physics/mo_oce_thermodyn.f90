@@ -79,7 +79,7 @@ MODULE mo_oce_thermodyn
   ! PRIVATE :: calc_density_mpiom
   ! PRIVATE :: convert_insitu2pot_temp
   PUBLIC :: convert_insitu2pot_temp_func
-  PUBLIC :: adisit
+  ! PUBLIC :: adisit
   REAL(wp), PARAMETER :: eosmdjwfnum(0:11) = (/                                 &
     & 9.99843699e+02_wp,  7.35212840e+00_wp, -5.45928211e-02_wp,                 &
     & 3.98476704e-04_wp,  2.96938239e+00_wp, -7.23268813e-03_wp,                 &
@@ -153,9 +153,9 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
-!   SUBROUTINE calc_internal_press_new(p_patch_3d, trac_t, trac_s, h, calc_density_func, press_hyd)
+!   SUBROUTINE calc_internal_press_new(patch_3d, trac_t, trac_s, h, calc_density_func, press_hyd)
 !     !
-!     TYPE(t_patch_3d ),TARGET, INTENT(in):: p_patch_3d
+!     TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
 !     REAL(wp),    INTENT(in)       :: trac_t   (:,:,:)  !temperature
 !     REAL(wp),    INTENT(in)       :: trac_s   (:,:,:)  !salinity
 !     REAL(wp),    INTENT(in)       :: h        (:,:)    !< surface elevation at cells
@@ -174,41 +174,41 @@ CONTAINS
 !     !       & routine = (this_mod_name//':calc_internal_pressure')
 !     INTEGER :: slev, end_lev     ! vertical start and end level
 !     INTEGER :: jc, jk, jb
-!     INTEGER :: i_startidx, i_endidx
+!     INTEGER :: start_index, end_index
 !     REAL(wp) :: z_full, z_box, z_press, z_rho_up, z_rho_down
 !     TYPE(t_subset_range), POINTER :: all_cells
-!     TYPE(t_patch), POINTER :: p_patch
+!     TYPE(t_patch), POINTER :: patch_2D
 !     !-----------------------------------------------------------------------
-!     p_patch   => p_patch_3d%p_patch_2d(1)
+!     patch_2D   => patch_3d%p_patch_2d(1)
 !     !-------------------------------------------------------------------------
 !     !CALL message (TRIM(routine), 'start')
 !     ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
 !     !press_hyd(:,:,:) = 0.0_wp
-!     all_cells => p_patch%cells%ALL
+!     all_cells => patch_2D%cells%ALL
 !     
 !     slev = 1
 !     press_hyd    = 0.0_wp
 !     
 !     DO jb = all_cells%start_block, all_cells%end_block
-!       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+!       CALL get_index_range(all_cells, jb, start_index, end_index)
 !       
-!       DO jc = i_startidx, i_endidx
+!       DO jc = start_index, end_index
 !         
-!         z_press      = (p_patch_3d%p_patch_1d(1)%zlev_i(1)+h(jc,jb))*rho_ref*sitodbar ! grav
+!         z_press      = (patch_3d%p_patch_1d(1)%zlev_i(1)+h(jc,jb))*rho_ref*sitodbar ! grav
 !         z_rho_up = calc_density_func(&
 !           & trac_t(jc,1,jb),&
 !           & trac_s(jc,1,jb),&
 !           & z_press)
 !         
-!         press_hyd(jc,slev,jb) = grav*z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(1)*rho_inv!*0.5_wp
+!         press_hyd(jc,slev,jb) = grav*z_rho_up*patch_3d%p_patch_1d(1)%del_zlev_m(1)*rho_inv!*0.5_wp
 !         
 !         ! write(*,*)'press',jc,jb,1,&
 !         !  &press_hyd(jc,1,jb), z_press
 !         
-!         end_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!         end_lev = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !         DO jk = slev+1, end_lev
 !           
-!           z_press = p_patch_3d%p_patch_1d(1)%zlev_i(jk)*rho_ref*sitodbar!grav
+!           z_press = patch_3d%p_patch_1d(1)%zlev_i(jk)*rho_ref*sitodbar!grav
 !           !density of upper cell w.r.t.to pressure at intermediate level
 !           z_rho_up = calc_density_func(&
 !             & trac_t(jc,jk-1,jb),&
@@ -220,9 +220,9 @@ CONTAINS
 !             & trac_s(jc,jk,jb),&
 !             & z_press)
 !           
-!           z_box = ( z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)&
-!             & + z_rho_down*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk))&
-!             & /(p_patch_3d%p_patch_1d(1)%del_zlev_m(jk)+p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1))
+!           z_box = ( z_rho_up*patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)&
+!             & + z_rho_down*patch_3d%p_patch_1d(1)%del_zlev_m(jk))&
+!             & /(patch_3d%p_patch_1d(1)%del_zlev_m(jk)+patch_3d%p_patch_1d(1)%del_zlev_m(jk-1))
 !           press_hyd(jc,jk,jb) = press_hyd(jc,jk-1,jb) + rho_inv*grav*z_box
 !           !  write(*,*)'press',jc,jb,jk,&
 !           !  &press_hyd(jc,jk,jb), z_rho_up, z_rho_down,z_press
@@ -253,38 +253,40 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
   !!
-  SUBROUTINE calc_internal_press(p_patch_3d, rho, prism_thick_c, h, press_hyd)
+  SUBROUTINE calc_internal_press(patch_3d, rho, prism_thick_c, h, press_hyd)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-    REAL(wp), INTENT(in)              :: rho          (1:nproma,1:n_zlev, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
-    REAL(wp), INTENT(in), TARGET :: prism_thick_c(1:nproma,1:n_zlev, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(in)              :: h            (1:nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< surface elevation at cells
-    REAL(wp), INTENT(inout)           :: press_hyd    (1:nproma,1:n_zlev, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< hydrostatic pressure
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)              :: rho          (1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    REAL(wp), INTENT(in), TARGET :: prism_thick_c(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)              :: h            (1:nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< surface elevation at cells
+    REAL(wp), INTENT(inout)           :: press_hyd    (1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< hydrostatic pressure
     
     ! local variables:
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !       & routine = (this_mod_name//':calc_internal_pressure')
     INTEGER :: jc, jk, jb
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
     REAL(wp) :: z_full, z_box
     !   REAL(wp), POINTER :: del_zlev_m(:)
     REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv * grav
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
     !press_hyd(:,:,:) = 0.0_wp
-    all_cells => p_patch%cells%ALL
-    press_hyd(:,:,:) = 0.0_wp
+    all_cells => patch_2D%cells%ALL
+    ! press_hyd(:,:,:) = 0.0_wp
     
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, z_full, z_box) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      CALL get_index_range(all_cells, jb, start_index, end_index)
       
-      DO jc = i_startidx, i_endidx
+      DO jc = start_index, end_index
         !
         !  #slo# calculation of pressure due to elevation is done here
         !  including actual density of surface water
@@ -296,8 +298,8 @@ CONTAINS
         z_full  = 0.0_wp
         
 !        IF(end_lev>=min_dolic)THEN
-        DO jk = 1, p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-!            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
           !             del_zlev_m => prism_thick_c(jc,:,jb)
           !             z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
           z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
@@ -313,6 +315,8 @@ CONTAINS
 !        ENDIF
       END DO
     END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE calc_internal_press
   !-------------------------------------------------------------------------
@@ -326,17 +330,17 @@ CONTAINS
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_density(p_patch_3d,tracer, rho)
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
+  SUBROUTINE calc_density(patch_3d,tracer, rho)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(in), TARGET :: tracer(:,:,:,:)     !< input of S and T
     REAL(wp), INTENT(inout), TARGET :: rho   (:,:,:)       !< density
     
     ! local variables:
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !      & routine = (this_mod_name//':calc_density')
-    TYPE(t_patch), POINTER :: p_patch
+    ! TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    ! patch_2D   => patch_3d%p_patch_2d(1)
     !---------------------------------------------------------------------
     ! CALL message (TRIM(routine), 'start')
     
@@ -344,12 +348,12 @@ CONTAINS
     !internally.
     SELECT CASE (eos_type)
     CASE(1)
-      CALL calc_density_lin_eos(p_patch_3d, tracer, rho)
+      CALL calc_density_lin_eos(patch_3d, tracer, rho)
     CASE(2)
-      CALL calc_density_mpiom(p_patch_3d, tracer, rho)
+      CALL calc_density_mpiom(patch_3d, tracer, rho)
     CASE(3)
-      CALL calc_density_jmdwfg06_eos(p_patch_3d, tracer, rho)
-      !CALL calc_density_JM_EOS(p_patch, tracer, rho)
+      CALL calc_density_jmdwfg06_eos(patch_3d, tracer, rho)
+      !CALL calc_density_JM_EOS(patch_2D, tracer, rho)
     CASE default
       
     END SELECT
@@ -359,17 +363,17 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE calc_potential_density(p_patch_3d,tracer, rhopot)
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
+  SUBROUTINE calc_potential_density(patch_3d,tracer, rhopot)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(in), TARGET :: tracer(:,:,:,:)     !< input of S and T
     REAL(wp), INTENT(inout), TARGET :: rhopot(:,:,:)       !< density
     
     ! local variables:
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !      & routine = (this_mod_name//':calc_density')
-    TYPE(t_patch), POINTER :: p_patch
+    ! TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    ! patch_2D   => patch_3d%p_patch_2d(1)
     !---------------------------------------------------------------------
     ! CALL message (TRIM(routine), 'start')
     
@@ -377,12 +381,12 @@ CONTAINS
     !internally.
     !  SELECT CASE (EOS_TYPE)
     !    CASE(1)
-    !      CALL calc_density_lin_EOS(p_patch_3D, tracer, rhopot)
+    !      CALL calc_density_lin_EOS(patch_3d, tracer, rhopot)
     !    CASE(2)
-    CALL calc_potential_density_mpiom(p_patch_3d, tracer, rhopot)
+    CALL calc_potential_density_mpiom(patch_3d, tracer, rhopot)
     !    CASE(3)
-    !      CALL calc_density_JMDWFG06_EOS(p_patch_3D, tracer, rhopot)
-    !      !CALL calc_density_JM_EOS(p_patch, tracer, rho)
+    !      CALL calc_density_JMDWFG06_EOS(patch_3d, tracer, rhopot)
+    !      !CALL calc_density_JM_EOS(patch_2D, tracer, rho)
     !    CASE DEFAULT
     
     !  END SELECT
@@ -398,60 +402,69 @@ CONTAINS
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
-  SUBROUTINE calc_density_lin_eos(p_patch_3d, tracer, rho)
+  SUBROUTINE calc_density_lin_eos(patch_3d, tracer, rho)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp),    INTENT(in)       :: tracer(:,:,:,:)     !< input of S and T
     REAL(wp), INTENT(inout)       :: rho   (:,:,:)       !< density
     
     ! local variables:
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
-    all_cells => p_patch%cells%ALL
+    all_cells => patch_2D%cells%ALL
     
     IF(no_tracer==2)THEN
       
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+        CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
         !  tracer 2: salinity
-        DO jk=1, n_zlev
-          DO jc = i_startidx, i_endidx
-            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = rho_ref                      &
+        rho(:,:,jb) = rho_ref   !  plotting purpose
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+              rho(jc,jk,jb) = rho_ref          &
                 & - a_t * tracer(jc,jk,jb,1)   &
                 & + b_s * tracer(jc,jk,jb,2)
               !write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
               ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
-            ELSE
-              ! rho(jc,jk,jb) = 0.0_wp
-              rho(jc,jk,jb) = rho_ref   !  plotting purpose
-            ENDIF
+!            ELSE
+!              ! rho(jc,jk,jb) = 0.0_wp
+!              rho(jc,jk,jb) = rho_ref   !  plotting purpose
+!            ENDIF
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       
     ELSEIF(no_tracer==1)THEN
       
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        !  tracer 1: potential temperature
-        DO jk=1, n_zlev
-          DO jc = i_startidx, i_endidx
-            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = rho_ref - a_t * tracer(jc,jk,jb,1) +b_s*sal_ref
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        rho(:,:,jb) = rho_ref   !  plotting purpose
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+              rho(jc,jk,jb) = rho_ref - a_t * tracer(jc,jk,jb,1) + b_s * sal_ref
               !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
-            ELSE
-              rho(jc,jk,jb) = rho_ref   !  plotting purpose
-            ENDIF
+!            ELSE
+!              rho(jc,jk,jb) = rho_ref   !  plotting purpose
+!            ENDIF
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       
     ENDIF
     
@@ -505,58 +518,67 @@ CONTAINS
   ! !REVISION HISTORY:
   ! implemented by Peter Herrmann (2009)
   !
-  SUBROUTINE calc_density_jmdwfg06_eos(p_patch_3d, tracer, rho)
-    TYPE(t_patch_3d ),TARGET, INTENT(in):: p_patch_3d
+  SUBROUTINE calc_density_jmdwfg06_eos(patch_3d, tracer, rho)
+    TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
     REAL(wp),    INTENT(in)                    :: tracer(:,:,:,:)
     REAL(wp), INTENT(inout)                    :: rho(:,:,:)       !< density
     
     ! !LOCAL VARIABLES:
-    REAL(wp)::  z_p
+    ! REAL(wp)::  z_p
     
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------------------------------------
     !write(*,*)'inside EOS 06'
-    all_cells => p_patch%cells%ALL
+    all_cells => patch_2D%cells%ALL
     
     !  tracer 1: potential temperature
     !  tracer 2: salinity
     IF(no_tracer==2)THEN
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jk=1, n_zlev
-          DO jc = i_startidx, i_endidx
-            ! operate on wet ocean points only
-            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
-              rho(jc,jk,jb) = calc_density_jmdwfg06_eos_func(tracer(jc,jk,jb,1),&
-                & tracer(jc,jk,jb,2),&
-                & z_p)
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        !  tracer 1: potential temperature
+        !  tracer 2: salinity
+        ! rho(:,:,jb) = rho_ref   !  plotting purpose
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+            ! z_p = sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
+            rho(jc,jk,jb) = calc_density_jmdwfg06_eos_func(tracer(jc,jk,jb,1), &
+              & tracer(jc,jk,jb,2), &
+              & sfc_press_bar )
               !           write(*,*)'rho',jc,jk,jb,rho(jc,jk,jb)
-            END IF
+ !           END IF
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     ELSE IF(no_tracer==1)THEN
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jk=1, n_zlev
-          DO jc = i_startidx, i_endidx
-            ! operate on wet ocean points only
-            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+        !      z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
               rho(jc,jk,jb) = calc_density_jmdwfg06_eos_func(tracer(jc,jk,jb,1),&
                 & sal_ref,      &
-                & z_p)
+                & sfc_press_bar )
               !           write(*,*)'rho',jc,jk,jb,rho(jc,jk,jb)
-            END IF
+!            END IF
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     ENDIF
     
   END SUBROUTINE calc_density_jmdwfg06_eos
@@ -642,103 +664,103 @@ CONTAINS
       & + p1*(eosjmdwfgden(10)                                    &
       & +     p1t1*(eosjmdwfgden(11)*t2 + eosjmdwfgden(12)*p1) )
     
-    rhoden = 1.0_wp/(dbl_eps+den)
+    rhoden = 1.0_wp / (dbl_eps+den)
     
     !rhoLoc  = rhoNum*rhoDen - rho_ref
-    rho     = rhonum*rhoden
+    rho     = rhonum * rhoden
     
     ! &rhoConst*9.80665_wp*dz*SItodBar,rhoConst*9.80616_wp*dz*SItodBar,dz,&
     ! &locPres*SItodBar
   END FUNCTION calc_density_jmdwfg06_eos_func
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  !!  Calculates density as a function of potential temperature and salinity
-  !! using the Jackett and McDougall equation of state
-  !! @par Revision History
-  !! Initial version by Peter Korn, MPI-M (2011)
-  !! Code below is an adaption of Sergey Danilov's implementation in
-  !! the AWI Finite-Volume model.
-  !!
-  SUBROUTINE calc_density_jm_eos(p_patch_3d, tracer, rho)
-    !
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
-    REAL(wp),    INTENT(in)                     :: tracer(:,:,:,:)
-    REAL(wp), INTENT(inout)                       :: rho(:,:,:)
-    
-    ! local variables:
-    REAL(wp) :: z_t
-    REAL(wp) :: z_s
-    REAL(wp) :: z_rhopot, z_bulk, pz !,z_in_situ_temp
-    !INTEGER  :: slev, end_lev
-    INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
-    !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
-    !---------------------------------------------------------------------------
-    all_cells => p_patch%cells%ALL
-    
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      
-      DO jk=1, n_zlev
-        DO jc = i_startidx, i_endidx
-          IF ( p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            
-            pz  = p_patch_3d%p_patch_1d(1)%zlev_m(jk)
-            
-            z_t = tracer(jc,jk,jb,1)
-            z_s = tracer(jc,jk,jb,2)
-            
-            !compute secant bulk modulus
-            z_bulk = 19092.56_wp + z_t*(209.8925_wp             &
-              & - z_t*(3.041638_wp - z_t*(-1.852732e-3_wp          &
-              & - z_t*(1.361629e-5_wp))))                          &
-              & + z_s*(104.4077_wp - z_t*(6.500517_wp              &
-              & - z_t*(0.1553190_wp - z_t*(-2.326469e-4_wp))))      &
-              & + SQRT(z_s**3)*(-5.587545_wp                       &
-              & + z_t*(0.7390729_wp - z_t*(1.909078e-2_wp)))       &
-              & - pz *(4.721788e-1_wp + z_t*(1.028859e-2_wp        &
-              & + z_t*(-2.512549e-4_wp - z_t*(5.939910e-7_wp))))   &
-              & - pz*z_s*(-1.571896e-2_wp                          &
-              & - z_t*(2.598241e-4_wp + z_t*(-7.267926e-6_wp)))    &
-              & - pz*SQRT(z_s**3)                                  &
-              & *2.042967e-3_wp + pz*pz*(1.045941e-5_wp            &
-              & - z_t*(5.782165e-10_wp - z_t*(1.296821e-7_wp)))    &
-              & + pz*pz*z_s                                        &
-              & *(-2.595994e-7_wp                                  &
-              & + z_t*(-1.248266e-9_wp + z_t*(-3.508914e-9_wp)))
-            
-            z_rhopot = ( 999.842594_wp                     &
-              & + z_t*( 6.793952e-2_wp                        &
-              & + z_t*(-9.095290e-3_wp                        &
-              & + z_t*( 1.001685e-4_wp                        &
-              & + z_t*(-1.120083e-6_wp                        &
-              & + z_t*( 6.536332e-9_wp)))))                   &
-              & + z_s*( 0.824493_wp                           &
-              & + z_t *(-4.08990e-3_wp                        &
-              & + z_t *( 7.64380e-5_wp                        &
-              & + z_t *(-8.24670e-7_wp                        &
-              & + z_t *( 5.38750e-9_wp)))))                   &
-              & + SQRT(z_s**3)*(-5.72466e-3_wp                &
-              & + z_t*( 1.02270e-4_wp                         &
-              & + z_t*(-1.65460e-6_wp)))                      &
-              & + 4.8314e-4_wp*z_s**2)
-            
-            rho(jc,jk,jb) = z_rhopot/(1.0_wp + 0.1_wp*pz/z_bulk)&
-              & - rho_ref
-            ! write(*,*)'density ',jc,jk,jb,rho(jc,jk,jb)
-            
-          ENDIF
-        END DO
-      END DO
-    END DO
-    STOP
-  END SUBROUTINE calc_density_jm_eos
-  !----------------------------------------------------------------
+!  !-------------------------------------------------------------------------
+!  !>
+!  !!  Calculates density as a function of potential temperature and salinity
+!  !! using the Jackett and McDougall equation of state
+!  !! @par Revision History
+!  !! Initial version by Peter Korn, MPI-M (2011)
+!  !! Code below is an adaption of Sergey Danilov's implementation in
+!  !! the AWI Finite-Volume model.
+!  !!
+!  SUBROUTINE calc_density_jm_eos(patch_3d, tracer, rho)
+!    !
+!    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+!    REAL(wp),    INTENT(in)                     :: tracer(:,:,:,:)
+!    REAL(wp), INTENT(inout)                       :: rho(:,:,:)
+!
+!    ! local variables:
+!    REAL(wp) :: z_t
+!    REAL(wp) :: z_s
+!    REAL(wp) :: z_rhopot, z_bulk, pz !,z_in_situ_temp
+!    !INTEGER  :: slev, end_lev
+!    INTEGER :: jc, jk, jb
+!    INTEGER :: start_index, end_index
+!    TYPE(t_subset_range), POINTER :: all_cells
+!    TYPE(t_patch), POINTER :: patch_2D
+!    !-----------------------------------------------------------------------
+!    patch_2D   => patch_3d%p_patch_2d(1)
+!    !---------------------------------------------------------------------------
+!    all_cells => patch_2D%cells%ALL
+!
+!    DO jb = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, jb, start_index, end_index)
+!      DO jc = start_index, end_index
+!        DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!          IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!
+!          pz  = patch_3d%p_patch_1d(1)%zlev_m(jk)
+!
+!          z_t = tracer(jc,jk,jb,1)
+!          z_s = tracer(jc,jk,jb,2)
+!
+!          !compute secant bulk modulus
+!          z_bulk = 19092.56_wp + z_t*(209.8925_wp             &
+!            & - z_t*(3.041638_wp - z_t*(-1.852732e-3_wp          &
+!            & - z_t*(1.361629e-5_wp))))                          &
+!            & + z_s*(104.4077_wp - z_t*(6.500517_wp              &
+!            & - z_t*(0.1553190_wp - z_t*(-2.326469e-4_wp))))      &
+!            & + SQRT(z_s**3)*(-5.587545_wp                       &
+!            & + z_t*(0.7390729_wp - z_t*(1.909078e-2_wp)))       &
+!            & - pz *(4.721788e-1_wp + z_t*(1.028859e-2_wp        &
+!            & + z_t*(-2.512549e-4_wp - z_t*(5.939910e-7_wp))))   &
+!            & - pz*z_s*(-1.571896e-2_wp                          &
+!            & - z_t*(2.598241e-4_wp + z_t*(-7.267926e-6_wp)))    &
+!            & - pz*SQRT(z_s**3)                                  &
+!            & *2.042967e-3_wp + pz*pz*(1.045941e-5_wp            &
+!            & - z_t*(5.782165e-10_wp - z_t*(1.296821e-7_wp)))    &
+!            & + pz*pz*z_s                                        &
+!            & *(-2.595994e-7_wp                                  &
+!            & + z_t*(-1.248266e-9_wp + z_t*(-3.508914e-9_wp)))
+!
+!          z_rhopot = ( 999.842594_wp                     &
+!            & + z_t*( 6.793952e-2_wp                        &
+!            & + z_t*(-9.095290e-3_wp                        &
+!            & + z_t*( 1.001685e-4_wp                        &
+!            & + z_t*(-1.120083e-6_wp                        &
+!            & + z_t*( 6.536332e-9_wp)))))                   &
+!            & + z_s*( 0.824493_wp                           &
+!            & + z_t *(-4.08990e-3_wp                        &
+!            & + z_t *( 7.64380e-5_wp                        &
+!            & + z_t *(-8.24670e-7_wp                        &
+!            & + z_t *( 5.38750e-9_wp)))))                   &
+!            & + SQRT(z_s**3)*(-5.72466e-3_wp                &
+!            & + z_t*( 1.02270e-4_wp                         &
+!            & + z_t*(-1.65460e-6_wp)))                      &
+!            & + 4.8314e-4_wp*z_s**2)
+!
+!          rho(jc,jk,jb) = z_rhopot/(1.0_wp + 0.1_wp*pz/z_bulk)&
+!            & - rho_ref
+!          ! write(*,*)'density ',jc,jk,jb,rho(jc,jk,jb)
+!
+!          ! ENDIF
+!        END DO
+!      END DO
+!    END DO
+!
+!    STOP
+!  END SUBROUTINE calc_density_jm_eos
+!  !----------------------------------------------------------------
   
   !----------------------------------------------------------------
   !
@@ -750,9 +772,9 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
-  SUBROUTINE calc_density_mpiom(p_patch_3d, tracer, rho)
+  SUBROUTINE calc_density_mpiom(patch_3d, tracer, rho)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
     REAL(wp), INTENT(inout)                :: rho(:,:,:)       !< density
     
@@ -761,42 +783,50 @@ CONTAINS
     REAL(wp):: z_p(n_zlev)
     INTEGER :: jc, jk, jb
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
+    patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
-    all_cells => p_patch%cells%ALL
+    all_cells => patch_2D%cells%ALL
     !i_len      = SIZE(dz)
     
     ! compute pressure first
     DO jk=1, n_zlev
-      z_p(jk) = p_patch_3d%p_patch_1d(1)%zlev_m(jk)*rho_ref*sitodbar
+      z_p(jk) = patch_3d%p_patch_1d(1)%zlev_m(jk)*rho_ref*sitodbar
     END DO
     !  tracer 1: potential temperature
     !  tracer 2: salinity
     IF(no_tracer==2)THEN
       
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
-          DO jk=1, p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
             rho(jc,jk,jb) = calc_density_mpiom_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p(jk))
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       
     ELSEIF(no_tracer==1)THEN
       
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
-          DO jk=1, p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
             rho(jc,jk,jb) = calc_density_mpiom_func( tracer(jc,jk,jb,1), sal_ref, z_p(jk))
           END DO
         END DO
       END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       
     ENDIF
   END SUBROUTINE calc_density_mpiom
@@ -861,8 +891,8 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
-  SUBROUTINE calc_potential_density_mpiom(p_patch_3d, tracer, rhopot)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+  SUBROUTINE calc_potential_density_mpiom(patch_3d, tracer, rhopot)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
     REAL(wp), INTENT(inout)                :: rhopot(:,:,:)
     
@@ -871,20 +901,42 @@ CONTAINS
     REAL(wp):: z_p(n_zlev)
     INTEGER :: jc, jk, jb
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
-    all_cells => p_patch%cells%ALL
+    all_cells => patch_3d%p_patch_2d(1)%cells%ALL
     !-------------------------------------------------------------------------
     
     !  tracer 1: potential temperature
     !  tracer 2: salinity
     IF(no_tracer==2)THEN
-      rhopot(:,:,:) = calc_potential_density_mpiom_elemental( tracer(:,:,:,1), tracer(:,:,:,2))
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+            rhopot(jc,jk,jb) = calc_potential_density_mpiom_elemental( &
+              & tracer(jc,jk,jb,1), tracer(jc,jk,jb,2))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     ELSEIF(no_tracer==1)THEN
-      rhopot(:,:,:) = calc_potential_density_mpiom_elemental( tracer(:,:,:,1), 0.0_wp*tracer(:,:,:,1)+sal_ref)
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+            rhopot(jc,jk,jb) = calc_potential_density_mpiom_elemental( &
+              & tracer(jc,jk,jb,1), sal_ref)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
     ENDIF
   END SUBROUTINE calc_potential_density_mpiom
   !-------------------------------------------------------------------------
@@ -980,8 +1032,8 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
-  SUBROUTINE convert_insitu2pot_temp(p_patch_3d, rho_ref, temp_insitu, sal, temp_pot)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+  SUBROUTINE convert_insitu2pot_temp(patch_3d, rho_ref, temp_insitu, sal, temp_pot)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                      :: rho_ref
     REAL(wp)                      :: temp_insitu(:,:,:)
     REAL(wp)                      :: sal(:,:,:)
@@ -991,29 +1043,26 @@ CONTAINS
     ! loop indices
     REAL(wp):: z_press
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
-    !-------------------------------------------------------------------------------------------------------
-    all_cells => p_patch%cells%ALL
+    all_cells => patch_3d%p_patch_2d(1)%cells%ALL
     
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jk=1, n_zlev
-        z_press=sfc_press_bar ! rho_ref*grav*v_base%zlev_m(jk)
-        DO jc = i_startidx, i_endidx
-          ! operate on wet ocean points only
-          IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            
-            temp_pot(jc,jk,jb) = convert_insitu2pot_temp_func(temp_insitu(jc,jk,jb),&
-              & sal(jc,jk,jb),&
-              & z_press)
-          END IF
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+          temp_pot(jc,jk,jb) = convert_insitu2pot_temp_func(&
+            & temp_insitu(jc,jk,jb),&
+            & sal(jc,jk,jb),   &
+            & z_press)
         END DO
       END DO
     END DO
+ !ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
   END SUBROUTINE convert_insitu2pot_temp
   !-------------------------------------------------------------------------
   
@@ -1044,118 +1093,118 @@ CONTAINS
 
   
   !-------------------------------------------------------------------------------------
-  SUBROUTINE convert_pot_temp2insitu(p_patch_3d,trac_t, trac_s, temp_insitu)
-    !
-    ! !DESCRIPTION:
-    !
-    !!  Calculates potential tempertaure from in-situ temperature.
-    !!  Formula described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
-    !! @par Revision History
-    !! Initial version by Peter Korn, MPI-M (2011)
-    !!
-    
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: p_patch_3d
-    REAL(wp)                                    :: trac_t(:,:,:)
-    REAL(wp)                                    :: trac_s(:,:,:)
-    REAL(wp)                                    :: temp_insitu(:,:,:)
-    
-    ! !LOCAL VARIABLES:
-    ! loop indices
-    REAL(wp):: z_press
-    INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
-    !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
-    !-------------------------------------------------------------------------------------------------------
-    all_cells => p_patch%cells%ALL
-    
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jk=1, n_zlev
-        z_press=rho_ref*p_patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
-        DO jc = i_startidx, i_endidx
-          ! operate on wet ocean points only
-          IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            
-            temp_insitu(jc,jk,jb) = adisit(trac_t(jc,jk,jb), trac_s(jc,jk,jb), z_press)
-          END IF
-        END DO
-      END DO
-    END DO
-  END SUBROUTINE convert_pot_temp2insitu
+!  SUBROUTINE convert_pot_temp2insitu(patch_3d,trac_t, trac_s, temp_insitu)
+!    !
+!    ! !DESCRIPTION:
+!    !
+!    !!  Calculates potential tempertaure from in-situ temperature.
+!    !!  Formula described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+!    !! @par Revision History
+!    !! Initial version by Peter Korn, MPI-M (2011)
+!    !!
+!
+!    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+!    REAL(wp)                                    :: trac_t(:,:,:)
+!    REAL(wp)                                    :: trac_s(:,:,:)
+!    REAL(wp)                                    :: temp_insitu(:,:,:)
+!
+!    ! !LOCAL VARIABLES:
+!    ! loop indices
+!    REAL(wp):: z_press
+!    INTEGER :: jc, jk, jb
+!    INTEGER :: start_index, end_index
+!    TYPE(t_subset_range), POINTER :: all_cells
+!    TYPE(t_patch), POINTER :: patch_2D
+!    !-----------------------------------------------------------------------
+!    patch_2D   => patch_3d%p_patch_2d(1)
+!    !-------------------------------------------------------------------------------------------------------
+!    all_cells => patch_2D%cells%ALL
+!
+!    DO jb = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, jb, start_index, end_index)
+!      DO jk=1, n_zlev
+!        z_press=rho_ref*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
+!        DO jc = start_index, end_index
+!          ! operate on wet ocean points only
+!          IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!
+!            temp_insitu(jc,jk,jb) = adisit(trac_t(jc,jk,jb), trac_s(jc,jk,jb), z_press)
+!          END IF
+!        END DO
+!      END DO
+!    END DO
+!  END SUBROUTINE convert_pot_temp2insitu
   !-------------------------------------------------------------------------
   
   
   !-------------------------------------------------------------------------
-  FUNCTION adisit(th, sh, pa) result(temp_insitu)
-    !
-    !**** *ADISIT*  - TRANSFORMS POTENTIAL TO IN-SITU TEMPERATURE.
-    !
-    !     MODIFIED
-    !     --------
-    !     O. BOEHRINGER     *DKRZ*                   95
-    !        - THIS VERSION USES ONLY 44 % OF THE CPU OF THE ORIGINAL HOPC VERSION
-    !     UWE MIKOLAJEWICZ 2/99
-    !     ==>ONE-DIMENSIONAL ARRAY, MERGE LOOPS
-    !
-    !     METHOD.
-    !     --------
-    !     TRANSFORMATION FROM POTENTIAL TO IN SITU TEMPERATURE
-    !
-    !**   INTERFACE.
-    !     ----------
-    !     *CALL* *ADISIT(TH,SH,PA)*       CALLED FROM *OCTHER*.
-    !
-    !     *COMMON*    *"PARAM1*            - OCEAN GRID DIMENSIONS.
-    !
-    !
-    !     INPUT:
-    !     -----
-    !     *TH*        POTENTIAL TEMPERATURE [DEG C]
-    !     *SH*        SALINITY  [PSU.]
-    !     *PA*        PRESSURE  [PA]
-    !
-    !     OUTPUT:
-    !     ------
-    !     *TH*        IN-SITU  TEMPERATURE [DEG C]
-    !
-    ! ------------------------------------------------------------------------------
-    !
-    !
-    REAL(wp), INTENT(in) :: pa, sh
-    REAL(wp), INTENT(inout) :: th
-    REAL(wp) temp_insitu
-    REAL(wp) :: pr, dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, t, tpo
-    REAL(wp), PARAMETER :: z_sref=35.0_wp
-    
-    pr=pa
-    !
-    !  CHECK VALUES
-    !     TH(1)=8.4678516
-    !     SH(1)= 25.
-    !     PR=1000.
-    !
-    qc = pr * (a_a1 + pr * (a_c1 - a_e1 * pr))
-    qv = pr * (a_b1 - a_d * pr)
-    dc = 1._wp + pr * (-a_a2 + pr * (a_c2 - a_e2 * pr))
-    dv = a_b2 * pr
-    qnq  = -pr * (-a_a3 + pr * a_c3)
-    qn3  = -pr * a_a4
-    !
-    !DO i = 1, len
-    !
-    tpo = th
-    qvs = qv*(sh - z_sref) + qc
-    dvs = dv*(sh - z_sref) + dc
-    t   = (tpo + qvs)/dvs
-    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpo
-    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
-    !th = t - fne/fst
-    temp_insitu=t - fne/fst
-    !ENDDO
-  END FUNCTION adisit
+!  FUNCTION adisit(th, sh, pa) result(temp_insitu)
+!    !
+!    !**** *ADISIT*  - TRANSFORMS POTENTIAL TO IN-SITU TEMPERATURE.
+!    !
+!    !     MODIFIED
+!    !     --------
+!    !     O. BOEHRINGER     *DKRZ*                   95
+!    !        - THIS VERSION USES ONLY 44 % OF THE CPU OF THE ORIGINAL HOPC VERSION
+!    !     UWE MIKOLAJEWICZ 2/99
+!    !     ==>ONE-DIMENSIONAL ARRAY, MERGE LOOPS
+!    !
+!    !     METHOD.
+!    !     --------
+!    !     TRANSFORMATION FROM POTENTIAL TO IN SITU TEMPERATURE
+!    !
+!    !**   INTERFACE.
+!    !     ----------
+!    !     *CALL* *ADISIT(TH,SH,PA)*       CALLED FROM *OCTHER*.
+!    !
+!    !     *COMMON*    *"PARAM1*            - OCEAN GRID DIMENSIONS.
+!    !
+!    !
+!    !     INPUT:
+!    !     -----
+!    !     *TH*        POTENTIAL TEMPERATURE [DEG C]
+!    !     *SH*        SALINITY  [PSU.]
+!    !     *PA*        PRESSURE  [PA]
+!    !
+!    !     OUTPUT:
+!    !     ------
+!    !     *TH*        IN-SITU  TEMPERATURE [DEG C]
+!    !
+!    ! ------------------------------------------------------------------------------
+!    !
+!    !
+!    REAL(wp), INTENT(in) :: pa, sh
+!    REAL(wp), INTENT(inout) :: th
+!    REAL(wp) temp_insitu
+!    REAL(wp) :: pr, dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, t, tpo
+!    REAL(wp), PARAMETER :: z_sref=35.0_wp
+!
+!    pr=pa
+!    !
+!    !  CHECK VALUES
+!    !     TH(1)=8.4678516
+!    !     SH(1)= 25.
+!    !     PR=1000.
+!    !
+!    qc = pr * (a_a1 + pr * (a_c1 - a_e1 * pr))
+!    qv = pr * (a_b1 - a_d * pr)
+!    dc = 1._wp + pr * (-a_a2 + pr * (a_c2 - a_e2 * pr))
+!    dv = a_b2 * pr
+!    qnq  = -pr * (-a_a3 + pr * a_c3)
+!    qn3  = -pr * a_a4
+!    !
+!    !DO i = 1, len
+!    !
+!    tpo = th
+!    qvs = qv*(sh - z_sref) + qc
+!    dvs = dv*(sh - z_sref) + dc
+!    t   = (tpo + qvs)/dvs
+!    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpo
+!    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+!    !th = t - fne/fst
+!    temp_insitu=t - fne/fst
+!    !ENDDO
+!  END FUNCTION adisit
   !------------------------------------------------------------------------------
 
 
