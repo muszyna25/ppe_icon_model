@@ -205,8 +205,8 @@ MODULE mo_nh_latbc
 
     END DO
 
-    ! last reading-in time is the initial time
-    last_latbc_datetime = time_config%ini_datetime
+    ! last reading-in time is the current time
+    last_latbc_datetime = time_config%cur_datetime
 
     ! prepare read/last indices
     read_latbc_tlev = 1   ! read in the first time-level slot
@@ -214,10 +214,10 @@ MODULE mo_nh_latbc
     
     ! read first two time steps
     CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
-      &                   time_config%ini_datetime, lopt_check_read=.FALSE.,  &
+      &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
       &                   lopt_time_incr=.FALSE.                              )
     CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
-      &                   time_config%ini_datetime, lopt_check_read=.FALSE.,  &
+      &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
       &                   lopt_time_incr=.TRUE.                               )
 
     CALL message(TRIM(routine),'done')
