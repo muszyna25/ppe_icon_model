@@ -1,0 +1,232 @@
+#=============================================================================
+# A simple runscript that runs a case of radiative convective equilibrium
+#
+# triangle edge length: 120km
+# vert. res grid: 40 levels
+# DOM: 64x64 doubly periodic
+# length: 1 month
+# output: 6 hourly inst
+# init. cond: convective boundary layer
+#
+# Levi Silvers, 10-2013
+#
+#=============================================================================
+#
+# This section of the run script contains the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# DWD, 2010-08-31
+#
+#=============================================================================
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-08-01T00:00:00Z"
+end_date="2008-09-01T00:00:00Z"
+ndays_restart=40
+dt_restart=`expr ${ndays_restart} \* 86400`
+dt_checkpoint=`expr 40 \* 86400 `
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=120
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm., 
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#
+# the grid files if not defined
+atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
+ozon_file="tor120000s64_ozone_CMIP5_aqua_1870_march.nc"
+if [ x$atmo_rad_gridname = x ] ; then
+  lredgrid_phys=".false."
+else
+  atmo_rad_grids=${atmo_rad_gridname}.nc
+  lredgrid_phys=".true."
+fi  
+
+lfeedback=.false.
+
+cell_type=${cell_type:=3}
+nlev=40              # nlev = number of full levels
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+#dynamics_grid_filename=""
+#for gridfile in ${atmo_dyn_grids}; do
+#  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+#done
+#radiation_grid_filename=""
+#for gridfile in ${atmo_rad_grids}; do
+#  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+#done
+#dynamics_parent_grid_id="${dynamics_parent_grid_id},"
+#lredgrid_phys="${lredgrid_phys},"
+#lfeedback="${lfeedback},"
+#
+if [ x$lredgrid_phys = "x.true." ]; then
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ radiation_grid_filename = "${atmo_rad_grids}",
+ dynamics_radiation_grid_link = 1,
+ lredgrid_phys   = ${lredgrid_phys},
+/
+EOF
+else
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+EOF
+fi
+
+p_test_run=${p_test_run:=".false."}
+if [ $p_test_run = ".true." ] ; then
+  l_test_openmp=".true."
+  l_log_checks=".true."
+else
+  l_test_openmp=".false."
+  l_log_checks=".false."
+fi
+# ------------------------
+if [ x$lredgrid_phys = "x.true." ]; then
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ radiation_grid_filename = "${atmo_rad_grids}",
+ dynamics_radiation_grid_link = 1,
+ lredgrid_phys   = ${lredgrid_phys},
+/
+EOF
+else
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+EOF
+fi
+#
+cat >> ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = ${p_test_run}
+ l_test_openmp  = ${l_test_openmp}
+ l_log_checks   = ${l_log_checks}
+/
+&nh_testcase_nml
+ nh_test_name   = 'RCE_CBL'     ! test case identifier
+ ape_sst_case      = 'sst_const'
+! ape_sst_val    = 27.85
+! rh_at_1000hpa  = 0.99
+! qv_max         = 35.e-3 ! specific humidity max in tropics
+/
+&io_nml
+ dt_checkpoint  = ${dt_checkpoint}
+/
+&run_nml
+ num_lev        = ${nlev},        ! number of full levels of vertical grid
+ dtime          = ${dtime}     ! timestep in seconds
+ ltransport     = .TRUE.
+ ntracer        = 5            ! default: 0
+ iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
+ echamnwp       = 0            ! temp switch for using both echam and nwp physics in iconam
+ ltestcase      = .TRUE.       ! run testcase
+ msg_level      = 12           ! detailed report during integration
+! ltimer         = .false.
+! ldump_states   = .false.
+! lrestore_states= .false. 
+ output         = 'nml'
+/
+&nwp_phy_nml
+ inwp_gscp       = 1 
+ inwp_convection = 1 ! 1:Tiedtke/Bechtold
+ inwp_radiation  = 1 ! 1:RRTM radiation
+ inwp_cldcover   = 1 ! 3: clouds from COSMO SGS cloud scheme
+ inwp_turb       = 1 ! 1: COSMO diffusion and transfer
+ inwp_satad      = 1
+ inwp_sso        = 0
+ inwp_gwd        = 0
+ inwp_surface    = 0 ! 0: none; 1: TERRA
+/
+&radiation_nml
+! ldiur = .FALSE. ! is this necessary or is izenith=0 suff.?
+ irad_o3 = 4 !should be the ozone clim for APE  
+ izenith    = 0 ! Sun in zenith everywhere
+ irad_aero  = 0 ! switch off aerosols
+ irad_cfc11 = 0 
+ irad_cfc12 = 0
+/
+&nonhydrostatic_nml
+ ivctype        = 2            ! sleve vertical coordinate
+ iadv_rcf       = 4
+/
+&dynamics_nml
+ iequations     = ${atmo_model_equations}       ! equation system
+ idiv_method    = 1
+! divavg_cntrwgt = 0.50
+ lcoriolis      = .FALSE.
+/
+&transport_nml
+  ctracer_list  = '12345'
+/
+&diffusion_nml
+ hdiff_order      = 5 ! default for NH
+ hdiff_efdt_ratio = 15.0 ! recommended for NH when using hdiff_order = 5
+ hdiff_smag_fac   = 0.025  ! default for NH
+/
+&output_nml
+ filetype         = 4
+ dom              = -1
+ output_bounds    = 0.,2592000.,21600.      ! start, end, increment 
+ steps_per_file   = 100
+ include_last     = .TRUE.           ! flag whether to include the last time step
+ remap            = 0                ! lon/lat output
+ output_filename  = '${EXPNAME}'     ! file name base
+ output_grid      = .TRUE.
+ ml_varlist       = 'tsfctrad','rh','qv','qc','qi','u','v','w','temp','shfl_s','lhfl_s','qhfl_s','rain_gsp_rate','rain_con_rate','tot_prec_rate_avg','clc','tsfc_ref','clct','tot_qv','aqhfl_s','pres_sfc','pres','sob_s','sob_t','athb_t','athb_s','asob_t','asob_s','thb_s','flxdwswtoa','z_ifc','z_mc','rho','lwflxclr','lwflxall','trsolclr','trsolall','group:rad_vars','group:cloud_diag','group:precip_vars','group:additional_precip_vars'
+/
+&extpar_nml
+ itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
+/
+&time_nml
+ dt_restart = ${dt_restart}
+/
+&sleve_nml
+/
+&interpol_nml
+/
+EOF
+#
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+#-----------------------------------------------------------------------------
