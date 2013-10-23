@@ -139,7 +139,7 @@ check_accept_script()
   # set -x
   check_accepted_filename=$1
   
-  if [[ -r $input_folder/$filename ]] ; then
+  if [[ -r $input_folder/$check_accepted_filename ]] ; then
     accepted_script="true"
   else
     accepted_script="false"
@@ -157,17 +157,20 @@ check_accept_script()
        accepted_script="false"
        ;;
    esac
+   #--------------------------
+   if [[ $accepted_script = "false" ]] ; then
+    return 1
+   fi
 
    #--------------------------
    # check which scripts run with openmp
-   if [[ $use_openmp = "yes" ]] ; then
-     case $check_accepted_filename in
-     *test*oce*)
-        # accepted_script="false"  #  ocean does not run with openmp
-        accepted_script="true"    # try the ocean openmp for the buildbot runs  
-        ;;
-     esac
-   fi
+#   if [[ $use_openmp = "yes" ]] ; then
+#     case $check_accepted_filename in
+#     *test*oce*)
+#        accepted_script="false"   #  ocean does not run with openmp
+#        ;;
+#     esac
+#   fi
 
    #--------------------------
    # check which scripts run without mpi
