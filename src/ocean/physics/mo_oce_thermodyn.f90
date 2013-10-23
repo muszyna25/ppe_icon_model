@@ -41,6 +41,9 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_oce_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
@@ -62,7 +65,7 @@ MODULE mo_oce_thermodyn
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
   
   PUBLIC :: calc_internal_press
-  PUBLIC :: calc_internal_press_new
+  ! PUBLIC :: calc_internal_press_new
   PUBLIC :: calc_density,calc_potential_density
   !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
   !only used in "calc_internal_press", whilethe function version is used in mo_oce_physics
@@ -111,7 +114,6 @@ MODULE mo_oce_thermodyn
   
   REAL (wp), PARAMETER ::  dbl_eps   = EPSILON(1._wp)
   
-  
   REAL(wp), PARAMETER :: &
     & a_a1=3.6504E-4_wp, a_a2=8.3198E-5_wp, a_a3=5.4065E-7_wp, &
     & a_a4=4.0274E-9_wp, &
@@ -143,101 +145,98 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Calculation the hydrostatic pressure
-  !!
   !! Calculation the hydrostatic pressure by computing the weight of the
   !! fluid column above a certain level.
-  !!
   !!
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
-  SUBROUTINE calc_internal_press_new(p_patch_3d, trac_t, trac_s, h, calc_density_func, press_hyd)
-    !
-    TYPE(t_patch_3d ),TARGET, INTENT(in):: p_patch_3d
-    REAL(wp),    INTENT(in)       :: trac_t   (:,:,:)  !temperature
-    REAL(wp),    INTENT(in)       :: trac_s   (:,:,:)  !salinity
-    REAL(wp),    INTENT(in)       :: h        (:,:)    !< surface elevation at cells
-    REAL(wp),   INTENT(inout)     :: press_hyd(:,:,:)  !< hydrostatic pressure
-    INTERFACE !This contains the function version of the actual EOS as chosen in namelist
-      FUNCTION calc_density_func(tpot, sal, press) result(rho)
-        USE mo_kind, ONLY: wp
-        REAL(wp), INTENT(in) :: tpot
-        REAL(wp), INTENT(in) :: sal
-        REAL(wp), INTENT(in) :: press
-        REAL(wp) :: rho
-      ENDFUNCTION calc_density_func
-    END INTERFACE
-    ! local variables:
-    !CHARACTER(len=max_char_length), PARAMETER :: &
-    !       & routine = (this_mod_name//':calc_internal_pressure')
-    INTEGER :: slev, end_lev     ! vertical start and end level
-    INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx, i_endidx
-    REAL(wp) :: z_full, z_box, z_press, z_rho_up, z_rho_down
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: p_patch
-    !-----------------------------------------------------------------------
-    p_patch   => p_patch_3d%p_patch_2d(1)
-    !-------------------------------------------------------------------------
-    !CALL message (TRIM(routine), 'start')
-    ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
-    !press_hyd(:,:,:) = 0.0_wp
-    all_cells => p_patch%cells%ALL
-    
-    slev = 1
-    press_hyd    = 0.0_wp
-    
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      
-      DO jc = i_startidx, i_endidx
-        
-        z_press      = (p_patch_3d%p_patch_1d(1)%zlev_i(1)+h(jc,jb))*rho_ref*sitodbar ! grav
-        z_rho_up = calc_density_func(&
-          & trac_t(jc,1,jb),&
-          & trac_s(jc,1,jb),&
-          & z_press)
-        
-        press_hyd(jc,slev,jb) = grav*z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(1)*rho_inv!*0.5_wp
-        
-        ! write(*,*)'press',jc,jb,1,&
-        !  &press_hyd(jc,1,jb), z_press
-        
-        end_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-        DO jk = slev+1, end_lev
-          
-          z_press = p_patch_3d%p_patch_1d(1)%zlev_i(jk)*rho_ref*sitodbar!grav
-          !density of upper cell w.r.t.to pressure at intermediate level
-          z_rho_up = calc_density_func(&
-            & trac_t(jc,jk-1,jb),&
-            & trac_s(jc,jk-1,jb),&
-            & z_press)
-          !density of lower cell w.r.t.to pressure at intermediate level
-          z_rho_down = calc_density_func(&
-            & trac_t(jc,jk,jb),&
-            & trac_s(jc,jk,jb),&
-            & z_press)
-          
-          z_box = ( z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)&
-            & + z_rho_down*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk))&
-            & /(p_patch_3d%p_patch_1d(1)%del_zlev_m(jk)+p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1))
-          press_hyd(jc,jk,jb) = press_hyd(jc,jk-1,jb) + rho_inv*grav*z_box
-          !  write(*,*)'press',jc,jb,jk,&
-          !  &press_hyd(jc,jk,jb), z_rho_up, z_rho_down,z_press
-        END DO
-        ! DO jk = slev, end_lev
-        !  IF(v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        ! ! IF(jk==1)THEN
-        !  write(*,*)'pressure',jk,jc,jb,press_hyd(jc,jk,jb),p_hyd(jk)
-        ! ! ENDIF
-        !  ENDIF
-        ! END DO
-      END DO
-    END DO
-  END SUBROUTINE calc_internal_press_new
+!   SUBROUTINE calc_internal_press_new(p_patch_3d, trac_t, trac_s, h, calc_density_func, press_hyd)
+!     !
+!     TYPE(t_patch_3d ),TARGET, INTENT(in):: p_patch_3d
+!     REAL(wp),    INTENT(in)       :: trac_t   (:,:,:)  !temperature
+!     REAL(wp),    INTENT(in)       :: trac_s   (:,:,:)  !salinity
+!     REAL(wp),    INTENT(in)       :: h        (:,:)    !< surface elevation at cells
+!     REAL(wp),   INTENT(inout)     :: press_hyd(:,:,:)  !< hydrostatic pressure
+!     INTERFACE !This contains the function version of the actual EOS as chosen in namelist
+!       FUNCTION calc_density_func(tpot, sal, press) result(rho)
+!         USE mo_kind, ONLY: wp
+!         REAL(wp), INTENT(in) :: tpot
+!         REAL(wp), INTENT(in) :: sal
+!         REAL(wp), INTENT(in) :: press
+!         REAL(wp) :: rho
+!       ENDFUNCTION calc_density_func
+!     END INTERFACE
+!     ! local variables:
+!     !CHARACTER(len=max_char_length), PARAMETER :: &
+!     !       & routine = (this_mod_name//':calc_internal_pressure')
+!     INTEGER :: slev, end_lev     ! vertical start and end level
+!     INTEGER :: jc, jk, jb
+!     INTEGER :: i_startidx, i_endidx
+!     REAL(wp) :: z_full, z_box, z_press, z_rho_up, z_rho_down
+!     TYPE(t_subset_range), POINTER :: all_cells
+!     TYPE(t_patch), POINTER :: p_patch
+!     !-----------------------------------------------------------------------
+!     p_patch   => p_patch_3d%p_patch_2d(1)
+!     !-------------------------------------------------------------------------
+!     !CALL message (TRIM(routine), 'start')
+!     ! #slo# due to nag -nan compiler-option set intent(inout) variables to zero
+!     !press_hyd(:,:,:) = 0.0_wp
+!     all_cells => p_patch%cells%ALL
+!     
+!     slev = 1
+!     press_hyd    = 0.0_wp
+!     
+!     DO jb = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+!       
+!       DO jc = i_startidx, i_endidx
+!         
+!         z_press      = (p_patch_3d%p_patch_1d(1)%zlev_i(1)+h(jc,jb))*rho_ref*sitodbar ! grav
+!         z_rho_up = calc_density_func(&
+!           & trac_t(jc,1,jb),&
+!           & trac_s(jc,1,jb),&
+!           & z_press)
+!         
+!         press_hyd(jc,slev,jb) = grav*z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(1)*rho_inv!*0.5_wp
+!         
+!         ! write(*,*)'press',jc,jb,1,&
+!         !  &press_hyd(jc,1,jb), z_press
+!         
+!         end_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!         DO jk = slev+1, end_lev
+!           
+!           z_press = p_patch_3d%p_patch_1d(1)%zlev_i(jk)*rho_ref*sitodbar!grav
+!           !density of upper cell w.r.t.to pressure at intermediate level
+!           z_rho_up = calc_density_func(&
+!             & trac_t(jc,jk-1,jb),&
+!             & trac_s(jc,jk-1,jb),&
+!             & z_press)
+!           !density of lower cell w.r.t.to pressure at intermediate level
+!           z_rho_down = calc_density_func(&
+!             & trac_t(jc,jk,jb),&
+!             & trac_s(jc,jk,jb),&
+!             & z_press)
+!           
+!           z_box = ( z_rho_up*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)&
+!             & + z_rho_down*p_patch_3d%p_patch_1d(1)%del_zlev_m(jk))&
+!             & /(p_patch_3d%p_patch_1d(1)%del_zlev_m(jk)+p_patch_3d%p_patch_1d(1)%del_zlev_m(jk-1))
+!           press_hyd(jc,jk,jb) = press_hyd(jc,jk-1,jb) + rho_inv*grav*z_box
+!           !  write(*,*)'press',jc,jb,jk,&
+!           !  &press_hyd(jc,jk,jb), z_rho_up, z_rho_down,z_press
+!         END DO
+!         ! DO jk = slev, end_lev
+!         !  IF(v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!         ! ! IF(jk==1)THEN
+!         !  write(*,*)'pressure',jk,jc,jb,press_hyd(jc,jk,jb),p_hyd(jk)
+!         ! ! ENDIF
+!         !  ENDIF
+!         ! END DO
+!       END DO
+!     END DO
+!   END SUBROUTINE calc_internal_press_new
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -265,13 +264,12 @@ CONTAINS
     ! local variables:
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !       & routine = (this_mod_name//':calc_internal_pressure')
-    INTEGER :: slev, end_lev     ! vertical start and end level
     INTEGER :: jc, jk, jb
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     REAL(wp) :: z_full, z_box
     !   REAL(wp), POINTER :: del_zlev_m(:)
-    REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv*grav
+    REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv * grav
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: p_patch
     !-----------------------------------------------------------------------
@@ -283,7 +281,6 @@ CONTAINS
     all_cells => p_patch%cells%ALL
     press_hyd(:,:,:) = 0.0_wp
     
-    slev = 1
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       
@@ -297,24 +294,23 @@ CONTAINS
         !   - in SWM ok, since density is constant
         !   - check to include h if tracers (T, S) are active
         z_full  = 0.0_wp
-        end_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         
-        IF(end_lev>=min_dolic)THEN
-          DO jk = slev, end_lev
-            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              !             del_zlev_m => prism_thick_c(jc,:,jb)
-              !             z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
-              z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
-              
-              press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv
-              ! rho_inv*grav  !hydrostatic press at level jk
-              ! =half of pressure at actual box+ sum of all boxes above
-              z_full              = z_full + z_box
-              !           ELSE
-              !             press_hyd(jc,jk,jb) = 0.0_wp
-            ENDIF
-          END DO
-        ENDIF
+!        IF(end_lev>=min_dolic)THEN
+        DO jk = 1, p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!            IF(p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          !             del_zlev_m => prism_thick_c(jc,:,jb)
+          !             z_box      = del_zlev_m(jk)*rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+          z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-rho_ref!&!     pressure in single box at layer jk
+
+          press_hyd(jc,jk,jb) = ( z_full + 0.5_wp * z_box ) * z_grav_rho_inv
+          ! rho_inv*grav  !hydrostatic press at level jk
+          ! =half of pressure at actual box+ sum of all boxes above
+          z_full              = z_full + z_box
+          !           ELSE
+          !             press_hyd(jc,jk,jb) = 0.0_wp
+!            ENDIF
+        END DO
+!        ENDIF
       END DO
     END DO
     
