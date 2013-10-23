@@ -94,7 +94,7 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: zh1     = 740._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: ztsfc   = 297.9_wp
   REAL(wp), PARAMETER :: zh2     = 3260._wp     !< moist height for RICO
-  REAL(wp), PARAMETER :: zh3     = 17500._wp    !< height for extrapolated RICO profiles
+  REAL(wp), PARAMETER :: zh3     = 15000._wp    !< height for extrapolated RICO profiles
   REAL(wp), PARAMETER :: zh4     = 30000._wp    !< height for extrapolated RICO profiles
   REAL(wp), PARAMETER :: zh5     = 60000._wp    !< height for extrapolated RICO profiles
 
@@ -571,13 +571,13 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       !Tracers
-        DO jk = 1, nlev
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = min((0.016_wp - 0.0022_wp * ptr_metrics%z_mc(1:nlen,jk,jb)/zh1), &
-                                                (0.0138_wp - 0.0114_wp * (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)/(zh2 - zh1)))
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv),             &
-                                                (0.0024_wp - 0.0006_wp * (ptr_metrics%z_mc(1:nlen,jk,jb) - zh2)/(4000._wp - zh2)))
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv), 3e-6_wp)                            
-        END DO
+      DO jk = 1, nlev
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = min((0.016_wp - 0.0022_wp * ptr_metrics%z_mc(1:nlen,jk,jb)/zh1), &
+                                              (0.0138_wp - 0.0114_wp * (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)/(zh2 - zh1)))
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv),             &
+                                              (0.0024_wp - 0.0006_wp * (ptr_metrics%z_mc(1:nlen,jk,jb) - zh2)/(4000._wp - zh2)))
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv), 3e-6_wp)                            
+      END DO
 
       DO jk = 1, nlev
        ! init potential temperature
@@ -614,6 +614,16 @@ MODULE mo_nh_torus_exp
 
     ENDDO !jb
 
+    ! Print case set up
+    IF ( jb == 1 ) THEN
+      DO jk = 1,nlev
+        write(*,*) 'RICO case setup: level, p, T, theta,v, qv: ', jk,   &
+            & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
+            & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
+            & ptr_nh_prog%theta_v(1,jk,jb),                              &
+            & ptr_nh_prog%tracer(1,jk,jb,iqv)
+      ENDDO
+    ENDIF
 
     !Mean wind 
     DO jb = 1 , nblks_e
@@ -685,11 +695,11 @@ MODULE mo_nh_torus_exp
      &                         rho_l         ! rho at lowest level         [kg/m3]
 
     ! INPUT/OUTPUT PARAMETERS:
-    REAL(wp), INTENT(INOUT) :: tsk           ! skin temperature [K]
+    REAL(wp), INTENT(INOUT) :: tsk           ! skin temperature            [K]
 
     ! OUTPUT PARAMETERS:
-    REAL(wp), INTENT(OUT) ::   shfx      , & ! sensible heat flux [W/m2]
-      &                        lhfx          ! latent heat flux   [W/m2]
+    REAL(wp), INTENT(OUT) ::   shfx      , & ! sensible heat flux (+ down) [W/m2]
+      &                        lhfx          ! latent heat flux   (+ down) [W/m2]
 
     ! LOCAL VARIABLES:
     REAL(wp) :: Beta0, Vs, mav, qsfc, qsfc_air, kqfx, khfx, th_l
@@ -719,8 +729,8 @@ MODULE mo_nh_torus_exp
     tsk  = khfx / Vs + th_l
 
     ! Convert units
-    shfx = rho_l * cpd * khfx
-    lhfx = rho_l * alv * kqfx
+    shfx = - rho_l * cpd * khfx
+    lhfx = - rho_l * alv * kqfx
 
   END SUBROUTINE cbl_stevens_fluxes
 
