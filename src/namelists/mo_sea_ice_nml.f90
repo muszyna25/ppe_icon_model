@@ -100,7 +100,7 @@ CONTAINS
     !------------------------------------------------------------------
     kice        = 1
     i_ice_therm = 2
-    i_ice_albedo= 0
+    i_ice_albedo= 1
     i_ice_dyn   = 0
     i_Qio_type  = 2
 
@@ -140,15 +140,15 @@ CONTAINS
       CALL finish(TRIM(routine), 'Currently, kice must be 1.')
     END IF
 
-    IF (i_ice_therm < 1 .AND. i_ice_therm > 4) THEN
+    IF (i_ice_therm < 1 .OR. i_ice_therm > 4) THEN
       CALL finish(TRIM(routine), 'i_ice_therm must be between 1 and 4.')
     END IF
 
-    IF (i_ice_albedo /= 0) THEN
-      CALL message(TRIM(routine), 'only one albedo scheme implemented')
+    IF (i_ice_albedo < 1 .OR. i_ice_albedo > 2 ) THEN
+      CALL finish(TRIM(routine), 'i_ice_albedo must be either 1 or 2.')
     END IF
 
-    IF (i_ice_dyn < 0 .AND. i_ice_dyn > 1) THEN
+    IF (i_ice_dyn < 0 .OR. i_ice_dyn > 1) THEN
       CALL finish(TRIM(routine), 'i_ice_dyn must be either 0 or 1.')
     END IF
 
@@ -159,7 +159,7 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 1 .AND. i_Qio_type > 2) THEN
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 2) THEN
       CALL finish(TRIM(routine), 'i_Qio_type must be either 1 or 2.')
     END IF
 

@@ -224,11 +224,17 @@ MODULE mo_physical_constants
     muS          = mu*Sice,         & ! = - (sea-ice liquidus 
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
+    albedoW      = 0.07_wp,         & ! albedo of the ocean 
+! MPIOM albedo scheme
     albs         = 0.75_wp,         & ! Albedo of snow (not melting)
     albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
     albi         = 0.66_wp,         & ! Albedo of ice (not melting)
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
-    albedoW      = 0.07_wp,         & ! albedo of the ocean 
+! CCSM3 albedo scheme
+    alb_ice_vis  = 0.73_wp,         & ! Albedo of dry ice  (visible)
+    alb_ice_nir  = 0.33_wp,         & ! Albedo of dry ice  (near-infrared)
+    alb_sno_vis  = 0.96_wp,         & ! Albedo of dry snow (visible)
+    alb_sno_nir  = 0.68_wp,         & ! Albedo of dry snow (near-infrared)
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
     I_0          = 0.17_wp,         & ! Ice-surface penetrating shortwave fraction
     Cd_ia       =  1.2e-3_wp,       & ! Ice-atmosphere drag coefficient

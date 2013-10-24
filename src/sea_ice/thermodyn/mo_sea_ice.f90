@@ -52,12 +52,14 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu, &
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu,     &
     &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci, &
-    &                               Cd_ia, sice
+    &                               Cd_ia, sice, alb_sno_vis, alb_sno_nir, alb_ice_vis,         &
+    &                               alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
+    &                               i_ice_albedo
 
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, &
     &                               ocean_restart_list, set_oce_tracer_info
@@ -1703,33 +1705,58 @@ CONTAINS
 
     !Local variables
     REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-    REAL(wp)            :: albflag(nbdim,kice)
+    REAL(wp)            :: albflag, frac_snow
     INTEGER             :: jc,k
     !-------------------------------------------------------------------------------
 
-    ! This is Uwe's albedo expression from the old budget function
-    DO k=1,kice
-      DO jc = i_startidx_c,i_endidx_c
+    SELECT CASE (i_ice_albedo)
+    CASE (1)
+      ! This is Uwe's albedo expression from the old budget function
+      DO k=1,kice
+        DO jc = i_startidx_c,i_endidx_c
 
-        albflag (jc,k) =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
+          albflag =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
 
-        IF ( hi(jc,k) > 0._wp ) THEN
-          IF ( hs(jc,k) > 1.e-2_wp ) THEN
-            albvisdir(jc,k) =  albflag(jc,k) * albsm + (1.0_wp-albflag(jc,k)) * albs
+          IF ( hi(jc,k) > 0._wp ) THEN
+            IF ( hs(jc,k) > 1.e-2_wp ) THEN
+              albvisdir(jc,k) =  albflag * albsm + (1.0_wp-albflag) * albs
+            ELSE
+              albvisdir(jc,k) =  albflag * albim + (1.0_wp-albflag) * albi
+            ENDIF
           ELSE
-            albvisdir(jc,k) =  albflag(jc,k) * albim + (1.0_wp-albflag(jc,k)) * albi
+            albvisdir(jc,k) = 0._wp
           ENDIF
-        ELSE
-          albvisdir(jc,k) = 0._wp
-        ENDIF
 
+        ENDDO
       ENDDO
-    ENDDO
 
-    ! all albedos are the same
-    albvisdif = albvisdir
-    albnirdir = albvisdir
-    albnirdif = albvisdir
+      ! all albedos are the same
+      albvisdif = albvisdir
+      albnirdir = albvisdir
+      albnirdif = albvisdir
+
+    CASE (2)
+      ! This is the CCSM 3 albedo scheme
+      DO k=1,kice
+        DO jc = i_startidx_c,i_endidx_c
+          frac_snow = hs(jc,k)/( hs(jc,k)+0.02_wp )
+          IF ( Tsurf(jc,k) > -1._wp ) THEN
+            albvisdir(jc,k) = frac_snow*( alb_sno_vis - 0.100_wp*(Tsurf(jc,k)+1._wp) ) &
+              &     + (1._wp-frac_snow)*( alb_ice_vis - 0.075_wp*(Tsurf(jc,k)+1._wp) )
+            albnirdir(jc,k) = frac_snow*( alb_sno_nir - 0.150_wp*(Tsurf(jc,k)+1._wp) ) &
+              &     + (1._wp-frac_snow)*( alb_ice_nir - 0.075_wp*(Tsurf(jc,k)+1._wp) )
+          ELSE
+            albvisdir(jc,k) = frac_snow*alb_sno_vis + (1._wp-frac_snow)*alb_ice_vis
+            albnirdir(jc,k) = frac_snow*alb_sno_nir + (1._wp-frac_snow)*alb_ice_nir
+          ENDIF
+        ENDDO
+      ENDDO
+
+      ! diffuse and direct albedos are the same
+      albvisdif = albvisdir
+      albnirdif = albnirdir
+
+    END SELECT
 
   END SUBROUTINE set_ice_albedo
 
@@ -1769,6 +1796,8 @@ CONTAINS
       & delHice,       &! average change in ice thickness within a grid cell      [m]
       & delHsnow,      &! average change in snow thickness within a grid cell     [m]
       & snowiceave,    &! average snow to ice conversion within a grid cell       [m]
+      & Tfw,           &! sea surface freezing temperature                        [C]
+      & sst,           &! sea surface temperature - approx. after cooling         [C]
       & sss,           &! sea surface salinity                                    [psu]
       & preci,         &! solid precipitation rate                                [m/s]
       & precw           ! liquid precipitation rate                               [m/s]
@@ -1792,11 +1821,15 @@ CONTAINS
     !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
-    !
-    ! TODO: divide precw/preci from forc_fw_bc calculated in mo_oce_bulk/update_sfcflx
-    ! Change in height is calculated in update_sfcflx as well - no temperature change due to precip yet
-    ! should not be done here:
-    !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
+    
+    ! Calculate the sea surface freezing temperature                        [C]
+    if ( no_tracer >= 2 ) then
+      Tfw(:,:) = -mu*sss(:,:)
+    else
+      Tfw(:,:) = Tf
+    endif
+
+    ! TODO: No temperature change due to precip yet. Should not be done here
 
     ! Calculate average draft and thickness of water underneath ice in upper ocean
     ! grid box
@@ -1813,6 +1846,9 @@ CONTAINS
     CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module,5)
     CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module,5)
 
+    ! Calculate possible super-cooling of the surface layer
+    sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
+      &      dtime*heatOceW(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
@@ -1820,6 +1856,14 @@ CONTAINS
       &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+     &
       &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
+    ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature, form new ice
+    WHERE ( sst < Tfw(:,:) .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
+      ! New ice forming over open water due to super cooling
+      ice%newice(:,:) = ( Tfw(:,:) - sst(:,:) )*ice%zUnderIce(:,:)*clw*rho_ref/( alf*rhoi )
+      ! Flux required to cool the ocean to the freezing point
+      heatOceW(:,:)   = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) )     &
+        &     *ice%zUnderIce(:,:)*(1.0_wp-ice%concSum(:,:))*clw*rho_ref/dtime
+    ENDWHERE
 
     ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
     p_sfc_flx%forc_swflx(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
@@ -1857,15 +1901,20 @@ CONTAINS
     ! #slo# 2013-06
     ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
     !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
-    !  - no snow and no salinity of sea ice (Sice in mo_physical_constants)  yet
     !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
-    p_sfc_flx%forc_fw_ice_vol (:,:) = -Delhice(:,:)*rhoi/(rho_ref*dtime)        &
-      &                              -Delhsnow(:,:)*rhos/(rho_ref*dtime)        &
-      &                              + precw(:,:)*ice%concSum(:,:)
+
+    ! Volmue flux
+    p_sfc_flx%forc_fw_ice_vol (:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)   & ! Ice melt
+      &                               -Delhsnow(:,:)*rhos/(rho_ref*dtime)   & ! Snow melt
+      &                              + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
+      &       - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime) ! New-ice formation
+
+    ! Tracer flux
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
       p_sfc_flx%forc_fw_bc_ice (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
-        &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                           ! Snow melt
+        &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
+        &       - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)! New-ice formation
     ENDWHERE
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
@@ -1904,9 +1953,6 @@ CONTAINS
     REAL(wp) :: sst(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
-    REAL(wp) :: old_conc(nproma,p_patch%alloc_cell_blocks)
-    ! h_0 from Hibler (1979)
-!    REAL(wp), PARAMETER :: hnull = 0.5_wp
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1914,53 +1960,38 @@ CONTAINS
       Tfw(:,:) = Tf
     endif
 
+    ! This should not be needed
     DO k=1,ice%kice
       ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
     ENDDO
 
-    ! Calculate possible super-cooling of the surface layer
-    sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
-      &      dtime*p_sfc_flx%forc_hflx(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
-    sss = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    ! Concentration change due to new ice formation
+    WHERE ( ice%newice(:,:) > 0._wp .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
+      ! New volume - we just preserve volume:
+      ice%vol  (:,1,:) = ice%vol(:,1,:)         &
+        &       + ( 1._wp-ice%conc(:,1,:) )*ice%newice(:,:)*p_patch%cells%area(:,:)
 
-    ice % newice(:,:) = 0.0_wp
-    ! This is where new ice forms
-    WHERE (sst < Tfw(:,:) .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-      ice%newice(:,:) = - (sst - Tfw(:,:)) * ice%zUnderIce(:,:) * clw*rho_ref / (alf*rhoi)
-      ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
-      p_sfc_flx%forc_hflx(:,:) = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) &
-        &     *ice%zUnderIce(:,:)*clw*rho_ref/dtime
-      ! Add freshwater for new-ice formation
-      p_sfc_flx%forc_fw_ice_vol(:,:)  = p_sfc_flx%forc_fw_ice_vol(:,:)          &
-        &   - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)
-      p_sfc_flx%forc_fw_bc_ice (:,:) = p_sfc_flx%forc_fw_bc_ice(:,:)    &
-        &   - (1._wp-sice/sss(:,:))*(1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)
+      ! Hibler's way to change the concentration
+      ice%conc (:,1,:) = min( 1._wp,    &
+        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp-ice%conc(:,1,:) )/hnull )
 
-      old_conc (:,:)   = ice%conc(:,1,:)
-      ice%conc (:,1,:) = min( 1._wp, &
-        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp - ice%conc(:,1,:) )/hnull )
-      ! New thickness: We just preserve volume, so: New_Volume = newice_volume + hi*old_conc
-      !  => hi <- newice/conc + hi*old_conc/conc
-      ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
-
+      ! New ice and snow thickness
       ice%hi   (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       ice%hs   (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
-
-      ! New ice forms over open water - set temperature to Tfw
-      WHERE(ice%hi(:,1,:)<=0._wp)
-        ice%Tsurf(:,1,:) = Tfw(:,:)
-        ice%T2   (:,1,:) = Tfw(:,:)
-        ice%T1   (:,1,:) = Tfw(:,:)
-      ENDWHERE
     ENDWHERE
 
     ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
+    ! A.k.a. lateral melt
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
-      ice%conc(:,1,:) = max( 0._wp, ice%conc(:,1,:) - &
-        &        ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
-      ice%hi   (:,1,:) = ice%vol(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      ! Hibler's way to change the concentration
+      ice%conc(:,1,:) = MAX( 0._wp, ice%conc(:,1,:) &
+        &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+
+      ! New ice and snow thickness
+      ice%hi  (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+      ice%hs  (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
 

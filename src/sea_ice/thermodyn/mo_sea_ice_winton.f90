@@ -431,6 +431,7 @@ CONTAINS
             IF ( below_water > 0.0_wp ) THEN
               ice%snow_to_ice(jc,k,jb) = below_water*rhoi/rhos
               ice%hs         (jc,k,jb) = ice%hs(jc,k,jb) - ice%snow_to_ice(jc,k,jb)
+              ! TODO: What about increase in ice thickness?
 
               f1   = h1/( h1 +below_water )
               Tbar = f1*( ice%T1(jc,k,jb) - alf*muS/( ci*ice%T1(jc,k,jb) ) ) - ( 1.0_wp - f1 )*muS 
