@@ -42,7 +42,7 @@ MODULE mo_nh_nest_utilities
   !
   !
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message_text, message
+  USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent, &
     p_patch
   USE mo_grid_config,         ONLY: n_dom, n_dom_start
@@ -54,7 +54,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
   USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest
+  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
@@ -72,6 +72,9 @@ MODULE mo_nh_nest_utilities
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
+  USE mo_limarea_config,      ONLY: latbc_config
+  USE mo_nh_initicon_types,   ONLY: t_pi_atm
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1227,61 +1230,156 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE prep_outer_bdy_nudging (p_patch, p_prog_latbc, p_prog_now, p_metrics, p_diag)
+  SUBROUTINE prep_outer_bdy_nudging (p_patch, p_prog, p_prog_rcf, p_metrics, p_diag, &
+                                     p_latbc_const, p_latbc_old, p_latbc_new)
 
     TYPE(t_patch),   INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog_latbc, p_prog_now
+    TYPE(t_nh_prog), INTENT(IN)    :: p_prog, p_prog_rcf
     TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
 
+    ! alternative input data, either for constant or time-dependent lateral boundary conditions
+    TYPE(t_nh_prog), INTENT(IN), OPTIONAL :: p_latbc_const
+    TYPE(t_pi_atm),  INTENT(IN), OPTIONAL :: p_latbc_old, p_latbc_new
+
     ! local variables
     INTEGER :: jb, jc, jk, je, ic, nlev
+    REAL(wp) :: wfac_old, wfac_new
 
     ! number of full levels of child domain
     nlev   = p_patch%nlev
 
-    ! compute differences between lateral boundary data and prognostic variables
+    IF (PRESENT(p_latbc_const) .AND. (PRESENT(p_latbc_old) .OR. PRESENT(p_latbc_new))) THEN
+
+      CALL finish('prep_outer_bdy_nudging','conflicting arguments')
+
+    ELSE IF (PRESENT(p_latbc_const)) THEN ! Mode for constant lateral boundary data
+
+      ! compute differences between lateral boundary data and prognostic variables
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
-    DO ic = 1, p_metrics%nudge_c_dim
-      jc = p_metrics%nudge_c_idx(ic)
-      jb = p_metrics%nudge_c_blk(ic)
-      DO jk = 1, nlev
-#else
-    DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1, p_metrics%nudge_c_dim
         jc = p_metrics%nudge_c_idx(ic)
         jb = p_metrics%nudge_c_blk(ic)
-#endif
-          p_diag%grf_tend_thv(jc,jk,jb) = p_prog_latbc%theta_v(jc,jk,jb) - p_prog_now%theta_v(jc,jk,jb)
-          p_diag%grf_tend_rho(jc,jk,jb) = p_prog_latbc%rho    (jc,jk,jb) - p_prog_now%rho    (jc,jk,jb)
-          p_diag%grf_tend_w  (jc,jk,jb) = p_prog_latbc%w      (jc,jk,jb) - p_prog_now%w      (jc,jk,jb)
-
-      ENDDO
-    ENDDO
-!$OMP END DO
-
-!$OMP DO PRIVATE(jk,je,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
-#ifdef __LOOP_EXCHANGE
-      DO ic = 1, p_metrics%nudge_e_dim
-        je = p_metrics%nudge_e_idx(ic)
-        jb = p_metrics%nudge_e_blk(ic)
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
 !CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, p_metrics%nudge_c_dim
+          jc = p_metrics%nudge_c_idx(ic)
+          jb = p_metrics%nudge_c_blk(ic)
+#endif
+          p_diag%grf_tend_thv(jc,jk,jb) = p_latbc_const%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+          p_diag%grf_tend_rho(jc,jk,jb) = p_latbc_const%rho    (jc,jk,jb) - p_prog%rho    (jc,jk,jb)
+          p_diag%grf_tend_w  (jc,jk,jb) = p_latbc_const%w      (jc,jk,jb) - p_prog%w      (jc,jk,jb)
+
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jk,je,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
         DO ic = 1, p_metrics%nudge_e_dim
           je = p_metrics%nudge_e_idx(ic)
           jb = p_metrics%nudge_e_blk(ic)
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_metrics%nudge_e_dim
+            je = p_metrics%nudge_e_idx(ic)
+            jb = p_metrics%nudge_e_blk(ic)
 #endif
-          p_diag%grf_tend_vn(je,jk,jb) = p_prog_latbc%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb)
+            p_diag%grf_tend_vn(je,jk,jb) = p_latbc_const%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+        ENDDO
       ENDDO
-    ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ELSE IF (PRESENT(p_latbc_old) .AND. PRESENT(p_latbc_new)) THEN ! Mode for time-dependent lateral boundary data
+
+      ! compute differences between lateral boundary data and prognostic variables
+
+      wfac_old = latbc_config%lc1
+      wfac_new = latbc_config%lc2
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+      DO ic = 1, p_metrics%nudge_c_dim
+        jc = p_metrics%nudge_c_idx(ic)
+        jb = p_metrics%nudge_c_blk(ic)
+        DO jk = 1, nlev
+#else
+      DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, p_metrics%nudge_c_dim
+          jc = p_metrics%nudge_c_idx(ic)
+          jb = p_metrics%nudge_c_blk(ic)
+#endif
+          p_diag%grf_tend_thv(jc,jk,jb) = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + &
+            wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+          p_diag%grf_tend_rho(jc,jk,jb) = wfac_old*p_latbc_old%rho(jc,jk,jb) +     &
+            wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+          p_diag%grf_tend_w(jc,jk,jb) = wfac_old*p_latbc_old%w(jc,jk,jb) +         &
+            wfac_new*p_latbc_new%w(jc,jk,jb) - p_prog%w(jc,jk,jb)
+
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+      IF (ltransport) THEN ! apply QV nudging in unsaturated regions
+!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+        DO ic = 1, p_metrics%nudge_c_dim
+          jc = p_metrics%nudge_c_idx(ic)
+          jb = p_metrics%nudge_c_blk(ic)
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_metrics%nudge_c_dim
+            jc = p_metrics%nudge_c_idx(ic)
+            jb = p_metrics%nudge_c_blk(ic)
+#endif
+            p_diag%grf_tend_tracer(jc,jk,jb,iqv) = wfac_old*p_latbc_old%qv(jc,jk,jb) + &
+              wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
+            ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid
+            ! runaway effects
+            IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp) THEN
+              p_diag%grf_tend_tracer(jc,jk,jb,iqv) = MIN(0._wp,p_diag%grf_tend_tracer(jc,jk,jb,iqv))
+            ENDIF
+          ENDDO
+        ENDDO
+!$OMP END DO
+      ENDIF
+
+
+!$OMP DO PRIVATE(jk,je,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+        DO ic = 1, p_metrics%nudge_e_dim
+          je = p_metrics%nudge_e_idx(ic)
+          jb = p_metrics%nudge_e_blk(ic)
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_metrics%nudge_e_dim
+            je = p_metrics%nudge_e_idx(ic)
+            jb = p_metrics%nudge_e_blk(ic)
+#endif
+            p_diag%grf_tend_vn(je,jk,jb) = wfac_old*p_latbc_old%vn(je,jk,jb) + &
+              wfac_new*p_latbc_new%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+        ENDDO
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ELSE
+      CALL finish('prep_outer_bdy_nudging','missing arguments')
+    ENDIF
 
   END SUBROUTINE prep_outer_bdy_nudging
 
@@ -1293,9 +1391,9 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-  SUBROUTINE outer_boundary_nudging(jg, nnow, rcffac)
+  SUBROUTINE outer_boundary_nudging(jg, ntlev, ntlev_rcf, rcffac)
 
-    INTEGER, INTENT(IN)  :: jg, nnow
+    INTEGER, INTENT(IN)  :: jg, ntlev, ntlev_rcf
     REAL(wp), INTENT(IN) :: rcffac ! Ratio between advective and dynamical time step
 
     ! Pointers
@@ -1339,23 +1437,29 @@ CONTAINS
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
 #endif
-        p_nh%prog(nnow)%rho(jc,jk,jb) =                                      &
-          p_nh%prog(nnow)%rho(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
+        p_nh%prog(ntlev)%rho(jc,jk,jb) =                                      &
+          p_nh%prog(ntlev)%rho(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
           p_nh%diag%grf_tend_rho(jc,jk,jb)
 
-        p_nh%prog(nnow)%theta_v(jc,jk,jb) =                                     &
-          p_nh%prog(nnow)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
+        p_nh%prog(ntlev)%theta_v(jc,jk,jb) =                                     &
+          p_nh%prog(ntlev)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
           p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-        p_nh%prog(nnow)%rhotheta_v(jc,jk,jb) =                          &
-          p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb)
+        p_nh%prog(ntlev)%rhotheta_v(jc,jk,jb) =                          &
+          p_nh%prog(ntlev)%rho(jc,jk,jb)*p_nh%prog(ntlev)%theta_v(jc,jk,jb)
 
-        p_nh%prog(nnow)%exner(jc,jk,jb) =                                  &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnow)%rhotheta_v(jc,jk,jb)))
+        p_nh%prog(ntlev)%exner(jc,jk,jb) =                                  &
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(ntlev)%rhotheta_v(jc,jk,jb)))
 
-        p_nh%prog(nnow)%w(jc,jk,jb) =                                      &
-          p_nh%prog(nnow)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
+        p_nh%prog(ntlev)%w(jc,jk,jb) =                                      &
+          p_nh%prog(ntlev)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
           p_nh%diag%grf_tend_w(jc,jk,jb)
+
+        IF (ltransport) THEN ! execute also QV nudging
+          p_nh%prog(ntlev_rcf)%tracer(jc,jk,jb,iqv) =                                     &
+            p_nh%prog(ntlev_rcf)%tracer(jc,jk,jb,iqv) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
+            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqv)
+        ENDIF
 
       ENDDO
     ENDDO

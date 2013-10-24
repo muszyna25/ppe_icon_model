@@ -903,47 +903,6 @@ MODULE mo_nh_stepping
         n_upt_rcf = nnow_rcf(jg)
       ENDIF
 
-      ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. l_limited_area .AND. lstep_adv(jg)) THEN
-
-        n_save = nsav2(jg)
-
-        IF (latbc_config%itype_latbc > 0) THEN ! update target field of relaxation
-          ! update the coefficients for the linear interpolation
-          CALL update_lin_interc( datetime )
-          latbc_lc1 = latbc_config%lc1
-          latbc_lc2 = latbc_config%lc2
-
-!$OMP PARALLEL
-!$OMP WORKSHARE
-          p_nh_state(jg)%prog(n_save)%vn = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%vn &
-            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%vn
-          p_nh_state(jg)%prog(n_save)%w = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%w &
-            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%w
-          p_nh_state(jg)%prog(n_save)%rho = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%rho &
-            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%rho
-          p_nh_state(jg)%prog(n_save)%theta_v = latbc_lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v &
-            + latbc_lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
-        ENDIF
-
-        CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_save),   &
-          p_nh_state(jg)%prog(n_now),p_nh_state(jg)%metrics,p_nh_state(jg)%diag)
-
-        ! Apply nudging at the lateral boundaries if the limited-area-mode is used
-        CALL outer_boundary_nudging (jg, nnow(jg), REAL(iadv_rcf,wp))
-      ENDIF
-
-      ! Note: boundary nudging in nested domains (if feedback is turned off) is
-      ! applied in solve_nh for velocity components and in SR nest_boundary_nudging
-      ! (called at the advective time step) for thermodynamical and tracer variables
-
-
-      ! PR: The update of sim_time is moved to the beginning of the time step. 
-      !  Then it has the updated value when it is passed to the physics interface subroutine
-      !  Daniel, you have to adjust the advection experiments to it.
-      !  I should discuss again with Thorsten if it is OK for the radiation
       !
       ! counter for simulation time in seconds
       time_config%sim_time(jg) = time_config%sim_time(jg) + dt_loc
@@ -1327,6 +1286,30 @@ MODULE mo_nh_stepping
         ENDIF
 
       ENDIF  ! itime_scheme
+
+      ! Update nudging tendency fields for limited-area mode
+      IF (jg == 1 .AND. l_limited_area .AND. lstep_adv(jg)) THEN
+
+        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+
+          ! update the coefficients for the linear interpolation
+          CALL update_lin_interc(datetime)
+
+          CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
+            p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
+            p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+
+        ELSE ! constant lateral boundary data
+
+          CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
+            p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+
+        ENDIF
+
+        ! Apply nudging at the lateral boundaries
+        CALL outer_boundary_nudging (jg, n_new, n_new_rcf, REAL(iadv_rcf,wp))
+
+      ENDIF
 
       ! If there are nested domains...
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
