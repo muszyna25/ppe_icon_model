@@ -57,7 +57,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-02T00:00:00Z"
+  end_date="2000-01-03T00:00:00Z"
 #
 #=============================================================================
 second=1                                 # [s] 1 second
@@ -69,7 +69,7 @@ dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
 dtime=$dtime_atmo
-ndays_restart=1
+ndays_restart=2
 #
 #---------------------------------------------------------------------------
 #model timing
@@ -104,7 +104,7 @@ iforcing=2               # ECHAM physics
 ocean_grids="iconR2B04-ocean_aqua_planet.nc"
 # atmo_dyn_grids="$ocean_grids" atmo uses the ocean grids
 #-----------------------------------------------------------------------------
-ozon_file="ape_o3_${grid_name}.nc"
+ozon_file="ape_o3_${ocean_grids}"
 #-----------------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------------
@@ -274,7 +274,7 @@ cat > $atmo_namelist << EOF
  ml_varlist       = 'ha_prog_out_pres_sfc'      , 'ha_prog_out_temp'      ,
                     'ha_prog_out_qv'     , 'ha_prog_out_qw'     , 'ha_prog_out_qi'     ,
                     'ha_diag_out_u'      , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'     ,
-                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' , 'ha_diag_u' , 'ha_diag_v' ,
+                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' ,
                       'ha_diag_rel_vort_c'  ,'ha_diag_div' , 'prm_omega' , 'prm_vo' 
 /                    
 &output_nml
@@ -286,7 +286,7 @@ cat > $atmo_namelist << EOF
  ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa'    , 'prm_t' ,
                     'prm_swflxsfc'    , 'prm_lwflxsfc'  , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
                     'prm_tsfc'        , 'prm_seaice'    , 'prm_o3', 'prm_ghm'   , 'prm_ghi' ,
-                    'prm_aclcov'      , 'prm_aclc'      ,
+                    'prm_aclcov'      , 'prm_aclc'      , 
                     'prm_rsfl'    , 'prm_ssfl'    , 'prm_rsfc'    , 'prm_ssfc'  ,
                     'prm_totprec' , 'prm_qvi'     , 'prm_xlvi'    , 'prm_xivi'  ,
                     'prm_evap'    , 'prm_lhflx'   , 'prm_shflx'   ,
@@ -323,7 +323,7 @@ cat > $atmo_namelist << EOF
  irad_co2   = 2         ! constant co2 vmr
  irad_ch4   = 0         ! switch off ch4
  irad_n2o   = 0         ! switch off n2o
- irad_o3    = 0         ! switch off o3
+ irad_o3    = 4         ! switch off o3
  irad_o2    = 0         ! switch off o2
  irad_cfc11 = 0         ! switch off cfc11
  irad_cfc12 = 0         ! switch off cfc12
