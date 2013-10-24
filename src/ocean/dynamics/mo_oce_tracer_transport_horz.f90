@@ -1012,7 +1012,7 @@ CONTAINS
         ENDDO
 
         DO jk = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb), end_level)
-                    !
+
           ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
           !    between the high order fluxes (given by the FFSL-scheme) and the low order
           !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
@@ -1106,6 +1106,13 @@ CONTAINS
           ! The dolic_e is the min of the neigboring dolic_c, so
           ! zeroeing of r_m, r_p is not required
           
+!          IF (patch_3D%lsm_e(je,jk,jb) > sea_boundary) &
+!            CALL finish("","patch_3D%lsm_e(je,jk,jb) > sea_boundary")
+!          IF (patch_3D%lsm_c(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)) > sea_boundary) &
+!            CALL finish("","patch_3D%lsm_c(1) > sea_boundary")
+!          IF (patch_3D%lsm_c(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) > sea_boundary) &
+!            CALL finish("","patch_3D%lsm_c(2) > sea_boundary")
+
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
           r_frac = 0.5_wp * (                                                        &

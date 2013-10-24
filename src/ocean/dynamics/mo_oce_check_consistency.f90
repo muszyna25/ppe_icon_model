@@ -71,13 +71,13 @@ CONTAINS
 
     INTEGER :: block, idx, start_idx, end_idx, level
     INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
-    TYPE(t_subset_range), POINTER :: all_cells, owned_edges
+    TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     TYPE(t_patch), POINTER        :: patch_2d
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_check_consistency:ocean_check_level_sea_land_mask'
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2D(1)
     all_cells => patch_2d%cells%all
-    owned_edges => patch_2d%edges%owned
+    edges_in_domain => patch_2d%edges%in_domain
     !-----------------------------------------------------------------------
     ! check cells
     DO block = all_cells%start_block, all_cells%end_block
@@ -105,8 +105,8 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! check edges
-    DO block = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, block, start_idx, end_idx)
+    DO block = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, block, start_idx, end_idx)
       DO idx = start_idx, end_idx
 
         cell1_idx = patch_2d%edges%cell_idx(idx, block, 1)

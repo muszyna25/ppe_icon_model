@@ -1537,7 +1537,8 @@ CONTAINS
       CALL insertion_sort(owned_edges(:))
 
       ! generate flag2_e_list(0) and flag2_e_list(1)
-      IF (n_boundary_rows > 0 .AND. order_type_of_halos /= 0) THEN
+  !    IF (n_boundary_rows > 0 .AND. order_type_of_halos /= 0) THEN
+      IF (n_boundary_rows > 0 .AND. order_type_of_halos == 1) THEN
 
         ALLOCATE(flag2_e_list(0)%idx(n_inner_edges + n_temp_edges - n), &
                  flag2_e_list(1)%idx(n))
@@ -2050,7 +2051,7 @@ CONTAINS
       ! They do not undergo further ordering and will be placed at index level min_rlcve_int-1
       irlev = min_rlcve_int-1
       ref_flag = MERGE(0, 1, l_cell_correction .OR. order_type_of_halos == 2)
-
+      ! write(0,*) "ref_flag=", ref_flag
       j = 1
       DO ilev = ref_flag + 1, max_ilev
         flag2_union(j:j+n2_ilev(ilev)-1, 1) &
