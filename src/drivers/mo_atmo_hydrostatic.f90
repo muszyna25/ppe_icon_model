@@ -86,7 +86,7 @@ CONTAINS
   !!
   SUBROUTINE atmo_hydrostatic
 
-    CHARACTER(*), PARAMETER :: method_name = "atmo_hydrostatic"
+!!$    CHARACTER(*), PARAMETER :: method_name = "atmo_hydrostatic"
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
@@ -99,10 +99,10 @@ CONTAINS
     ! Time integraion
     !------------------------------------------------------------------
 
-    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), &
+    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
                             & p_hydro_state, time_config%cur_datetime,       &
-                            & n_file, n_chkpt, n_diag, jfile,          &
+                            & n_chkpt, n_diag, jfile,                        &
                             & l_have_output                                  )
 
     IF (ltimer) CALL print_timer

@@ -221,10 +221,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-04)
   !!
-  SUBROUTINE perform_ha_stepping( p_patch, p_int_state,  &
+  SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
                                 & p_hydro_state, datetime,            &
-                                & n_file, n_checkpoint, n_diag, &
+                                & n_checkpoint, n_diag,               &
                                 & jfile, l_have_output                )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -233,7 +233,7 @@ CONTAINS
   TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN) :: n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN) :: n_checkpoint, n_diag
   INTEGER, INTENT(INOUT) :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
@@ -243,7 +243,7 @@ CONTAINS
   REAL(wp), DIMENSION(:,:,:), POINTER     :: p_vn  => NULL()
   REAL(wp) :: sim_time(n_dom)
   INTEGER  :: jg, jn, jgc, jstep
-  LOGICAL  :: l_vlist_output, l_nml_output
+  LOGICAL  :: l_nml_output
   LOGICAL  :: l_3tl_init(n_dom)
 
 #ifdef _OPENMP
