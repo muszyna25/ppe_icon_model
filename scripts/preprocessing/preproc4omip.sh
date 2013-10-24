@@ -4,8 +4,8 @@ set -x
 
 #==============================================================================
 # Usage:
-#   MODEL=icon GRID=R2B04 PHC_DIR=. FORCE=1 LEV=L20 ./preproc4phc.sh
-#   MODEL=mpiom GRID=GR15 PHC_DIR=. FORCE=1 LEV=L40 ./preproc4phc.sh
+#   MODEL=icon GRID=R2B04 OMIP_DIR=. FORCE=1 LEV=L20 ./preproc4phc.sh
+#   MODEL=mpiom GRID=GR15 OMIP_DIR=. FORCE=1 LEV=L40 ./preproc4phc.sh
 #==============================================================================
 # CONFIGURATION
 #==============================================================================
