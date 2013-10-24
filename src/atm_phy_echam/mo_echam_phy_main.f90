@@ -142,8 +142,6 @@ CONTAINS
     REAL(wp) :: zwcape (nbdim)
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecnl(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecni(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
     REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
     REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
@@ -1169,8 +1167,6 @@ CONTAINS
 
     tend% x_dtr(jcs:jce,:,jb) = 0._wp
     zqtec  (jcs:jce,:) = 0._wp
-    zxtecnl(jcs:jce,:) = 0._wp
-    zxtecni(jcs:jce,:) = 0._wp
 
     field% rsfc(:,jb) = 0._wp
     field% ssfc(:,jb) = 0._wp
@@ -1223,7 +1219,6 @@ CONTAINS
         &          tend% q(:,:,jb,iqt:),      &! inout  xtte
         &          zqtec,                     &! inout
         &          tend% x_dtr(:,:,jb),       &! inout  xtec
-        &          zxtecnl, zxtecni,          &! inout
         &          field% rsfc(:,jb),         &! out
         &          field% ssfc(:,jb),         &! out
         &          field% topmax(:,jb),       &! inout

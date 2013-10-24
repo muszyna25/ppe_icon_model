@@ -96,7 +96,6 @@ CONTAINS
                        ptu,      pqu,      plu,      plude,               &
                        pmfu,     pmfd,     prain,    pthvsig,             &
                        pcvcbot,  pwcape,                                  &! for CDNC/IC
-                       pxtecnl,  pxtecni,                                 &! for CDNC/IC
                        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv )
 !
 !**** *CUMASTR*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
@@ -262,7 +261,6 @@ REAL(dp):: zmratesnow(kbdim,klev)
 REAL(dp):: pcvcbot(kbdim),          pwcape(kbdim)
 REAL(dp):: plul(kbdim,klev),        plui(kbdim,klev),                   &
            pludel(kbdim,klev),      pludei(kbdim,klev),                 &
-           pxtecnl(kbdim,klev),     pxtecni(kbdim,klev),                &
            zmfull(kbdim,klev),      zmfuli(kbdim,klev)
 !!$REAL(dp) :: ptkem1(kbdim,klev)
 !--- End Included for CDNC/IC ------------------------------------------
@@ -559,7 +557,7 @@ INTRINSIC MIN, MAX
 !
   icuasc=1
 !
-  CALL cuasc(ncvmicro, lmfdudv,  lmfmid,                               &
+  CALL cuasc(lmfdudv,  lmfmid,                                         &
              dlev, cmfctop, cprcon, cminbuoy, nmctop,                  &
              pdtime, ptime_step_len,                                   &
              kproma, kbdim, klev, klevp1, klevm1,                      &
@@ -581,7 +579,6 @@ INTRINSIC MIN, MAX
              zmwc,     zmrateprecip,  zmratesnow,                      &
 !---End Included for scavenging-----------------------------------------
 !--- Included for prognostic CDNC/IC scheme ----------------------------
-             pludel,   pludei,   pxtecnl,  pxtecni,                    &
              plul,     plui,     papp1,                                &
              zmfull,   zmfuli                                          )
 !!$             pwcape,   ptkem1,   krow,     icuasc                      )
@@ -837,8 +834,7 @@ INTRINSIC MIN, MAX
   icuasc=2
 !
 !600 CONTINUE
-  CALL cuasc(ncvmicro,                                                 &
-             lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, nmctop, &
+  CALL cuasc(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, nmctop, &
              pdtime, ptime_step_len,                                   &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
@@ -859,7 +855,6 @@ INTRINSIC MIN, MAX
              zmwc,     zmrateprecip,  zmratesnow,                      &
 !---End Included for scavenging-----------------------------------------
 !--- Included for prognostic CDNC/IC scheme ----------------------------
-             pludel,   pludei,   pxtecnl,  pxtecni,                    &
              plul,     plui,     papp1,                                &
              zmfull,   zmfuli                                          )
 !--- End Included for CDNC/IC ------------------------------------------

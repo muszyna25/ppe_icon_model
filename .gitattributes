@@ -1147,7 +1147,6 @@ src/atm_phy_echam/mo_cover.f90 -text
 src/atm_phy_echam/mo_cuadjtq.f90 -text
 src/atm_phy_echam/mo_cuadjtqi.f90 -text
 src/atm_phy_echam/mo_cuasc.f90 -text
-src/atm_phy_echam/mo_cuasct.f90 -text
 src/atm_phy_echam/mo_cubase.f90 -text
 src/atm_phy_echam/mo_cubasmc.f90 -text
 src/atm_phy_echam/mo_cucall.f90 -text

@@ -95,7 +95,6 @@ CONTAINS
                      ptte,     pvom,     pvol,                       &! inout
                      pqte,     pxtte,                                &! inout
                      pqtec,    pxtec,                                &! inout
-                     pxtecnl,  pxtecni,                              &! inout
                      prsfc,    pssfc,                                &! out
                      ptopmax,                                        &! inout
                      ktype,                                          &! inout
@@ -132,7 +131,6 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: pqte(kbdim,klev)
     REAL(dp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
     REAL(dp),INTENT(INOUT) :: pxtec  (kbdim,klev),  pqtec  (kbdim,klev)
-    REAL(dp),INTENT(INOUT) :: pxtecnl(kbdim,klev),  pxtecni(kbdim,klev)
 
     REAL(dp),INTENT(INOUT) :: prsfc(kbdim),         pssfc(kbdim)  ! OUT
     REAL(dp),INTENT(INOUT) :: ptopmax(kbdim)
@@ -249,7 +247,6 @@ CONTAINS
                   zmfu,     zmfd,     zrain,    pthvsig,               &
 !--- Included for prognostic CDNC/IC scheme ----------------------------
                   pcvcbot,  pwcape,                                    &
-                  pxtecnl,  pxtecni,                                   &
 !--- End Included for CDNC/IC ------------------------------------------
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
 !
