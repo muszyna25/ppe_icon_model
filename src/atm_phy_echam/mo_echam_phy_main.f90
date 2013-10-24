@@ -142,8 +142,6 @@ CONTAINS
     REAL(wp) :: zwcape (nbdim)
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecl (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxteci (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
     REAL(wp) :: zxtecnl(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
     REAL(wp) :: zxtecni(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
@@ -1171,8 +1169,6 @@ CONTAINS
 
     tend% x_dtr(jcs:jce,:,jb) = 0._wp
     zqtec  (jcs:jce,:) = 0._wp
-    zxtecl (jcs:jce,:) = 0._wp
-    zxteci (jcs:jce,:) = 0._wp
     zxtecnl(jcs:jce,:) = 0._wp
     zxtecni(jcs:jce,:) = 0._wp
 
@@ -1227,7 +1223,6 @@ CONTAINS
         &          tend% q(:,:,jb,iqt:),      &! inout  xtte
         &          zqtec,                     &! inout
         &          tend% x_dtr(:,:,jb),       &! inout  xtec
-        &          zxtecl,  zxteci,           &! inout
         &          zxtecnl, zxtecni,          &! inout
         &          field% rsfc(:,jb),         &! out
         &          field% ssfc(:,jb),         &! out

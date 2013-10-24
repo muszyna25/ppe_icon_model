@@ -49,6 +49,7 @@
 MODULE mo_cucall
 
   USE mo_kind,               ONLY: dp
+  USE mo_exception,          ONLY: finish
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1    ! vtmpc1=rv/rd-1
@@ -94,7 +95,7 @@ CONTAINS
                      ptte,     pvom,     pvol,                       &! inout
                      pqte,     pxtte,                                &! inout
                      pqtec,    pxtec,                                &! inout
-                     pxtecl,   pxteci,   pxtecnl,  pxtecni,          &! inout
+                     pxtecnl,  pxtecni,                              &! inout
                      prsfc,    pssfc,                                &! out
                      ptopmax,                                        &! inout
                      ktype,                                          &! inout
@@ -131,7 +132,6 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: pqte(kbdim,klev)
     REAL(dp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
     REAL(dp),INTENT(INOUT) :: pxtec  (kbdim,klev),  pqtec  (kbdim,klev)
-    REAL(dp),INTENT(INOUT) :: pxtecl (kbdim,klev),  pxteci (kbdim,klev)
     REAL(dp),INTENT(INOUT) :: pxtecnl(kbdim,klev),  pxtecni(kbdim,klev)
 
     REAL(dp),INTENT(INOUT) :: prsfc(kbdim),         pssfc(kbdim)  ! OUT
@@ -143,6 +143,8 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                                   ! OUT
     REAL(dp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)             ! OUT
     REAL(dp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)      ! OUT
+
+    CHARACTER(LEN=*),PARAMETER :: routine = 'mo_cucall:cucall'
 
     REAL(dp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
                 zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
@@ -167,6 +169,12 @@ CONTAINS
     !  Local scalars:
     REAL(dp):: ztmst, zxlp1, zxip1
     INTEGER :: ilevmin, jk, jl, jt
+
+    IF (iconv/=1) THEN
+      !
+      CALL finish(TRIM(routine),'iconv /=1 not supported in ICON')
+      !
+    END IF
 
 !-----------------------------------------------------------------------
 !*    1.           CALCULATE T,Q AND QS AT MAIN LEVELS
@@ -223,20 +231,14 @@ CONTAINS
 !
 !
 !200 CONTINUE
-  SELECT CASE (iconv)
-  CASE(1)
      CALL cumastr(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,      &
                   cmfctop, cprcon, cminbuoy, entrpen, nmctop, cevapcu, &
                   pdtime, ptime_step_len,                              &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
-!---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-!!$                  krow,                                                &
                   papp1,                                               &
-!---End Included for scavenging-----------------------------------------
                   ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
                   ztvp1,    ktrac,    ldland,                          &
                   zxtp1,    zxtu,                                      &
-!!$                  pxtte,                                               &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
@@ -247,65 +249,9 @@ CONTAINS
                   zmfu,     zmfd,     zrain,    pthvsig,               &
 !--- Included for prognostic CDNC/IC scheme ----------------------------
                   pcvcbot,  pwcape,                                    &
-                  pxtecl,   pxteci,   pxtecnl,  pxtecni,               &
-!!$                  ptkem1,                                              &
+                  pxtecnl,  pxtecni,                                   &
 !--- End Included for CDNC/IC ------------------------------------------
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
-  CASE(2)
-     CALL cumastrt(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmfctop,    &
-                   cprcon, cminbuoy, entrpen, nmctop,  cevapcu,        & 
-                  pdtime,  ptime_step_len,                             &
-                  kproma, kbdim, klev, klevp1, klevm1, ilab,           &
-!---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-!!$                  krow,                                                &
-!!$                  papp1,                                               &
-!---End Included for scavenging-----------------------------------------
-                  ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
-                  ztvp1,    ktrac,    ldland,                          &
-                  zxtp1,    zxtu,                                      &
-!!$                  pxtte,                                               &
-                  pverv,    zqsat,    pqhfla,                          &
-                  paphp1,   pgeo,                                      &
-                  ptte,     pqte,     pvom,     pvol,                  &
-                  prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,                                     &
-                  locum,    ktype,    icbot,    ictop,                 &
-                  ztu,      zqu,      zlu,      zlude,                 &
-                  zmfu,     zmfd,     zrain,    pthvsig,               &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-                  pxtecl,   pxteci,                                    &
-!--- End Included for CDNC/IC ------------------------------------------
-                  ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
-  CASE(3)
-     CALL cumastrh(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,     &
-                   cmfctop, cprcon, cminbuoy, entrpen, nmctop, cevapcu,&
-                  pdtime, ptime_step_len,                              &
-                  kproma, kbdim, klev, klevp1, klevm1, ilab,           &
-!---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
-!!$                  krow,                                                &
-!!$                  papp1,                                               &
-!---End Included for scavenging-----------------------------------------
-                  ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
-                  ztvp1,    ktrac,    ldland,                          &
-                  zxtp1,    zxtu,                                      &
-!!$                  pxtte,                                               &
-                  pverv,    zqsat,    pqhfla,                          &
-                  paphp1,   pgeo,                                      &
-                  ptte,     pqte,     pvom,     pvol,                  &
-                  prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,                                     &
-                  locum,    ktype,    icbot,    ictop,                 &
-                  ztu,      zqu,      zlu,      zlude,                 &
-                  zmfu,     zmfd,     zrain,    pthvsig,               &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-                  pcvcbot,  pwcape,                                    &
-                  pxtecl,   pxteci,                                    &
-!!$                  pxtecnl,  pxtecni,                                   &
-!!$                  ptkem1,                                              &
-!--- End Included for CDNC/IC ------------------------------------------
-                  ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
-
-  END SELECT
 !
 !
 ! ------------------------------------------------------------------
@@ -345,7 +291,6 @@ CONTAINS
 !
 !---------------------------------------------------------------------
 !
-    RETURN
   END SUBROUTINE cucall
   !-------------
 

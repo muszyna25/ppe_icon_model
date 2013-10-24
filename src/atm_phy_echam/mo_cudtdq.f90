@@ -36,14 +36,12 @@
 MODULE mo_cudtdq
 
   USE mo_kind,               ONLY: dp
+  USE mo_exception,          ONLY: finish
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: alv, als, alf, tmelt, g=>grav
 #else
   USE mo_constants,          ONLY: alv, als, alf, tmelt, g
-  USE mo_tracdef,            ONLY: trlist
-  USE mo_submodel,           ONLY: lanysubmodel
-  USE mo_vphysc,             ONLY: set_vphysc_var
 #endif
 
   IMPLICIT NONE
@@ -57,18 +55,13 @@ CONTAINS
   !!
 SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
                   kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
-!0                krow,                                                &
                   paphp1,   pten,     ptte,     pqte,                  &
-!0                pxtte,                                               &
                   pxtec,                                               &
-!0                pmfuxt,   pmfdxt,                                    &
                   pmfus,    pmfds,    pmfuq,    pmfdq,                 &
                   pmful,    pdmfup,   pdmfdp,   plude,                 &
                   pdpmel,   prfl,     psfl,                            &
                   pcpen,    pqtec,    pqude,                           &
                   prsfc,    pssfc,                                     &
-                  pludel,pludei,pxtecl,pxteci,pmfull,pmfuli,           &!for CDNC/IC
-!0                plui,                                                &!for CDNC/IC
                   ptte_cnv, pqte_cnv, pxtte_cnv                    )
 !
 !
@@ -85,7 +78,9 @@ SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
 INTEGER, INTENT(IN) :: ncvmicro
 REAL(dp),INTENT(IN) :: pdelta_time
 INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
-!!$INTEGER, INTENT(IN) :: krow
+
+CHARACTER(LEN=*),PARAMETER :: routine = 'mo_cudtdq:cudtdq'
+
 LOGICAL  llo1
 !
 REAL(dp) :: ptte(kbdim,klev),        pqte(kbdim,klev),                 &
@@ -103,25 +98,20 @@ LOGICAL  :: ldcum(kbdim)
 !
 REAL(dp) :: zmelt(kbdim)
 REAL(dp) :: zsheat(kbdim)
-!!$REAL(dp) :: pxtte(kbdim,klev,ktrac)
-!!$REAL(dp) :: pmfuxt(kbdim,klev,ktrac), pmfdxt(kbdim,klev,ktrac)
 !
 REAL(dp) :: zrcpm ! reciprocal value of specific heat of moist air
 
 REAL(dp),INTENT(INOUT) ::  ptte_cnv(kbdim,klev), pqte_cnv(kbdim,klev)  ! OUT
 REAL(dp),INTENT(INOUT) :: pxtte_cnv(kbdim,klev,ktrac)                  ! OUT
 
-!----Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)-----------
-REAL(dp) ::  pludel(kbdim,klev),       pludei(kbdim,klev),              &
-             pmfull(kbdim,klev),       pmfuli(kbdim,klev),              &
-             pxtecl(kbdim,klev),       pxteci(kbdim,klev)
-!!$REAL(dp) ::  plui(kbdim,klev)
-!----End Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)-----------
-
 INTEGER  :: jl, jk
-!!$INTEGER  :: jt
 REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
-!!$REAL(dp) :: zdxtdt
+
+IF (ncvmicro>0) THEN
+  !
+  CALL finish(TRIM(routine),'ncvmicro > 0 not supported in ICON')
+  !
+END IF
 
    ptte_cnv(1:kproma,:)   = 0._dp
    pqte_cnv(1:kproma,:)   = 0._dp
@@ -151,42 +141,7 @@ REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
      IF(jk.LT.klev) THEN
         DO 220 jl=1,kproma
            IF(ldcum(jl)) THEN
-!----Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)---------
-            IF (ncvmicro>0) THEN
-!              llo1=(pten(jl,jk)-tmelt).GT.0._dp.OR.(pten(jl,jk)>cthomi.AND.plui(jl,jk)<csecfrl)
-              llo1=(pten(jl,jk)-tmelt).GT.0._dp
-              zalv=MERGE(alv,als,llo1)
-              zrcpm=1._dp/pcpen(jl,jk)
-              zdtdt=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zrcpm*        &
-                                  (pmfus(jl,jk+1)-pmfus(jl,jk)+       &
-                                   pmfds(jl,jk+1)-pmfds(jl,jk)-       &
-                                   alf*pdpmel(jl,jk)-                 &
-                                   alv*(pmfull(jl,jk+1)-pmfull(jl,jk)- &
-                                   pludel(jl,jk))-                      &
-                                   als*(pmfuli(jl,jk+1)-pmfuli(jl,jk)- &
-                                   pludei(jl,jk))                      &
-                                   +zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              ptte(jl,jk)=ptte(jl,jk)+zdtdt
-              ptte_cnv(jl,jk)=zdtdt
-              zdqdt=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))*              &
-                                  (pmfuq(jl,jk+1)-pmfuq(jl,jk)+       &
-                                   pmfdq(jl,jk+1)-pmfdq(jl,jk)+       &
-                                   pmfull(jl,jk+1)-pmfull(jl,jk)-       &
-                                   pludel(jl,jk)+                      &
-                                   pmfuli(jl,jk+1)-pmfuli(jl,jk)-       &
-                                   pludei(jl,jk)                      &
-                                  -(pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              pqte_cnv(jl,jk)=zdqdt
-              pxtecl(jl,jk)=(g/(paphp1(jl,jk+1)-                       &
-                            paphp1(jl,jk)))*pludel(jl,jk)
-              pxteci(jl,jk)=(g/(paphp1(jl,jk+1)-                       &
-                            paphp1(jl,jk)))*pludei(jl,jk)
-              pqtec(jl,jk)=(g/(paphp1(jl,jk+1)-                       &
-                            paphp1(jl,jk)))*pqude(jl,jk)
-              zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
-              zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-           ELSE
+
               llo1=(pten(jl,jk)-tmelt).GT.0._dp
               zalv=MERGE(alv,als,llo1)
               zrcpm=1._dp/pcpen(jl,jk)
@@ -213,62 +168,15 @@ REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
                             paphp1(jl,jk)))*pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
               zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            ENDIF
-!---End Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)---------
 
            END IF
 220     END DO
 !
-!!$#ifdef __ICON__
-!!$#else
-!!$        IF (trlist% anyconv /= 0) THEN
-!!$           DO 2204 jt=1,ktrac
-!!$              IF (trlist% ti(jt)% nconv == 1) THEN
-!!$                DO 2202 jl=1,kproma
-!!$                   IF(ldcum(jl)) THEN
-!!$                     zdxtdt=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
-!!$                                 *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt) &
-!!$                                  +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
-!!$                     pxtte(jl,jk,jt)=pxtte(jl,jk,jt)+zdxtdt
-!!$                     pxtte_cnv(jl,jk,jt)=zdxtdt
-!!$                   ENDIF
-!!$2202            END DO
-!!$              ENDIF
-!!$2204       END DO
-!!$        ENDIF
-!!$#endif
 !
 !
      ELSE
         DO 230 jl=1,kproma
            IF(ldcum(jl)) THEN
-!----Included for CDNC/IC scheme (Ulrike Lohmann 11/02/07)---------
-            IF (ncvmicro>0) THEN
-!              llo1=(pten(jl,jk)-tmelt).GT.0._dp.OR.(pten(jl,jk)>cthomi.AND.plui(jl,jk)<csecfrl)
-              llo1=(pten(jl,jk)-tmelt).GT.0._dp
-              zalv=MERGE(alv,als,llo1)
-              zrcpm=1._dp/pcpen(jl,jk)
-              zdtdt=-(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zrcpm*       &
-                     (pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-    &
-                                 alv*(pmfull(jl,jk)+pludel(jl,jk))-   &
-                                 als*(pmfuli(jl,jk)+pludei(jl,jk))    &
-                                -zalv*(pdmfdp(jl,jk)+pdmfup(jl,jk)))
-              ptte(jl,jk)=ptte(jl,jk)+zdtdt
-              ptte_cnv(jl,jk)=zdtdt
-              zdqdt=-(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))*             &
-                        (pmfuq(jl,jk)+pmfdq(jl,jk)+pludel(jl,jk)+pludei(jl,jk)+     &
-                        (pmfull(jl,jk)+pmfuli(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-              pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              pqte_cnv(jl,jk)=zdqdt
-              pxtecl(jl,jk)=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
-                           *pludel(jl,jk)
-              pxteci(jl,jk)=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
-                           *pludei(jl,jk)
-              pqtec(jl,jk)=(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))        &
-                           *pqude(jl,jk)
-              zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
-              zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            ELSE
               llo1=(pten(jl,jk)-tmelt).GT.0._dp
               zalv=MERGE(alv,als,llo1)
               zrcpm=1._dp/pcpen(jl,jk)
@@ -289,27 +197,9 @@ REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
                            *pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
               zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            END IF
           END IF
 230     END DO
 !
-!!$#ifdef __ICON__
-!!$#else
-!!$        IF (trlist% anyconv /= 0) THEN
-!!$           DO 2304 jt=1,ktrac
-!!$              IF (trlist% ti(jt)% nconv == 1) THEN
-!!$                DO 2302 jl=1,kproma
-!!$                   IF(ldcum(jl)) THEN
-!!$                      zdxtdt=-(g/(paphp1(jl,jk+1)-paphp1(jl,jk)))      &
-!!$                             *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
-!!$                      pxtte(jl,jk,jt)=pxtte(jl,jk,jt)+zdxtdt
-!!$                      pxtte_cnv(jl,jk,jt)=zdxtdt
-!!$                   ENDIF
-!!$2302            END DO
-!!$              END IF
-!!$2304       END DO
-!!$        ENDIF
-!!$#endif
 !
      END IF
 !
@@ -326,17 +216,6 @@ REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
      prsfc(jl)=prfl(jl)
      pssfc(jl)=psfl(jl)
 310 END DO
-!
-! calculate and store convective accumulated precipitation (mm)
-
-!!$#ifdef __ICON__
-!!$#else
-!!$  IF (lanysubmodel) CALL set_vphysc_var &
-!!$                    (kproma,        klev,           krow,      &
-!!$!++mgs
-!!$                     prflconv=prfl, psflconv=psfl)
-!!$!--mgs
-!!$#endif
 
     RETURN
   END SUBROUTINE cudtdq

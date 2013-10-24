@@ -83,12 +83,10 @@ CONTAINS
                        cmfctop, cprcon, cminbuoy, entrpen, nmctop,cevapcu,&
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
-!!$                       krow,                                              &
                        papp1,                                             &
                        pten,     pqen,     pxen,     puen,     pven,      &
                        ptven,    ktrac,    ldland,                        &
                        pxten,    pxtu,                                    &
-!!$                       pxtte,                                             &
                        pverv,    pqsen,    pqhfla,                        &
                        paphp1,   pgeo,                                    &
                        ptte,     pqte,     pvom,     pvol,                &
@@ -98,8 +96,7 @@ CONTAINS
                        ptu,      pqu,      plu,      plude,               &
                        pmfu,     pmfd,     prain,    pthvsig,             &
                        pcvcbot,  pwcape,                                  &! for CDNC/IC
-                       pxtecl,   pxteci,   pxtecnl,  pxtecni,             &! for CDNC/IC
-!!$                       ptkem1,                                            &
+                       pxtecnl,  pxtecni,                                 &! for CDNC/IC
                        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv )
 !
 !**** *CUMASTR*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
@@ -265,7 +262,6 @@ REAL(dp):: zmratesnow(kbdim,klev)
 REAL(dp):: pcvcbot(kbdim),          pwcape(kbdim)
 REAL(dp):: plul(kbdim,klev),        plui(kbdim,klev),                   &
            pludel(kbdim,klev),      pludei(kbdim,klev),                 &
-           pxtecl(kbdim,klev),      pxteci(kbdim,klev),                 &
            pxtecnl(kbdim,klev),     pxtecni(kbdim,klev),                &
            zmfull(kbdim,klev),      zmfuli(kbdim,klev)
 !!$REAL(dp) :: ptkem1(kbdim,klev)
@@ -283,15 +279,6 @@ INTRINSIC MIN, MAX
 !
 !  Executable statements
 
-!!$#ifdef __ICON__
-!!$#else
-!!$  IF (lconvmassfix) THEN
-!!$     CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
-!!$                          klevp1,         ktrac,         krow,              &
-!!$                          papp1,          paphp1,        pxtte,             &
-!!$                          .TRUE.  )
-!!$  END IF
-!!$#endif
 
 !-----------------------------------------------------------------------
 !
@@ -469,16 +456,6 @@ INTRINSIC MIN, MAX
      END IF
 430 END DO
   ictop0(1:kproma) = INT(zictop0(1:kproma))
-!!
-!!     DEEP CONVECTION IF CLOUD DEPTH > 200 HPA, ELSE SHALLOW
-!!     (CLOUD DEPTH FROM NON-ENTRAINIG PLUME)
-!!
-!  DO jl=1,kproma
-!     ktype(jl)=MERGE(1,2,                                              &
-!                paphp1(jl,kcbot(jl))-paphp1(jl,ictop0(jl)).gt.2.E4_dp)
-!     zentr(jl)=MERGE(entrpen,entrscv,ktype(jl).eq.1)
-!  ENDDO
-!!
 !
 !                  FIND LOWEST POSSIBLE ORG. DETRAINMENT LEVEL
 !                  -------------------------------------------
@@ -748,29 +725,9 @@ INTRINSIC MIN, MAX
   ENDDO
 !
 
-!  DO jl=1,kproma
-!     DO jk=2,klev
-!        zro=paphp1(jl,jk)/(rd*ztenh(jl,jk)*                         &
-!             (1._dp+vtmpc1*zqenh(jl,jk)))
-!        zdz=(paphp1(jl,jk)-paphp1(jl,jk-1))/(g*zro)
-!        zhelp(jl)=zhelp(jl) +                               &
-!             (g*(ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)     &
-!             +g*vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))      &
-!             -g*plu(jl,jk) ) * zdz
-!     ENDDO
-!     if (zhelp(jl).lt.0._dp) zhelp(jl)=0._dp
-!  ENDDO
 
   DO jl=1,kproma
      !--- Included for prognostic CDNC/IC scheme ----------------------------
-!     IF(ldcum(jl)) THEN
-!         pcvcbot(jl)=0._dp
-!         pwcape(jl)=0._dp
-!         IF (zcape(jl).GT.0._dp) THEN
-!            pcvcbot(jl)=REAL(kcbot(jl),dp)
-!            pwcape(jl)=0.5_dp*SQRT(zcape(jl))
-!         ENDIF
-!      ENDIF
 
 !S.K. changed to
      pcvcbot(jl)=0._dp
@@ -905,7 +862,6 @@ INTRINSIC MIN, MAX
              pludel,   pludei,   pxtecnl,  pxtecni,                    &
              plul,     plui,     papp1,                                &
              zmfull,   zmfuli                                          )
-!!$             pwcape,   ptkem1,   krow,     icuasc                      )
 !--- End Included for CDNC/IC ------------------------------------------
 !
 !-----------------------------------------------------------------------
@@ -918,11 +874,6 @@ INTRINSIC MIN, MAX
              ptime_step_len, kproma,   kbdim,    klev,     klevp1,     &
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
-!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01, UL, 28.3.07):-------
-!!$             krow,                                                     &
-!!$             pxtte,    pxtu,     ptu,                                  &
-!!$             zmwc,     zmrateprecip,   zmratesnow,                     &
-!---End Included for scavenging-----------------------------------------
              zxtenh,   zmfuxt,   zmfdxt,                               &
              paphp1,   zgeoh,                                          &
              kcbot,    kctop,    idtop,                                &
@@ -934,7 +885,6 @@ INTRINSIC MIN, MAX
              pten,     zsfl,     zdpmel,   itopm2,                     &
 !--- Included for prognostic CDNC/IC scheme ----------------------------
              zmfull,   zmfuli)
-!!$             plul,     plui)
 !--- End Included for CDNC/IC ------------------------------------------
 !-----------------------------------------------------------------------
 !
@@ -942,25 +892,15 @@ INTRINSIC MIN, MAX
 !                  --------------------------------------------------
 !
 !800 CONTINUE
-  CALL cudtdq(ncvmicro, &
-              pdtime, kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac, &
-!--- Included for dust emissions (Philip Stier 23/01/06)-----------------
-!!$              krow,                                                    &
-!--- End Included for dust emissions in ---------------------------------
+  CALL cudtdq(ncvmicro, pdtime,                                        &
+              kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
               paphp1,   pten,     ptte,     pqte,                      &
-!!$              pxtte,                                                   &
               pxtec,                                                   &
-!!$              zmfuxt,   zmfdxt,                                        &
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
               zcpen,    pqtec,    pqude,                               &
               prsfc,    pssfc,                                         &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-              pludel,   pludei,   pxtecl,   pxteci,                    &
-              zmfull,   zmfuli,                                        &
-!!$              plui,                                                    &
-!--- End Included for CDNC/IC ------------------------------------------
               ptte_cnv, pqte_cnv, pxtte_cnv                        )
 !
 !-----------------------------------------------------------------------
@@ -978,19 +918,9 @@ INTRINSIC MIN, MAX
 !
   END IF
 !
-!!$#ifdef __ICON__
-!!$#else
-!!$  IF (lconvmassfix) THEN
-!!$     CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
-!!$                          klevp1,         ktrac,         krow,              &
-!!$                          papp1,          paphp1,        pxtte,             &
-!!$                          .FALSE.  )
-!!$  END IF
-!!$#endif
 !
 !1000 CONTINUE
 !
-    RETURN
   END SUBROUTINE cumastr
   !-------------
 
