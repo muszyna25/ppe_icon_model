@@ -138,11 +138,11 @@ CONTAINS
     REAL(dp),INTENT(INOUT) :: ptopmax(kbdim)
     INTEGER, INTENT(INOUT) :: ktype(kbdim)
 
-    INTEGER, INTENT(OUT) :: ilab(kbdim,klev)
-    REAL(dp),INTENT(OUT) :: pcvcbot(kbdim),       pwcape (kbdim)
-    REAL(dp),INTENT(OUT) :: ptte_cnv(kbdim,klev)
-    REAL(dp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(dp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+    INTEGER, INTENT(INOUT) :: ilab(kbdim,klev)                                       ! OUT
+    REAL(dp),INTENT(INOUT) :: pcvcbot(kbdim),       pwcape (kbdim)                   ! OUT
+    REAL(dp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                                   ! OUT
+    REAL(dp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)             ! OUT
+    REAL(dp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)      ! OUT
 
     REAL(dp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
                 zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
