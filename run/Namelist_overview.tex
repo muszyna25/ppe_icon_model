@@ -1371,8 +1371,7 @@ filetype=2
 typeOfGeneratingProcess&
 I& 2 & &
 Type of generating process \\
-- GRIB2 code table 4.3 \\
-typeOfGeneratingProcess=0 (analysis) increases output accuracy for $\rho$, $\theta_{v}$, $T$, $P$ from 16 to 24 bits. &
+- GRIB2 code table 4.3 &
 filetype=2
 \tabularnewline
 
@@ -1465,6 +1464,13 @@ perturbationNumber&
 I& -1 & &
 Local definiton for ensemble products,
 (only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+lgribout\_24bit&
+L& .FALSE. & &
+If TRUE, write thermodynamic fields $\rho$, $\theta_{v}$, $T$, $p$ with 24bit precision instead of 16bit &
 filetype=2
 \tabularnewline
 

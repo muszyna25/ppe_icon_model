@@ -1928,76 +1928,90 @@ MODULE mo_nh_initicon
     ! read in DWD analysis (atmosphere)      !
     !----------------------------------------!
 
-    ! Analysis is read for the global domain, only.
-    jg = 1
+    DO jg = 1, n_dom
 
-    IF( lread_ana .AND. p_pe == p_io ) THEN 
-      CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
-    ENDIF  ! p_io
+      ! number of vertical full and half levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
+
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! save some paperwork
+      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
+      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
-    ! start reading DA output (atmosphere only)
-    ! The dynamical variables temp, pres, u and v, which need further processing,
-    ! are stored in initicon(jg)%atm. The moisture variables, which can be taken
-    ! over directly from the Analysis, are written to the NH prognostic state
-    !
-    my_ptr3d => initicon(jg)%atm%temp
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,      &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
+      IF( lread_ana .AND. p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
+      ENDIF  ! p_io
 
-    my_ptr3d => initicon(jg)%atm%pres
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,      &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    my_ptr3d => initicon(jg)%atm%u
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,         &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      ! start reading DA output (atmosphere only)
+      ! The dynamical variables temp, pres, u and v, which need further processing,
+      ! are stored in initicon(jg)%atm. The moisture variables, which can be taken
+      ! over directly from the Analysis, are written to the NH prognostic state
+      !
+      my_ptr3d => initicon(jg)%atm%temp
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,      &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
 
-    my_ptr3d => initicon(jg)%atm%v
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,         &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      my_ptr3d => initicon(jg)%atm%pres
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,      &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      my_ptr3d => initicon(jg)%atm%u
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,         &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    ! For the time being identical to qc from FG
-    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qc', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      my_ptr3d => initicon(jg)%atm%v
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,         &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    ! For the time being identical to qi from FG
-    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qi', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    ! For the time being identical to qr from FG
-    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      ! For the time being identical to qc from FG
+      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qc', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-    ! For the time being identical to qs from FG
-    my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-    CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,        &
-      &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-      &                  nlev, my_ptr3d,                                                       &
-      &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      ! For the time being identical to qi from FG
+      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qi', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      ! For the time being identical to qr from FG
+      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      ! For the time being identical to qs from FG
+      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,        &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+    ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdana_atm
 
@@ -2238,22 +2252,25 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
 
+
     !----------------------------------------!
     ! read in DWD analysis (surface)         !
     !----------------------------------------!
 
-    ! Analysis is read for the global domain, only.
-    jg = 1
+    DO jg = 1, n_dom
 
-    ! save some paperwork
-    ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-    ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-    IF(lread_ana .AND. (p_pe == p_io) ) THEN 
-      CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
-    ENDIF   ! p_io
+      ! save some paperwork
+      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
+      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
+      IF(lread_ana .AND. (p_pe == p_io) ) THEN 
+        CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
+      ENDIF   ! p_io
 
 
       ! set tile-index explicitly
@@ -2340,14 +2357,18 @@ MODULE mo_nh_initicon
         &                nlev_soil, my_ptr3d,                                       &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
+    ENDDO ! loop over model domains
+
 
 
     ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
     ! Also note, that the domain-loop is missing
     IF (init_mode == MODE_COMBINED) THEN
-      jg = 1
-      DO jt=1, ntiles_total
-        CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+      DO jg = 1, n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        DO jt=1, ntiles_total
+          CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+        ENDDO
       ENDDO
     END IF
 

@@ -121,6 +121,9 @@ MODULE mo_gribout_config
                                           ! .TRUE. : activated
                                           ! .FALSE.: deactivated (use dummy date/time) 
 
+    LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
+                                          ! with 24bit precision
+
     ! Local definiton for ensemble products
     INTEGER :: productDefinitionTemplateNumber
 

@@ -122,7 +122,10 @@ MODULE mo_gribout_nml
                                         ! .TRUE. : activated
                                         ! .FALSE.: deactivated (use dummy date/time) 
 
-  ! Local definiton for ensemble products
+  LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
+                                        ! with 24bit precision
+
+  ! Local definition for ensemble products
   INTEGER :: productDefinitionTemplateNumber
 
   INTEGER :: typeOfEnsembleForecast,        &
@@ -146,7 +149,8 @@ MODULE mo_gribout_nml
     &                    typeOfEnsembleForecast,          &
     &                    localTypeOfEnsembleForecast,     &
     &                    numberOfForecastsInEnsemble,     &
-    &                    perturbationNumber
+    &                    perturbationNumber,              &
+    &                    lgribout_24bit
 
 
 CONTAINS
@@ -198,7 +202,7 @@ CONTAINS
     localTypeOfEnsembleForecast          = -1  ! (undefined, will not be set if unchanged)
     numberOfForecastsInEnsemble          = -1  ! (undefined, will not be set if unchanged)
     perturbationNumber                   = -1  ! (undefined, will not be set if unchanged)
-
+    lgribout_24bit                       = .FALSE.  ! use 16bit precision for all fields
 
 
     !------------------------------------------------------------------
@@ -270,6 +274,8 @@ CONTAINS
         &                numberOfForecastsInEnsemble
       gribout_config(jg)%perturbationNumber                = &
         &                perturbationNumber
+      gribout_config(jg)%lgribout_24bit                    = &
+        &                lgribout_24bit
     ENDDO
 
 

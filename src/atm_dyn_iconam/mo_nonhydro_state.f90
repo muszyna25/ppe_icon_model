@@ -80,7 +80,7 @@ MODULE mo_nonhydro_state
     &                                create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata, groups,     &
     &                                vintp_types
-  USE mo_linked_list,          ONLY: t_list_element, find_list_element
+  USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_metadata,         ONLY: t_var_metadata, t_tracer_meta
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
@@ -439,7 +439,7 @@ MODULE mo_nonhydro_state
       &        shape4d_c(4)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
-    INTEGER :: DATATYPE_PACK_VAR  !< variably "entropy" for some thermodynamic fields
+    INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
 
     CHARACTER(len=4) suffix
 
@@ -468,7 +468,7 @@ MODULE mo_nonhydro_state
 
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
-    IF (gribout_config(p_patch%id)%typeOfGeneratingProcess == 0) THEN  ! analysis
+    IF (gribout_config(p_patch%id)%lgribout_24bit) THEN  ! analysis
       ! higher accuracy for atmospheric thermodynamic fields
       DATATYPE_PACK_VAR = DATATYPE_PACK24
     ELSE
@@ -947,7 +947,7 @@ MODULE mo_nonhydro_state
       &        shape3d_ubcp1(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
-    INTEGER :: DATATYPE_PACK_VAR  !< variably "entropy" for some thermodynamic fields
+    INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
 
     INTEGER :: jt
 
@@ -972,7 +972,7 @@ MODULE mo_nonhydro_state
 
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
-    IF (gribout_config(p_patch%id)%typeOfGeneratingProcess == 0) THEN  ! analysis
+    IF (gribout_config(p_patch%id)%lgribout_24bit) THEN  ! analysis
       ! higher accuracy for atmospheric thermodynamic fields
       DATATYPE_PACK_VAR = DATATYPE_PACK24
     ELSE
