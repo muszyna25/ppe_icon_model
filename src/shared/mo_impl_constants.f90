@@ -458,7 +458,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_DWDANA      = 1
   INTEGER, PARAMETER :: MODE_IFSANA      = 2
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
-  INTEGER, PARAMETER :: MODE_REMAP       = 4 
 
 
   !----------------!

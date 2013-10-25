@@ -55,8 +55,7 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
     &                              FFSL_MCYCL, ifluxl_sm, ifluxl_m, ihs_ocean,&
-    &                              RAYLEIGH_CLASSIC, MODE_REMAP, iedmf,       &
-    &                              icosmo
+    &                              RAYLEIGH_CLASSIC, iedmf, icosmo
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
