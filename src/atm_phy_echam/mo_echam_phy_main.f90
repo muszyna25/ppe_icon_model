@@ -47,7 +47,7 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav
+  USE mo_physical_constants,  ONLY: grav, cpd, cpv
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, iqt, ltimer
@@ -146,6 +146,7 @@ CONTAINS
     REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
     REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
     REAL(wp) :: zmair  (nbdim,nlev)       !< mass of air                       [kg/m2]
+    REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
@@ -234,6 +235,11 @@ CONTAINS
         !
         zdelp   (jc,jk) = field% presi_old (jc,jk+1,jb) - field% presi_old (jc,jk,jb)
         zmair   (jc,jk) = zdelp(jc,jk)/grav
+        !
+        ! 3.2b Specific heat of moist air
+        !
+        zcair   (jc,jk) = cpd+(cpv-cpd)*MAX(field%q(jc,jk,jb,iqv),0.0_wp)
+        !
       END DO
     END DO
 
