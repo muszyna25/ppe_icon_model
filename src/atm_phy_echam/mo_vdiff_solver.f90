@@ -38,12 +38,12 @@ MODULE mo_vdiff_solver
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
 #ifdef __ICON__
-  USE mo_physical_constants,ONLY: grav, vtmpc2, cpd, als, alv
+  USE mo_physical_constants,ONLY: grav, cpd, cpv, als, alv
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_constants,ONLY: grav=>g, vtmpc2, cpd
+  USE mo_constants,ONLY: grav=>g, cpd, cpv
   USE mo_physc2,   ONLY: clam, da1, tkemin, cons2, cons25, &
                        & tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_time_control,ONLY: lstart
@@ -957,7 +957,7 @@ CONTAINS
 
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
         ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &
-              & /(cpd*(1._wp+vtmpc2*zqnew))
+              & /(cpd+(cpv-cpd)*zqnew)
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
         ! When coupled with JSBACH: Correction of tte for snow melt
         IF (phy_config%ljsbach) THEN
