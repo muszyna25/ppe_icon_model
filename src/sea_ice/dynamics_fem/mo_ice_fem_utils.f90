@@ -120,7 +120,7 @@ CONTAINS
 !! Developed by Einar Olason, MPI-M (2013-06-05)
 !!
 
-  SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, Qatm, p_as, p_op_coeff )
+  SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, Qatm, p_op_coeff )
 
     USE mo_ice,      ONLY: u_ice, v_ice, m_ice, a_ice, m_snow, u_w, v_w, &
       &   stress_atmice_x, stress_atmice_y, elevation, sigma11, sigma12, sigma22
@@ -130,13 +130,13 @@ CONTAINS
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
     TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     ! Local variables
     ! Patch and ranges
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells, all_verts
+    INTEGER  :: i
 
     ! Indexing
     INTEGER  :: i_startidx_c, i_endidx_c, jc, jv, jb, jk
@@ -156,7 +156,7 @@ CONTAINS
     REAL(wp) :: buffy_array(nproma,p_ice%kice,p_patch_3D%p_patch_2D(n_dom)%nblks_v) 
     REAL(wp) :: ws_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
     REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
-    REAL(wp) :: Na, tmp_x, tmp_y, tmp2(2)
+    REAL(wp) :: tmp_x, tmp_y, tmp2(2), delu, u_change
 
     ! TODO: There are too many calls to cvec2gvec and gvec2cvec ... but premature optimisation is the
     ! root of all evil ...
@@ -216,16 +216,8 @@ CONTAINS
                          & p_tau_n_c(jc,jb)%x(1),               &
                          & p_tau_n_c(jc,jb)%x(2),               &
                          & p_tau_n_c(jc,jb)%x(3))
-          CALL gvec2cvec(  p_as%u(jc,jb),                       &
-                         & p_as%v(jc,jb),                       &
-                         & p_patch%cells%center(jc,jb)%lon,     &
-                         & p_patch%cells%center(jc,jb)%lat,     &
-                         & p_ws_n_c(jc,jb)%x(1),                &
-                         & p_ws_n_c(jc,jb)%x(2),                &
-                         & p_ws_n_c(jc,jb)%x(3))
         ELSE
           p_tau_n_c(jc,jb)%x    = 0.0_wp
-          p_ws_n_c(jc,jb)%x     = 0.0_wp
         ENDIF
       END DO
     END DO
@@ -233,25 +225,17 @@ CONTAINS
     ! Then we map to edges
     CALL map_cell2edges_3D( p_patch_3D, p_tau_n_c, tau_n ,p_op_coeff, 1)
     CALL sync_patch_array(SYNC_E, p_patch, tau_n)
-    CALL map_cell2edges_3D( p_patch_3D, p_ws_n_c, ws_n ,p_op_coeff, 1)
-    CALL sync_patch_array(SYNC_E, p_patch, ws_n)
 
     ! Then we map to verts
     CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
-    CALL map_edges2verts( p_patch, ws_n, p_op_coeff%edge2vert_coeff_cc, p_ws_n_dual)
-    CALL sync_patch_array(SYNC_V, p_patch, p_ws_n_dual%x(1))
-    CALL sync_patch_array(SYNC_V, p_patch, p_ws_n_dual%x(2))
-    CALL sync_patch_array(SYNC_V, p_patch, p_ws_n_dual%x(3))
 
     ! Now we convert back to geographic coordinates, rotate to the rotated grid and copy to FEM
     ! model variables.
     ! We also convert ocean forcing to geographic coordinates, rotate and copy to FEM model variables.
     ! We set the ice speed to ocean speed where concentration is low.
-    ! TODO: Use a proper rho for the atmosphere somehow in the Nansen-number (Na)
-    Na = SQRT(1.25_wp*Cd_ia/(rho_ref*C_d_io))
     jk=0
     DO jb = all_verts%start_block, all_verts%end_block
       CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
@@ -278,21 +262,16 @@ CONTAINS
           tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
           u_w(jk) = tmp2(1)
           v_w(jk) = tmp2(2)
-          ! Set the ice speed to ocean speed where concentration is less than 0.01
-          ! TODO: We should set the ice speed to free drift and calculate drag everywhere - but for
-          ! that we need wind speed. In free drift we have u_ice = Na u_air + u_water, where 
-          ! Na = SQRT(rho_a*C_a / rho_w / C_w)
+          ! Set the ice speed to free drift speed where concentration is less than 0.01
           IF ( a_ice(jk) <= 0.01_wp ) THEN
-            CALL cvec2gvec(p_ws_n_dual(jv,jb)%x(1),                &
-                         & p_ws_n_dual(jv,jb)%x(2),                &
-                         & p_ws_n_dual(jv,jb)%x(3),                &
-                         & p_patch%verts%vertex(jv,jb)%lon,        &
-                         & p_patch%verts%vertex(jv,jb)%lat,        &
-                         & tmp_x, tmp_y)
-            ! Rotate the vectors onto the rotated grid
-            tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
-            u_ice(jk) = Na*tmp2(1) + u_w(jk)
-            v_ice(jk) = Na*tmp2(2) + v_w(jk)
+            u_ice(jk) = 0._wp; v_ice(jk) = 0._wp; u_change = 0._wp
+            DO WHILE ( u_change > 1e-6_wp )
+              u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
+              delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
+              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
+              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
+              u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
+            ENDDO
           ELSE
             ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files
             ! now, so this does not need to be done every timestep, only after restart file is

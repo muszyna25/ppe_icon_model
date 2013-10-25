@@ -1473,7 +1473,7 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_as, p_op_coeff )
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
 
       ! For prettier output we set speed to zero where there's no ice
