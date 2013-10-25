@@ -549,30 +549,42 @@ CONTAINS
         !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
         !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
-        CALL dbg_print('UpdSfc: hi before slow'    ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: Conc. before slow' ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=4  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: hi before slow'    ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. before slow' ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
+
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+
         IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
+
+          !---------DEBUG DIAGNOSTICS-------------------------------------------
           idt_src=2  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  ,str_module,idt_src, in_subset=p_patch%cells%owned)
           CALL dbg_print('UpdSfc:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc:    :forc_fw_bc_ice',p_sfc_flx%forc_fw_bc_ice,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc:    :forc_fw_bc_oce',p_sfc_flx%forc_fw_bc_oce,str_module,idt_src, in_subset=p_patch%cells%owned)
+          idt_src=3  ! output print level (1-5, fix)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:fw_bc_ice',p_sfc_flx%forc_fw_bc_ice,str_module,idt_src, in_subset=p_patch%cells%owned)
+          CALL dbg_print('UpdSfc:OMIP/NCEP:fw_bc_oce',p_sfc_flx%forc_fw_bc_oce,str_module,idt_src, in_subset=p_patch%cells%owned)
+          !---------------------------------------------------------------------
+
         ENDIF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf ,str_module,5, in_subset=p_patch%cells%owned)
+        idt_src=4  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum after slow',p_ice%concSum  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf    ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
@@ -1136,9 +1148,7 @@ CONTAINS
             ! 
             ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
-            !   TODO: p_ice%conc: class 1 of sea ice is used - must be generalized
-            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
-            !IF (i_sea_ice >= 1) z_relax = (1.0_wp-p_ice%conc(jc,1,jb))*z_relax
+            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%concsum(jc,jb))*z_relax
 
             z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
@@ -1158,7 +1168,7 @@ CONTAINS
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=2  ! output print level (1-5, fix)
+      idt_src=3  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
       CALL dbg_print('UpdSfc:S-relax: S*'        ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-s_top(:,:)
@@ -1189,27 +1199,15 @@ CONTAINS
 
     ENDIF
 
- !  !-------------------------------------------------------------------------
- !  ! Add freshwater forcing due to sea ice (and snow changes)
- !  !  - added as forcing to vertical Diffusion as above
-
- !  IF (i_sea_ice >= 1) THEN
-
- !    p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
- !      &                            - p_sfc_flx%forc_fw_ice_impl(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
-
- !    !---------DEBUG DIAGNOSTICS-------------------------------------------
- !    idt_src=2  ! output print level (1-5, fix)
- !    CALL dbg_print('UpdSfc: fw_ice_impl[m/s]',p_sfc_flx%forc_fw_ice_impl ,str_module,idt_src, in_subset=p_patch%cells%owned)
- !    z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,2)
- !    CALL dbg_print('UpdSfc:sice:forc_trac[Km/s]',z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
- !    !---------------------------------------------------------------------
-
- !  ENDIF
-
-    ! Sum of freshwater flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
+    ! Sum of freshwater volume flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
+    !  - add implicit freshwater flux due to relaxation to volume forcing term
     IF (no_tracer >1) THEN
-      p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
+      !old formulation <r14213:
+      !p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
+      p_sfc_flx%forc_fw_tot(:,:) = p_sfc_flx%forc_runoff(:,:)     + &
+        &                          p_sfc_flx%forc_fw_ice_vol(:,:) + &
+        &                          p_sfc_flx%forc_fw_bc_oce(:,:)  + &
+        &                          p_sfc_flx%forc_fwrelax(:,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
