@@ -155,7 +155,7 @@ CONTAINS
     &                   pvm1       ,&! in,  v
     &                   lat_deg    ,&! in,  latitude in deg N
 !!$    &                   paprflux   ,&! in, precipitation flux at surface 
-    &                   tend_t_gwh ,&! out, dT/dt|Hines
+    &                   dissip_gwh ,&! out,     Q|Hines
     &                   tend_u_gwh ,&! out, du/dt|Hines
     &                   tend_v_gwh ) ! out, dv/dt|Hines
 
@@ -197,7 +197,7 @@ CONTAINS
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(inout) :: tend_t_gwh(nbdim,nlev)  ! tendency of temperature   ! out
+    REAL(wp) ,INTENT(inout) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation   ! out
     REAL(wp) ,INTENT(inout) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind    ! out
     REAL(wp) ,INTENT(inout) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind ! out
 
@@ -218,7 +218,7 @@ CONTAINS
 
     REAL(wp) :: utendgw(nc,nlev)         ! zonal tend, gravity wave spectrum (m/s^2)
     REAL(wp) :: vtendgw(nc,nlev)         ! merid tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: ttendgw(nc,nlev)         ! temperature tend, gravity wave spectrum (K/s)
+    REAL(wp) :: heat_gw(nc,nlev)         ! heating, gravity wave spectrum (J/kg/s)
     REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s) 
 
     REAL(wp) :: flux_u(nc,nlev)          ! zonal momentum flux (pascals)
@@ -258,7 +258,7 @@ CONTAINS
   CALL trace_start ('gw_hines', 20)
 #endif
 
-    tend_t_gwh(:,:) = 0.0_wp
+    dissip_gwh(:,:) = 0.0_wp
     tend_u_gwh(:,:) = 0.0_wp
     tend_v_gwh(:,:) = 0.0_wp
     
@@ -296,7 +296,7 @@ CONTAINS
 
     utendgw(:,:) = 0.0_wp
     vtendgw(:,:) = 0.0_wp
-    ttendgw(:,:) = 0.0_wp
+    heat_gw(:,:) = 0.0_wp
 
     diffco(:,:) = 0.0_wp
 
@@ -455,7 +455,7 @@ CONTAINS
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
     CALL hines_extro ( nc, nlev, nazmth,                          & 
-      &                utendgw, vtendgw, ttendgw, diffco,         &
+      &                utendgw, vtendgw, heat_gw, diffco,         &
       &                flux_u, flux_v,                            & 
       &                uhs, vhs, bvfreq, density, visc_mol, alt,  & 
       &                rmswind, anis, k_alpha, sigsqmcw,          &
@@ -466,7 +466,7 @@ CONTAINS
     !   update tendencies: 
     !
     DO jk=1, nlev
-      tend_t_gwh(jcs:jce,jk) = ttendgw(1:nc,jk)
+      dissip_gwh(jcs:jce,jk) = heat_gw(1:nc,jk)
       tend_u_gwh(jcs:jce,jk) = utendgw(1:nc,jk)
       tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
     END DO
@@ -504,7 +504,7 @@ CONTAINS
     !
     !     * drag_u = zonal component of gravity wave drag (m/s^2).
     !     * drag_v = meridional component of gravity wave drag (m/s^2).
-    !     * heat   = gravity wave heating (k/sec).
+    !     * heat   = gravity wave heating (J/kg/sec).
     !     * diffco = diffusion coefficient (m^2/sec)
     !     * flux_u = zonal component of vertical momentum flux (pascals)
     !     * flux_v = meridional component of vertical momentum flux (pascals)
@@ -1506,7 +1506,7 @@ CONTAINS
                 heatng = heatng - f5 * dfdz(i,l,n)
              ENDDO
              diffco(i,l) = f6 * heatng**0.33333333_wp / m_sub_m**1.33333333_wp
-             heat(i,l)   = heatng / cpd
+             heat(i,l)   = heatng
           ENDIF
        END DO
     END DO

@@ -186,6 +186,12 @@ CONTAINS
     REAL(wp) :: ztemperature_rad(nbdim)
     REAL(wp) :: ztemperature_eff(nbdim)
 
+
+    ! Temporary array used by GW_HINES
+
+    REAL(wp) :: zdis_gwh(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
+
+
     ! Temporary array used by SSODRAG
 
     REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
@@ -1104,10 +1110,11 @@ CONTAINS
         &             field%    v(:,:,jb)      ,&
         &             zlat_deg(:)              ,&
 !!$        &             aprflux(:,krow)          ,&
-        &             tend% temp_gwh(:,:,jb)   ,&
+        &             zdis_gwh(:,:)            ,&
         &             tend%    u_gwh(:,:,jb)   ,&
         &             tend%    v_gwh(:,:,jb) )
 
+      tend% temp_gwh(jcs:jce,:,jb) = zdis_gwh(jcs:jce,:)/zcair(jcs:jce,:)
 
       tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_gwh(jcs:jce,:,jb)
       tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_gwh(jcs:jce,:,jb)
