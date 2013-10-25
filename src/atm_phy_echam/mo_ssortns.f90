@@ -46,15 +46,9 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   &                  pvstrgw       ,& ! out, v-gravity wave stress
   &                  pvdisgw       ,& ! out, dissipation by gravity wave drag
   !
-#ifdef __ICON__
-  &                  pdt_sso       ,& ! out, sso tendency of temperature
+  &                  pdis_sso      ,& ! out, sso tendency of temperature
   &                  pdu_sso       ,& ! out, sso tendency of zonal wind
   &                  pdv_sso        ) ! out, sso tendency of meridional wind
-#else
-  &                  ptte          ,& ! inout, tendency of temperature
-  &                  pvol          ,& ! inout, tendency of meridional wind
-  &                  pvom           ) ! inout, tendency of zonal wind
-#endif
 
   !
   ! Description:
@@ -102,19 +96,11 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   REAL(wp), INTENT(inout)   :: pvstrgw(kbdim)       ! v-gravity wave stress    out
   REAL(wp), INTENT(inout)   :: pvdisgw(kbdim)       ! dissipation by gravity wave drag    out
 
-#ifdef __ICON__
   ! array arguments with intent(OUT):
   ! 2D
-  REAL(wp), INTENT(inout)   :: pdt_sso(kbdim,klev)  ! sso tendency of temperature    out
+  REAL(wp), INTENT(inout)   :: pdis_sso(kbdim,klev) ! sso energy dissipation rate   out
   REAL(wp), INTENT(inout)   :: pdu_sso(kbdim,klev)  ! sso tendency of zonal wind    out
   REAL(wp), INTENT(inout)   :: pdv_sso(kbdim,klev)  ! sso tendency of wind    out
-#else
-  ! array arguments with intent(INOUT):
-  ! 2D
-  REAL(wp), INTENT(inout) :: ptte(kbdim,klev)     ! tendency of temperature
-  REAL(wp), INTENT(inout) :: pvol(kbdim,klev)     ! tendency of meridional wind
-  REAL(wp), INTENT(inout) :: pvom(kbdim,klev)     ! tendency of zonal wind
-#endif
 
   ! Local scalars:
   INTEGER :: igwd, jk, jl, ji
@@ -123,10 +109,10 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   INTEGER :: idx(kbdim), itest(kbdim)
   REAL(wp)    :: zdu_oro(kbdim,klev) ! tendency due to ORO GW DRAG  (m/s)
   REAL(wp)    :: zdv_oro(kbdim,klev) ! tendency due to ORO GW DRAG  (m/s)
-  REAL(wp)    :: zdt_oro(kbdim,klev) ! tendency due to ORO GW DRAG  (K)
+  REAL(wp)    :: zdis_oro(kbdim,klev)! energy dissipation due to ORO GW DRAG  (?)
   REAL(wp)    :: zdu_lif(kbdim,klev) ! tendency due to MOUNTAIN LIFT(m/s)
   REAL(wp)    :: zdv_lif(kbdim,klev) ! tendency due to MOUNTAIN LIFT(m/s)
-  REAL(wp)    :: zdt_lif(kbdim,klev) ! tendency due to MOUNTAIN LIFT(K)
+  REAL(wp)    :: zdis_lif(kbdim,klev)! energy dissipation due to MOUNTAIN LIFT(?)
 
   !
   !*         1.    initialization
@@ -140,19 +126,17 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
   pvstrgw(:) = 0.0_wp
   pvdisgw(:) = 0.0_wp
 
-#ifdef __ICON__
-  pdt_sso(:,:) = 0.0_wp
+  pdis_sso(:,:)= 0.0_wp
   pdu_sso(:,:) = 0.0_wp
   pdv_sso(:,:) = 0.0_wp
-#endif
 
   zdu_oro(:,:) = 0.0_wp
   zdv_oro(:,:) = 0.0_wp
-  zdt_oro(:,:) = 0.0_wp
+  zdis_oro(:,:)= 0.0_wp
 
   zdu_lif(:,:) = 0.0_wp
   zdv_lif(:,:) = 0.0_wp
-  zdt_lif(:,:) = 0.0_wp
+  zdis_lif(:,:)= 0.0_wp
 
   idx(:) = 0
 
@@ -179,7 +163,7 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
                 paphm1,  papm1,   pgeom1,                         &
                 ptm1,    pum1,    pvm1,                           &
                 pmea,    pstd,    psig,  pgam, pthe, ppic, pval,  &
-                zdu_oro, zdv_oro, zdt_oro)
+                zdu_oro, zdv_oro, zdis_oro)
   !
   !*         3.    mountain lift
   !                --------------
@@ -190,7 +174,7 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
                 paphm1,  pgeom1,                                   &
                 ptm1,    pum1,    pvm1,                            &
                 pmea,    pstd,    ppic,                            &
-                zdu_lif, zdv_lif, zdt_lif )
+                zdu_lif, zdv_lif, zdis_lif )
 
   ! STRESS FROM TENDENCIES
 
@@ -205,8 +189,8 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
              +(zdv_oro(ji,jk)+zdv_lif(ji,jk))                           &
              *(paphm1(ji,jk+1)-paphm1(ji,jk))/grav
         pvdisgw(ji) = pvdisgw(ji)                                       &
-             +(zdt_oro(ji,jk)+zdt_lif(ji,jk))                           &
-             *(paphm1(ji,jk+1)-paphm1(ji,jk))/grav*cpd
+             +(zdis_oro(ji,jk)+zdis_lif(ji,jk))                         &
+             *(paphm1(ji,jk+1)-paphm1(ji,jk))/grav
      ENDDO
   ENDDO
   !
@@ -217,15 +201,9 @@ SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/colum
 !CDIR NODEP
     do jl=1,igwd
       ji=idx(jl)
-#ifdef __ICON__
-      pdt_sso(ji,jk) =  zdt_oro(ji,jk)+zdt_lif(ji,jk)
+      pdis_sso(ji,jk)= zdis_oro(ji,jk)+zdis_lif(ji,jk)
       pdu_sso(ji,jk) =  zdu_oro(ji,jk)+zdu_lif(ji,jk)
       pdv_sso(ji,jk) =  zdv_oro(ji,jk)+zdv_lif(ji,jk)
-#else
-      ptte(ji,jk) =  ptte(ji,jk)+zdt_oro(ji,jk)+zdt_lif(ji,jk)
-      pvol(ji,jk) =  pvol(ji,jk)+zdv_oro(ji,jk)+zdv_lif(ji,jk)
-      pvom(ji,jk) =  pvom(ji,jk)+zdu_oro(ji,jk)+zdu_lif(ji,jk)
-#endif
     enddo
   enddo
 
@@ -238,7 +216,7 @@ SUBROUTINE orodrag( kproma, kbdim,  klev,                            &
                     paphm1, papm1,  pgeom1,                          &
                     ptm1,   pum1,   pvm1,                            &
                     pmea,   pstd,   psig,   pgam, pthe, ppic, pval,  &
-                    pvom,   pvol,   pte )
+                    pvom,   pvol,   pdis)
   !
   !
   !**** *orodrag* - does the SSO drag  parametrization.
@@ -288,7 +266,7 @@ SUBROUTINE orodrag( kproma, kbdim,  klev,                            &
 
   ! array arguments with intent(INOUT):
   ! Input 2D
-  REAL(wp), INTENT(inout) :: pte(kbdim,klev)     ! tendency of temperature        (out)
+  REAL(wp), INTENT(inout) :: pdis(kbdim,klev)    ! energy dissipation rate per mass (out)
   REAL(wp), INTENT(inout) :: pvol(kbdim,klev)    ! tendency of meridional wind    (out)
   REAL(wp), INTENT(inout) :: pvom(kbdim,klev)    ! tendency of zonal wind         (out)
 
@@ -432,7 +410,7 @@ SUBROUTINE orodrag( kproma, kbdim,  klev,                            &
            pvol(ji,jk)=(zvst-pvm1(ji,jk))/ztmst
            zdis=0.5_wp*(pum1(ji,jk)**2+pvm1(ji,jk)**2-zust**2-zvst**2)
         END IF
-        pte(ji,jk)=zdis/(ztmst*cpd)
+        pdis(ji,jk)=zdis/ztmst
 523  END DO
 524 END DO
 
@@ -1176,7 +1154,7 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
   &                 paphm1, pgeom1,       &
   &                 ptm1,   pum1,  pvm1,  &
   &                 pmea,   pstd,  ppic,  &
-  &                 pvom,   pvol,  pte )
+  &                 pvom,   pvol,  pdis )
   !
   !**** *orolift: simulate the geostrophic lift.
   !
@@ -1217,7 +1195,7 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
 
   ! array arguments with intent(OUT):
   ! Input 2D
-  REAL(wp), INTENT(inout) :: pte(kbdim,klev)     ! tendency of temperature        (out)
+  REAL(wp), INTENT(inout) :: pdis(kbdim,klev)    ! energy dissipation rate per mass (out)
   REAL(wp), INTENT(inout) :: pvol(kbdim,klev)    ! tendency of meridional wind    (out)
   REAL(wp), INTENT(inout) :: pvom(kbdim,klev)    ! tendency of zonal wind         (out)
 
@@ -1257,7 +1235,7 @@ SUBROUTINE orolift( kproma, kbdim, klev,  &
      DO 1000 jk=1,klev
         pvom(jl,jk)=0.0_wp
         pvol(jl,jk)=0.0_wp
-        pte (jl,jk)=0.0_wp
+        pdis(jl,jk)=0.0_wp
 1000 END DO
 1001 END DO
 
