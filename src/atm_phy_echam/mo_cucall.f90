@@ -63,8 +63,8 @@ MODULE mo_cucall
   USE mo_convect_tables,     ONLY: prepare_ua_index,lookup_ua
 #endif
   USE mo_cumastr,            ONLY: cumastr
-  USE mo_cumastrt,           ONLY: cumastrt
-  USE mo_cumastrh,           ONLY: cumastrh
+!  USE mo_cumastrt,           ONLY: cumastrt
+!  USE mo_cumastrh,           ONLY: cumastrh
 
   IMPLICIT NONE
   PRIVATE
