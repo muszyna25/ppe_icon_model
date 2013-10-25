@@ -2088,18 +2088,6 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in normal direction (half level)
-    ! ddxn_z_half  p_metrics%ddxn_z_half(nproma,nlevp1,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxn_z_half', p_metrics%ddxn_z_half,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_ehalf,                                          &
-                & isteptype=TSTEP_CONSTANT )
-
-
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
     !
@@ -2111,17 +2099,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_e,                                              &
                 & isteptype=TSTEP_CONSTANT )
 
-
-    ! slope of the terrain in tangential direction (half level)
-    ! ddxt_z_half  p_metrics%ddxt_z_half(nproma,nlevp1,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxt_z_half', p_metrics%ddxt_z_half,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_ehalf,                                          &
-                & isteptype=TSTEP_CONSTANT )
 
     ! slope of the terrain in tangential direction (full level)
     ! ddxt_z_full  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)

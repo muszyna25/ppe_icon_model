@@ -237,9 +237,7 @@ MODULE mo_nonhydro_types
      !
      z_ifc(:,:,:)        , & ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
      z_mc(:,:,:)         , & ! geometric height at full levels (nproma,nlev,nblks_c)
-     ddxn_z_half(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlevp1,nblks_e)
      ddxn_z_full(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
-     ddxt_z_half(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlevp1,nblks_e)
      ddxt_z_full(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
      ddqz_z_full(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
      ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
