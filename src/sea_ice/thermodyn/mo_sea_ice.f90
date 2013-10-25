@@ -1846,15 +1846,15 @@ CONTAINS
     CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module,5)
     CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module,5)
 
-    ! Calculate possible super-cooling of the surface layer
-    sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
-      &      dtime*heatOceW(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
-
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
     heatOceW(:,:) = ( QatmAve%SWnetw(:,:)                       &
       &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+     &
       &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
+
+    ! Calculate possible super-cooling of the surface layer
+    sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
+      &      dtime*heatOceW(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
     ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature, form new ice
     WHERE ( sst < Tfw(:,:) .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
