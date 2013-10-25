@@ -186,6 +186,11 @@ CONTAINS
     REAL(wp) :: ztemperature_rad(nbdim)
     REAL(wp) :: ztemperature_eff(nbdim)
 
+    ! Temporary array used by SSODRAG
+
+    REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
+
+
     ! Temporary variables used for zenith angle
 
     REAL(wp) :: zleapfrac
@@ -1147,9 +1152,11 @@ CONTAINS
                      field% v_stress_sso(:,jb)                 ,& ! out, v-gravity wave stress
                      field% dissipation_sso(:,jb)              ,& ! out, dissipation by gravity wave drag
                      !
-                     tend% temp_sso(:,:,jb)                    ,& ! out, tendency of temperature
+                     zdis_sso(:,:)                             ,& ! out, energy dissipation rate
                      tend%    u_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
                      tend%    v_sso(:,:,jb)                     ) ! out, tendency of meridional wind
+
+      tend% temp_sso(jcs:jce,:,jb) = zdis_sso(jcs:jce,:)/zcair(jcs:jce,:)
 
       tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_sso(jcs:jce,:,jb)
       tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_sso(jcs:jce,:,jb)
