@@ -435,7 +435,7 @@ CONTAINS
 
       IF (ltestcase) THEN
         SELECT CASE (ctest_name)
-        CASE('APE') !Note that there is only one surface type in this case
+        CASE('APE','RCEhydro') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
