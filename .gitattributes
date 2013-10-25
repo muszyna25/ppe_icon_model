@@ -1395,14 +1395,12 @@ src/io/mo_cf_convention.f90 -text
 src/io/mo_dump_restore.f90 -text
 src/io/mo_grib1.f90 -text
 src/io/mo_grib2.f90 -text
-src/io/mo_io_async.f90 -text
 src/io/mo_io_restart.f90 -text
 src/io/mo_io_restart_async.f90 -text
 src/io/mo_io_restart_attributes.f90 -text
 src/io/mo_io_restart_namelist.f90 -text
 src/io/mo_io_units.f90 -text
 src/io/mo_io_util.f90 -text
-src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
 src/io/mo_name_list_output.f90 -text
 src/io/mo_name_list_output_init.f90 -text
