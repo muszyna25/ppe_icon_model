@@ -52,7 +52,7 @@ MODULE mo_cloud
 
   USE mo_kind,               ONLY : dp=>wp
   USE mo_math_constants,     ONLY : api=>pi
-  USE mo_physical_constants, ONLY : cpd, vtmpc2, g=>grav, rd, alv, als, rv   &
+  USE mo_physical_constants, ONLY : cpd, cvd, cpv, cvv, vtmpc2, g=>grav, rd, alv, als, rv   &
                                   , vtmpc1, rhoh2o, tmelt
 #ifdef __ibmspline__
   USE mo_convect_tables, ONLY : prepare_ua_index_spline,             &
@@ -401,7 +401,8 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
         zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/g
 
-        zrcp           = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
+       ! zrcp           = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
+        zrcp           = 1._dp/(cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_dp))
         zlvdcp(jl)     = alv*zrcp
         zlsdcp(jl)     = als*zrcp
 201  END DO
@@ -914,7 +915,8 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !IBM* NOVECTOR
      DO 500 jl = 1,kproma
 
-        zrcp        = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
+        ! zrcp        = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
+        zrcp        = 1._dp/(cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_dp))
         zlvdcp(jl)  = alv*zrcp
         zlsdcp(jl)  = als*zrcp
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
