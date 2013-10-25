@@ -1,6 +1,6 @@
 #ifdef __xlC__
-@PROCESS nosmp
-@PROCESS NOOPTimize
+!@PROCESS nosmp
+!@PROCESS NOOPTimize
 #endif
 !>
 !!  This module contains the routines needed for managing flow control.
