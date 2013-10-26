@@ -721,9 +721,6 @@ MODULE mo_nh_testcases
         ENDDO
         DO jk = 1, nlev
           DO jc = 1, nlen
-            ! rhotheta has to have the same meaning as exner
-            p_nh_state(jg)%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                (p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**cvd_o_rd)*p0ref/rd
 
        !     ! perturbation in theta_v for gravity test case
        !     p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
@@ -742,9 +739,9 @@ MODULE mo_nh_testcases
        !       &   /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
        !     ENDIF
 
-            ! exner, rhotheta and theta_v are given, so rho is deduced...
+            ! exner and theta_v are given, so rho is deduced...
             p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) = &
-            &        p_nh_state(jg)%prog(jt)%rhotheta_v(jc,jk,jb) &
+            &        (p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**cvd_o_rd)*p0ref/rd &
             &       /p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)
 
           ENDDO

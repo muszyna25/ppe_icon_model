@@ -1445,11 +1445,8 @@ CONTAINS
           p_nh%prog(ntlev)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
           p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-        p_nh%prog(ntlev)%rhotheta_v(jc,jk,jb) =                          &
-          p_nh%prog(ntlev)%rho(jc,jk,jb)*p_nh%prog(ntlev)%theta_v(jc,jk,jb)
-
         p_nh%prog(ntlev)%exner(jc,jk,jb) =                                  &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(ntlev)%rhotheta_v(jc,jk,jb)))
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(ntlev)%rho(jc,jk,jb)*p_nh%prog(ntlev)%theta_v(jc,jk,jb)))
 
         p_nh%prog(ntlev)%w(jc,jk,jb) =                                      &
           p_nh%prog(ntlev)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
@@ -1529,11 +1526,8 @@ CONTAINS
           p_nh%prog(nnew)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
           p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-        p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) =                          &
-          p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)
-
         p_nh%prog(nnew)%exner(jc,jk,jb) =                                  &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
         p_nh%prog(nnew)%w(jc,jk,jb) =                                      &
           p_nh%prog(nnew)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
@@ -1630,11 +1624,8 @@ CONTAINS
           MIN(0.333_wp,3._wp*rcffac*p_int%nudgecoeff_c(jc,jb))*          &
           p_nh%diag%grf_tend_rho(jc,jk,jb)
 
-        p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) =                          &
-          p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)
-
         p_nh%prog(nnew)%exner(jc,jk,jb) =                                  &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
       ENDDO
     ENDDO

@@ -493,7 +493,6 @@ jglayer(:,:,:)=0
 !$OMP END PARALLEL
   CALL convert_thdvars(ptr_patch, ptr_nh_diag%pres, ptr_nh_diag%tempv, &
                & ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
-  ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
 
   CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
                              ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
@@ -501,9 +500,8 @@ jglayer(:,:,:)=0
 
   IF (l_hydro_adjust) THEN
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
-                     & ptr_nh_prog%rhotheta_v  )
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
 
   END IF   
 
@@ -896,8 +894,6 @@ jnlayer(:,:,:)=0
 
           ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
                                        /rd/ptr_nh_prog%theta_v(jc,jk,jb)
-          ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) *          &
-                                             ptr_nh_prog%theta_v(jc,jk,jb)
         ENDDO !jc
       ENDDO !jk     
     ENDDO !jb
@@ -910,9 +906,8 @@ jnlayer(:,:,:)=0
 
   IF (l_hydro_adjust) THEN
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
-                     & ptr_nh_prog%rhotheta_v  )
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
 
   END IF   
 

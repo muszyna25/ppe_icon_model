@@ -209,7 +209,7 @@ CONTAINS
           z_kin_energy = z_kin_energy + &
             &              prog%rho(jc,jk,jb)*ptr_ekin(jc,jk,jb)*z_help
           z_int_energy = z_int_energy + &
-            &              cvd*prog%exner(jc,jk,jb)*prog%rhotheta_v(jc,jk,jb)*z_help
+            &              cvd*prog%exner(jc,jk,jb)*prog%rho(jc,jk,jb)*prog%theta_v(jc,jk,jb)*z_help
           z_pot_energy = z_pot_energy + &
             &              prog%rho(jc,jk,jb)*nh_state(jg)%metrics%geopot(jc,jk,jb)*z_help
         ENDDO
@@ -242,7 +242,7 @@ CONTAINS
         z2(1:nlen,jb) = z2(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*ptr_ekin(1:nlen,jk,jb)*z0(1:nlen)
         z3(1:nlen,jb) = z3(1:nlen,jb)&
-          & +cvd*prog%exner(1:nlen,jk,jb)*prog%rhotheta_v(1:nlen,jk,jb)*z0(1:nlen)
+          & +cvd*prog%exner(1:nlen,jk,jb)*prog%rho(1:nlen,jk,jb)*prog%theta_v(1:nlen,jk,jb)*z0(1:nlen)
         z4(1:nlen,jb) = z4(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*nh_state(jg)%metrics%geopot(1:nlen,jk,jb)*z0(1:nlen)
       ENDDO

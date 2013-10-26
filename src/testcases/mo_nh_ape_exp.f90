@@ -244,12 +244,6 @@ CONTAINS
         ptr_nh_prog%exner(1:nlen,jk,jb) = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
 
 
-        ! init rhotheta_v
-        ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) =                                   &
-                     &  ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd*p0ref/rd
-
-
-
       ENDDO !jk
     ENDDO !jb
 !!$OMP END DO 
@@ -261,9 +255,6 @@ CONTAINS
     CALL message('',message_text)
     WRITE (message_text,'(A,2E12.5)') '       exner  = ', MAXVAL(ptr_nh_prog%exner) &
                                                            &,MINVAL(ptr_nh_prog%exner)
-    CALL message('',message_text)
-    WRITE (message_text,'(A,2E12.5)') '       rhotheta_v  = ', MAXVAL(ptr_nh_prog%rhotheta_v) &
-                                                           &,MINVAL(ptr_nh_prog%rhotheta_v)
     CALL message('',message_text)
 
 ! Calculate tot_area
@@ -334,7 +325,7 @@ CONTAINS
 
         ! init density field rho
         ptr_nh_prog%rho(1:nlen,jk,jb) = &
-              &         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) &
+              &         ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd*p0ref/rd &
               &         /ptr_nh_prog%theta_v(1:nlen,jk,jb)
         !
         ! initialize horizontal velocity field

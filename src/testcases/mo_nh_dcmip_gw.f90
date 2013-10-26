@@ -380,9 +380,6 @@ CONTAINS
 !            &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
 ! end Test
 
-          ! init rho*theta_v
-          !
-          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
 
         ENDDO !jc
       ENDDO !jk
@@ -652,9 +649,6 @@ CONTAINS
           p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
             &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
 
-          ! init rho*theta_v
-          !
-          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
         ENDDO !jc
       ENDDO !jk
 
@@ -673,9 +667,8 @@ CONTAINS
 !$OMP END DO
 
 
-   CALL hydro_adjust ( p_patch, p_metrics, p_nh_prog%rho,     &
-                     & p_nh_prog%exner, p_nh_prog%theta_v,    &
-                     & p_nh_prog%rhotheta_v  )
+   CALL hydro_adjust ( p_patch, p_metrics, p_nh_prog%rho,  &
+                     & p_nh_prog%exner, p_nh_prog%theta_v  )
 
 
 
@@ -732,10 +725,6 @@ CONTAINS
           ! added to the density field as well. 
           p_nh_prog%rho(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) + rho_pert
 
-
-          ! init rho*theta_v
-          !
-          p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%rho(jc,jk,jb) * p_nh_prog%theta_v(jc,jk,jb)
 
         ENDDO !jc
       ENDDO !jk

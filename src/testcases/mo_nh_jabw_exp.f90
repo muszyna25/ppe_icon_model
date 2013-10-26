@@ -317,12 +317,10 @@ MODULE mo_nh_jabw_exp
         ! Use analytic expressions at all model level
           DO jc = 1, nlen
             ptr_nh_prog%exner(jc,jk,jb) = (zeta_old(jc)*ps_o_p0ref)**rd_o_cpd
-            ptr_nh_prog%rhotheta_v(jc,jk,jb) = &
-            &        ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
             ptr_nh_prog%theta_v(jc,jk,jb) = z_temp(jc) & 
             &        /ptr_nh_prog%exner(jc,jk,jb)
             ptr_nh_prog%rho(jc,jk,jb) = &
-            &        ptr_nh_prog%rhotheta_v(jc,jk,jb) &
+            &        ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd &
             &        /ptr_nh_prog%theta_v(jc,jk,jb)
             !initialize diagnose pres and temp variables
             ptr_nh_diag%pres(jc,jk,jb) = p0ref*ptr_nh_prog%exner(jc,jk,jb)**(cpd_o_rd) 
@@ -370,9 +368,8 @@ MODULE mo_nh_jabw_exp
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
-                     & ptr_nh_prog%rhotheta_v  )
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
 
   END SUBROUTINE init_nh_state_prog_jabw
 !-------------------------------------------------------------------------

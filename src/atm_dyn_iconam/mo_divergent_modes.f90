@@ -451,7 +451,8 @@ MODULE mo_divergent_modes
       ! beta, explicit parts of rho and exner
       DO jk = 1, nlev
         z_beta(1:nlen,jk)=   dtime*rd*p_nh%prog(know)%exner(1:nlen,jk  ,jb) &
-        &                  /(cvd*p_nh%prog(know)%rhotheta_v(1:nlen,jk  ,jb) &
+        &                     /(cvd*p_nh%prog(know)%theta_v(1:nlen,jk  ,jb) &
+        &                              *p_nh%prog(know)%rho(1:nlen,jk  ,jb) &
         &                         *p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb))
         z_rho_expl(1:nlen,jk)=          p_nh%prog(know)%rho(1:nlen,jk  ,jb) &
         &                   -dtime/p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb) &
@@ -598,16 +599,12 @@ MODULE mo_divergent_modes
         & -z_beta(1:nlen,jk)*(z_theta_v_l(1:nlen,jk  ,jb)*z_m(1:nlen,jk  ) &
         &                    -z_theta_v_l(1:nlen,jk+1,jb)*z_m(1:nlen,jk+1))
 
-        ! rho*theta
-        p_nh%prog(knew)%rhotheta_v(1:nlen,jk,jb)= &
-        &    p_nh%prog(know)%rhotheta_v(1:nlen,jk,jb)&
-        &      *((p_nh%prog(knew)%exner(1:nlen,jk,jb)&
-        &        /p_nh%prog(know)%exner(1:nlen,jk,jb)-1.0_wp)*cvd_o_rd+1.0_wp)
-
         ! theta
-        p_nh%prog(knew)%theta_v(1:nlen,jk,jb) = &
-        &       p_nh%prog(knew)%rhotheta_v(1:nlen,jk,jb)&
-        &      /p_nh%prog(knew)%rho       (1:nlen,jk,jb)
+        p_nh%prog(knew)%theta_v(1:nlen,jk,jb)= &
+        &    p_nh%prog(know)%rho(1:nlen,jk,jb)*p_nh%prog(know)%theta_v(1:nlen,jk,jb)&
+        &      *((p_nh%prog(knew)%exner(1:nlen,jk,jb)             &
+        &        /p_nh%prog(know)%exner(1:nlen,jk,jb)-1.0_wp)     &
+        &       *cvd_o_rd+1.0_wp)/p_nh%prog(knew)%rho(1:nlen,jk,jb)
 
       ENDDO
 
@@ -624,9 +621,8 @@ MODULE mo_divergent_modes
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    CALL sync_patch_array_mult(SYNC_C,p_patch,5,p_nh%prog(knew)%theta_v,       &
-                               p_nh%prog(knew)%rhotheta_v,p_nh%prog(knew)%rho, &
-                               p_nh%prog(knew)%exner,p_nh%prog(knew)%w)
+    CALL sync_patch_array_mult(SYNC_C,p_patch,4,p_nh%prog(knew)%theta_v,                  &
+                               p_nh%prog(knew)%rho,p_nh%prog(knew)%exner,p_nh%prog(knew)%w)
 
   END SUBROUTINE divergent_modes_5band
   !=============================================================================

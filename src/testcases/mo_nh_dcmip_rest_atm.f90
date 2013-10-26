@@ -348,18 +348,13 @@ MODULE mo_nh_dcmip_rest_atm
    CALL sync_patch_array_mult(SYNC_C, p_patch, 3,                               &
      &                        p_nh_prog%rho, p_nh_prog%exner, p_nh_prog%theta_v )
 
-   p_nh_prog%rhotheta_v = p_nh_prog%rho * p_nh_prog%theta_v
-
-
 
    IF (l_hydro_adjust) THEN
 
-     CALL hydro_adjust ( p_patch, p_metrics, p_nh_prog%rho,     &
-                     & p_nh_prog%exner, p_nh_prog%theta_v,    &
-                     & p_nh_prog%rhotheta_v  )
+     CALL hydro_adjust ( p_patch, p_metrics, p_nh_prog%rho, &
+                     & p_nh_prog%exner, p_nh_prog%theta_v   )
 
-     CALL sync_patch_array_mult(SYNC_C, p_patch, 4,  p_nh_prog%rhotheta_v,        &
-       &                        p_nh_prog%rho, p_nh_prog%exner, p_nh_prog%theta_v )
+     CALL sync_patch_array_mult(SYNC_C, p_patch, 3, p_nh_prog%rho, p_nh_prog%exner, p_nh_prog%theta_v )
    END IF
 
 

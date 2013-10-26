@@ -512,11 +512,8 @@ CONTAINS
 
             p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) + tendency_corr(jk+js)
 
-            p_child_prog%rhotheta_v(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) * &
-              p_child_prog%theta_v(jc,jk,jb)
-
             p_child_prog%exner(jc,jk,jb) = &
-              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_child_prog%rhotheta_v(jc,jk,jb)))
+              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_child_prog%rho(jc,jk,jb)*p_child_prog%theta_v(jc,jk,jb)))
 
           ENDDO
         ENDDO
@@ -547,12 +544,9 @@ CONTAINS
                 p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) = &
                   p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) + tendency_corr(jk+nshift_c)
 
-                p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v(jc,jk,jb) = &
-                  p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) * &
-                  p_nh_state(jgc)%prog(nnow(jgc))%theta_v(jc,jk,jb)
-
                 p_nh_state(jgc)%prog(nnow(jgc))%exner(jc,jk,jb) = &
-                  EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v(jc,jk,jb)))
+                  EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) * &
+                  p_nh_state(jgc)%prog(nnow(jgc))%theta_v(jc,jk,jb)))
 
               ENDDO
             ENDDO
@@ -781,13 +775,9 @@ CONTAINS
 
             p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + p_parent_save%theta_v(jc,jk,jb)
 
-            ! Now compute rhotheta and exner in feedback area
-            !
-            ! rhotheta_v is diagnosed from rho and theta_v
-            p_parent_prog%rhotheta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) * p_parent_prog%rho(jc,jk,jb)
-
-            ! exner is diagnosed from rhotheta_v
-            p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%rhotheta_v(jc,jk,jb)))
+            ! exner in feedback area is diagnosed from rho*theta_v
+            p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%theta_v(jc,jk,jb)* &
+              p_parent_prog%rho(jc,jk,jb)))
           ENDIF
         ENDDO
       ENDDO
@@ -889,12 +879,9 @@ CONTAINS
         p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + &
           p_parent_save%theta_v(jc,jk,jb)
 
-        p_parent_prog%rhotheta_v(jc,jk,jb) =   &
-          p_parent_prog%theta_v(jc,jk,jb) * p_parent_prog%rho(jc,jk,jb)
-
-        ! exner is diagnosed from rhotheta_v
+        ! exner is diagnosed from rho*theta_v
         p_parent_prog%exner(jc,jk,jb) =   &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%rhotheta_v(jc,jk,jb)))
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
 
       ENDDO
     ENDDO
@@ -1629,13 +1616,9 @@ CONTAINS
             p_parent_prog%w(jc,jk,jb) = p_parent_prog%w(jc,jk,jb) + &
               relfac*diff_w(jc,jk,jb)
 
-            ! rhotheta_v is diagnosed from rho and theta_v
-            p_parent_prog%rhotheta_v(jc,jk,jb) =   &
-              p_parent_prog%theta_v(jc,jk,jb) * p_parent_prog%rho(jc,jk,jb)
-
-            ! exner is diagnosed from rhotheta_v
+            ! exner is diagnosed from rho*theta_v
             p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_parent_prog%rhotheta_v(jc,jk,jb)))
+              p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
           ENDIF
 
         ENDDO
@@ -1690,12 +1673,9 @@ CONTAINS
         jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
 #endif
 
-        p_parent_prog%rhotheta_v(jc,jk,jb) =   &
-          p_parent_prog%theta_v(jc,jk,jb) * p_parent_prog%rho(jc,jk,jb)
-
-        ! exner is diagnosed from rhotheta_v
+        ! exner is diagnosed from rho*theta_v
         p_parent_prog%exner(jc,jk,jb) =   &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%rhotheta_v(jc,jk,jb)))
+          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
 
       ENDDO
     ENDDO

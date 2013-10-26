@@ -79,7 +79,6 @@ MODULE mo_nonhydro_types
       rho(:,:,:),        & !! density (nproma,nlev,nblks_c)                     [kg/m^3]
       exner(:,:,:),      & !! Exner pressure (nproma,nlev,nblks_c)                   [-]
       theta_v(:,:,:),    & !! virtual potential temperature (nproma,nlev,nblks_c)    [K]
-      rhotheta_v(:,:,:), & !! rho*theta_v (nproma,nlev,nblks_c)               [K*kg/m^3]
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
       tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels

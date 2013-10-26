@@ -99,8 +99,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE hydro_adjust(p_patch, p_nh_metrics,          &
-                          rho, exner, theta_v, rhotheta_v )
+  SUBROUTINE hydro_adjust(p_patch, p_nh_metrics, rho, exner, theta_v )
 
 
     TYPE(t_patch),      INTENT(IN)       :: p_patch
@@ -110,7 +109,6 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
     REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
     REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-    REAL(wp), INTENT(INOUT) :: rhotheta_v(:,:,:) ! rho*theta_v
 
 
     ! LOCAL VARIABLES
@@ -186,8 +184,7 @@ CONTAINS
         DO jc = 1, nlen
           exner(jc,jk,jb)      = (zb(jc)+SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
           theta_v(jc,jk,jb)    = temp_v(jc,jk)/exner(jc,jk,jb)
-          rhotheta_v(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-          rho(jc,jk,jb)        = rhotheta_v(jc,jk,jb)/theta_v(jc,jk,jb)
+          rho(jc,jk,jb)        = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
         ENDDO
 
       ENDDO
@@ -212,7 +209,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE hydro_adjust_downward(p_patch, p_nh_metrics, rho, exner, theta_v, rhotheta_v)
+  SUBROUTINE hydro_adjust_downward(p_patch, p_nh_metrics, rho, exner, theta_v)
 
 
     TYPE(t_patch),      INTENT(IN)       :: p_patch
@@ -222,7 +219,6 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
     REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
     REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-    REAL(wp), INTENT(INOUT) :: rhotheta_v(:,:,:) ! rho*theta_v
 
 
     ! LOCAL VARIABLES
@@ -263,8 +259,7 @@ CONTAINS
             theta_v_pr_ic(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk,jb)/(theta_v_pr_ic(jc)+ &
             p_nh_metrics%theta_ref_ic(jc,jk,jb))
 
-          rhotheta_v(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-          rho(jc,jk,jb)        = rhotheta_v(jc,jk,jb)/theta_v(jc,jk,jb)
+          rho(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
         ENDDO
       ENDDO
 

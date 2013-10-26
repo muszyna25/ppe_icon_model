@@ -2704,13 +2704,6 @@ MODULE mo_nh_initicon
 
     ENDIF  ! lread_ana
 
-!$OMP PARALLEL
-!$OMP WORKSHARE
-    ! compute prognostic variable rho*theta_v
-    p_prog_now%rhotheta_v(:,:,:) = p_prog_now%rho(:,:,:)   &
-      &                          * p_prog_now%theta_v(:,:,:)
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
 
     ! deallocate temporary arrays
     DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, STAT=ist )
@@ -2854,9 +2847,6 @@ MODULE mo_nh_initicon
             p_nh_state(jg)%prog(ntl)%exner(jc,jk,jb)   = initicon(jg)%atm%exner(jc,jk,jb)
             p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)     = initicon(jg)%atm%rho(jc,jk,jb)
 
-            p_nh_state(jg)%prog(ntl)%rhotheta_v(jc,jk,jb) = &
-              p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
-
             ! Water vapor
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = initicon(jg)%atm%qv(jc,jk,jb)
           ENDDO
@@ -2893,7 +2883,7 @@ MODULE mo_nh_initicon
 
       CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
                         p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
-                        p_nh_state(jg)%prog(ntl)%theta_v, p_nh_state(jg)%prog(ntl)%rhotheta_v )
+                        p_nh_state(jg)%prog(ntl)%theta_v )
 
     ENDDO
 

@@ -1063,25 +1063,13 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 
-        IF ( .NOT. lhdiff_rcf .OR. iforcing /= inwp .OR. linit) THEN
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) * &
-                p_nh_prog%rho(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ENDIF
-
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ! This could be further optimized, but applications without physics are quite rare
-      IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp ) THEN
-        CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh_prog%theta_v,p_nh_prog%rhotheta_v,p_nh_prog%exner)
-      ELSE IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
-        !Sync for these variables are required for LES physics
+      ! This could be further optimized, but applications without physics are quite rare; 
+      ! For LES physics, the sync is always necessary here
+      IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp .OR. atm_phy_nwp_config(jg)%is_les_phy) THEN
         CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
       ENDIF
 
@@ -1461,27 +1449,21 @@ MODULE mo_nh_diffusion
           &                  i_startidx, i_endidx, 2, min_rlcell)
           DO jk = 1, nlev
             ! k) update new rho theta and Exner pressure
-            z_old_rth(i_startidx:i_endidx) = p_nh_prog%rhotheta_v(i_startidx:i_endidx,jk,jb)
-            p_nh_prog%rhotheta_v(i_startidx:i_endidx,jk,jb) = &
-            & p_nh_prog%rhotheta_v(i_startidx:i_endidx,jk,jb) &
+            z_old_rth(i_startidx:i_endidx) = p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb)
+            p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb) = &
+            & p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb) &
             & + dtime/cpd/p_nh_prog%exner(i_startidx:i_endidx,jk,jb) &
             & *(z_fric_heat_c(i_startidx:i_endidx,jk,jb)  &
-            &  +z_fric_heat_c1(i_startidx:i_endidx,jk,jb))
+            &  +z_fric_heat_c1(i_startidx:i_endidx,jk,jb))/p_nh_prog%rho(i_startidx:i_endidx,jk,jb)
             p_nh_prog%exner(i_startidx:i_endidx,jk,jb) = &
             & p_nh_prog%exner(i_startidx:i_endidx,jk,jb) &
-            & *(1.0_wp+(p_nh_prog%rhotheta_v(i_startidx:i_endidx,jk,jb)&
+            & *(1.0_wp+(p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb)&
             & /z_old_rth(i_startidx:i_endidx)-1.0_wp)/cvd_o_rd)
-            p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb)= &
-            & p_nh_prog%rhotheta_v(i_startidx:i_endidx,jk,jb) &
-            & /p_nh_prog%rho(i_startidx:i_endidx,jk,jb)
           ENDDO
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-        CALL sync_patch_array_mult(SYNC_C,p_patch,3,&
-                                   p_nh_prog%rhotheta_v,&
-                                   p_nh_prog%exner,&
-                                   p_nh_prog%theta_v)
+        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%exner,p_nh_prog%theta_v)
       ENDIF
     ENDIF
 

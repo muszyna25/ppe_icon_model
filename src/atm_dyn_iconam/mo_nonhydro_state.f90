@@ -385,8 +385,6 @@ MODULE mo_nonhydro_state
      p_prog_d%theta_v(:,:,:)        = p_prog_i%theta_v(:,:,:)
      IF (ASSOCIATED(p_prog_i%exner)) &
        p_prog_d%exner(:,:,:)          = p_prog_i%exner(:,:,:)
-     IF (ASSOCIATED(p_prog_i%rhotheta_v)) &
-       p_prog_d%rhotheta_v(:,:,:)     = p_prog_i%rhotheta_v(:,:,:)
      IF (ASSOCIATED(p_prog_i%tracer)) THEN
       p_prog_d%tracer(:,:,:,:)       = p_prog_i%tracer(:,:,:,:)
      END IF
@@ -542,7 +540,6 @@ MODULE mo_nonhydro_state
 
     ! Initialize pointers that are not always allocated to NULL
     p_prog%exner      => NULL()
-    p_prog%rhotheta_v => NULL()
     p_prog%tke        => NULL()
     p_prog%tracer     => NULL()
 
@@ -553,13 +550,6 @@ MODULE mo_nonhydro_state
       CALL add_var( p_prog_list, TRIM(vname_prefix)//'exner'//suffix, p_prog%exner, &
         &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
         &           ldims=shape3d_c, in_group=groups("nh_prog_vars") )
-
-      ! rhotheta_v   p_prog%rhotheta_v(nproma,nlev,nblks_c)
-      cf_desc    = t_cf_var('rho_virt_pot_temp', 'K', 'rho virt pot temp', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 19, 192, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_prog_list, TRIM(vname_prefix)//'rhotheta_v'//suffix, p_prog%rhotheta_v, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,                   &
-        &           ldims=shape3d_c )
 
       ! Tracer array for (model) internal use
 

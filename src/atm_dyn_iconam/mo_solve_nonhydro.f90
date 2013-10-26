@@ -1766,9 +1766,9 @@ MODULE mo_solve_nonhydro
       DO jk = 1, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-          z_beta(jc,jk)=dtime_r*rd*p_nh%prog(nnow)%exner(jc,jk,jb)        &
-          &                   /(cvd*p_nh%prog(nnow)%rhotheta_v(jc,jk,jb)) &
-          &                   *p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
+          z_beta(jc,jk)=dtime_r*rd*p_nh%prog(nnow)%exner(jc,jk,jb) /               &
+           (cvd*p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb)) * &
+            p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
 
           z_alpha(jc,jk)= p_nh%metrics%vwind_impl_wgt(jc,jb)*         &
             &  p_nh%diag%theta_v_ic(jc,jk,jb)*p_nh%diag%rho_ic(jc,jk,jb)
@@ -1941,14 +1941,10 @@ MODULE mo_solve_nonhydro
             *(z_alpha(jc,jk  )*p_nh%prog(nnew)%w(jc,jk  ,jb)    &
             - z_alpha(jc,jk+1)*p_nh%prog(nnew)%w(jc,jk+1,jb))
 
-          ! rho*theta
-          p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) = p_nh%prog(nnow)%rhotheta_v(jc,jk,jb)   &
-            *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) &
-            *   cvd_o_rd+1.0_wp)
-
           ! theta
-          p_nh%prog(nnew)%theta_v(jc,jk,jb) = &
-            p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)/p_nh%prog(nnew)%rho(jc,jk,jb)
+          p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb) &
+            *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) * cvd_o_rd+1.0_wp   ) &
+            / p_nh%prog(nnew)%rho(jc,jk,jb)
 
         ENDDO
       ENDDO
@@ -1970,14 +1966,10 @@ MODULE mo_solve_nonhydro
             *(p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%diag%theta_v_ic(jc,1,jb) &
             * z_mflx_top(jc,jb) - z_alpha(jc,2)*p_nh%prog(nnew)%w(jc,2,jb))
 
-          ! rho*theta
-          p_nh%prog(nnew)%rhotheta_v(jc,1,jb) = p_nh%prog(nnow)%rhotheta_v(jc,1,jb)   &
-            *( (p_nh%prog(nnew)%exner(jc,1,jb)/p_nh%prog(nnow)%exner(jc,1,jb)-1.0_wp) &
-            *   cvd_o_rd+1.0_wp)
-
           ! theta
-          p_nh%prog(nnew)%theta_v(jc,1,jb) = &
-            p_nh%prog(nnew)%rhotheta_v(jc,1,jb)/p_nh%prog(nnew)%rho(jc,1,jb)
+          p_nh%prog(nnew)%theta_v(jc,1,jb) = p_nh%prog(nnow)%rho(jc,1,jb)*p_nh%prog(nnow)%theta_v(jc,1,jb) &
+            *( (p_nh%prog(nnew)%exner(jc,1,jb)/p_nh%prog(nnow)%exner(jc,1,jb)-1.0_wp) * cvd_o_rd+1.0_wp  ) &
+            /p_nh%prog(nnew)%rho(jc,1,jb)
 
         ENDDO
       ENDIF
@@ -2080,13 +2072,9 @@ MODULE mo_solve_nonhydro
             p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
               dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-            ! Diagnose rhotheta from rho and theta
-            p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) = p_nh%prog(nnew)%rho(jc,jk,jb) * &
-              p_nh%prog(nnew)%theta_v(jc,jk,jb)
-
-            ! Diagnose exner from rhotheta
+            ! Diagnose exner from rho*theta
             p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
             p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
               dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
@@ -2254,13 +2242,9 @@ MODULE mo_solve_nonhydro
         DO jk = 1, nlev
           p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
 
-          ! Diagnose rhotheta from rho and theta
-          p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) = p_nh%prog(nnew)%rho(jc,jk,jb) * &
-            p_nh%prog(nnew)%theta_v(jc,jk,jb)
-
-          ! Diagnose exner from rhotheta
+          ! Diagnose exner from rho*theta
           p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-            p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+            p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
         ENDDO
       ENDDO
@@ -2288,13 +2272,9 @@ MODULE mo_solve_nonhydro
 
             p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
 
-            ! Diagnose rhotheta from rho and theta
-            p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) = p_nh%prog(nnew)%rho(jc,jk,jb) * &
-              p_nh%prog(nnew)%theta_v(jc,jk,jb)
-
             ! Diagnose exner from rhotheta
             p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
           ENDDO
         ENDDO
@@ -2322,12 +2302,10 @@ MODULE mo_solve_nonhydro
         DO jc = i_startidx, i_endidx
           IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
 
-            p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) = p_nh%prog(nnow)%rhotheta_v(jc,jk,jb)   &
-              *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) &
-              *   cvd_o_rd+1.0_wp)
+            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb) &
+              *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) * cvd_o_rd+1.0_wp   ) &
+              / p_nh%prog(nnew)%rho(jc,jk,jb)
 
-            p_nh%prog(nnew)%theta_v(jc,jk,jb) = &
-              p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)/p_nh%prog(nnew)%rho(jc,jk,jb)
           ENDIF
         ENDDO
       ENDDO

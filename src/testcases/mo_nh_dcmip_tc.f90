@@ -198,7 +198,6 @@ CONTAINS
     REAL(wp), POINTER     :: exner(:,:,:)      !< ()      Exner pressure
     REAL(wp), POINTER     :: theta_v(:,:,:)    !< (K)     virtual potential temperature
     REAL(wp), POINTER     :: rho(:,:,:)        !< (kg/m3) density
-    REAL(wp), POINTER     :: rhotheta_v(:,:,:) !< (K)     density*virtual potential temperature
     REAL(wp), POINTER     :: x(:,:,:,:)        !< (kg/kg) tracer
     REAL(wp), POINTER     :: q(:,:,:)          !< (kg/kg) specific humidity
     !
@@ -262,7 +261,6 @@ CONTAINS
     exner      => p_nh_prog%exner
     theta_v    => p_nh_prog%theta_v
     rho        => p_nh_prog%rho
-    rhotheta_v => p_nh_prog%rhotheta_v
     x          => p_nh_prog%tracer(:,:,:,:)
     q          => p_nh_prog%tracer(:,:,:,iqv)
     !
@@ -408,10 +406,6 @@ CONTAINS
           ! density of moist air                                          (eq.106)
           !-----------------------------------------------------------------------
           rho(jc,jk,jb) = p(jc,jk,jb)/(rd*tv(jc,jk,jb) )
-
-          ! density*virtual potential temparature
-          !-----------------------------------------------------------------------
-          rhotheta_v(jc,jk,jb) = rho(jc,jk,jb)*theta_v(jc,jk,jb)
 
           ! vertical velocity
           !-----------------------------------------------------------------------

@@ -619,9 +619,6 @@ CONTAINS
             pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
 &                                       / pt_prog%exner(jc,jk,jb)
 
-            pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-&                                        * pt_prog%rho(jc,jk,jb)
-
           ENDDO
         ENDDO
 
@@ -1551,8 +1548,6 @@ CONTAINS
                   pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
 &                                             / pt_prog%exner(jc,jk,jb)
 
-                  pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-&                                              * pt_prog%rho(jc,jk,jb)
                 ENDIF
 
               ENDDO
@@ -1571,8 +1566,6 @@ CONTAINS
                   pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
 &                                             / pt_prog%exner(jc,jk,jb)
 
-                  pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-&                                              * pt_prog%rho(jc,jk,jb)
                 ENDIF
 
               ENDDO

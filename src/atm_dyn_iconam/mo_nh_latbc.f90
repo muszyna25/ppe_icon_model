@@ -844,14 +844,9 @@ MODULE mo_nh_latbc
             &   lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
             &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
 
-          ! Diagnose rhotheta from rho and theta
-          p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb) = &
-            &   p_nh_state%prog(tlev)%rho(jc,jk,jb) * &
-            &   p_nh_state%prog(tlev)%theta_v(jc,jk,jb)
-
-          ! Diagnose exner from rhotheta
+          ! Diagnose exner from rho*theta
           p_nh_state%prog(tlev)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
-            & p_nh_state%prog(tlev)%rhotheta_v(jc,jk,jb)))
+            & p_nh_state%prog(tlev)%rho(jc,jk,jb)*p_nh_state%prog(tlev)%theta_v(jc,jk,jb)))
 
           p_nh_state%prog(tlev)%w(jc,jk,jb) = &
             &  lc2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
@@ -870,9 +865,9 @@ MODULE mo_nh_latbc
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_E, p_patch, p_nh_state%prog(tlev)%vn)
-    CALL sync_patch_array_mult(SYNC_C, p_patch, 5, p_nh_state%prog(tlev)%w, &
+    CALL sync_patch_array_mult(SYNC_C, p_patch, 4, p_nh_state%prog(tlev)%w, &
       &   p_nh_state%prog(tlev)%theta_v, p_nh_state%prog(tlev)%rho,         &
-      &   p_nh_state%prog(tlev)%rhotheta_v, p_nh_state%prog(tlev)%exner     )
+      &   p_nh_state%prog(tlev)%exner     )
 
   END SUBROUTINE adjust_boundary_data
   !-------------------------------------------------------------------------

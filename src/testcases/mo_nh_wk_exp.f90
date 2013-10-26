@@ -369,8 +369,6 @@ MODULE mo_nh_wk_exp
           ptr_nh_prog%tracer(jc,jk,jb,iqv) = qv(jk)
           ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
                                        /rd/ptr_nh_prog%theta_v(jc,jk,jb)
-          ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) *          &
-                                             ptr_nh_prog%theta_v(jc,jk,jb)
         ENDDO !jc
       ENDDO !jk     
     ENDDO !jb
@@ -407,9 +405,8 @@ MODULE mo_nh_wk_exp
 
   IF (l_hydro_adjust) THEN
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
-                     & ptr_nh_prog%rhotheta_v  )
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
 
   END IF
 
@@ -479,10 +476,8 @@ MODULE mo_nh_wk_exp
                            &(1._wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
               ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
                                           *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
-              ptr_nh_prog%rhotheta_v(jc,jk,jb)  = ptr_nh_prog%rho(jc,jk,jb) *          &
-                                        ptr_nh_prog%theta_v(jc,jk,jb)
 
-            END IF
+             END IF
             ENDDO !jc
       ENDDO !jk     
      ENDDO !jb

@@ -227,11 +227,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       DO jk = 1 , nlev
-         ! rhotheta has to have the same meaning as exner
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
-
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+         ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 
@@ -437,11 +433,7 @@ MODULE mo_nh_torus_exp
       END DO
 
       DO jk = 1 , nlev
-         ! rhotheta has to have the same meaning as exner
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
-
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 
@@ -604,11 +596,7 @@ MODULE mo_nh_torus_exp
       END DO
 
       DO jk = 1 , nlev
-         ! rhotheta has to have the same meaning as exner
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
-
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 
@@ -854,11 +842,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       DO jk = 1 , nlev
-         ! rhotheta has to have the same meaning as exner
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
-
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 
@@ -992,11 +976,7 @@ MODULE mo_nh_torus_exp
       ENDIF
 
       DO jk = 1 , nlev
-         ! rhotheta has to have the same meaning as exner
-         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = &
-              (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd
-
-         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) / &
+        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 

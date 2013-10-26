@@ -157,10 +157,6 @@ CONTAINS
         ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_diag%pres(1:nlen,jk,jb)            &
           &                           / (rd * zt_hs)
 
-        ! init rhotheta_v
-        ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) = ptr_nh_prog%rho(1:nlen,jk,jb)      &
-          &                                  * ptr_nh_prog%theta_v(1:nlen,jk,jb)
-
         ! init exner pressure
         ptr_nh_prog%exner(1:nlen,jk,jb) = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
 

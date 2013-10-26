@@ -1469,7 +1469,7 @@ MODULE mo_nh_stepping
             ! Apply hydrostatic adjustment, using downward integration
             CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
-              p_nh_state(jgc)%prog(nnow(jgc))%theta_v, p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v )
+              p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
 
             CALL init_nwp_phy( dtime                    ,&
               & p_patch(jgc)                            ,&
