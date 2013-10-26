@@ -1481,6 +1481,7 @@ src/ocean/dynamics/mo_oce_diagnostics.f90 -text
 src/ocean/dynamics/mo_oce_diffusion.f90 -text
 src/ocean/dynamics/mo_oce_init.f90 -text
 src/ocean/dynamics/mo_oce_math_operators.f90 -text
+src/ocean/dynamics/mo_oce_patch_setup.f90 -text
 src/ocean/dynamics/mo_oce_state.f90 -text
 src/ocean/dynamics/mo_oce_tracer.f90 -text
 src/ocean/dynamics/mo_oce_tracer_transport_horz.f90 -text

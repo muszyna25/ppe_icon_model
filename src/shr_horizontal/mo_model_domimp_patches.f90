@@ -471,42 +471,41 @@ CONTAINS
 
     ! do other stuff
     DO jg = n_dom_start, n_dom
-
-      ! Initialize the data for the quadrilateral cells
-      ! formed by the two adjacent cells of an edge.
-      ! (later this should be provided by the grid generator)
-      CALL init_quad_twoadjcells( patch(jg) )
-
-      ! Initialize butterfly data structure, formed by the
-      ! 4 cells sharing the 2 vertices which bound a given edge.
-      IF (patch(jg)%cell_type == 3) THEN
-        ! not useful for hexagonal grid
-        CALL init_butterfly_idx( patch(jg) )
-      ENDIF
-
-      CALL init_coriolis( lcoriolis, lplane, patch(jg) )
-
       CALL set_verts_phys_id( patch(jg) )
-
-      ! The same has to be done for local parents in parallel runs
-      !
-      ! Please note: The call to init_quad_twoadjcells involves boundary
-      ! exchange and is not repeated here for local parents.
-      ! The arrays calculated there are transfered to the local parent
-      ! in transfer_interpol_state where also a lot of other arrays
-      ! from the patch state are transferred
-
-      IF (jg>n_dom_start) THEN
-        CALL disable_sync_checks
-        CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
-        CALL set_verts_phys_id( p_patch_local_parent(jg) )
-        CALL enable_sync_checks
-      ENDIF
-
     ENDDO
 
-    IF (my_process_is_ocean()) &
-      CALL complete_ocean_patch_geometry(patch(1))
+    IF (.not. my_process_is_ocean()) THEN
+      DO jg = n_dom_start, n_dom
+        ! Initialize the data for the quadrilateral cells
+        ! formed by the two adjacent cells of an edge.
+        ! (later this should be provided by the grid generator)
+        CALL init_quad_twoadjcells( patch(jg) )
+        ! Initialize butterfly data structure, formed by the
+        ! 4 cells sharing the 2 vertices which bound a given edge.
+        IF (patch(jg)%cell_type == 3) THEN
+          ! not useful for hexagonal grid
+          CALL init_butterfly_idx( patch(jg) )
+        ENDIF
+
+        CALL init_coriolis( lcoriolis, lplane, patch(jg) )
+
+        ! The same has to be done for local parents in parallel runs
+        !
+        ! Please note: The call to init_quad_twoadjcells involves boundary
+        ! exchange and is not repeated here for local parents.
+        ! The arrays calculated there are transfered to the local parent
+        ! in transfer_interpol_state where also a lot of other arrays
+        ! from the patch state are transferred
+
+        IF (jg>n_dom_start) THEN
+          CALL disable_sync_checks
+          CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
+          CALL set_verts_phys_id( p_patch_local_parent(jg) )
+          CALL enable_sync_checks
+        ENDIF
+
+      ENDDO
+    ENDIF
 
   END SUBROUTINE complete_patches
   !-------------------------------------------------------------------------

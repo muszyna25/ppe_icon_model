@@ -56,7 +56,7 @@ MODULE mo_oce_state
 !
 !
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: get_my_global_mpi_id
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -2459,11 +2459,13 @@ CONTAINS
 
     !-----------------------------
     ! Fill ocean areas:
-
+    iarea(:,:) = -1
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
       DO jc = i_startidx_c, i_endidx_c
+
+         IF (v_base%lsm_c(jc,1,jb) >= boundary) cycle
 
          ! get lat/lon of actual cell
          z_lat_deg = rad2deg * p_patch%cells%center(jc,jb)%lat
@@ -2522,6 +2524,10 @@ CONTAINS
 
       END DO
     END DO
+    !chekc if iarea is the same
+    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    iarea(:,:) = INT(z_sync_c(:,:))
 
     !-----------------------------
     ! Fill crucial areas:
@@ -2552,19 +2558,79 @@ CONTAINS
                ! coordinates of neighbouring cells
                n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
                n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
+
                IF (n_idx(i) > 0) THEN
                  IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_atlantic) then       ! NEIGHBOR IS tROPaTL
                    is_area_5 = .true.
-                 ELSE IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
-                   is_area_8 = .true.
+                   exit
                  END IF
                END IF
+
              END DO
 
              IF (is_area_5) THEN
                 iarea(jc,jb)=ocean_regions%tropical_atlantic
                 no_cor =  no_cor + 1
              ENDIF
+           END IF
+        END DO
+      END DO
+
+      no_glb = global_sum_array(no_cor)
+      no_cor = no_glb
+      g_cor=g_cor+no_cor
+
+      iter=jiter
+      IF (no_cor == 0) exit
+
+      WRITE(message_text,'(a,i4,a,i8)') 'Corrected atlantic Caribbean region - iter=', &
+        &                              jiter,' no of cor:',no_cor
+      CALL message(TRIM(routine), TRIM(message_text))
+
+      ! do sync
+
+      z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      iarea(:,:) = INT(z_sync_c(:,:))
+
+    END DO
+
+    WRITE(message_text,'(a,i4,a,i8)') 'Corrected atlantic Caribbean region - iterations=', &
+      &                              iter,' no of cor:',g_cor
+    CALL message(TRIM(routine), TRIM(message_text))
+
+    p_test_run = p_test_run_bac
+    !chekc if iarea is the same
+    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    iarea(:,:) = INT(z_sync_c(:,:))
+    !-----------------------------
+
+    Do jiter=1,100
+!   Do jiter=1,10
+!   Do jiter=1,1
+
+      no_cor = 0
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+           is_area_5 = .false.
+           is_area_8 = .false.
+           IF (iarea(jc,jb) == ocean_regions%caribbean) then
+             DO i = 1, 3  !  no_of_edges
+               ! coordinates of neighbouring cells
+               n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
+               n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
+
+               IF (n_idx(i) > 0) THEN
+                 IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
+                   is_area_8 = .true.
+                   exit
+                 END IF
+               END IF
+
+             END DO
+
              IF (is_area_8) THEN
                iarea(jc,jb)=ocean_regions%tropical_pacific
                no_cor =  no_cor + 1
@@ -2581,7 +2647,7 @@ CONTAINS
       iter=jiter
       IF (no_cor == 0) exit
 
-      WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iter=', &
+      WRITE(message_text,'(a,i4,a,i8)') 'Corrected pacific Caribbean region - iter=', &
         &                              jiter,' no of cor:',no_cor
       CALL message(TRIM(routine), TRIM(message_text))
 
@@ -2593,15 +2659,15 @@ CONTAINS
 
     END DO
 
-    WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iterations=', &
+    WRITE(message_text,'(a,i4,a,i8)') 'Corrected total Caribbean region - iterations=', &
       &                              iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
 
     p_test_run = p_test_run_bac
     !chekc if iarea is the same
-       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-       iarea(:,:) = INT(z_sync_c(:,:))
+    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    iarea(:,:) = INT(z_sync_c(:,:))
     !-----------------------------
 
     !-----------------------------

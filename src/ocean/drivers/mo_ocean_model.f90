@@ -100,7 +100,7 @@ MODULE mo_ocean_model
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist, ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
-
+  USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
   
@@ -355,6 +355,7 @@ CONTAINS
     CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
       & l_restore_states=lrestore_states, patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
+    CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))
 
     !--------------------------------------------
     ! Setup the information for the physical patches
