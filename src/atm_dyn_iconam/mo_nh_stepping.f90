@@ -58,7 +58,7 @@ MODULE mo_nh_stepping
     &                                istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
-    &                                ltransport, ntracer, lforcing, iforcing, &
+    &                                ldynamics, ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, test_mode, output_mode
   USE mo_radiation_config,     ONLY: albedo_type
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -1073,13 +1073,17 @@ MODULE mo_nh_stepping
 
           IF (itype_comm == 1) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
-              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
-              lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
+            IF (ldynamics) THEN
+              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
+                n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
+                lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
-            IF (lcall_hdiff) &
-              CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,   &
-                p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
+              IF (lcall_hdiff) &
+                CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,   &
+                  p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
+            ELSE
+              p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
+            ENDIF   
           ELSE
 
             CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
