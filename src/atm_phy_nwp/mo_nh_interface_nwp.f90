@@ -344,6 +344,7 @@ CONTAINS
     IF (lcall_phy_jg(itsatad)) THEN
 
       IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'satad')
+      IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
 
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
@@ -372,7 +373,6 @@ CONTAINS
         !-------------------------------------------------------------------------
 
 !#ifdef __BOUNDCHECK
-          IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
           CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
@@ -388,9 +388,6 @@ CONTAINS
                & kup      = nlev                            & !> IN
               !& count, errstat,                              !> OUT
                )
-          IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
-
-        IF (timers_level > 2) CALL timer_start(timer_phys_exner)
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
@@ -412,11 +409,12 @@ CONTAINS
 
           ENDDO
         ENDDO
-        IF (timers_level > 2) CALL timer_stop(timer_phys_exner)
       ENDDO ! nblks
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 
     ELSE ! satad turned off
 
@@ -461,6 +459,7 @@ CONTAINS
     !are not set otherwise
 
     IF ( l_any_fastphys .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
+      IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
@@ -475,6 +474,7 @@ CONTAINS
                              & wtr_prog_now, wtr_prog_new,       & !>inout
                              & lnd_diag                          ) !>input
 
+      IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF   
 
 
@@ -565,9 +565,9 @@ CONTAINS
       ENDIF !lart
 
 
-    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
-      
+      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
+
 
       ! Remark: in the (unusual) case that satad is used without any other physics,
       ! recalculation of the thermodynamic variables is duplicated here. However,
@@ -647,6 +647,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+      IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
     ENDIF ! end of fast physics part
 
     IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
@@ -701,7 +702,6 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
-    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
 
     !!-------------------------------------------------------------------------
@@ -811,6 +811,8 @@ CONTAINS
       IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'cloud cover')
 
+      IF (timers_level > 2) CALL timer_start(timer_cover_koe)
+
 
       !-------------------------------------------------------------------------
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
@@ -835,8 +837,6 @@ CONTAINS
         ELSE
           qtvar(:,:) = 0.0_wp                                   ! other turb schemes
         ENDIF
-
-        IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -866,12 +866,13 @@ CONTAINS
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
 
-        IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
       ENDDO
   
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
 
@@ -905,7 +906,7 @@ CONTAINS
 &           CALL message('mo_nh_interface', 'radiative heating')
 
 
-      IF (timers_level > 1) CALL timer_start(timer_pre_radiation_nwp)
+      IF (timers_level > 10) CALL timer_start(timer_pre_radiation_nwp)
 
       CALL pre_radiation_nwp (                      &
         & kbdim      = nproma,                      &
@@ -914,7 +915,7 @@ CONTAINS
         & pt_patch   = pt_patch,                    &
         & zsmu0      = zcosmu0,                     &
         & zsct       = zsct )
-      IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)      
+      IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)      
 
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
@@ -1185,7 +1186,7 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-      IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
+      IF (timers_level > 10) CALL timer_start(timer_phys_acc_1)
 
       ! Coefficients for extra Rayleigh friction
       ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
@@ -1290,7 +1291,7 @@ CONTAINS
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
+      IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
     END IF!END OF slow physics tendency accumulation 
 
@@ -1304,7 +1305,7 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-      IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
+      IF (timers_level > 10) CALL timer_start(timer_phys_acc_1)
 
       ! Coefficients for extra Rayleigh friction
       ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
@@ -1415,7 +1416,7 @@ CONTAINS
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
+      IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
     END IF ! END of LS forcing tendency accumulation
 
@@ -1430,7 +1431,7 @@ CONTAINS
     ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
     IF (l_any_fastphys) THEN
 
-      IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
+      IF (timers_level > 10) CALL timer_start(timer_phys_sync_tracers)
 
       IF (use_icon_comm) THEN ! use communication library
 
@@ -1462,7 +1463,7 @@ CONTAINS
 
       ENDIF
 
-      IF (timers_level > 3) THEN
+      IF (timers_level > 10) THEN
         CALL timer_stop(timer_phys_sync_tracers)
       ENDIF
     ENDIF
@@ -1476,7 +1477,7 @@ CONTAINS
       CALL timer_stop(timer_barrier)
     ENDIF
     !-------------------------------------------------------------------
-    IF (timers_level > 3) CALL timer_start(timer_phys_sync_ddt_u)
+    IF (timers_level > 10) CALL timer_start(timer_phys_sync_ddt_u)
     IF (use_icon_comm) THEN
     
       IF (lcall_phy_jg(itturb) ) THEN
@@ -1514,13 +1515,13 @@ CONTAINS
       ENDIF
     ENDIF
     
-    IF (timers_level > 3) CALL timer_stop(timer_phys_sync_ddt_u)
+    IF (timers_level > 10) CALL timer_stop(timer_phys_sync_ddt_u)
     !------------------------------------------------------------
     
       
     !------------------------------------------------------------
     ! compute on the halos
-    IF (timers_level > 4) CALL timer_start(timer_phys_acc_par)
+    IF (timers_level > 10) CALL timer_start(timer_phys_acc_par)
     IF (l_any_fastphys) THEN
       IF (my_process_is_mpi_all_parallel() ) THEN
 
@@ -1577,7 +1578,7 @@ CONTAINS
 
       ENDIF ! my_process_is_mpi_all_parallel
     ENDIF ! fast-physics synchronization    
-    IF (timers_level > 4) CALL timer_stop(timer_phys_acc_par)
+    IF (timers_level > 10) CALL timer_stop(timer_phys_acc_par)
     
 
     ! Initialize fields for runtime diagnostics
@@ -1594,7 +1595,7 @@ CONTAINS
     !!      Calculate normal velocity at edge midpoints
     !-------------------------------------------------------------------------
 
-    IF (timers_level > 4)  CALL timer_start(timer_phys_acc_2)
+    IF (timers_level > 10)  CALL timer_start(timer_phys_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     ! exclude boundary interpolation zone of nested domains
@@ -1708,10 +1709,10 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-    IF (timers_level > 4) CALL timer_stop(timer_phys_acc_2)
-    IF (timers_level > 3) CALL timer_start(timer_phys_sync_vn)
+    IF (timers_level > 10) CALL timer_stop(timer_phys_acc_2)
+    IF (timers_level > 10) CALL timer_start(timer_phys_sync_vn)
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
-    IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
+    IF (timers_level > 10) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
 

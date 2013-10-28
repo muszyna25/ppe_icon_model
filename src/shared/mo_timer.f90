@@ -90,7 +90,7 @@ MODULE mo_timer
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
   PUBLIC :: timer_phys_u_v
-  PUBLIC :: timer_nwp_turbulence
+  PUBLIC :: timer_nwp_turbulence, timer_nwp_surface
   PUBLIC :: timer_nwp_microphysics
   PUBLIC :: timer_phys_sync_patch
   PUBLIC :: timer_fast_phys
@@ -191,7 +191,7 @@ MODULE mo_timer
   INTEGER :: timer_satad_v_3D
   INTEGER :: timer_phys_exner
   INTEGER :: timer_phys_u_v
-  INTEGER :: timer_nwp_turbulence
+  INTEGER :: timer_nwp_turbulence, timer_nwp_surface
   INTEGER :: timer_nwp_microphysics
   INTEGER :: timer_phys_sync_patch
   INTEGER :: timer_fast_phys
@@ -388,7 +388,7 @@ CONTAINS
     timer_phy2dyn   = new_timer("phy2dyn")
     timer_echam_sync_temp= new_timer("echam_sync_temp")
     timer_echam_sync_tracers= new_timer("echam_sync_tracers")
-    timer_phys_acc = new_timer("phys_acc")
+    timer_phys_acc = new_timer("phys_acc_sync")
     timer_phys_exner = new_timer("phys_exner")
     timer_phys_acc_1 = new_timer("phys_acc_1")
     timer_phys_acc_2 = new_timer("phys_acc_2")
@@ -416,16 +416,17 @@ CONTAINS
     timer_nh_diagnostics = new_timer("nh_diagnostics")
 
     timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
-    timer_satad_v_3D = new_timer("satad_v_3D")
+    timer_satad_v_3D = new_timer("satad")
     timer_phys_u_v = new_timer("phys_u_v")
     timer_nwp_turbulence = new_timer("nwp_turbulence")
+    timer_nwp_surface = new_timer("nwp_surface")
     timer_nwp_microphysics = new_timer("nwp_microphysics")
     timer_phys_sync_patch = new_timer("phys_sync_patch")
-    timer_fast_phys = new_timer("fast_phys")
+    timer_fast_phys = new_timer("rediag_prog_vars")
     timer_nwp_convection = new_timer("nwp_convection")
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
     timer_sso = new_timer("sso")
-    timer_cover_koe = new_timer("cover_koe")
+    timer_cover_koe = new_timer("cloud_cover")
 
 
     timer_model_init    = new_timer("model_init")
@@ -437,8 +438,8 @@ CONTAINS
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_oce_phy       = new_timer("oce_phy")
     timer_tracer_ab     = new_timer("tracer_ab")
-    timer_adv_horz      = new_timer("adv_horz")
-    timer_dif_horz      = new_timer("dif_horz")
+    timer_adv_horz      = new_timer("adv_horiz")
+    timer_dif_horz      = new_timer("dif_horiz")
     timer_hflx_lim      = new_timer("hflx_lim")
     timer_adv_vert      = new_timer("adv_vert")
     timer_dif_vert      = new_timer("dif_vert")

@@ -107,7 +107,7 @@ MODULE mo_advection_hflux
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer
+  USE mo_run_config,          ONLY: ntracer, timers_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_mult, sync_patch_array_4de3
@@ -121,6 +121,7 @@ MODULE mo_advection_hflux
   USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
     &                               btraj_dreg_nosort, divide_flux_area 
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
+  USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
 
 
   IMPLICIT NONE
@@ -244,6 +245,8 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 1
     ENDIF
+
+    IF (timers_level > 2) CALL timer_start(timer_adv_horz)
 
     ! In case that different transport schemes (MIURA, MIURA3) are used 
     ! for different tracers, the double computation of tangential velocity 
@@ -468,6 +471,8 @@ CONTAINS
       END SELECT
 
     END DO  ! Tracer loop
+
+    IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
 
   END SUBROUTINE hor_upwind_flux
 

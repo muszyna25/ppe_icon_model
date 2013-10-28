@@ -80,7 +80,7 @@ MODULE mo_advection_vflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: iequations 
-  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest
+  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest, timers_level
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
@@ -89,6 +89,7 @@ MODULE mo_advection_vflux
   USE mo_sync,                ONLY: global_max
   USE mo_mpi,                 ONLY: process_mpi_stdio_id, my_process_is_stdio, get_my_mpi_work_id, &
                                     get_glob_proc0, comm_lev
+  USE mo_timer,               ONLY: timer_adv_vert, timer_start, timer_stop
 
 
   IMPLICIT NONE
@@ -213,6 +214,8 @@ CONTAINS
 
     ! get patch ID
     jg = p_patch%id
+
+    IF (timers_level > 2) CALL timer_start(timer_adv_vert)
 
     !
     ! Loop over different tracers
@@ -345,6 +348,8 @@ CONTAINS
       END DO  ! Tracer loop
 
     END IF ! PRESENT(opt_topflx_tra)
+
+    IF (timers_level > 2) CALL timer_stop(timer_adv_vert)
 
   END SUBROUTINE vert_upwind_flux
 
