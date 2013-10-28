@@ -52,7 +52,7 @@ MODULE mo_ocean_model
   
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_io_config,           ONLY:  lwrite_initial,n_ios
+  USE mo_io_config,           ONLY: n_ios
   USE mo_run_config,          ONLY: &
     & dtime,                  & !    :
     & nsteps,                 & !    :
@@ -160,7 +160,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
     
-    INTEGER :: n_io, jg, jfile, ist
+    INTEGER :: jg, jfile, ist
     INTEGER :: error_status
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -194,7 +194,6 @@ CONTAINS
     ! The special initial time step for the three time level schemes
     ! is executed within process_grid_level
     !------------------------------------------------------------------
-    n_io    = n_ios()   ! number of: write output
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
@@ -239,7 +238,7 @@ CONTAINS
 
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
-      & ext_data, start_datetime, n_io,                     &
+      & ext_data, start_datetime,                     &
       & jfile,                                        &
       & (nsteps == INT(time_config%dt_restart/dtime)),&
       & v_sfc_flx,                                    &

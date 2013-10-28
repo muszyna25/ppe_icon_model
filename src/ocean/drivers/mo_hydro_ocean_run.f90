@@ -184,7 +184,7 @@ CONTAINS
   !
   !
   SUBROUTINE perform_ho_stepping( patch_3D, p_os, p_ext_data,          &
-                                & datetime, n_io, jfile, lwrite_restart, &
+                                & datetime, jfile, lwrite_restart, &
                                 & p_sfc_flx, p_phys_param,               &
                                 & p_as, p_atm_f, p_ice,p_op_coeff,       &
                                 & l_have_output)
@@ -193,7 +193,6 @@ CONTAINS
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: p_os(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
-  INTEGER, INTENT(IN)                              :: n_io
   INTEGER, INTENT(INOUT)                           :: jfile
   LOGICAL, INTENT(IN)                              :: lwrite_restart
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
