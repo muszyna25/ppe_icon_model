@@ -54,14 +54,8 @@ MODULE mo_cloud
   USE mo_math_constants,     ONLY : api=>pi
   USE mo_physical_constants, ONLY : cpd, cvd, cpv, cvv, g=>grav, rd, alv, als, rv   &
                                   , vtmpc1, rhoh2o, tmelt
-#ifdef __ibmspline__
-  USE mo_convect_tables, ONLY : prepare_ua_index_spline,             &
-                              , lookup_ua_spline, lookup_uaw_spline  &
-                              , lookup_ubc, lookup_ua_eor_uaw_spline
-#else
-  USE mo_convect_tables, ONLY : prepare_ua_index, lookup_ua, lookup_uaw  &
-                              , lookup_ubc, lookup_ua_eor_uaw
-#endif
+  USE mo_convect_tables,     ONLY : prepare_ua_index, lookup_ua, lookup_uaw  &
+                                  , lookup_ubc, lookup_ua_eor_uaw
   USE mo_echam_cloud_params, ONLY : cqtmin, cvtfall, crhosno, cn0s           &
                                   , cthomi, csecfrl, ncctop, cvarmin         &
                                   , cbeta_pq, cbeta_pq_max, nbetaq, cbetaqs  &
@@ -269,9 +263,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
            , ua(kbdim)            ,dua(kbdim)                          &
            , uaw(kbdim)           ,duaw(kbdim)        ,zsupsatw(kbdim)
 
-#ifdef __ibmspline__
-  REAL(dp):: za(kbdim)
-#endif
 
   REAL(dp):: zrho(kbdim,klev)
 !
@@ -376,15 +367,9 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
      zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
      zpapm1_inv(1:kproma) = 1._dp/papm1(1:kproma,jk)
 
-#ifdef __ibmspline__
-     CALL prepare_ua_index_spline('cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
-     CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-     CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
-#else
      CALL prepare_ua_index('cloud (1)',kproma,ptm1(1,jk),loidx(1))
      CALL lookup_ua (kproma,loidx(1),ua(1),dua(1))
      CALL lookup_uaw(kproma,loidx(1),uaw(1),duaw(1))
-#endif
 !
 !     -------------------------------------------------------------------------
 !       2.    Set to zero some local tendencies (increments)
@@ -920,14 +905,10 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zqsm1(jl)   = MIN(zqsm1(jl),0.5_dp)
         zcor        = 1._dp/(1._dp-vtmpc1*zqsm1(jl))
         zqsm1(jl)   = zqsm1(jl)*zcor
-#ifdef __ibmspline2__
-        zdqsdt      = zpapm1_inv(jl)*zcor**2*zdua
-#else
         zqst1       = (zua+0.001_dp*zdua)*zpapm1_inv(jl)
         zqst1       = MIN(zqst1,0.5_dp)
         zqst1       = zqst1/(1._dp-vtmpc1*zqst1)
         zdqsdt      = (zqst1-zqsm1(jl))*1000._dp
-#endif
         zlcdqsdt    = zlc*zdqsdt
 
         zdtdt(jl)   = ptte(jl,jk)*ztmst-zlvdcp(jl)*(zevp(jl)             &
@@ -1010,18 +991,12 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
      END DO
 
      CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
-#ifdef __ibmspline__
-     CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1),ztmp1(1), &
-       &                          nphase,zlo2(1),cond1(1))
-     CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
-#else
      CALL prepare_ua_index('cloud (2)',kproma,ztp1tmp(1),idx1(1),ztmp1(1),nphase,zlo2(1),cond1(1))
      CALL lookup_ua_eor_uaw(kproma,idx1(1),nphase,cond1(1),ua(1),dua(1))
-#endif
+
      zpapp1i(1:kproma) = 1._dp/papp1(1:kproma,jk)
      zrhtest(1:kproma) = pqm1(1:kproma,jk)/zqsm1(1:kproma)
 
-#ifndef TUNED
 !IBM* NOVECTOR
      DO jl = 1,kproma
 
@@ -1032,14 +1007,10 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 
         zrhtest(jl) = MIN(zrhtest(jl),1._dp)*zqsp1tmp
 
-#ifdef __ibmspline2__
-        zdqsdt      = zpapp1i(jl)*zcor**2*dua(jl)
-#else
         zqst1       = (ua(jl)+0.001_dp*dua(jl))*zpapp1i(jl)
         zqst1       = MIN(zqst1,0.5_dp)
         zqst1       = zqst1/(1._dp-vtmpc1*zqst1)
         zdqsdt      = (zqst1-zqsp1tmp)*1000._dp
-#endif
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
         zlcdqsdt    = FSEL(zes-0.4_dp,zqsp1tmp*zcor*ub(jl),zlc*zdqsdt)
         zqcon       = 1._dp/(1._dp+zlcdqsdt)
@@ -1065,40 +1036,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zcnd(jl) = FSEL(zlo2(jl),zcnd(jl),zupdate) ! water cloud
 
 540  END DO
-#else
-!IBM* NOVECTOR
-     DO 540 jl = 1,kproma
-
-        zes         = ua(jl)*zpapp1i(jl)
-        zes         = MIN(zes,0.5_dp)
-        zcor        = 1._dp/(1._dp-vtmpc1*zes)
-        zqsp1tmp    = zes*zcor
-        zoversat    = zqsp1tmp*0.01_dp
-        zrhtest(jl) = MIN(zrhtest(jl),1._dp)*zqsp1tmp
-#ifdef __ibmspline2__
-        zdqsdt      = zpapp1i(jl)*zcor**2*dua(jl)
-#else
-        zqst1       = (ua(jl)+0.001_dp*dua(jl))*zpapp1i(jl)
-        zqst1       = MIN(zqst1,0.5_dp)
-        zqst1       = zqst1/(1._dp-vtmpc1*zqst1)
-        zdqsdt      = (zqst1-zqsp1tmp)*1000._dp
-#endif
-        zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
-        zlcdqsdt    = FSEL(zes-0.4_dp,zqsp1tmp*zcor*ub(jl),zlc*zdqsdt)
-        zqcon       = 1._dp/(1._dp+zlcdqsdt)
-
-        zcor     = MAX((zqp1tmp(jl)-zqsp1tmp-zoversat)*zqcon,0._dp)
-        zlo      = FSEL(zqp1tmp(jl)-zrhtest(jl),0._dp,FSEL(zqsm1(jl)-zqsp1tmp,1._dp,0._dp))
-!
-        zdefault = MAX(zqp1(jl)-zrhtest(jl),0._dp)
-        zupdate  = FSEL(zlo2(jl),zdep(jl),zcnd(jl)) + zcor
-        zupdate  = zupdate * (1._dp - zlo) + zlo * FSEL(-zupdate,zupdate,zdefault)
-        zdep(jl) = FSEL(zlo2(jl),zupdate,zdep(jl)) ! ice cloud
-        zcnd(jl) = FSEL(zlo2(jl),zcnd(jl),zupdate) ! water cloud
-
-        ztmp2(jl) = zqsp1tmp
-540  END DO
-#endif
 
      ztmp2(1:kproma) = 1._dp/ztmp2(1:kproma)  ! mpuetz: ztmp2 holds inverse of zqsp1tmp
 
@@ -1475,11 +1412,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 
            zpresum     = zpretot+zpredel
 
-#ifdef FAST_AND_DIRTY
-           ! This may trigger a divide by zero. It doesn't harm, because the
-           ! result is adjusted in the next following FSEL/MERGE command.
-           zclcpre1       = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
-#else
            ! This ifdef branch does contain clean code for checking
            ! the correctness of the complete code.
            IF (zpresum < TINY(zpresum)) THEN
@@ -1487,7 +1419,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
            ELSE
              zclcpre1     = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
            ENDIF
-#endif
            zclcpre1       = MAX(zclcpre(jl),zclcpre1)
            zclcpre1       = MAX(0._dp,zclcpre1)
            zclcpre1       = MIN(1._dp,zclcpre1)
@@ -1515,11 +1446,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 
            zpresum        = zpretot+zpredel
 
-#ifdef FAST_AND_DIRTY
-           ! This may trigger a divide by zero. It doesn't harm, because the
-           ! result is adjusted in the next following FSEL/MERGE command.
-           zclcpre1       = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
-#else
            ! This ifdef branch does contain clean code for checking
            ! the correctness of the complete code.
            IF (zpresum < TINY(zpresum)) THEN
@@ -1527,7 +1453,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
            ELSE
              zclcpre1     = (zclcaux(jl)*zpredel + zclcpre(jl)*zpretot)/zpresum
            ENDIF
-#endif
            zclcpre1       = MAX(zclcpre(jl),zclcpre1)
            zclcpre1       = MAX(0._dp,zclcpre1)
            zclcpre1       = MIN(1._dp,zclcpre1)
