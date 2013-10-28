@@ -3,18 +3,19 @@
 
 # plot T,S and potential density variation to initial values from a list of ICON input files
 
-#  updates Ralf
+#  Usage: script expPath - where expPath is output path of experiment to be plotted
+#         scrip  
+
+#  Updates Ralf
 #   - ncl (icon_plot) with dozens of errors on blizzard, but okay on workstation
 #   - cdo -r cat necessary - done
 
-#  updates Stephan:
+#  Updates Stephan:
 #   - use all timesteps available -> removes bias at decades/eof-file
 #   - use new variable names t_acc, s_acc, rhopot_acc of 'nml'-output
-#   - an init file is generated using 10 days output (2001-01-11), since first timestep contains zero
+#   - use ncl-script developed by Stephan Lorenz and Karin Meier-Fleischer
+#   - an init file is generated using initial output - currently rhopot is still zero (Oct 2013)
 
-#  TBD:
-#   - include initial year for begin with zero deviation - needs adjusting date of initial to 2000-12-27
-#
 
 # ==============================================================================
 set -ex
@@ -24,15 +25,17 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
  ICONLIB=/pool/data/ICON/tools
 
 # ==============================================================================
+# Input argument $1 is path of experiment
+          expPath=${1:=xxx}                                                          # import experiment path
 # ==============================================================================
-# we supppose, that all files belong to the same experiment
-         expIdent='xmpiom.r12690.upw.d400'                                           # experiment identifier
-         expIdent='xmpiom.r13694.hupw.vppm'                                          # experiment identifier
-      outputIdent='r12088.relice'                                                    # output file name appendix
-      outputIdent='r13694.hupw.vppm'                                                 # output file name appendix
-          expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
-     fileListPath="$expPath/$expIdent"                                               # output data path
-     fileListPath="$expPath/$expIdent/Output"                                        # output data path
+# these lines must not be changed if standards are matched
+#        expIdent='Data.r13694.hupw.vppm'                                            # experiment identifier (typed)
+#         expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
+#     outputIdent='r12088.relice'                                                    # output file name appendix
+         expIdent=${expPath##*/}    # delete path on left before '/'                 # experiment identifier
+      outputIdent=${expIdent#*.}    # for 'name.revision': delete smallest match on left before '.'
+     fileListPath="$expPath"                                                         # output data path
+     fileListPath="$expPath/Output"                                                  # output data path
   fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"           # 'nml' naming convention
   fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-5].nc"                       # 'vlist' naming convention
           Tempvar='T'                                                                # temperature variable name
@@ -42,9 +45,9 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
            Salvar='s_acc'                                                            # salinity variable name
            Rhovar='rhopot_acc'                                                       # density variable name
    outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
-       PlotScript='icon'              #  script icon_plot_ncl using ncl, see above
        PlotScript='none'              #  no plots
-       PlotScript='ncl'               #  ncl-script, see below - not yet
+       PlotScript='icon'              #  script icon_plot_ncl
+       PlotScript='ncl'               #  ncl-script included, see below
 # ==============================================================================
 # these variable names must not necessarily be changed
       MaskVarName='wet_c'
@@ -62,7 +65,7 @@ numberOfFiles=$i
 echo "$numberOfFiles number of files"
 echo $fileList
 # ==============================================================================
-# handing of the initial values
+# handling of the initial values
 # get the initial values before any averaging is done
 #initFile='init-phc.r2b4.20L.ts_acc.nc'     #  orig PHC T/S data
 # include rhopot in PHC data:
@@ -71,11 +74,11 @@ echo $fileList
 #    otherwise sequence, names, dimensions etc. are different when using PHC data
 #  - caution: first set of accumulated values is zero
 #initFile='init-phc.rho.r2b4.20L.ts_acc.nc'  #  contains names as in ocean output: t_acc, s_acc, rhopot_acc
-initFile=fldmean_init.$outputIdent.nc
+initFile=fldmean_init.$outputIdent.nc        #  to be created from first input data file
 
 # ==============================================================================
 # using a mask file - contains no missing values
-maskFile='wetc.r2b4.r11xxx.nc'    # easy to generate - cdo selvar,wet_c
+#maskFile='wetc.r2b4.r11xxx.nc'    # easy to generate - cdo selvar,wet_c
 maskFile="wetc.$expIdent.nc"      # current mask created automatically
 # ==============================================================================
 # Loop over all files in serial
@@ -100,18 +103,22 @@ for file in $fileList; do
 
     # special treatment of first file "*0001.nc": contains zero!
     #  - for _acc accumulated variables only
-    if [[ $Tempvar == "t_acc" ]]; then 
-      if [[ $fnum == "0001.nc" ]]; then 
-        # no deldate available?
-        # seldate,2001-01-11,2010-12-30 for 10-days output only!
-        $CDO seldate,2001-01-11,2010-12-30 fldmean_${pattern_num} fldmean.noinit.nc
-        mv fldmean.noinit.nc fldmean_${pattern_num}
-      fi  # file no=1
-    fi  # tempvar=t_acc
+ #  if [[ $Tempvar == "t_acc" ]]; then 
+ #    if [[ $fnum == "0001.nc" ]]; then 
+ #      # no deldate available?
+ #      # seldate,2001-01-11,2010-12-30 for 10-days output only!
+ #      $CDO seldate,2001-01-11,2010-12-30 fldmean_${pattern_num} fldmean.noinit.nc
+ #      mv fldmean.noinit.nc fldmean_${pattern_num}
+ #    fi  # file no=1
+ #  fi  # tempvar=t_acc
   fi  # create fldmean_${pattern_num}
   if [[ $fnum == "0001.nc" ]]; then 
-    # now use first timestep for hovmoeller anomaly plot:
-    $CDO seltimestep,1 fldmean_${pattern_num} $initFile
+    if [[ -f $initFile ]]; then
+      echo  "$initFile already exists!"
+    else
+      # use first=initial timestep for hovmoeller anomaly plot:
+      $CDO seltimestep,1 fldmean_${pattern_num} $initFile
+    fi
   fi
 done
 
@@ -394,9 +401,9 @@ begin
 ;  res1@cnFillPalette        = "WhiteBlue"        ;-- set colormap
 ;  res1@cnFillColors         = (/5,10,20,30,40,50,60,70,80,90,100,120/)
    res1@cnLevelSelectionMode = "ManualLevels"     ;-- set manual contour levels
-   res1@cnMinLevelValF       = -0.3               ;-- set min contour level
-   res1@cnMaxLevelValF       =  0.3               ;-- set max contour level
-   res1@cnLevelSpacingF      =  0.03              ;-- set contour spacing
+   res1@cnMinLevelValF       = -0.2               ;-- set min contour level
+   res1@cnMaxLevelValF       =  0.2               ;-- set max contour level
+   res1@cnLevelSpacingF      =  0.02              ;-- set contour spacing
    res1@pmLabelBarOrthogonalPosF =  0.038         ;-- position label bar
 
    plot(1) = gsn_csm_contour(wks,s2,res1)
@@ -411,8 +418,8 @@ begin
 ;  res2@cnFillPalette        = "rainbow"          ;-- set colormap
 ;  res2@cnFillColors         = (/140,145,150,155,160,165,170,175,180,185,190,195,200,205,210,215,220,225,230,235,240,245/)
    res2@cnLevelSelectionMode = "ManualLevels"     ;-- set manual contour levels
-   res2@cnMinLevelValF       = -0.5               ;-- set min contour level
-   res2@cnMaxLevelValF       =  0.5               ;-- set max contour level
+   res2@cnMinLevelValF       = -0.6               ;-- set min contour level
+   res2@cnMaxLevelValF       =  0.6               ;-- set max contour level
    res2@cnLevelSpacingF      =  0.05              ;-- set contour spacing
    res2@pmLabelBarOrthogonalPosF =  0.0           ;-- position label bar
    res2@tmXBMode             = "Explicit"         ;-- set x-axis labeling to explicit
