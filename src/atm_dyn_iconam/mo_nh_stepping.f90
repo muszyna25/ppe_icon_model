@@ -562,7 +562,6 @@ MODULE mo_nh_stepping
     
     ! Output criteria:
     ! - last time step
-    ! - output interval, "old" vlist output
     ! - output interval, "new" output_nml
     l_outputtime = l_nml_output
  
@@ -620,12 +619,8 @@ MODULE mo_nh_stepping
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
-    IF (l_outputtime) THEN
-      IF (l_nml_output) THEN
-        CALL write_name_list_output(jstep)
-        ! l_have_output must not be set here, this triggers the close
-        ! of vlist output files (not touched by name list output)
-      ENDIF
+    IF (l_nml_output) THEN
+      CALL write_name_list_output(jstep)
     ENDIF
 
     ! sample meteogram output
