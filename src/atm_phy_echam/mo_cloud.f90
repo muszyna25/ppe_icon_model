@@ -84,7 +84,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
                          , papm1,    papp1                      &
                          , ptm1,     ptvm1,    pgeo,    pvervel &
                          , pacdnc                               &
-                         , pqm1,     pxlm1,    pxim1            &
+                         , pqm1,     pxlm1,    pxim1,   pcair   &
 ! - INPUT  1D .
                          , knvb                                 &
 ! - in and out, 2D
@@ -146,6 +146,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !  pxlm1    : cloud liquid water                                   (n-1)
 !  pxim1    : cloud ice                                            (n-1)
 !  pxtm1    : tracer (aerosol etc) concentration                   (n-1)
+!  pcair    : specific heat of moist air                           (n-1)
 !  - 1D
 !  knvb     : provided by subroutine "cover"
 !
@@ -216,7 +217,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
                        , papm1(kbdim,klev)    ,pqm1(kbdim,klev)     &
                        , papp1(kbdim,klev)    ,ptm1(kbdim,klev)     &
                        , ptvm1(kbdim,klev)    ,pxlm1(kbdim,klev)    &
-                       , pxim1(kbdim,klev)                          &
+                       , pxim1(kbdim,klev)    ,pcair(kbdim,klev)    &
                        , pgeo(kbdim,klev)
 
   REAL(dp),INTENT(INOUT) :: pxtec(kbdim,klev)    ,pqtec(kbdim,klev)
@@ -385,7 +386,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
         zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/g
 
-        zrcp           = 1._dp/(cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_dp))
+        zrcp           = 1._dp/pcair(jl,jk)
         zlvdcp(jl)     = alv*zrcp
         zlsdcp(jl)     = als*zrcp
 201  END DO

@@ -1294,6 +1294,7 @@ CONTAINS
           &        field% q(:,:,jb,iqv),     &! in.  qm1
           &        field% q(:,:,jb,iqc),     &! in. xlm1
           &        field% q(:,:,jb,iqi),     &! in. xim1
+          &        zcair(:,:),               &! in
           &        invb,                      &! in (from "cover")
           &        zqtec,                     &! inout (there is a clip inside)
           &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
