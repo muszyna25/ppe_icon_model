@@ -117,7 +117,7 @@ MODULE mo_math_divrot
 !
 !
 !
-USE mo_kind,                ONLY: wp
+USE mo_kind,                ONLY: wp, vp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
 USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
 USE mo_interpol_config,     ONLY: lsq_high_set
@@ -2369,7 +2369,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 !
 ! 4D cell based variable in which divergence is stored
 !
-REAL(wp), INTENT(inout) ::  &
+REAL(vp), INTENT(inout) ::  &
   &  f4dout(:,:,:,:) ! dim: (nproma,nlev,nblks_c,dim4d)
 
 INTEGER :: slev(dim4d), elev(dim4d)     ! vertical start and end level

@@ -68,13 +68,13 @@
 !----------------------------
 MODULE mo_advection_stepping
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_transport
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_divrot,         ONLY: div
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing
+  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -252,7 +252,7 @@ CONTAINS
                                         !< at first intermediate time step [Pa]
                                         !< dim: (nproma,nlev,nblks_c) 
 
-    REAL(wp) ::  &                      !< flux divergence at cell center
+    REAL(vp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer) 
 
     REAL(wp), POINTER   &
@@ -599,12 +599,9 @@ CONTAINS
       !
       !  compute divergence of the upwind fluxes for tracers
       !
-      DO jt = 1, ntracer
-        CALL div( p_mflx_tracer_h(:,:,:,jt),                     &! in
-          &       p_patch, p_int_state,                          &! in
-          &       z_fluxdiv_c(:,:,:,jt),                         &! inout
-          &       opt_slev=advection_config(jg)%iadv_slev(jt)    )! in
-      ENDDO
+      CALL div( p_patch, p_int_state, p_mflx_tracer_h,     &! in
+        &       z_fluxdiv_c, ntracer,                      &! inout
+        &       opt_slev=advection_config(jg)%iadv_slev(:) )! in
 
     ENDIF ! cell_type == 6
 
@@ -645,6 +642,16 @@ CONTAINS
             p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
           END DO
         END DO
+
+        ! Store qv advection tendency for convection scheme
+        IF (jt == iqv .AND. MOD( k_step, 2 ) == 0 .AND. iforcing == inwp) THEN
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jc = i_startidx, i_endidx
+              opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+            ENDDO
+          ENDDO
+        ENDIF
 
       ENDDO  ! Tracer loop
 
@@ -756,12 +763,15 @@ CONTAINS
             END DO
           END DO
 
-          ! set tracer(nnew) to tracer(nnow) where advection is turned off
-          DO jk = 1, advection_config(jg)%iadv_slev(jt)-1
-            DO jc = i_startidx, i_endidx
-              p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
-            END DO
-          END DO
+          ! Store qv advection tendency for convection scheme
+          IF (jt == iqv  .AND. iforcing == inwp) THEN
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+              DO jc = i_startidx, i_endidx
+                opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+              ENDDO
+            ENDDO
+          ENDIF
 
         END DO  ! Tracer loop
       END DO
@@ -785,7 +795,7 @@ CONTAINS
     ! compute advective tracer tendency
     !
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
-    IF (PRESENT(opt_ddt_tracer_adv)) THEN
+    IF (PRESENT(opt_ddt_tracer_adv) .AND. iforcing /= inwp) THEN
 
       i_rlstart = grf_bdywidth_c+1
       i_rlend   = min_rlcell_int
@@ -826,11 +836,9 @@ CONTAINS
     END IF
 !$OMP END PARALLEL
 
-    IF (PRESENT(opt_ddt_tracer_adv)) THEN
-      IF (iforcing /= inwp) THEN
-        CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  &
+    IF (PRESENT(opt_ddt_tracer_adv) .AND. iforcing /= inwp) THEN
+      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  &
                                  & f4din=opt_ddt_tracer_adv )
-      ENDIF
     ENDIF
 
 !   output some diagnostics
