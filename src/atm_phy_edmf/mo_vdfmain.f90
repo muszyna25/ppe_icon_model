@@ -707,10 +707,10 @@ REAL(KIND=JPRB) ::    ZCFNC1
 !xxx
 
 !Parameters for RICO case
-REAL(KIND=JPRB), PARAMETER :: c_h = 0.001094_jprb
-REAL(KIND=JPRB), PARAMETER :: c_q = 0.001133_jprb
-REAL(KIND=JPRB), PARAMETER :: th0_rico = 298.5_jprb
-REAL(KIND=JPRB), PARAMETER :: psfc = 101540._jprb
+REAL(KIND=JPRB), PARAMETER :: c_h = 0.001094_jprb   ! drag coefficient for heat
+REAL(KIND=JPRB), PARAMETER :: c_q = 0.001133_jprb   ! drag coefficient for moisture
+REAL(KIND=JPRB), PARAMETER :: th0_rico = 298.5_jprb ! SST
+REAL(KIND=JPRB), PARAMETER :: psfc = 101540._jprb   ! surface pressure
 REAL(KIND=JPRB) mwind, th_l
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
@@ -1005,17 +1005,19 @@ DO JL=KIDIA,KFDIA
 ! optional SCM case definition after Stevens(2007) for dry BL
 
   IF (ltestcase) THEN
+    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     SELECT CASE(nh_test_name)
     CASE ('CBL')
-      ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
       CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
                              & ZRHO         , T_G(JL)      , &
                              & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
+      LLSFCFLX    = .TRUE.
     CASE ('RICO')
       mwind = SQRT(PUM1(JL,KLEV)**2 + PVM1(JL,KLEV)**2) 
       th_l  = PTM1(JL,KLEV) * (p0ref/PAPM1(JL,KLEV))**rd_o_cpd  
-      ZEXTSHF(JL) = - c_h * mwind * (th0_rico - th_l)
-      ZEXTLHF(JL) = - c_q * mwind * (qv_s(JL) - PQM1(JL,KLEV) )
+      ZEXTSHF(JL) = - ZRHO * RCPD  * c_h * mwind * (th0_rico - th_l)
+      ZEXTLHF(JL) = - ZRHO * RLVTT * c_q * mwind * (qv_s(JL) - PQM1(JL,KLEV))
+      LLSFCFLX    = .TRUE.
     END SELECT
   ENDIF
 

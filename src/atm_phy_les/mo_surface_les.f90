@@ -572,8 +572,8 @@ MODULE mo_surface_les
                       p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
                       
             !Get surface fluxes                       
-            prm_diag%shfl_s(jc,jb)  = shfl * rhos * cpd
-            prm_diag%lhfl_s(jc,jb)  = lhfl * rhos * alv
+            prm_diag%shfl_s(jc,jb)  = - shfl * rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = - lhfl * rhos * alv
             prm_diag%umfl_s(jc,jb)  = umfl * rhos
             prm_diag%vmfl_s(jc,jb)  = vmfl * rhos
 
