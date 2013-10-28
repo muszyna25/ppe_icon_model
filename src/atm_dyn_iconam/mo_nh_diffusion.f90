@@ -832,11 +832,7 @@ MODULE mo_nh_diffusion
         ENDIF
       ENDIF
 
-! GZ (2013-08-09): the following OpenMP loop produces a race condition with the Cray compiler.
-! This is presumably a compiler bug, as the problem does not occur with other compilers
-#ifndef _CRAYFTN
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-#endif
 
       ! Enhance Smagorinsky diffusion coefficient in the presence of excessive grid-point cold pools
       ! This is restricted to the two lowest model levels
@@ -847,9 +843,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifndef _CRAYFTN
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
-#endif
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -883,15 +877,11 @@ MODULE mo_nh_diffusion
         icount(jb) = ic
 
       ENDDO
-#ifndef _CRAYFTN
 !$OMP END DO
-#endif
 
       ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
       ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
-#ifndef _CRAYFTN
 !$OMP MASTER
-#endif
       DO jb = i_startblk,i_endblk
 
         IF (icount(jb) > 0) THEN
@@ -906,12 +896,9 @@ MODULE mo_nh_diffusion
         ENDIF
 
       ENDDO
-#ifndef _CRAYFTN
 !$OMP END MASTER
 !$OMP BARRIER
-#else
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-#endif
+
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 
         rl_start = grf_bdywidth_c+1
