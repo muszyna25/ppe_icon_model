@@ -77,7 +77,10 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: n_phys_dom
   PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
   PUBLIC :: use_duplicated_connectivity, use_dummy_cell_closure
+  PUBLIC :: DEFAULT_ENDTIME
   ! ------------------------------------------------------------------------
+
+  REAL(wp), PARAMETER :: DEFAULT_ENDTIME = 1.e30_wp
 
 
 #ifdef NOMPI

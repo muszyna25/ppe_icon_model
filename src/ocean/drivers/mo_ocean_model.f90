@@ -103,6 +103,9 @@ MODULE mo_ocean_model
   USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
+  USE mo_mtime_extensions,    ONLY: get_datetime_string
+  USE mo_output_event_types,  ONLY: t_sim_step_info
+  USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
   
   !-------------------------------------------------------------
   ! For the coupling
@@ -159,6 +162,8 @@ CONTAINS
     
     INTEGER :: n_io, jg, jfile, ist
     INTEGER :: error_status
+    TYPE(t_sim_step_info) :: sim_step_info  
+    INTEGER :: jstep0
 
     !-------------------------------------------------------------------
     IF (is_restart_run()) THEN
@@ -200,7 +205,19 @@ CONTAINS
       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
-      CALL init_name_list_output(lprintlist=.TRUE.,l_is_ocean=.TRUE.)
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      ! compute sim_start, sim_end
+      CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+      CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+      sim_step_info%dtime     = dtime
+      sim_step_info%iadv_rcf  = 1
+      jstep0 = 0
+      IF (is_restart_run()) THEN
+        ! get start counter for time loop from restart file:
+        CALL get_restart_attribute("jstep", jstep0)
+      END IF
+      sim_step_info%jstep0    = jstep0
+      CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 
     IF (.NOT.is_restart_run()) THEN

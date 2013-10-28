@@ -160,7 +160,6 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  output_filename  = 'icon-mpi-dwd.52.high.L30.tri.nonhydro'    ! file name base
- output_time_unit = 1                           ! 1 = second
  output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
  steps_per_file   = ${steps_per_file}
  remap            = 0                           ! 0 = no remapping
@@ -171,7 +170,6 @@ cat > ${atmo_namelist} << EOF
 /
 !off!&output_nml
 !off! output_filename  = 'icon-mpi-dwd.52.high.L30.latlon.nonhydro' ! file name base
-!off! output_time_unit = 1                           ! 1 = second
 !off! output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
 !off! steps_per_file   = ${steps_per_file}
 !off! remap            = 1                           ! 1 = remap to regular lat-lon grid

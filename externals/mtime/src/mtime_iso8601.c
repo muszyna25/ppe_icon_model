@@ -758,6 +758,7 @@ _match:
 	      _year[0] = '-';
 
 	    char *end;
+	    errno=0;
 	    dtObj->year = strtol(_year,&end, 10);
 	    
 	    /* Year might be too large. */
@@ -854,6 +855,7 @@ _match:
 	    _du_year[MAX_BUFFER_LENGTH-1] = '\0';
 
 	    char *end;
+	    errno=0;
             duObj->year = strtol(_du_year,&end, 10);
 
             if ((errno == ERANGE) || ((duObj->sign == '$') && (duObj->year > (-1*YEAR_LOWER_BOUND))) || ((duObj->year > YEAR_UPPER_BOUND) && (duObj->sign != '$')))

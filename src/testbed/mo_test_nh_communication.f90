@@ -60,7 +60,7 @@ MODULE mo_test_nh_communication
   USE mo_io_config,            ONLY: l_outputtime, is_checkpoint_time,&
     &                                istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
-  USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
+  USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -76,7 +76,6 @@ MODULE mo_test_nh_communication
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
-  USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &

@@ -73,7 +73,7 @@ MODULE mo_grid_nml
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
     & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
 !     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
-    & max_rad_dom
+    & max_rad_dom, DEFAULT_ENDTIME
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -172,7 +172,7 @@ MODULE mo_grid_nml
     lfeedback   = .TRUE.
     ifeedback_type = 2
     start_time(:) = 0._wp
-    end_time(:)   = 1.e30_wp
+    end_time(:)   = DEFAULT_ENDTIME
     lplane         = .FALSE.
     is_plane_torus = .FALSE.
     l_limited_area = .FALSE.
@@ -215,7 +215,7 @@ MODULE mo_grid_nml
     ! Reset start and end times for global domain in order to avoid 
     ! interferences with output flow control
     start_time(1) = 0._wp
-    end_time(1) = 1.e30_wp
+    end_time(1) = DEFAULT_ENDTIME
 
     !-----------------------------------------------------
     !  Store the namelist for restart

@@ -136,7 +136,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 1
  output_bounds    = 0.,3600.,100.   !start, end, increment
  steps_per_file   = 40
  include_last     = .TRUE.
@@ -151,7 +150,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 1
  output_bounds    = 0.,3600.,100.   !start, end, increment
  steps_per_file   = 40
  include_last     = .TRUE.

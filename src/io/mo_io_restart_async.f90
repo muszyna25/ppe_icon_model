@@ -44,7 +44,7 @@ MODULE mo_io_restart_async
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601
   USE mo_io_config,               ONLY: out_expname
-  USE mo_run_config,              ONLY: ldump_states, ldump_dd, output_mode
+  USE mo_run_config,              ONLY: ldump_states, ldump_dd
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -125,7 +125,7 @@ MODULE mo_io_restart_async
   INTEGER, parameter :: MAX_NML_OUTPUT_FILES      = 100
 
   ! minimum number of dynamic restart arguments
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_ARGS      = 15 + MAX_NML_OUTPUT_FILES
+  INTEGER, PARAMETER :: MIN_DYN_RESTART_ARGS      = 16 + MAX_NML_OUTPUT_FILES
 
   ! minimum number of dynamic restart patch data
   ! id, l_dom_active, time levels and optional attributes
@@ -303,12 +303,12 @@ MODULE mo_io_restart_async
   TYPE t_restart_args
     TYPE(t_datetime)  :: datetime
     INTEGER           :: jfile
+    INTEGER           :: jstep
     LOGICAL           :: l_have_output
 #ifdef HAVE_F2003
     INTEGER           :: n_max_attrib_tlen
 #endif
     INTEGER           :: noutput_files
-    INTEGER           :: n_output_steps(MAX_NML_OUTPUT_FILES)
   END TYPE t_restart_args
   TYPE(t_restart_args), TARGET :: restart_args
 
@@ -538,15 +538,15 @@ CONTAINS
   !
   !> Writes all restart data into one or more files (one file per patch, collective call).
   !
-  SUBROUTINE write_async_restart (datetime, jfile, l_have_output)
+  SUBROUTINE write_async_restart (datetime, jfile, jstep, l_have_output)
 
     TYPE(t_datetime), INTENT(IN)    :: datetime
     INTEGER,          INTENT(IN)    :: jfile
+    INTEGER,          INTENT(IN)    :: jstep
     LOGICAL,          INTENT(IN)    :: l_have_output
 
     TYPE(t_patch_data), POINTER     :: p_pd
     INTEGER                         :: idx, noutput_files, j
-    INTEGER                         :: n_output_steps(MAX_NML_OUTPUT_FILES)
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -564,12 +564,8 @@ CONTAINS
     IF (my_process_is_work()) THEN
       CALL compute_wait_for_restart
       noutput_files = SIZE(output_file,1)
-      n_output_steps(:) = 0
-      DO j=1,noutput_files
-        n_output_steps(j) = output_file(j)%name_list%n_output_steps
-      END DO
-      CALL compute_start_restart (datetime, jfile, l_have_output, &
-        &                         noutput_files, n_output_steps)
+      CALL compute_start_restart (datetime, jfile, jstep, l_have_output, &
+        &                         noutput_files)
     END IF
 
     ! do the restart output
@@ -689,6 +685,7 @@ CONTAINS
       ! read and write restart variable lists (collective call)
       CALL write_async_restart (p_ra%datetime,    &
                               & p_ra%jfile,       &
+                              & p_ra%jstep,       &
                               & p_ra%l_have_output)
 
       ! inform compute PEs that the restart is done
@@ -822,9 +819,7 @@ CONTAINS
         nnew_rcf(1)           = INT (p_msg(14))
 
         p_ra%noutput_files    = INT (p_msg(15))
-        DO j=1,MAX_NML_OUTPUT_FILES
-          p_ra%n_output_steps(j)= p_msg(15+j)
-        END DO
+        p_ra%jstep            = INT (p_msg(16))
 
         ! get patch dependent arguments
         i = MIN_DYN_RESTART_ARGS
@@ -949,14 +944,14 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jfile, l_have_output, &
-    &                              noutput_files, n_output_steps)
+  SUBROUTINE compute_start_restart(datetime, jfile, jstep, l_have_output, &
+    &                              noutput_files)
 
     TYPE(t_datetime), INTENT(IN)  :: datetime
     INTEGER,          INTENT(IN)  :: jfile
+    INTEGER,          INTENT(IN)  :: jstep
     LOGICAL,          INTENT(IN)  :: l_have_output
     INTEGER,          INTENT(IN)  :: noutput_files
-    INTEGER,          INTENT(IN)  :: n_output_steps(:)
 
     TYPE(t_patch_data), POINTER   :: p_pd
     REAL(wp), POINTER             :: p_msg(:)
@@ -995,9 +990,7 @@ CONTAINS
       p_msg(14) = REAL(nnew_rcf(1),       wp)
 
       p_msg(15) = REAL(noutput_files,     wp)
-      DO j=1,MAX_NML_OUTPUT_FILES
-        p_msg(15+j) = n_output_steps(j)
-      END DO
+      p_msg(16) = REAL(jstep,             wp)
 
       ! set data of all patches
       i = MIN_DYN_RESTART_ARGS
@@ -2357,6 +2350,9 @@ CONTAINS
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
 
+    ! set simulation step
+    CALL set_restart_attribute( 'jstep', p_ra%jstep )
+
     ! set time levels
     jg = p_pd%id
     CALL set_restart_attribute( 'nold'    , p_pd%nold)
@@ -2408,12 +2404,6 @@ CONTAINS
       CALL set_restart_attribute ('next_output_file', p_ra%jfile+1)
     ELSE
       CALL set_restart_attribute ('next_output_file', p_ra%jfile)
-    END IF
-    IF (output_mode%l_nml) THEN
-      DO i=1,p_ra%noutput_files
-        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
-        CALL set_restart_attribute( TRIM(attname), p_ra%n_output_steps(i) )
-      END DO
     END IF
 
     ! geometrical depth for land module

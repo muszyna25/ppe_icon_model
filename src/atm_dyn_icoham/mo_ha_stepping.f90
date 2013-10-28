@@ -85,6 +85,7 @@ MODULE mo_ha_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
       &                             close_async_restart, set_data_async_restart
+  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
 
   IMPLICIT NONE
 
@@ -230,21 +231,22 @@ CONTAINS
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
 
-  TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
-  TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
+  TYPE(t_patch),         TARGET, INTENT(IN)    :: p_patch(n_dom)
+  TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN) :: n_checkpoint, n_diag
-  INTEGER, INTENT(INOUT) :: jfile
-  LOGICAL, INTENT(INOUT) :: l_have_output
+  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
+  INTEGER, INTENT(INOUT)                       :: jfile
+  LOGICAL, INTENT(INOUT)                       :: l_have_output
 
-  TYPE(t_datetime), INTENT(INOUT)         :: datetime
-  TYPE(t_hydro_atm), TARGET, INTENT(INOUT):: p_hydro_state(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)              :: datetime
+  TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
 
-  REAL(wp), DIMENSION(:,:,:), POINTER     :: p_vn  => NULL()
-  REAL(wp) :: sim_time(n_dom)
-  INTEGER  :: jg, jn, jgc, jstep
-  LOGICAL  :: l_nml_output
-  LOGICAL  :: l_3tl_init(n_dom)
+  REAL(wp), DIMENSION(:,:,:), POINTER          :: p_vn  => NULL()
+  REAL(wp)                                     :: sim_time(n_dom)
+  INTEGER                                      :: jg, jn, jgc, jstep
+  LOGICAL                                      :: l_nml_output
+  LOGICAL                                      :: l_3tl_init(n_dom)
+  INTEGER                                      :: jstep0 ! start counter for time loop
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -263,7 +265,13 @@ CONTAINS
     CALL prepare_async_restart(opt_pvct_size = SIZE(vct))
   ENDIF
 
-  TIME_LOOP: DO jstep = 1, nsteps
+  jstep0 = 0
+  IF (is_restart_run()) THEN
+    ! get start counter for time loop from restart file:
+    CALL get_restart_attribute("jstep", jstep0)
+  END IF
+
+  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 
     !--------------------------------------------------------------------------
     ! Send to stdout information about the current integration cycle
@@ -296,7 +304,7 @@ CONTAINS
     ! 3-time-level schemes. In case of a restart run, the treatment is
     ! not necessary, thus the variable is set to .TRUE.
 
-    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.is_restart_run()).AND.(jstep==1)
+    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.is_restart_run()).AND.((jstep+jstep0)==1)
 
     ! Call recursive subroutine 'process_grid_level', which executes
     ! one timestep for the global domain and calls itself in the presence
@@ -324,11 +332,12 @@ CONTAINS
     ! scheme). In some schemes (e.g. leapfrog), the step n values will be
     ! modified within this integration cycle. Therefore at the end of the
     ! cycle, we write out variables of time step n rather than n+1.
+
     l_nml_output   = output_mode%l_nml     .AND. &
-      & ((jstep==nsteps) .OR. istime4name_list_output(sim_time(1)))
+      & ((jstep==(nsteps+jstep0)) .OR. istime4name_list_output(jstep))
     l_outputtime = l_nml_output
 
-    IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
+    IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==(nsteps+jstep0) ) THEN
       l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
     ELSE                  ! time step
       l_diagtime = .FALSE.
@@ -377,7 +386,7 @@ CONTAINS
       IF (l_nml_output) THEN
         CALL message(TRIM(routine),'Output (name_list) at:')
         CALL print_datetime(datetime)
-        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
+        CALL write_name_list_output(jstep)
       ENDIF
 
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
@@ -387,14 +396,15 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Diagnose global integrals
     !--------------------------------------------------------------------------
-    IF (l_diagtime) CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
-                                                    ext_data(1:n_dom), nnow(1:n_dom) )
 
+    IF (l_diagtime) &
+    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
+                                    ext_data(1:n_dom), nnow(1:n_dom), jstep == (nsteps+jstep0) )
 
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint,nsteps)) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint,(nsteps+jstep0))) THEN
 
       IF (use_async_restart_output) THEN
         IF (phy_config%ljsbach) THEN
@@ -411,19 +421,19 @@ CONTAINS
         END IF
 
         ! call asynchronous restart
-        CALL write_async_restart (datetime, jfile, l_have_output)
+        CALL write_async_restart (datetime, jfile, jstep, l_have_output)
 
       ELSE
         IF (phy_config%ljsbach) THEN
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jfile, l_have_output, vct,                    &
+                                    & jfile, l_have_output, jstep, vct,             &
                                     & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
           END DO
         ELSE
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jfile, l_have_output, vct )
+                                    & jfile, l_have_output, jstep, vct )
           END DO
         ENDIF
 

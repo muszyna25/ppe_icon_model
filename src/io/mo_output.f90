@@ -93,6 +93,7 @@ CONTAINS
   !!
   SUBROUTINE create_restart_file( patch, datetime,             &
                                 & jfile, l_have_output,        &
+                                & jstep,                       &
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
                                 & opt_lcall_phy, opt_sim_time, &
@@ -104,8 +105,9 @@ CONTAINS
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
-    INTEGER, INTENT(IN) :: jfile  ! current output file index
+    INTEGER, INTENT(IN) :: jfile                ! current output file index
     LOGICAL, INTENT(IN) :: l_have_output
+    INTEGER, INTENT(IN) :: jstep                ! simulation step
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
@@ -148,6 +150,9 @@ CONTAINS
     CALL set_restart_attribute( 'nnew'    , nnew    (jg))
     CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
     CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+
+    ! set simulation step
+    CALL set_restart_attribute( 'jstep', jstep )
 
     !----------------
     ! additional restart-output for nonhydrostatic model
@@ -192,12 +197,6 @@ CONTAINS
       CALL set_restart_attribute( 'next_output_file', jfile+1 )
     ELSE
       CALL set_restart_attribute( 'next_output_file', jfile   )
-    END IF
-    IF (output_mode%l_nml) THEN
-      DO i=1, SIZE(output_file,1)
-        WRITE(attname,'(a,i2.2)') 'n_output_steps', i
-        CALL set_restart_attribute( TRIM(attname), output_file(i)%name_list%n_output_steps)
-      END DO
     END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)

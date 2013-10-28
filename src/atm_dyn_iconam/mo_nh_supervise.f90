@@ -45,7 +45,7 @@ MODULE mo_nh_supervise
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, nsteps, msg_level, &
+  USE mo_run_config,          ONLY: dtime, msg_level, &
     &                               ltransport, ntracer, lforcing, iforcing
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, min_rlcell_int, &
     min_rledge_int
@@ -82,13 +82,14 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-30):
   !! - computation of tracer mass error
   !!
-  SUBROUTINE supervise_total_integrals_nh( k_step, patch, nh_state, ntimlev, ntimlev_rcf)
+  SUBROUTINE supervise_total_integrals_nh( k_step, patch, nh_state, ntimlev, ntimlev_rcf, l_last_step)
 
     INTEGER,                INTENT(in) :: k_step            ! actual time step
     TYPE(t_patch),            INTENT(IN) :: patch(n_dom)    ! Patch
     TYPE(t_nh_state), TARGET, INTENT(in) :: nh_state(n_dom) ! State
     INTEGER,                INTENT(in) :: ntimlev(n_dom)    ! time level
     INTEGER,                INTENT(in) :: ntimlev_rcf(n_dom)! rcf time level
+    LOGICAL,                INTENT(IN) :: l_last_step
 
     REAL(wp),SAVE :: z_total_mass_0, z_total_energy_0
     REAL(wp) :: z_total_mass, z_help, z_mean_surfp,   &
@@ -280,7 +281,7 @@ CONTAINS
         WRITE(n_file_ti,'(i8,6e20.12)') &
         &   k_step, z_total_mass_re, z_total_energy_re, z_kin_energy_re, z_int_energy_re, &
         &   z_pot_energy_re, z_mean_surfp
-      IF (k_step == nsteps) THEN
+      IF (l_last_step) THEN
         if (n_file_ti >= 0) &
           CLOSE(n_file_ti)
       ENDIF
@@ -370,7 +371,7 @@ CONTAINS
           z_rel_err_tracer(jt), z_rel_err_tracer_s1(jt)
       ENDDO
 
-      IF (k_step == nsteps) THEN
+      IF (l_last_step) THEN
         if (n_file_ti >= 0) &
           CLOSE(n_file_ti)
         if (n_file_tti > 0) &
@@ -394,7 +395,7 @@ CONTAINS
       IF (check_total_quant_fileid >= 0) THEN
         WRITE(check_total_quant_fileid,'(i8,2e20.12)') &
           &  k_step, max_vn, max_w
-        IF (k_step == nsteps) THEN
+        IF (l_last_step) THEN
           CLOSE(check_total_quant_fileid)
           check_total_quant_fileid = -1
         ENDIF

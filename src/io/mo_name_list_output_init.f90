@@ -6,6 +6,7 @@
 !! @par Revision History
 !! Initial implementation  by  R. Johanni  (2011)
 !! Major changes: F. Prill, DWD (2012-2013)
+!! A-priori calculation of output step events: F. Prill, DWD (10/2013)
 !!
 !! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
 !! BUT understand CRAY pointers
@@ -25,10 +26,10 @@ MODULE mo_name_list_output_init
     &                                             vname_len, max_dom, SUCCESS,                    &
     &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, max_bounds, max_levels,        &
-    &                                             vname_len
+    &                                             MAX_TIME_LEVELS, max_levels, vname_len
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
-    &                                             grid_rescale_factor, start_time, end_time
+    &                                             grid_rescale_factor, start_time, end_time,      &
+    &                                             DEFAULT_ENDTIME
   USE mo_master_control,                    ONLY: is_restart_run
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_grib2,                             ONLY: t_grib2_var
@@ -36,6 +37,7 @@ MODULE mo_name_list_output_init
 
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
+  USE mo_io_util,                           ONLY: get_file_extension
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -53,20 +55,22 @@ MODULE mo_name_list_output_init
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator
   ! MPI Communicators
-  USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
+  USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_2_io,                  &
+    &                                             p_comm_io, p_comm_work_io
   ! MPI Data types
   USE mo_mpi,                               ONLY: p_int, p_int_i8, &
     &                                             p_real_dp, p_real_sp
   ! MPI Process type intrinsics
   USE mo_mpi,                               ONLY: my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
-    &                                             my_process_is_mpi_seq, my_process_is_io
+    &                                             my_process_is_mpi_seq, my_process_is_io,        &
+    &                                             my_process_is_mpi_ioroot
   ! MPI Process IDs
-  USE mo_mpi,                               ONLY: process_mpi_stdio_id
+  USE mo_mpi,                               ONLY: process_mpi_stdio_id, process_work_io0
   ! MPI Process group sizes
   USE mo_mpi,                               ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
-  USE mo_mpi,                               ONLY: p_pe_work, p_io_pe0
+  USE mo_mpi,                               ONLY: p_pe_work, p_io_pe0, p_pe
 
   USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -93,7 +97,8 @@ MODULE mo_name_list_output_init
   &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
   &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
   &                                               sfs_name_list, ffs_name_list, second_tos,       &
-  &                                               first_tos, GRP_PREFIX
+  &                                               first_tos, GRP_PREFIX, t_fname_metadata,        &
+  &                                               all_events
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
@@ -117,6 +122,17 @@ MODULE mo_name_list_output_init
   USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids
+
+  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN
+  USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
+    &                                             DEFAULT_EVENT_NAME, t_par_output_event
+  USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
+    &                                             generate_output_filenames
+  USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
+    &                                             complete_event_setup, union_of_all_events,      &
+    &                                             print_output_event, trigger_output_step_irecv,  &
+    &                                             set_event_to_simstep
+  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
 
   IMPLICIT NONE
 
@@ -215,15 +231,11 @@ CONTAINS
     INTEGER                           :: mode
     INTEGER                           :: taxis_tunit
     INTEGER                           :: dom(max_phys_dom)
-    INTEGER                           :: output_time_unit
-    REAL(wp)                          :: output_bounds(3,max_bounds), output_bounds_sec(3,max_bounds)
     INTEGER                           :: steps_per_file
     LOGICAL                           :: include_last
     LOGICAL                           :: output_grid
     CHARACTER(LEN=filename_max)       :: output_filename
     CHARACTER(LEN=filename_max)       :: filename_format
-    LOGICAL                           :: lwrite_ready
-    CHARACTER(LEN=filename_max)       :: ready_directory
     CHARACTER(LEN=vname_len)          :: ml_varlist(max_var_ml)
     CHARACTER(LEN=vname_len)          :: pl_varlist(max_var_pl)
     CHARACTER(LEN=vname_len)          :: hl_varlist(max_var_hl)
@@ -235,18 +247,29 @@ CONTAINS
     REAL(wp)                          :: reg_lon_def(3)
     REAL(wp)                          :: reg_lat_def(3)
     REAL(wp)                          :: north_pole(2)
+
+    REAL(wp)                            :: output_bounds(3)
+    INTEGER                             :: output_time_unit
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: output_start, &
+      &                                    output_end,   &
+      &                                    output_interval
+    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
+
     TYPE(t_lon_lat_data),  POINTER    :: lonlat
     TYPE (t_keyword_list), POINTER    :: keywords => NULL()
     CHARACTER(len=MAX_STRING_LEN)     :: cfilename
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
-      filetype, mode, taxis_tunit, dom, output_time_unit,              &
-      output_bounds, steps_per_file, include_last, output_grid,        &
-      output_filename, lwrite_ready, ready_directory, ml_varlist,      &
-      pl_varlist, hl_varlist, il_varlist, p_levels, h_levels,          &
-      i_levels, remap, reg_lon_def, reg_lat_def, north_pole,           &
-      filename_format
+      mode, taxis_tunit, dom,                                &
+      filetype, filename_format, output_filename,            &
+      steps_per_file, include_last, output_grid,             &
+      remap, reg_lon_def, reg_lat_def, north_pole,           &
+      ml_varlist, pl_varlist, hl_varlist, il_varlist,        &
+      p_levels, h_levels, i_levels,                          &
+      output_start, output_end, output_interval,             &
+      output_bounds, output_time_unit,                       &
+      ready_file
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -281,15 +304,11 @@ CONTAINS
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
-      output_time_unit   = 1
-      output_bounds(:,:) = 0._wp
       steps_per_file     = 100
       include_last       = .TRUE.
       output_grid        = .FALSE.
       output_filename    = ' '
       filename_format    = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
-      lwrite_ready       = .FALSE.
-      ready_directory    = ' '
       ml_varlist(:)      = ' '
       pl_varlist(:)      = ' '
       hl_varlist(:)      = ' '
@@ -301,6 +320,12 @@ CONTAINS
       reg_lon_def(:)     = 0._wp
       reg_lat_def(:)     = 0._wp
       north_pole(:)      = (/ 0._wp, 90._wp /)
+      output_start       = ""
+      output_end         = ""
+      output_interval    = ""
+      output_bounds(:)   = -1._wp
+      output_time_unit   = 1
+      ready_file         = DEFAULT_EVENT_NAME
 
       !------------------------------------------------------------------
       !  If this is a resumed integration, overwrite the defaults above
@@ -335,42 +360,21 @@ CONTAINS
       ! We need dtime for this check
       IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
-      ! Output bounds
-      ! output_bounds is always in seconds - the question is what to do with months or years
-      ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
-      SELECT CASE(output_time_unit)
-        CASE(1); output_bounds_sec(:,:) = output_bounds(:,:)
-        CASE(2); output_bounds_sec(:,:) = output_bounds(:,:)*60._wp
-        CASE(3); output_bounds_sec(:,:) = output_bounds(:,:)*3600._wp
-        CASE(4); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp
-        CASE(5); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
-        CASE(6); output_bounds_sec(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
+      IF (output_bounds(1) > -1._wp) THEN
+        ! Output bounds
+        ! output_bounds is always in seconds - the question is what to do with months or years
+        ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+        SELECT CASE(output_time_unit)
+        CASE(1); output_bounds(:) = output_bounds(:)
+        CASE(2); output_bounds(:) = output_bounds(:)*60._wp
+        CASE(3); output_bounds(:) = output_bounds(:)*3600._wp
+        CASE(4); output_bounds(:) = output_bounds(:)*86400._wp
+        CASE(5); output_bounds(:) = output_bounds(:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); output_bounds(:) = output_bounds(:)*86400._wp*365._wp ! Not a real calender year
         CASE DEFAULT
           CALL finish(routine,'Illegal output_time_unit')
-      END SELECT
-
-      !Consistency check on output bounds
-      IF(output_bounds_sec(1,1) < 0._wp .OR. &
-         output_bounds_sec(2,1) < output_bounds_sec(1,1) .OR. &
-         output_bounds_sec(3,1) < dtime * grid_rescale_factor ) THEN
-        CALL finish(routine,'Illegal output_bounds(:,1)')
-      ENDIF
-
-      DO i = 2, max_bounds-1
-        IF(output_bounds_sec(3,i) <= 0._wp) EXIT ! The last one
-
-        IF(output_bounds_sec(1,i) <= output_bounds_sec(2,i-1)) &
-          CALL finish(routine,'output_bounds not increasing')
-
-        IF(output_bounds_sec(2,i) <= output_bounds_sec(1,i)) &
-          CALL finish(routine,'output_bounds end <= start')
-
-        IF(output_bounds_sec(3,i) <  dtime * grid_rescale_factor ) &
-          CALL finish(routine,'output_bounds inc < dtime')
-      ENDDO
-
-      ! For safety, at least last bounds triple must always be 0
-      output_bounds_sec(:,i:) = 0._wp
+        END SELECT
+      END IF
 
       ! Allocate next output_name_list
 
@@ -390,15 +394,11 @@ CONTAINS
       p_onl%mode             = mode
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
-      p_onl%output_time_unit = output_time_unit
-      p_onl%output_bounds(:,:) = output_bounds_sec(:,:)
       p_onl%steps_per_file   = steps_per_file
       p_onl%include_last     = include_last
       p_onl%output_grid      = output_grid
       p_onl%output_filename  = output_filename
       p_onl%filename_format  = filename_format
-      p_onl%lwrite_ready     = lwrite_ready
-      p_onl%ready_directory  = ready_directory
       p_onl%ml_varlist(:)    = ml_varlist(:)
       p_onl%pl_varlist(:)    = pl_varlist(:)
       p_onl%hl_varlist(:)    = hl_varlist(:)
@@ -408,6 +408,11 @@ CONTAINS
       p_onl%i_levels         = i_levels
       p_onl%remap            = remap
       p_onl%lonlat_id        = -1
+      p_onl%output_start     = output_start
+      p_onl%output_end       = output_end
+      p_onl%output_interval  = output_interval
+      p_onl%output_bounds(:) = output_bounds(:)
+      p_onl%ready_file       = ready_file
 
       ! read the map files into dictionary data structures
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
@@ -494,9 +499,6 @@ CONTAINS
 #endif
 ! __ICON_OCEAN_ONLY__
 
-      p_onl%cur_bounds_triple= 1
-      p_onl%next_output_time = p_onl%output_bounds(1,1)
-      p_onl%n_output_steps   = 0
       p_onl%next => NULL()
 
       !-----------------------------------------------------
@@ -616,45 +618,52 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE init_name_list_output(lprintlist, isample, l_is_ocean)
+  SUBROUTINE init_name_list_output(sim_step_info, &
+    &                              opt_lprintlist, opt_isample, opt_l_is_ocean)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
-  INCLUDE "mpif.h"
+    INCLUDE "mpif.h"
 #else
-  USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
+    USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
 ! __SUNPRO_F95
 #endif
 ! NOMPI
 
-    LOGICAL, OPTIONAL, INTENT(in) :: lprintlist
-    INTEGER, OPTIONAL, INTENT(in) :: isample
-    LOGICAL, OPTIONAL, INTENT(in) :: l_is_ocean
+    !> Data structure containing all necessary data for mapping an
+    !  output time stamp onto a corresponding simulation step index.
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+
+    LOGICAL, OPTIONAL, INTENT(in) :: opt_lprintlist
+    INTEGER, OPTIONAL, INTENT(in) :: opt_isample
+    LOGICAL, OPTIONAL, INTENT(in) :: opt_l_is_ocean
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
 
     LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
-    INTEGER                            :: idom, ierrstat, jg, idom_log
+    INTEGER                            :: idom, ierrstat, jg, idom_log, local_i
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER      :: p_of
     TYPE(t_list_element), POINTER      :: element
     REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
     TYPE(t_cf_var), POINTER            :: this_cf
-    CHARACTER(LEN=64)                  :: attname
+    TYPE(t_fname_metadata)             :: fname_metadata
+    TYPE(t_par_output_event), POINTER  :: ev
+    TYPE (t_sim_step_info)             :: dom_sim_step_info
 
     l_print_list = .FALSE.
     i_sample     = 1
-    CALL assign_if_present(l_print_list, lprintlist)
-    CALL assign_if_present(i_sample, isample)
+    CALL assign_if_present(l_print_list, opt_lprintlist)
+    CALL assign_if_present(i_sample, opt_isample)
 
     ! For hexagons, we still copy grid info from file; for triangular
     ! grids we have a faster method without file access:
     l_grid_info_from_file = (global_cell_type == 6)
-    IF (PRESENT(l_is_ocean)) THEN
-      IF (l_is_ocean) l_grid_info_from_file = .FALSE.
+    IF (PRESENT(opt_l_is_ocean)) THEN
+      IF (opt_l_is_ocean) l_grid_info_from_file = .FALSE.
     ENDIF
 
     DO i = 1, nvar_lists
@@ -874,6 +883,29 @@ CONTAINS
         EXIT
       ENDIF
 
+      ! First, do some date-time computations: There are two
+      ! alternative implementations for setting the output intervals,
+      ! "output_bounds" and "output_start" / "output_end" /
+      ! "output_interval". The former defines the output events
+      ! relative to the simulation start (in seconds) and the latter
+      ! define the output events by setting ISO8601-conforming
+      ! date-time strings.
+      !
+      ! If the user has set a value for "output_bounds", we compute
+      ! the "output_start" / "output_end" / "output_interval" from
+      ! this info:
+
+      IF (p_onl%output_bounds(1) > -1._wp) THEN
+        CALL get_datetime_string(p_onl%output_start, sim_step_info%sim_start, INT(p_onl%output_bounds(1)))
+        CALL get_datetime_string(p_onl%output_end,   sim_step_info%sim_start, INT(p_onl%output_bounds(2)))
+        p_onl%output_interval = get_duration_string(INT(p_onl%output_bounds(3)))
+        IF (my_process_is_stdio()) THEN
+          WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
+            &                                      TRIM(p_onl%output_end),   " / ", &
+          &                                        TRIM(p_onl%output_interval)
+        END IF
+      END IF
+
       ! If dom(:) was not specified in namelist input, it is set completely to -1.
       ! In this case all domains are wanted in the output, so set it here
       ! appropriately - this cannot be done during reading of the namelists
@@ -920,7 +952,6 @@ CONTAINS
 
     p_onl => first_output_name_list
     nfiles = 0
-
     DO
 
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
@@ -944,11 +975,6 @@ CONTAINS
           nfiles = nfiles+1
           p_of => output_file(nfiles)
 
-          IF (is_restart_run()) THEN
-            WRITE(attname, '(a,i2.2)') 'n_output_steps', nfiles
-            CALL get_restart_attribute(attname, p_onl%n_output_steps)
-          END IF
-
           SELECT CASE(i_typ)
             CASE(1); p_of%ilev_type = level_type_ml
             CASE(2); p_of%ilev_type = level_type_pl
@@ -958,16 +984,12 @@ CONTAINS
 
           ! Set prefix of output_file name
           p_of%filename_pref = TRIM(p_onl%output_filename)
-
+          ! Fill data members of "t_output_file" data structures
           p_of%phys_patch_id = idom
           p_of%log_patch_id  = patch_info(idom)%log_patch_id
           p_of%output_type   = p_onl%filetype
           p_of%name_list     => p_onl
           p_of%remap         = p_onl%remap
-
-          p_of%start_time    = start_time(p_of%log_patch_id)
-          p_of%end_time      = end_time(p_of%log_patch_id)
-          p_of%initialized   = .FALSE.
 
           p_of%cdiCellGridID   = CDI_UNDEFID
           p_of%cdiEdgeGridID   = CDI_UNDEFID
@@ -978,7 +1000,6 @@ CONTAINS
           p_of%cdiVlistID      = CDI_UNDEFID
 
           ! Select all var_lists which belong to current logical domain and i_typ
-
           nvl = 0
           DO j = 1, nvar_lists
 
@@ -1013,7 +1034,6 @@ CONTAINS
     ENDDO
 
     ! Set ID of process doing I/O
-
     DO i = 1, nfiles
       IF(use_async_name_list_io) THEN
         ! Asynchronous I/O
@@ -1027,12 +1047,92 @@ CONTAINS
       ENDIF
     ENDDO
 
-    ! If async IO is used, initialize the memory window for communication
+    ! -----------------------------------------------------------
+    ! create I/O event data structures: Regular output is triggered at
+    ! so-called "output event steps". The completion of an output
+    ! event step is communicated via non-blocking MPI messages to the
+    ! root I/O PE, which keeps track of the overall event status. This
+    ! event handling is static, i.e. all event occurrences are
+    ! pre-defined during the initialization.
+    !
+    local_i = 0
+    DO i = 1, nfiles
+      p_of  => output_file(i)
 
+      IF (use_async_name_list_io  .AND. &
+        & my_process_is_io()      .AND. &
+        & p_of%io_proc_id /= p_pe) THEN
+        NULLIFY(p_of%out_event)
+        CYCLE
+      END IF
+
+      p_onl => p_of%name_list
+      ! pack file-name meta-data into a derived type to pass them
+      ! to "new_parallel_output_event":
+      fname_metadata%steps_per_file   = p_onl%steps_per_file
+      fname_metadata%phys_patch_id    = p_of%phys_patch_id
+      fname_metadata%ilev_type        = p_of%ilev_type
+      fname_metadata%filename_format  = TRIM(p_onl%filename_format)
+      fname_metadata%filename_pref    = TRIM(p_of%filename_pref)
+      fname_metadata%extn             = TRIM(get_file_extension(p_onl%filetype))
+
+      ! set model domain start/end time
+      dom_sim_step_info = sim_step_info
+      CALL get_datetime_string(dom_sim_step_info%dom_start_time, time_config%ini_datetime, NINT(start_time(p_of%log_patch_id)))
+      IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
+        CALL get_datetime_string(dom_sim_step_info%dom_end_time,   time_config%ini_datetime, NINT(end_time(p_of%log_patch_id)))
+      ELSE
+        dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
+      END IF
+      local_i = local_i + 1
+
+      ! I/O PEs communicate their event data, the other PEs create the
+      ! event data only locally for their own event control:
+      p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
+        &                  p_onl%output_start, p_onl%output_end, p_onl%output_interval,          &
+        &                  p_onl%include_last,                                                   &
+        &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
+        &                  generate_output_filenames, local_i, p_comm_io)
+      IF (dom_sim_step_info%jstep0 > 0) &
+        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lforce_open_file=.TRUE.)
+    END DO
+    ! tell the root I/O process that all output event data structures
+    ! have been created:
+    CALL complete_event_setup(p_comm_io)
+
+    ! -----------------------------------------------------------
+    ! The root I/O MPI rank asks all participating I/O PEs for their
+    ! output event info and generates a unified output event,
+    ! indicating which PE performs a write process at which step.
+    all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
+      &                               p_comm_work_io, process_work_io0)
+    IF (dom_sim_step_info%jstep0 > 0) &
+      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lforce_open_file=.TRUE.)
+
+    ! print a table with all output events
+    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      CALL print_output_event(all_events)                                       ! screen output
+      CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
+    END IF
+
+    ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
 #endif
 ! NOMPI
+
+    ! Initial launch of non-blocking requests to all participating PEs
+    ! to acknowledge the completion of the next output event
+    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      ev => all_events
+      HANDLE_COMPLETE_STEPS : DO
+        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+        CALL trigger_output_step_irecv(ev)
+        ev => ev%next
+      END DO HANDLE_COMPLETE_STEPS
+    END IF
 
     CALL message(routine,'Done')
 
@@ -1867,9 +1967,6 @@ CONTAINS
     ENDIF
 
     i_dom = of%phys_patch_id
-
-    ! set initialization flag to true
-    of%initialized = .TRUE.
 
     !
     ! The following sections add the file global properties collected in init_name_list_output

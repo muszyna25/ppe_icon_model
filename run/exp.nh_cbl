@@ -162,8 +162,7 @@ const_z0  = 0.0003
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 2
- output_bounds    = 0.,180.,30.   !start, end, increment
+ output_bounds    = 0.,10800.,1800.   !start, end, increment
  steps_per_file   = 1
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
@@ -174,8 +173,7 @@ const_z0  = 0.0003
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 2
- output_bounds    = 0.,180.,1.   !start, end, increment
+ output_bounds    = 0.,10800.,60.   !start, end, increment
  steps_per_file   = 2000
  include_last     = .TRUE.
  remap            = 0   ! triangular grid

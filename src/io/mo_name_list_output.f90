@@ -32,7 +32,6 @@ MODULE mo_name_list_output
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS
   USE mo_grid_config,               ONLY: n_dom
-  USE mo_master_control,            ONLY: is_restart_run
   USE mo_cdi_constants              ! We need all
   USE mo_io_units,                  ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,                 ONLY: lkeep_in_sync
@@ -44,16 +43,17 @@ MODULE mo_name_list_output
   ! MPI Communication routines
   USE mo_mpi,                       ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop,               &
     &                                     get_my_mpi_work_id, p_max,                                &
-    &                                     get_my_mpi_work_communicator, p_mpi_wtime
+    &                                     get_my_mpi_work_communicator, p_mpi_wtime,                &
+    &                                     p_irecv, p_wait, p_test, p_isend
   ! MPI Communicators
-  USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
+  USE mo_mpi,                       ONLY: p_comm_work
   ! MPI Data types
   USE mo_mpi,                       ONLY: p_int, p_int_i8, &
     &                                     p_real_dp, p_real_sp
   ! MPI Process type intrinsics
   USE mo_mpi,                       ONLY: my_process_is_stdio, my_process_is_mpi_test,              &
                                           my_process_is_mpi_workroot, my_process_is_mpi_seq,        &
-                                          my_process_is_io
+                                          my_process_is_io, my_process_is_mpi_ioroot
   ! MPI Process IDs
   USE mo_mpi,                       ONLY: process_mpi_all_test_id, process_mpi_all_workroot_id,     &
                                           process_mpi_stdio_id
@@ -74,15 +74,15 @@ MODULE mo_name_list_output
     &                                     tolower, int2string
   USE mo_communication,             ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_constants,            ONLY: pi, pi_180
-  USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list,           &
-  &                                       is_output_nml_active, is_output_file_active
+  USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
   USE mo_name_list_output_types,    ONLY:  l_output_phys_patch, t_output_name_list,                 &
   &                                        t_output_file, t_var_desc,                               &
   &                                        t_patch_info, t_reorder_info,                            &
   &                                        t_grid_info,                                             &
   &                                        REMAP_NONE, REMAP_REGULAR_LATLON,                        &
   &                                        msg_io_start, msg_io_done, msg_io_shutdown,              &
-  &                                        IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT
+  &                                        IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,              &
+  &                                        all_events
   USE mo_name_list_output_init,     ONLY:  init_name_list_output, setup_output_vlist,               &
     &                                      mem_ptr_sp, mem_ptr_dp, mpi_win,                         &
     &                                      varnames_dict, out_varnames_dict,                        &
@@ -93,6 +93,14 @@ MODULE mo_name_list_output
   USE mo_fortran_tools,             ONLY: assign_if_present
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
+  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar
+  USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
+  USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
+    &                                     pass_output_step, get_current_filename,                   &
+    &                                     get_current_date, trigger_output_step_irecv,              &
+    &                                     is_output_step_complete, is_output_event_finished,        &
+    &                                     check_write_readyfile, wait_for_pending_irecvs
 
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf
@@ -121,11 +129,7 @@ MODULE mo_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
 
-
-  ! TYPE t_datetime has no default constructor for setting all members to 0 or a defined value.
-  ! Thus we declare a instance here which should have zeros everywhere since it is static.
-  TYPE(t_datetime) :: zero_datetime
-
+  !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
 
 
@@ -207,73 +211,29 @@ CONTAINS
   !> open_output_file:
   !  Opens a output file and sets its vlist
   !
-  SUBROUTINE open_output_file(of, jfile, sim_time)
+  !  Please note that this routine is only executed on one processor
+  !  (for a specific file) and thus all calls to message get the
+  !  all_print=.TRUE. argument so that the messages really appear in
+  !  the log.
+  !
+  SUBROUTINE open_output_file(of)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
-    INTEGER,             INTENT(IN)    :: jfile    !< Number of file set to open
-    REAL(wp),            intent(IN)    :: sim_time !< elapsed simulation time
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=16)                 :: extn
-    TYPE (t_keyword_list), POINTER    :: keywords     => NULL()
-    TYPE (t_keyword_list), POINTER    :: rdy_keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
-    CHARACTER(len=8)                  :: ddhhmmss_str
     TYPE (t_datetime)                 :: rel_fct_time
-
-    ! Please note that this routine is only executed on one processor (for a specific file)
-    ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
-    ! really appear in the log
-
-    ! get file extension: ".nc"/".grb"
-    extn = TRIM(get_file_extension(of%output_type))
-
-    ! generate DDHHMMSS forecast time string (elapsed time)
-    rel_fct_time%calday  = 0
-    rel_fct_time%caltime = sim_time/86400._wp
-    CALL cly360day_to_date(rel_fct_time)
-    WRITE (ddhhmmss_str,"(i2.2,i2.2,i2.2,i2.2)") (rel_fct_time%day-1), rel_fct_time%hour, &
-      &                                           rel_fct_time%minute, INT(rel_fct_time%second)
-
-    ! Set actual output file name (insert keywords):
-    CALL associate_keyword("<path>",            TRIM(model_base_dir),                         keywords)
-    CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       keywords)
-    CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), keywords)
-    CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             keywords)
-    CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(of%ilev_type))),    keywords)
-    CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            keywords)
-    CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           keywords)
-    cfilename = TRIM(with_keywords(keywords, of%name_list%filename_format))
-
-    IF(my_process_is_mpi_test()) THEN
-      WRITE(of%filename,'(a,"_TEST",a)') TRIM(cfilename),TRIM(extn)
-    ELSE
-      WRITE(of%filename,'(a,a)') TRIM(cfilename),TRIM(extn)
-    ENDIF
-
-    IF (of%name_list%lwrite_ready) THEN
-      ! generate filename of ready file by stripping output filename from path,
-      ! adding ready file directory prefix and file extension ".rdy":
-      CALL associate_keyword("<path>",            TRIM(of%name_list%ready_directory),           rdy_keywords)
-      CALL associate_keyword("<output_filename>", TRIM(of%filename_pref),                       rdy_keywords)
-      CALL associate_keyword("<physdom>",         TRIM(int2string(of%phys_patch_id, "(i2.2)")), rdy_keywords)
-      CALL associate_keyword("<levtype>",         TRIM(lev_type_str(of%ilev_type)),             rdy_keywords)
-      CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(of%ilev_type))),    rdy_keywords)
-      CALL associate_keyword("<jfile>",           TRIM(int2string(jfile, "(i4.4)")),            rdy_keywords)
-      CALL associate_keyword("<ddhhmmss>",        TRIM(ddhhmmss_str),                           rdy_keywords)
-      cfilename = TRIM(with_keywords(rdy_keywords, of%name_list%filename_format))
-      WRITE (of%rdy_filename, '(a,".rdy")') TRIM(cfilename)
-    END IF
+    CHARACTER(LEN=filename_max)       :: filename
 
     ! open file:
-    of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
+    filename = TRIM(get_current_filename(of%out_event))
+    of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
       WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
       CALL message('',message_text,all_print=.TRUE.)
-      CALL finish (routine, 'open failed on '//TRIM(of%filename))
+      CALL finish (routine, 'open failed on '//TRIM(filename))
     ELSE
-      CALL message (routine, 'opened '//TRIM(of%filename),all_print=.TRUE.)
+      CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
     END IF
 
     ! assign the vlist (which must have ben set before)
@@ -307,6 +267,7 @@ CONTAINS
       END DO
 #endif
 ! __ICON_OCEAN_ONLY__
+
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
 
@@ -338,43 +299,6 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Create a "ready file"
-  !
-  !  A "ready file" is a technique for handling dependencies between
-  !  the NWP processes at DWD: When a program - parallel or
-  !  sequential, shell script or binary - produces some output which
-  !  is necessary for other running applications, then the completion
-  !  of the write process signals this by creating a small file (size:
-  !  a few bytes). Only when this file exists, the second program
-  !  starts reading its input data. Implicity, this assumes that a
-  !  file system creates (and closes) files in the same order as they
-  !  are written by the program.
-  !
-  !  Implementation of "ready files" in ICON:
-  !
-  !   "Ready files" get the name of the corresponding output file,
-  !   with extension ".rdy".
-  !
-  SUBROUTINE write_ready_file(of)
-    TYPE (t_output_file), INTENT(IN) :: of
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
-    INTEGER                       :: iunit
-
-    IF (msg_level >= 6) THEN
-      WRITE (message_text,*) "Write ready file ", TRIM(of%rdy_filename)
-      CALL message(routine,message_text)
-    END IF
-
-    ! actually create ready file:
-    iunit = find_next_free_unit(10,20)
-    OPEN (iunit, file=TRIM(of%rdy_filename), form='formatted')
-    WRITE(iunit, '(A)') 'ready'
-    CLOSE(iunit)
-  END SUBROUTINE write_ready_file
-
-
-  !------------------------------------------------------------------------------------------------
   !> Close output stream and the associated file,
   !  destroy all vlist related data for this file
   !
@@ -399,9 +323,6 @@ CONTAINS
 #endif
 
       CALL streamClose(of%cdiFileID)
-
-      ! write a "ready file", if required:
-      IF (of%name_list%lwrite_ready)  CALL write_ready_file(of)
     END IF
 
     of%cdiFileID = CDI_UNDEFID
@@ -446,212 +367,183 @@ CONTAINS
   !  This routine also cares about opening the output files the first time
   !  and reopening the files after a certain number of steps.
   !
-  SUBROUTINE write_name_list_output(datetime, sim_time, last_step, initial_step)
-
-    TYPE(t_datetime), INTENT(in)  :: datetime
-    REAL(wp), INTENT(in)          :: sim_time
-    LOGICAL, INTENT(IN)           :: last_step
-    LOGICAL, INTENT(IN),OPTIONAL  :: initial_step
+  SUBROUTINE write_name_list_output(jstep)
+    INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
-    REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
-
-    INTEGER                           :: i, idate, itime, iret, n, jg
+    INTEGER                           :: i, idate, itime, iret, jg
     TYPE(t_output_name_list), POINTER :: p_onl
+    TYPE(datetime),           POINTER :: mtime_datetime
     CHARACTER(LEN=filename_max+100)   :: text
-    LOGICAL                           :: lnewly_initialized = .FALSE.
-    LOGICAL                           :: l_output_file_active, l_is_initial_step
+    TYPE(t_par_output_event), POINTER :: ev
 
     IF (ltimer) CALL timer_start(timer_write_output)
-    ! If asynchronous I/O is enabled, the compute PEs have to make sure
-    ! that the I/O PEs are ready with the last output step before
-    ! writing data into the I/O memory window.
-    ! This routine (write_name_list_output) is also called from the I/O PEs,
-    ! but in this case the calling routine cares about the flow control.
-
-    l_is_initial_step = .FALSE.
-    CALL assign_if_present(l_is_initial_step, initial_step)
-
 #ifndef NOMPI
 #ifndef __ICON_OCEAN_ONLY__
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
         ! write recent samples of meteogram output
-#ifndef __ICON_OCEAN_ONLY__
         DO jg = 1, n_dom
           IF (meteogram_output_config(jg)%lenabled) THEN
             CALL meteogram_flush_file(jg)
           END IF
         END DO
-#endif
-! __ICON_OCEAN_ONLY__
+       
+        ! If asynchronous I/O is enabled, the compute PEs have to make
+        ! sure that the I/O PEs are ready with the last output step
+        ! before writing data into the I/O memory window.  This
+        ! routine (write_name_list_output) is also called from the I/O
+        ! PEs, but in this case the calling routine cares about the
+        ! flow control.
         CALL compute_wait_for_async_io()
       END IF
     ENDIF
-#else
-#ifndef __ICON_OCEAN_ONLY__
-    ! write recent samples of meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_flush_file(jg)
-      END IF
-    END DO
-#endif
-! __ICON_OCEAN_ONLY__
 #endif
 ! __ICON_OCEAN_ONLY__
 #endif
 ! NOMPI
 
-    ! Check if files have to be (re)opened
-
     ! Go over all output files
-    DO i = 1, SIZE(output_file)
-      l_output_file_active=(is_output_file_active(output_file(i), &
-        &                                         sim_time,       &
-        &                                         dtime,          &
-        &                                         i_sample,       &
-        &                                         last_step) .OR. l_is_initial_step )
+    OUTFILE_LOOP : DO i=1,SIZE(output_file)
+
+      ! Skip this output file if it is not due for output!
+      IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
+
+      ! -------------------------------------------------
+      ! Check if files have to be (re)opened
+      ! -------------------------------------------------
+      IF (check_open_file(output_file(i)%out_event) .AND.  &
+        & (output_file(i)%io_proc_id == p_pe)) THEN 
+        CALL setup_output_vlist(output_file(i))
+        CALL open_output_file(output_file(i))
+      END IF
+
+      ! -------------------------------------------------
+      ! Do the output
+      ! -------------------------------------------------
+
+      ! Notify user
+#ifndef __SX__
+      IF (output_file(i)%io_proc_id == p_pe) THEN
+        WRITE(text,'(a,a,a,a,a,i0)') &
+          & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
+          & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
+          & ' by PE ', p_pe
+        CALL message(routine, text,all_print=.TRUE.)
+      END IF
+#endif
+      IF (output_file(i)%io_proc_id == p_pe) THEN
+        ! convert time stamp string into
+        ! year/month/day/hour/minute/second values using the mtime
+        ! library:
+        CALL setCalendar(PROLEPTIC_GREGORIAN)
+        mtime_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
+        
+        idate = cdiEncodeDate(INT(mtime_datetime%date%year),   &
+          &                   INT(mtime_datetime%date%month),  &
+          &                   INT(mtime_datetime%date%day))
+        itime = cdiEncodeTime(INT(mtime_datetime%time%hour),   &
+          &                   INT(mtime_datetime%time%minute), &
+          &                   INT(mtime_datetime%time%second))
+        CALL deallocateDatetime(mtime_datetime)
+        CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
+        CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
+        iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
+        output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
+      END IF
 
       p_onl => output_file(i)%name_list
-
-      ! Check if output is due for this file
-      IF (l_output_file_active) THEN
-
-        IF (output_file(i)%io_proc_id == p_pe) THEN
-          IF (.NOT. output_file(i)%initialized) THEN
-            CALL setup_output_vlist(output_file(i))
-            lnewly_initialized = .TRUE.
-          ELSE
-            lnewly_initialized = .FALSE.
-          ENDIF
-        ENDIF
-
-        IF (lnewly_initialized .OR. &
-          & (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) .AND. p_onl%n_output_steps /= 0) THEN
-          IF (output_file(i)%io_proc_id == p_pe) THEN
-            IF(.NOT. lnewly_initialized) THEN
-              CALL close_output_file(output_file(i))
-            ENDIF
-            CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1, sim_time)
-          ENDIF
-        ENDIF
-
-      ENDIF
-
-    ENDDO
-
-    ! Do the output
-
-    idate = cdiEncodeDate(datetime%year, datetime%month, datetime%day)
-    itime = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
-
-    ! Go over all output files
-    DO i = 1, SIZE(output_file)
-
-      l_output_file_active=(is_output_file_active(output_file(i), &
-        &                                         sim_time,       &
-        &                                         dtime,          &
-        &                                         i_sample,       &
-        &                                         last_step) .OR. l_is_initial_step )
-
-      ! Check if output is due for this file
-      IF (l_output_file_active) THEN
-        IF (output_file(i)%io_proc_id == p_pe) THEN
-          CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
-          CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
-
-          iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
-          output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-
-          ! Notify user
-
-#ifndef __SX__
-          WRITE(text,'(a,a,a,1pg15.9,a,i6)') &
-            'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
-             ' by PE ',p_pe
-          CALL message(routine, text,all_print=.TRUE.)
-#endif
-! __SX__
-
-        ENDIF
-
-        p_onl => output_file(i)%name_list
-
-        IF(my_process_is_io()) THEN
+      IF(my_process_is_io()) THEN
 #ifndef NOMPI
-          IF(output_file(i)%io_proc_id == p_pe) THEN
-            CALL io_proc_write_name_list(output_file(i), &
-              &          (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
-          ENDIF
-#endif
-! NOMPI
-        ELSE
-          CALL write_name_list(output_file(i), &
-            &            (MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) )
+        IF(output_file(i)%io_proc_id == p_pe) THEN
+          CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
         ENDIF
+#endif 
+      ELSE
+        CALL write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
       ENDIF
 
-    ENDDO
+      ! -------------------------------------------------
+      ! Check if files have to be closed
+      ! -------------------------------------------------
 
-    ! Increase next_output_time for all output name lists which have been written.
-    ! Please note that more than 1 output_file may point to the same name_list,
-    ! so this must not be done in the loop above!
+      IF (check_close_file(output_file(i)%out_event) .AND.  &
+        & (output_file(i)%io_proc_id == p_pe)) THEN 
+        CALL close_output_file(output_file(i))
+      END IF
 
-    p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      ! -------------------------------------------------
+      ! hand-shake protocol: step finished!
+      ! -------------------------------------------------
+      CALL pass_output_step(output_file(i)%out_event)
 
-      IF (is_output_nml_active(p_onl, sim_time, dtime, i_sample, last_step, is_restart=is_restart_run())) THEN
-        p_onl%n_output_steps = p_onl%n_output_steps + 1
-      ENDIF
+    ENDDO OUTFILE_LOOP
 
-      ! Switch all name lists to next output time.
-      ! This is done in a DO WHILE loop to catch the case
-      ! where an output increment less than the time step
-      ! or two output_bounds triples which are too close are specified.
-
-      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, i_sample))
-        n = p_onl%cur_bounds_triple
-        IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
-          ! Next output time will be within current bounds triple
-          p_onl%next_output_time = p_onl%next_output_time + p_onl%output_bounds(3,n)
-        ELSE
-          ! the last bounds triple is always set to 0, so no need to check if n >= max_bounds
-          IF(p_onl%output_bounds(3,n+1) > 0._wp) THEN
-            ! Start to use next bounds triple
-            IF (.not. l_is_initial_step) THEN
-              p_onl%next_output_time = p_onl%output_bounds(1,n+1)
-            END IF
-          ELSE
-            ! Output is finished for this name list
-            p_onl%next_output_time = HUGE(0._wp)
-          ENDIF
-          p_onl%cur_bounds_triple = p_onl%cur_bounds_triple + 1
-        ENDIF
-      ENDDO
-
-      p_onl => p_onl%next
-
-    ENDDO
-
-    ! If asynchronous I/O is enabled, the compute PEs can now start the I/O PEs
+    ! If asynchronous I/O is enabled, the compute PEs can now start
+    ! the I/O PEs
 #ifndef NOMPI
-    IF(use_async_name_list_io) THEN
-      IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
-        CALL compute_start_async_io(datetime, sim_time, last_step)
-    ENDIF
+    IF (use_async_name_list_io  .AND. &
+      & .NOT.my_process_is_io() .AND. &
+      & .NOT.my_process_is_mpi_test()) CALL compute_start_async_io(jstep)
 #endif
-! NOMPI
 
-    ! Close output file when the related model domain has stopped execution
-    DO i = 1, SIZE(output_file)
-      IF (sim_time > output_file(i)%end_time) CALL close_output_file(output_file(i))
-    ENDDO
-
+    ! Handle incoming "output step completed" messages: After all
+    ! participating I/O PE's have acknowledged the completion of their
+    ! write processes, we trigger a "ready file" on the first I/O PE.
+    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      ev => all_events
+      HANDLE_COMPLETE_STEPS : DO
+        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+        IF (.NOT. is_output_step_complete(ev) .OR.  &
+          & is_output_event_finished(ev)) THEN 
+          ev => ev%next
+          CYCLE HANDLE_COMPLETE_STEPS
+        END IF         
+        !--- write ready file
+        IF (check_write_readyfile(ev%output_event)) THEN
+          CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
+        END IF
+        ! launch a non-blocking request to all participating PEs to
+        ! acknowledge the completion of the next output event
+        CALL trigger_output_step_irecv(ev)
+      END DO HANDLE_COMPLETE_STEPS
+    END IF
     IF (ltimer) CALL timer_stop(timer_write_output)
 
   END SUBROUTINE write_name_list_output
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Create a "ready file"
+  !
+  !  A "ready file" is a technique for handling dependencies between
+  !  the NWP processes at DWD: When a program - parallel or
+  !  sequential, shell script or binary - produces some output which
+  !  is necessary for other running applications, then the completion
+  !  of the write process signals this by creating a small file (size:
+  !  a few bytes). Only when this file exists, the second program
+  !  starts reading its input data. Implicity, this assumes that a
+  !  file system creates (and closes) files in the same order as they
+  !  are written by the program.
+  !
+  SUBROUTINE write_ready_file(rdy_filename)
+    CHARACTER(LEN=*), INTENT(IN) :: rdy_filename
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
+    INTEGER                       :: iunit
+
+    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      WRITE (0,*) 'Write ready file "', TRIM(rdy_filename), '"'
+    END IF
+
+    ! actually create ready file:
+    iunit = find_next_free_unit(10,20)
+    OPEN (iunit, file=TRIM(rdy_filename), form='formatted')
+    WRITE(iunit, '(A)') 'ready'
+    CLOSE(iunit)
+  END SUBROUTINE write_ready_file
 
 
   !------------------------------------------------------------------------------------------------
@@ -1072,29 +964,26 @@ CONTAINS
   !> Returns if it is time for the next output step
   !  Please note:
   !  This function returns .TRUE. whenever the next output time of any name list
-  !  is less or equal (sim_time+i_sample*dtime/2._wp).
-  !  It DOES NOT check if the step indicated at sim_time is an advection step.
-  !  THIS CHECK MUST BE DONE BY THE CALLER !!!!
+  !  is reached at the simulation step @p jstep.
   !
-  FUNCTION istime4name_list_output(sim_time) RESULT(retval)
+  FUNCTION istime4name_list_output(jstep) 
+    LOGICAL :: istime4name_list_output
+    INTEGER, INTENT(IN)   :: jstep            ! simulation time step
+    ! local variables
+    INTEGER :: i
+    LOGICAL :: ret, ret_local
 
-    REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
-    LOGICAL               :: retval
-
-    TYPE(t_output_name_list), POINTER :: p_onl
-
-    retval = .FALSE.
-
-    ! Go through all output name lists and check if next_output_time is reached
-
-    p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      IF (retval) EXIT
-      retval = is_output_nml_active(p_onl, sim_time, dtime, i_sample,is_restart=is_restart_run())
-      p_onl => p_onl%next
-    ENDDO
-
+    ret = .FALSE.
+    IF (ALLOCATED(output_file)) THEN
+       ! note: there may be cases where no output namelist has been
+       ! defined. thus we must check if "output_file" has been
+       ! allocated.
+       DO i = 1, SIZE(output_file)
+          ret_local = is_output_step(output_file(i)%out_event, jstep)
+          ret = ret .OR. ret_local
+       END DO
+    END IF
+    istime4name_list_output = ret
   END FUNCTION istime4name_list_output
 
 
@@ -1107,8 +996,9 @@ CONTAINS
 #ifdef NOMPI
   ! Just define the entry point of name_list_io_main_proc, it will never be called
 
-  SUBROUTINE name_list_io_main_proc(isample)
-    INTEGER, INTENT(in) :: isample
+  SUBROUTINE name_list_io_main_proc(sim_step_info, isample)
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    INTEGER,                INTENT(in) :: isample
   END SUBROUTINE name_list_io_main_proc
 
 #else
@@ -1118,15 +1008,17 @@ CONTAINS
   !> Main routine for I/O PEs.
   !  Please note that this routine never returns.
   !
-  SUBROUTINE name_list_io_main_proc(isample)
-    INTEGER, INTENT(in) :: isample
+  SUBROUTINE name_list_io_main_proc(sim_step_info, isample)
+    !> Data structure containing all necessary data for mapping an
+    !  output time stamp onto a corresponding simulation step index.
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    INTEGER,                INTENT(in) :: isample
     ! local variables:
 
 #ifndef __ICON_OCEAN_ONLY__
-    LOGICAL             :: done, last_step
-    TYPE(t_datetime)    :: datetime
-    REAL(wp)            :: sim_time
-    INTEGER             :: jg
+    LOGICAL             :: done
+    INTEGER             :: jg, jstep
+    TYPE(t_par_output_event), POINTER :: ev
 
     ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
@@ -1136,72 +1028,76 @@ CONTAINS
       STOP
     ENDIF
 
-#ifndef __ICON_OCEAN_ONLY__
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_init(meteogram_output_config(jg), jg)
       END IF
     END DO
-#endif
-! __ICON_OCEAN_ONLY__
 
     ! Initialize name list output, this is a collective call for all PEs
-
-    CALL init_name_list_output(isample=isample)
+    CALL init_name_list_output(sim_step_info, opt_isample=isample)
 
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_handshake
 
-#ifndef __ICON_OCEAN_ONLY__
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_flush_file(jg)
       END IF
     END DO
-#endif
-! __ICON_OCEAN_ONLY__
+
     ! Enter I/O loop
-
     DO
-
       ! Wait for a message from the compute PEs to start
-      CALL async_io_wait_for_start(done, datetime, sim_time, last_step)
-
+      CALL async_io_wait_for_start(done, jstep)
       IF(done) EXIT ! leave loop, we are done
 
       ! perform I/O
-      CALL write_name_list_output(datetime, sim_time, last_step)
+      CALL write_name_list_output(jstep)
 
       ! Inform compute PEs that we are done
       CALL async_io_send_handshake
 
-#ifndef __ICON_OCEAN_ONLY__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif
-! __ICON_OCEAN_ONLY__
-
     ENDDO
 
-    ! Finalization sequence:
+    ! Handle final pending "output step completed" messages: After all
+    ! participating I/O PE's have acknowledged the completion of their
+    ! write processes, we trigger a "ready file" on the first I/O PE.
+    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      ev => all_events
+      HANDLE_COMPLETE_STEPS : DO
+        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+        IF (.NOT. is_output_event_finished(ev)) THEN
+          CALL wait_for_pending_irecvs(ev)
+         
+          !--- write ready file
+          IF (check_write_readyfile(ev%output_event)) THEN
+            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
+          END IF
+        END IF
+        ev => ev%next
+      END DO HANDLE_COMPLETE_STEPS
+    END IF
 
+    ! Finalization sequence:
     CALL close_name_list_output
 
-#ifndef __ICON_OCEAN_ONLY__
     ! finalize meteogram output
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_finalize(jg)
       END IF
     END DO
-#endif
-! __ICON_OCEAN_ONLY__
+
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
@@ -1500,75 +1396,110 @@ CONTAINS
   ! ... called on IO procs:
 
   !-------------------------------------------------------------------------------------------------
-  !> Send a message to the compute PEs that the I/O is ready The
+  !> Send a message to the compute PEs that the I/O is ready. The
   !  counterpart on the compute side is compute_wait_for_async_io
   !
   SUBROUTINE async_io_send_handshake
-
+    ! local variables
     REAL(wp) :: msg
+    TYPE(t_par_output_event), POINTER :: ev
 
     ! make sure all are done
     CALL p_barrier(comm=p_comm_work)
 
     ! Simply send a message from I/O PE 0 to compute PE 0
+    ! 
+    ! Note: We have to do this in a non-blocking fashion in order to
+    !       receive "ready file" messages.
     IF(p_pe_work == 0) THEN
+      ! launch non-blocking receive request:
+      CALL p_wait()
       msg = REAL(msg_io_done, wp)
-      CALL p_send(msg, p_work_pe0, 0)
-    ENDIF
+      CALL p_isend(msg, p_work_pe0, 0)
+      DO 
+        ev => all_events
+        HANDLE_COMPLETE_STEPS : DO
+          IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+          IF (.NOT. is_output_step_complete(ev) .OR.  &
+            & is_output_event_finished(ev)) THEN 
+            ev => ev%next
+            CYCLE HANDLE_COMPLETE_STEPS
+          END IF
+          !--- write ready file
+          IF (check_write_readyfile(ev%output_event)) THEN
+            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
+          END IF
+          ! launch a non-blocking request to all participating PEs to
+          ! acknowledge the completion of the next output event
+          CALL trigger_output_step_irecv(ev)
+        END DO HANDLE_COMPLETE_STEPS
+
+        IF (p_test()) EXIT
+      END DO
+      CALL p_wait()
+    END IF
 
   END SUBROUTINE async_io_send_handshake
 
 
   !-------------------------------------------------------------------------------------------------
-  !> async_io_wait_for_start: Wait for a message from I/O PEs that we should start I/O or finish
-  !  The counterpart on the compute side is compute_start_io/compute_shutdown_io
+  !> async_io_wait_for_start: Wait for a message from work PEs that we
+  !  should start I/O or finish.  The counterpart on the compute side is
+  !  compute_start_io/compute_shutdown_io
   !
-  SUBROUTINE async_io_wait_for_start(done, datetime, sim_time, last_step)
-
+  SUBROUTINE async_io_wait_for_start(done, jstep)
     LOGICAL, INTENT(OUT)          :: done ! flag if we should shut down
-    TYPE(t_datetime), INTENT(OUT) :: datetime
-    REAL(wp), INTENT(OUT)         :: sim_time
-    LOGICAL, INTENT(OUT)          :: last_step
-
-    REAL(wp) :: msg(9)
+    INTEGER, INTENT(OUT)          :: jstep
+    ! local variables
+    REAL(wp) :: msg(2)
+    TYPE(t_par_output_event), POINTER :: ev
 
     ! Set output parameters to default values
-
-    done      = .FALSE.
-    datetime  = zero_datetime
-    sim_time  = 0._wp
-    last_step = .FALSE.
+    done  = .FALSE.
+    jstep = -1
 
     ! Receive message that we may start I/O (or should finish)
+    ! 
+    ! Note: We have to do this in a non-blocking fashion in order to
+    !       receive "ready file" messages.
+    IF(p_pe_work == 0) THEN
+      ! launch non-blocking receive request:
+      CALL p_wait()
+      CALL p_irecv(msg, p_work_pe0, 0)
+      DO 
+        ev => all_events
+        HANDLE_COMPLETE_STEPS : DO
+          IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+          IF (.NOT. is_output_step_complete(ev) .OR.  &
+            & is_output_event_finished(ev)) THEN 
+            ev => ev%next
+            CYCLE HANDLE_COMPLETE_STEPS
+          END IF
+          !--- write ready file
+          IF (check_write_readyfile(ev%output_event)) THEN
+            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
+          END IF
+          ! launch a non-blocking request to all participating PEs to
+          ! acknowledge the completion of the next output event
+          CALL trigger_output_step_irecv(ev)
+        END DO HANDLE_COMPLETE_STEPS
 
-    IF(p_pe_work == 0) CALL p_recv(msg, p_work_pe0, 0)
+        IF (p_test()) EXIT
+      END DO
+      CALL p_wait()
+    END IF
+
     CALL p_bcast(msg, 0, comm=p_comm_work)
-
+    
     SELECT CASE(INT(msg(1)))
-
     CASE(msg_io_start)
-
-      datetime%year   = INT(msg(2))
-      datetime%month  = INT(msg(3))
-      datetime%day    = INT(msg(4))
-      datetime%hour   = INT(msg(5))
-      datetime%minute = INT(msg(6))
-      datetime%second = msg(7)
-
-
-      sim_time = msg(8)
-
-      IF(msg(9) /= 0._wp) last_step = .TRUE.
-
+      jstep = INT(msg(2))
     CASE(msg_io_shutdown)
       done = .TRUE.
-
     CASE DEFAULT
       ! Anything else is an error
       CALL finish(modname, 'I/O PE: Got illegal I/O tag')
-
     END SELECT
-
   END SUBROUTINE async_io_wait_for_start
 
 
@@ -1580,7 +1511,6 @@ CONTAINS
   !  The counterpart on the I/O side is io_send_handshake
   !
   SUBROUTINE compute_wait_for_async_io
-
     REAL(wp) :: msg
 
     ! First compute PE receives message from I/O leader
@@ -1589,10 +1519,8 @@ CONTAINS
       ! Just for safety: Check if we got the correct tag
       IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
     ENDIF
-
     ! Wait in barrier until message is here
     CALL p_barrier(comm=p_comm_work)
-
   END SUBROUTINE compute_wait_for_async_io
 
 
@@ -1600,28 +1528,15 @@ CONTAINS
   !> compute_start_async_io: Send a message to I/O PEs that they should start I/O
   !  The counterpart on the I/O side is io_wait_for_start_message
   !
-  SUBROUTINE compute_start_async_io(datetime, sim_time, last_step)
-
-    TYPE(t_datetime), INTENT(IN) :: datetime
-    REAL(wp), INTENT(IN)         :: sim_time
-    LOGICAL, INTENT(IN)          :: last_step
-
-    REAL(wp) :: msg(9)
+  SUBROUTINE compute_start_async_io(jstep)
+    INTEGER, INTENT(IN)          :: jstep
+    ! local variables
+    REAL(wp) :: msg(2)
 
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
-
     msg(1) = REAL(msg_io_start,    wp)
-    msg(2) = REAL(datetime%year,   wp)
-    msg(3) = REAL(datetime%month,  wp)
-    msg(4) = REAL(datetime%day,    wp)
-    msg(5) = REAL(datetime%hour,   wp)
-    msg(6) = REAL(datetime%minute, wp)
-    msg(7) = datetime%second
-    msg(8) = sim_time
-    msg(9) = MERGE(1._wp, 0._wp, last_step)
-
+    msg(2) = REAL(jstep,           wp)
     IF(p_pe_work==0) CALL p_send(msg, p_io_pe0, 0)
-
   END SUBROUTINE compute_start_async_io
 
 
@@ -1630,16 +1545,12 @@ CONTAINS
   !  The counterpart on the I/O side is io_wait_for_start_message
   !
   SUBROUTINE compute_shutdown_async_io
-
-    REAL(wp) :: msg(9)
+    REAL(wp) :: msg(2)
 
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
-
     msg(1) = REAL(msg_io_shutdown, wp)
     msg(2:) = 0._wp
-
     IF(p_pe_work==0) CALL p_send(msg, p_io_pe0, 0)
-
   END SUBROUTINE compute_shutdown_async_io
 
   !-------------------------------------------------------------------------------------------------

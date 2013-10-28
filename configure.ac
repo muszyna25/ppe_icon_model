@@ -64,16 +64,14 @@ else
 fi
 
 AC_ARG_WITH([mtime],
-  [AS_HELP_STRING([--with-mtime],
-    [enable use of mtime for development/prototyping])],
+  [AS_HELP_STRING([--without-mtime],
+    [disable use of mtime])],
     [],
     [])
 
-if test x$with_mtime != x; then
-    use_mtime="yes"
-else
-    use_mtime="no"
-fi
+AS_IF([test "x$with_mtime" != "xno"],
+      [use_mtime="yes"],
+      [use_mtime="no"])
 
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
@@ -735,6 +733,7 @@ AC_SUBST(ARFLAGS,$ARFLAGS)
 
 AC_SUBST(CFLAGS,$CFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
+AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
 AC_SUBST(LIB,$ac_libs)

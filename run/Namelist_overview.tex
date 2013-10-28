@@ -3784,10 +3784,75 @@ separate attributes for output.
 \begin{longtab}
 
 \hline
+ dom(:) &
+I&-1& &
+ Array of domains for which this name-list is used.
+ If not specified (or specified as -1 as the first array member),
+ this name-list will be used for all domains. \\
+ Attention: Depending on the setting of the parameter l\_output\_phys\_patch
+ these are either logical or physical domain numbers!
+&
+\tabularnewline
+
+\hline
+ filename\_format &
+C&see description.& &
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
+ Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
+&
+\tabularnewline
+
+\hline
 filetype &
 I&4& &
 One of CDI's FILETYPE\_XXX constants.
 Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
+&
+\tabularnewline
+
+\hline
+ h\_levels(:) &
+R&None& m &
+ height levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ hl\_varlist(:) &
+C&None& &
+ Name of height level fields to be output.
+&
+\tabularnewline
+
+\hline
+ i\_levels(:) &
+R&None& K &
+ isentropic levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ il\_varlist(:) &
+C&None& &
+ Name of isentropic level fields to be output.
+&
+\tabularnewline
+
+\hline
+ include\_last &
+L&.TRUE.& &
+ Flag whether to include the last time step
+&
+\tabularnewline
+
+\hline
+ ml\_varlist(:) &
+C&None& &
+ Name of model level fields to be output.
 &
 \tabularnewline
 
@@ -3803,60 +3868,18 @@ I&2& &
 \tabularnewline
 
 \hline
- taxis\_tunit &
-I&3& &
- 3 = TUNIT\_HOUR , 2 = TUNIT\_MINUTE \\
- Time unit of the TAXIS\_RELATIVE time axis.
- For a complete list of possible values see cdi.inc
- Till now it only works for taxis\_tunit=3
-& mode=1
-\tabularnewline
-
-\hline
- dom(:) &
-I&-1& &
- Array of domains for which this name-list is used.
- If not specified (or specified as -1 as the first array member),
- this name-list will be used for all domains. \\
- Attention: Depending on the setting of the parameter l\_output\_phys\_patch
- these are either logical or physical domain numbers!
-&
-\tabularnewline
-
-\hline
- output\_time\_unit &
-I&1& &
- 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+ north\_pole(2) &
+R&0,90& &
+ definition of north pole for rotated lon-lat grids.
 &
 \tabularnewline
 
 \hline
  output\_bounds(3,:) &
 R&None& &
- post-processing times in units defined by output\_time\_unit: start, end, increment.
- There may be specified several triples (up to 100) which must be in increasing order.
-&
-\tabularnewline
-
-\hline
- steps\_per\_file &
-I&100& &
- Max number of output steps in one output file. If this number is reached, a new output
- file will be opened.
-&
-\tabularnewline
-
-\hline
- include\_last &
-L&.TRUE.& &
- Flag whether to include the last time step
-&
-\tabularnewline
-
-\hline
- output\_grid &
-L&.FALSE.& &
- Flag whether grid information is output (in NetCDF output)
+ Post-processing times (in seconds): start, end, increment.
+ See namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval}
+ for an alternative specification of output events.
 &
 \tabularnewline
 
@@ -3870,31 +3893,42 @@ C&None& &
 \tabularnewline
 
 \hline
- filename\_format &
-C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
- Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
-&
-\tabularnewline
-
-\hline
- lwrite\_ready &
+ output\_grid &
 L&.FALSE.& &
- Flag if a "ready file" (sentinel file) should be written at the end of each output stage.
+ Flag whether grid information is output (in NetCDF output)
 &
 \tabularnewline
 
 \hline
- ready\_directory &
-C&None& &
- Output directory for ready files.
+ output\_end &
+C&\'' \''& &
+ ISO8601 time stamp for end of output.
+ See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
 
 \hline
- ml\_varlist(:) &
-C&None& &
- Name of model level fields to be output.
+ output\_interval &
+C&\'' \''& &
+ ISO8601 time stamp for repeating output intervals.
+ See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
+&
+\tabularnewline
+
+\hline
+ output\_start &
+C&\'' \''& &
+ ISO8601 time stamp for begin of output.
+ See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
+&
+\tabularnewline
+
+\hline
+ p\_levels(:) &
+R&None& hPa &
+ pressure levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 
@@ -3906,53 +3940,23 @@ C&None& &
 \tabularnewline
 
 \hline
- hl\_varlist(:) &
-C&None& &
- Name of height level fields to be output.
-&
-\tabularnewline
-
-
-\hline
- il\_varlist(:) &
-C&None& &
- Name of isentropic level fields to be output.
+ ready\_file &
+ C & \''default\'' & &
+ A \emph{ready file} is a technique for handling dependencies between the NWP processes.
+ The completion of the write process is signalled by creating a small file 
+ with name \texttt{ready\_file} and the output date appended.
+ Different \texttt{output\_nml}'s may be joined together to form a single ready file event.
+ The setting of \texttt{ready\_file = "default"} does not create a ready file.
 &
 \tabularnewline
 
 \hline
- p\_levels(:) &
-R&None& hPa &
- pressure levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
-
+ reg\_lat\_def(3) &
+R&None& &
+ start, increment, end latitude in degrees.
+ See reg\_lon\_def for details.
 &
-\tabularnewline
-
-\hline
- h\_levels(:) &
-R&None& m &
- height levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
-&
-\tabularnewline
-
-\hline
- i\_levels(:) &
-R&None& K &
- isentropic levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
-&
-\tabularnewline
-
-\hline
- remap &
-I&0& &
- interpolate horizontally, 0: none, 1: to regular lat-lon grid
-&
+remap=1
 \tabularnewline
 
 \hline
@@ -3968,19 +3972,28 @@ remap=1
 \tabularnewline
 
 \hline
- reg\_lat\_def(3) &
-R&None& &
- start, increment, end latitude in degrees.
- See reg\_lon\_def for details.
+ remap &
+I&0& &
+ interpolate horizontally, 0: none, 1: to regular lat-lon grid
 &
-remap=1
 \tabularnewline
 
 \hline
- north\_pole(2) &
-R&0,90& &
- definition of north pole for rotated lon-lat grids.
+ steps\_per\_file &
+I&100& &
+ Max number of output steps in one output file. If this number is reached, a new output
+ file will be opened.
 &
+\tabularnewline
+
+\hline
+ taxis\_tunit &
+I&3& &
+ 3 = TUNIT\_HOUR , 2 = TUNIT\_MINUTE \\
+ Time unit of the TAXIS\_RELATIVE time axis.
+ For a complete list of possible values see cdi.inc
+ Till now it only works for taxis\_tunit=3
+& mode=1
 \tabularnewline
 
 \hline
@@ -6095,6 +6108,24 @@ model expects {\bf height based} coordinates. For further information see <icon 
    \item The above-mentioned namelist parameter \textbf{l\_ana\_sfc} has been replaced by \textbf{lread\_ana}. The default 
          is set to .TRUE., meaning that analysis fields are required and read on default. With lread\_ana=.FALSE. ICON is able to start from 
          first guess fields only.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: lwrite\_ready, ready\_directory}{ 2013-10-25 }{}
+  \begin{itemize}
+   \item The namelist parameters \textbf{lwrite\_ready} and \textbf{ready\_directory} have been replaced
+         by a single namelist parameter \textbf{ready\_file}, where \texttt{ready\_file /= 'default'} enables
+         writing ready files. 
+   \item Different \texttt{output\_nml}'s may be joined together to form a single ready file event -- they
+         share the same \texttt{ready\_file}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: output\_bounds }{ 2013-10-25 }{}
+  \begin{itemize}
+   \item The namelist parameter \textbf{output\_bounds} specifies a start, end, and increment of 
+         output invervals.
+         It does no longer allow multiple triples.
   \end{itemize}
 \end{changeitem}
 

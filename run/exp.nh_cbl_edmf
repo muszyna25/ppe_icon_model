@@ -195,8 +195,7 @@ efdt_min_raylfric            = 7200.
 &output_nml
  filetype         = 4
  dom              = -1
- output_time_unit = 2
- output_bounds    = 0.,360.,30.   !start, end, increment
+ output_bounds    = 0.,21600.,1800.   !start, end, increment
  steps_per_file   = 1
  include_last     = .TRUE.
  remap            = 0   ! triangular grid

@@ -190,7 +190,6 @@ rbf_vec_scale_ll = 0.001
 ! filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
 ! mode               = 1
 ! dom                = -1                   ! output for all subdomains
-! output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
 ! output_bounds      = 0., 36000., 1800. ! start, end, increment
 ! steps_per_file     = 21
 ! include_last       = .TRUE.
@@ -208,7 +207,6 @@ rbf_vec_scale_ll = 0.001
  filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
  mode               = 1
  dom                = -1                   ! output for all subdomains
- output_time_unit   = 1                    ! 1: seconds, 2: minute, 3: hour, 4: day, 5: month, 6: year
  output_bounds      = 0., 36000., 1800. ! start, end, increment
  steps_per_file     = 21
  include_last       = .TRUE.

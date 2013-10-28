@@ -93,6 +93,7 @@ foreach $dir ( @directories ) {
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
 	    @subdirs = split(/\//, $dir);
+	    print MAKEFILE "SHELL = /bin/bash\n\n";
 	    print MAKEFILE "LIB  = $subdirs[1]\n\n";
 	    $add_vpath_level = 2;
 	} else {
@@ -127,9 +128,16 @@ foreach $dir ( @directories ) {
     print MAKEFILE "\t\$(F77) \$(F77FLAGS) -c \$<\n";
     print MAKEFILE "\n";
 
-    print MAKEFILE "%.o: %.f90\n";
-    print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
-    print MAKEFILE "\n";
+    if (($dir =~ m/^externals/) && ($target =~ /^sx/)) {
+	print MAKEFILE "\n";
+	print MAKEFILE "%.o: %.f90\n";
+	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
+	print MAKEFILE "\n\n";
+    } else {	
+	print MAKEFILE "%.o: %.f90\n";
+	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
+	print MAKEFILE "\n";
+    }
 
 #     print MAKEFILE "%.obj: %.f90\n";
 #     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
@@ -174,6 +182,7 @@ foreach $dir ( @directories ) {
     }
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
+	    print MAKEFILE ".PHONY: \$(LIB)\n\n";
 	    print MAKEFILE "all: \$(LIB)\n\n";
 	    print MAKEFILE "\$(LIB): ../../../lib/lib\$(LIB).a\n";
 	} else {
@@ -185,12 +194,14 @@ foreach $dir ( @directories ) {
 	&PrintWords (13, 0, @target_all);
     }
     print MAKEFILE "\n\n";
-    
+
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
 	    print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
-	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n\n";
-            print MAKEFILE "\n\n";
+	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
+            print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
+            print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
+            print MAKEFILE "\t done\n\n";
 	    $include_dir = $dir;
 	    $include_dir =~ s/src/include/;
             print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
@@ -209,14 +220,16 @@ foreach $dir ( @directories ) {
 	}
 
     } else {
+	print MAKEFILE ".PHONY: version.c\n\n";
+	print MAKEFILE "version.c:\n";
+	print MAKEFILE "\t../../../config/pvcs.pl --srcdir ../../..\n\n";
+	print MAKEFILE "version.o: version.c\n\n";
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
 	    print MAKEFILE "$okey: $value\n";
-	    print MAKEFILE "$key: $okey \$(OBJS)\n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/\$@ \$< \$(OBJS) \$(LIBS)\n";
-# 	    print MAKEFILE "$key.exe: \n";
-# 	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/$key $key.o \$< \$(OBJS) \$(LIBS)\n\n";
+	    print MAKEFILE "$key: $okey \$(OBJS) version.o\n";
+	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/\$@ \$< \$(OBJS) version.o \$(LIBS)\n";
 	}
     }
     
@@ -249,6 +262,7 @@ foreach $dir ( @directories ) {
 	for $i ( 0 .. $#modules) {		 
 	    my ($ofile) = $module_definitions{$modules[$i]};
 	    $ofile =~ s/f90$/o/;
+	    next if $object =~$ofile;
 	    push @dependencies, $ofile;
 	}
 	print MAKEFILE "$object: $file ";

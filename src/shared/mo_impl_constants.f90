@@ -471,7 +471,6 @@ MODULE mo_impl_constants
     max_var_pl     = 100, & ! maximum number of pressure-level variables
     max_var_hl     = 100, & ! maximum number of height-level variables
     max_var_il     = 100, & ! maximum number of variables on isentropes
-    max_bounds     = 100, & ! maximum number of output_bounds
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 

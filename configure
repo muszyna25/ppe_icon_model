@@ -630,6 +630,7 @@ SRCDIRS
 MODDIR
 LIB
 F77FLAGS
+FlibFLAGS
 FFLAGS
 ARFLAGS
 F77
@@ -1369,7 +1370,7 @@ Optional Packages:
   --with-fortran=COMPILER select_available compiler (see README.compiler)
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-setup=<name>     use user specific setup (mh_setup)
-  --with-mtime            enable use of mtime for development/prototyping
+  --without-mtime         disable use of mtime
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
   --with-zlib=DIR         Required I/O package
@@ -2329,10 +2330,10 @@ if test "${with_mtime+set}" = set; then :
 fi
 
 
-if test x$with_mtime != x; then
-    use_mtime="yes"
+if test "x$with_mtime" != "xno"; then :
+  use_mtime="yes"
 else
-    use_mtime="no"
+  use_mtime="no"
 fi
 
 
@@ -5783,6 +5784,8 @@ ARFLAGS=$ARFLAGS
 CFLAGS=$CFLAGS
 
 FFLAGS=$FFLAGS
+
+FlibFLAGS=$FlibFLAGS
 
 F77FLAGS=$F77FLAGS
 

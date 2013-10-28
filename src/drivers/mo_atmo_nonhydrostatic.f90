@@ -86,13 +86,16 @@ USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-  &                               is_any_output_nml_active
+  &                               is_variable_in_output
 USE mo_name_list_output_init, ONLY: init_name_list_output, &
   &                               parse_variable_groups
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
+USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
+USE mo_mtime_extensions,    ONLY: get_datetime_string
+USE mo_output_event_types,  ONLY: t_sim_step_info
 
 !-------------------------------------------------------------------------
 
@@ -140,13 +143,14 @@ CONTAINS
   SUBROUTINE construct_atmo_nonhydrostatic
     
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
-    
 
     INTEGER :: jg, ist
     LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
+    TYPE(t_sim_step_info) :: sim_step_info  
+    INTEGER :: jstep0
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -208,8 +212,8 @@ CONTAINS
 
     ! Now allocate memory for the states
     DO jg=1,n_dom
-      l_pres_msl(jg) = is_any_output_nml_active(first_output_name_list, &
-        &                                 dtime=dtime, iadv_rcf=iadv_rcf, var_name="pres_msl")
+      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, &
+        &                                    var_name="pres_msl")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl)
@@ -219,8 +223,8 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg) = is_any_output_nml_active(first_output_name_list, &
-          &                                 dtime=dtime, iadv_rcf=iadv_rcf, var_name="rh")
+        l_rh(jg) = is_variable_in_output(first_output_name_list, &
+          &                              var_name="rh")
       END DO
       CALL construct_nwp_phy_state( p_patch(1:), l_rh )
     ENDIF
@@ -343,7 +347,6 @@ CONTAINS
       ! initial conditions.
 
       jfile = 1
-
     ELSE
     ! No need to write out the initial condition, thus no output
     ! during the first integration step. This run will produce
@@ -371,9 +374,20 @@ CONTAINS
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
-      CALL init_name_list_output(isample=iadv_rcf)
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      ! compute sim_start, sim_end
+      CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+      CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+      sim_step_info%dtime     = dtime
+      sim_step_info%iadv_rcf  = iadv_rcf
+      jstep0 = 0
+      IF (is_restart_run()) THEN
+        ! get start counter for time loop from restart file:
+        CALL get_restart_attribute("jstep", jstep0)
+      END IF
+      sim_step_info%jstep0    = jstep0
+      CALL init_name_list_output(sim_step_info, opt_isample=iadv_rcf)
     END IF
-
 
     ! for debug purpose: print var lists
     IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN

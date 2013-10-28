@@ -66,6 +66,9 @@ MODULE mo_atmo_hydrostatic
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
   USE mo_parallel_config,      ONLY: use_icon_comm
+  USE mo_mtime_extensions,     ONLY: get_datetime_string
+  USE mo_output_event_types,   ONLY: t_sim_step_info
+  USE mtime,                   ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
 
   IMPLICIT NONE
@@ -123,6 +126,8 @@ CONTAINS
     INTEGER :: jg
 
     CHARACTER(*), PARAMETER :: method_name = "construct_atmo_hydrostatic"
+    TYPE(t_sim_step_info) :: sim_step_info  
+    INTEGER :: jstep0
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
@@ -180,7 +185,19 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL init_name_list_output
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      ! compute sim_start, sim_end
+      CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+      CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+      sim_step_info%dtime     = dtime
+      sim_step_info%iadv_rcf  = 1
+      jstep0 = 0
+      IF (is_restart_run()) THEN
+        ! get start counter for time loop from restart file:
+        CALL get_restart_attribute("jstep", jstep0)
+      END IF
+      sim_step_info%jstep0    = jstep0
+      CALL init_name_list_output(sim_step_info)
     ENDIF
 
     IF (.NOT.is_restart_run()) THEN
@@ -196,7 +213,7 @@ CONTAINS
           ! initial state is now written because sim_time=0._wp is lower than start time of output_bounds.
           ! This should be replaced by an explicit handling of "first_step" similar to "last_step" in
           ! mo_name_list_output, similar to lwrite_inital for vlist output.
-          CALL write_name_list_output( time_config%cur_datetime, 0._wp, .TRUE. )
+          CALL write_name_list_output(jstep=0)
         ENDIF
 
       ENDIF

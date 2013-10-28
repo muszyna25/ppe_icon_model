@@ -17,11 +17,13 @@ MODULE mo_name_list_output_types
   USE mo_kind,                  ONLY: wp, i8
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
-    &                                 MAX_TIME_LEVELS, max_bounds, max_levels
+    &                                 MAX_TIME_LEVELS, max_levels
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_communication,         ONLY: t_comm_pattern
+  USE mtime,                    ONLY: MAX_DATETIME_STR_LEN
+  USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
 
   IMPLICIT NONE
 
@@ -46,7 +48,10 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_rptr_5d
   PUBLIC :: t_iptr_5d
   PUBLIC :: t_var_desc
+  PUBLIC :: t_fname_metadata
   PUBLIC :: t_output_file
+  ! global variables
+  PUBLIC :: all_events
 
 
   !------------------------------------------------------------------------------------------------
@@ -186,22 +191,28 @@ MODULE mo_name_list_output_types
 
     INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
     INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
-    INTEGER          :: output_time_unit            ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
     INTEGER          :: steps_per_file              ! Max number of output steps in one output file
     LOGICAL          :: include_last                ! Flag whether to include the last timestep in output
     LOGICAL          :: output_grid                 ! Flag whether grid information is output (in NetCDF output)
 
-    ! post-processing times in units defined by output_time_unit: start, end, increment:
-    REAL(wp)         :: output_bounds(3,max_bounds) 
-
     INTEGER          :: taxis_tunit   ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
 
-    ! --------------------
-    ! ready file handling
-    ! --------------------
+    !> There are two alternative implementations for setting the
+    !  output intervals, "output_bounds" and "output_start" /
+    !  "output_end" / "output_interval". The former defines the output
+    !  events relative to the simulation start (in seconds) and the
+    !  latter define the output events by setting ISO8601-conforming
+    !  date-time strings.
+    REAL(wp)                            :: output_bounds(3)
 
-    LOGICAL                     :: lwrite_ready     ! Flag. TRUE if a "ready file" (sentinel file) should be written
-    CHARACTER(LEN=filename_max) :: ready_directory  ! output directory for ready files
+    !> Output event steps happen at regular intervals. These are given
+    !  by an interval size and the time stamps for begin and end.
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: output_start,     &
+      &                                    output_end,       &
+      &                                    output_interval
+
+    !> ready filename prefix (=output event name)
+    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file
 
     ! --------------------
     ! variable lists
@@ -232,9 +243,6 @@ MODULE mo_name_list_output_types
     ! Internal members, not read from input
     ! -------------------------------------
 
-    INTEGER  :: cur_bounds_triple     ! current output_bounds triple in use
-    REAL(wp) :: next_output_time      ! next output time (in seconds simulation time)
-    INTEGER  :: n_output_steps
     TYPE(t_output_name_list), POINTER :: next ! Pointer to next output_name_list
   END TYPE t_output_name_list
 
@@ -260,33 +268,44 @@ MODULE mo_name_list_output_types
   END TYPE t_var_desc
 
 
+  !> Data structure containing additional meta-data for generating
+  !> an output filename.
+  !
+  TYPE t_fname_metadata
+    INTEGER                               :: steps_per_file                   !< no. of output steps per file
+    INTEGER                               :: phys_patch_id                    !< ID of physical output patch
+    INTEGER                               :: ilev_type                        !< level_type_ml/_pl/_hl/_il
+    CHARACTER(LEN=FILENAME_MAX)           :: filename_format                  !< output filename format (contains keywords)
+    CHARACTER(LEN=FILENAME_MAX)           :: filename_pref                    !< Prefix of output file name
+    CHARACTER(LEN=16)                     :: extn                             !< filename extension
+  END TYPE t_fname_metadata
+
+
   TYPE t_output_file
     ! The following data must be set before opening the output file:
-    CHARACTER(LEN=filename_max) :: filename_pref ! Prefix of output file name
-    INTEGER                     :: output_type   ! CDI format
-    INTEGER                     :: phys_patch_id ! ID of physical output patch
-    INTEGER                     :: log_patch_id  ! ID of logical output patch
-    REAL(wp)                    :: start_time    ! start time of model domain
-    REAL(wp)                    :: end_time      ! end time of model domain
-    LOGICAL                     :: initialized   ! .TRUE. if vlist setup has already been called
-    INTEGER                     :: ilev_type     ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
-    INTEGER                     :: max_vars      ! maximum number of variables allocated
-    INTEGER                     :: num_vars      ! number of variables in use
-    TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
-    TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
 
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
+    TYPE(t_par_output_event), POINTER :: out_event            ! data structure for parallel output events
 
-    INTEGER                     :: remap         ! Copy of remap from associated namelist
-    INTEGER                     :: io_proc_id    ! ID of process doing I/O on this file
+    CHARACTER(LEN=filename_max)       :: filename_pref        ! Prefix of output file name
+    INTEGER                           :: output_type          ! CDI format
+    INTEGER                           :: phys_patch_id        ! ID of physical output patch
+    INTEGER                           :: log_patch_id         ! ID of logical output patch
+    INTEGER                           :: ilev_type            ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    INTEGER                           :: max_vars             ! maximum number of variables allocated
+    INTEGER                           :: num_vars             ! number of variables in use
+    TYPE(t_var_desc),ALLOCATABLE      :: var_desc(:)
+    TYPE(t_output_name_list), POINTER :: name_list            ! Pointer to corresponding output name list
+
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:)    ! mapping internal names -> names in NetCDF
+
+    INTEGER                           :: remap                ! Copy of remap from associated namelist
+    INTEGER                           :: io_proc_id           ! ID of process doing I/O on this file
 
     ! Used for async IO only
-    INTEGER(i8)                 :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE    :: mem_win_off(:)
+    INTEGER(i8)                       :: my_mem_win_off
+    INTEGER(i8), ALLOCATABLE          :: mem_win_off(:)
 
     ! The following members are set during open
-    CHARACTER(LEN=filename_max) :: filename           ! Actual name of output file
-    CHARACTER(LEN=filename_max) :: rdy_filename       ! Actual name of ready file (if any)
     INTEGER                     :: cdiFileId
     INTEGER                     :: cdiVlistId         ! cdi vlist handler
     INTEGER                     :: cdiCellGridID
@@ -299,5 +318,11 @@ MODULE mo_name_list_output_types
     INTEGER                     :: cdiInstID      ! output generating institute
     INTEGER                     :: cdi_grb2(3,2)  !< geographical position: (GRID, latitude/longitude)
   END TYPE t_output_file
+
+  ! "all_events": The root I/O MPI rank "ROOT_OUTEVENT" asks all
+  ! participating I/O PEs for their output event info and generates a
+  ! unified output event, indicating which PE performs a write process
+  ! at which step:
+  TYPE(t_par_output_event), POINTER :: all_events
 
 END MODULE mo_name_list_output_types

@@ -1,6 +1,6 @@
 export
 
-SHELL = /bin/sh
+SHELL = /bin/bash
 
 ARCH = @ARCH@
 OS   = @OS@
@@ -57,6 +57,7 @@ CC             = @CC@
 CFLAGS         = $(INCLUDE) @CFLAGS@
 FC             = @FC@
 FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
+FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
 F77            = @F77@
 F77FLAGS       = @F77FLAGS@
 

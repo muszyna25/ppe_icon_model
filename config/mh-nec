@@ -33,7 +33,7 @@ OMPFLAGS =  -P openmp
 FTRFLAGS = -ftrace 
 
 # Fortran base flags
-BASEFLAGS =  -f2003 -DHAVE_LIBNETCDF $URDEPTHS
+BASEFLAGS =  -f2003 cptr_i8 -DHAVE_LIBNETCDF $URDEPTHS
 
 # Optimization
 OPTFLAGS =  -Chopt -Wf,-pvctl chgpwr
@@ -109,8 +109,8 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=no
 
-    CFLAGS   = $CFLAGS -sx8r -DNOMPI
-    FFLAGS   =         -sx8r -DNOMPI
+    CFLAGS     = $CFLAGS -sx8r -DNOMPI
+    FbaseFLAGS =         -sx8r -DNOMPI
     ;;
 
 *sx8omp)
@@ -119,8 +119,8 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=yes
 
-    CFLAGS   = $CFLAGS -sx8r -DNOMPI
-    FFLAGS   =         -sx8r -DNOMPI $OMPFLAGS
+    CFLAGS     = $CFLAGS -sx8r -DNOMPI
+    FbaseFLAGS =         -sx8r -DNOMPI $OMPFLAGS
 
     ;;
 
@@ -130,8 +130,8 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=no
 
-    CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI
+    CFLAGS     = $CFLAGS -DNOMPI
+    FbaseFLAGS =    -sx9 -DNOMPI
 
     ;;
 
@@ -141,9 +141,9 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=no
 
-    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
-    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS -DNOMPI $FTRFLAGS
+    FbaseFLAGS =    -sx9 -DNOMPI $FTRFLAGS
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
     ;;
 
 *sx9omp)
@@ -152,8 +152,8 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=yes
 
-    CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI $OMPFLAGS
+    CFLAGS     = $CFLAGS -DNOMPI
+    FbaseFLAGS =    -sx9 -DNOMPI $OMPFLAGS
 
     ;;
 
@@ -163,9 +163,9 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=yes
 
-    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
-    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS -DNOMPI $FTRFLAGS
+    FbaseFLAGS =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
     ;;
 
 *sx9debug)
@@ -174,9 +174,9 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=no
 
-    CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP
-    LDFLAGS  = $LDFLAGS $LDDEBUG
+    CFLAGS     = $CFLAGS -DNOMPI
+    FbaseFLAGS =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP
+    LDFLAGS    = $LDFLAGS $LDDEBUG
 
     ;;
 
@@ -186,9 +186,9 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=yes
 
-    CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP $OMPFLAGS
-    LDFLAGS  = $LDFLAGS $LDDEBUG
+    CFLAGS     = $CFLAGS -DNOMPI
+    FbaseFLAGS =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP $OMPFLAGS
+    LDFLAGS    = $LDFLAGS $LDDEBUG
 
     ;;
 
@@ -202,8 +202,8 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS
-    FFLAGS   =    -sx9
+    CFLAGS     = $CFLAGS
+    FbaseFLAGS =    -sx9
 
     ;;
 
@@ -217,9 +217,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS $FTRFLAGS
-    FFLAGS   =    -sx9 $FTRFLAGS
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS $FTRFLAGS
+    FbaseFLAGS =    -sx9 $FTRFLAGS
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
 
     ;;
 
@@ -233,8 +233,8 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS
-    FFLAGS   =    -sx9 $OMPFLAGS
+    CFLAGS     = $CFLAGS
+    FbaseFLAGS =    -sx9 $OMPFLAGS
 
     ;;
 
@@ -248,9 +248,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS $FTRFLAGS
-    FFLAGS   =    -sx9 $FTRFLAGS $OMPFLAGS
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS $FTRFLAGS
+    FbaseFLAGS =    -sx9 $FTRFLAGS $OMPFLAGS
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
 
     ;;
 
@@ -264,9 +264,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS
-    FFLAGS   = -Cdebug -sx9 $DEBUGFLAGS $FPTRAP
-    LDFLAGS  = $LDFLAGS $LDDEBUG
+    CFLAGS     = $CFLAGS
+    FbaseFLAGS = -Cdebug -sx9 $DEBUGFLAGS $FPTRAP
+    LDFLAGS    = $LDFLAGS $LDDEBUG
 
     ;;
 
@@ -280,9 +280,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS
-    FFLAGS   =    -sx9 $DEBUGFLAGS $FPTRAP -eC
-    LDFLAGS  = $LDFLAGS $LDDEBUG
+    CFLAGS     = $CFLAGS
+    FbaseFLAGS =    -sx9 $DEBUGFLAGS $FPTRAP -eC
+    LDFLAGS    = $LDFLAGS $LDDEBUG
 
     ;;
 
@@ -296,9 +296,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS
-    FFLAGS   =    -sx9 $DEBUGFLAGS $FPTRAP
-    LDFLAGS  = $LDFLAGS $LDDEBUG $OMPFLAGS
+    CFLAGS     = $CFLAGS
+    FbaseFLAGS =    -sx9 $DEBUGFLAGS $FPTRAP
+    LDFLAGS    = $LDFLAGS $LDDEBUG $OMPFLAGS
 
     ;;
 
@@ -312,9 +312,9 @@ case "$mh_setup" in
     F77      = sxmpif90
     CC       = sxmpic++
 
-    CFLAGS   = $CFLAGS $FTRFLAGS
-    FFLAGS   =    -sx9 $FTRFLAGS -D__ICON_ART
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS $FTRFLAGS
+    FbaseFLAGS =    -sx9 $FTRFLAGS -D__ICON_ART
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
 
     ;;
 
@@ -328,19 +328,19 @@ case "$mh_setup" in
     F77      = sxf90
     CC       = sxc++
 
-    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
-    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS -D__ICON_ART
-    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    CFLAGS     = $CFLAGS -DNOMPI $FTRFLAGS
+    FbaseFLAGS =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS -D__ICON_ART
+    LDFLAGS    = $LDFLAGS $FTRFLAGS
 
     ;;
 
 esac
 
-
 # Add common flags defined above
 
-FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS
+FFLAGS = $FbaseFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS
 
+FlibFLAGS = $FbaseFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $PREPFLAGS
 
 MPIROOT =
 MPI_LIB =

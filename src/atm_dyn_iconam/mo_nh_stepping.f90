@@ -344,7 +344,7 @@ MODULE mo_nh_stepping
       CALL adjust_boundary_data ( p_patch(1), datetime, nnow(1), p_nh_state(1) )
 
     IF (output_mode%l_nml) THEN
-      CALL write_name_list_output( datetime, 0._wp, .FALSE. )
+      CALL write_name_list_output(jstep=0)
     END IF
 
   END IF ! not is_restart_run()
@@ -420,6 +420,7 @@ MODULE mo_nh_stepping
 
   INTEGER           :: nsoil(n_dom), nsnow
   REAL(wp)          :: elapsed_time_global
+  INTEGER           :: jstep0 ! start counter for time loop
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -455,7 +456,13 @@ MODULE mo_nh_stepping
       &                        opt_lcall_phy_size     = SIZE(lcall_phy, 2))
   ENDIF
 
-  TIME_LOOP: DO jstep = 1, nsteps
+  jstep0 = 0
+  IF (is_restart_run()) THEN
+    ! get start counter for time loop from restart file:
+    CALL get_restart_attribute("jstep", jstep0)
+  END IF
+
+  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 
     CALL add_time(dtime,0,0,0,datetime)
 
@@ -463,7 +470,7 @@ MODULE mo_nh_stepping
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
-    IF (msg_level >= 2 .OR. jstep == 1 .OR. MOD(jstep,100) == 0) THEN
+    IF (msg_level >= 2 .OR. (jstep == (jstep0+1)) .OR. MOD(jstep,100) == 0) THEN
       WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
       CALL message(TRIM(routine),message_text)
     ENDIF
@@ -532,7 +539,7 @@ MODULE mo_nh_stepping
     ! Store first old exner pressure
     ! (to prepare some kind of divergence damping, or to account for
     ! physically based 'implicit weights' in forward backward time stepping)
-    IF (jstep == 1 .AND. .NOT. is_restart_run()) THEN
+    IF (jstep == (jstep0+1) .AND. .NOT. is_restart_run()) THEN
 !$OMP PARALLEL PRIVATE(jg)
       DO jg = 1, n_dom
 !$OMP WORKSHARE
@@ -547,10 +554,11 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
+
     l_nml_output   = output_mode%l_nml   .AND. &
-      &              ((jstep==nsteps) .OR. &
+      &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
-      &                  istime4name_list_output(time_config%sim_time(1)+dtime))))
+      &                  istime4name_list_output(jstep))))
     
     ! Output criteria:
     ! - last time step
@@ -572,7 +580,7 @@ MODULE mo_nh_stepping
     ! another flag defining whether diagnostic quantities are computed.
     ! TODO[FP] Decide whether this "l_diagtime" flag is obsolete.
     l_diagtime = (.NOT. output_mode%l_none) .AND. &
-      & ((jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps))
+      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
 
     ! This serves to ensure that postprocessing is executed both immediately after
     ! activating and immediately after terminating a model domain
@@ -605,7 +613,7 @@ MODULE mo_nh_stepping
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
     simulation_status = new_simulation_status(l_output_step  = l_outputtime,    &
-      &                                       l_last_step    = (jstep==nsteps), &
+      &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
       &                                       l_dom_active   = ldom_active,     &
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
@@ -614,7 +622,7 @@ MODULE mo_nh_stepping
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
       IF (l_nml_output) THEN
-        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps )
+        CALL write_name_list_output(jstep)
         ! l_have_output must not be set here, this triggers the close
         ! of vlist output files (not touched by name list output)
       ENDIF
@@ -640,7 +648,7 @@ MODULE mo_nh_stepping
 
     l_supervise_total_integrals =((lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
       &                           (MOD(jstep,n_diag) == 0)                 .OR. &
-      &                           (jstep==nsteps))                         .AND.&
+      &                           (jstep==(nsteps+jstep0)))                .AND.&
       &                           (output_mode%l_totint)
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
@@ -650,14 +658,13 @@ MODULE mo_nh_stepping
       IF (my_process_is_mpi_all_seq()) &
 #endif
         CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
-        &                                  nnow(1:n_dom), nnow_rcf(1:n_dom))
+        &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
     ENDIF
 
     IF ((global_cell_type == 6) .AND. l_supervise_total_integrals) THEN
       CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,     &
-           &                             nnow(1:n_dom),  nnow_rcf(1:n_dom) )
+           &                             nnow(1:n_dom),  nnow_rcf(1:n_dom), jstep == (nsteps+jstep0) )
     ENDIF
-
 
     !--------------------------------------------------------------------------
     ! Write restart file
@@ -680,13 +687,14 @@ MODULE mo_nh_stepping
             & opt_depth_lnd              = nsoil(jg),                  &
             & opt_nlev_snow              = nsnow)
         ENDDO
-        CALL write_async_restart(datetime, jfile, l_have_output)
+        CALL write_async_restart(datetime, jfile, jstep, l_have_output)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
                                   & jfile                      = jfile,                      &
                                   & l_have_output              = l_have_output,              &
+                                  & jstep                      = jstep,                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
                                   & opt_lcall_phy              = lcall_phy,                  &
                                   & opt_sim_time               = time_config%sim_time(jg),   &
@@ -830,7 +838,7 @@ MODULE mo_nh_stepping
           p_nh_state(jg)%prog(nnow(jg))%w)
       ENDIF
 
-      IF (ifeedback_type == 1 .AND. jstep == 1 .AND. jg > 1 ) THEN
+      IF (ifeedback_type == 1 .AND. (jstep == 1) .AND. jg > 1 ) THEN
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)

@@ -125,7 +125,6 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  dom                          =  -1                        ! write all domains
- output_time_unit             =   1                        ! 1: seconds
  output_bounds                =  0., 86400000., 21600.  ! start, end, increment
  steps_per_file               =  1
  include_last                 =  .false.

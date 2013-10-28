@@ -122,7 +122,6 @@ CONTAINS
 	&            'before the current date and time')
 
       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-
     END IF
 
 

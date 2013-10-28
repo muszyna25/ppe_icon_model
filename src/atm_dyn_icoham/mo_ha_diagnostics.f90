@@ -48,7 +48,7 @@ MODULE mo_ha_diagnostics
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing,output_mode
+  USE mo_run_config,         ONLY: dtime, nlev, ntracer,iforcing,output_mode
   USE mo_dynamics_config,    ONLY: lshallow_water
   USE mo_physical_constants, ONLY: rgrav, cpd, grav
   USE mo_vertical_coord_table, ONLY: dela, delb
@@ -203,13 +203,14 @@ MODULE mo_ha_diagnostics
   !! - Moved the initialization part into a separate subroutine.
   !!
   SUBROUTINE supervise_total_integrals (k_step,p_patch,p_hydro_state,ext_data, &
-    &                                   ntimlev)
+    &                                   ntimlev, l_last_step)
 
   INTEGER,                   INTENT(in)  :: k_step          ! actual time step
   TYPE(t_patch), TARGET,     INTENT(IN)  :: p_patch(n_dom)  ! Patch
   TYPE(t_hydro_atm), TARGET, INTENT(in)  :: p_hydro_state(n_dom) ! State
   TYPE(t_external_data),     INTENT(in)  :: ext_data(n_dom)
   INTEGER,                   INTENT(in)  :: ntimlev(n_dom)  ! time level
+  LOGICAL,                   INTENT(IN)  :: l_last_step
 
   TYPE(t_hydro_atm_prog), POINTER :: p_prog   ! prog state
   TYPE(t_hydro_atm_diag), POINTER :: p_diag   ! diag state
@@ -440,7 +441,7 @@ MODULE mo_ha_diagnostics
       ENDIF
 
 
-      IF (k_step == nsteps) THEN
+      IF (l_last_step) THEN
 
         CLOSE(n_file_ti)
         IF (ntracer > 0) THEN
@@ -524,7 +525,7 @@ MODULE mo_ha_diagnostics
               k_step,z_elapsed_time,z_total_mass,z_total_energy,&
               z_total_circulation,z_total_enstrophy
 
-        IF (k_step == nsteps) THEN
+        IF (l_last_step) THEN
           CLOSE(UNIT=n_file_ti)
         ENDIF
       ENDIF ! my_process_is_stdio()

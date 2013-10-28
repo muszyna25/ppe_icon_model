@@ -110,13 +110,14 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
 USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
 USE mo_linked_list,            ONLY: t_list_element, find_list_element
 USE mo_var_list,               ONLY: print_var_list
-  USE mo_mpi,                               ONLY: my_process_is_stdio
-  USE mo_time_config,          ONLY: time_config
-  USE mo_master_control,       ONLY: is_restart_run
-  USE mo_statistics
-  USE mo_grid_tools,          ONLY: create_dummy_cell_closure
-  USE mo_sea_ice_nml,         ONLY: i_ice_dyn
-  USE mo_ocean_nml,           ONLY: i_sea_ice
+USE mo_io_restart_attributes,  ONLY: get_restart_attribute
+USE mo_mpi,                    ONLY: my_process_is_stdio
+USE mo_time_config,            ONLY: time_config
+USE mo_master_control,         ONLY: is_restart_run
+USE mo_statistics
+USE mo_grid_tools,             ONLY: create_dummy_cell_closure
+USE mo_sea_ice_nml,            ONLY: i_ice_dyn
+USE mo_ocean_nml,              ONLY: i_sea_ice
 
 IMPLICIT NONE
 
@@ -211,6 +212,7 @@ CONTAINS
   CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: p_patch
+  INTEGER                         :: jstep0 ! start counter for time loop
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -250,12 +252,19 @@ CONTAINS
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
     IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
-    CALL write_name_list_output( datetime, time_config%sim_time(1), last_step=.FALSE., initial_step=.not.is_restart_run())
+    CALL write_name_list_output(jstep=0)
   ENDIF
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
-  TIME_LOOP: DO jstep = 1, nsteps
+
+  jstep0 = 0
+  IF (is_restart_run()) THEN
+    ! get start counter for time loop from restart file:
+    CALL get_restart_attribute("jstep", jstep0)
+  END IF
+
+  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 
     CALL datetime_to_string(datestring, datetime)
     WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -375,7 +384,7 @@ CONTAINS
     ! update accumulated vars
     CALL update_ocean_statistics(p_os(1),p_sfc_flx,patch_3D%p_patch_2D(1)%cells%owned)
 
-    IF (is_output_time(jstep) .OR. istime4name_list_output(time_config%sim_time(1))) THEN
+    IF (is_output_time(jstep) .OR. istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( patch_3D,    &
           &                             p_os(jg),      &
@@ -399,7 +408,7 @@ CONTAINS
       CALL set_output_pointers(nnew(1), p_os(jg)%p_diag, p_os(jg)%p_prog(nnew(1)))
 
       IF (output_mode%l_nml) THEN
-        CALL write_name_list_output( datetime, time_config%sim_time(1), jstep==nsteps)
+        CALL write_name_list_output(jstep)
       ENDIF
 
       CALL message (TRIM(routine),'Write output at:')
@@ -424,10 +433,10 @@ CONTAINS
     CALL update_intermediate_tracer_vars(p_os(jg))
 
     ! write a restart or checkpoint file
-    IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
-      CALL create_restart_file( p_patch, datetime,                 &
-                              & jfile, l_have_output,opt_depth=n_zlev,&
-                              & opt_sim_time=time_config%sim_time(1), &
+    IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
+      CALL create_restart_file( p_patch, datetime,                             &
+                              & jfile, l_have_output, jstep, opt_depth=n_zlev, &
+                              & opt_sim_time=time_config%sim_time(1),          &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.

@@ -39,8 +39,10 @@
 !       p_comm_work_test (size = 0/1)
 !         description  : MPI communicator spanning work group and test PE
 !                        in verification mode parallel_nml::p_test_run == .TRUE.
-!       p_comm_work_io   (size: num
+!       p_comm_work_io
 !         description  : MPI communicator spanning work group and I/O PEs
+!       p_comm_io
+!         description  : MPI communicator spanning I/O PEs
 !       p_comm_work_2_io
 !         description  : Inter(!)communicator work PEs - I/O PEs
 !       p_comm_input_bcast
@@ -152,7 +154,8 @@ MODULE mo_mpi
 
 
   PUBLIC :: p_comm_work, p_comm_work_test
-  PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
+  PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io, &
+    &       p_comm_io
   !restart communicators
   PUBLIC :: p_comm_work_2_restart, p_comm_work_restart
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
@@ -161,20 +164,21 @@ MODULE mo_mpi
 
   PUBLIC :: process_mpi_stdio_id
   PUBLIC :: process_mpi_root_id
+  PUBLIC :: process_work_io0
 
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
   PUBLIC :: work_mpi_barrier
 
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
-  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any, &
-    &       p_irecv_packed, p_send_packed,        &
-    &       p_pack_int, p_pack_real,              &
-    &       p_pack_int_1d, p_pack_real_1d,        &
-    &       p_pack_string, p_pack_real_2d,        &
-    &       p_unpack_int, p_unpack_real,          &
-    &       p_unpack_int_1d, p_unpack_real_1d,    &
-    &       p_unpack_string, p_unpack_real_2d
+  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,       &
+    &       p_irecv_packed, p_send_packed,              &
+    &       p_pack_int, p_pack_bool, p_pack_real,       &
+    &       p_pack_int_1d, p_pack_real_1d,              &
+    &       p_pack_string, p_pack_real_2d,              &
+    &       p_unpack_int, p_unpack_bool, p_unpack_real, &
+    &       p_unpack_int_1d, p_unpack_real_1d,          &
+    &       p_unpack_string, p_unpack_real_2d, p_test
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
@@ -263,7 +267,7 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
   INTEGER :: process_mpi_all_restartroot_id ! the id of the first restart output process
-
+  INTEGER :: process_work_io0
 
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
@@ -322,6 +326,7 @@ MODULE mo_mpi
   INTEGER :: p_comm_work           ! Communicator for work group
   INTEGER :: p_comm_work_test      ! Communicator spanning work group and test PE
   INTEGER :: p_comm_work_io        ! Communicator spanning work group and I/O PEs
+  INTEGER :: p_comm_io             ! Communicator spanning the I/O PEs
   INTEGER :: p_comm_work_2_io      ! Inter(!)communicator work PEs - I/O PEs
   INTEGER :: p_comm_input_bcast    ! Communicator for broadcasts in NetCDF input
   INTEGER :: p_comm_work_restart   ! Communicator spanning work group and Restart Output PEs
@@ -902,7 +907,8 @@ CONTAINS
 !   !local variables
     INTEGER :: my_color, peer_comm, peer_comm_restart, p_error
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
-
+    INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
+               translated_ranks(1)
 
 
 ! check l_test_openmp
@@ -1066,19 +1072,47 @@ CONTAINS
     ENDIF
 
     ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
-    IF(num_io_procs > 0) THEN
-      IF(p_pe < p_work_pe0 .OR. (num_restart_procs > 0 .AND. p_pe >= p_restart_pe0)) THEN
-        my_color = MPI_UNDEFINED ! p_comm_work_io must never be used on test and restart PEs
-      ELSE
-        my_color = 1
-      ENDIF
-
-      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
+    IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+       my_color = 1
+    ELSE IF ((num_io_procs > 0) .AND. ((p_pe >= p_work_pe0) .AND. (p_pe < p_restart_pe0))) THEN
+       my_color = 2
+    ELSE IF (num_io_procs == 0) THEN
+       my_color = 3
     ELSE
-      ! If no I/O PEs are present, p_comm_work_io must not be used at all
-      p_comm_work_io = MPI_COMM_NULL
-    ENDIF
+       my_color = MPI_UNDEFINED
+    END IF
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
+    if (my_color == MPI_UNDEFINED)  p_comm_work_io = MPI_COMM_NULL
+    
+    ! Set p_comm_io, the communicator spanning the I/O PEs
+    IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+       my_color = 1
+    ELSE IF (((num_io_procs > 0) .AND. ((p_pe >= p_io_pe0) .AND. (p_pe < p_restart_pe0))) .OR.  &
+         &   ((num_io_procs == 0) .AND. (p_pe == p_work_pe0))) THEN
+       my_color = 2
+    ELSE
+       my_color = MPI_UNDEFINED ! p_comm_work_io must only be used on test, work, I/O PEs
+    END IF
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_io, p_error)
+    if (my_color == MPI_UNDEFINED)  p_comm_io = MPI_COMM_NULL
 
+    ! translate the rank "p_io_pe0" to the communicator "p_comm_work_io":
+    IF (p_comm_work_io /= MPI_COMM_NULL) THEN
+      CALL MPI_Comm_group(process_mpi_all_comm, grp_process_mpi_all_comm, p_error)
+      CALL MPI_Comm_group(p_comm_work_io,       grp_comm_work_io,         p_error)
+      IF (num_io_procs > 0) THEN
+        input_ranks(1) = p_io_pe0
+      ELSE IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+        input_ranks(1) = 0
+      ELSE
+        input_ranks(1) = p_work_pe0
+      END IF
+      CALL MPI_group_translate_ranks(grp_process_mpi_all_comm, 1, input_ranks, &
+        &                            grp_comm_work_io, translated_ranks, p_error)
+      process_work_io0 = translated_ranks(1)
+      CALL MPI_group_free(grp_process_mpi_all_comm, p_error)
+      CALL MPI_group_free(grp_comm_work_io, p_error)
+    END IF
     ! Set p_comm_work_restart, the communicator spanning work group and Restart Ouput PEs
     IF(num_restart_procs > 0) THEN
       IF(p_pe < p_work_pe0 .OR. &
@@ -1209,7 +1243,6 @@ CONTAINS
     ! fill my  parameters
     is_mpi_test_run = p_test_run
     is_openmp_test_run = l_test_openmp
-
     ! fill other default
     CALL set_comm_input_bcast()
 
@@ -1257,6 +1290,7 @@ CONTAINS
     p_comm_work_2_io        = MPI_COMM_NULL
     p_comm_work_restart     = MPI_COMM_NULL
     p_comm_work_2_restart   = MPI_COMM_NULL
+    p_comm_io               = MPI_COMM_NULL
 
     ! print some info
     IF ( .NOT. process_is_mpi_parallel) THEN
@@ -4384,6 +4418,30 @@ CONTAINS
 #endif
   END SUBROUTINE p_pack_int
 
+  SUBROUTINE p_pack_bool (t_var, t_buffer, p_buf_size, p_pos, comm)
+
+    LOGICAL,   INTENT(IN)    :: t_var
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, 1, p_bool, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_bool
+
   SUBROUTINE p_pack_real (t_var, t_buffer, p_buf_size, p_pos, comm)
 
     REAL(wp),  INTENT(IN)    :: t_var
@@ -4539,6 +4597,29 @@ CONTAINS
 #endif
   END SUBROUTINE p_unpack_int
 
+  SUBROUTINE p_unpack_bool (t_buffer, p_buf_size, p_pos, t_var, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    LOGICAL,   INTENT(OUT)   :: t_var
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_bool, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int", 'MPI call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_bool
+
   SUBROUTINE p_unpack_real (t_buffer, p_buf_size, p_pos, t_var, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
@@ -4631,6 +4712,7 @@ CONTAINS
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
 #endif
+    t_var = " "
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos,   t_var, ilength, p_char, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
@@ -5870,9 +5952,21 @@ CONTAINS
 #else
     return_pe = 0
 #endif
-
   END SUBROUTINE p_wait_any
   !------------------------------------------------------
+
+
+  !------------------------------------------------------
+  FUNCTION p_test() RESULT(ret)
+    LOGICAL :: ret
+#ifndef NOMPI
+    INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
+    CALL MPI_TESTALL(p_irequest, p_request, ret, p_status_wait, p_error)
+#else
+    ret = .TRUE.
+#endif
+  END FUNCTION p_test
+
 
   !------------------------------------------------------
   SUBROUTINE p_barrier (comm)

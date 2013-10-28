@@ -288,7 +288,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.    ! start, end, increment
  steps_per_file               =  50
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -302,7 +301,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.    ! start, end, increment
  steps_per_file               =  50
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -316,7 +314,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.    ! start, end, increment
  steps_per_file               =  50
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -330,7 +327,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.    ! start, end, increment
  steps_per_file               =  50
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -344,7 +340,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.    ! start, end, increment
  steps_per_file               =  50
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -358,7 +353,6 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          =  1                        ! write all domains
- output_time_unit             =  1                        ! 1: seconds
  output_bounds                =  0., 10000000., 10800.    ! start, end, increment
  steps_per_file               =  1
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -371,7 +365,6 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  dom                          =  -1                        ! write all domains
- output_time_unit             =   1                        ! 1: seconds
  output_bounds                =  0., 10000000., 21600.  ! start, end, increment
  steps_per_file               =  5
  include_last                 =  .TRUE.

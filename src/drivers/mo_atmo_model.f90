@@ -53,6 +53,7 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_io_restart_attributes,   ONLY: get_restart_attribute
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -133,6 +134,10 @@ MODULE mo_atmo_model
     &                                   restore_patches_netcdf, restore_interpol_state_netcdf,&
     &                                   restore_gridref_state_netcdf, dump_lonlat_data_netcdf,&
     &                                   restore_lonlat_data_netcdf
+  USE mo_time_config,            ONLY: time_config      ! variable
+  USE mo_mtime_extensions,       ONLY: get_datetime_string
+  USE mo_output_event_types,     ONLY: t_sim_step_info
+  USE mtime,                     ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
 
   !-------------------------------------------------------------------------
@@ -223,6 +228,10 @@ CONTAINS
     INTEGER :: jg, jgp
 
     INTEGER :: error_status
+
+    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
+    TYPE(t_sim_step_info) :: sim_step_info  
+    INTEGER :: jstep0
 
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
@@ -335,7 +344,19 @@ CONTAINS
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-          CALL name_list_io_main_proc(isample=iadv_rcf)
+          CALL setCalendar(PROLEPTIC_GREGORIAN)
+          ! compute sim_start, sim_end
+          CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
+          CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
+          sim_step_info%dtime     = dtime
+          sim_step_info%iadv_rcf  = iadv_rcf
+          jstep0 = 0
+          IF (is_restart_run()) THEN
+            ! get start counter for time loop from restart file:
+            CALL get_restart_attribute("jstep", jstep0)
+          END IF
+          sim_step_info%jstep0    = jstep0
+          CALL name_list_io_main_proc(sim_step_info, isample=iadv_rcf)
         END IF
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
         ! Shut down MPI

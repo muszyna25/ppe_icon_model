@@ -225,6 +225,7 @@ contains
     integer(c_int64_t), intent(in) :: ms
     type(c_ptr) :: c_pointer
     c_pointer = my_newjulianday(day, ms)
+    NULLIFY(ret_julianday)
     call c_f_pointer(c_pointer, ret_julianday)
   end function newJulianday
   !
@@ -332,6 +333,7 @@ contains
     character(len=*), intent(in) :: string
     type(c_ptr) :: c_pointer
     c_pointer = my_newdate(trim(string)//c_null_char)
+    NULLIFY(ret_date)
     call c_f_pointer(c_pointer, ret_date)
   end function newDate
   !
@@ -431,6 +433,7 @@ contains
     character(len=*), intent(in) :: string
     type(c_ptr) :: c_pointer
     c_pointer = my_newtime(trim(string)//c_null_char)
+    NULLIFY(ret_time)
     call c_f_pointer(c_pointer, ret_time)
   end function newTime
   !
@@ -550,8 +553,8 @@ module mtime_datetime
       import :: c_int64_t, c_int, c_ptr
 #endif
       type(c_ptr) :: c_pointer
-      integer(c_int64_t) :: year
-      integer(c_int) :: month, day, hour, minute, second, ms
+      INTEGER(c_int64_t), value :: year
+      integer(c_int), value :: month, day, hour, minute, second, ms
     end function my_newrawdatetime
     !
     function my_constructandcopydatetime(dt) result(c_pointer) bind(c,name='constructAndCopyDateTime')
@@ -656,20 +659,39 @@ contains
     character(len=*), intent(in) :: string
     type(c_ptr) :: c_pointer
     c_pointer = my_newdatetime(trim(string)//c_null_char)
+    NULLIFY(ret_datetime)
     call c_f_pointer(c_pointer, ret_datetime)
   end function newdatetimefromstring
   !
-  function newdatetimefromraw(year, month, day, hour, minute, second, ms) result(ret_datetime)
+  function newdatetimefromraw(iyear, imonth, iday, ihour, iminute, isecond, ims) result(ret_datetime)
     type(datetime), pointer :: ret_datetime
-    integer(c_int64_t), intent(in) :: year
-    integer(c_int), intent(in) :: month
-    integer(c_int), intent(in) :: day
-    integer(c_int), intent(in) :: hour
-    integer(c_int), intent(in) :: minute
-    integer(c_int), intent(in) :: second
-    integer(c_int), intent(in) :: ms
+    integer, intent(in) :: iyear
+    integer, intent(in) :: imonth
+    integer, intent(in) :: iday
+    integer, intent(in) :: ihour
+    integer, intent(in) :: iminute
+    integer, intent(in) :: isecond
+    integer, intent(in) :: ims
+    ! local variables
+    integer(c_int64_t) :: year
+    integer(c_int) :: month
+    integer(c_int) :: day
+    integer(c_int) :: hour
+    integer(c_int) :: minute
+    integer(c_int) :: second
+    integer(c_int) :: ms
     type(c_ptr) :: c_pointer
+
+    year   = INT(iyear,   c_int64_t)
+    month  = INT(imonth,  c_int)
+    day    = INT(iday,    c_int)
+    hour   = INT(ihour,   c_int)
+    minute = INT(iminute, c_int)
+    second = INT(isecond, c_int)
+    ms     = INT(ims,     c_int)
+
     c_pointer = my_newrawdatetime(year, month, day, hour, minute, second, ms)
+    NULLIFY(ret_datetime)
     call c_f_pointer(c_pointer, ret_datetime)
   end function newdatetimefromraw
   !
@@ -678,6 +700,7 @@ contains
     type(datetime), pointer :: src
     type(c_ptr) :: c_pointer
     c_pointer = my_constructandcopydatetime(c_loc(src))
+    NULLIFY(dest)
     call c_f_pointer(c_pointer, dest)
   end function newdatetimefromconstructandcopy
   !
@@ -841,7 +864,7 @@ module mtime_timedelta
     !
     function my_newtimedelta(string) result(c_pointer) bind(c, name='newTimeDelta')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_char, c_ptr
 #else
       import :: c_char, c_ptr
 #endif
@@ -851,7 +874,7 @@ module mtime_timedelta
     !
     subroutine my_deallocatetimedelta(dt) bind(c, name='deallocateTimeDelta')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr
 #else
       import :: c_ptr
 #endif
@@ -860,7 +883,7 @@ module mtime_timedelta
     !
     function my_timedeltatostring(dt, tostring) result(string_ptr) bind(c, name='timedeltaToString')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr, c_char  
 #else
       import :: c_ptr, c_char
 #endif
@@ -872,7 +895,7 @@ module mtime_timedelta
     function my_addtimedeltatodatetime(my_datetime, my_timedelta, ret_datetime) result(datetime_ptr) &
          &   bind(c, name='addTimeDeltaToDateTime')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr
 #else
       import :: c_ptr
 #endif
@@ -891,6 +914,7 @@ contains
     character(len=*), intent(in) :: string
     type(c_ptr) :: c_pointer
     c_pointer = my_newtimedelta(trim(string)//c_null_char)
+    NULLIFY(ret_timedelta)
     call c_f_pointer(c_pointer, ret_timedelta)
   end function newTimedelta
   !
@@ -913,8 +937,8 @@ contains
   end subroutine timedeltaToString
   !
   function addTimedeltaToDatetime(op1, op2) result(ret)
-    type(datetime), target :: ret
-    type(datetime), target, intent(in) :: op1
+    type(datetime),  target :: ret
+    type(datetime),  target, intent(in) :: op1
     type(timedelta), target, intent(in) :: op2
     type(c_ptr) :: dummy_ptr
     dummy_ptr = my_addtimedeltatodatetime(c_loc(op1), c_loc(op2), c_loc(ret))
@@ -976,7 +1000,7 @@ module mtime_events
     !
     function my_newevent(name, referenceDate, firstdate, lastDate, interval) result(c_pointer) bind(c, name='newEvent')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_char, c_ptr
 #else
       import :: c_char, c_ptr
 #endif
@@ -990,7 +1014,7 @@ module mtime_events
     !
     subroutine my_deallocateevent(ev) bind(c,name='deallocateEvent')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr
 #else
       import :: c_ptr
 #endif
@@ -999,7 +1023,7 @@ module mtime_events
     !
     function my_eventtostring(my_event, string) result(string_ptr) bind(c, name='eventToString')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr, c_char
 #else
       import :: c_ptr, c_char
 #endif
@@ -1025,6 +1049,7 @@ contains
          &                  trim(firstDate)//c_null_char,          &
          &                  trim(lastDate)//c_null_char,           &
          &                  trim(interval)//c_null_char)
+    NULLIFY(ret_event)
     call c_f_pointer(c_pointer, ret_event)
   end function newEvent
   !
@@ -1089,7 +1114,7 @@ module mtime_eventgroups
     !
     function my_neweventgroup(name) result(c_pointer) bind(c, name='newEventGroup')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_char, c_ptr
 #else
       import :: c_char, c_ptr
 #endif
@@ -1099,7 +1124,7 @@ module mtime_eventgroups
     !
     subroutine my_deallocateeventgroup(evgrp) bind(c,name='deallocateEventGroup')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_ptr
 #else
       import :: c_ptr
 #endif
@@ -1108,7 +1133,7 @@ module mtime_eventgroups
     !
     function my_addeventtoeventgroup(my_event, my_eventgroup) result(ret) bind(c, name='addNewEventToEventGroup')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_bool, c_ptr  
 #else
       import :: c_bool, c_ptr
 #endif
@@ -1119,7 +1144,7 @@ module mtime_eventgroups
     !
     function my_removeeventfromeventgroup(evname, evgrp) result(ret) bind(c, name='removeEventFromEventGroup')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_int  
+      use, intrinsic :: iso_c_binding, only: c_bool, c_char, c_ptr
 #else
       import :: c_bool, c_char, c_ptr
 #endif
@@ -1137,6 +1162,7 @@ contains
     character(len=*), intent(in) :: name
     type(c_ptr) :: c_pointer
     c_pointer = my_neweventgroup(trim(name)//c_null_char)
+    NULLIFY(ret_eventgroup)
     call c_f_pointer(c_pointer, ret_eventgroup)
   end function newEventGroup
   !
@@ -1165,7 +1191,8 @@ contains
     type(eventgroup), pointer :: my_eventgroup
     type(c_ptr) :: c_pointer
     c_pointer = my_eventgroup%firstEventInGroup
-        if (c_associated(c_pointer)) then
+    IF (C_ASSOCIATED(c_pointer)) THEN
+      NULLIFY(ret_event)
       call c_f_pointer(c_pointer, ret_event)
     else
       ret_event => null()
@@ -1178,6 +1205,7 @@ contains
     type(c_ptr) :: c_pointer
     c_pointer = my_event%nextEventInGroup
     if (c_associated(c_pointer)) then
+      NULLIFY(ret_event)
       call c_f_pointer(c_pointer, ret_event)
     else
       ret_event => null()
