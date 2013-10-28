@@ -326,7 +326,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   !------------------------------------------------------------------
-  !  get and write out some of the inital values
+  !  get and write out some of the initial values
   !------------------------------------------------------------------
   IF (.NOT.is_restart_run()) THEN
 

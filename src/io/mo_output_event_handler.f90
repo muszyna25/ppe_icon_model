@@ -55,8 +55,8 @@
 !! - During the setup phase: 
 !!
 !!   The root I/O MPI rank asks all participating I/O PEs for their
-!!   output event info. These information about these events is
-!!   forwarded (broadcasted) to the worker PE's. Afterwards, each of
+!!   output event info. This information about these events is
+!!   forwarded (broadcasted) to the worker PEs. Afterwards, each of
 !!   the I/O and worker PEs generates a unified output event,
 !!   indicating which PE performs a write process at which step. Thus,
 !!   every PE with the exception of the asynchronous restart PEs has
