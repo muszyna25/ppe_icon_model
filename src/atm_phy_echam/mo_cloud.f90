@@ -52,7 +52,7 @@ MODULE mo_cloud
 
   USE mo_kind,               ONLY : dp=>wp
   USE mo_math_constants,     ONLY : api=>pi
-  USE mo_physical_constants, ONLY : cpd, cvd, cpv, cvv, vtmpc2, g=>grav, rd, alv, als, rv   &
+  USE mo_physical_constants, ONLY : cpd, cvd, cpv, cvv, g=>grav, rd, alv, als, rv   &
                                   , vtmpc1, rhoh2o, tmelt
 #ifdef __ibmspline__
   USE mo_convect_tables, ONLY : prepare_ua_index_spline,             &
@@ -287,7 +287,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp):: zdqsat, zqcdif, zfrho                                     &
            , zifrac                                                    &
            , zdtime, zxiupd, zxlupd                                    &
-           , zepsec, zxsec, zqsec, ztmst, zcons1, zcons2, zrcp, zcons  &
+           , zepsec, zxsec, zqsec, ztmst, zcons2, zrcp, zcons          &
            , ztdif, zsnmlt, zximelt, zclcstar, zdpg, zesi              &
            , zsusati, zb1, zb2, zcfac4c, zzeps                         &
            , zsubi, zesw, zesat, zqsw, zsusatw, zdv, zast, zbst        &
@@ -329,7 +329,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !
   zdtime = REAL(pdelta_time,dp)
   ztmst  = REAL(ptime_step_len,dp)
-  zcons1 = cpd*vtmpc2
   zcons2 = 1._dp/(ztmst*g)
 !
 !     ------------------------------------------------------------------
@@ -401,7 +400,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
         zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/g
 
-       ! zrcp           = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
         zrcp           = 1._dp/(cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_dp))
         zlvdcp(jl)     = alv*zrcp
         zlsdcp(jl)     = als*zrcp
@@ -915,10 +913,6 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
 !IBM* NOVECTOR
      DO 500 jl = 1,kproma
 
-        ! zrcp        = 1._dp/(cpd+zcons1*MAX(pqm1(jl,jk),0.0_dp))
-        zrcp        = 1._dp/(cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_dp))
-        zlvdcp(jl)  = alv*zrcp
-        zlsdcp(jl)  = als*zrcp
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
         zua         = FSEL(zlo2(jl),ua(jl),uaw(jl))
         zdua        = FSEL(zlo2(jl),dua(jl),duaw(jl))
