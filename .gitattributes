@@ -1678,7 +1678,6 @@ support/util_timer.c -text
 support/util_uuid.c -text
 /target_confmake.ksh -text
 /target_database.ksh -text
-/test_vcs.f90 -text
 vertical_coord_tables/README -text
 vertical_coord_tables/atm_hyb_sp_1 -text
 vertical_coord_tables/atm_hyb_sp_19 -text
