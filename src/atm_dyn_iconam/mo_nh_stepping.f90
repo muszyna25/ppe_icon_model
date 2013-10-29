@@ -1077,10 +1077,13 @@ MODULE mo_nh_stepping
                 CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,   &
                   p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
             ELSE
-              p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
+              CALL finish(routine, "DEVELOPMENT")
+              ! TODO Martin: This is an illegal statement, could you please
+              ! take care of this?
+              !
+              !  p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
             ENDIF   
           ELSE
-
             CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
           ENDIF
 
