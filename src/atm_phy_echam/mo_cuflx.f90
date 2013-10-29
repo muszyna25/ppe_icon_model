@@ -37,13 +37,7 @@ MODULE mo_cuflx
 
   USE mo_kind,                ONLY: dp
 
-#ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alf, cpd, tmelt, vtmpc2
-#else
-  USE mo_constants,           ONLY: g, alf, cpd, tmelt, vtmpc2, rd
-  USE mo_submodel,            ONLY: lanysubmodel, lham
-  USE mo_submodel_interface,  ONLY: cuflx_subm
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -249,16 +243,6 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
            END IF
         END IF
 215  END DO
-
-#ifdef __ICON__
-#else
-     IF (lanysubmodel) THEN
-!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-        zfrain(1:kproma,jk)=prfl(1:kproma)
-        zfsnow(1:kproma,jk)=psfl(1:kproma)
-!---End Included for scavenging-----------------------------------------
-     END IF
-#endif
 
 220 END DO
   DO 230 jl=1,kproma

@@ -44,25 +44,15 @@ MODULE mo_cuadjtq
 
   USE mo_kind,               ONLY: dp
 
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1
-#else
-  USE mo_constants,          ONLY: vtmpc1
-#endif
 
   USE mo_convect_tables,     ONLY: tlucua,   & ! table a
                                    tlucub,   & ! table b
                                    tlucuc,   & ! table c
                                    jptlucu1, jptlucu2, &
                                    lookuperror
-#ifdef __ibmspline__
-  USE mo_convect_tables, ONLY: prepare_ua_index_spline, lookup_ua_spline, &
-    &                          lookup_ua_list_spline, lookup_ubc,         &
-    &                          lookup_ubc_list
-#else
   USE mo_convect_tables, ONLY: prepare_ua_index, lookup_ua, lookup_ua_list, &
     &                          lookup_ubc, lookup_ubc_list
-#endif
 #ifdef _PROFILE
   USE mo_profile,        ONLY: trace_start, trace_stop
 #endif
@@ -124,9 +114,6 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
 
   !  Local arrays:
   REAL(dp) :: zcond(kbdim),zppi(kbdim)
-#ifdef __ibmspline__
-  REAL(dp) :: za(kbdim)
-#endif
   REAL(dp) :: ua(kbdim),dua(kbdim),ub(kbdim),uc(kbdim)
   INTEGER  :: idx(kbdim),ncond(kbdim)
 
@@ -145,11 +132,7 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
   IF (kcall >= 0.AND. kcall <= 2 ) THEN
 
      CALL lookup_ubc_list(kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
-#ifdef __ibmspline__
-     CALL lookup_ua_list_spline('cuadjtq_idx (1)',ldcnt,ldidx(1),pt(1,kk),ua(1),dua(1))
-#else
      CALL lookup_ua_list('cuadjtq_idx (1)',kproma,ldcnt,ldidx(1),pt(1,kk),ua(1),dua(1))
-#endif
 
 !DIR$ IVDEP
 !OCL NOVREC
@@ -176,14 +159,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
            zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
            zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
            zlcdqsdt  = FSEL(zes-0.4_dp,zqsat*zcor*ub(nl),zdqsdt*uc(nl))
 
            zcond(jl) = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
@@ -209,14 +188,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
            zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
            zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
            zlcdqsdt  = FSEL(zes-0.4_dp,zqsat*zcor*ub(nl),zdqsdt*uc(nl))
 
            zcond(jl) = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
@@ -242,14 +217,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
            zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
            zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
            zlcdqsdt  = FSEL(zes-0.4_dp,zqsat*zcor*ub(nl),zdqsdt*uc(nl))
            zcond(jl) = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
 
@@ -270,18 +241,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
      END DO
      nsum = nsum - 1
 
-#ifdef __ibmdbg__
-     print *,'cuad(',kcall,')',ldcnt,nsum,ldcnt
-#endif
-
      IF (nsum > 0) THEN
 
         CALL lookup_ubc_list(kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
-#ifdef __ibmspline__
-        CALL lookup_ua_list_spline('cuadjtq_idx (2)',nsum,idx(1),pt(1,kk),ua(1),dua(1))
-#else
         CALL lookup_ua_list('cuadjtq_idx (2)',kproma,nsum,idx(1),pt(1,kk),ua(1),dua(1))
-#endif
 
 !DIR$ IVDEP
 !OCL NOVREC
@@ -296,14 +259,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
            zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
            zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
            zlcdqsdt = FSEL(zes-0.4_dp,zqsat*zcor*ub(nl),zdqsdt*uc(nl))
            zcond1   = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
 
@@ -319,13 +278,8 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
 
      zppi(1:kproma)=1._dp/pp(jl)
 
-#ifdef __ibmspline__
-     CALL prepare_ua_index_spline('cuadjtq_idx (3)',kproma,pt(1,kk),idx(1),za(1))
-     CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1),dua(1))
-#else
      CALL prepare_ua_index('cuadjtq_idx (3)',kproma,pt(1,kk),idx(1))
      CALL lookup_ua(kproma,idx(1),ua(1),dua(1))
-#endif
      CALL lookup_ubc(kproma,pt(1,kk),ub(1),uc(1))
 
      DO 412 jl=1,kproma
@@ -335,14 +289,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
         zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
         zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
         zlcdqsdt  = FSEL(zes-0.4_dp,zqsat*zcor*ub(jl),zdqsdt*uc(jl))
         zcond(jl) = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
 
@@ -350,13 +300,8 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
         pq(jl,kk) = pq(jl,kk) - zcond(jl)
 412  END DO
 
-#ifdef __ibmspline__
-     CALL prepare_ua_index_spline('cuadjtq_idx (4)',kproma,pt(1,kk),idx(1),za(1))
-     CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1),dua(1))
-#else
      CALL prepare_ua_index('cuadjtq_idx (4)',kproma,pt(1,kk),idx(1))
      CALL lookup_ua(kproma,idx(1),ua(1),dua(1))
-#endif
      CALL lookup_ubc(kproma,pt(1,kk),ub(1),uc(1))
 
      DO 413 jl=1,kproma
@@ -366,14 +311,10 @@ SUBROUTINE cuadjtq_idx(  kproma, kbdim, klev, kk,             &
         zcor = SWDIV_NOCHK(1._dp,(1._dp-vtmpc1*zes))
         zqsat= zes*zcor
 
-#ifdef __ibmspline2__
-           zdqsdt = zppi(jl)*zcor**2*dua(nl)
-#else
            zqst1=(ua(nl)+0.001_dp*dua(nl))*zppi(jl)
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=SWDIV_NOCHK(zqst1,(1._dp-vtmpc1*zqst1))
            zdqsdt=(zqst1 - zqsat)*1000._dp
-#endif
         zlcdqsdt = FSEL(zes-0.4_dp,zqsat*zcor*ub(jl),zdqsdt*uc(jl))
         zcond1   = SWDIV_NOCHK((pq(jl,kk)-zqsat),(1._dp+zlcdqsdt))
 

@@ -36,11 +36,7 @@
 MODULE mo_cududv
 
   USE mo_kind,               ONLY: dp
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: g=>grav
-#else
-  USE mo_constants,          ONLY: g
-#endif
 
   IMPLICIT NONE
   PRIVATE

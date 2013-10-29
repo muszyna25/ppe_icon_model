@@ -67,12 +67,8 @@ CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)
 
-#ifdef __ICON__
   USE mo_run_config,           ONLY: nvclev
   USE mo_vertical_coord_table, ONLY: vct
-#else
-  USE mo_control, ONLY: nvclev, vct, nn
-#endif
 
   !  Scalar arguments with intent(In):
   INTEGER, INTENT (IN) :: klev
@@ -84,43 +80,12 @@ CONTAINS
   !          SET THE VALUES OF THE PARAMETERS
   !
 
-#ifdef __ICON__
   ! The parameters must be linked to the ICON grid resolution. Ideally this
   ! is expressed as a function of the (horizontal) area of the column.
     gpicmea = 400.0_wp
     gstd    = 100.0_wp
     gkdrag  = 0.5_wp
     gkwake  = 0.5_wp
-#else
-  IF (nn == 31) THEN
-    gpicmea = 500.0_wp
-    gstd    = 200.0_wp
-    gkdrag  = 0.5_wp
-    gkwake  = 0.5_wp
-  ELSE IF(nn == 63) THEN
-    gpicmea = 400.0_wp
-    gstd    = 100.0_wp
-    IF(klev == 95) THEN
-      gkdrag  = 0.25_wp
-      gkwake  = 0.25_wp
-    ELSE
-      gkdrag  = 0.5_wp
-      gkwake  = 0.5_wp
-    END IF
-  ELSE IF(nn == 127) THEN
-    gpicmea = 200.0_wp
-    gstd    =  50.0_wp
-    gkdrag  = 0.25_wp
-    gkwake  = 0.25_wp
-  ELSE IF(nn == 255) THEN
-    gpicmea = 100.0_wp
-    gstd    =  25.0_wp
-    gkdrag  = 0.25_wp
-    gkwake  = 0.25_wp
-  ELSE
-    CALL finish ('mo_ssodrag', 'Truncation not supported.')
-  ENDIF
-#endif
 
   ! PRINT *,' DANS SUGWD NLEV=',klev
 

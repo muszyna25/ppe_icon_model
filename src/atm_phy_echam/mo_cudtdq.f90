@@ -38,11 +38,7 @@ MODULE mo_cudtdq
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish
 
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: alv, als, alf, tmelt, g=>grav
-#else
-  USE mo_constants,          ONLY: alv, als, alf, tmelt, g
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -78,7 +74,7 @@ SUBROUTINE cudtdq(pdelta_time,                                         &
 REAL(dp),INTENT(IN) :: pdelta_time
 INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
 
-CHARACTER(LEN=*),PARAMETER :: routine = 'mo_cudtdq:cudtdq'
+!!$CHARACTER(LEN=*),PARAMETER :: routine = 'mo_cudtdq:cudtdq'
 
 LOGICAL  llo1
 !

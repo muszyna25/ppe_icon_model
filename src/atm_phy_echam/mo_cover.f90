@@ -51,11 +51,7 @@ MODULE mo_cover
 
   USE mo_kind,               ONLY : wp
   USE mo_physical_constants, ONLY : rd, cpd, vtmpc1
-#ifdef __ibmspline__
-  USE mo_convect_tables,     ONLY : prepare_ua_index_spline, lookup_ua_eor_uaw_spline
-#else
   USE mo_convect_tables,     ONLY : prepare_ua_index, lookup_ua_eor_uaw
-#endif
   USE mo_echam_cloud_params, ONLY : jbmin1, ncctop, cqtmin, cbeta_pq      &
                                   , jbmin, jbmax                          &
                                   , csatsc, ccwmin, cbeta_pq_max, nbetaq  &
@@ -229,10 +225,6 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
   INTEGER  ::  itv1(kproma*klev), itv2(kproma*klev)
   REAL(wp) ::  zdthmin(kbdim),    ztheta(kbdim,klev)
 
-#ifdef __ibmspline__
-  REAL(wp) ::  za(kbdim)
-#endif
-
 !
 !   Pointers and counters for iteration and diagnostic loop:
 !
@@ -367,15 +359,9 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 !
 !       1.   Calculate the saturation mixing ratio
 !
-#ifdef __ibmspline__
-        CALL prepare_ua_index_spline('cover (1)',kproma,ptm1(1,jk),itv1(1),  &
-                                    & za(1),pxim1(1,jk),nphase,zphase,itv2(1))
-        CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
-#else
         CALL prepare_ua_index('cover (1)',kproma,ptm1(1,jk),itv1(1),pxim1(1,jk), &
                              & nphase,zphase,itv2(1))
         CALL lookup_ua_eor_uaw(kproma,itv1(1),nphase,itv2(1),ua(1))
-#endif
 
 !IBM* NOVECTOR
         DO jl=1,kproma
@@ -791,15 +777,9 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
      DO jk=ktdia,kbeta-1
 
-#ifdef __ibmspline__
-        CALL prepare_ua_index_spline('cover (2)',kproma,ptm1(1,jk),itv1(1),za(1), &
-          &                          pxim1(1,jk),nphase,zphase,itv2)
-        CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
-#else
         CALL prepare_ua_index('cover (2)',kproma,ptm1(1,jk),itv1(1), &
           &                   pxim1(1,jk),nphase,zphase,itv2)
         CALL lookup_ua_eor_uaw(kproma,itv1(1),nphase,itv2(1),ua(1))
-#endif
 
 !IBM* novector
         DO jl=1,kproma

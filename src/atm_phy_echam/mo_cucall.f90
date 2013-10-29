@@ -51,17 +51,9 @@ MODULE mo_cucall
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish
 
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1    ! vtmpc1=rv/rd-1
-#else
-  USE mo_constants,          ONLY: vtmpc1    ! vtmpc1=rv/rd-1
-#endif
 
-#ifdef __ibmspline__
-  USE mo_convect_tables,     ONLY: prepare_ua_index_spline,lookup_ua_spline
-#else
   USE mo_convect_tables,     ONLY: prepare_ua_index,lookup_ua
-#endif
   USE mo_cumastr,            ONLY: cumastr
 
   IMPLICIT NONE
@@ -151,10 +143,6 @@ CONTAINS
                 zqsat(kbdim,klev),        zrain(kbdim),                  &
                 ua(kbdim)
 
-#ifdef __ibmspline__
-    REAL(dp)::  za(kbdim)
-#endif
-
     INTEGER ::  itopec2(kbdim),           idx(kbdim)
     INTEGER ::  icbot(kbdim),             ictop(kbdim)
     REAL(dp)::  zxtp1(kbdim,klev,ktrac),  zxtu(kbdim,klev,ktrac)
@@ -191,13 +179,8 @@ CONTAINS
         zvp1(jl,jk)=pvm1(jl,jk)+pvol(jl,jk)*ztmst
      END DO
 
-#ifdef __ibmspline__
-     CALL prepare_ua_index_spline('cucall',kproma,ztp1(1,jk),idx(1),za(1))
-     CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
-#else
      CALL prepare_ua_index('cucall',kproma,ztp1(1,jk),idx(1))
      CALL lookup_ua(kproma,idx(1),ua(1))
-#endif
 
 !IBM* NOVECTOR
      DO jl=1,kproma

@@ -44,15 +44,8 @@ MODULE mo_cumastr
 
   USE mo_kind,                ONLY: dp
 
-#ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1, rd
   USE mo_echam_conv_constants,ONLY: entrscv, cmfdeps
-#else
-  USE mo_control,             ONLY: nn
-  USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1, rd
-  USE mo_cumulus_flux,        ONLY: entrscv, cmfdeps
-  USE mo_tracer_processes,    ONLY: xt_conv_massfix
-#endif
 
   USE mo_cuini,               ONLY: cuini
   USE mo_cuasc,               ONLY: cuasc
@@ -63,11 +56,7 @@ MODULE mo_cumastr
   USE mo_cudlfs,              ONLY: cudlfs
   USE mo_cuddraf,             ONLY: cuddraf
 
-#ifdef __ibmspline__
-  USE mo_convect_tables, ONLY: prepare_ua_index_spline, lookup_ua_spline, lookup_ubc
-#else
   USE mo_convect_tables, ONLY: prepare_ua_index, lookup_ua, lookup_ubc
-#endif
 
 
   IMPLICIT NONE
@@ -232,9 +221,6 @@ REAL(dp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zcpcui(kbdim,klev),      zkcbot(kbdim),                     &
            zictop0(kbdim),          ztmp1(kbdim),                      &
            ztmp2(kbdim),            ztmp3(kbdim)
-#ifdef __ibmspline__
-REAL(dp):: za(kbdim)
-#endif
 REAL(dp):: zsfl(kbdim),             zdpmel(kbdim,klev)
 REAL(dp):: zcape(kbdim),            zheat(kbdim)
 REAL(dp):: ua(kbdim), dua(kbdim), ub(kbdim)
@@ -285,11 +271,7 @@ INTRINSIC MIN, MAX
 !100 CONTINUE
 !
   zcons2=1._dp/(g*ptime_step_len)
-#ifdef __ICON__
   ztau=cmftau
-#else
-  ztau=MIN(3._dp*3600._dp,7200._dp*63._dp/nn)
-#endif
   pwcape(:)=0._dp
 !
 !----------------------------------------------------------------------
@@ -346,9 +328,6 @@ INTRINSIC MIN, MAX
         zhelp      = paphp1(jl,jk+1)-paphp1(jl,jk)
         zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
         zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte(jl,jk),0._dp)*zhelp
-#ifdef __ibmdbg__
-        PRINT '(A6,I3,I4,E18.10,L3)','zdqpbl',jk,jl,zdqpbl(jl),(FSEL(zjk - zkcbot(jl),1._dp,0._dp)==1._dp)
-#endif
 315  END DO
 320 END DO
 !
@@ -378,9 +357,6 @@ INTRINSIC MIN, MAX
      zktype(jl) = FSEL(zhelp - zdqcv(jl),2._dp,1._dp)
      zentr(jl)  = FSEL(zhelp - zdqcv(jl),entrscv,entrpen)
      ktype(jl) = INT(zktype(jl))
-#ifdef __ibmdbg__
-     PRINT '(A6,I3,I4,2 E18.10,I3,L3)','zmfub',ikb,jl,zmfub(jl),zentr(jl),ktype(jl),(zlo1==1._dp)
-#endif
 340 END DO
   ldcum(1:kproma) = (zldcum(1:kproma).GT.0._dp)
 !
@@ -406,13 +382,8 @@ INTRINSIC MIN, MAX
      zcpcui(1:kproma,jk) = 1._dp/zcpcu(1:kproma,jk)
      IF (jk <= klevm1 .AND. jk >= 3) THEN
         ! mpuetz: too few instructions (FP dependencies)
-#ifdef __ibmspline__
-        CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
-        CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-#else
         CALL prepare_ua_index('cumastr',kproma,ztenh(1,jk),loidx(1))
         CALL lookup_ua(kproma,loidx(1),ua(1),dua(1))
-#endif
         CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,dp)
 !IBM* NOVECTOR
@@ -427,14 +398,10 @@ INTRINSIC MIN, MAX
            zes=MIN(0.5_dp,zes)
            zcor=1._dp/(1._dp-vtmpc1*zes)
            zqsat=zes*zcor
-#ifdef __ibmspline2__
-           zdqsdt=zpaphp1i*zcor**2*dua(jl)
-#else
            zqst1=(ua(jl) + 0.001_dp*dua(jl))*zpaphp1i
            zqst1=MIN(0.5_dp,zqst1)
            zqst1=zqst1/(1._dp-vtmpc1*zqst1)
            zdqsdt=(zqst1-zqsat)*1000._dp
-#endif
            zgam=FSEL(zes - 0.4_dp,zqsat*zcor*ub(jl),zalvdcp*zdqsdt)
            zzz=zcpcu(jl,jk)*ztenh(jl,jk)*vtmpc1
            zhhat=zhsat-((zzz+zgam*zzz)/(1._dp+zgam*zzz*zqalv))*             &
@@ -443,9 +410,6 @@ INTRINSIC MIN, MAX
            zlo1 = FSEL(zjk - zictop0(jl),0._dp,1._dp)
            zlo1 = FSEL(zhhat - zhcbase(jl),0._dp,zlo1)
            zictop0(jl) = FSEL(-zlo1,zictop0(jl),zjk)
-#ifdef __ibmdbg__
-           PRINT '(A6,I3,I4,3 E18.10,I3)','ictop',jk,jl,zes,zqsdt,zhhatt(jl,jk),INT(zictop0(jl))
-#endif
 421     END DO
      END IF
 430 END DO
@@ -540,9 +504,6 @@ INTRINSIC MIN, MAX
 !IBM* ASSERT(NODEPS)
   DO nl=1,ldcnt
      jl = ldidx(nl)
-#ifdef __ibmdbg__
-     PRINT '(A6,I4,I4,I4)','ihmin',jl,INT(zihmin(jl)),ictop0(jl)
-#endif
      zihmin(jl) = FSEL(zihmin(jl)-zictop0(jl),zihmin(jl),zictop0(jl))
 !        IF(ihmin(jl).LT.ictop0(jl)) ihmin(jl)=ictop0(jl)
   ENDDO
@@ -687,9 +648,6 @@ INTRINSIC MIN, MAX
         END IF
      END DO
 
-#ifdef __ibmdbg__
-     PRINT '(A6,I3,2 I4)','cumas1',jk,ldcnt,locnt,INT(zkcbot(jl))
-#endif
 
      ! mpuetz: there is reuse of zro, maybe we can calulate once and store
 
@@ -710,10 +668,6 @@ INTRINSIC MIN, MAX
              + g*vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))                         &
              - g*plu(jl,jk) ) * zdz
 
-#ifdef __ibmdbg__
-        PRINT '(A6,I3,I4,5 E18.10,I4)','zheat',jk,jl,zheat(jl),zcape(jl),zroi,ztenhi,zdz,kcbot(jl)
-        PRINT '(A6,I3,I4,6 E18.10)','zcape',jk,jl,pten(jl,jk-1)-pten(jl,jk),pqen(jl,jk-1)-pqen(jl,jk),pmfu(jl,jk)+pmfd(jl,jk),ptu(jl,jk),pqu(jl,jk),plu(jl,jk)
-#endif
     ENDDO
   ENDDO
 !
@@ -772,9 +726,6 @@ INTRINSIC MIN, MAX
           zmfub(jl),llo1)
      zmfub1(jl)=MERGE(zmfub1(jl),zmfub(jl),                         &
           ABS(zmfub1(jl)-zmfub(jl)).LT.0.2_dp*zmfub(jl))
-#ifdef __ibmdbg__
-     PRINT '(A6,I4,E18.10)','zmfub1',jl,zmfub1(jl)
-#endif
 520 END DO
   ldcnt = 0
   DO jl=1,kproma
@@ -795,9 +746,6 @@ INTRINSIC MIN, MAX
         zmfds(jl,jk)  = zmfds(jl,jk)*zfac
         zmfdq(jl,jk)  = zmfdq(jl,jk)*zfac
         zdmfdp(jl,jk) = zdmfdp(jl,jk)*zfac
-#ifdef __ibmdbg__
-        PRINT '(A6,I3,I4,E18.10)','zfac',jk,jl,ztmp1(nl)
-#endif
 530  END DO
 !
 !IBM* unroll(4)

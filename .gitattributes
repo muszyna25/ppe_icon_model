@@ -1156,7 +1156,6 @@ src/atm_phy_echam/mo_cudlfs.f90 -text
 src/atm_phy_echam/mo_cudtdq.f90 -text
 src/atm_phy_echam/mo_cududv.f90 -text
 src/atm_phy_echam/mo_cuentr.f90 -text
-src/atm_phy_echam/mo_cuentrt.f90 -text
 src/atm_phy_echam/mo_cuflx.f90 -text
 src/atm_phy_echam/mo_cuini.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text

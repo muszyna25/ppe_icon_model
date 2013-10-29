@@ -36,13 +36,8 @@ MODULE mo_surface_diag
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
-#ifdef __ICON__
   USE mo_physical_constants,ONLY: grav, als, alv, vtmpc2, cpd
   USE mo_echam_vdiff_params,ONLY: tpfac2
-#else
-  USE mo_constants,         ONLY: grav, als, alv, vtmpc2, cpd
-  USE mo_physc2,            ONLY: tpfac2
-#endif
 
   IMPLICIT NONE
   PRIVATE
