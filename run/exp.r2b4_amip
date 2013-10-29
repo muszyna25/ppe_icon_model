@@ -146,20 +146,22 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  netcdf_dict      = '${dict_file}'
 /
 &output_nml
- output_bounds    = ${dt_data_atm_dyn},${dt_restart},${dt_data_atm_dyn}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_dyn},1000000000,${dt_data_atm_dyn}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_dyn}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_dyn"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
  ml_varlist       = 'ps'      , 'ta'      ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'ua'      , 'va'      , 'wap'     ,
                     'pfull'   , 'gpfull'
 /
 &output_nml
- output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
@@ -172,10 +174,11 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
- output_bounds    = ${dt_data_lnd_phy},${dt_restart},${dt_data_lnd_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_lnd_phy},1000000000,${dt_data_lnd_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_lnd_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_lnd_phy"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
@@ -193,10 +196,11 @@ EOF
 if [[ "$write_tend_temp" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend_t"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
  ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
                     'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
 /
@@ -206,10 +210,11 @@ fi
 if [[ "$write_tend_other" == "yes" ]]; then
     cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},${dt_restart},${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
  ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
                     'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
                     'tend_x_dtr'
