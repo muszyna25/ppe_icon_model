@@ -80,7 +80,7 @@ CONTAINS
                        paphp1,   pgeo,                                    &
                        ptte,     pqte,     pvom,     pvol,                &
                        prsfc,    pssfc,    pxtec,                         &
-                       pqtec,    pqude,                                   &
+                       pqtec,    pqude,    pcpen,                         &
                        ldcum,    ktype,    kcbot,    kctop,               &
                        ptu,      pqu,      plu,      plude,               &
                        pmfu,     pmfd,     prain,    pthvsig,             &
@@ -214,7 +214,7 @@ REAL(dp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
            zmful(kbdim,klev),       zrfl(kbdim),                       &
            zuu(kbdim,klev),         zvu(kbdim,klev),                   &
            zud(kbdim,klev),         zvd(kbdim,klev)
-REAL(dp):: zcpen(kbdim,klev),       zcpcu(kbdim,klev)
+REAL(dp):: pcpen(kbdim,klev),       zcpcu(kbdim,klev)
 REAL(dp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zmfub(kbdim),            zmfub1(kbdim),                     &
            zktype(kbdim),           zldcum(kbdim),                     &
@@ -290,7 +290,7 @@ INTRINSIC MIN, MAX
              zuu,      zvu,      zud,      zvd,                        &
              pmfu,     pmfd,     zmfus,    zmfds,                      &
              zmfuq,    zmfdq,    zdmfup,   zdmfdp,                     &
-             zcpen,    zcpcu,                                          &
+             pcpen,    zcpcu,                                          &
              zdpmel,   plu,      plude,    pqude,    ilab)
 !
 !-----------------------------------------------------------------------
@@ -468,8 +468,8 @@ INTRINSIC MIN, MAX
         zroi  = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._dp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
         zdz   = (paphp1(jl,jk)-paphp1(jl,jk-1))*zroi/g
 
-        za1 = (zcpen(jl,jk-1)*pten(jl,jk-1)        &
-             - zcpen(jl,jk)*pten(jl,jk)            &
+        za1 = (pcpen(jl,jk-1)*pten(jl,jk-1)        &
+             - pcpen(jl,jk)*pten(jl,jk)            &
              + zalvs*(pqen(jl,jk-1) - pqen(jl,jk)) &
              + (pgeo(jl,jk-1)-pgeo(jl,jk)) )*g
         za2 = pgeo(jl,jk-1)-pgeo(jl,jk)
@@ -530,7 +530,7 @@ INTRINSIC MIN, MAX
              zmfus,    zmfuq,                                          &
              zmful,    plude,    pqude,    zdmfup,                     &
              ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
-             zcpen,    zcpcu,                                          &
+             pcpen,    zcpcu,                                          &
              kcbot,    kctop,    ictop0,                               &
 !---Included for scavenging in xtwetdep (Philip Stier, 19/02/04, UL, 28.3.07):-------
              zmwc,     zmrateprecip,  zmratesnow,                      &
@@ -793,7 +793,7 @@ INTRINSIC MIN, MAX
              zmfus,    zmfuq,                                          &
              zmful,    plude,    pqude,    zdmfup,                     &
              ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
-             zcpen,    zcpcu,                                          &
+             pcpen,    zcpcu,                                          &
              kcbot,    kctop,    ictop0,                               &
 !---Included for scavenging in xtwetdep (Philip Stier, 19/02/04, UL, 28.3.07):-------
              zmwc,     zmrateprecip,  zmratesnow,                      &
@@ -836,7 +836,7 @@ INTRINSIC MIN, MAX
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
-              zcpen,    pqtec,    pqude,                               &
+              pcpen,    pqtec,    pqude,                               &
               prsfc,    pssfc,                                         &
               ptte_cnv, pqte_cnv, pxtte_cnv                        )
 !

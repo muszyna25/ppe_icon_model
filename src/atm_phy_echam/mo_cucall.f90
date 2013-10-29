@@ -77,6 +77,7 @@ CONTAINS
                      pverv,                                          &! in
                      pgeo,                                           &! in
                      pqm1,     pxlm1,    pxim1, pxtm1,               &! in
+                     pcair,                                          &! in
                      pxlte,    pxite,                                &! in
                      papp1,    paphp1,                               &! in
                      pqhfla,                                         &! in
@@ -109,6 +110,7 @@ CONTAINS
     REAL(dp),INTENT(IN) :: pqm1(kbdim,klev)
     REAL(dp),INTENT(IN) :: pxlm1(kbdim,klev),     pxim1(kbdim,klev)
     REAL(dp),INTENT(IN) :: pxtm1(kbdim,klev,ktrac)
+    REAL(dp),INTENT(IN) :: pcair(kbdim,klev)
     REAL(dp),INTENT(IN) :: pxlte(kbdim,klev),     pxite(kbdim,klev)
     REAL(dp),INTENT(IN) :: papp1(kbdim,klev),    paphp1(kbdim,klevp1)
     REAL(dp),INTENT(IN) :: pqhfla(kbdim)
@@ -221,7 +223,7 @@ CONTAINS
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,                                     &
+                  pqtec,    zqude,    pcair,                           &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
                   zmfu,     zmfd,     zrain,    pthvsig,               &

@@ -1224,6 +1224,7 @@ CONTAINS
         &          field% q(:,:,jb,iqc),      &! in     xlm1
         &          field% q(:,:,jb,iqi),      &! in     xim1
         &          field% q(:,:,jb,iqt:),     &! in     xtm1
+        &          zcair(:,:),                &! in
         &           tend% q(:,:,jb,iqc),      &! in     xlm1
         &           tend% q(:,:,jb,iqi),      &! in     xim1
         &          field% presm_new(:,:,jb),  &! in     app1

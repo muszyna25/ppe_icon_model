@@ -43,7 +43,7 @@ MODULE mo_cuini
   USE mo_kind,               ONLY: dp
   USE mo_cuadjtq,            ONLY: cuadjtq_idx
 
-  USE mo_physical_constants, ONLY: rd, cpd
+  USE mo_physical_constants, ONLY: rd
 
   IMPLICIT NONE
   PRIVATE
@@ -135,13 +135,6 @@ INTRINSIC MAX, MIN
 !*                 FIND LEVEL OF MAXIMUM VERTICAL VELOCITY
 !                  ----------------------------------------------
 !
-!100 CONTINUE
-    DO 101 jk=1,klev
-       DO 102 jl=1,kproma
-!          pcpen(jl,jk)=cpd*(1.+vtmpc2*MAX(pqen(jl,jk),0.0_dp))
-          pcpen(jl,jk)=cpd
-102    END DO
-101 END DO
   DO 105 jl=1,kproma
      zarg=paphp1(jl,klevp1)/paphp1(jl,klev)
      pgeoh(jl,klev)=rd*ptven(jl,klev)*LOG(zarg)
@@ -156,6 +149,7 @@ INTRINSIC MAX, MIN
 !IBM* NOVECTOR
      DO 110 jl=1,kproma
         zcpm=(pcpen(jl,jk)+pcpen(jl,jk-1))*0.5_dp
+        pcpcu(jl,jk)=zcpm
         ptenh(jl,jk)=(MAX(pcpen(jl,jk-1)*pten(jl,jk-1)+pgeo(jl,jk-1),  &
                    pcpen(jl,jk)*pten(jl,jk)+pgeo(jl,jk))-pgeoh(jl,jk))
         ptenh(jl,jk) = ptenh(jl,jk)/zcpm
@@ -181,8 +175,6 @@ INTRINSIC MAX, MIN
         pqenh(jl,jk)=MIN(pqen(jl,jk-1),pqsen(jl,jk-1))                 &
                           +(pqsenh(jl,jk)-pqsen(jl,jk-1))
         pqenh(jl,jk)=MAX(pqenh(jl,jk),0._dp)
-!        pcpcu(jl,jk)=cpd*(1.+vtmpc2*pqenh(jl,jk))
-        pcpcu(jl,jk)=cpd
 120  END DO
 130 END DO
 !
