@@ -7,11 +7,16 @@
    # use add_required_file ${in_path_file} ./${new_name} 
    # --------------------------------------------------
    pool_icon_folder=/pool/data/ICON
+   local_grid_folder=$(readline -m ../grids)
    # if not defined, get them from the pool
-   if [ x$LOC = xPOOL ] ; then
+   if [ "x${LOC}" = 'xPOOL' ] ; then
      grids_folder=${pool_icon_folder}/ocean_data/ocean_grid
      ocean_forcing_folder=${pool_icon_folder}/ocean_data/ocean_forcing
      ocean_init_folder=${pool_icon_folder}/ocean_data/ocean_init
+   else
+     grids_folder=${local_grid_folder}
+     ocean_forcing_folder=${local_grid_folder}
+     ocean_init_folder=${local_grid_folder}
    fi
    ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
    ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
