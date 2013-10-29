@@ -229,7 +229,6 @@ CONTAINS
 
     INTEGER :: error_status
 
-    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
 

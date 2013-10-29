@@ -37,14 +37,8 @@ MODULE mo_cudlfs
 
   USE mo_kind,               ONLY : dp
   USE mo_cuadjtq,            ONLY : cuadjtq
-  USE mo_cuadjtqi,           ONLY : cuadjtqi
-#ifdef __ICON__
   USE mo_physical_constants,  ONLY : vtmpc1
   USE mo_echam_conv_constants,ONLY : cmfdeps
-#else
-  USE mo_constants,          ONLY : vtmpc1
-  USE mo_cumulus_flux,       ONLY : cmfdeps
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -55,7 +49,7 @@ MODULE mo_cudlfs
 CONTAINS
   !>
   !!
-SUBROUTINE cudlfs(   ncvmicro, lmfdudv,  lmfdd,          &
+SUBROUTINE cudlfs(   lmfdudv,  lmfdd,                    &
            kproma, kbdim, klev, klevp1,                  &
            ptenh,    pqenh,    puen,     pven,           &
            ktrac,                                        &
@@ -66,10 +60,7 @@ SUBROUTINE cudlfs(   ncvmicro, lmfdudv,  lmfdd,          &
            ptd,      pqd,      pud,      pvd,            &
            pmfd,     pmfds,    pmfdq,    pdmfdp,         &
            pcpcu,                                        &
-           kdtop,    lddraf,                             &
-!-----------------------added by Junhua Zhang for Micro---------------
-           plui)
-!-------------------------------------end-----------------------------
+           kdtop,    lddraf)
 !
 !          THIS ROUTINE CALCULATES LEVEL OF FREE SINKING FOR
 !          CUMULUS DOWNDRAFTS AND SPECIFIES T,Q,U AND V VALUES
@@ -98,7 +89,6 @@ SUBROUTINE cudlfs(   ncvmicro, lmfdudv,  lmfdd,          &
 !          ---------
 !          *CUADJTQ* FOR CALCULATING WET BULB T AND Q AT LFS
 !
-INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd 
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
 REAL(dp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
@@ -126,10 +116,6 @@ REAL(dp) :: pxtenh(kbdim,klev,ktrac),pxtu(kbdim,klev,ktrac),           &
 LOGICAL  :: llo3(kbdim)
 INTEGER  :: jl, jk, ke, is, ik, icall, jt
 REAL(DP) :: zttest, zqtest, zbuo, zmftop
-!
-!-----------------------added by Junhua Zhang for Micro---------------
-REAL(dp) :: plui(kbdim,klev)
-!-------------------------------------end-----------------------------
 !
 !----------------------------------------------------------------------
 !
@@ -186,16 +172,8 @@ REAL(dp) :: plui(kbdim,klev)
 !
      ik=jk
      icall=2
-     IF (ncvmicro .GT. 0) THEN
-        CALL cuadjtqi(ncvmicro, kproma, kbdim, klev, ik,               &
-                  zph,      ztenwb,   zqenwb,   llo2,     icall,       &
-!-----------------------added by Junhua Zhang for Micro---------------
-                  plui)
-!-------------------------------------end-----------------------------
-     ELSE
         CALL cuadjtq(kproma, kbdim, klev, ik,                          &
                   zph,      ztenwb,   zqenwb,   llo2,     icall)
-     ENDIF
 !
 !
 !     2.2          DO MIXING OF CUMULUS AND ENVIRONMENTAL AIR

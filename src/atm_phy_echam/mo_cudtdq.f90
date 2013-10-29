@@ -53,7 +53,7 @@ MODULE mo_cudtdq
 CONTAINS
   !>
   !!
-SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
+SUBROUTINE cudtdq(pdelta_time,                                         &
                   kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
                   paphp1,   pten,     ptte,     pqte,                  &
                   pxtec,                                               &
@@ -75,7 +75,6 @@ SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
 !
 !          *CUDTDQ* IS CALLED FROM *CUMASTR*
 !
-INTEGER, INTENT(IN) :: ncvmicro
 REAL(dp),INTENT(IN) :: pdelta_time
 INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
 
@@ -106,12 +105,6 @@ REAL(dp),INTENT(INOUT) :: pxtte_cnv(kbdim,klev,ktrac)                  ! OUT
 
 INTEGER  :: jl, jk
 REAL(dp) :: zdiagt, zalv, zdtdt, zdqdt
-
-IF (ncvmicro>0) THEN
-  !
-  CALL finish(TRIM(routine),'ncvmicro > 0 not supported in ICON')
-  !
-END IF
 
    ptte_cnv(1:kproma,:)   = 0._dp
    pqte_cnv(1:kproma,:)   = 0._dp

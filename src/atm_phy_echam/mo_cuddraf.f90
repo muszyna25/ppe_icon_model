@@ -37,14 +37,8 @@ MODULE mo_cuddraf
 
   USE mo_kind,               ONLY : dp
   USE mo_cuadjtq,            ONLY : cuadjtq
-  USE mo_cuadjtqi,           ONLY : cuadjtqi
-#ifdef __ICON__
   USE mo_physical_constants,  ONLY : g=>grav, rd, vtmpc1
   USE mo_echam_conv_constants,ONLY : cmfcmin, entrdd
-#else
-  USE mo_constants,          ONLY : g, rd, vtmpc1
-  USE mo_cumulus_flux,       ONLY : cmfcmin, entrdd
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -55,7 +49,7 @@ MODULE mo_cuddraf
 CONTAINS
   !>
   !!
-SUBROUTINE cuddraf(  ncvmicro, lmfdudv,         &
+SUBROUTINE cuddraf(  lmfdudv,                   &
            kproma, kbdim, klev, klevp1,         &
            ptenh,    pqenh,    puen,     pven,  &
            ktrac,                               &
@@ -64,10 +58,7 @@ SUBROUTINE cuddraf(  ncvmicro, lmfdudv,         &
            ptd,      pqd,      pud,      pvd,   &
            pmfd,     pmfds,    pmfdq,    pdmfdp,&
            pcpcu,                               &
-           lddraf,                              &
-!-----------------------added by Junhua Zhang for Micro---------------
-           plui)
-!-------------------------------------end-----------------------------
+           lddraf)
 !
 !          THIS ROUTINE CALCULATES CUMULUS DOWNDRAFT DESCENT
 !
@@ -101,7 +92,6 @@ SUBROUTINE cuddraf(  ncvmicro, lmfdudv,         &
 !          ---------
 !          (TIEDTKE,1989)
 !
-INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
 !
@@ -127,10 +117,6 @@ LOGICAL  :: llo1
 INTEGER  :: jk, is, jl, itopde, jt, ik, icall
 REAL(dp) :: zentr, zseen, zqeen, zsdde, zqdde, zmfdsk, zmfdqk, zxteen  &
           , zxtdde, zmfdxtk, zbuo, zdmfdp, zmfduk, zmfdvk
-!
-!-----------------------added by Junhua Zhang for Micro---------------
-REAL(dp) :: plui(kbdim,klev)
-!-------------------------------------end-----------------------------
 !
 !----------------------------------------------------------------------
 !
@@ -206,16 +192,8 @@ REAL(dp) :: plui(kbdim,klev)
 !
      ik=jk
      icall=2
-     IF (ncvmicro .GT. 0) THEN
-        CALL cuadjtqi( ncvmicro, kproma,   kbdim,    klev,     ik,    &
-                  zph,      ptd,      pqd,      llo2,     icall,      &
-!-----------------------added by Junhua Zhang for Micro---------------
-                  plui)
-!-------------------------------------end-----------------------------
-     ELSE
         CALL cuadjtq(kproma,   kbdim,    klev,     ik,                &
                   zph,      ptd,      pqd,      llo2,     icall)
-     ENDIF
 !
 !
      DO 150 jl=1,kproma

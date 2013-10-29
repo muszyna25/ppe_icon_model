@@ -43,11 +43,7 @@ MODULE mo_cuini
   USE mo_kind,               ONLY: dp
   USE mo_cuadjtq,            ONLY: cuadjtq_idx
 
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: rd, cpd
-#else
-  USE mo_constants,          ONLY: rd, cpd
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -58,7 +54,7 @@ MODULE mo_cuini
 CONTAINS
   !>
   !!
-SUBROUTINE cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,        &
+SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                  &
            pten,     pqen,     pqsen,    pxen,     puen,     pven,     &
            ptven,    ktrac,                                            &
            pxten,    pxtenh,   pxtu,     pxtd,     pmfuxt,   pmfdxt,   &
@@ -69,10 +65,7 @@ SUBROUTINE cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,        &
            pmfu,     pmfd,     pmfus,    pmfds,                        &
            pmfuq,    pmfdq,    pdmfup,   pdmfdp,                       &
            pcpen,    pcpcu,                                            &
-           pdpmel,   plu,      plude,    pqude,    klab,               &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-           plul,     plui,    pludel,   pludei                         )
-!--- End Included for CDNC/IC ------------------------------------------
+           pdpmel,   plu,      plude,    pqude,    klab)
 !
 !          M.TIEDTKE         E.C.M.W.F.     12/89
 !
@@ -96,7 +89,6 @@ SUBROUTINE cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,        &
 !          ---------
 !          *CUADJTQ* TO SPECIFY QS AT HALF LEVELS
 !
-INTEGER, INTENT (IN) :: ncvmicro
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 
 REAL(dp):: pten(kbdim,klev),          pqen(kbdim,klev),                &
@@ -132,10 +124,6 @@ REAL(dp):: pxten(kbdim,klev,ktrac),   pxtenh(kbdim,klev,ktrac),        &
 INTEGER :: jk, jl, jt, ik, icall
 REAL(dp):: zarg, zcpm, zzs
 
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-REAL(dp):: plul(kbdim,klev),          plui(kbdim,klev),                  &
-           pludel(kbdim,klev),        pludei(kbdim,klev)
-!--- End Included for CDNC/IC ------------------------------------------
 !
 !  INTRINSIC FUNCTIONS
 INTRINSIC MAX, MIN
@@ -147,16 +135,6 @@ INTRINSIC MAX, MIN
 !*                 FIND LEVEL OF MAXIMUM VERTICAL VELOCITY
 !                  ----------------------------------------------
 !
-!--------------------added by Junhua Zhang-------------------------
-      IF(ncvmicro>0) THEN
-       DO jk=1,klev
-          DO jl=1,kproma
-            plul(jl,jk)=0._dp
-            plui(jl,jk)=0._dp
-          ENDDO
-        ENDDO
-       ENDIF
-!----------------------------end------------------------------------
 !100 CONTINUE
     DO 101 jk=1,klev
        DO 102 jl=1,kproma
@@ -266,12 +244,6 @@ INTRINSIC MAX, MIN
         pqu(jl,jk)=pqenh(jl,jk)
         pqd(jl,jk)=pqenh(jl,jk)
         plu(jl,jk)=0._dp
-!--------------------added by Junhua Zhang-------------------------
-        IF(ncvmicro>0) THEN
-           plul(jl,jk)=0._dp
-           plui(jl,jk)=0._dp
-        ENDIF
-!---------------------------end------------------------------------
         puu(jl,jk)=puen(jl,ik)
         pud(jl,jk)=puen(jl,ik)
         pvu(jl,jk)=pven(jl,ik)
@@ -285,15 +257,7 @@ INTRINSIC MAX, MIN
         pdmfup(jl,jk)=0._dp
         pdmfdp(jl,jk)=0._dp
         pdpmel(jl,jk)=0._dp
-!        plude(jl,jk)=0._dp
-!--------------------added by Junhua Zhang-------------------------
-        IF(ncvmicro>0) THEN
-           pludel(jl,jk)=0._dp
-           pludei(jl,jk)=0._dp
-        ELSE
-           plude(jl,jk)=0._dp
-        ENDIF
-!----------------------------end------------------------------------
+        plude(jl,jk)=0._dp
         pqude(jl,jk)=0._dp
         klab(jl,jk)=0
 220  END DO

@@ -79,7 +79,7 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,    &
+  SUBROUTINE cumastr(  lmfdudv, lmfdd, lmfmid, dlev, cmftau,              &
                        cmfctop, cprcon, cminbuoy, entrpen, nmctop,cevapcu,&
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
@@ -182,7 +182,7 @@ CONTAINS
 !          PAPER ON MASSFLUX SCHEME (TIEDTKE,1989)
 !
 !
-INTEGER, INTENT (IN) :: ncvmicro, nmctop
+INTEGER, INTENT (IN) :: nmctop
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
 REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy, entrpen
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
@@ -260,7 +260,6 @@ REAL(dp):: zmratesnow(kbdim,klev)
 !--- Included for prognostic CDNC/IC scheme ----------------------------
 REAL(dp):: pcvcbot(kbdim),          pwcape(kbdim)
 REAL(dp):: plul(kbdim,klev),        plui(kbdim,klev),                   &
-           pludel(kbdim,klev),      pludei(kbdim,klev),                 &
            zmfull(kbdim,klev),      zmfuli(kbdim,klev)
 !!$REAL(dp) :: ptkem1(kbdim,klev)
 !--- End Included for CDNC/IC ------------------------------------------
@@ -299,7 +298,7 @@ INTRINSIC MIN, MAX
 !                  ---------------------------------------------------
 !
 !200 CONTINUE
-  CALL cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,            &
+  CALL cuini(kproma, kbdim, klev, klevp1, klevm1,                      &
              pten,     pqen,     pqsen,    pxen,     puen,     pven,   &
              ptven,    ktrac,                                          &
              pxten,    zxtenh,   pxtu,     zxtd,     zmfuxt,   zmfdxt, &
@@ -310,10 +309,7 @@ INTRINSIC MIN, MAX
              pmfu,     pmfd,     zmfus,    zmfds,                      &
              zmfuq,    zmfdq,    zdmfup,   zdmfdp,                     &
              zcpen,    zcpcu,                                          &
-             zdpmel,   plu,      plude,    pqude,    ilab,             &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-             plul,     plui,     pludel,   pludei                       )
-!--- End Included for CDNC/IC ------------------------------------------
+             zdpmel,   plu,      plude,    pqude,    ilab)
 !
 !-----------------------------------------------------------------------
 !
@@ -624,7 +620,7 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE LFS IN 'CUDLFS'
 !                  -------------------------
 !
-     CALL cudlfs(ncvmicro, lmfdudv, lmfdd, kproma,kbdim, klev, klevp1, &
+     CALL cudlfs(lmfdudv, lmfdd, kproma,kbdim, klev, klevp1,           &
                  ztenh,    zqenh,    puen,     pven,                   &
                  ktrac,                                                &
                  zxtenh,   pxtu,     zxtd,     zmfdxt,                 &
@@ -634,12 +630,12 @@ INTRINSIC MIN, MAX
                  ztd,      zqd,      zud,      zvd,                    &
                  pmfd,     zmfds,    zmfdq,    zdmfdp,                 &
                  zcpcu,                                                &
-                 idtop,    loddraf,plui)
+                 idtop,    loddraf)
 !
 !*            (B)  DETERMINE DOWNDRAFT T,Q AND FLUXES IN 'CUDDRAF'
 !                  -----------------------------------------------
 !
-     CALL cuddraf(ncvmicro, lmfdudv,  kproma,   kbdim,  klev, klevp1,  &
+     CALL cuddraf(lmfdudv,  kproma,   kbdim,  klev, klevp1,            &
                   ztenh,    zqenh,    puen,     pven,                  &
                   ktrac,                                               &
                   zxtenh,   zxtd,     zmfdxt,                          &
@@ -647,7 +643,7 @@ INTRINSIC MIN, MAX
                   ztd,      zqd,      zud,      zvd,                   &
                   pmfd,     zmfds,    zmfdq,    zdmfdp,                &
                   zcpcu,                                               &
-                  loddraf,plui)
+                  loddraf)
 !
   END IF
 !
@@ -865,7 +861,7 @@ INTRINSIC MIN, MAX
 !
 !700 CONTINUE
 
-  CALL cuflx(ncvmicro,  cevapcu, &
+  CALL cuflx(cevapcu,                                                  &
              ptime_step_len, kproma,   kbdim,    klev,     klevp1,     &
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
@@ -877,17 +873,15 @@ INTRINSIC MIN, MAX
              zmfuq,    zmfdq,    zmful,                                &
              zdmfup,   zdmfdp,   zrfl,     prain,                      &
              zcpcu,                                                    &
-             pten,     zsfl,     zdpmel,   itopm2,                     &
-!--- Included for prognostic CDNC/IC scheme ----------------------------
-             zmfull,   zmfuli)
-!--- End Included for CDNC/IC ------------------------------------------
+             pten,     zsfl,     zdpmel,   itopm2)
+!
 !-----------------------------------------------------------------------
 !
 !*    8.0          UPDATE TENDENCIES FOR T AND Q IN SUBROUTINE CUDTDQ
 !                  --------------------------------------------------
 !
 !800 CONTINUE
-  CALL cudtdq(ncvmicro, pdtime,                                        &
+  CALL cudtdq(pdtime,                                                  &
               kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
               paphp1,   pten,     ptte,     pqte,                      &
               pxtec,                                                   &

@@ -55,15 +55,10 @@ CONTAINS
   !>
   !!
 !++mgs: zcucov and zdpevap now 1d vectors
-SUBROUTINE cuflx( ncvmicro, cevapcu,                                   &
+SUBROUTINE cuflx( cevapcu,                                             &
            ptime_step_len,  kproma, kbdim, klev, klevp1,               &
            pqen,     pqsen,    ptenh,    pqenh,                        &
            ktrac,                                                      &
-!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01, UL, 2803.07):-------
-!!$           krow,                                                       &
-!!$           pxtte,    pxtu,     ptu,                                    &
-!!$           pmwc,     pmrateprecip,  pmratesnow,                        &
-!---End Included for scavenging-----------------------------------------
            pxtenh,   pmfuxt,   pmfdxt,                                 &
            paphp1,   pgeoh,                                            &
            kcbot,    kctop,    kdtop,                                  &
@@ -72,11 +67,7 @@ SUBROUTINE cuflx( ncvmicro, cevapcu,                                   &
            pmfuq,    pmfdq,    pmful,                                  &
            pdmfup,   pdmfdp,   prfl,     prain,                        &
            pcpcu,                                                      &
-           pten,     psfl,     pdpmel,   ktopm2,                       &
-!-----------------------added by Junhua Zhang for Micro---------------
-           pmfull,pmfuli)
-!!$           plul,     plui)
-!-------------------------------------end-----------------------------
+           pten,     psfl,     pdpmel,   ktopm2)
 !
 !          M.TIEDTKE         E.C.M.W.F.     7/86 MODIF. 12/89
 !
@@ -95,7 +86,6 @@ SUBROUTINE cuflx( ncvmicro, cevapcu,                                   &
 !          NONE
 !
 INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktrac
-INTEGER, INTENT(IN) :: ncvmicro
 REAL(dp),INTENT(IN) :: cevapcu(klev)
 REAL(dp),INTENT(IN) :: ptime_step_len
 
@@ -120,48 +110,14 @@ LOGICAL :: lddraf(kbdim),           ldcum(kbdim)
 REAL(dp):: pxtenh(kbdim,klev,ktrac),                                   &
            pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
 !
-!----------added by Junhua Zhang, Ulrike Lohmann for Micro---------------
-
-!!$REAL(dp):: plul(kbdim,klev),        plui(kbdim,klev)
-REAL(dp):: pmfull(kbdim,klev),      pmfuli(kbdim,klev)
-!-------------------------------------end-----------------------------
-!
 INTEGER :: jl, jk, jt, ikb
-!++mgs
-!!REAL(dp):: zcons1, zcons2, zcucov, ztmelp2, zzp, zfac, zsnmlt          &
-!!         , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum, zdpevap,zwu
-!!REAL(dp):: zpsubcl(kbdim)
 REAL(dp):: zcons1, zcons2,         ztmelp2, zzp, zfac, zsnmlt          &
          , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum
-!!$REAL(dp):: zwu
 REAL(dp):: zpsubcl(kbdim)
-!!$REAL(dp):: zpsubcl_sav(kbdim)
 REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
 !--mgs
 !---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
 !
-!!$INTEGER, INTENT(IN) :: krow
-!!$
-!!$REAL(dp):: pxtte(kbdim,klev,ktrac), pxtu(kbdim,klev,ktrac),            &
-!!$           ptu(kbdim,klev)
-!!$
-!!$REAL(dp):: zmlwc(kbdim,klev),       zmiwc(kbdim,klev),                 &
-!!$           zmratepr(kbdim,klev),    zmrateps(kbdim,klev),              &
-!!$           zfrain(kbdim,klev),      zfsnow(kbdim,klev),                &
-!!$           zdpg(kbdim,klev),        zfevapr(kbdim,klev),               &
-!!$           zfsubls(kbdim,klev),     zaclc(kbdim,klev),                 &
-!!$           zmsnowacl(kbdim,klev),   zrhou(kbdim,klev)
-!!$
-!!$REAL(dp):: pmratesnow(kbdim,klev),            &
-!!$           pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
-!!$
-!!$REAL(dp):: ztc,         zzfac
-!!$
-!!$REAL(dp):: zcaa, &   !(Constants for partitioning of cloud water
-!!$           zcab      ! into liquid and solid part)
-!!$
-!!$REAL(dp):: zalpha    ! Fraction of cloud water in liquid phase
-!!$                     ! =>  (1-zalpha)      "   in solid  phase
 
 !---End Included for scavenging-----------------------------------------
 !
@@ -173,43 +129,6 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
 !!mgs!!  zcucov=0.05_dp            !! ++mgs: now 1-d array
   ztmelp2=tmelt+2._dp
 !
-!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-!
-!!$#ifdef __ICON__
-!!$#else
-!!$IF(lanysubmodel) THEN
-!!$
-!!$  zcaa = 0.0059_dp   ! (Constants for partitioning of cloud water
-!!$  zcab = 0.003102_dp !  into liquid and solid part)
-!!$
-!!$  zmlwc(1:kproma,:)     = 0._dp
-!!$  zmiwc(1:kproma,:)     = 0._dp
-!!$  zmratepr(1:kproma,:)  = 0._dp
-!!$  zmrateps(1:kproma,:)  = 0._dp
-!!$  zfrain(1:kproma,:)    = 0._dp
-!!$  zfsnow(1:kproma,:)    = 0._dp
-!!$  zdpg(1:kproma,:)      = 0._dp
-!!$  zfevapr(1:kproma,:)   = 0._dp
-!!$  zfsubls(1:kproma,:)   = 0._dp
-!!$  zmsnowacl(1:kproma,:) = 0._dp
-!!$
-!!$  zwu            = 2.0_dp
-!!$
-!!$  !--- Set cloud cover to 1 below cloud top and bottom:
-!!$
-!!$  DO jk=1, klev
-!!$     DO jl=1, kproma
-!!$        IF (jk>=kctop(jl) .AND. jk<=kcbot(jl)) THEN
-!!$           zaclc(jl,jk) = 1._dp
-!!$        ELSE
-!!$           zaclc(jl,jk) = 0._dp
-!!$        END IF
-!!$     END DO
-!!$  END DO
-!!$END IF
-!!$#endif
-!
-!---End Included for scavenging-----------------------------------------
 !
 !
 !
@@ -276,15 +195,7 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
            pmfu(jl,jk)=pmfu(jl,ikb)*zzp
            pmfus(jl,jk)=pmfus(jl,ikb)*zzp
            pmfuq(jl,jk)=pmfuq(jl,ikb)*zzp
-!           pmful(jl,jk)=pmful(jl,ikb)*zzp
-!-------------Added by Junhua Zhang for CONV Micro--------------
-           IF (ncvmicro>0) THEN
-              pmfull(jl,jk)=pmfull(jl,ikb)*zzp
-              pmfuli(jl,jk)=pmfuli(jl,ikb)*zzp
-           ELSE
-              pmful(jl,jk)=pmful(jl,ikb)*zzp
-           ENDIF
-!----------------------------End--------------------------------
+           pmful(jl,jk)=pmful(jl,ikb)*zzp
         END IF
 125  END DO
 !
@@ -317,46 +228,6 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
      prain(jl)=0._dp
 210 END DO
 
-!!$#ifdef __ICON__
-!!$#else
-!!$!++jsr interface for scavenging
-!!$IF (lanysubmodel) THEN
-!!$   DO jk=ktopm2,klev
-!!$!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-!!$      zdpg(1:kproma,jk)=(paphp1(1:kproma,jk+1)-paphp1(1:kproma,jk))/g
-!!$!---End Included for scavenging-----------------------------------------
-!!$   END DO
-!!$   IF (ncvmicro>0) THEN
-!!$      DO jk=ktopm2,klev
-!!$         WHERE (ldcum(1:kproma))
-!!$!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-!!$            zmlwc(1:kproma,jk)=plul(1:kproma,jk)
-!!$            zmiwc(1:kproma,jk)=plui(1:kproma,jk)
-!!$
-!!$            zmratepr(1:kproma,jk)=pmrateprecip(1:kproma,jk)
-!!$            zmrateps(1:kproma,jk)=pmratesnow(1:kproma,jk)
-!!$         END WHERE
-!!$      END DO
-!!$   ELSE
-!!$      DO jk=ktopm2,klev
-!!$         DO jl=1,kproma
-!!$            IF (ldcum(jl)) THEN
-!!$               ztc=ptu(jl,jk)-tmelt
-!!$               zzfac=MERGE(1._dp,0._dp,ztc<0._dp)
-!!$               zalpha=(1._dp-zzfac)+zzfac*(zcaa+(1._dp-zcaa)*exp(-zcab*ztc**2))
-!!$
-!!$               zmlwc(jl,jk)=zalpha*pmwc(jl,jk)
-!!$               zmiwc(jl,jk)=(1._dp-zalpha)*pmwc(jl,jk)
-!!$
-!!$               zmratepr(jl,jk)=zalpha*pmrateprecip(jl,jk)
-!!$               zmrateps(jl,jk)=(1._dp-zalpha)*pmrateprecip(jl,jk)
-!!$            END IF
-!!$         END DO
-!!$      END DO
-!!$   END IF
-!!$END IF
-!!$!---End Included for scavenging-----------------------------------------
-!!$#endif
 !--jsr interface for scavenging
 
   DO 220 jk=ktopm2,klev
@@ -395,107 +266,12 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
      psfl(jl)=MAX(psfl(jl),0._dp)
      zpsubcl(jl)=prfl(jl)+psfl(jl)
 230 END DO
-!++jsr scavenging interface
-!++mgs ### new code
-!!IF (lanysubmodel) THEN
-!!   IF (lham) THEN
-!!      DO jk=ktopm2,klev
-!!         DO jl=1,kproma
-!!            IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_dp) THEN
-!!               zrhou(jl,jk)=(paphp1(jl,jk+1)+paphp1(jl,jk))* &
-!!                            0.5_dp/(ptu(jl,jk)*rd)
-!!               zcucov=pmfu(jl,jk)/(zwu*zrhou(jl,jk))
-!!               zrfl=zpsubcl(jl)
-!!               zrnew=(MAX(0._dp,SQRT(zrfl/zcucov)-                         &
-!!                      cevapcu(jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))*   &
-!!                      MAX(0._dp,pqsen(jl,jk)-pqen(jl,jk))))**2*zcucov
-!!               zrmin=zrfl-zcucov*MAX(0._dp,0.8_dp*pqsen(jl,jk)-pqen(jl,jk))&
-!!                     *zcons2*(paphp1(jl,jk+1)-paphp1(jl,jk))
-!!               zrnew=MAX(zrnew,zrmin)
-!!               zrfln=MAX(zrnew,0._dp)
-!!               zdrfl=MIN(0._dp,zrfln-zrfl)
-!!               pdmfup(jl,jk)=pdmfup(jl,jk)+zdrfl
-!!!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-!!               zdpevap=-zdrfl
-!!               zfevapr(jl,jk)=zdpevap*prfl(jl)/zpsubcl(jl)
-!!               zfsubls(jl,jk)=zdpevap*psfl(jl)/zpsubcl(jl)
-!!!---End Included for scavenging-----------------------------------------
-!!               zpsubcl(jl)=zrfln
-!!            END IF
-!!         END DO
-!!      END DO
-!!   ELSE
-!!      DO jk=ktopm2,klev
-!!         DO jl=1,kproma
-!!            IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_dp) THEN
-!!               zrhou(jl,jk)=(paphp1(jl,jk+1)+paphp1(jl,jk))* &
-!!                            0.5_dp/(ptu(jl,jk)*rd)
-!!               zrfl=zpsubcl(jl)
-!!               zrnew=(MAX(0._dp,SQRT(zrfl/zcucov)-                         &
-!!                      cevapcu(jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))*   &
-!!                      MAX(0._dp,pqsen(jl,jk)-pqen(jl,jk))))**2*zcucov
-!!               zrmin=zrfl-zcucov*MAX(0._dp,0.8_dp*pqsen(jl,jk)-pqen(jl,jk))&
-!!                     *zcons2*(paphp1(jl,jk+1)-paphp1(jl,jk))
-!!               zrnew=MAX(zrnew,zrmin)
-!!               zrfln=MAX(zrnew,0._dp)
-!!               zdrfl=MIN(0._dp,zrfln-zrfl)
-!!               pdmfup(jl,jk)=pdmfup(jl,jk)+zdrfl
-!!!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-!!               zdpevap=-zdrfl
-!!               zfevapr(jl,jk)=zdpevap*prfl(jl)/zpsubcl(jl)
-!!               zfsubls(jl,jk)=zdpevap*psfl(jl)/zpsubcl(jl)
-!!!---End Included for scavenging-----------------------------------------
-!!               zpsubcl(jl)=zrfln
-!!            END IF
-!!         END DO
-!!      END DO
-!!   END IF
-!!ELSE
-!!  DO 240 jk=ktopm2,klev
-!!     DO 235 jl=1,kproma
-!!       IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_dp)  &
-!!                                                                  THEN
-!!           zrfl=zpsubcl(jl)
-!!           zrnew=(MAX(0._dp,SQRT(zrfl/zcucov)-                         &
-!!                        cevapcu(jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))*   &
-!!                        MAX(0._dp,pqsen(jl,jk)-pqen(jl,jk))))**2*zcucov
-!!           zrmin=zrfl-zcucov*MAX(0._dp,0.8_dp*pqsen(jl,jk)-pqen(jl,jk))&
-!!                        *zcons2*(paphp1(jl,jk+1)-paphp1(jl,jk))
-!!           zrnew=MAX(zrnew,zrmin)
-!!           zrfln=MAX(zrnew,0._dp)
-!!           zdrfl=MIN(0._dp,zrfln-zrfl)
-!!           pdmfup(jl,jk)=pdmfup(jl,jk)+zdrfl
-!!           zpsubcl(jl)=zrfln
-!!       END IF
-!!235  END DO
-!!240 END DO
-!!END IF
-#ifdef __ICON__
-#else
-  IF (lanysubmodel) THEN
-    DO jk=ktopm2,klev
-      zrhou(1:kproma,jk)=(paphp1(1:kproma,jk+1)+paphp1(1:kproma,jk))* &
-                          0.5_dp/(ptu(1:kproma,jk)*rd)
-    END DO
-  END IF
-#endif
 
   DO jk=ktopm2,klev
 
     zdpevap(1:kproma) = 0._dp
 
-!!$#ifdef __ICON__
     zcucov(1:kproma) = 0.05_dp
-
-!!$#else
-!!$    IF (lanysubmodel) zpsubcl_sav(1:kproma) = zpsubcl(1:kproma)
-!!$    ! ### value of zcucov depends on lham => explicit submodel dependence !
-!!$    IF (lham) THEN
-!!$      zcucov(1:kproma) = pmfu(1:kproma,jk)/(zwu*zrhou(1:kproma,jk))
-!!$    ELSE
-!!$      zcucov(1:kproma) = 0.05_dp
-!!$    END IF
-!!$#endif
 
     DO jl=1,kproma
       IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_dp) THEN
@@ -514,41 +290,8 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
       END IF
     END DO
 
-#ifdef __ICON__
-#else
-!---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------
-    IF (lanysubmodel) THEN
-      DO jl=1,kproma
-        IF (zpsubcl_sav(jl) > 1.e-20_dp) THEN
-          zfevapr(jl,jk)=zdpevap(jl)*prfl(jl)/zpsubcl_sav(jl)
-          zfsubls(jl,jk)=zdpevap(jl)*psfl(jl)/zpsubcl_sav(jl)
-        ELSE
-          zfevapr(jl,jk) = 0._dp
-          zfsubls(jl,jk) = 0._dp
-        END IF
-      END DO
-    END IF
-!---End Included for scavenging-----------------------------------------
-#endif
-
   END DO !jk=ktopm2,klev
 
-!!$#ifdef __ICON__
-!!$#else
-!!$!--mgs ### new code
-!!$
-!!$  IF (lanysubmodel) THEN
-!!$    CALL cuflx_subm(kbdim,  kproma,    klev,     ktopm2,   & ! dimensions
-!!$                    krow,                                  & ! longitude (kproma-block) index
-!!$                    pxtenh, pxtu, zrhou,                   & ! tracers
-!!$                    pmfu,   pmfuxt,                        & ! convective fluxes and corresp. mmr
-!!$                    zmlwc,  zmiwc,     zmratepr, zmrateps, & ! cloud properties
-!!$                    zfrain, zfsnow,    zfevapr,  zfsubls,  & !   "       "
-!!$                    zaclc,  zmsnowacl,                     & !   "       "
-!!$                    ptu,    zdpg,                          & ! thermodynamic quantities
-!!$                    pxtte                                  )
-!!$  END IF
-!!$#endif
 
 !!baustelle!! (?)
   DO 250 jl=1,kproma

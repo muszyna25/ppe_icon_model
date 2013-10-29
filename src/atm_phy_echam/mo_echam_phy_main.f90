@@ -1197,8 +1197,7 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( echam_conv_config%ncvmicro,&! in
-        &          echam_conv_config%iconv,   &! in
+      CALL cucall( echam_conv_config%iconv,   &! in
         &          echam_conv_config%lmfdudv, &! in
         &          echam_conv_config%lmfdd,   &! in
         &          echam_conv_config%lmfmid,  &! in

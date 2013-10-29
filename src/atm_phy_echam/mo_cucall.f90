@@ -73,7 +73,7 @@ MODULE mo_cucall
 CONTAINS
   !>
   !!
-  SUBROUTINE cucall( ncvmicro, iconv, lmfdudv, lmfdd, lmfmid, dlev,  &! in
+  SUBROUTINE cucall( iconv, lmfdudv, lmfdd, lmfmid, dlev,            &! in
                      cmftau, cmfctop, cprcon, cminbuoy, entrpen,     &! in
                      nmctop, cevapcu,                                &! in
                      kproma, kbdim, klev, klevp1, klevm1,            &! in
@@ -101,7 +101,6 @@ CONTAINS
                      ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,         &! out
                      pxtte_cnv                               )        ! out
 
-    INTEGER, INTENT(IN) :: ncvmicro 
     INTEGER, INTENT(IN) :: iconv
     LOGICAL, INTENT(IN) :: lmfdudv, lmfdd, lmfmid 
     REAL(dp),INTENT(IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy, entrpen
@@ -227,7 +226,7 @@ CONTAINS
 !
 !
 !200 CONTINUE
-     CALL cumastr(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,      &
+     CALL cumastr(lmfdudv, lmfdd, lmfmid, dlev, cmftau,                &
                   cmfctop, cprcon, cminbuoy, entrpen, nmctop, cevapcu, &
                   pdtime, ptime_step_len,                              &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
