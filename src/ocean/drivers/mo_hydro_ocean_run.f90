@@ -184,16 +184,14 @@ CONTAINS
   !
   !
   SUBROUTINE perform_ho_stepping( patch_3D, p_os, p_ext_data,          &
-                                & datetime, jfile, lwrite_restart, &
-                                & p_sfc_flx, p_phys_param,               &
-                                & p_as, p_atm_f, p_ice,p_op_coeff,       &
-                                & l_have_output)
+                                & datetime, lwrite_restart,            &
+                                & p_sfc_flx, p_phys_param,             &
+                                & p_as, p_atm_f, p_ice,p_op_coeff)
 
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)          :: patch_3D
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: p_os(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
-  INTEGER, INTENT(INOUT)                           :: jfile
   LOGICAL, INTENT(IN)                              :: lwrite_restart
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
   TYPE (t_ho_params)                               :: p_phys_param
@@ -201,7 +199,6 @@ CONTAINS
   TYPE(t_atmos_fluxes ),    INTENT(INOUT)          :: p_atm_f
   TYPE (t_sea_ice),         INTENT(INOUT)          :: p_ice
   TYPE(t_operator_coeff),   INTENT(INOUT)          :: p_op_coeff
-  LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
   ! local variables
   INTEGER                         :: jstep, jg, jtrc
@@ -412,7 +409,6 @@ CONTAINS
 
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
-      l_have_output = .TRUE.
 
       ! reset accumulation vars
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
@@ -434,7 +430,7 @@ CONTAINS
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
       CALL create_restart_file( p_patch, datetime,                             &
-                              & jfile, l_have_output, jstep, opt_depth=n_zlev, &
+                              & jstep, opt_depth=n_zlev,                       &
                               & opt_sim_time=time_config%sim_time(1),          &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains

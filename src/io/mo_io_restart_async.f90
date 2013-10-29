@@ -302,9 +302,7 @@ MODULE mo_io_restart_async
   !
   TYPE t_restart_args
     TYPE(t_datetime)  :: datetime
-    INTEGER           :: jfile
     INTEGER           :: jstep
-    LOGICAL           :: l_have_output
 #ifdef HAVE_F2003
     INTEGER           :: n_max_attrib_tlen
 #endif
@@ -538,12 +536,10 @@ CONTAINS
   !
   !> Writes all restart data into one or more files (one file per patch, collective call).
   !
-  SUBROUTINE write_async_restart (datetime, jfile, jstep, l_have_output)
+  SUBROUTINE write_async_restart (datetime, jstep)
 
     TYPE(t_datetime), INTENT(IN)    :: datetime
-    INTEGER,          INTENT(IN)    :: jfile
     INTEGER,          INTENT(IN)    :: jstep
-    LOGICAL,          INTENT(IN)    :: l_have_output
 
     TYPE(t_patch_data), POINTER     :: p_pd
     INTEGER                         :: idx, noutput_files, j
@@ -564,8 +560,7 @@ CONTAINS
     IF (my_process_is_work()) THEN
       CALL compute_wait_for_restart
       noutput_files = SIZE(output_file,1)
-      CALL compute_start_restart (datetime, jfile, jstep, l_have_output, &
-        &                         noutput_files)
+      CALL compute_start_restart (datetime, jstep, noutput_files)
     END IF
 
     ! do the restart output
@@ -684,9 +679,7 @@ CONTAINS
 
       ! read and write restart variable lists (collective call)
       CALL write_async_restart (p_ra%datetime,    &
-                              & p_ra%jfile,       &
-                              & p_ra%jstep,       &
-                              & p_ra%l_have_output)
+                              & p_ra%jstep)
 
       ! inform compute PEs that the restart is done
       CALL restart_send_ready
@@ -804,8 +797,6 @@ CONTAINS
 
         ! get patch independent arguments
         p_ra => restart_args
-        p_ra%jfile            = INT (p_msg(2))
-        p_ra%l_have_output    = get_flag(p_msg(3))
         p_ra%datetime%year    = INT (p_msg(4))
         p_ra%datetime%month   = INT (p_msg(5))
         p_ra%datetime%day     = INT (p_msg(6))
@@ -944,13 +935,10 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jfile, jstep, l_have_output, &
-    &                              noutput_files)
+  SUBROUTINE compute_start_restart(datetime, jstep, noutput_files)
 
     TYPE(t_datetime), INTENT(IN)  :: datetime
-    INTEGER,          INTENT(IN)  :: jfile
     INTEGER,          INTENT(IN)  :: jstep
-    LOGICAL,          INTENT(IN)  :: l_have_output
     INTEGER,          INTENT(IN)  :: noutput_files
 
     TYPE(t_patch_data), POINTER   :: p_pd
@@ -975,8 +963,6 @@ CONTAINS
       p_msg(1) = REAL(MSG_RESTART_START,  wp)
 
       ! set patch independent arguments
-      p_msg(2)  = REAL(jfile,             wp)
-      p_msg(3)  = MERGE(1._wp, 0._wp, l_have_output)
       p_msg(4)  = REAL(datetime%year,     wp)
       p_msg(5)  = REAL(datetime%month,    wp)
       p_msg(6)  = REAL(datetime%day,      wp)
@@ -1391,9 +1377,6 @@ CONTAINS
     PRINT *,subname, ' current_caltime=', p_ra%datetime%caltime
     PRINT *,subname, ' current_calday=',  p_ra%datetime%calday
     PRINT *,subname, ' current_daysec=',  p_ra%datetime%daysec
-
-    PRINT *,subname, ' jfile=',                  p_ra%jfile
-    PRINT *,subname, ' l_have_output=',          p_ra%l_have_output
 
 #ifdef HAVE_F2003
     PRINT *,subname, ' max. attr. text length=', p_ra%n_max_attrib_tlen
@@ -2399,12 +2382,6 @@ CONTAINS
         CALL set_restart_attribute (TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
       ENDDO
     ENDIF
-
-    IF (p_ra%l_have_output) THEN
-      CALL set_restart_attribute ('next_output_file', p_ra%jfile+1)
-    ELSE
-      CALL set_restart_attribute ('next_output_file', p_ra%jfile)
-    END IF
 
     ! geometrical depth for land module
     IF (p_pd%l_opt_depth_lnd) THEN

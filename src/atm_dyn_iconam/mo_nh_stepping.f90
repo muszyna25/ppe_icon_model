@@ -250,11 +250,10 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (datetime, jfile, n_checkpoint, n_diag, l_have_output )
+  SUBROUTINE perform_nh_stepping (datetime, n_checkpoint, n_diag )
 !
   INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
-  INTEGER, INTENT(INOUT)                       :: jfile
-  LOGICAL, INTENT(INOUT) :: l_have_output
+
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
   TYPE(t_simulation_status)            :: simulation_status
@@ -379,7 +378,7 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (datetime, jfile, n_checkpoint, n_diag, l_have_output )
+    CALL perform_nh_timeloop (datetime, n_checkpoint, n_diag )
 !   ENDIF
 
   CALL deallocate_nh_stepping ()
@@ -396,15 +395,12 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (datetime, jfile, n_checkpoint,   &
-                               &  n_diag, l_have_output )
+  SUBROUTINE perform_nh_timeloop (datetime, n_checkpoint, n_diag )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
   INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
-  INTEGER, INTENT(INOUT)                       :: jfile
-  LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
@@ -682,13 +678,11 @@ MODULE mo_nh_stepping
             & opt_depth_lnd              = nsoil(jg),                  &
             & opt_nlev_snow              = nsnow)
         ENDDO
-        CALL write_async_restart(datetime, jfile, jstep, l_have_output)
+        CALL write_async_restart(datetime, jstep)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
-                                  & jfile                      = jfile,                      &
-                                  & l_have_output              = l_have_output,              &
                                   & jstep                      = jstep,                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
                                   & opt_lcall_phy              = lcall_phy,                  &

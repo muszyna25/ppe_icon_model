@@ -92,7 +92,6 @@ CONTAINS
   !! Hui Wan (MPI-M, 2011-05)
   !!
   SUBROUTINE create_restart_file( patch, datetime,             &
-                                & jfile, l_have_output,        &
                                 & jstep,                       &
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
@@ -105,8 +104,6 @@ CONTAINS
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
-    INTEGER, INTENT(IN) :: jfile                ! current output file index
-    LOGICAL, INTENT(IN) :: l_have_output
     INTEGER, INTENT(IN) :: jstep                ! simulation step
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
@@ -192,12 +189,6 @@ CONTAINS
         CALL set_restart_attribute( TRIM(attname), opt_lcall_phy(jg,jp) )
       ENDDO
     ENDIF
-
-    IF (l_have_output) THEN
-      CALL set_restart_attribute( 'next_output_file', jfile+1 )
-    ELSE
-      CALL set_restart_attribute( 'next_output_file', jfile   )
-    END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module

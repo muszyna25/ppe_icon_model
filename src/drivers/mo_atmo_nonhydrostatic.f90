@@ -106,8 +106,7 @@ PUBLIC :: atmo_nonhydrostatic
 PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
 ! module data
-INTEGER :: jfile, n_file, n_diag, n_chkpt
-LOGICAL :: l_have_output
+INTEGER :: n_file, n_diag, n_chkpt
 
 CONTAINS
 
@@ -124,9 +123,8 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping(  &
-      &                       time_config%cur_datetime,       &
-      &                       jfile, n_chkpt, n_diag, l_have_output  )
+    CALL perform_nh_stepping( time_config%cur_datetime,       &
+      &                       n_chkpt, n_diag  )
  
     IF (ltimer) CALL print_timer
 
@@ -341,28 +339,7 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
     END IF
-
-    IF (.NOT.is_restart_run()) THEN
-      ! Initialize the first output file which will contain also the 
-      ! initial conditions.
-
-      jfile = 1
-    ELSE
-    ! No need to write out the initial condition, thus no output
-    ! during the first integration step. This run will produce
-    ! output if n_io <= integration_length. 
-
-      CALL get_restart_attribute('next_output_file',jfile)
-
-!DR may need to be fine-tuned later on
-!DR      IF (n_io.le.(nsteps-1)) THEN
-         l_have_output = .TRUE.  
-!DR      ELSE
-!DR         l_have_output = .FALSE.
-!DR      END IF
-
-    END IF
-    
+   
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
     CALL compute_lonlat_area_weights()

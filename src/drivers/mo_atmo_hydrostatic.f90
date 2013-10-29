@@ -78,9 +78,7 @@ MODULE mo_atmo_hydrostatic
   PUBLIC :: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
 
 
-  LOGICAL :: l_have_output
   INTEGER :: n_io, n_file, n_diag, n_chkpt
-  INTEGER :: jfile
 
 
 CONTAINS
@@ -105,8 +103,7 @@ CONTAINS
     CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
                             & p_hydro_state, time_config%cur_datetime,       &
-                            & n_chkpt, n_diag, jfile,                        &
-                            & l_have_output                                  )
+                            & n_chkpt, n_diag )
 
     IF (ltimer) CALL print_timer
 
@@ -204,7 +201,6 @@ CONTAINS
     ! Initialize the first output file which will contain also the
     ! initial conditions.
 
-      jfile = 1
       IF (lwrite_initial) THEN
         IF (output_mode%l_nml) THEN
           ! Mis-use optional parameter last_step=.TRUE to force output of initial state.
@@ -217,22 +213,6 @@ CONTAINS
         ENDIF
 
       ENDIF
-
-
-    ELSE
-    ! No need to write out the initial condition, thus no output
-    ! during the first integration step. This run will produce
-    ! output if n_io <= integration_length.
-
-      CALL get_restart_attribute('next_output_file',jfile)
-
-!LK - following DR in mo_atmo_nonhydrostatic.f90: may need to be fine-tuned later on
-!LK      IF (n_io.le.(nsteps-1)) THEN
-         l_have_output = .TRUE.
-!LK      ELSE
-!LK         l_have_output = .FALSE.
-!LK      END IF
-
     END IF ! (not) is_restart_run()
 
     !------------------------------------------------------------------

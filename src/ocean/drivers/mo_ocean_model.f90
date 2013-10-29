@@ -139,7 +139,6 @@ MODULE mo_ocean_model
   PUBLIC :: construct_ocean_model, destruct_ocean_model
   PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
-  LOGICAL :: l_have_output
   TYPE(t_patch_3d), POINTER :: ocean_patch_3d
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
@@ -160,7 +159,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
     
-    INTEGER :: jg, jfile, ist
+    INTEGER :: jg, ist
     INTEGER :: error_status
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -219,31 +218,14 @@ CONTAINS
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 
-    IF (.NOT.is_restart_run()) THEN
-      ! Initialize the first output file which will contain also the
-      ! initial conditions.
-      jfile = 1
-      l_have_output = .TRUE.
-    ELSE
-      ! No need to write out the initial condition, thus no output
-      ! during the first integration step. This run will produce
-      ! output if n_io <= integration_length.
-
-      CALL get_restart_attribute('next_output_file',jfile)
-      l_have_output = .TRUE.
-
-    END IF ! (not) is_restart_run()
-
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),is_restart_run())
 
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
       & ext_data, start_datetime,                     &
-      & jfile,                                        &
       & (nsteps == INT(time_config%dt_restart/dtime)),&
       & v_sfc_flx,                                    &
-      & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients,&
-      & l_have_output)
+      & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
     !------------------------------------------------------------------
     
     CALL print_timer()

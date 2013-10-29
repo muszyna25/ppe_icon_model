@@ -225,8 +225,7 @@ CONTAINS
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
                                 & p_hydro_state, datetime,            &
-                                & n_checkpoint, n_diag,               &
-                                & jfile, l_have_output                )
+                                & n_checkpoint, n_diag )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
@@ -235,8 +234,6 @@ CONTAINS
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
   INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
-  INTEGER, INTENT(INOUT)                       :: jfile
-  LOGICAL, INTENT(INOUT)                       :: l_have_output
 
   TYPE(t_datetime), INTENT(INOUT)              :: datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
@@ -421,19 +418,19 @@ CONTAINS
         END IF
 
         ! call asynchronous restart
-        CALL write_async_restart (datetime, jfile, jstep, l_have_output)
+        CALL write_async_restart (datetime, jstep)
 
       ELSE
         IF (phy_config%ljsbach) THEN
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jfile, l_have_output, jstep, vct,             &
+                                    & jstep, vct,                                   &
                                     & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
           END DO
         ELSE
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jfile, l_have_output, jstep, vct )
+                                    & jstep, vct )
           END DO
         ENDIF
 
