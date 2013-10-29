@@ -922,8 +922,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of cell index lists failed')
     ENDIF
 
-    npoints_lbc = p_grf_s%npoints_bdyintp_e
-    npoints_ubc = p_grf_s%npoints_ubcintp_e
+    npoints_lbc = MAX(1,p_grf_s%npoints_bdyintp_e)
+    npoints_ubc = MAX(1,p_grf_s%npoints_ubcintp_e)
     ALLOCATE (p_grf_s%idxlist_bdyintp_e(15,npoints_lbc),p_grf_s%idxlist_ubcintp_e(15,npoints_ubc), &
               p_grf_s%blklist_bdyintp_e(15,npoints_lbc),p_grf_s%blklist_ubcintp_e(15,npoints_ubc), &
               p_grf_s%coeff_bdyintp_e12(12,npoints_lbc),p_grf_s%coeff_ubcintp_e12(12,npoints_ubc), &
@@ -938,7 +938,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_grf_s%idxlist_bdyintp_e(:,:) = 0
     p_grf_s%idxlist_ubcintp_e(:,:) = 0
 
-    npoints_lbc = p_grf_s%npoints_bdyintp_v
+    npoints_lbc = MAX(1,p_grf_s%npoints_bdyintp_v)
     ALLOCATE (p_grf_s%idxlist_rbfintp_v(6,npoints_lbc),p_grf_s%blklist_rbfintp_v(6,npoints_lbc), &
               p_grf_s%coeff_rbf_v(6,2,npoints_lbc), inv_ind_v(nproma,p_patch%nblks_v), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1424,6 +1424,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
          ic = p_patch%verts%cell_idx(jv,jb,1)
          ib = p_patch%verts%cell_blk(jv,jb,1)
 
+         IF (ic <= 0 .OR. ib <= 0) CYCLE ! to avoid bound-checking errors
          IF (p_patch%verts%refin_ctrl(jv,jb) <= grf_fbk_start_c .AND.                   &
              p_patch%cells%child_id(ic,ib) == icid) p_grf%mask_ovlp_v(jv,jb,jcd) = .TRUE.
 
