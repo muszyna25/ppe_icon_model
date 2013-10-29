@@ -574,7 +574,8 @@ CONTAINS
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: MAX_NEVENT_STEPS = 1000
 
-    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end
+    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
+      &                         mtime_dom_start
     TYPE(event),     POINTER :: mtime_event
     TYPE(timedelta), POINTER :: delta
     INTEGER                  :: ierrstat, i, n_event_steps  
@@ -609,14 +610,19 @@ CONTAINS
     sim_end     => newDatetime(TRIM(sim_step_info%sim_end))
     mtime_begin => newDatetime(TRIM(begin_str))
     mtime_end   => newDatetime(TRIM(end_str))
+    ! Domains (and their output) can be activated and deactivated
+    ! during the simulation. This is determined by the parameters
+    ! "dom_start_time" and "dom_end_time". Therefore, we must create
+    ! a corresponding event.
+    mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
 
     ! loop over the event occurrences    
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta 
     n_event_steps = 0
     EVENT_LOOP: DO
-
-      IF (mtime_date >= mtime_begin) THEN
+      IF ((mtime_date >= mtime_begin) .AND. &
+        & (mtime_date >= mtime_dom_start)) THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
           CALL finish(routine, "Internal error: step buffer size exceeded!")
@@ -647,7 +653,8 @@ CONTAINS
     CALL fct_time2simstep(n_event_steps, mtime_date_string,                            &
       &                   sim_step_info, mtime_sim_steps, mtime_exactdate)
 
-    ! remove all those event steps which have no corresponding simulation step:
+    ! remove all those event steps which have no corresponding simulation
+    ! step (mtime_sim_steps(i) < 0):
     do i=1,n_event_steps
        if (mtime_sim_steps(i) < 0)  EXIT
     end do
@@ -679,6 +686,7 @@ CONTAINS
     CALL deallocateEvent(mtime_event)
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
+    CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(sim_end)
     CALL deallocateTimedelta(delta)
     CALL resetCalendar()

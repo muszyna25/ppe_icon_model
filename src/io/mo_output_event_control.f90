@@ -182,7 +182,7 @@ CONTAINS
         IF (mtime_dyn_date >= mtime_cur_date) THEN
           WRITE (0,*) "ilist    = ", ilist
           WRITE (0,*) "dyn_date = ", TRIM(dtime_string)
-          WRITE (0,*) "cur_date = ", TRIM(date_string(ilist))
+          WRITE (0,*) "cur_date = ", TRIM(date_string(ilist+1))
           CALL finish(routine, "Output interval chosen too small!")
         END IF
       END IF
