@@ -140,7 +140,7 @@ MODULE mo_velocity_advection
     REAL(vp) :: cfl_w_limit
     REAL(wp) :: scalfac_exdiff, difcoef
 
-    INTEGER  :: icount(p_patch%nblks_c), iclist(4*nproma,p_patch%nblks_c), &
+    INTEGER  :: icount(p_patch%nblks_c), iclist(p_patch%nlev*nproma,p_patch%nblks_c), &
                 iklist(4*nproma,p_patch%nblks_c), ic, ie, jbe
 
     !--------------------------------------------------------------------------
