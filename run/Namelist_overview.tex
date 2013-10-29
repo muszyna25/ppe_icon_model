@@ -3903,6 +3903,7 @@ L&.FALSE.& &
  output\_end &
 C&\'' \''& &
  ISO8601 time stamp for end of output.
+ An example for this time stamp format is given below.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
@@ -3911,6 +3912,7 @@ C&\'' \''& &
  output\_interval &
 C&\'' \''& &
  ISO8601 time stamp for repeating output intervals.
+ An example for this time stamp format is given below.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
@@ -3919,6 +3921,7 @@ C&\'' \''& &
  output\_start &
 C&\'' \''& &
  ISO8601 time stamp for begin of output.
+ An example for this time stamp format is given below.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
@@ -3999,7 +4002,31 @@ I&3& &
 \hline
 \end{longtab}
 
+% -------------------------------------------------------------
+\paragraph{Time stamp format:}
+% -------------------------------------------------------------
+
+The namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval} allow
+the specification of time stamps according to ISO 8601.
+The general format for time stamps is \texttt{YYYY-MM-DDThh:mm:ss}
+where \texttt{Y}: year, \texttt{M}: month, \texttt{D}: day for dates, 
+and   \texttt{hh}: hour, \texttt{mm}: minute, \texttt{ss}: second for time strings.  
+The general format for durations is \texttt{PnYnMnDTnHnMnS}.
+See, for example, \texttt{http://en.wikipedia.org/wiki/ISO\_8601} for details and further specifications.
+
+\begin{tabbing}
+  \parbox{0.7\textwidth}{\textbf{Examples}} \= \\
+  date and time representation (\texttt{output\_start}, \texttt{output\_end}) \>
+  \texttt{2013-10-27T13:41:00Z} \\
+  duration (\texttt{output\_interval}) \>
+  \texttt{P00DT06H00M00S} \\
+\end{tabbing}
+
+
+
+% -------------------------------------------------------------
 \paragraph{Variable Groups:}
+% -------------------------------------------------------------
 Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
 sets of common variables can be added to the output:
 \begin{tabbing}
