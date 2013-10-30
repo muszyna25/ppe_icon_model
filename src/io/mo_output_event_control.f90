@@ -255,7 +255,7 @@ CONTAINS
     IF (TRIM(fname_metadata%file_interval) == "") THEN
       ! case a): steps_per_file
       DO i=1,nstrings
-        jfile(i) = i/fname_metadata%steps_per_file + 1 ! INTEGER division!
+        jfile(i) = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
       END DO
     ELSE
       ! case b): file_interval
