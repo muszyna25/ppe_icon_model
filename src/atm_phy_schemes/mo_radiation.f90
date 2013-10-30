@@ -664,8 +664,16 @@ CONTAINS
     !
     ! --- cloud cover
     !
-    cld_frc_sec(1:jce,:) = MIN(MAX(cld_frc(1:jce,:),0.0_wp),1.0_wp)
-     
+    DO jk = 1, klev
+      DO jl = 1, jce
+        IF (xq_liq(jl,jk) > 0.0_wp .OR. xq_ice(jl,jk) > 0.0_wp) THEN
+          cld_frc_sec(jl,jk) = cld_frc(jl,jk)
+        ELSE
+          cld_frc_sec(jl,jk) = 0.0_wp
+        END IF
+      END DO
+    END DO
+    !
     cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
     DO jk = 2, klev
       cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
