@@ -1338,6 +1338,8 @@ CONTAINS
     &                 ntiles_wtr    ,  &
     &                 pmair         ,  &
     &                 pqv           ,  &
+    &                 pcd           ,  &
+    &                 pcv           ,  &
     &                 pi0           ,  &
     &                 pemiss        ,  &
     &                 ptsfc         ,  &
@@ -1368,8 +1370,7 @@ CONTAINS
     &                 pflxsfclw_t   ,  &
     &                 pflxtoasw     ,  &
     &                 pflxtoalw     ,  &
-    &                 dflxlw_dT     ,  &
-    &                 opt_use_cv       )
+    &                 dflxlw_dT        )
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
@@ -1378,6 +1379,8 @@ CONTAINS
     REAL(wp), INTENT(in)  ::         &
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
       &     pqv        (kbdim,klev), & ! specific humidity at t-dt                [kg/kg]
+      &     pcd,                     & ! specific heat of dry air                 [J/kg/K]
+      &     pcv,                     & ! specific heat of vapor                   [J/kg/K]
       &     pi0        (kbdim),      & ! local solar incoming flux at TOA         [W/m2]
       &     pemiss     (kbdim),      & ! lw sfc emissivity
       &     ptsfc      (kbdim),      & ! surface temperature at t                 [K]
@@ -1406,7 +1409,7 @@ CONTAINS
       &     idx_lst_fp(kbdim)                ! (f)lake point index list
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
-      &     opt_nh_corr, opt_use_cv
+      &     opt_nh_corr
 
     REAL(wp), INTENT(out) ::         &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1448,7 +1451,7 @@ CONTAINS
 
     INTEGER :: jc,jk,jt,ic
 
-    LOGICAL  :: l_nh_corr, l_use_cv
+    LOGICAL  :: l_nh_corr
 
     IF ( PRESENT(opt_nh_corr) ) THEN
       l_nh_corr = opt_nh_corr
@@ -1459,19 +1462,8 @@ CONTAINS
       l_nh_corr = .FALSE.
     ENDIF
 
-    IF (PRESENT(opt_use_cv)) THEN
-      l_use_cv = opt_use_cv
-    ELSE
-      l_use_cv = .FALSE.
-    ENDIF
-    
-    IF (l_use_cv) THEN
-      ! Conversion factor for heating rates - use heat capacity at constant volume for NH model
-      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(cvd+(cvv-cvd)*pqv(jcs:jce,1:klev)))
-    ELSE
-      ! Conversion factor for heating rates - use heat capacity at constant pressure for hydrostatic model
-      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(cpd+(cpv-cpd)*pqv(jcs:jce,1:klev)))
-    ENDIF
+    ! Conversion factor for heating rates
+    zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------

@@ -666,6 +666,8 @@ CONTAINS
         & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
         & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
+        & pcd        = zcd                            ,&! in    specific heat of dry air  [J/kg/K]
+        & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = ztemperature_eff(:)            ,&! in    surface temperature           [K]
