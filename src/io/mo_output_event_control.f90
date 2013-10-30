@@ -237,8 +237,7 @@ CONTAINS
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
-    INTEGER                             :: i, j, ifile
-    INTEGER                             :: jfile(SIZE(date_string))
+    INTEGER                             :: i, j, ifile, ipart
     CHARACTER(len=MAX_STRING_LEN)       :: cfilename
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_STRING_LEN)       :: fname(nstrings)        ! list for duplicate check
@@ -255,12 +254,14 @@ CONTAINS
     IF (TRIM(fname_metadata%file_interval) == "") THEN
       ! case a): steps_per_file
       DO i=1,nstrings
-        jfile(i) = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
+        result_fnames(i)%jfile = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
+        result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
       END DO
     ELSE
       ! case b): file_interval
       CALL setCalendar(PROLEPTIC_GREGORIAN)
       ifile      =  1
+      ipart      =  0
       delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
       file_end  =>  newDatetime(date_string(1))
       file_end   =  file_end + delta
@@ -272,12 +273,15 @@ CONTAINS
         END IF
         IF (step_date >= file_end) THEN
           ifile = ifile + 1
+          ipart = 0
           DO
             file_end =  file_end + delta
             IF (file_end > step_date) EXIT
           END DO
         END IF
-        jfile(i) = ifile
+        ipart = ipart + 1
+        result_fnames(i)%jfile = ifile
+        result_fnames(i)%jpart = ipart
         CALL deallocateDatetime(step_date)
       END DO OUTSTEP_LOOP
       CALL deallocateDatetime(file_end)
@@ -291,12 +295,12 @@ CONTAINS
       IF (i == 1) THEN
         result_fnames(i)%l_open_file = .TRUE.
       ELSE
-        result_fnames(i)%l_open_file = (jfile(i-1) /= jfile(i))
+        result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
       END IF
       IF (i==nstrings) THEN
         result_fnames(i)%l_close_file = .TRUE.
       ELSE
-        result_fnames(i)%l_close_file = (jfile(i+1) /= jfile(i))
+        result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
       END IF
     END DO
 
@@ -315,7 +319,7 @@ CONTAINS
       CALL associate_keyword("<physdom>",         TRIM(int2string(fname_metadata%phys_patch_id, "(i2.2)")), keywords)
       CALL associate_keyword("<levtype>",         TRIM(lev_type_str(fname_metadata%ilev_type)),             keywords)
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
-      CALL associate_keyword("<jfile>",           TRIM(int2string(jfile(i), "(i4.4)")),                     keywords)
+      CALL associate_keyword("<jfile>",           TRIM(int2string(result_fnames(i)%jfile, "(i4.4)")),       keywords)
       CALL associate_keyword("<ddhhmmss>",        TRIM(date_string(i)),                                     keywords)
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN

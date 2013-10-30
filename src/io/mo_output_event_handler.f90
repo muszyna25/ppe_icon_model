@@ -1,6 +1,6 @@
 !> Routines for handling of regular output steps and ready file events
 !> on multiple I/O PEs.
-!! 
+!!
 !! Note that this module contains the abstract implementation of the
 !! output event handling, while the actual control of the trigger
 !! mechanism is located in the module "mo_output_event_control".
@@ -45,14 +45,14 @@
 !!
 !! MPI ROLES
 !! ---------
-!! 
+!!
 !! The output event handling requires communication between the I/O
 !! PEs and a root I/O MPI rank "ROOT_OUTEVENT" - usually chosen as
 !! rank 0 from the I/O PEs.
 !!
 !! Root PE: Parallel communication is necessary
 !!
-!! - During the setup phase: 
+!! - During the setup phase:
 !!
 !!   The root I/O MPI rank asks all participating I/O PEs for their
 !!   output event info. This information about these events is
@@ -75,7 +75,7 @@
 !!
 !! All I/O PEs: Parallel communication is performed
 !!
-!! - During setup: 
+!! - During setup:
 !!
 !!   Output events are generated and the necessary meta-data for
 !!   replication on the root I/O PE is send via MPI to the root
@@ -85,7 +85,7 @@
 !!
 !!   see FUNCTION new_parallel_output_event
 !!
-!! - During the loop of output steps: 
+!! - During the loop of output steps:
 !!
 !!   The I/O PEs acknowledge the completion of their respective output
 !!   step by sending non-blocking MPI messages.  The non-blocking
@@ -239,7 +239,7 @@ MODULE mo_output_event_handler
 
   !---------------------------------------------------------------
   ! constants
-  
+
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_handler'
 
@@ -292,7 +292,7 @@ MODULE mo_output_event_handler
   INTEGER :: ievent_list_nompi = 0
 #endif
 
- 
+
 CONTAINS
 
   !---------------------------------------------------------------
@@ -336,7 +336,7 @@ CONTAINS
   !
   !  @note This subroutine recursively deallocates the complete
   !        singly-linked list rooted at @p event.
-  ! 
+  !
   !  @author F. Prill, DWD
   !
   RECURSIVE SUBROUTINE deallocate_par_output_event(event)
@@ -401,6 +401,7 @@ CONTAINS
     CALL add_table_column(table, "filename")
     CALL add_table_column(table, "I/O PE")
     CALL add_table_column(table, "output date")
+    CALL add_table_column(table, "#")
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
     irow = 0
@@ -418,6 +419,8 @@ CONTAINS
         CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
         CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
         CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
+        CALL set_table_entry(table,irow,"#",           &
+          & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
         ! append "+ open" or "+ close" according to event step data:
         IF (event_step%event_step_data(j)%l_open_file) THEN
           CALL set_table_entry(table,irow,"open", "x")
@@ -440,7 +443,7 @@ CONTAINS
   !
   !  @note This subroutine recursively prints the complete
   !        singly-linked list rooted at @p event.
-  ! 
+  !
   !  @author F. Prill, DWD
   !
   RECURSIVE SUBROUTINE print_par_output_event(event, opt_filename, opt_dstfile)
@@ -515,7 +518,7 @@ CONTAINS
   !---------------------------------------------------------------
 
   !> Create a simple output event, happening at regular intervals.
-  ! 
+  !
   !  These are given by an interval size @p intvl_str and the time
   !  stamps for begin and end, @p begin_str and @p end_str.
   !
@@ -549,7 +552,7 @@ CONTAINS
         CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
         TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings 
+        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -579,7 +582,7 @@ CONTAINS
       &                         mtime_dom_start
     TYPE(event),     POINTER :: mtime_event
     TYPE(timedelta), POINTER :: delta
-    INTEGER                  :: ierrstat, i, n_event_steps  
+    INTEGER                  :: ierrstat, i, n_event_steps
     LOGICAL                  :: l_active
     CHARACTER(len=MAX_DATETIME_STR_LEN)  :: mtime_date_string(MAX_NEVENT_STEPS)
     INTEGER                              :: mtime_sim_steps(MAX_NEVENT_STEPS)
@@ -617,9 +620,9 @@ CONTAINS
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
 
-    ! loop over the event occurrences    
+    ! loop over the event occurrences
     mtime_date => mtime_begin
-    delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta 
+    delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
     n_event_steps = 0
     EVENT_LOOP: DO
       IF ((mtime_date >= mtime_begin) .AND. &
@@ -679,7 +682,9 @@ CONTAINS
       p_event%event_step(i)%event_step_data(1)%datetime_string = TRIM(mtime_date_string(i))
       p_event%event_step(i)%event_step_data(1)%i_tag           = i_tag
       p_event%event_step(i)%event_step_data(1)%filename_string = TRIM(filename_metadata(i)%filename_string)
-      p_event%event_step(i)%event_step_data(1)%l_open_file     = filename_metadata(i)%l_open_file 
+      p_event%event_step(i)%event_step_data(1)%jfile           = filename_metadata(i)%jfile
+      p_event%event_step(i)%event_step_data(1)%jpart           = filename_metadata(i)%jpart
+      p_event%event_step(i)%event_step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
       p_event%event_step(i)%event_step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
     END DO
 
@@ -695,7 +700,7 @@ CONTAINS
 
 
   !> Create a simple *parallel* output event, happening at regular intervals.
-  ! 
+  !
   !  This subroutine calls the local version "new_output_event", adds
   !  data structures for parallel communication and launches a
   !  non-blocking MPI send to the root I/O PE.
@@ -715,7 +720,7 @@ CONTAINS
     INTEGER,                INTENT(IN)  :: local_event_no       !< local index of this event on local PE
     INTEGER,                INTENT(IN)  :: icomm                !< MPI communicator
 
- 
+
     !> As an argument of this function, the user must provide a
     !  conversion "time stamp -> simulation step"
     INTERFACE
@@ -726,7 +731,7 @@ CONTAINS
         CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
         TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings 
+        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -839,7 +844,7 @@ CONTAINS
         CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
         TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings 
+        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -917,7 +922,7 @@ CONTAINS
           lrecv =  broadcast_event_data(recv_name, recv_begin_str, recv_end_str,                    &
             &                           recv_intvl_str, recv_l_output_last, recv_sim_step_info,     &
             &                           recv_fname_metadata, opt_broadcast_comm,                    &
-            &                           opt_broadcast_root, lrecv)          
+            &                           opt_broadcast_root, lrecv)
         END IF
 #else
         ! non-MPI runs: we keep a local list of event meta-data
@@ -977,7 +982,7 @@ CONTAINS
         END IF
         ! increase MPI message tag ID st. it stays unique even for
         ! multiple events running on the same I/O PE:
-        i_tag = i_tag + nranks 
+        i_tag = i_tag + nranks
         IF (ASSOCIATED(par_event%output_event)) THEN
           ev1 => par_event%output_event
           ! create union of the two events:
@@ -1035,7 +1040,7 @@ CONTAINS
         END IF
         i2 = i2 + 1
       END DO STEP_LOOP1
-    END DO 
+    END DO
 
     ! choose a maximum simulation step number as abort criterion:
     max_sim_step = 0
@@ -1261,7 +1266,7 @@ CONTAINS
 
   !> @return .TRUE. if all participants of the parallel output event
   !>         have acknowledged the completion of the current step.
-  ! 
+  !
   !  @note We do not use the wrapper routines from "mo_mpi" here,
   !        since we need direct control over the non-blocking P2P
   !        requests.
@@ -1504,7 +1509,7 @@ CONTAINS
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
     ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)  
+    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
     position = 0
 
@@ -1520,7 +1525,7 @@ CONTAINS
 
     ! clean up
     DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')    
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE send_event_data
 
 
@@ -1536,7 +1541,7 @@ CONTAINS
 
     IF (icomm /= MPI_COMM_NULL) THEN
       ! allocate message buffer
-      ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)  
+      ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
       IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
       position = 0
       ! prepare an empty MPI message:
@@ -1547,7 +1552,7 @@ CONTAINS
       CALL p_send_packed(buffer, ROOT_OUTEVENT, SENDRECV_TAG_SETUP, position, icomm)
       ! clean up
       DEALLOCATE(buffer, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')    
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     END IF
 #endif
   END SUBROUTINE complete_event_setup
@@ -1578,7 +1583,7 @@ CONTAINS
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
     ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)  
+    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
     position = 0
 
@@ -1605,7 +1610,7 @@ CONTAINS
 
     ! clean up
     DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')    
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END FUNCTION receive_event_data
 
 
@@ -1634,7 +1639,7 @@ CONTAINS
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
     ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)  
+    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
@@ -1689,7 +1694,7 @@ CONTAINS
 
     ! clean up
     DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')    
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END FUNCTION broadcast_event_data
 
 
@@ -1796,7 +1801,7 @@ CONTAINS
   SUBROUTINE pass_output_step(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::pass_output_step"    
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::pass_output_step"
 #ifndef NOMPI
     INTEGER :: ierrstat, impi_status(MPI_STATUS_SIZE), istep, i_tag
 
@@ -1834,7 +1839,7 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
 #ifndef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::trigger_output_step_irecv"    
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::trigger_output_step_irecv"
     INTEGER                     :: ierrstat, cur_step, i, i_pe, i_tag
     TYPE(t_event_step), POINTER :: event_step
 
@@ -1883,7 +1888,7 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
 #ifndef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_pending_irecs"    
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_pending_irecs"
     INTEGER                     :: ierrstat
     INTEGER, ALLOCATABLE        :: irecv_status(:,:)
 
@@ -1903,28 +1908,53 @@ CONTAINS
 
 
   !> Spool event state fast-forward to a given event step.
-  ! 
+  !
   !  This functionality is, e.g., required for resume after restart.
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE set_event_to_simstep(event, jstep, lforce_open_file)
-    TYPE(t_output_event), INTENT(INOUT) :: event            !< output event data structure
-    INTEGER,              INTENT(IN)    :: jstep            !< simulation step
-    LOGICAL,              INTENT(IN)    :: lforce_open_file !< Flag. If true, the open-Flag is set for the reached event step.
+  SUBROUTINE set_event_to_simstep(event, jstep, lrecover_open_file)
+    TYPE(t_output_event), INTENT(INOUT), target :: event              !< output event data structure
+    INTEGER,              INTENT(IN)            :: jstep              !< simulation step
+    LOGICAL,              INTENT(IN)            :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
     ! local variables
-    INTEGER :: ev_step, istep, n_pes
-   
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_event_to_simstep"
+    INTEGER :: ev_step, istep, n_pes, i_pe
+    TYPE(t_event_step_data), POINTER :: event_step_data
+
     ev_step = 0
     DO istep=1,event%n_event_steps
       IF (event%event_step(istep)%i_sim_step <= jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
-    IF ((event%i_event_step <= event%n_event_steps) .AND. &
-      & lforce_open_file) THEN
-      n_pes = event%event_step(event%i_event_step)%n_pes
+    IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
-      event%event_step(istep)%event_step_data(1:n_pes)%l_open_file = .TRUE.
+      n_pes = event%event_step(istep)%n_pes
+      
+      DO i_pe=1,n_pes
+        event_step_data => event%event_step(istep)%event_step_data(i_pe)        
+        event_step_data%l_open_file = .TRUE.
+        IF (event_step_data%jpart > 1) THEN
+          ! Resuming after a restart means that we have to open the
+          ! file for output though this has not been planned
+          ! initially. We must find a unique suffix then for this new
+          ! file (otherwise we would overwrite the file from the last
+          ! step) and we must inform the user about this incident.
+          IF (.NOT. lrecover_open_file) THEN
+            ! simply throw an error message
+            CALL finish(routine, "Attempt to overwrite existing file after restart!")
+          ELSE
+            ! otherwise: modify file name s.t. the new, resumed file
+            ! is clearly distinguishable: We append "_<part>+"
+             write (0,*) "Modify filename ", trim(event_step_data%filename_string), " to ", &
+                  &      trim(event_step_data%filename_string)//"_part_"//trim(int2string(event_step_data%jpart))//"+",  &
+                  &      " after restart."
+            CALL modify_filename(event, trim(event_step_data%filename_string), &
+                 &       trim(event_step_data%filename_string)//"_part_"//trim(int2string(event_step_data%jpart))//"+", &
+                 &       start_step=istep)
+          END IF
+        END IF
+      END DO
     END IF
   END SUBROUTINE set_event_to_simstep
 
@@ -1934,16 +1964,44 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  RECURSIVE SUBROUTINE set_event_to_simstep_par(event, jstep, lforce_open_file)
-    TYPE(t_par_output_event), POINTER    :: event            !< output event data structure
-    INTEGER,                  INTENT(IN) :: jstep            !< simulation step
-    LOGICAL,                  INTENT(IN) :: lforce_open_file !< Flag. If true, the open-Flag is set for the reached event step.
-   
+  RECURSIVE SUBROUTINE set_event_to_simstep_par(event, jstep, lrecover_open_file)
+    TYPE(t_par_output_event), POINTER    :: event              !< output event data structure
+    INTEGER,                  INTENT(IN) :: jstep              !< simulation step
+    LOGICAL,                  INTENT(IN) :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
+
     IF (.NOT. ASSOCIATED(event)) RETURN
     IF (ASSOCIATED(event%next)) THEN
-      CALL set_event_to_simstep_par(event%next, jstep, lforce_open_file)
+      CALL set_event_to_simstep_par(event%next, jstep, lrecover_open_file)
     END IF
-    CALL set_event_to_simstep(event%output_event, jstep, lforce_open_file)
+    CALL set_event_to_simstep(event%output_event, jstep, lrecover_open_file)
   END SUBROUTINE set_event_to_simstep_par
+
+
+  !> Utility routine: Loop over all event steps of a given event and
+  !> modify all matching filenames.
+  !
+  !  @author F. Prill, DWD
+  !
+  SUBROUTINE modify_filename(event, old_name, new_name, start_step)
+    TYPE(t_output_event), INTENT(INOUT), TARGET :: event              !< output event data structure    
+    CHARACTER(LEN=*),     INTENT(IN)            :: old_name, new_name !< old file name string and replacement
+    INTEGER,              INTENT(IN)            :: start_step         !< event step where to start searching
+    ! local variables
+    INTEGER :: istep, n_pes, i_pe, ipart
+    TYPE(t_event_step_data), POINTER :: event_step_data
+
+    ipart = 0
+    DO istep=start_step,event%n_event_steps
+      n_pes = event%event_step(istep)%n_pes
+      DO i_pe=1,n_pes
+        event_step_data => event%event_step(istep)%event_step_data(i_pe)        
+        IF (TRIM(event_step_data%filename_string) == TRIM(old_name)) THEN
+          event_step_data%filename_string = TRIM(new_name)
+          ipart = ipart + 1
+          event_step_data%jpart = ipart
+        END IF
+      END DO
+    END DO
+  END SUBROUTINE modify_filename
 
 END MODULE mo_output_event_handler

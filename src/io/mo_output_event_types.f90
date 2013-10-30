@@ -108,6 +108,7 @@ MODULE mo_output_event_types
     INTEGER                               :: i_pe                             !< rank of participating PE
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string                  !< ISO 8601 conforming time stamp
     CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string                  !< output file name
+    INTEGER                               :: jfile, jpart                     !< file counter, "part of file" counter
     LOGICAL                               :: l_open_file                      !< Flag. .TRUE. if file is to be opened in this step
     LOGICAL                               :: l_close_file                     !< Flag. .TRUE. if file is closed in this step
 

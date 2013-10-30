@@ -83,7 +83,7 @@ MODULE mo_name_list_output_init
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
-    &                                             tolower
+    &                                             tolower, int2string
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_constants,                    ONLY: pi
@@ -1103,7 +1103,7 @@ CONTAINS
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
       IF (dom_sim_step_info%jstep0 > 0) &
-        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lforce_open_file=.TRUE.)
+        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
     END DO
     ! tell the root I/O process that all output event data structures
     ! have been created:
@@ -1116,13 +1116,18 @@ CONTAINS
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
       &                               p_comm_work_io, process_work_io0)
     IF (dom_sim_step_info%jstep0 > 0) &
-      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lforce_open_file=.TRUE.)
+      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
 
     ! print a table with all output events
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
       CALL print_output_event(all_events)                                       ! screen output
-      CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
+      if (dom_sim_step_info%jstep0 > 0) then
+         CALL print_output_event(all_events, &
+              &  opt_filename="output_schedule_steps_"//trim(int2string(dom_sim_step_info%jstep0))//"+.txt")   ! ASCII file output
+      else
+         CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
+      end if
     END IF
 
     ! If async IO is used, initialize the memory window for communication
