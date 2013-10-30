@@ -809,8 +809,6 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
         paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc)
         paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp)
         paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
-        IF (pxim1(jl,jk)<=ccwmin .AND. pxlm1(jl,jk)<=ccwmin) &
-          paclc(jl,jk)=0.0_wp
       END DO !jl
      END DO  !jk
   END IF ! "pseudo lcover=false"
