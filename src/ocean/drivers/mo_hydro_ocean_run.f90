@@ -163,15 +163,6 @@ CONTAINS
           & operators_coefficients)
     ELSE
     ENDIF
-    ! copy old tracer values to spot value fields for propper initial timestep
-    ! output
-    ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-    ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-
-    ocean_state%p_acc%tracer(:,:,:,1)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-    ocean_state%p_acc%tracer(:,:,:,2)  = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-    ocean_state%p_acc%h  = ocean_state%p_prog(nold(1))%h
   END SUBROUTINE prepare_ho_stepping
 
   !-------------------------------------------------------------------------
@@ -247,8 +238,25 @@ CONTAINS
     ! in general nml output is writen based on the nnew status of the
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
-    IF (.NOT. is_restart_run()) p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
+    IF (.NOT. is_restart_run()) THEN
+      p_os(jg)%p_prog(nnew(1))%tracer = p_os(jg)%p_prog(nold(1))%tracer
+      ! copy old tracer values to spot value fields for propper initial timestep
+      ! output
+      p_os(jg)%p_diag%t = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
+      p_os(jg)%p_diag%s = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
+      p_os(jg)%p_diag%h = p_os(jg)%p_prog(nold(1))%h
+
+      p_os(jg)%p_acc%tracer(:,:,:,1)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
+      p_os(jg)%p_acc%tracer(:,:,:,2)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
+      p_os(jg)%p_acc%h                = p_os(jg)%p_prog(nold(1))%h
+    ENDIF
     CALL write_name_list_output(jstep=0)
+    IF (.NOT. is_restart_run()) THEN
+      ! reset the accs to zero
+      p_os(jg)%p_acc%tracer(:,:,:,1)  = 0.0_wp
+      p_os(jg)%p_acc%tracer(:,:,:,2)  = 0.0_wp
+      p_os(jg)%p_acc%h                = 0.0_wp
+    ENDIF
   ENDIF
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
@@ -380,14 +388,14 @@ CONTAINS
     ! update accumulated vars
     CALL update_ocean_statistics(p_os(1),p_sfc_flx,patch_3D%p_patch_2D(1)%cells%owned)
 
-    IF (is_output_time(jstep) .OR. istime4name_list_output(jstep)) THEN
+    IF (istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN
         CALL calculate_oce_diagnostics( patch_3D,    &
           &                             p_os(jg),      &
           &                             p_sfc_flx,     &
           &                             p_ice,         &
           &                             p_phys_param,  &
-          &                             jstep,         &
+          &                             jstep-jstep0,         &
           &                             datetime,      &
           &                             oce_ts)
 
@@ -414,12 +422,6 @@ CONTAINS
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
     END IF
-
-!   ! close the current output file and trigger a new one
-!   IF (istime4newoutputfile(jstep)) THEN
-!     jfile = jfile +1
-!     CALL init_output_files(jfile,lclose=l_have_output,p_patch_2D=patch_3D%p_patch_2D)
-!   END IF
 
     ! Shift time indices for the next loop
     ! this HAS to ge into the restart files, because the start with the following loop
