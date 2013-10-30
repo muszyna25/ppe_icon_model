@@ -3795,6 +3795,14 @@ I&-1& &
 \tabularnewline
 
 \hline
+ file\_interval &
+C&\'' \''& &
+Defines the length of a file in terms of an ISO-8601 duration string (see below).
+This namelist parameter can be set instead of texttt{steps\_per\_file}.
+&
+\tabularnewline
+
+\hline
  filename\_format &
 C&see description.& &
  Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
@@ -3983,7 +3991,7 @@ I&0& &
 
 \hline
  steps\_per\_file &
-I&100& &
+I&-1& &
  Max number of output steps in one output file. If this number is reached, a new output
  file will be opened.
 &
@@ -6153,6 +6161,12 @@ model expects {\bf height based} coordinates. For further information see <icon 
    \item The namelist parameter \textbf{output\_bounds} specifies a start, end, and increment of 
          output invervals.
          It does no longer allow multiple triples.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: steps\_per\_file }{ 2013-10-30 }{ 14422 }
+  \begin{itemize}
+   \item The default value of the namelist parameter \textbf{steps\_per\_file} has been changed to \texttt{-1}.
   \end{itemize}
 \end{changeitem}
 
