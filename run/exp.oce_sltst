@@ -134,7 +134,7 @@ cat > ${ocean_namelist} << EOF
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
- msg_timestamp        = .TRUE.
+ msg_timestamp        = .FALSE.
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
