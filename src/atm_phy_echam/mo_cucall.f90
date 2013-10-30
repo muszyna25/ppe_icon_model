@@ -77,7 +77,7 @@ CONTAINS
                      pverv,                                          &! in
                      pgeo,                                           &! in
                      pqm1,     pxlm1,    pxim1, pxtm1,               &! in
-                     pcair,                                          &! in
+                     pcd, pcv,                                       &! in
                      pxlte,    pxite,                                &! in
                      papp1,    paphp1,                               &! in
                      pqhfla,                                         &! in
@@ -110,7 +110,8 @@ CONTAINS
     REAL(dp),INTENT(IN) :: pqm1(kbdim,klev)
     REAL(dp),INTENT(IN) :: pxlm1(kbdim,klev),     pxim1(kbdim,klev)
     REAL(dp),INTENT(IN) :: pxtm1(kbdim,klev,ktrac)
-    REAL(dp),INTENT(IN) :: pcair(kbdim,klev)
+    REAL(dp),INTENT(IN) :: pcd
+    REAL(dp),INTENT(IN) :: pcv
     REAL(dp),INTENT(IN) :: pxlte(kbdim,klev),     pxite(kbdim,klev)
     REAL(dp),INTENT(IN) :: papp1(kbdim,klev),    paphp1(kbdim,klevp1)
     REAL(dp),INTENT(IN) :: pqhfla(kbdim)
@@ -140,7 +141,7 @@ CONTAINS
                 zup1(kbdim,klev),         zvp1(kbdim,klev),              &
                 ztu(kbdim,klev),          zqu(kbdim,klev),               &
                 zlu(kbdim,klev),          zlude(kbdim,klev),             &
-                zqude(kbdim,klev),                                       &
+                zqude(kbdim,klev),        zcairp1(kbdim,klev),           &
                 zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
                 zqsat(kbdim,klev),        zrain(kbdim),                  &
                 ua(kbdim)
@@ -173,6 +174,7 @@ CONTAINS
      DO jl=1,kproma
         ztp1(jl,jk)=ptm1(jl,jk)+ptte(jl,jk)*ztmst
         zqp1(jl,jk)=MAX(0._dp,pqm1(jl,jk)+pqte(jl,jk)*ztmst)
+        zcairp1(jl,jk) = pcd+(pcv-pcd)*zqp1(jl,jk)
         zxlp1=pxlm1(jl,jk)+pxlte(jl,jk)*ztmst
         zxip1=pxim1(jl,jk)+pxite(jl,jk)*ztmst
         zxp1(jl,jk)=MAX(0._dp,zxlp1+zxip1)
@@ -217,13 +219,14 @@ CONTAINS
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
                   papp1,                                               &
                   ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
+                  zcairp1,                                             &
                   ztvp1,    ktrac,    ldland,                          &
                   zxtp1,    zxtu,                                      &
                   pverv,    zqsat,    pqhfla,                          &
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,    pcair,                           &
+                  pqtec,    zqude,                                     &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
                   zmfu,     zmfd,     zrain,    pthvsig,               &

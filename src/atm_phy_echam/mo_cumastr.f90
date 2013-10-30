@@ -74,13 +74,14 @@ CONTAINS
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
                        papp1,                                             &
                        pten,     pqen,     pxen,     puen,     pven,      &
+                       pcpen,                                             &
                        ptven,    ktrac,    ldland,                        &
                        pxten,    pxtu,                                    &
                        pverv,    pqsen,    pqhfla,                        &
                        paphp1,   pgeo,                                    &
                        ptte,     pqte,     pvom,     pvol,                &
                        prsfc,    pssfc,    pxtec,                         &
-                       pqtec,    pqude,    pcpen,                         &
+                       pqtec,    pqude,                                   &
                        ldcum,    ktype,    kcbot,    kctop,               &
                        ptu,      pqu,      plu,      plude,               &
                        pmfu,     pmfd,     prain,    pthvsig,             &
@@ -820,7 +821,7 @@ INTRINSIC MIN, MAX
              pmfu,     pmfd,     zmfus,    zmfds,                      &
              zmfuq,    zmfdq,    zmful,                                &
              zdmfup,   zdmfdp,   zrfl,     prain,                      &
-             zcpcu,                                                    &
+             pcpen,    zcpcu,                                          &
              pten,     zsfl,     zdpmel,   itopm2)
 !
 !-----------------------------------------------------------------------

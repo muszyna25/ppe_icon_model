@@ -146,6 +146,8 @@ CONTAINS
     REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
     REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
     REAL(wp) :: zmair  (nbdim,nlev)       !< mass of air                       [kg/m2]
+    REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
+    REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
@@ -249,7 +251,9 @@ CONTAINS
         !
         ! 3.2b Specific heat of moist air
         !
-        zcair   (jc,jk) = cpd+(cpv-cpd)*MAX(field%q(jc,jk,jb,iqv),0.0_wp)
+        zcd             = cpd
+        zcv             = cpv
+        zcair   (jc,jk) = zcd+(zcv-zcd)*MAX(field%q(jc,jk,jb,iqv),0.0_wp)
         !
       END DO
     END DO
@@ -1224,7 +1228,7 @@ CONTAINS
         &          field% q(:,:,jb,iqc),      &! in     xlm1
         &          field% q(:,:,jb,iqi),      &! in     xim1
         &          field% q(:,:,jb,iqt:),     &! in     xtm1
-        &          zcair(:,:),                &! in
+        &          zcd, zcv,                  &! in
         &           tend% q(:,:,jb,iqc),      &! in     xlm1
         &           tend% q(:,:,jb,iqi),      &! in     xim1
         &          field% presm_new(:,:,jb),  &! in     app1

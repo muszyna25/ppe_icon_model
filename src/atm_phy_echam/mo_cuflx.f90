@@ -60,7 +60,7 @@ SUBROUTINE cuflx( cevapcu,                                             &
            pmfu,     pmfd,     pmfus,    pmfds,                        &
            pmfuq,    pmfdq,    pmful,                                  &
            pdmfup,   pdmfdp,   prfl,     prain,                        &
-           pcpcu,                                                      &
+           pcpen,    pcpcu,                                            &
            pten,     psfl,     pdpmel,   ktopm2)
 !
 !          M.TIEDTKE         E.C.M.W.F.     7/86 MODIF. 12/89
@@ -97,7 +97,7 @@ REAL(dp):: pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
            prfl(kbdim),             prain(kbdim)
 REAL(dp):: pten(kbdim,klev),        pdpmel(kbdim,klev),                &
            psfl(kbdim)
-REAL(dp):: pcpcu(kbdim,klev)
+REAL(dp):: pcpen(kbdim,klev),       pcpcu(kbdim,klev)
 INTEGER :: kcbot(kbdim),            kctop(kbdim),                      &
            kdtop(kbdim),            ktype(kbdim)
 LOGICAL :: lddraf(kbdim),           ldcum(kbdim)
@@ -105,7 +105,7 @@ REAL(dp):: pxtenh(kbdim,klev,ktrac),                                   &
            pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
 !
 INTEGER :: jl, jk, jt, ikb
-REAL(dp):: zcons1, zcons2,         ztmelp2, zzp, zfac, zsnmlt          &
+REAL(dp):: zcons2,         ztmelp2, zzp, zfac, zsnmlt                  &
          , zrfl, zrnew, zrmin, zrfln, zdrfl, zrsum
 REAL(dp):: zpsubcl(kbdim)
 REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
@@ -118,7 +118,6 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
 !*             SPECIFY CONSTANTS
 !
 
-  zcons1=cpd/(alf*g*ptime_step_len)
   zcons2=1._dp/(g*ptime_step_len)
 !!mgs!!  zcucov=0.05_dp            !! ++mgs: now 1-d array
   ztmelp2=tmelt+2._dp
@@ -231,8 +230,7 @@ REAL(dp):: zcucov(kbdim), zdpevap(kbdim)
            IF(pten(jl,jk).GT.tmelt) THEN
               prfl(jl)=prfl(jl)+pdmfup(jl,jk)+pdmfdp(jl,jk)
               IF(psfl(jl).GT.0._dp.AND.pten(jl,jk).GT.ztmelp2) THEN
-                 zfac=zcons1*(1._dp+vtmpc2*pqen(jl,jk))                &
-                             *(paphp1(jl,jk+1)-paphp1(jl,jk))
+                 zfac=zcons2*pcpen(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/alf
                  zsnmlt=MIN(psfl(jl),zfac*(pten(jl,jk)-ztmelp2))
                  pdpmel(jl,jk)=zsnmlt
                  psfl(jl)=psfl(jl)-zsnmlt
