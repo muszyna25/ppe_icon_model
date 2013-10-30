@@ -1074,7 +1074,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
   slev = 1
   elev = n_zlev
 
-  IF ( iswm_oce /= 1) THEN
+!  IF ( iswm_oce /= 1) THEN
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       jk=1
@@ -1118,30 +1118,30 @@ SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subse
         ENDDO
       END DO
     END DO
-  ELSEIF ( iswm_oce == 1) THEN
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO jk = slev, elev
-        DO je = i_startidx_e, i_endidx_e
-          !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-          IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
-
-          !Get indices of two adjacent triangles
-          il_c1 = p_patch%edges%cell_idx(je,jb,1)
-          ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-          il_c2 = p_patch%edges%cell_idx(je,jb,2)
-          ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-          delta_z  = p_os%p_diag%thick_e(je,jb)
-
-          diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z*p_patch_3D%wet_e(je,jk,jb)&!v_base%wet_e(je,jk,jb) &
-            &          *(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
-            &          /p_patch%edges%dual_edge_length(je,jb)
-          ENDIF
-        ENDDO
-      END DO
-    END DO
-  ENDIF
+!   ELSEIF ( iswm_oce == 1) THEN
+!     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+!       CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+!       DO jk = slev, elev
+!         DO je = i_startidx_e, i_endidx_e
+!           !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
+!           IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
+! 
+!           !Get indices of two adjacent triangles
+!           il_c1 = p_patch%edges%cell_idx(je,jb,1)
+!           ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+!           il_c2 = p_patch%edges%cell_idx(je,jb,2)
+!           ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+! 
+!           delta_z  = p_os%p_diag%thick_e(je,jb)
+! 
+!           diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z*p_patch_3D%wet_e(je,jk,jb)&!v_base%wet_e(je,jk,jb) &
+!             &          *(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
+!             &          /p_patch%edges%dual_edge_length(je,jb)
+!           ENDIF
+!         ENDDO
+!       END DO
+!     END DO
+!   ENDIF
 
   ! Apply divergence to mixing times gradient to get laplacian
   !CALL div_oce( diff_flx, p_patch, laplacian_trac_out)

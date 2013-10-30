@@ -2037,7 +2037,7 @@ ELSEIF( iswm_oce == 1 )THEN
           IF(p_patch_3D%lsm_e(je,1,jb)<=sea_boundary)THEN
             p_os%p_prog(nold(1))%vn(je,1,jb) = &
             &   (test5_u(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v1  &
-            & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2) !/30.0_wp
+            & + test5_v(z_lon, z_lat,0.0_wp)*p_patch%edges%primal_normal(je,jb)%v2)!/30.0_wp
             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
             p_os%p_diag%h_e(je,jb) = 1.0_wp
@@ -2057,27 +2057,28 @@ ELSEIF( iswm_oce == 1 )THEN
           z_lon = p_patch%cells%center(jc,jb)%lon
 
           IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
-            p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 0.0_wp
-            p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 0.0_wp
+            p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
+            p_os%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
 
             p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
 
             z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
               !Local hot perturbation
             IF(z_dst<=z_perwid)THEN
-              p_os%p_prog(nold(1))%tracer(jc,1,jb,1) =          &
+              p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) =        &
               (1.0_wp+cos(pi*z_dst/z_perwid))/2.0_wp +2.0_wp
-            !!& 20.0_wp &!p_os%p_prog(nold(1))%tracer(jc,1,jb,1)          &
-            !&   z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2)
             ENDIF
-            p_os%p_prog(nnew(1))%tracer(jc,1,jb,1)= p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+            p_os%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer)= p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer)
             p_os%p_prog(nnew(1))%h(jc,jb)         = p_os%p_prog(nold(1))%h(jc,jb)
           ENDIF
         END DO
       END DO
       write(*,*)'max/min tracer at initial time',&
       &maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
-      &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
+      &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))     
+      write(*,*)'max/min height at initial time',&
+      &maxval( p_os%p_prog(nold(1))%h(:,:)),&
+      &minval( p_os%p_prog(nold(1))%h(:,:))
 
     CASE(29)!State at rest, forced by wind
          CALL message(TRIM(routine), 'Shallow-Water-Testcase (29)')

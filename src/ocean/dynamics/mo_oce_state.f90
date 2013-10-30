@@ -65,7 +65,7 @@ MODULE mo_oce_state
     &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg,         &
-    &                               use_tracer_x_height
+    &                               use_tracer_x_height, iswm_oce
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D, t_grid_cells, t_grid_edges
@@ -2895,6 +2895,7 @@ CONTAINS
     END DO
 
     del_zlev_m(:) = dzlev_m(1:n_zlev)
+
   END SUBROUTINE set_del_zlev
 
   !-------------------------------------------------------------------------
@@ -3296,9 +3297,10 @@ CONTAINS
     dolic_e => patch_3D%p_patch_1D(1)%dolic_e
 
     !dolic arrys should never contain 1, only 0 for land or values > 1 
-    WHERE (dolic_c(:,:) < MIN_DOLIC) dolic_c(:,:) = 0
-    WHERE (dolic_e(:,:) < MIN_DOLIC) dolic_e(:,:) = 0
-
+    IF(iswm_oce/=1.AND.n_zlev>1)THEN
+      WHERE (dolic_c(:,:) < MIN_DOLIC) dolic_c(:,:) = 0
+      WHERE (dolic_e(:,:) < MIN_DOLIC) dolic_e(:,:) = 0
+    ENDIF
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c

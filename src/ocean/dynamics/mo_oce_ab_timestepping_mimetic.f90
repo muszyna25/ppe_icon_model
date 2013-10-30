@@ -59,7 +59,7 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
     & timer_ab_rhs4sfc, timer_lhs
   USE mo_dynamics_config,           ONLY: nold, nnew
-  USE mo_physical_constants,        ONLY: grav
+  USE mo_physical_constants,        ONLY: grav,rho_inv
   USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, is_initial_timestep !,&
   ! &                                     set_lateral_boundary_values
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
@@ -586,6 +586,7 @@ CONTAINS
     REAL(wp) :: gdt
     REAL(wp) :: z_gradh_e(nproma, patch_3d%p_patch_2d(n_dom)%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,patch_3d%p_patch_2d(n_dom)%nblks_e)
+    REAL(wp) :: z_h_old_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, owned_edges
     INTEGER :: edge_start_idx, edge_end_idx, dolic_e
     TYPE(t_patch), POINTER :: patch_horz
@@ -698,7 +699,13 @@ CONTAINS
 !    z_gradh_e(:,patch_3d%p_patch_2d(n_dom)%nblks_e)  = 0.0_wp
     ! zero all for the nag compiler
     z_gradh_e(:,:)  = 0.0_wp
-    CALL grad_fd_norm_oce_2d_3d( ocean_state%p_prog(nold(1))%h,     &
+    z_h_old_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c) = 0.0_wp
+    
+    z_h_old_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
+    &=rho_inv* ocean_state%p_diag%rho(1:nproma,1, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
+    &*ocean_state%p_prog(nold(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)
+    
+    CALL grad_fd_norm_oce_2d_3d( z_h_old_rho,&!ocean_state%p_prog(nold(1))%h,     &
       & patch_horz,                  &
       & p_op_coeff%grad_coeff(:,1,:),  &
       & z_gradh_e(:,:))
@@ -1389,6 +1396,7 @@ CONTAINS
     INTEGER :: je, jk, jb
     REAL(wp) :: gdt
     REAL(wp) :: z_grad_h(nproma,patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: z_h_new_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
     TYPE(t_subset_range), POINTER :: edges_in_domain, owned_cells, owned_edges
     CHARACTER(LEN=*), PARAMETER ::     &
       & method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
@@ -1406,9 +1414,15 @@ CONTAINS
     
     gdt=grav*dtime
     
+    z_h_new_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c) = 0.0_wp
+    
+    z_h_new_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
+    &=rho_inv* ocean_state%p_diag%rho(1:nproma,1, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
+    &*ocean_state%p_prog(nnew(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)
+    
     ! Step 1) Compute normal derivative of new surface height
     IF(.NOT.l_rigid_lid.OR.iswm_oce == 1) THEN
-      CALL grad_fd_norm_oce_2d_3d( ocean_state%p_prog(nnew(1))%h,&
+      CALL grad_fd_norm_oce_2d_3d( z_h_new_rho,&!ocean_state%p_prog(nnew(1))%h,&
         & patch,                     &
         & p_op_coeff%grad_coeff(:,1,:),&
         & z_grad_h(:,:))
@@ -1576,15 +1590,13 @@ CONTAINS
         CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
           
-          z_dolic = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          
+          z_dolic = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)         
           !use bottom boundary condition for vertical velocity at bottom
           !of prism
           pw_c(jc,z_dolic+1,jb)=0.0_wp
           DO jk = z_dolic, 1, -1
-            !IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+
             pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - ocean_state%p_diag%div_mass_flx_c(jc,jk,jb)
-            !ENDIF
           END DO
         END DO
       END DO
@@ -1613,9 +1625,7 @@ CONTAINS
           !of prism
           pw_c(jc,z_dolic+1,jb)=0.0_wp
           DO jk = z_dolic, 1, -1
-            !IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - ocean_state%p_diag%div_mass_flx_c(jc,jk,jb)
-            !ENDIF
           END DO
         END DO
       END DO
