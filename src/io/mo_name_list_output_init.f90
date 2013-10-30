@@ -123,7 +123,7 @@ MODULE mo_name_list_output_init
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids
 
-  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN
+  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -221,43 +221,44 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER       :: routine = 'read_name_list_output_namelists'
 
-    INTEGER                           :: istat, i
-    TYPE(t_output_name_list), POINTER :: p_onl
-    INTEGER                           :: nnamelists
-    LOGICAL                           :: lrewind
+    INTEGER                               :: istat, i
+    TYPE(t_output_name_list), POINTER     :: p_onl
+    INTEGER                               :: nnamelists
+    LOGICAL                               :: lrewind
 
     ! Local variables corresponding to members of output_name_list
-    INTEGER                           :: filetype
-    INTEGER                           :: mode
-    INTEGER                           :: taxis_tunit
-    INTEGER                           :: dom(max_phys_dom)
-    INTEGER                           :: steps_per_file
-    LOGICAL                           :: include_last
-    LOGICAL                           :: output_grid
-    CHARACTER(LEN=filename_max)       :: output_filename
-    CHARACTER(LEN=filename_max)       :: filename_format
-    CHARACTER(LEN=vname_len)          :: ml_varlist(max_var_ml)
-    CHARACTER(LEN=vname_len)          :: pl_varlist(max_var_pl)
-    CHARACTER(LEN=vname_len)          :: hl_varlist(max_var_hl)
-    CHARACTER(LEN=vname_len)          :: il_varlist(max_var_il)
-    REAL(wp)                          :: p_levels(max_levels)
-    REAL(wp)                          :: h_levels(max_levels)
-    REAL(wp)                          :: i_levels(max_levels)
-    INTEGER                           :: remap
-    REAL(wp)                          :: reg_lon_def(3)
-    REAL(wp)                          :: reg_lat_def(3)
-    REAL(wp)                          :: north_pole(2)
+    INTEGER                               :: filetype
+    INTEGER                               :: mode
+    INTEGER                               :: taxis_tunit
+    INTEGER                               :: dom(max_phys_dom)
+    INTEGER                               :: steps_per_file
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval                    !< length of a file (ISO8601 duration)
+    LOGICAL                               :: include_last
+    LOGICAL                               :: output_grid
+    CHARACTER(LEN=filename_max)           :: output_filename
+    CHARACTER(LEN=filename_max)           :: filename_format
+    CHARACTER(LEN=vname_len)              :: ml_varlist(max_var_ml)
+    CHARACTER(LEN=vname_len)              :: pl_varlist(max_var_pl)
+    CHARACTER(LEN=vname_len)              :: hl_varlist(max_var_hl)
+    CHARACTER(LEN=vname_len)              :: il_varlist(max_var_il)
+    REAL(wp)                              :: p_levels(max_levels)
+    REAL(wp)                              :: h_levels(max_levels)
+    REAL(wp)                              :: i_levels(max_levels)
+    INTEGER                               :: remap
+    REAL(wp)                              :: reg_lon_def(3)
+    REAL(wp)                              :: reg_lat_def(3)
+    REAL(wp)                              :: north_pole(2)
 
-    REAL(wp)                            :: output_bounds(3)
-    INTEGER                             :: output_time_unit
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: output_start, &
-      &                                    output_end,   &
-      &                                    output_interval
+    REAL(wp)                              :: output_bounds(3)
+    INTEGER                               :: output_time_unit
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start, &
+      &                                      output_end,   &
+      &                                      output_interval
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
-    TYPE(t_lon_lat_data),  POINTER    :: lonlat
-    TYPE (t_keyword_list), POINTER    :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
+    TYPE(t_lon_lat_data),  POINTER        :: lonlat
+    TYPE (t_keyword_list), POINTER        :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)         :: cfilename
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -269,7 +270,7 @@ CONTAINS
       p_levels, h_levels, i_levels,                          &
       output_start, output_end, output_interval,             &
       output_bounds, output_time_unit,                       &
-      ready_file
+      ready_file, file_interval
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -304,7 +305,8 @@ CONTAINS
       mode               = 2
       taxis_tunit        = TUNIT_HOUR
       dom(:)             = -1
-      steps_per_file     = 100
+      steps_per_file     = -1
+      file_interval      = ""
       include_last       = .TRUE.
       output_grid        = .FALSE.
       output_filename    = ' '
@@ -395,6 +397,7 @@ CONTAINS
       p_onl%taxis_tunit      = taxis_tunit
       p_onl%dom(:)           = dom(:)
       p_onl%steps_per_file   = steps_per_file
+      p_onl%file_interval    = file_interval
       p_onl%include_last     = include_last
       p_onl%output_grid      = output_grid
       p_onl%output_filename  = output_filename
@@ -413,6 +416,11 @@ CONTAINS
       p_onl%output_interval  = output_interval
       p_onl%output_bounds(:) = output_bounds(:)
       p_onl%ready_file       = ready_file
+
+      ! consistency checks:
+      IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
+        CALL finish(routine, "User has specified conflicting parameters <steps_per_file>, <file_interval>!")
+      END IF
 
       ! read the map files into dictionary data structures
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
@@ -1070,6 +1078,7 @@ CONTAINS
       ! pack file-name meta-data into a derived type to pass them
       ! to "new_parallel_output_event":
       fname_metadata%steps_per_file   = p_onl%steps_per_file
+      fname_metadata%file_interval    = p_onl%file_interval
       fname_metadata%phys_patch_id    = p_of%phys_patch_id
       fname_metadata%ilev_type        = p_of%ilev_type
       fname_metadata%filename_format  = TRIM(p_onl%filename_format)

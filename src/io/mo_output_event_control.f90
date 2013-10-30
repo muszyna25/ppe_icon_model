@@ -73,6 +73,9 @@ MODULE mo_output_event_control
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_control'
 
+  !> Internal switch for debugging output
+  LOGICAL,          PARAMETER :: ldebug  = .FALSE.
+
 CONTAINS
 
   ! --------------------------------------------------------------------------------------------------
@@ -101,7 +104,6 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
-    LOGICAL,          PARAMETER :: ldebug  = .FALSE.
     INTEGER                  :: idtime_ms, sim_step, ilist, i
     LOGICAL                  :: l_dyn_active, l_adv_active
     TYPE(event),     POINTER :: mtime_dyn, mtime_adv
@@ -235,24 +237,72 @@ CONTAINS
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
-    INTEGER                           :: i, j
-    INTEGER                           :: jfile(SIZE(date_string))
-    CHARACTER(len=MAX_STRING_LEN)     :: cfilename
-    TYPE (t_keyword_list), POINTER    :: keywords     => NULL()
-    CHARACTER(len=MAX_STRING_LEN)     :: fname(nstrings)        ! list for duplicate check
-    INTEGER                           :: ifname                 ! current length of "ifname"
+    INTEGER                             :: i, j, ifile
+    INTEGER                             :: jfile(SIZE(date_string))
+    CHARACTER(len=MAX_STRING_LEN)       :: cfilename
+    TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
+    CHARACTER(len=MAX_STRING_LEN)       :: fname(nstrings)        ! list for duplicate check
+    INTEGER                             :: ifname                 ! current length of "ifname"
+    TYPE(datetime),  POINTER            :: file_end, step_date
+    TYPE(timedelta), POINTER            :: delta
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
-    ifname = 0
+    ! ---------------------------------------------------
+    ! prescribe, which file is used in which output step.
+    ! ---------------------------------------------------
+    ! a) user has specified "steps_per_file"
+    ! b) user has specified "file_interval"
+    IF (TRIM(fname_metadata%file_interval) == "") THEN
+      ! case a): steps_per_file
+      DO i=1,nstrings
+        jfile(i) = i/fname_metadata%steps_per_file + 1 ! INTEGER division!
+      END DO
+    ELSE
+      ! case b): file_interval
+      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      ifile      =  1
+      delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
+      file_end  =>  newDatetime(date_string(1))
+      file_end   =  file_end + delta
+      OUTSTEP_LOOP : DO i=1,nstrings
+        step_date => newDatetime(date_string(i))
+        IF (ldebug) THEN
+          CALL datetimeToString(file_end, dtime_string)
+          WRITE (0,*) "step_date = ", date_string(i), "; file_end = ", dtime_string
+        END IF
+        IF (step_date >= file_end) THEN
+          ifile = ifile + 1
+          DO
+            file_end =  file_end + delta
+            IF (file_end > step_date) EXIT
+          END DO
+        END IF
+        jfile(i) = ifile
+        CALL deallocateDatetime(step_date)
+      END DO OUTSTEP_LOOP
+      CALL deallocateDatetime(file_end)
+      CALL deallocateTimedelta(delta)
+    END IF
 
+    ! --------------------------------------------------------------
     ! prescribe, in which steps the output file is opened or closed:
+    ! --------------------------------------------------------------
     DO i=1,nstrings
-      jfile(i) = i/fname_metadata%steps_per_file + 1 ! INTEGER division!
-      result_fnames(i)%l_open_file  = (MOD(i-1, fname_metadata%steps_per_file) == 0)
-      result_fnames(i)%l_close_file = (MOD(i,   fname_metadata%steps_per_file) == 0) .OR.  &
-        &                             (i == nstrings)
+      IF (i == 1) THEN
+        result_fnames(i)%l_open_file = .TRUE.
+      ELSE
+        result_fnames(i)%l_open_file = (jfile(i-1) /= jfile(i))
+      END IF
+      IF (i==nstrings) THEN
+        result_fnames(i)%l_close_file = .TRUE.
+      ELSE
+        result_fnames(i)%l_close_file = (jfile(i+1) /= jfile(i))
+      END IF
     END DO
 
+    ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
+    ! ----------------------------------------------
     DO i=1,nstrings
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
@@ -276,6 +326,7 @@ CONTAINS
 
       ! consistency check: test if the user has accidentally chosen a
       ! file name syntax which yields duplicate file names:
+      ifname = 0
       DO j=1,ifname
         IF (result_fnames(i)%filename_string == fname(j)) THEN
           ! found a duplicate filename:

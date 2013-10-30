@@ -22,7 +22,7 @@ MODULE mo_name_list_output_types
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_communication,         ONLY: t_comm_pattern
-  USE mtime,                    ONLY: MAX_DATETIME_STR_LEN
+  USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
 
   IMPLICIT NONE
@@ -181,21 +181,22 @@ MODULE mo_name_list_output_types
     ! file name and format
     ! --------------------
 
-    INTEGER                     :: filetype          ! One of CDI's FILETYPE_XXX constants
-    CHARACTER(LEN=filename_max) :: output_filename   ! output filename prefix
-    CHARACTER(LEN=filename_max) :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
+    INTEGER                               :: filetype          ! One of CDI's FILETYPE_XXX constants
+    CHARACTER(LEN=filename_max)           :: output_filename   ! output filename prefix
+    CHARACTER(LEN=filename_max)           :: filename_format   ! output filename format (contains keywords <physdom>,<levtype> etc.)
 
     ! --------------------
     ! general settings
     ! --------------------
 
-    INTEGER          :: mode                        ! 1 = forecast mode, 2 = climate mode
-    INTEGER          :: dom(max_phys_dom)           ! domains for which this namelist is used, ending with -1
-    INTEGER          :: steps_per_file              ! Max number of output steps in one output file
-    LOGICAL          :: include_last                ! Flag whether to include the last timestep in output
-    LOGICAL          :: output_grid                 ! Flag whether grid information is output (in NetCDF output)
+    INTEGER                               :: mode              ! 1 = forecast mode, 2 = climate mode
+    INTEGER                               :: dom(max_phys_dom) ! domains for which this namelist is used, ending with -1
+    INTEGER                               :: steps_per_file    ! Max number of output steps in one output file
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval     ! length of a file (ISO8601 duration)
+    LOGICAL                               :: include_last      ! Flag whether to include the last timestep in output
+    LOGICAL                               :: output_grid       ! Flag whether grid information is output (in NetCDF output)
 
-    INTEGER          :: taxis_tunit   ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
+    INTEGER                               :: taxis_tunit       ! 1 = TUNIT_SECOND, 2 = TUNIT_MINUTE, 3 TUNIT_HOUR ... (see cdi.inc)
 
     !> There are two alternative implementations for setting the
     !  output intervals, "output_bounds" and "output_start" /
@@ -203,13 +204,13 @@ MODULE mo_name_list_output_types
     !  events relative to the simulation start (in seconds) and the
     !  latter define the output events by setting ISO8601-conforming
     !  date-time strings.
-    REAL(wp)                            :: output_bounds(3)
+    REAL(wp)                              :: output_bounds(3)
 
     !> Output event steps happen at regular intervals. These are given
     !  by an interval size and the time stamps for begin and end.
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: output_start,     &
-      &                                    output_end,       &
-      &                                    output_interval
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start,     &
+      &                                      output_end,       &
+      &                                      output_interval
 
     !> ready filename prefix (=output event name)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file
@@ -272,7 +273,8 @@ MODULE mo_name_list_output_types
   !> an output filename.
   !
   TYPE t_fname_metadata
-    INTEGER                               :: steps_per_file                   !< no. of output steps per file
+    INTEGER                               :: steps_per_file                   !< (optional:) no. of output steps per file
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval                    !< (optional:) length of a file (ISO8601 duration)
     INTEGER                               :: phys_patch_id                    !< ID of physical output patch
     INTEGER                               :: ilev_type                        !< level_type_ml/_pl/_hl/_il
     CHARACTER(LEN=FILENAME_MAX)           :: filename_format                  !< output filename format (contains keywords)

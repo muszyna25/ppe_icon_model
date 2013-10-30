@@ -137,33 +137,33 @@ MODULE mo_output_event_handler
 #endif
 #endif
 
-  USE mo_impl_constants,       ONLY: SUCCESS
-  USE mo_exception,            ONLY: finish, message
-  USE mo_kind,                 ONLY: wp
-  USE mo_io_units,             ONLY: FILENAME_MAX, find_next_free_unit
-  USE mo_util_string,          ONLY: int2string
-  USE mo_mpi,                  ONLY: p_int, p_pe_work, p_comm_work,                       &
-    &                                p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
-    &                                p_unpack_int, p_unpack_string, p_unpack_bool,        &
-    &                                p_unpack_real, p_send_packed, p_irecv_packed, p_wait,&
-    &                                p_bcast, get_my_global_mpi_id
-  USE mo_fortran_tools,        ONLY: assign_if_present
-  USE mtime,                   ONLY: MAX_DATETIME_STR_LEN,                                &
-    &                                MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
-    &                                event, datetime, newEvent, timedelta,                &
-    &                                setCalendar, resetCalendar, newTimedelta,            &
-    &                                deallocateDatetime, datetimeToString,                &
-    &                                deallocateEvent, newDatetime, OPERATOR(>=),          &
-    &                                OPERATOR(>), OPERATOR(+), deallocateTimedelta
-  USE mo_mtime_extensions,     ONLY: isCurrentEventActive, getPTStringFromMS
-  USE mo_output_event_types,   ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
-    &                                t_event_step, t_output_event, t_par_output_event,    &
-    &                                MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
-    &                                DEFAULT_EVENT_NAME
-  USE mo_output_event_control, ONLY: compute_matching_sim_steps, generate_output_filenames
+  USE mo_impl_constants,         ONLY: SUCCESS
+  USE mo_exception,              ONLY: finish, message
+  USE mo_kind,                   ONLY: wp
+  USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
+  USE mo_util_string,            ONLY: int2string
+  USE mo_mpi,                    ONLY: p_int, p_pe_work, p_comm_work,                       &
+    &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
+    &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
+    &                                  p_unpack_real, p_send_packed, p_irecv_packed, p_wait,&
+    &                                  p_bcast, get_my_global_mpi_id
+  USE mo_fortran_tools,          ONLY: assign_if_present
+  USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
+    &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
+    &                                  event, datetime, newEvent, timedelta,                &
+    &                                  setCalendar, resetCalendar, newTimedelta,            &
+    &                                  deallocateDatetime, datetimeToString,                &
+    &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
+    &                                  OPERATOR(>), OPERATOR(+), deallocateTimedelta
+  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS
+  USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
+    &                                  t_event_step, t_output_event, t_par_output_event,    &
+    &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
+    &                                  DEFAULT_EVENT_NAME
+  USE mo_output_event_control,   ONLY: compute_matching_sim_steps, generate_output_filenames
   USE mo_name_list_output_types, ONLY: t_fname_metadata
-  USE mo_util_table,           ONLY: initialize_table, finalize_table, add_table_column,  &
-    &                                set_table_entry, print_table, t_table
+  USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
+    &                                  set_table_entry, print_table, t_table
 
   IMPLICIT NONE
 
@@ -246,6 +246,7 @@ MODULE mo_output_event_handler
   !> maximum buffer size for sending event meta-data (MPI_PACK)
   INTEGER, PARAMETER :: MAX_BUF_SIZE =    (    MAX_EVENT_NAME_STR_LEN &
     &                                      + 7*MAX_DATETIME_STR_LEN   &
+    &                                      + MAX_TIMEDELTA_STR_LEN    &
     &                                      + 3*FILENAME_MAX           &
     &                                      + 1024 )
 
@@ -1727,6 +1728,7 @@ CONTAINS
     CALL p_pack_string(sim_step_info%dom_end_time,           buffer, MAX_BUF_SIZE, position, icomm)
     ! encode fname_metadata data
     CALL p_pack_int(fname_metadata%steps_per_file,           buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_string(TRIM(fname_metadata%file_interval),   buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(fname_metadata%phys_patch_id,            buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(fname_metadata%ilev_type,                buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(fname_metadata%filename_format), buffer, MAX_BUF_SIZE, position, icomm)
@@ -1770,6 +1772,7 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,     icomm)
     ! decode fname_metadata data
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%steps_per_file,  icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%file_interval,   icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%phys_patch_id,   icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%ilev_type,       icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_format, icomm)
