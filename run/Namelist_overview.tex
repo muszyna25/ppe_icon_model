@@ -1344,65 +1344,10 @@ Defined and used in: src/namelists/mo\_echam\_phy\_nml.f90
 \begin{longtab}
 
 \hline
-significanceOfReferenceTime &
-I& 1& &
-Significance of reference time\\
-- GRIB2 code table 1.2 &
-filetype=2
-\tabularnewline
-
-\hline
-productionStatusOfProcessedData&
-I& 1 & &
-Production status of data\\
-- GRIB2 code table 1.3 &
-filetype=2
-\tabularnewline
-
-\hline
-typeOfProcessedData&
-I& 1 & &
-Type of data \\
-- GRIB2 code table 1.4 &
-filetype=2
-\tabularnewline
-
-\hline
-typeOfGeneratingProcess&
-I& 2 & &
-Type of generating process \\
-- GRIB2 code table 4.3 &
-filetype=2
-\tabularnewline
-
-\hline
 backgroundProcess&
 I& 0 & &
 Background process \\
 - GRIB2 code table backgroundProcess.table &
-filetype=2
-\tabularnewline
-
-\hline
-generatingProcessIdentifier&
-I(n\_dom)& 1 & &
-generating Process Identifier \\
-- GRIB2 code table generatingProcessIdentifier.table &
-filetype=2
-\tabularnewline
-
-\hline
-localDefinitionNumber&
-I& 254 & &
-local Definition Number\\
-- GRIB2 code table grib2LocalSectionNumber.78.table &
-filetype=2
-\tabularnewline
-
-\hline
-localNumberOfExperiment&
-I& 1 & &
-local Number of Experiment &
 filetype=2
 \tabularnewline
 
@@ -1413,6 +1358,14 @@ Output generating center. If this key is not set, center information is taken fr
 DWD: 78 \\
 MPIMET: 98 \\
 ECMWF: 98 &
+filetype=2
+\tabularnewline
+
+\hline
+generatingProcessIdentifier&
+I(n\_dom)& 1 & &
+generating Process Identifier \\
+- GRIB2 code table generatingProcessIdentifier.table &
 filetype=2
 \tabularnewline
 
@@ -1436,18 +1389,24 @@ filetype=2
 \tabularnewline
 
 \hline
-productDefinitionTemplateNumber&
-I& -1 & &
-Local definiton for ensemble products
-(only set if value changed from default) &
+lgribout\_24bit&
+L& .FALSE. & &
+If TRUE, write thermodynamic fields $\rho$, $\theta_{v}$, $T$, $p$ with 24bit precision instead of 16bit &
 filetype=2
 \tabularnewline
 
 \hline
-typeOfEnsembleForecast&
-I& -1 & &
-Local definiton for ensemble products
-(only set if value changed from default) &
+localDefinitionNumber&
+I& 254 & &
+local Definition Number\\
+- GRIB2 code table grib2LocalSectionNumber.78.table &
+filetype=2
+\tabularnewline
+
+\hline
+localNumberOfExperiment&
+I& 1 & &
+local Number of Experiment &
 filetype=2
 \tabularnewline
 
@@ -1468,9 +1427,62 @@ filetype=2
 \tabularnewline
 
 \hline
-lgribout\_24bit&
-L& .FALSE. & &
-If TRUE, write thermodynamic fields $\rho$, $\theta_{v}$, $T$, $p$ with 24bit precision instead of 16bit &
+preset&
+C& ''none'' & &
+Setting this different to ''none'' enables a couple of defaults for
+the other \texttt{gribout\_nml} namelist parameters. If, additionally, the
+user tries to set any of these other parameters to a conflicting
+value, an error message is thrown. 
+Possible values are ''none'', ''deterministic'', ''ensemble''.
+&
+filetype=2
+\tabularnewline
+
+\hline
+productDefinitionTemplateNumber&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+productionStatusOfProcessedData&
+I& 1 & &
+Production status of data\\
+- GRIB2 code table 1.3 &
+filetype=2
+\tabularnewline
+
+\hline
+significanceOfReferenceTime &
+I& 1& &
+Significance of reference time\\
+- GRIB2 code table 1.2 &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfEnsembleForecast&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfGeneratingProcess&
+I& 2 & &
+Type of generating process \\
+- GRIB2 code table 4.3 &
+filetype=2
+\tabularnewline
+
+\hline
+typeOfProcessedData&
+I& 1 & &
+Type of data \\
+- GRIB2 code table 1.4 &
 filetype=2
 \tabularnewline
 

@@ -51,6 +51,8 @@ MODULE mo_gribout_nml
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
+  USE mo_util_string,         ONLY: int2string
+  USE mo_exception,           ONLY: finish, message
 
   
   IMPLICIT NONE
@@ -59,11 +61,27 @@ MODULE mo_gribout_nml
   PUBLIC :: read_gribout_namelist
 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_handler'
+
+  ! constant for better readability
+  INTEGER, PARAMETER :: UNDEFINED = -1
 
   !----------------------------------!
   ! gribout_nml namelist variables   !
   !----------------------------------!
+
+  ! Namelist parameter "preset": main switch (string), possible options are
+  !  - "none"
+  !  - "deterministic"
+  !  - "ensemble"
+  !
+  ! Setting this different to "none" enables a couple of defaults for
+  ! the other gribout_nml namelist parameters. If, additionally, the
+  ! user tries to set any of these other parameters to a conflicting
+  ! value, an error message is thrown.
+  CHARACTER(LEN=32) :: preset
+
 
   INTEGER :: &                          ! Table 1.2
     & significanceOfReferenceTime       ! 0: Analysis
@@ -134,7 +152,9 @@ MODULE mo_gribout_nml
     &        perturbationNumber
 
 
-  NAMELIST/gribout_nml/  significanceOfReferenceTime,     &
+  NAMELIST/gribout_nml/  &
+    &                    preset,                          &
+    &                    significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
     &                    typeOfProcessedData,             &
     &                    typeOfGeneratingProcess,         &
@@ -186,24 +206,26 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
+    preset                               = "deterministic"
+
     significanceOfReferenceTime          = 1   ! 1: Start of forecast
     productionStatusOfProcessedData      = 1   ! 1: Oper. test products
-    typeOfProcessedData                  = 1   ! 1: Forecast products
-    typeOfGeneratingProcess              = 2   ! 2: Forecast
     backgroundProcess                    = 0   ! 0: main run
     generatingProcessIdentifier(:)       = 1   ! 1: icogl
-    localDefinitionNumber                = 254 ! 254: Deterministic system
     localNumberOfExperiment              = 1
-    generatingCenter                     = -1  ! output generating center
-    generatingSubcenter                  = -1  ! output generating subcenter 
     ldate_grib_act                       = .TRUE.
-    productDefinitionTemplateNumber      = -1  ! (undefined, will not be set if unchanged)
-    typeOfEnsembleForecast               = -1  ! (undefined, will not be set if unchanged)
-    localTypeOfEnsembleForecast          = -1  ! (undefined, will not be set if unchanged)
-    numberOfForecastsInEnsemble          = -1  ! (undefined, will not be set if unchanged)
-    perturbationNumber                   = -1  ! (undefined, will not be set if unchanged)
     lgribout_24bit                       = .FALSE.  ! use 16bit precision for all fields
 
+    typeOfProcessedData                  = UNDEFINED
+    typeOfGeneratingProcess              = UNDEFINED
+    localDefinitionNumber                = UNDEFINED
+    generatingCenter                     = UNDEFINED  ! output generating center
+    generatingSubcenter                  = UNDEFINED  ! output generating subcenter 
+    productDefinitionTemplateNumber      = UNDEFINED  ! (undefined, will not be set if unchanged)
+    typeOfEnsembleForecast               = UNDEFINED  ! (undefined, will not be set if unchanged)
+    localTypeOfEnsembleForecast          = UNDEFINED  ! (undefined, will not be set if unchanged)
+    numberOfForecastsInEnsemble          = UNDEFINED  ! (undefined, will not be set if unchanged)
+    perturbationNumber                   = UNDEFINED  ! (undefined, will not be set if unchanged)
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -224,18 +246,11 @@ CONTAINS
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, gribout_nml, iostat=istat)                          ! overwrite default settings
+      ! Preset values, when main switch is provided.
+      CALL preset_namelist()
       IF (my_process_is_stdio()) WRITE(temp_settings(), gribout_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
-
-
-
-    !----------------------------------------------------
-    ! 4. Sanity check
-    !----------------------------------------------------
-
-
-
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -295,5 +310,74 @@ CONTAINS
 
 
   END SUBROUTINE read_gribout_namelist
+
+
+  !> Preset values, when main switch is provided.
+  !
+  SUBROUTINE preset_namelist()
+    IF (TRIM(preset) == "deterministic") THEN
+      !
+      ! deterministic forecast
+      !
+      ! 2: Forecast
+      CALL preset_value("typeOfGeneratingProcess",typeOfGeneratingProcess,             2 , quiet=.TRUE.)
+      ! 254: Deterministic system
+      CALL preset_value("localDefinitionNumber",  localDefinitionNumber,             254 , quiet=.TRUE. )
+      ! 1: Forecast products
+      CALL preset_value("typeOfProcessedData",    typeOfProcessedData,                 1 , quiet=.TRUE. )
+
+    ELSE IF (TRIM(preset) == "ensemble") THEN
+      !
+      ! ensemble forecast
+      !
+      ! values are preset according to
+      !  GME   : pp_makepdt.f90
+      !  COSMO : io_metadata.f90 
+      !
+      ! The user is expected to set only
+      !
+      ! - perturbationNumber          (COSMO: "iepsmem")
+      ! - numberOfForecastsInEnsemble (COSMO: "iepstot")
+      ! - localTypeOfEnsembleForecast (COSMO: "iepstyp")
+      !
+      CALL preset_value("typeOfGeneratingProcess",         typeOfGeneratingProcess,             4 , quiet=.FALSE. )
+      ! 253: ensemble
+      CALL preset_value("localDefinitionNumber",           localDefinitionNumber,             253 , quiet=.FALSE. )
+      ! 5  : "control and perturbed forecast products"
+      CALL preset_value("typeOfProcessedData",             typeOfProcessedData,                 5 , quiet=.FALSE. )
+      ! 1  : individual ensemble forecast
+      CALL preset_value("productDefinitionTemplateNumber", productDefinitionTemplateNumber,     1 , quiet=.FALSE. )
+      ! Note: atmospheric chemical constituents -> 41
+      !       statistically processed data      -> 11
+      CALL preset_value("typeOfEnsembleForecast",          typeOfEnsembleForecast,            192 , quiet=.FALSE. )
+    END IF
+  END SUBROUTINE preset_namelist
+
+
+  !> Sets a variable to a given value, but only if current value was
+  !> UNDEFINED
+  !
+  SUBROUTINE preset_value(name, ival, preset_val, quiet)
+    CHARACTER(LEN=*), INTENT(IN)    :: name              !< name of this parameter (for screen output)
+    INTEGER,          INTENT(INOUT) :: ival              !< value to be altered
+    INTEGER,          INTENT(IN)    :: preset_val        !< value that shall be preset
+    LOGICAL,          INTENT(IN)    :: quiet             !< LOGICAL: if .FALSE. we print some screen output
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::preset_value"
+
+    IF (ival == UNDEFINED) THEN
+      ival = preset_val
+      IF (.NOT. quiet) THEN
+        CALL message(routine, "presetting namelist parameter '"//TRIM(name)//"' as "//TRIM(int2string(preset_val)))
+      END IF
+    ELSE
+      IF (ival /= preset_val) THEN
+        ! obviously, the user tried to set both: the main switch for
+        ! presetting values and the local value
+        CALL finish(routine, "Namelist setting of '"//TRIM(name)//"' contradicts to preset values!")
+      END IF
+    END IF
+    
+  END SUBROUTINE preset_value
 
 END MODULE mo_gribout_nml
