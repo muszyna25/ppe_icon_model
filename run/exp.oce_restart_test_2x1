@@ -150,11 +150,11 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','hi','conc'
 /
 &output_nml
-  output_start     = ${start_date}
+  output_start     = "2001-01-01T06:00:00Z"
   output_end       = ${end_date}
-  output_interval  = "P00DT6H00M00S"
+  output_interval  = "P00DT06H00M00S"
 ! output_interval  = "P10D"
-  steps_per_file   = 1000
+  steps_per_file   = 400
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
