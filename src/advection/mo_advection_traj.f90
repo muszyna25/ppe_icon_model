@@ -98,10 +98,11 @@ CONTAINS
   !! the local normal and tangential direction.
   !! Once the barycenter of the departure region is known, the distance vector
   !! between the circumcenter of the upstream cell and the barycenter is computed.
-  !! In a final step, this vector is transformed into a different coordinate system
+  !! In a final step, this vector is transformed into a rotated coordinate system
   !! which has its origin at the circumcenter. The coordinate axes point to the local
   !! east and local north. Note that this subroutine has specifically been designed
-  !! for the MIURA scheme with second order reconstruction of the subgrid distribution.
+  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid 
+  !! distribution.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
@@ -127,11 +128,11 @@ CONTAINS
 
     REAL(wp), INTENT(OUT)   ::  &  !< distance vectors cell center --> barycenter of
          &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
-    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(OUT)    ::  &  !< line and block indices of cell centers in which the
          &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
-    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
          &  opt_rlstart
@@ -145,8 +146,8 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
-    REAL(wp) :: z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
-    !< 'tangential' coordinates.
+    REAL(wp) :: z_ntdistv_bary(2)      !< cell center --> barycenter in 'normal' and
+                                       !< 'tangential' coordinates.
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: nlev              !< number of full levels
@@ -276,32 +277,32 @@ CONTAINS
   !! Computation of first order backward trajectories for FFSL transport scheme
   !!
   !! Computes backward trajectories in order to determine an approximation to the
-  !! departure region. Here, the departure region is approximated by a rhomboidal
-  !! region, using a simple first order accurate backward trajectory. Computations
+  !! departure region. Here, the departure region is approximated by a rhomboid,
+  !! using a simple first order accurate backward trajectory. Computations
   !! are performed on a plane tangent to the edge midpoint. Coordinate axes point into
   !! the local normal and tangential direction.
   !! Once the 4 vertices of the departure region are known, the distance vector
   !! between the circumcenter of the upstream cell and the vertices is computed.
-  !! In a final step, these vectors are transformed into a different coordinate system
+  !! In a final step, these vectors are transformed into a rotated coordinate system
   !! which has its origin at the circumcenter. The coordinate axes point to the local
   !! east and local north. This subroutine may be combined with any reconstruction method
   !! for the subgrid distribution.
   !! Note: So far, we take care that the vertices of the departure region are stored in
   !! counterclockwise order. This ensures that the gaussian quadrature is positive definite.
   !!
-  !! NOTE: Since we are only interested in the departure region average rather than 
+  !! NOTE_1: Since we are only interested in the departure region average rather than 
   !!       the departure region integral, counterclockwise numbering is not strictly 
   !!       necessary. Maybe we should remove the computational overhead of counterclockwise 
   !!       numbering at some time. However, the points must not be numbered in random order.
   !!       Care must be taken that the points are numbered either clockwise or counterclockwise. 
   !!       
-  !! Note: The coordinates for 2 of the 4 vertices do not change with time. However, 
+  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However, 
   !!       tests indicated that re-computing these coordinates is faster than fetching 
   !!       precomputed ones from memory. 
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-05-12)
-  !! Modification by Daniel Reinert, DWD (2112-04-24)
+  !! Modification by Daniel Reinert, DWD (2012-04-24)
   !! - bug fix: counterclockwise numbering is now ensured independent of the 
   !!   edge system-orientation.
   !!
@@ -345,15 +346,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
-    REAL(wp), POINTER  ::  &       !< pointer to coordinates of edge vertices
-         &  ptr_ve(:,:,:,:)           !< on tangent plane
-
     REAL(wp) ::            &       !< coordinates of departure points 
          &  depart_pts(2,2)           !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
          &  pos_dreg_vert_c(4,2)      !< as seen from translated coordinate system.
-    !< origin at circumcenter of upwind cell
+                                      !< origin at circumcenter of upwind cell
 
     REAL(wp) ::            &       !< position on tangential plane depending
          &  pos_on_tplane_e(2)        !< on the sign of vn
@@ -361,12 +359,16 @@ CONTAINS
     REAL(wp) ::            &       !< primal and dual normals of cell lying
          &  pn_cell(2), dn_cell(2)    !< in the direction of vn
 
+    REAL(wp) ::            &       !< edge vertices
+         &  edge_verts(2,2)
+
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos             !< vn > 0: TRUE/FALSE
     LOGICAL :: lvn_sys_pos         !< vn*system_orient > 0
+
     !-------------------------------------------------------------------------
 
 
@@ -402,13 +404,11 @@ CONTAINS
     i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
 
-    ! pointer to the edge vertices
-    ptr_ve => ptr_int%pos_on_tplane_e(:,:,7:8,:)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,depart_pts,pos_dreg_vert_c, &
-!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,lvn_sys_pos) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,lvn_sys_pos,edge_verts) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -438,6 +438,11 @@ CONTAINS
           ! Determine the upwind cell
           ! Cell indices are chosen such that the direction from cell 1 to cell 2
           ! is the positive direction of the normal vector N.
+          ! Edge indices are chosen such that the direction from edge 1 to edge 2
+          ! is the positive directions of the tangential vector T.
+          !
+          ! If (T,N,Z) form a right-hand system, the system orientation is 1.
+          ! If (T,N,Z) form a left-hand system, the system orientation is -1.
 
           !
           ! Calculate backward trajectories, starting at the two edge vertices
@@ -451,6 +456,9 @@ CONTAINS
           ! logical switch for merge options regarding the counterclockwise numbering
           lvn_sys_pos = (p_vn(je,jk,jb)*ptr_p%edges%system_orientation(je,jb)) >= 0._wp
 
+          ! get local copy of edge vertices
+          edge_verts(1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
+
           ! get line and block indices of upwind cell
           p_cell_indices(je,jk,jb,1) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
                &                                ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
@@ -462,16 +470,16 @@ CONTAINS
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction
-          depart_pts(1,1)      = ptr_ve(je,jb,1,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(1,1)      = edge_verts(1,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in tangential direction
-          depart_pts(1,2)      = ptr_ve(je,jb,1,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(1,2)      = edge_verts(1,2) - p_vt(je,jk,jb) * p_dt
 
           ! position of vertex 3 in normal direction
-          depart_pts(2,1)      = ptr_ve(je,jb,2,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(2,1)      = edge_verts(2,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 3 in tangential direction
-          depart_pts(2,2)      = ptr_ve(je,jb,2,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(2,2)      = edge_verts(2,2) - p_vt(je,jk,jb) * p_dt
 
 
 
@@ -489,18 +497,18 @@ CONTAINS
           !
           ! Take care of correct counterclockwise numbering below
           !
-          pos_dreg_vert_c(1,1:2) = ptr_ve(je,jb,1,1:2) - pos_on_tplane_e(1:2)
+          pos_dreg_vert_c(1,1:2) = edge_verts(1,1:2) - pos_on_tplane_e(1:2)
 
-          pos_dreg_vert_c(2,1)   = MERGE(depart_pts(1,1),ptr_ve(je,jb,2,1),lvn_sys_pos) &
+          pos_dreg_vert_c(2,1)   = MERGE(depart_pts(1,1),edge_verts(2,1),lvn_sys_pos) &
                &                    - pos_on_tplane_e(1)
-          pos_dreg_vert_c(2,2)   = MERGE(depart_pts(1,2),ptr_ve(je,jb,2,2),lvn_sys_pos) &
+          pos_dreg_vert_c(2,2)   = MERGE(depart_pts(1,2),edge_verts(2,2),lvn_sys_pos) &
                &                    - pos_on_tplane_e(2)
 
           pos_dreg_vert_c(3,1:2) = depart_pts(2,1:2) - pos_on_tplane_e(1:2)
 
-          pos_dreg_vert_c(4,1)   = MERGE(ptr_ve(je,jb,2,1),depart_pts(1,1),lvn_sys_pos) &
+          pos_dreg_vert_c(4,1)   = MERGE(edge_verts(2,1),depart_pts(1,1),lvn_sys_pos) &
                &                    - pos_on_tplane_e(1)
-          pos_dreg_vert_c(4,2)   = MERGE(ptr_ve(je,jb,2,2),depart_pts(1,2),lvn_sys_pos) &
+          pos_dreg_vert_c(4,2)   = MERGE(edge_verts(2,2),depart_pts(1,2),lvn_sys_pos) &
                &                    - pos_on_tplane_e(2)
 
 
@@ -559,8 +567,6 @@ CONTAINS
 
 
   END SUBROUTINE btraj_dreg
-
-
 
 
   !-------------------------------------------------------------------------
@@ -632,9 +638,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
-    REAL(wp), POINTER  ::  &       !< pointer to coordinates of edge vertices
-         &  ptr_ve(:,:,:,:)           !< on tangent plane
-
     REAL(wp) ::            &       !< coordinates of departure points 
          &  dep_pts(2,2)              !< in edge-based coordinate system
 
@@ -646,6 +649,9 @@ CONTAINS
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
          &  pn_cell(2), dn_cell(2)    !< in the direction of vn
+
+    REAL(wp) ::            &       !< edge vertices
+         &  edge_verts(2,2)
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -688,13 +694,11 @@ CONTAINS
     i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
 
-    ! pointer to the edge vertices
-    ptr_ve => ptr_int%pos_on_tplane_e(:,:,7:8,:)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dep_pts,arr_pts, &
-!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos)
+!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,edge_verts)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -736,6 +740,9 @@ CONTAINS
           ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
           lvn_pos = p_vn(je,jk,jb) * p_dt >= 0._wp
 
+          ! get local copy of edge vertices
+          edge_verts(1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
+
           ! get line and block indices of upwind cell
           upwind_cell_idx(je,jk,jb) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
                &                               ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
@@ -756,16 +763,16 @@ CONTAINS
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of departure point 1 in normal direction
-          dep_pts(1,1) = ptr_ve(je,jb,1,1) - p_vn(je,jk,jb) * p_dt
+          dep_pts(1,1) = edge_verts(1,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of departure point 1 in tangential direction
-          dep_pts(1,2) = ptr_ve(je,jb,1,2) - p_vt(je,jk,jb) * p_dt
+          dep_pts(1,2) = edge_verts(1,2) - p_vt(je,jk,jb) * p_dt
 
           ! position of departure point 2 in normal direction
-          dep_pts(2,1) = ptr_ve(je,jb,2,1) - p_vn(je,jk,jb) * p_dt
+          dep_pts(2,1) = edge_verts(2,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of departure point 2 in tangential direction
-          dep_pts(2,2) = ptr_ve(je,jb,2,2) - p_vt(je,jk,jb) * p_dt
+          dep_pts(2,2) = edge_verts(2,2) - p_vt(je,jk,jb) * p_dt
 
 
 
@@ -776,13 +783,13 @@ CONTAINS
           !
           ! No sorting!
           !
-          arr_pts(1,1:2) = ptr_ve(je,jb,1,1:2) - pos_on_tplane_e(1:2)
+          arr_pts(1,1:2) = edge_verts(1,1:2) - pos_on_tplane_e(1:2)
 
-          arr_pts(2,1:2) = ptr_ve(je,jb,2,1:2) - pos_on_tplane_e(1:2)
+          arr_pts(2,1:2) = edge_verts(2,1:2) - pos_on_tplane_e(1:2)
 
-          dep_pts(1,1:2) = dep_pts(1,1:2)      - pos_on_tplane_e(1:2)
+          dep_pts(1,1:2) = dep_pts(1,1:2)    - pos_on_tplane_e(1:2)
 
-          dep_pts(2,1:2) = dep_pts(2,1:2)      - pos_on_tplane_e(1:2)
+          dep_pts(2,1:2) = dep_pts(2,1:2)    - pos_on_tplane_e(1:2)
 
 
 
