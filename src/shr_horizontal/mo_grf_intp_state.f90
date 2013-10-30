@@ -911,8 +911,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     p_grf_s%npoints_bdyintp_v = npoints_lbc
 
     ! Allocate fields containing index lists and coefficients
-    npoints_lbc = p_grf_s%npoints_bdyintp_c
-    npoints_ubc = p_grf_s%npoints_ubcintp_c
+    npoints_lbc = MAX(1,p_grf_s%npoints_bdyintp_c)
+    npoints_ubc = MAX(1,p_grf_s%npoints_ubcintp_c)
     ALLOCATE (p_grf_s%idxlist_bdyintp_c(10,npoints_lbc),p_grf_s%idxlist_ubcintp_c(10,npoints_ubc), &
               p_grf_s%blklist_bdyintp_c(10,npoints_lbc),p_grf_s%blklist_ubcintp_c(10,npoints_ubc), &
               p_grf_s%coeff_bdyintp_c(10,2,npoints_lbc),p_grf_s%coeff_ubcintp_c(10,2,npoints_ubc), &
