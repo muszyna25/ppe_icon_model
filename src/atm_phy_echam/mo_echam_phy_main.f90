@@ -1021,6 +1021,8 @@ CONTAINS
                    & field%    q(:,:,jb,iqc),         &! in, xlm1
                    & field%    q(:,:,jb,iqi),         &! in, xim1
                    & field%    q(:,:,jb,iqt:),        &! in, xtm1
+                   & zcd,                             &! in, specific heat of dry air
+                   & zcv,                             &! in, specific heat of water vapor
                    & zdelp(:,:),                      &! in, layer thickness [Pa]
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step

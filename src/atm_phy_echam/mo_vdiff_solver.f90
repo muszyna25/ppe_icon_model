@@ -38,12 +38,12 @@ MODULE mo_vdiff_solver
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
 #ifdef __ICON__
-  USE mo_physical_constants,ONLY: grav, cpd, cpv, als, alv
+  USE mo_physical_constants,ONLY: grav, als, alv
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_constants,ONLY: grav=>g, cpd, cpv
+  USE mo_constants,ONLY: grav=>g
   USE mo_physc2,   ONLY: clam, da1, tkemin, cons2, cons25, &
                        & tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_time_control,ONLY: lstart
@@ -758,6 +758,7 @@ CONTAINS
                              & pdtime, pstep_len,                          &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
+                             & pcd, pcv,                                   &! in
 #ifdef __ICON__
                              & ptkem1, pztkevn, pzthvvar, prhoh,           &! in
 #else
@@ -787,6 +788,8 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pgeom1 (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pdelpm1(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcptgz (kbdim,klev)
+    REAL(wp),INTENT(IN)  :: pcd
+    REAL(wp),INTENT(IN)  :: pcv
 #ifdef __ICON__
     REAL(wp),INTENT(IN)  :: ptkem1 (kbdim,klev)
 #else
@@ -957,7 +960,7 @@ CONTAINS
 
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
         ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &
-              & /(cpd+(cpv-cpd)*zqnew)
+              & /(pcd+(pcv-pcd)*zqnew)
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
         ! When coupled with JSBACH: Correction of tte for snow melt
         IF (phy_config%ljsbach) THEN

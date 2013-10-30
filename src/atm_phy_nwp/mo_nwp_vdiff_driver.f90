@@ -46,7 +46,7 @@ MODULE mo_nwp_vdiff_driver
                                  & rhs_bksub, vdiff_tendencies
   USE mo_surface,            ONLY: update_surface
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY: grav, rd
+  USE mo_physical_constants, ONLY: grav, rd, cvd, cvv
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
 #else
   USE mo_constants, ONLY: grav=>g, rd
@@ -394,6 +394,7 @@ CONTAINS
                        & pdtime, pstep_len,                           &! in
                        & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                        & pxtm1, pgeom1, pdelpm1, zcptgz,              &! in
+                       & cvd, cvv,                                    &! in
 #ifdef __ICON__
                        & ptkem1, ztkevn, zthvvar, zrhoh,              &! in
 #else
