@@ -105,9 +105,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
-  SUBROUTINE btraj( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
-       &               p_distv_bary, opt_rlstart, opt_rlend, opt_slev,       &
-       &               opt_elev )
+  SUBROUTINE btraj( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_idx, &
+    &               p_cell_blk, p_distv_bary, opt_rlstart, opt_rlend, &
+    &               opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -128,9 +128,10 @@ CONTAINS
          &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
-    INTEGER, INTENT(OUT)    ::  &  !< line and block indices of cell centers in which the
-         &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
-                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+    INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
+         &  p_cell_idx(:,:,:)         !< dim: (nproma,nlev,ptr_p%nblks_e)
+    INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
+         &  p_cell_blk(:,:,:)         !< dim: (nproma,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
          &  opt_rlstart
@@ -222,11 +223,11 @@ CONTAINS
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
           ! line and block indices of neighbor cell with barycenter
-          p_cell_indices(je,jk,jb,1) = &
-               & MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+          p_cell_idx(je,jk,jb) = &
+             &   MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
 
-          p_cell_indices(je,jk,jb,2) = &
-               & MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+          p_cell_blk(je,jk,jb) = &
+             &   MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
           ! Calculate the distance cell center --> barycenter for the cell,
@@ -270,6 +271,7 @@ CONTAINS
   END SUBROUTINE btraj
 
 
+
   !-------------------------------------------------------------------------
   !>
   !! Computation of first order backward trajectories for FFSL transport scheme
@@ -304,7 +306,7 @@ CONTAINS
   !! - bug fix: counterclockwise numbering is now ensured independent of the 
   !!   edge system-orientation.
   !!
-  SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, p_cell_indices,  &
+  SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, p_cell_idx, p_cell_blk,&
        &                    p_coords_dreg_v, opt_rlstart, opt_rlend, opt_slev, &
        &                    opt_elev )
 
@@ -325,12 +327,14 @@ CONTAINS
 
     REAL(wp), INTENT(OUT) ::    &  !< coordinates of departure region vertices. The origin
          &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
-    !< the upwind cell. Unit vectors point to local East
-    !< and North. (geographical coordinates)
-    !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
+                                      !< the upwind cell. Unit vectors point to local East
+                                      !< and North. (geographical coordinates)
+                                      !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
-         &  p_cell_indices(:,:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+         &  p_cell_idx(:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e)
+    INTEGER, INTENT(OUT)  ::    &  !< line and block indices of upwind cell
+         &  p_cell_blk(:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
          &  opt_rlstart
@@ -458,10 +462,10 @@ CONTAINS
           edge_verts(1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
 
           ! get line and block indices of upwind cell
-          p_cell_indices(je,jk,jb,1) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
-               &                                ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
-          p_cell_indices(je,jk,jb,2) = MERGE(ptr_p%edges%cell_blk(je,jb,1),       &
-               &                                ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+          p_cell_idx(je,jk,jb) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
+            &                          ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+          p_cell_blk(je,jk,jb) = MERGE(ptr_p%edges%cell_blk(je,jb,1),       &
+            &                          ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
           ! departure points of the departure cell. Point 1 belongs to edge-vertex 1, 
@@ -565,6 +569,7 @@ CONTAINS
 
 
   END SUBROUTINE btraj_dreg
+
 
 
   !-------------------------------------------------------------------------
@@ -869,9 +874,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-24)
   !!
-  SUBROUTINE btraj_o2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices,  &
-       &                  p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
-       &                  opt_elev )
+  SUBROUTINE btraj_o2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_idx, &
+       &               p_cell_blk, p_distv_bary, opt_rlstart, opt_rlend, &
+       &               opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -890,11 +895,15 @@ CONTAINS
 
     REAL(wp), INTENT(OUT) ::    &  !< distance vectors cell center --> barycenter of
          &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
-    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
-    INTEGER, INTENT(OUT)  ::    &  !< line and block indices of cell centers in which the
-         &  p_cell_indices(:,:,:,:)   !< computed barycenters are located.
-    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+    INTEGER, INTENT(OUT)  ::    &  !< line indices of cell centers in which the
+         &  p_cell_idx(:,:,:)         !< computed barycenters are located.
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e)
+
+    INTEGER, INTENT(OUT)  ::    &  !< block indices of cell centers in which the
+         &  p_cell_blk(:,:,:)         !< computed barycenters are located.
+                                      !< dim: (nproma,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
          &  opt_rlstart
@@ -1087,8 +1096,8 @@ CONTAINS
                 !! we are in cell 1 !!
 
                 ! line and block indices of neighboring cell with barycenter
-                p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,1)
-                p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,1)
+                p_cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,1)
+                p_cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,1)
 
                 zcell = 1
 
@@ -1117,8 +1126,8 @@ CONTAINS
                 !! we are in cell 2 !!
 
                 ! line and block indices of neighboring cell with barycenter
-                p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,2)
-                p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,2)
+                p_cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,2)
+                p_cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,2)
 
                 zcell = 2
 

@@ -158,8 +158,9 @@ MODULE mo_solve_nonhydro
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
 
 #ifndef __LOOP_EXCHANGE
-    REAL(wp) :: z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
-    INTEGER ::  z_cell_indices  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
+    REAL(wp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
+    INTEGER ::  z_cell_idx    (nproma,p_patch%nlev  ,p_patch%nblks_e)
+    INTEGER ::  z_cell_blk    (nproma,p_patch%nlev  ,p_patch%nblks_e)
 #endif
 
     ! The data type vp (variable precision) is by default the same as wp but reduces
@@ -691,7 +692,7 @@ MODULE mo_solve_nonhydro
 #ifndef __LOOP_EXCHANGE
         ! Compute backward trajectory - code is inlined for cache-based machines (see below)
         CALL btraj(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
-                   0.5_wp*dtime_r, z_cell_indices, z_distv_bary,     &
+                   0.5_wp*dtime_r, z_cell_idx, z_cell_blk, z_distv_bary, &
                    opt_rlstart=7, opt_rlend=min_rledge_int-1 )
 #endif
 
@@ -832,8 +833,8 @@ MODULE mo_solve_nonhydro
             DO jk = 1, nlev
               DO je = i_startidx, i_endidx
 
-                ilc0 = z_cell_indices(je,jk,jb,1)
-                ibc0 = z_cell_indices(je,jk,jb,2)  
+                ilc0 = z_cell_idx(je,jk,jb)
+                ibc0 = z_cell_blk(je,jk,jb)  
 
                 ! Calculate "edge values" of rho and theta_v
                 ! Note: z_rth_pr contains the perturbation values of rho and theta_v,

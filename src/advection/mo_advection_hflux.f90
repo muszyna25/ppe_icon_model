@@ -735,10 +735,12 @@ CONTAINS
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
 
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line and block indices of cell centers
-      &  z_cell_indices(:,:,:,:)        !< in which the calculated barycenters are
-                                        !< located
-                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which 
+      &  z_cell_idx(:,:,:)              !< the calculated barycenters are located
+                                        !< dim: (nproma,nlev,p_patch%nblks_e)
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which 
+      &  z_cell_blk(:,:,:)              !< the calculated barycenters are located
+                                        !< dim: (nproma,nlev,p_patch%nblks_e)
 
     REAL(wp) :: z_dthalf                !< \Delta t/2
 
@@ -849,13 +851,14 @@ CONTAINS
 
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for distance vectors and upwind cells
-      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),             &
-        &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),           &
+      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),          &
+        &       z_cell_idx(nproma,nlev,p_patch%nblks_e),              &
+        &       z_cell_blk(nproma,nlev,p_patch%nblks_e),              &
         &       STAT=ist )
 
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
-          &  'allocation for z_distv_bary, z_cell_indices ' //          &
+        CALL finish ( TRIM(routine),                                  &
+          &  'allocation for z_distv_bary, z_cell_idx, z_cell_blk ' //&
           &  'failed' )
       ENDIF
     END IF
@@ -917,7 +920,7 @@ CONTAINS
 
         ! first order backward trajectory
         CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_indices, z_distv_bary,                  &! out
+          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
           &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
@@ -925,7 +928,7 @@ CONTAINS
 
         ! second order backward trajectory
         CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_indices, z_distv_bary,                  &! out
+          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
           &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
@@ -983,8 +986,8 @@ CONTAINS
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.
-            ilc0 = z_cell_indices(je,jk,jb,1)
-            ibc0 = z_cell_indices(je,jk,jb,2)  
+            ilc0 = z_cell_idx(je,jk,jb)
+            ibc0 = z_cell_blk(je,jk,jb)  
 
             ! Calculate 'edge value' of advected quantity (cc_bary)
             p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
@@ -1002,8 +1005,8 @@ CONTAINS
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.  
-            ilc0 = z_cell_indices(je,jk,jb,1)
-            ibc0 = z_cell_indices(je,jk,jb,2)
+            ilc0 = z_cell_idx(je,jk,jb)
+            ibc0 = z_cell_blk(je,jk,jb)
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
             p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
@@ -1039,11 +1042,11 @@ CONTAINS
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-      DEALLOCATE( z_distv_bary, z_cell_indices, STAT=ist )
+      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
 
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                               &
-          &  'deallocation for z_distv_bary, z_cell_indices '  //  &
+        CALL finish ( TRIM(routine),                                    &
+          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk '// &
           &  'failed' )
       ENDIF
     END IF
@@ -1181,9 +1184,11 @@ CONTAINS
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
 
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line and block indices of cell centers
-      &  z_cell_indices(:,:,:,:)        !< in which the calculated barycenters are
-                                        !< located
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which the
+      &  z_cell_idx(:,:,:)              !< calculated barycenters are located
+                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which the
+      &  z_cell_blk(:,:,:)              !< calculated barycenters are located
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
 
     REAL(wp) :: z_dtsub                 !< sub timestep p_dtime/p_ncycl
@@ -1327,12 +1332,13 @@ CONTAINS
     IF (ld_compute) THEN
 
       ! allocate temporary arrays for distance vectors and upwind cells
-      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),             &
-        &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),           &
+      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),         &
+        &       z_cell_idx(nproma,nlev,p_patch%nblks_e),             &
+        &       z_cell_blk(nproma,nlev,p_patch%nblks_e),             &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                     &
-          &  'allocation for z_distv_bary, z_cell_indices, failed' )
+          &  'allocation for z_distv_bary, z_cell_idx, z_cell_blk, failed' )
       ENDIF
 
 
@@ -1354,7 +1360,7 @@ CONTAINS
 
         ! first order backward trajectory
         CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_indices, z_distv_bary,                  &! out
+          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
           &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
@@ -1362,7 +1368,7 @@ CONTAINS
 
         ! second order backward trajectory
         CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_indices, z_distv_bary,                  &! out
+          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
           &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
           &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
 
@@ -1461,8 +1467,8 @@ CONTAINS
 
           DO je = i_startidx, i_endidx
 
-            ilc0 = z_cell_indices(je,jk,jb,1)
-            ibc0 = z_cell_indices(je,jk,jb,2)  
+            ilc0 = z_cell_idx(je,jk,jb)
+            ibc0 = z_cell_blk(je,jk,jb)  
 
             ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
             z_tracer_mflx(je,jk,jb,nsub) = ( ptr_cc(ilc0,jk,ibc0)            &
@@ -1609,10 +1615,10 @@ CONTAINS
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-      DEALLOCATE( z_distv_bary, z_cell_indices, STAT=ist )
+      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
-          &  'deallocation for z_distv_bary, z_cell_indices, failed' )
+          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk, failed' )
       ENDIF
     END IF
 
@@ -1732,8 +1738,10 @@ CONTAINS
     REAL(wp), ALLOCATABLE, SAVE ::  & !< area departure region [m**2]
       &  z_dreg_area(:,:,:)           !< dim: (nproma,nlev,nblks_e)
 
-    INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line and block indices of upwind cell
-      &  z_cell_indices(:,:,:,:)             !< dim: (nproma,nlev,p_patch%nblks_e,2)
+    INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line indices of upwind cell
+      &  z_cell_idx(:,:,:)             !< dim: (nproma,nlev,p_patch%nblks_e)
+    INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< block indices of upwind cell
+      &  z_cell_blk(:,:,:)             !< dim: (nproma,nlev,p_patch%nblks_e)
 
     INTEGER, POINTER, SAVE ::  &       !< Pointer to line and block indices of the cell
       &  ptr_ilc(:,:,:), ptr_ibc(:,:,:)!< center upstream of the edge
@@ -1831,12 +1839,13 @@ CONTAINS
       ! allocate temporary arrays for quadrature and upwind cells
       ALLOCATE( z_quad_vector_sum(nproma,dim_unk,nlev,p_patch%nblks_e), &
         &       z_dreg_area(nproma,nlev,p_patch%nblks_e),               &
-        &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),          &
+        &       z_cell_idx(nproma,nlev,p_patch%nblks_e),                &
+        &       z_cell_blk(nproma,nlev,p_patch%nblks_e),                &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
           &  'allocation for z_quad_vector_sum, z_dreg_area, ' //    &
-          &  'z_cell_indices failed' )
+          &  'z_cell_idx, z_cell_blk' )
       ENDIF
     END IF
 
@@ -1912,7 +1921,7 @@ CONTAINS
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
       CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
-        &              z_cell_indices, z_coords_dreg_v,            &! out
+        &              z_cell_idx, z_cell_blk, z_coords_dreg_v,    &! out
         &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
         &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
 
@@ -1952,8 +1961,8 @@ CONTAINS
 
 
     ! Pointer to line and block indices of the cell center upstream of the edge
-    ptr_ilc => z_cell_indices(:,:,:,1)
-    ptr_ibc => z_cell_indices(:,:,:,2)
+    ptr_ilc => z_cell_idx(:,:,:)
+    ptr_ibc => z_cell_blk(:,:,:)
 
 
 
@@ -2132,12 +2141,12 @@ CONTAINS
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for quadrature, departure region and
       ! upwind cell indices
-      DEALLOCATE( z_quad_vector_sum, z_dreg_area, z_cell_indices,    &
+      DEALLOCATE( z_quad_vector_sum, z_dreg_area, z_cell_idx, z_cell_blk, &
         &         STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
           &  'deallocation for z_quad_vector_sum, z_dreg_area, ' //  &
-          &  ' z_cell_indices failed' )
+          &  ' z_cell_idx, z_cell_blk failed' )
       ENDIF
     END IF
 
@@ -2484,6 +2493,14 @@ CONTAINS
         CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,          &! in
           &                         ptr_real_vt, opt_rlend=i_rlend )! inout
       ENDIF
+
+!!$      ! compute vertex coordinates for the departure region using a first
+!!$      ! order accurate (O(\Delta t)) backward trajectory-method
+!!$      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
+!!$        &              z_cell_indices, z_coords_dreg_v,            &! out
+!!$        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
+!!$        &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
+
 
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
