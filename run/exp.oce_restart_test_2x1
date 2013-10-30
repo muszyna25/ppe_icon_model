@@ -86,7 +86,7 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-03-01T00:00:00Z"
+  end_date="2001-01-04T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -139,14 +139,9 @@ cat > ${ocean_namelist} << EOF
  write_timer_files    = .FALSE.
  msg_timestamp        = .FALSE.
 /
-&time_nml
-  dt_restart = ${dt_restart}
-  ini_datetime_string="2001-01-01T00:00:00Z"
-  end_datetime_string="2001-03-01T00:00:00Z"
-/
 &output_nml
-  output_start     = "2001-01-01T00:00:00.000Z"
-  output_end       = "2001-01-01T00:00:00.000Z"
+  output_start     = ${start_date}
+  output_end       = ${start_date}
   output_interval  = "P00DT12H00M00S"
   steps_per_file   = 2
   include_last     = .TRUE.
@@ -155,11 +150,11 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','hi','conc'
 /
 &output_nml
-  output_start     = "2001-01-01T00:00:00.000Z"
-  output_end       = "2001-03-01T00:00:00.000Z"
-!  output_interval  = "P00DT24H00M00S"
-  output_interval  = "P10D"
-  steps_per_file   = 4
+  output_start     = ${start_date}
+  output_end       = ${end_date}
+  output_interval  = "P00DT6H00M00S"
+! output_interval  = "P10D"
+  steps_per_file   = 1000
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
