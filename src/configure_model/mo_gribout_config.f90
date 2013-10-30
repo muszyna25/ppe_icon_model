@@ -43,7 +43,7 @@
 MODULE mo_gribout_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_phys_dom
   USE mo_model_domain,       ONLY: t_patch
 
   IMPLICIT NONE
@@ -139,7 +139,7 @@ MODULE mo_gribout_config
 
   !>
   !!
-  TYPE(t_gribout_config), TARGET :: gribout_config(0:max_dom)
+  TYPE(t_gribout_config), TARGET :: gribout_config(0:max_phys_dom)
 
 
 CONTAINS

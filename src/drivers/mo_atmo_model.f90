@@ -95,7 +95,7 @@ MODULE mo_atmo_model
 
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start, global_cell_type,                 &
-    &                                   dynamics_parent_grid_id
+    &                                   dynamics_parent_grid_id, n_phys_dom
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
   USE mo_complete_subdivision,    ONLY: setup_phys_patches
@@ -557,7 +557,7 @@ CONTAINS
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
       &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
 
-    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_dom)
+    CALL configure_gribout(grid_generatingCenter, grid_generatingSubcenter, n_phys_dom)
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom
