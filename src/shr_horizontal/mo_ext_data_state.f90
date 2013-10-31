@@ -2839,11 +2839,13 @@ CONTAINS
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
       
-!! GZ, 2013-08-07: The OpenMP parallelization of the following loop causes a race condition on the Cray compiler.
-!!                 The reason is not clear to me, thus the directives are commented out for the time being
-!! !$OMP PARALLEL
-!! !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!! !$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!! GZ, 2013-10-31: The OpenMP parallelization of the following loop causes a race condition on the Cray compiler.
+!!                 This is likely because the MAXLOC function is not threadsafe - a bug report is on the way
+#ifndef _CRAYFTN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
+!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+#endif
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -3192,8 +3194,10 @@ CONTAINS
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
-!! !$OMP END DO NOWAIT
-!! !$OMP END PARALLEL
+#ifndef _CRAYFTN
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
 
          ! Some useful diagnostics
        npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
