@@ -513,6 +513,8 @@ END SUBROUTINE pressure_index
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'asy',ktime_step)
   zpmid=>netcdf_read_1d(file_id=ifile_id, variable_name=clev_dim)
+! convert pressure into Pa from hPa
+  zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
   zlat=>netcdf_read_1d(file_id=ifile_id, variable_name=clat_dim)
   IF (SIZE(zlat)/=lat_clim) THEN
