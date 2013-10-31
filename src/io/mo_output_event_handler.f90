@@ -1935,6 +1935,7 @@ CONTAINS
     LOGICAL,              INTENT(IN)            :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_event_to_simstep"
+    CHARACTER(LEN=10) :: jpart_str
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
@@ -1962,12 +1963,13 @@ CONTAINS
           ELSE
             ! otherwise: modify file name s.t. the new, resumed file
             ! is clearly distinguishable: We append "_<part>+"
-             write (0,*) "Modify filename ", trim(event_step_data%filename_string), " to ", &
-                  &      trim(event_step_data%filename_string)//"_part_"//trim(int2string(event_step_data%jpart))//"+",  &
-                  &      " after restart."
+            jpart_str = int2string(event_step_data%jpart)
+            WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+              &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+              &      " after restart."
             CALL modify_filename(event, trim(event_step_data%filename_string), &
-                 &       trim(event_step_data%filename_string)//"_part_"//trim(int2string(event_step_data%jpart))//"+", &
-                 &       start_step=istep)
+              &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
+              &       start_step=istep)
           END IF
         END IF
       END DO
