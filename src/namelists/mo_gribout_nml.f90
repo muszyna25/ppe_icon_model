@@ -249,6 +249,8 @@ CONTAINS
       ! Preset values, when main switch is provided.
       CALL preset_namelist()
       IF (my_process_is_stdio()) WRITE(temp_settings(), gribout_nml)  ! write settings to temporary text file
+    CASE DEFAULT
+      CALL preset_namelist()
     END SELECT
     CALL close_nml
 
