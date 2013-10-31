@@ -212,7 +212,7 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, nlev_in, initicon)
+  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, nlev_in, initicon, opt_use_vn)
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
@@ -220,6 +220,7 @@ CONTAINS
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
     INTEGER,                INTENT(IN)       :: nlev_in
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
+    LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_use_vn
 
 
     ! LOCAL VARIABLES
@@ -227,7 +228,7 @@ CONTAINS
 
     INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
-    LOGICAL :: lc2f
+    LOGICAL :: lc2f, l_use_vn
 
     ! Auxiliary fields for input data
     REAL(wp), DIMENSION(nproma,nlev_in+1) :: pres_ic, lnp_ic, geop_ic
@@ -289,6 +290,12 @@ CONTAINS
     IF (nlev_in == 0) THEN
       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
     END IF
+
+    IF (PRESENT(opt_use_vn)) THEN
+      l_use_vn = opt_use_vn
+    ELSE
+      l_use_vn = .TRUE. ! use vn field if allocated
+    ENDIF
 
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -367,7 +374,7 @@ CONTAINS
 
 
     ! horizontal wind components
-    IF (ALLOCATED(initicon%atm_in%vn)) THEN
+    IF (ALLOCATED(initicon%atm_in%vn) .AND. l_use_vn) THEN
 
       !
       ! prepare interpolation coefficients for edges
