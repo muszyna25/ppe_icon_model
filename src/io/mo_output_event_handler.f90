@@ -274,6 +274,7 @@ MODULE mo_output_event_handler
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN)        :: name                 !< output event name
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)          :: begin_str, end_str
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)         :: intvl_str
+    INTEGER                                      :: additional_days      !< add days to interval
     LOGICAL                                      :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info)                        :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata)                       :: fname_metadata       !< additional meta-data for generating output filename
@@ -530,14 +531,16 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION new_output_event(name, i_pe, i_tag, begin_str, end_str, intvl_str, l_output_last, sim_step_info,  &
-    &                       fname_metadata, fct_time2simstep, fct_generate_filenames) RESULT(p_event)
+  FUNCTION new_output_event(name, i_pe, i_tag, begin_str, end_str, intvl_str, additional_days, &
+    &                       l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
+    &                       fct_generate_filenames) RESULT(p_event)
     TYPE(t_output_event),   POINTER :: p_event
     CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
     INTEGER,                INTENT(IN)  :: i_pe                 !< rank of participating PE
     INTEGER,                INTENT(IN)  :: i_tag                !< tag, e.g. for MPI isend/irecv messages
     CHARACTER(len=*),       INTENT(IN)  :: begin_str, end_str
     CHARACTER(len=*),       INTENT(IN)  :: intvl_str
+    INTEGER,                INTENT(IN)  :: additional_days      !< add days to interval
     LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -580,9 +583,8 @@ CONTAINS
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
       &                         mtime_dom_start
-    TYPE(event),     POINTER :: mtime_event
-    TYPE(timedelta), POINTER :: delta
-    INTEGER                  :: ierrstat, i, n_event_steps
+    TYPE(timedelta), POINTER :: delta, delta_1day
+    INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
     LOGICAL                  :: l_active
     CHARACTER(len=MAX_DATETIME_STR_LEN)  :: mtime_date_string(MAX_NEVENT_STEPS)
     INTEGER                              :: mtime_sim_steps(MAX_NEVENT_STEPS)
@@ -598,11 +600,6 @@ CONTAINS
 
     ! initialize event with the "mtime" library:
     CALL setCalendar(PROLEPTIC_GREGORIAN)
-    mtime_event => newEvent(TRIM(name),                  &  ! name
-      &                     TRIM(begin_str),             &  ! ref.date
-      &                     TRIM(begin_str),             &  ! first
-      &                     TRIM(end_str),               &  ! last
-      &                     TRIM(intvl_str))                ! interval
 
     ! status output
     IF (ldebug) THEN
@@ -623,6 +620,7 @@ CONTAINS
     ! loop over the event occurrences
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
+    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 days
     n_event_steps = 0
     EVENT_LOOP: DO
       IF ((mtime_date >= mtime_begin) .AND. &
@@ -637,8 +635,13 @@ CONTAINS
             &         mtime_date_string(n_event_steps)
         END IF
       END IF
+      if (ldebug)  write (0,*) "adding ", additional_days, " days."
+      DO iadd_days=1,additional_days
+        mtime_date = mtime_date + delta_1day
+      END DO
+      if (ldebug)  write (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
-      l_active = isCurrentEventActive(mtime_event, mtime_date)
+      l_active = .NOT. (mtime_date > mtime_end)
       IF (.NOT. l_active) EXIT EVENT_LOOP
       ! Optional: Append the last event time step
       IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
@@ -648,7 +651,8 @@ CONTAINS
         END IF
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
-          WRITE (0,*) n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+          WRITE (0,*) get_my_global_mpi_id(), ": ", &
+               &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
         END IF
         EXIT EVENT_LOOP
       END IF
@@ -689,12 +693,12 @@ CONTAINS
     END DO
 
     ! clean up
-    CALL deallocateEvent(mtime_event)
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(sim_end)
     CALL deallocateTimedelta(delta)
+    CALL deallocateTimedelta(delta_1day)
     CALL resetCalendar()
   END FUNCTION new_output_event
 
@@ -707,13 +711,14 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION new_parallel_output_event(name, begin_str, end_str, intvl_str, l_output_last, sim_step_info, &
-    &                                fname_metadata, fct_time2simstep, fct_generate_filenames,          &
-    &                                local_event_no, icomm) RESULT(p_event)
+  FUNCTION new_parallel_output_event(name, begin_str, end_str, intvl_str, additional_days,              &
+    &                                l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
+    &                                fct_generate_filenames, local_event_no, icomm) RESULT(p_event)
     TYPE(t_par_output_event),   POINTER :: p_event
     CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
     CHARACTER(len=*),       INTENT(IN)  :: begin_str, end_str
     CHARACTER(len=*),       INTENT(IN)  :: intvl_str
+    INTEGER,                INTENT(IN)  :: additional_days      !< add days to interval
     LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -779,8 +784,8 @@ CONTAINS
     NULLIFY(p_event%next)
 
     ! create the local (non-parallel) output event data structure:
-    p_event%output_event => new_output_event(name, this_pe, i_tag , begin_str, end_str, intvl_str, l_output_last, &
-      &                                      sim_step_info, fname_metadata,                                       &
+    p_event%output_event => new_output_event(name, this_pe, i_tag , begin_str, end_str, intvl_str,          &
+      &                                      additional_days, l_output_last, sim_step_info, fname_metadata, &
       &                                      fct_time2simstep, fct_generate_filenames)
 
     ! set the other MPI-related data fields:
@@ -794,10 +799,10 @@ CONTAINS
     IF (icomm /= MPI_COMM_NULL) THEN
       if (ldebug) then
          write (0,*) "new_parallel_output_event: PE ", get_my_global_mpi_id(), ": send event data: ", &
-              &      trim(begin_str), trim(end_str), trim(intvl_str)
+              &      TRIM(begin_str), TRIM(end_str), TRIM(intvl_str), additional_days
       end if
-      CALL send_event_data(name, begin_str, end_str, intvl_str, l_output_last, sim_step_info, &
-        &                  fname_metadata, icomm, ROOT_OUTEVENT)
+      CALL send_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
+        &                  sim_step_info, fname_metadata, icomm, ROOT_OUTEVENT)
     END IF
 #else
     ! non-MPI runs: we keep a local list of event meta-data
@@ -806,6 +811,7 @@ CONTAINS
     event_list_nompi(ievent_list_nompi)%begin_str       = begin_str
     event_list_nompi(ievent_list_nompi)%end_str         = end_str
     event_list_nompi(ievent_list_nompi)%intvl_str       = intvl_str
+    event_list_nompi(ievent_list_nompi)%additional_days = additional_days
     event_list_nompi(ievent_list_nompi)%l_output_last   = l_output_last
     event_list_nompi(ievent_list_nompi)%sim_step_info   = sim_step_info
     event_list_nompi(ievent_list_nompi)%fname_metadata  = fname_metadata
@@ -872,6 +878,7 @@ CONTAINS
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: recv_name                 !< output event name
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: recv_begin_str, recv_end_str
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: recv_intvl_str
+    INTEGER                               :: recv_additional_days
     LOGICAL                               :: lrecv
     LOGICAL                               :: recv_l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info)                 :: recv_sim_step_info        !< definitions for conversion "time stamp -> simulation step"
@@ -914,27 +921,29 @@ CONTAINS
 #ifndef NOMPI
         ! receive event meta-data from participating I/O PEs:
         IF (this_pe == ROOT_OUTEVENT) THEN
-          lrecv = receive_event_data(recv_name, recv_begin_str, recv_end_str, recv_intvl_str, recv_l_output_last, &
-            &                        recv_sim_step_info, recv_fname_metadata, icomm, i_pe, SENDRECV_TAG_SETUP)
+          lrecv = receive_event_data(recv_name, recv_begin_str, recv_end_str, recv_intvl_str, recv_additional_days, &
+            &                        recv_l_output_last, recv_sim_step_info, recv_fname_metadata, icomm, i_pe,      &
+            &                        SENDRECV_TAG_SETUP)
         END IF
         ! forward the event meta-data to the worker PEs
         IF (lbroadcast) THEN
-          lrecv =  broadcast_event_data(recv_name, recv_begin_str, recv_end_str,                    &
-            &                           recv_intvl_str, recv_l_output_last, recv_sim_step_info,     &
-            &                           recv_fname_metadata, opt_broadcast_comm,                    &
+          lrecv =  broadcast_event_data(recv_name, recv_begin_str, recv_end_str,                     &
+            &                           recv_intvl_str, recv_additional_days, recv_l_output_last,    &
+            &                           recv_sim_step_info, recv_fname_metadata, opt_broadcast_comm, &
             &                           opt_broadcast_root, lrecv)
         END IF
 #else
         ! non-MPI runs: we keep a local list of event meta-data
         lrecv = (ievent_list_nompi > 0)
         IF (ievent_list_nompi > 0) THEN
-          recv_name           = event_list_nompi(ievent_list_nompi)%name
-          recv_begin_str      = event_list_nompi(ievent_list_nompi)%begin_str
-          recv_end_str        = event_list_nompi(ievent_list_nompi)%end_str
-          recv_intvl_str      = event_list_nompi(ievent_list_nompi)%intvl_str
-          recv_l_output_last  = event_list_nompi(ievent_list_nompi)%l_output_last
-          recv_sim_step_info  = event_list_nompi(ievent_list_nompi)%sim_step_info
-          recv_fname_metadata = event_list_nompi(ievent_list_nompi)%fname_metadata
+          recv_name             = event_list_nompi(ievent_list_nompi)%name
+          recv_begin_str        = event_list_nompi(ievent_list_nompi)%begin_str
+          recv_end_str          = event_list_nompi(ievent_list_nompi)%end_str
+          recv_intvl_str        = event_list_nompi(ievent_list_nompi)%intvl_str
+          recv_additional_days  = event_list_nompi(ievent_list_nompi)%additional_days
+          recv_l_output_last    = event_list_nompi(ievent_list_nompi)%l_output_last
+          recv_sim_step_info    = event_list_nompi(ievent_list_nompi)%sim_step_info
+          recv_fname_metadata   = event_list_nompi(ievent_list_nompi)%fname_metadata
           ievent_list_nompi = ievent_list_nompi - 1
           IF (ldebug) THEN
             WRITE (0,*) "Taking event ", TRIM(recv_begin_str), " / ", TRIM(recv_end_str), " / ", TRIM(recv_intvl_str), &
@@ -947,7 +956,7 @@ CONTAINS
 
         ! create the event steps from the received meta-data:
         ev2 => new_output_event(TRIM(recv_name), i_pe, i_tag, TRIM(recv_begin_str),              &
-          &                     TRIM(recv_end_str), TRIM(recv_intvl_str),                        &
+          &                     TRIM(recv_end_str), TRIM(recv_intvl_str), recv_additional_days,  &
           &                     recv_l_output_last, recv_sim_step_info, recv_fname_metadata,     &
           &                     fct_time2simstep, fct_generate_filenames)
 
@@ -1493,11 +1502,12 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE send_event_data(name, begin_str, end_str, intvl_str, l_output_last, sim_step_info, &
-    &                        fname_metadata, icomm, dst_rank)
+  SUBROUTINE send_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
+    &                        sim_step_info, fname_metadata, icomm, dst_rank)
     CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
     CHARACTER(len=*),       INTENT(IN)  :: begin_str, end_str
     CHARACTER(len=*),       INTENT(IN)  :: intvl_str
+    INTEGER,                INTENT(IN)  :: additional_days      !< add days to interval
     LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -1517,8 +1527,8 @@ CONTAINS
     !
     nitems = 1
     CALL p_pack_int(nitems,         buffer, MAX_BUF_SIZE, position, icomm)
-    CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-      &                sim_step_info, fname_metadata, icomm)
+    CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+      &                l_output_last, sim_step_info, fname_metadata, icomm)
 
     ! send packed message:
     CALL p_send_packed(buffer, dst_rank, SENDRECV_TAG_SETUP, position, icomm)
@@ -1565,12 +1575,13 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION receive_event_data(name, begin_str, end_str, intvl_str, l_output_last, sim_step_info, &
-    &                         fname_metadata, icomm, isrc, isendrecv_tag)
+  FUNCTION receive_event_data(name, begin_str, end_str, intvl_str, additional_days, &
+    &                         l_output_last, sim_step_info, fname_metadata, icomm, isrc, isendrecv_tag)
     LOGICAL :: receive_event_data
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT) :: name                 !< output event name
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: begin_str, end_str
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: intvl_str
+    INTEGER,                INTENT(INOUT)  :: additional_days      !< add days to interval
     LOGICAL,                INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),  INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata), INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -1600,8 +1611,8 @@ CONTAINS
       receive_event_data = .FALSE.
     ELSE
       receive_event_data = .TRUE.
-      CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-        &                  sim_step_info, fname_metadata, icomm)
+      CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+        &                  l_output_last, sim_step_info, fname_metadata, icomm)
     END IF
 
     if (ldebug) then
@@ -1621,12 +1632,13 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION broadcast_event_data(name, begin_str, end_str, intvl_str, l_output_last, sim_step_info, &
-    &                           fname_metadata, icomm, iroot, l_no_end_message)
+  FUNCTION broadcast_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
+    &                           sim_step_info, fname_metadata, icomm, iroot, l_no_end_message)
     LOGICAL :: broadcast_event_data
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT) :: name                 !< output event name
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: begin_str, end_str
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: intvl_str
+    INTEGER,                INTENT(INOUT)  :: additional_days      !< add days to interval
     LOGICAL,                INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),  INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata), INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -1658,8 +1670,8 @@ CONTAINS
         ! normal message:
         nitems = 1
         CALL p_pack_int(nitems,         buffer, MAX_BUF_SIZE, position, icomm)
-        CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-          &                sim_step_info, fname_metadata, icomm)
+        CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+          &                l_output_last, sim_step_info, fname_metadata, icomm)
       ELSE
         ! empty, "end message":
         nitems = 0
@@ -1685,8 +1697,8 @@ CONTAINS
         broadcast_event_data = .FALSE.
       ELSE
         broadcast_event_data = .TRUE.
-        CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-          &                  sim_step_info, fname_metadata, icomm)
+        CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+          &                  l_output_last, sim_step_info, fname_metadata, icomm)
       END IF
     ELSE
       broadcast_event_data = l_no_end_message
@@ -1702,13 +1714,14 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-    &                      sim_step_info, fname_metadata, icomm)
+  SUBROUTINE pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+    &                      l_output_last, sim_step_info, fname_metadata, icomm)
     CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
     INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(IN)     :: name                  !< output event name
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(IN)     :: begin_str, end_str
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(IN)     :: intvl_str
+    INTEGER,                               INTENT(IN)     :: additional_days      !< add days to interval
     LOGICAL,                               INTENT(IN)     :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),                 INTENT(IN)     :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata),                INTENT(IN)     :: fname_metadata       !< additional meta-data for generating output filename
@@ -1721,6 +1734,7 @@ CONTAINS
     CALL p_pack_string(TRIM(end_str),                        buffer, MAX_BUF_SIZE, position, icomm)
     ! encode event interval string
     CALL p_pack_string(TRIM(intvl_str),                      buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_int(additional_days,                         buffer, MAX_BUF_SIZE, position, icomm)
     ! encode flag "l_output_last":
     CALL p_pack_bool(l_output_last,                          buffer, MAX_BUF_SIZE, position, icomm)
     ! encode t_sim_step_info data
@@ -1746,13 +1760,14 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, l_output_last, &
-    &                        sim_step_info, fname_metadata, icomm)
+  SUBROUTINE unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
+    &                        l_output_last, sim_step_info, fname_metadata, icomm)
     CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
     INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT)  :: name                  !< output event name
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT)  :: begin_str, end_str
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT)  :: intvl_str
+    INTEGER,                               INTENT(INOUT)  :: additional_days      !< add days to interval
     LOGICAL,                               INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
     TYPE(t_sim_step_info),                 INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata),                INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
@@ -1765,6 +1780,7 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, end_str,                        icomm)
     ! decode event interval string
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, intvl_str,                      icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, additional_days,                icomm)
     ! decode flag "l_output_last":
     CALL p_unpack_bool(  buffer, MAX_BUF_SIZE, position, l_output_last,                  icomm)
     ! decode t_sim_step_info data

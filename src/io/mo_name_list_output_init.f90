@@ -414,6 +414,7 @@ CONTAINS
       p_onl%output_start     = output_start
       p_onl%output_end       = output_end
       p_onl%output_interval  = output_interval
+      p_onl%additional_days  = 0
       p_onl%output_bounds(:) = output_bounds(:)
       p_onl%ready_file       = ready_file
 
@@ -906,11 +907,18 @@ CONTAINS
       IF (p_onl%output_bounds(1) > -1._wp) THEN
         CALL get_datetime_string(p_onl%output_start, sim_step_info%sim_start, INT(p_onl%output_bounds(1)))
         CALL get_datetime_string(p_onl%output_end,   sim_step_info%sim_start, INT(p_onl%output_bounds(2)))
-        p_onl%output_interval = get_duration_string(INT(p_onl%output_bounds(3)))
+        CALL get_duration_string(INT(p_onl%output_bounds(3)), p_onl%output_interval, p_onl%additional_days)
         IF (my_process_is_stdio()) THEN
-          WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
-            &                                      TRIM(p_onl%output_end),   " / ", &
-          &                                        TRIM(p_onl%output_interval)
+          IF (p_onl%additional_days == 0) THEN
+            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
+              &                                      TRIM(p_onl%output_end),   " / ", &
+              &                                      TRIM(p_onl%output_interval)
+          ELSE
+            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
+              &                                      TRIM(p_onl%output_end),   " / ", &
+              &                                      TRIM(p_onl%output_interval), " + ", &
+              &                                      p_onl%additional_days, " days"
+          END IF
         END IF
       END IF
 
@@ -1099,12 +1107,13 @@ CONTAINS
       ! event data only locally for their own event control:
       p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
         &                  p_onl%output_start, p_onl%output_end, p_onl%output_interval,          &
-        &                  p_onl%include_last,                                                   &
+        &                  p_onl%additional_days, p_onl%include_last,                            &
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
     END DO
+
     ! tell the root I/O process that all output event data structures
     ! have been created:
     CALL complete_event_setup(p_comm_io)
@@ -1115,6 +1124,7 @@ CONTAINS
     ! indicating which PE performs a write process at which step.
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
       &                               p_comm_work_io, process_work_io0)
+
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
 

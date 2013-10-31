@@ -144,37 +144,41 @@ CONTAINS
   END SUBROUTINE get_datetime_string
 
 
-  function get_duration_string(iseconds) result(td_string)
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
-    integer, intent(IN) :: iseconds
+  SUBROUTINE get_duration_string(iseconds, td_string, additional_days) 
+    INTEGER,                              INTENT(IN)    :: iseconds
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), INTENT(INOUT) :: td_string
+    INTEGER,                              INTENT(OUT)   :: additional_days
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_duration_string"
-    INTEGER :: seconds, days, hours, minutes
+    INTEGER :: seconds, hours, minutes
+
+    ! additional_days: Additional days to be added to the output
+    ! interval. This namelist parameter is required when the output
+    ! interval has been provided as a number of seconds, e.g. which is
+    ! so large that it cannot be converted into a valid ISO duration
+    ! string.
+    additional_days = 0
 
     seconds = iseconds
     ! create a "timedelta" object
     IF (seconds <= 8640) THEN
-       seconds = seconds*1000
-       CALL getPTStringFromMS(seconds, td_string)
+      ! for small durations: use mtime's conversion routine
+      seconds = seconds*1000
+      CALL getPTStringFromMS(seconds, td_string)
     ELSE
-       IF (seconds > 1728000.) THEN
-          ! IMPORTANT: We do not accept time spans > 20 days!
-          seconds = 1728000.
-          CALL message(routine, "!!! Limited time span to 20 days !!!")
-       END IF
-       days    = seconds/86400
-       seconds = seconds - 86400*days
+      ! for larger durations: convert seconds to duration string
+       additional_days = seconds/86400
+       seconds = seconds - 86400*additional_days
        hours   = seconds/3600
        seconds = seconds - 3600*hours
        minutes = seconds/60
        seconds = seconds - 60*minutes
 
-       WRITE (td_string ,'(a,4(I0.2,a))') &
-            & 'P',                           &
-            & days   ,'DT',hours  ,'H',&
-            & minutes,'M',seconds,'S'
+       WRITE (td_string ,'(a,3(I0.2,a))') &
+            & 'PT',                       &
+            & hours  ,'H', minutes,'M',seconds,'S'
     END IF
-  end function get_duration_string
+  END SUBROUTINE get_duration_string
 
 
   !> compute an ISO 8601 datetime string from another date-time string
@@ -185,21 +189,28 @@ CONTAINS
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_datetime_string_str"
-    INTEGER                  :: add_seconds, add_days, add_hours, add_minutes
+    INTEGER                  :: add_seconds, add_days, add_hours, add_minutes, &
+      &                         iadd_days, additional_days
     TYPE(datetime),  POINTER :: mtime_datetime
-    TYPE(timedelta), POINTER :: mtime_td
-    CHARACTER(LEN=2*MAX_DATETIME_STR_LEN)  :: result_string
-    CHARACTER(LEN=2*MAX_TIMEDELTA_STR_LEN) :: td_string
+    TYPE(timedelta), POINTER :: mtime_td, delta_1day
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
     mtime_datetime => newDatetime(timestamp)
     IF (PRESENT(opt_add_seconds)) THEN
       IF (opt_add_seconds>0) THEN
-         ! create a "timedelta" object
-         td_string = get_duration_string(opt_add_seconds)
-         mtime_td => newTimedelta(TRIM(td_string))
-         mtime_datetime =   mtime_datetime + mtime_td
-         CALL deallocateTimedelta(mtime_td)
+
+        ! create a "timedelta" object
+        delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
+        CALL get_duration_string(opt_add_seconds, td_string, additional_days)
+        DO iadd_days=1,additional_days
+          mtime_datetime = mtime_datetime + delta_1day
+        END DO
+        mtime_td => newTimedelta(TRIM(td_string))
+        mtime_datetime =   mtime_datetime + mtime_td
+        CALL deallocateTimedelta(mtime_td)
+        CALL deallocateTimedelta(delta_1day)
       ENDIF
     END IF
 
