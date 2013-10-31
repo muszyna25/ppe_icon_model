@@ -37,7 +37,7 @@ B=2   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -85,15 +85,17 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #
 #-----------------------------------------------------------------------------
 # global timing
+#start_date="2001-01-01T00:00:00Z"
+#  end_date="2003-06-20T00:00:00Z"
 start_date="2001-01-01T00:00:00Z"
-  end_date="2003-06-20T00:00:00Z"
+  end_date="2011-01-09T00:00:00Z" # 3660 days of simulation
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=720        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=300      # stop model for restart [days]
+ndays_restart=1830      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -153,7 +155,7 @@ cat > ${ocean_namelist} << EOF
   output_start     = "2001-01-30T00:00:00Z"
   output_end       = ${end_date}
   output_interval  = "P30D"
-  steps_per_file   = 10
+  steps_per_file   = 61
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
