@@ -402,7 +402,11 @@ CONTAINS
     CALL add_table_column(table, "filename")
     CALL add_table_column(table, "I/O PE")
     CALL add_table_column(table, "output date")
+#ifndef __SX__
+    ! do not add the file-part column on the NEC SX9, because we have a
+    ! line limit of 132 characters there
     CALL add_table_column(table, "#")
+#endif
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
     irow = 0
@@ -417,11 +421,25 @@ CONTAINS
           CALL set_table_entry(table,irow,"model step", " ")
           CALL set_table_entry(table,irow,"model date", " ")
         END IF
+#ifdef __SX__
+        ! save some characters on SX:
+        IF (LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) THEN
+          CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string(1:20)//"..."))
+        ELSE
+          CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+        END IF
+#else
         CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+#endif
         CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
+
         CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
+#ifndef __SX__
+        ! do not add the file-part column on the NEC SX9, because we have a
+        ! line limit of 132 characters there
         CALL set_table_entry(table,irow,"#",           &
           & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+#endif
         ! append "+ open" or "+ close" according to event step data:
         IF (event_step%event_step_data(j)%l_open_file) THEN
           CALL set_table_entry(table,irow,"open", "x")
