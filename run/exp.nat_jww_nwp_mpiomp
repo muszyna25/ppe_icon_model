@@ -49,14 +49,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-ndays_restart=60
+ndays_restart=10
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=120
-ndays=10
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+#ndays=10
+#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 nsteps=50
 dt_data=`expr ${dtime} \* ${nsteps}`   # data output at the end of the integration
 #
