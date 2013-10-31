@@ -86,14 +86,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-04T00:00:00Z"
+  end_date="2001-05-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6       # ocean model output interval hours [hours]
+nhours_data=240        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=1      # stop model for restart [days]
+ndays_restart=40      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -143,18 +143,22 @@ cat > ${ocean_namelist} << EOF
   output_start     = ${start_date}
   output_end       = ${start_date}
   output_interval  = "P00DT12H00M00S"
-  steps_per_file   = 2
+  steps_per_file   = 1
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce_init"
   ml_varlist       =  'group:oce_default','hi','conc'
 /
 &output_nml
-  steps_per_file   = 5
-  output_bounds    = ${dt_data},  1000000000, ${dt_data}   !start, end, increment
+  output_start     = "2001-01-10T00:00:00Z"
+  output_end       = ${end_date}
+  output_interval  = "P10D"
+! output_interval  = "P10D"
+  steps_per_file   = 4
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  filename_format  = "<output_filename>_<jfile>"
   ml_varlist       =  'group:oce_default','hi','conc'
 /
 &dbg_index_nml
