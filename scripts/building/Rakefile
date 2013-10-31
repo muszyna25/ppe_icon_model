@@ -288,12 +288,12 @@ end
 def doCheckExp(build,exp)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
-      for file in #{exp}*001.nc #{exp}*001_TEST.nc; do
+      for file in #{exp}*.nc #{exp}*001_TEST.nc; do
         if [ -f $file ]; then
           echo '#===========================================================================';
           echo " $file";echo
-          cdo showname  $file
-          cdo infov -selname,s_acc -sellevel,2200 $file
+          #cdo showname  $file
+          cdo showtimestamp $file
           #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
           #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
           #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
