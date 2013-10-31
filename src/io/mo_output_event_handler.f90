@@ -576,7 +576,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_output_event"
     !> Max. no. of event steps (used for local array sizes)
-    INTEGER, PARAMETER :: MAX_NEVENT_STEPS = 1000
+    INTEGER, PARAMETER :: MAX_NEVENT_STEPS = 10000
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
       &                         mtime_dom_start
