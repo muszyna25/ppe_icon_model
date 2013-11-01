@@ -68,30 +68,30 @@ MODULE mo_decomposition_tools
 
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+
   !------------------------------
   TYPE t_decomposition_structure
-  
+
     INTEGER :: no_of_cells
     INTEGER :: no_of_verts
     INTEGER :: no_of_edges
 
-    TYPE(t_cartesian_coordinates), POINTER ::  cell_cartesian_center(:) 
+    TYPE(t_cartesian_coordinates), POINTER ::  cell_cartesian_center(:)
     TYPE(t_geographical_coordinates), POINTER :: cell_geo_center(:)
     INTEGER, POINTER :: cells_vertex(:,:)  ! vertices of a cell, DIM(3,no_of_cells)
 
     TYPE(t_geographical_coordinates), POINTER :: vertex_geo_coord(:)
 
     !> total number of decomposition hold into this structure
-    INTEGER :: no_of_decompositions 
-    
+    INTEGER :: no_of_decompositions
+
     !> The number of domains for each domain decomposition
     INTEGER, POINTER :: no_of_domains(:)
-    
+
     !> Holds the multiple domain ids for domain decompositions
     ! domain_id(no_of_decompositions, no_of_cells)
     INTEGER, POINTER :: domain_id(:,:) ! DIM(no_of_decompositions, no_of_cells)
-    
+
   END TYPE t_decomposition_structure
   !------------------------------
 
@@ -147,7 +147,7 @@ MODULE mo_decomposition_tools
     MODULE PROCEDURE get_valid_local_index
     MODULE PROCEDURE get_valid_local_index_
   END INTERFACE
-  
+
   !------------------------------
 
 CONTAINS
@@ -155,13 +155,13 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE read_ascii_decomposition(ascii_file_name, cell_owner, no_of_cells)
-    INTEGER, POINTER :: cell_owner(:) 
-    CHARACTER(LEN=*) :: ascii_file_name 
+    INTEGER, POINTER :: cell_owner(:)
+    CHARACTER(LEN=*) :: ascii_file_name
     INTEGER, INTENT(in) :: no_of_cells
-    
+
     INTEGER :: file_id, return_status, cell_no
     CHARACTER(*), PARAMETER :: method_name = "read_ascii_decomposition"
-        
+
     WRITE(0,*) "Read decomposition from file: ", TRIM(ascii_file_name)
     file_id = find_next_free_unit(10,99)
 
@@ -174,19 +174,19 @@ CONTAINS
       IF(return_status /= 0) CALL finish(method_name,'Error reading: '//TRIM(ascii_file_name))
     ENDDO
     CLOSE(file_id)
-    
+
   END SUBROUTINE read_ascii_decomposition
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE write_ascii_decomposition(ascii_file_name, cell_owner, no_of_cells)
-    INTEGER, POINTER :: cell_owner(:) 
-    CHARACTER(LEN=*) :: ascii_file_name 
+    INTEGER, POINTER :: cell_owner(:)
+    CHARACTER(LEN=*) :: ascii_file_name
     INTEGER, INTENT(in) :: no_of_cells
 
 
     INTEGER :: file_id, error_status, cell_no
-    
+
     WRITE(message_text,'(a,a)')                          &
       &  'Write decomposition file: ', TRIM(ascii_file_name)
     CALL message ('', TRIM(message_text))
@@ -196,12 +196,12 @@ CONTAINS
     DO cell_no = 1, no_of_cells
       WRITE(file_id,*) cell_owner(cell_no)
     ENDDO
-    CLOSE(file_id)    
+    CLOSE(file_id)
 
   END SUBROUTINE write_ascii_decomposition
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE decomp_geom_medial_ret(decomposition_struct, decomposition_size, &
@@ -220,16 +220,16 @@ CONTAINS
     IF (PRESENT(radiation_onwer)) THEN
       write(0,*) "divide_geometric_medial, redistribute radiation, cluster=", cluster
       no_of_decompositions = 2
-    ELSE 
+    ELSE
       write(0,*) "divide_geometric_medial, cluster=", cluster
       no_of_decompositions = 1
     ENDIF
     medial_decomposition_id = 1
     rad_decomposition_id = 2
-      
+
       ! temorarily allocate the no_of_domains, domain_id
     CALL allocate_dec(decomposition_struct, no_of_decompositions)
-    
+
     ! the output is in cells_owner, ignore the out_decomposition_id
     CALL decompose_geometric_medial(decomposition_struct, decomposition_size, &
       & medial_decomposition_id)
@@ -237,12 +237,12 @@ CONTAINS
     IF (cluster) &
       CALL cluster_subdomains(decomposition_struct,  &
         & medial_decomposition_id, medial_decomposition_id)
-  
+
     ! fill the decomposition
     CALL fill_onwers_array(decomposition_struct, medial_decomposition_id, cells_owner)
-    
+
     !-----------------------------
-    IF (PRESENT(radiation_onwer)) THEN    
+    IF (PRESENT(radiation_onwer)) THEN
       IF (PRESENT(radiation_split_factor)) THEN
         rad_subdomain_split = radiation_split_factor
       ELSE
@@ -252,23 +252,23 @@ CONTAINS
       CALL reorder_lonlat_subdomains(decomposition_struct,  &
         & in_decomposition_id = medial_decomposition_id,    &
         & out_decomposition_id = rad_decomposition_id)
-          
+
       CALL decompose_round_robin_opp(decomposition_struct,  &
         & in_decomposition_id = rad_decomposition_id,    &
         & out_decomposition_id = rad_decomposition_id,      &
         & subdomain_partition = rad_subdomain_split)
-    
+
       CALL fill_onwers_array(decomposition_struct, rad_decomposition_id, radiation_onwer)
-      
+
     ENDIF
-    
+
     ! delallocate
     CALL deallocate_dec(decomposition_struct)
-      
+
   END SUBROUTINE decomp_geom_medial_ret
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE decomp_geometric_medial(decomposition_struct, decomposition_size, &
@@ -277,7 +277,7 @@ CONTAINS
     INTEGER, INTENT(in)    :: decomposition_size   ! Number of processors
     INTEGER, INTENT(in) ::  out_decomposition_id
     LOGICAL, INTENT(in) :: cluster
-    
+
     CALL decompose_geometric_medial(decomposition_struct, decomposition_size, &
       & out_decomposition_id)
     IF (cluster) &
@@ -286,8 +286,8 @@ CONTAINS
 
   END SUBROUTINE decomp_geometric_medial
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !!
@@ -298,7 +298,7 @@ CONTAINS
     & out_decomposition_id)
     TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in)    :: decomposition_size   ! Number of processors
-    INTEGER, INTENT(in)    ::  out_decomposition_id   
+    INTEGER, INTENT(in)    ::  out_decomposition_id
     ! (-1 for cells not in subset)
 
     INTEGER :: cell, i, j_v, no_of_cells
@@ -350,7 +350,7 @@ CONTAINS
 
 
     ALLOCATE(workspace(4,no_of_cells))
-    
+
     CALL divide_cells_by_location(no_of_cells, &
       & cell_desc(:,:), workspace, 0, decomposition_size-1)
 
@@ -368,7 +368,7 @@ CONTAINS
 
   END SUBROUTINE decompose_geometric_medial
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Cluster the subdomains using the geometrically nearest neigbor (on the sphere)
@@ -379,26 +379,26 @@ CONTAINS
     INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
 
     TYPE(t_cartesian_coordinates), POINTER :: subdomain_center(:)
-    TYPE(t_cartesian_coordinates) :: current_center, v
-    
+    TYPE(t_cartesian_coordinates) :: current_center
+
     INTEGER, POINTER :: new_subdomain_id(:)
-    
-    REAL(wp) :: min_distance, distance, center_weight
-    INTEGER :: no_of_domains,in_domain_id,remaining_subdomains, nearest_subdomain
+
+    REAL(wp) :: center_weight
+    INTEGER :: no_of_domains, remaining_subdomains, nearest_subdomain
     INTEGER :: next_subdomain
     INTEGER :: return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "cluster_subdomains"
 
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
     write(0,*) method_name, ":in_decomposition_id, out_decomposition_id=", &
       & in_decomposition_id, out_decomposition_id
-      
+
     ! first calculate the center of each subdomain
     NULLIFY(subdomain_center)
     CALL calclulate_subdomain_centers(decomposition_struct, in_decomposition_id, &
       & subdomain_center)
-                             
+
     ALLOCATE( new_subdomain_id(0:no_of_domains-1), &
       & stat=return_status)
     IF (return_status > 0) &
@@ -410,41 +410,41 @@ CONTAINS
     current_center      = subdomain_center(0)
     center_weight = 1.0_wp
     remaining_subdomains= no_of_domains-1
-    
+
 !     DO WHILE(remaining_subdomains > cluster_size)
     DO next_subdomain = 1, no_of_domains-1
-    
+
       ! find the next closest free subdomain
       nearest_subdomain = find_nearest_neigbor(subdomain_center, &
           & current_center, no_of_domains, new_subdomain_id)
 
       IF (nearest_subdomain < 0) &
         CALL finish(method_name, "cannot find nearest_subdomain")
-      
+
       new_subdomain_id(nearest_subdomain) = next_subdomain
       current_center%x = current_center%x + &
         & center_weight * subdomain_center(nearest_subdomain)%x
       d_normalize(current_center)
       center_weight = center_weight + 1.0_wp
-      
+
       remaining_subdomains = remaining_subdomains - 1
     ENDDO
-              
+
     CALL fill_redecomposition(decomposition_struct, in_decomposition_id, &
       & out_decomposition_id, new_subdomain_id, no_of_domains)
-              
+
     DEALLOCATE(subdomain_center, new_subdomain_id)
-    
+
   END SUBROUTINE cluster_subdomains
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Given a decomposition, it re-decomposes in a round_robin way for each subdomain
   !! allgigning the oppisite subdomains
   SUBROUTINE decompose_round_robin_opp(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id, subdomain_partition)
-    
+
     TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in)  :: subdomain_partition, in_decomposition_id, out_decomposition_id
 
@@ -453,13 +453,13 @@ CONTAINS
     NULLIFY(opposite_subdomain_id)
     CALL find_opposite_subdomains(decomposition_struct,  &
       & in_decomposition_id = in_decomposition_id, &
-      & opposite_subdomain_id = opposite_subdomain_id)    
+      & opposite_subdomain_id = opposite_subdomain_id)
     CALL decompose_round_robin(decomposition_struct, &
       & in_decomposition_id  = in_decomposition_id,  &
       & out_decomposition_id = out_decomposition_id, &
       & subdomain_partition  = subdomain_partition,  &
       & opposite_subdomain_id = opposite_subdomain_id)
-    
+
   END SUBROUTINE decompose_round_robin_opp
   !-------------------------------------------------------------------------
 
@@ -478,20 +478,20 @@ CONTAINS
 
     INTEGER, POINTER :: cells_per_domain(:), next_new_domain(:), remain_domain_space(:)
     INTEGER, POINTER :: distributed_cells_per_domain(:)
-    
+
     INTEGER, POINTER :: cells_group_size(:)
     INTEGER :: cell_no, no_of_domains,in_domain_id
-    INTEGER :: max_subdomain_size, next_avail_subdomain, domain_cells
+    INTEGER :: max_subdomain_size
     INTEGER :: check_subdomain_partition, return_status
     REAL    :: check_subdomain_partition_real
-    
+
     CHARACTER(*), PARAMETER :: method_name = "decompose_round_robin"
 
-    
+
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
     write(0,*) method_name, "in_decomposition_id, out_decomposition_id:", &
       & in_decomposition_id, out_decomposition_id, " subdomain_partition=",subdomain_partition
-    
+
     ! first count the number of cells in each decomposition
     NULLIFY(cells_per_domain)
     CALL get_no_of_cells_per_subdomain(decomposition_struct, in_decomposition_id,&
@@ -513,7 +513,7 @@ CONTAINS
     check_subdomain_partition = subdomain_partition
     IF (check_subdomain_partition > no_of_domains) &
       & check_subdomain_partition = no_of_domains
-      
+
  !   cells_group_size = max_subdomain_size / subdomain_partition
     check_subdomain_partition_real = REAL(check_subdomain_partition)
     DO in_domain_id=0,no_of_domains-1
@@ -526,24 +526,24 @@ CONTAINS
     ! gets the first round-robin domain id for each domain
     return_status = validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
       & check_subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size,  opposite_subdomain_id)
-      
+
     write(0,*) "input max_subdomain_size=", max_subdomain_size, &
       &  "no_of_domains=", no_of_domains, " new subdomain_partition:", check_subdomain_partition
 
-    
+
      IF (return_status > 0) THEN
        CALL warning(method_name, "cannot find balanced decomposition")
      ELSEIF (return_status < 0) THEN
        CALL finish(method_name, "cannot find balanced decomposition")
      ENDIF
-     
+
 !     IF (return_status /= 0) THEN
 !       ! revalidate
 !       check_subdomain_partition = MOD(no_of_domains,subdomain_partition)
 !       IF (check_subdomain_partition > subdomain_partition / 2) THEN
 !         check_subdomain_partition = 2*subdomain_partition - &
 !           & MOD(no_of_domains,2*subdomain_partition)
-!       ELSE   
+!       ELSE
 !         check_subdomain_partition = subdomain_partition - MOD(no_of_domains,subdomain_partition)
 !       ENDIF
 !       cells_group_size = max_subdomain_size / check_subdomain_partition
@@ -557,8 +557,8 @@ CONTAINS
 !         CALL finish(method_name, "cannot find balanced decomposition")
 !       ENDIF
 !     ENDIF
-      
-    
+
+
     ! re-distribute in groups of cells_group_size
     ! the current group size for each subdomain
     !  will be hold in cells_per_domain
@@ -598,11 +598,11 @@ CONTAINS
 
     DEALLOCATE(cells_per_domain, next_new_domain, remain_domain_space, &
       & cells_group_size, distributed_cells_per_domain)
-    
+
   END SUBROUTINE decompose_round_robin
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------    
+
+  !-------------------------------------------------------------------------
   INTEGER FUNCTION validate_round_robin(no_of_domains, next_new_domain, remain_domain_space, &
     & subdomain_partition, cells_per_domain, cells_group_size, max_subdomain_size, opposite_subdomain_id)
 
@@ -611,16 +611,16 @@ CONTAINS
       & cells_per_domain(:), cells_group_size(:)
     INTEGER, POINTER, OPTIONAL :: opposite_subdomain_id(:)
 
-      
+
     INTEGER :: in_domain_id, next_avail_subdomain, counter, domain_cells
     INTEGER :: group_size
 
     validate_round_robin = 0
     ! determine the group size to be assigned to ditsributed
-    
+
     next_new_domain(:) = -1
     remain_domain_space(:) = max_subdomain_size
-    
+
     next_avail_subdomain = 0
     DO in_domain_id = 0, no_of_domains-1
       ! if it's alread assigned a new subdomain start, skip it
@@ -637,7 +637,7 @@ CONTAINS
       ELSE
         group_size = cells_group_size(in_domain_id)
       ENDIF
-      
+
       counter = 0
       DO WHILE(remain_domain_space(next_avail_subdomain) < group_size .AND. &
                & counter < no_of_domains)
@@ -671,7 +671,7 @@ CONTAINS
 !           &  " goes to ",next_avail_subdomain, &
 !           & " remain space=", remain_domain_space(next_avail_subdomain), " - ", &
 !           & MIN(group_size, domain_cells)
-          
+
         remain_domain_space(next_avail_subdomain) = &
           & remain_domain_space(next_avail_subdomain) - &
           & MIN(group_size, domain_cells)
@@ -683,10 +683,10 @@ CONTAINS
     ENDDO ! in_domain_id = 0, no_of_domains-1
 
     validate_round_robin = 0 ! OK
-    
+
   END FUNCTION validate_round_robin
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Given a decomposition, it reorders the decomposition in pairs of
@@ -696,32 +696,29 @@ CONTAINS
     TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
 
-    TYPE(t_cartesian_coordinates), POINTER :: subdomain_center(:)
-    TYPE(t_cartesian_coordinates) :: v, v2
     INTEGER, POINTER :: opposite_subdomain_id(:), new_subdomain_id(:)
 
-    REAL(wp) :: min_distance, distance
-    INTEGER :: cell_no, no_of_domains,in_domain_id, next_domain_id, min_subdomain_id
+    INTEGER :: no_of_domains,in_domain_id, next_domain_id
     INTEGER :: new_no_of_domains, return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "pair_opposite_subdomains"
 
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
     write(0,*) method_name, ":in_decomposition_id, out_decomposition_id=", &
       & in_decomposition_id, out_decomposition_id
-      
+
     ! first find opposite subdomains
     CALL find_opposite_subdomains(decomposition_struct,&
       & in_decomposition_id, opposite_subdomain_id)
-    
+
     ALLOCATE(new_subdomain_id(0:no_of_domains-1), stat=return_status)
     IF (return_status > 0) &
       & CALL finish (method_name, "ALLOCATE(new_subdomain_id")
     new_subdomain_id(:)      = -1
-         
+
     ! now combine the opposite submdomains
     next_domain_id = 0
-    DO in_domain_id = 0, no_of_domains-1      
+    DO in_domain_id = 0, no_of_domains-1
       IF (opposite_subdomain_id(in_domain_id) < in_domain_id) CYCLE
       new_subdomain_id(in_domain_id)                        = next_domain_id
       new_subdomain_id(opposite_subdomain_id(in_domain_id)) = next_domain_id
@@ -730,23 +727,23 @@ CONTAINS
     new_no_of_domains = next_domain_id
 !     ! give a new domain id to domains not paired
 !     IF (non_paired_subdomains > 0) THEN
-!       DO in_domain_id = 0, no_of_domains-1      
+!       DO in_domain_id = 0, no_of_domains-1
 !         IF (opposite_subdomain_id(in_domain_id) < 0) THEN
 !           new_subdomain_id(in_domain_id) = next_domain_id
 !           next_domain_id = next_domain_id + 1
 !         ENDIF
 !       ENDDO
 !     ENDIF
-    
+
     ! Fill the new domain ids in the cells decomposition
     CALL fill_redecomposition(decomposition_struct, in_decomposition_id, &
       & out_decomposition_id, new_subdomain_id, new_no_of_domains)
 
     DEALLOCATE(opposite_subdomain_id, new_subdomain_id)
-    
+
   END SUBROUTINE pair_opposite_subdomains
-  !-------------------------------------------------------------------------  
-  
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE fill_redecomposition(decomposition_struct, &
@@ -765,13 +762,13 @@ CONTAINS
       IF (new_subdomain_id(in_domain_id) < 0 .OR. &
         & new_subdomain_id(in_domain_id) > new_no_of_domains) &
         & CALL finish (method_name, "non-valid new_subdomain_id")
-        
+
       decomposition_struct%domain_id(out_decomposition_id, cell_no) = &
         & new_subdomain_id(in_domain_id)
     ENDDO
     decomposition_struct%no_of_domains(out_decomposition_id) = new_no_of_domains
 
-   END SUBROUTINE fill_redecomposition    
+   END SUBROUTINE fill_redecomposition
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -780,24 +777,23 @@ CONTAINS
   !! opposite geographically domains
   SUBROUTINE find_opposite_subdomains(decomposition_struct,  &
     & in_decomposition_id, opposite_subdomain_id)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  :: in_decomposition_id
     INTEGER, POINTER :: opposite_subdomain_id(:)
 
     TYPE(t_cartesian_coordinates), POINTER :: subdomain_center(:)
     TYPE(t_cartesian_coordinates) :: v
 !     TYPE(t_geographical_coordinates) :: geocoord
-    INTEGER, POINTER :: new_subdomain_id(:)
 
-    INTEGER :: cell_no, no_of_domains,in_domain_id, next_domain_id, min_subdomain_id
+    INTEGER :: no_of_domains,in_domain_id, min_subdomain_id
     INTEGER :: return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "find_opposite_subdomains"
 
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
     write(0,*) method_name, ":in_decomposition_id=", &
       & in_decomposition_id
-      
+
     ! first calculate the center of each subdomain
     NULLIFY(subdomain_center)
     CALL calclulate_subdomain_centers(decomposition_struct, in_decomposition_id, subdomain_center)
@@ -808,7 +804,7 @@ CONTAINS
         & CALL finish (method_name, "ALLOCATE(opposite_subdomain_id")
     ENDIF
     opposite_subdomain_id(:) = -1
-         
+
     ! find opposite subdomain
     ! brute force should be ok since we traverse only subdomains
 !     non_paired_subdomains = 0
@@ -818,7 +814,7 @@ CONTAINS
         v%x = -subdomain_center(in_domain_id)%x
         min_subdomain_id = find_nearest_neigbor(subdomain_center, v, &
           & no_of_domains, opposite_subdomain_id)
-          
+
         IF (min_subdomain_id >= 0) THEN
           IF (min_subdomain_id == in_domain_id) THEN
             CALL warning(method_name, "has no opposite")
@@ -836,68 +832,67 @@ CONTAINS
 !           non_paired_subdomains = non_paired_subdomains + 1
         ENDIF
     ENDDO
-    
+
     DEALLOCATE(subdomain_center)
-    
+
   END SUBROUTINE find_opposite_subdomains
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE reorder_lonlat_subdomains(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
-    
+
     CALL reorder_geo_subdomains(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id, 2)
-          
+
   END SUBROUTINE reorder_lonlat_subdomains
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE reorder_latlon_subdomains(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
-    
+
     CALL reorder_geo_subdomains(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id, 1)
-          
+
   END SUBROUTINE reorder_latlon_subdomains
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Given a decomposition, it reorders the decomposition in geographical coordinates
   SUBROUTINE reorder_geo_subdomains(decomposition_struct,  &
     & in_decomposition_id, out_decomposition_id, latlon_order)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  :: in_decomposition_id, out_decomposition_id
-    
+
     INTEGER, INTENT(in)  :: latlon_order ! 1=max lat to min lat, max lon to min lon
                                           ! 2=max lon to min lon, max lat to min lat
 
     TYPE(t_cartesian_coordinates), POINTER :: subdomain_center(:)
     TYPE(t_geographical_coordinates), POINTER :: subdomain_geo_coordinates(:)
-    TYPE(t_cartesian_coordinates) :: v, v2
-    
-    INTEGER, POINTER :: opposite_subdomain_id(:), new_subdomain_id(:), sort_subdomain_id(:)
-    
-    INTEGER :: cell_no, no_of_domains,in_domain_id, next_domain_id, max_subdomain
-    INTEGER :: new_no_of_domains, return_status
-    
+
+    INTEGER, POINTER :: new_subdomain_id(:), sort_subdomain_id(:)
+
+    INTEGER :: no_of_domains,in_domain_id
+    INTEGER :: return_status
+
     CHARACTER(*), PARAMETER :: method_name = "reorder_geo_subdomains"
 
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
     write(0,*) method_name, ":in_decomposition_id, out_decomposition_id=", &
       & in_decomposition_id, out_decomposition_id
 
-      
+
     ! first calculate the center of each subdomain
     NULLIFY(subdomain_center)
     CALL calclulate_subdomain_centers(decomposition_struct, in_decomposition_id, subdomain_center)
@@ -909,15 +904,15 @@ CONTAINS
     ! calculate sort value
     SELECT CASE (latlon_order)
     CASE (1)
-      CALL bubble_sort_lat_lon(subdomain_geo_coordinates, 0, no_of_domains-1, sort_subdomain_id)      
+      CALL bubble_sort_lat_lon(subdomain_geo_coordinates, 0, no_of_domains-1, sort_subdomain_id)
     CASE (2)
       CALL bubble_sort_lon_lat(subdomain_geo_coordinates, 0, no_of_domains-1, sort_subdomain_id)
     CASE DEFAULT
       CALL finish(method_name, 'Unkown lat_lon_order')
     END SELECT
-    
+
     DEALLOCATE(subdomain_geo_coordinates)
-                             
+
     ALLOCATE( new_subdomain_id(0:no_of_domains-1), &
       & stat=return_status)
     IF (return_status > 0) &
@@ -926,12 +921,12 @@ CONTAINS
     DO in_domain_id=0, no_of_domains-1
       new_subdomain_id(sort_subdomain_id(in_domain_id)) = in_domain_id
     ENDDO
-      
+
     CALL fill_redecomposition(decomposition_struct, in_decomposition_id, out_decomposition_id, &
       & new_subdomain_id, no_of_domains)
-              
+
     DEALLOCATE(sort_subdomain_id, new_subdomain_id)
-    
+
   END SUBROUTINE reorder_geo_subdomains
   !-------------------------------------------------------------------------
 
@@ -940,63 +935,61 @@ CONTAINS
   !! count the number of cells in each decomposition
   SUBROUTINE get_no_of_cells_per_subdomain(decomposition_struct, &
     & in_decomposition_id, cells_per_domain)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  ::  in_decomposition_id
     INTEGER, POINTER :: cells_per_domain(:)
-    
-    INTEGER :: cell_no, no_of_domains,domain_id
+
+    INTEGER :: cell_no, no_of_domains
     INTEGER :: return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "get_no_of_cells_per_subdomain"
 
     no_of_domains = decomposition_struct%no_of_domains(in_decomposition_id)
-    
+
     ! count the number of cells in each decomposition
     IF (.NOT. ASSOCIATED(cells_per_domain)) THEN
       ALLOCATE(cells_per_domain(0:no_of_domains-1), stat=return_status)
       IF (return_status > 0) &
         & CALL finish (method_name, "ALLOCATE(cells_per_domain")
     ENDIF
-    cells_per_domain(:) = 0  
+    cells_per_domain(:) = 0
     DO cell_no = 1, decomposition_struct%no_of_cells
       cells_per_domain(decomposition_struct%domain_id(in_decomposition_id, cell_no) ) = &
         & cells_per_domain(decomposition_struct%domain_id(in_decomposition_id, cell_no)) + 1
     ENDDO
-        
+
   END SUBROUTINE get_no_of_cells_per_subdomain
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   !>
   !! Given a decomposition, it reorders the decomposition in pairs of
   !! opposite geographically domains
   SUBROUTINE calclulate_subdomain_centers(decomposition_struct,  &
     & decomposition_id, subdomain_centers)
-    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct  
+    TYPE(t_decomposition_structure), INTENT(in)  :: decomposition_struct
     INTEGER, INTENT(in)  :: decomposition_id
     TYPE(t_cartesian_coordinates), POINTER :: subdomain_centers(:)
-    
-    TYPE(t_cartesian_coordinates) :: v
-    TYPE(t_geographical_coordinates) :: geocoord
+
     INTEGER :: cell_no, no_of_domains, domain_id
     INTEGER :: return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "calclulate_subdomain_centers"
 
     no_of_domains = decomposition_struct%no_of_domains(decomposition_id)
-    
+
     ! first calculate the center of each subdomain
     IF (.NOT. ASSOCIATED(subdomain_centers)) THEN
       ALLOCATE(subdomain_centers(0:no_of_domains-1), stat=return_status)
       IF (return_status > 0) &
         & CALL finish (method_name, "ALLOCATE(subdomain_centers")
     ENDIF
-    
+
     subdomain_centers(:)%x(1) = 0.0_wp
     subdomain_centers(:)%x(2) = 0.0_wp
     subdomain_centers(:)%x(3) = 0.0_wp
-     
+
     ! calculate the center of each subdomain
     DO cell_no = 1, decomposition_struct%no_of_cells
       domain_id = decomposition_struct%domain_id(decomposition_id, cell_no)
@@ -1008,10 +1001,10 @@ CONTAINS
       subdomain_centers(domain_id)%x = subdomain_centers(domain_id)%x / &
         & d_norma_3d(subdomain_centers(domain_id))
     ENDDO
-    
+
   END SUBROUTINE calclulate_subdomain_centers
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE bubble_sort_lon_lat(geo_coord, start_index, end_index, sorted_list)
@@ -1019,9 +1012,9 @@ CONTAINS
     INTEGER, INTENT(in)  :: start_index, end_index
     INTEGER, POINTER  :: sorted_list(:)
 
-    LOGICAL :: keep_ordering 
+    LOGICAL :: keep_ordering
     INTEGER :: i, exch, return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "bubble_sort"
 
     write(0,*) " Sorting in min-max lon-lat..."
@@ -1031,7 +1024,7 @@ CONTAINS
     DO i=start_index, end_index
       sorted_list(i) = i
     ENDDO
-                        
+
     keep_ordering = .true.
     DO WHILE(keep_ordering)
       keep_ordering = .false.
@@ -1046,10 +1039,10 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-        
+
   END SUBROUTINE bubble_sort_lon_lat
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE bubble_sort_lat_lon(geo_coord, start_index, end_index, sorted_list)
@@ -1057,9 +1050,9 @@ CONTAINS
     INTEGER, INTENT(in)  :: start_index, end_index
     INTEGER, POINTER  :: sorted_list(:)
 
-    LOGICAL :: keep_ordering 
+    LOGICAL :: keep_ordering
     INTEGER :: i, exch, return_status
-    
+
     CHARACTER(*), PARAMETER :: method_name = "bubble_sort"
 
     write(0,*) " Sorting in min-max lat-lon..."
@@ -1069,7 +1062,7 @@ CONTAINS
     DO i=start_index, end_index
       sorted_list(i) = i
     ENDDO
-                        
+
     keep_ordering = .true.
     DO WHILE(keep_ordering)
       keep_ordering = .false.
@@ -1084,13 +1077,13 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-        
+
   END SUBROUTINE bubble_sort_lat_lon
   !-------------------------------------------------------------------------
-   
-   
+
+
   !-------------------------------------------------------------------------
-  !> works on the unit sphere 
+  !> works on the unit sphere
   INTEGER FUNCTION find_nearest_neigbor(in_coord, to_pos, size_of_array, array_mask)
     TYPE(t_cartesian_coordinates), POINTER :: in_coord(:)
     TYPE(t_cartesian_coordinates) :: to_pos
@@ -1099,8 +1092,8 @@ CONTAINS
 
     TYPE(t_cartesian_coordinates) :: v
     REAL(wp) :: min_distance, distance
-    INTEGER :: element   
-    
+    INTEGER :: element
+
     min_distance = 100.0_wp ! we assume we are on the sphere
     find_nearest_neigbor = -1
     DO element = 0, size_of_array-1
@@ -1112,16 +1105,16 @@ CONTAINS
         find_nearest_neigbor = element
       ENDIF
     ENDDO
-  
+
   END FUNCTION find_nearest_neigbor
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE fill_onwers_array(decomposition_struct, decomposition_id, cells_owner)
     TYPE(t_decomposition_structure)  :: decomposition_struct
     INTEGER, INTENT(in) :: decomposition_id   ! Number of processors
     INTEGER, POINTER    :: cells_owner(:)
-    
+
     INTEGER :: cell, return_status
     CHARACTER(*), PARAMETER :: method_name = "fill_onwers_array"
 
@@ -1131,15 +1124,15 @@ CONTAINS
       IF (return_status > 0) &
         & CALL finish (method_name, "ALLOCATE(cells_owner")
     ENDIF
-     
+
     DO cell = 1, decomposition_struct%no_of_cells
       cells_owner(cell) = decomposition_struct%domain_id(decomposition_id, cell)
     ENDDO
-  
+
   END SUBROUTINE fill_onwers_array
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE allocate_dec(decomposition_struct, no_of_decompositions)
     TYPE(t_decomposition_structure)  :: decomposition_struct
@@ -1147,7 +1140,7 @@ CONTAINS
 
     INTEGER :: return_status
     CHARACTER(*), PARAMETER :: method_name = "allocate_dec"
-    
+
     ALLOCATE( decomposition_struct%no_of_domains(no_of_decompositions), &
       & decomposition_struct%domain_id(no_of_decompositions, &
       &   decomposition_struct%no_of_cells), &
@@ -1156,18 +1149,18 @@ CONTAINS
       & CALL finish (method_name, "ALLOCATE(domain_id")
 
     decomposition_struct%no_of_decompositions = no_of_decompositions
-      
+
   END SUBROUTINE allocate_dec
   !-------------------------------------------------------------------------
-  
-  
+
+
   !-------------------------------------------------------------------------
   SUBROUTINE deallocate_dec(decomposition_struct)
     TYPE(t_decomposition_structure)  :: decomposition_struct
-    
+
     DEALLOCATE( decomposition_struct%no_of_domains, &
       & decomposition_struct%domain_id)
-      
+
   END SUBROUTINE deallocate_dec
   !-------------------------------------------------------------------------
 
@@ -1255,7 +1248,7 @@ CONTAINS
   END SUBROUTINE divide_cells_by_location
   !-------------------------------------------------------------------------
 
- 
+
   !-------------------------------------------------------------------------
   !>
   !! Special quicksort implementation for sorting a 2D array by one selected row.
@@ -1362,7 +1355,7 @@ CONTAINS
     INTEGER, INTENT(IN)    :: n_inner  ! Number of inner global points
     TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
 
-    INTEGER :: i, last
+    INTEGER :: i
 
     ! test global indices
     DO i = 1, n
@@ -1409,7 +1402,7 @@ CONTAINS
     DO WHILE (ub >= lb)
 
       middle = (ub + lb) / 2;
- 
+
       IF (array(middle) < key) THEN
         lb = middle + 1
       ELSE IF (array(middle) > key) THEN
