@@ -3,13 +3,18 @@
 #
 # Luis Kornblueh, MPI-M, 2013-06-24
 #
+#________________________________________________________________________________________________
+#
+#
 set -eux
+#
+#________________________________________________________________________________________________
 #
 # cmake $(pwd) is doing in-source build - only to get Find<*>.cmake running.
 #
 # GCC: gcc, gfortran
 #
-# prepare testing
+# cleanup old stuff
 #
 if [[ -f CMakeCache.txt ]]
 then
@@ -20,27 +25,46 @@ if [[ -d CMakeFiles ]]
 then
     rm -rf CMakeFiles
 fi
+#________________________________________________________________________________________________
 #
-# test for FindNETCDF.cmake with netcdf-3.6.3
-# 
-#CC=gcc \
-#CFLAGS=-DpgiFortran \
-#FC=gfortran \
-#NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3 \
-#cmake $(pwd)
+# select machine specifics
 #
-# test for FindNETCDF.cmake with netcdf-4.1.3
-# 
-#CC=gcc CFLAGS=-DpgiFortran \
-#FC=gfortran \
-#NETCDFROOT=/sw/squeeze-x64/netcdf-4.1.3-static-gcc47 \
-#cmake $(pwd)
+case $(hostname) in
+    thunder*)
+	# test for FindNETCDF.cmake with netcdf-3.6.3
+	#
+	#CC=gcc \
+	#CFLAGS=-DpgiFortran \
+	#FC=gfortran \
+	#NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3 \
+	#cmake $(pwd)
+	#
+	# test for FindNETCDF.cmake with netcdf-4.1.3
+	# 
+	#CC=gcc CFLAGS=-DpgiFortran \
+	#FC=gfortran \
+	#NETCDFROOT=/sw/squeeze-x64/netcdf-4.1.3-static-gcc47 \
+	#cmake $(pwd)
+	#
+	# test for FindNETCDF.cmake with netcdf-4.2.1.1
+	# 
+	CC=gcc CFLAGS=-DpgiFortran \
+	FC=gfortran \
+	NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static \
+	NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 \
+	cmake $(pwd)
+        ;;
+    wanglung*)
+	CC=gcc CFLAGS=-DpgiFortran \
+	FC=gfortran \
+	NETCDFROOT=/opt/local \
+	NETCDFFROOT=/opt/local \
+	cmake $(pwd)
+	;;
+esac
+
+#________________________________________________________________________________________________
 #
-# test for FindNETCDF.cmake with netcdf-4.2.1.1
-# 
-CC=gcc CFLAGS=-DpgiFortran \
-FC=gfortran \
-NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static \
-NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 \
-cmake $(pwd)
+
+#
 #________________________________________________________________________________________________
