@@ -77,12 +77,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-04-03)
   !!
-  SUBROUTINE divide_flux_area(p_patch, p_int, p_vn, p_vt, depart_pts,        &
-    &                         arrival_pts, dreg_patch0,                      &
-    &                         dreg_patch1, dreg_patch2,                      &
-    &                         patch1_cell_idx, patch1_cell_blk,              &
-    &                         patch2_cell_idx, patch2_cell_blk,              &
-    &                         opt_rlstart, opt_rlend, opt_slev,              &
+  SUBROUTINE divide_flux_area(p_patch, p_int, p_vn, p_vt,            &
+    &                         dreg_patch0, dreg_patch1, dreg_patch2, &
+    &                         patch1_cell_idx, patch1_cell_blk,      &
+    &                         patch2_cell_idx, patch2_cell_blk,      &
+    &                         opt_rlstart, opt_rlend, opt_slev,      &
     &                         opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
@@ -97,22 +96,12 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
       &  p_vt(:,:,:)               !< edge midpoints
 
-    REAL(wp), INTENT(IN) ::    &   !< coordinates of arrival points. The origin
-      &  arrival_pts(:,:,:,:,:)    !< of the coordinate system is at the circumcenter of
-                                   !< the upwind cell. Unit vectors point to local East
-                                   !< and North. (geographical coordinates)
-                                   !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
-
-    REAL(wp), INTENT(IN) ::    &   !< coordinates of departure points. The origin
-      &  depart_pts(:,:,:,:,:)     !< of the coordinate system is at the circumcenter of
-                                   !< the upwind cell. Unit vectors point to local East
-                                   !< and North. (geographical coordinates)
-                                   !< dim: (nproma,2,2,nlev,ptr_p%nblks_e)
+    REAL(wp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
+      & dreg_patch0(:,:,:,:,:)       !< coordinates
 
     REAL(wp), INTENT(OUT) ::    &  !< patch 0,1,2 of subdivided departure region
-      & dreg_patch0(:,:,:,:,:), &  !< coordinates
-      & dreg_patch1(:,:,:,:,:), &  !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
-      & dreg_patch2(:,:,:,:,:)
+      & dreg_patch1(:,:,:,:,:), &  !< coordinates
+      & dreg_patch2(:,:,:,:,:)     !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
     INTEGER, INTENT(OUT)  ::    &  !< line and block indices of underlying cell
       & patch1_cell_idx(:,:,:), &  !< dim: (nproma,nlev,ptr_p%nblks_e)
@@ -132,6 +121,18 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
+
+    REAL(wp) ::       &   !< coordinates of arrival points. The origin
+      &  arrival_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)    
+                          !< of the coordinate system is at the circumcenter of
+                          !< the upwind cell. Unit vectors point to local East
+                          !< and North. (geographical coordinates)
+
+    REAL(wp) ::    &   !< coordinates of departure points. The origin
+      &  depart_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
+                       !< of the coordinate system is at the circumcenter of
+                       !< the upwind cell. Unit vectors point to local East
+                       !< and North. (geographical coordinates)
 
     TYPE(t_line) ::                  & !< departure-line segment
       &  fl_line(nproma,p_patch%nlev)
@@ -192,6 +193,7 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
+
   !-------------------------------------------------------------------------
 
 
@@ -237,8 +239,15 @@ CONTAINS
     !
     ptr_bfcc => p_int%pos_on_tplane_c_edge(:,:,:,4:5)
 
-
 !$OMP PARALLEL
+    ! get arrival and departure points. Note that the indices of the departure 
+    ! points have to be switched so that departure point 1 belongs to arrival 
+    ! point one and departure point 2 to arrival point 2.
+!$OMP WORKSHARE
+    arrival_pts(:,1:2,1:2,:,:) = dreg_patch0(:,1:2,1:2,:,:)
+    depart_pts (:,1:2,1:2,:,:) = dreg_patch0(:,4:3:-1,1:2,:,:)
+!$OMP END WORKSHARE
+
 !$OMP DO PRIVATE(jb,jk,je,jl,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1, &
 !$OMP            tri_line2,fl_e1,fl_e2,lintersect_line1,lintersect_line2,   &
 !$OMP            lintersect_e2_line1,lintersect_e1_line2,icnt_c1,icnt_c2p,  &
@@ -260,7 +269,6 @@ CONTAINS
       icnt_vn0 = 0
 
       DO jk = slev, elev
-
          DO je = i_startidx, i_endidx
 
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -472,6 +480,7 @@ CONTAINS
         ! vn < 0: A1 D1 S1 A1 (degenerated)
         !
         dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch1(je,4,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
         dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(1),                    &
           &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
         dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(2),                    &
@@ -480,7 +489,6 @@ CONTAINS
           &                           ps1(1),lvn_sys_pos)
         dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
           &                           ps1(2), lvn_sys_pos)
-        dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
 
 
         ! patch 2
@@ -488,6 +496,7 @@ CONTAINS
         ! vn < 0: A2 S2 D2 A2 (degenerated)
         !
         dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
+        dreg_patch2(je,4,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
         dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
           &                           ps2(1), lvn_sys_pos)
         dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
@@ -496,7 +505,6 @@ CONTAINS
           &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
         dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(2),                    &
           &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-        dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
       ENDDO  ! jl
 
 
@@ -537,6 +545,7 @@ CONTAINS
           ! vn < 0: A1 D1 S1 A1 (degenerated)
           !
         dreg_patch1(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch1(je,4,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
         dreg_patch1(je,2,1,jk,jb)   = MERGE(ps1(1),                    &
           &                           depart_pts(je,1,1,jk,jb), lvn_sys_pos)
         dreg_patch1(je,2,2,jk,jb)   = MERGE(ps1(2),                    &
@@ -545,7 +554,6 @@ CONTAINS
           &                           ps1(1),lvn_sys_pos)
         dreg_patch1(je,3,2,jk,jb)   = MERGE(depart_pts(je,1,2,jk,jb),  &
           &                           ps1(2), lvn_sys_pos)
-        dreg_patch1(je,4,1:2,jk,jb) = dreg_patch1(je,1,1:2,jk,jb)
 
 
         ! patch 2 (non-existing)
@@ -603,6 +611,7 @@ CONTAINS
         ! vn < 0: A2 S2 D2 A2 (degenerated)
         !
         dreg_patch2(je,1,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
+        dreg_patch2(je,4,1:2,jk,jb) = arrival_pts(je,2,1:2,jk,jb)
         dreg_patch2(je,2,1,jk,jb)   = MERGE(depart_pts(je,2,1,jk,jb),  &
           &                           ps2(1), lvn_sys_pos)
         dreg_patch2(je,2,2,jk,jb)   = MERGE(depart_pts(je,2,2,jk,jb),  &
@@ -611,7 +620,6 @@ CONTAINS
           &                           depart_pts(je,2,1,jk,jb), lvn_sys_pos)
         dreg_patch2(je,3,2,jk,jb)   = MERGE(ps2(2),                    &
           &                           depart_pts(je,2,2,jk,jb), lvn_sys_pos)
-        dreg_patch2(je,4,1:2,jk,jb) = dreg_patch2(je,1,1:2,jk,jb)
       ENDDO  ! jl
 
 
@@ -636,6 +644,7 @@ CONTAINS
         ! vn < 0: A1 I1 A2 A1 (degenerated)
         !
         dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,4,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
         dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
           &                           pi1(1),lvn_sys_pos)
         dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
@@ -644,7 +653,6 @@ CONTAINS
           &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
         dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(2),                    &
           &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
-        dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
 
 
         ! patch 1
@@ -692,6 +700,7 @@ CONTAINS
         ! vn < 0: A1 I2 A2 A1 (degenerated)
         !
         dreg_patch0(je,1,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
+        dreg_patch0(je,4,1:2,jk,jb) = arrival_pts(je,1,1:2,jk,jb)
         dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(je,2,1,jk,jb), &
           &                           pi2(1),lvn_sys_pos)
         dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(je,2,2,jk,jb), &
@@ -700,7 +709,6 @@ CONTAINS
           &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
         dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(2),                    &
           &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
-        dreg_patch0(je,4,1:2,jk,jb) = dreg_patch0(je,1,1:2,jk,jb)
 
 
         ! patch 1 (non-existing)

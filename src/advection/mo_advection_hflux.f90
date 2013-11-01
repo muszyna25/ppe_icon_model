@@ -118,9 +118,8 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_q,                    &
     &                               prep_gauss_quadrature_cpoor,                &
     &                               prep_gauss_quadrature_c
-  USE mo_advection_traj,      ONLY: btraj, btraj_o2, btraj_dreg,                &
-    &                               btraj_dreg_nosort
-  USE mo_advection_geometry,  ONLY: divide_flux_area 
+  USE mo_advection_traj,      ONLY: btraj, btraj_dreg, btraj_o2
+  USE mo_advection_geometry,  ONLY: divide_flux_area
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
 
@@ -1921,6 +1920,7 @@ CONTAINS
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
       CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
+        &              .TRUE.,                                     &! in
         &              z_cell_idx, z_cell_blk, z_coords_dreg_v,    &! out
         &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
         &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
@@ -2254,21 +2254,6 @@ CONTAINS
 
     REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
-
-    REAL(wp) ::                &       !< coordinates of arrival points. The origin
-      &  arrival_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
-                                       !< of the coordinate system is at the circumcenter of
-                                       !< the upwind cell. Unit vectors point to local East
-                                       !< and North. (geographical coordinates)
-                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2,2)
-
-    REAL(wp) ::  &                    !< coordinates of departure points. The origin
-      &  depart_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
-                                      !< of the coordinate system is at the circumcenter of
-                                      !< the upwind cell. Unit vectors point to local East
-                                      !< and North. (geographical coordinates)
-                                      !< dim: (nproma,nlev,ptr_p%nblks_e,2,2)
-
     REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
       &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
       &  dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
@@ -2494,28 +2479,18 @@ CONTAINS
           &                         ptr_real_vt, opt_rlend=i_rlend )! inout
       ENDIF
 
-!!$      ! compute vertex coordinates for the departure region using a first
-!!$      ! order accurate (O(\Delta t)) backward trajectory-method
-!!$      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
-!!$        &              z_cell_indices, z_coords_dreg_v,            &! out
-!!$        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-!!$        &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
-
-
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
-      CALL btraj_dreg_nosort( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
-        &                     patch0_cell_idx, patch0_cell_blk,           &! out
-        &                     arrival_pts, depart_pts,                    &! out
-        &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-        &                     opt_slev=slev_ti, opt_elev=elev_ti          )! in
-
+      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime,        &! in
+        &              .FALSE.,                                           &! in
+        &              patch0_cell_idx, patch0_cell_blk, dreg_patch0,     &! out
+        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,          &! in
+        &              opt_slev=slev_ti, opt_elev=elev_ti                 )! in
 
 
       ! Flux area (aka. departure region) is subdivided according to its overlap 
       ! with the underlying grid.
       CALL divide_flux_area(p_patch, p_int, p_vn, ptr_real_vt,             &! in
-        &                   depart_pts, arrival_pts,                       &! in
         &                   dreg_patch0, dreg_patch1, dreg_patch2,         &! out
         &                   patch1_cell_idx, patch1_cell_blk,              &! out
         &                   patch2_cell_idx, patch2_cell_blk,              &! out
