@@ -242,9 +242,11 @@ CONTAINS
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_STRING_LEN)       :: fname(nstrings)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date
+    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, mtime_first
     TYPE(timedelta), POINTER            :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -252,14 +254,29 @@ CONTAINS
     ! a) user has specified "steps_per_file"
     ! b) user has specified "file_interval"
     IF (TRIM(fname_metadata%file_interval) == "") THEN
-      ! case a): steps_per_file
-      DO i=1,nstrings
-        result_fnames(i)%jfile = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
-        result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
-      END DO
+       ! case a): steps_per_file
+       mtime_begin  => newDatetime(TRIM(sim_step_info%sim_start))
+       mtime_first  => newDatetime(TRIM(date_string(1)))
+       ! special treatment for the initial time step written at the
+       ! begin of the simulation: The first file gets one extra entry
+       if (mtime_begin == mtime_first) then
+          result_fnames(1)%jfile = 1
+          result_fnames(1)%jpart = 1
+          DO i=2,nstrings
+             result_fnames(i)%jfile = (i-2)/fname_metadata%steps_per_file + 1 ! INTEGER division!
+             result_fnames(i)%jpart = i - 1 - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
+             if (result_fnames(i)%jfile == 1)  result_fnames(i)%jpart = result_fnames(i)%jpart + 1
+          end DO
+       else
+          DO i=1,nstrings
+             result_fnames(i)%jfile = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
+             result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
+          END DO
+       end if
+      CALL deallocateDatetime(mtime_begin)
+      CALL deallocateDatetime(mtime_first)
     ELSE
       ! case b): file_interval
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ifile      =  1
       ipart      =  0
       delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
