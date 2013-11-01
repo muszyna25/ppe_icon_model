@@ -74,6 +74,7 @@ MODULE mo_nh_diffusion
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE
 
@@ -108,7 +109,7 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_temp
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla2_e
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_nabla2_c
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
 
     REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -275,8 +276,12 @@ MODULE mo_nh_diffusion
 
     IF (diffu_type == 4) THEN
 
+#ifdef __MIXED_PRECISION
+      CALL finish ('', 'hdiff_order=4 not implemented for mixed precision mode; compile without -D__MIXED_PRECISION')
+#else
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
                        opt_rlstart=7,opt_nabla2=z_nabla2_e )
+#endif
 
     ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1) THEN
 
