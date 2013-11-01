@@ -330,11 +330,22 @@ CONTAINS
     INTEGER, INTENT(IN) :: idx_old2new(:) ! permutation array
     INTEGER, INTENT(IN) :: n, nblks, npromz
 
+    INTEGER :: temp_glb_to_loc(n), n_inner
+
+    n_inner = SIZE(decomp_info%inner_glb_index_to_loc(:))
+
+    temp_glb_to_loc(1:n_inner) = decomp_info%inner_glb_index_to_loc(:)
+    temp_glb_to_loc(n_inner+1:) = decomp_info%outer_glb_index_to_loc(:)
+
     CALL reorder_array_pos(decomp_info%owner_mask, idx_old2new, nblks, npromz)
     CALL reorder_array_pos(decomp_info%decomp_domain, idx_old2new, nblks, npromz)
     CALL reorder_array_pos(decomp_info%owner_local, idx_old2new, n)
     CALL reorder_array_content(decomp_info%loc_index, decomp_info%glb_index, idx_old2new, n)
     CALL reorder_array_pos(decomp_info%glb_index, idx_old2new, n)
+    CALL reorder_array_pos(temp_glb_to_loc, idx_old2new, n)
+
+    decomp_info%inner_glb_index_to_loc(:) = temp_glb_to_loc(1:n_inner)
+    decomp_info%outer_glb_index_to_loc(:) = temp_glb_to_loc(n_inner+1:)
   END SUBROUTINE reorder_decomp_info
 
   !> reorder array entries according to a given permutation array.

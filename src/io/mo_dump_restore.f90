@@ -164,7 +164,7 @@ MODULE mo_dump_restore
                                    min_rledge, max_rledge, &
                                    min_rlvert, max_rlvert, &
                                    min_rlcell_int, min_rledge_int, &
-                                   SUCCESS
+                                   min_rlvert_int, SUCCESS
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: l_one_file_per_patch, ltransport, &
@@ -174,7 +174,8 @@ MODULE mo_dump_restore
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
+    &                              generate_glb_to_loc_lookup
   USE mo_grid_config,        ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
                                    l_limited_area, max_childdom, dynamics_parent_grid_id, &
                                    global_cell_type
@@ -202,6 +203,7 @@ MODULE mo_dump_restore
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_grid_geometry_info, ONLY: read_geometry_info, write_geometry_info
   USE mo_model_domimp_setup, ONLY: read_grid_subsets, write_grid_subsets
+  USE mo_util_sort,           ONLY: quicksort
 
   IMPLICIT NONE
 
@@ -2899,51 +2901,17 @@ CONTAINS
     CALL patch_io(p, lfull)
 
     ! Restore local index arrays since these are not saved due to size
-    CALL restore_decomp_info(p%n_patch_cells, p%n_patch_cells_g, &
-      &                      p%cells%decomp_info)
-    CALL restore_decomp_info(p%n_patch_edges, p%n_patch_edges_g, &
-      &                      p%edges%decomp_info)
-    CALL restore_decomp_info(p%n_patch_verts, p%n_patch_verts_g, &
-      &                      p%verts%decomp_info)
+    CALL generate_glb_to_loc_lookup(p%n_patch_cells, p%n_patch_cells_g, &
+      idx_1d(p%cells%start_idx(min_rlcell_int-1,1), &
+      &      p%cells%start_blk(min_rlcell_int-1,1))-1, p%cells%decomp_info)
+    CALL generate_glb_to_loc_lookup(p%n_patch_edges, p%n_patch_edges_g, &
+      idx_1d(p%edges%start_idx(min_rledge_int-1,1), &
+      &      p%edges%start_blk(min_rledge_int-1,1))-1, p%edges%decomp_info)
+    CALL generate_glb_to_loc_lookup(p%n_patch_verts, p%n_patch_verts_g, &
+      idx_1d(p%verts%start_idx(min_rlvert_int-1,1), &
+      &      p%verts%start_blk(min_rlvert_int-1,1))-1, p%verts%decomp_info)
 
   END SUBROUTINE restore_patch_netcdf
-
-  !-------------------------------------------------------------------------
-  !> Restores the local index since this is not saved
-
-  SUBROUTINE restore_decomp_info(n, n_g, decomp_info)
-
-    INTEGER, INTENT(IN)    :: n    ! Number of local points
-    INTEGER, INTENT(IN)    :: n_g  ! Number of global points
-    TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
-
-    INTEGER :: i, last
-
-    decomp_info%loc_index(:) = -1
-
-    DO i = 1, n
-      IF (decomp_info%glb_index(i) < 1 .OR. &
-        & decomp_info%glb_index(i) > UBOUND(decomp_info%loc_index,1)) &
-        CALL finish(modname,'Got illegal global index')
-      decomp_info%loc_index(decomp_info%glb_index(i)) = i
-    ENDDO
-
-    ! Set the negative values (indicating non local points) in the same way
-    ! as during subdivision: To the negative number of the next value to come
-    ! This shouldn't be necessary but it also doesn't hurt
-    ! YES it does hurt. TJ
-
-    last = 0
-    DO i = 1, n_g
-      IF (decomp_info%loc_index(i) > 0) THEN
-        ! Increase last (unless it is an interspersed boundary point)
-        IF(decomp_info%loc_index(i) == last+1) last = last+1
-      ELSE
-        decomp_info%loc_index(i) = -(last+1)
-      ENDIF
-    ENDDO
-
-  END SUBROUTINE restore_decomp_info
 
   !-------------------------------------------------------------------------
   !

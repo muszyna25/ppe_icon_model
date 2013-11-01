@@ -103,6 +103,7 @@
     USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
+    USE mo_util_sort,           ONLY: quicksort
 
     IMPLICIT NONE
 
@@ -353,6 +354,18 @@
         DO i = 1, loc_n
           send_decomp_info%loc_index(glb_index(i)) = i
         END DO
+
+        ALLOCATE(decomp_info%inner_glb_index(loc_n), &
+          &      decomp_info%inner_glb_index_to_loc(loc_n), &
+          &      decomp_info%outer_glb_index(0), &
+          &      decomp_info%outer_glb_index_to_loc(0), STAT=ist)
+        IF (ist /= SUCCESS) &
+          CALL finish (routine, 'allocation for decomp_info failed')
+        decomp_info%inner_glb_index(:) = glb_index(:)
+        decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, loc_n)/)
+        CALL quicksort(decomp_info%inner_glb_index(:), &
+          &       decomp_info%inner_glb_index_to_loc(:))
+
       END SUBROUTINE generate_decomp_info
 
       SUBROUTINE deallocate_decomp_info(decomp_info)
@@ -361,7 +374,11 @@
 
         INTEGER :: ist
 
-        DEALLOCATE(decomp_info%loc_index, STAT=ist)
+        DEALLOCATE(decomp_info%loc_index, &
+          &        decomp_info%inner_glb_index, &
+          &        decomp_info%inner_glb_index_to_loc, &
+          &        decomp_info%outer_glb_index, &
+          &        decomp_info%outer_glb_index_to_loc, STAT=ist)
         IF (ist /= SUCCESS) &
           CALL finish (routine, 'deallocation for decomp_info failed')
 

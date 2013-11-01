@@ -1085,7 +1085,7 @@ CONTAINS
     DO j = 0, 2 * n_boundary_rows
       DO i = 1, n2_ilev_c(j)
         jg = flag2_c_list(j)%idx(i)
-        jc = wrk_p_patch%cells%decomp_info%loc_index(jg)
+        jc = get_local_index(wrk_p_patch%cells%decomp_info, jg)
         jb = blk_no(jc)
         jl = idx_no(jc)
         wrk_p_patch%cells%decomp_info%decomp_domain(jl,jb) = j
@@ -1118,7 +1118,7 @@ CONTAINS
     DO j = 0, 2 * n_boundary_rows + 1
       DO i = 1, n2_ilev_e(j)
         jg = flag2_e_list(j)%idx(i)
-        je = wrk_p_patch%edges%decomp_info%loc_index(jg)
+        je = get_local_index(wrk_p_patch%edges%decomp_info, jg)
         jb = blk_no(je)
         jl = idx_no(je)
         wrk_p_patch%edges%decomp_info%decomp_domain(jl,jb) = j
@@ -1143,7 +1143,7 @@ CONTAINS
     DO j = 0, n_boundary_rows + 1
       DO i = 1, n2_ilev_v(j)
         jg = flag2_v_list(j)%idx(i)
-        jv = wrk_p_patch%verts%decomp_info%loc_index(jg)
+        jv = get_local_index(wrk_p_patch%verts%decomp_info, jg)
         jb = blk_no(jv)
         jl = idx_no(jv)
         wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = j
@@ -2113,7 +2113,6 @@ CONTAINS
         ENDIF
 
       ENDDO
-      loc_index_fill = k
 
       ! Fill start and end indices for remaining index sections
       IF (patch_id == 0) THEN
@@ -2198,6 +2197,20 @@ CONTAINS
       END IF
 
     END DO
+
+    ALLOCATE(decomp_info%inner_glb_index(loc_index_fill), &
+      &      decomp_info%inner_glb_index_to_loc(loc_index_fill), &
+      &      decomp_info%outer_glb_index(n_patch_cve-loc_index_fill), &
+      &      decomp_info%outer_glb_index_to_loc(n_patch_cve-loc_index_fill))
+    ! these need to be sorted (glb_index(1:loc_index_fill) is sorted by default)
+    decomp_info%inner_glb_index(:) = decomp_info%glb_index(1:loc_index_fill)
+    decomp_info%inner_glb_index_to_loc(:) = &
+      (/(i, i = 1, loc_index_fill)/)
+    decomp_info%outer_glb_index(:) = decomp_info%glb_index(loc_index_fill+1:)
+    decomp_info%outer_glb_index_to_loc(:) = &
+      (/(i, i = loc_index_fill+1, n_patch_cve)/)
+    CAll quicksort(decomp_info%outer_glb_index(:), &
+      &       decomp_info%outer_glb_index_to_loc(:))
 
   END SUBROUTINE build_patch_start_end
 
@@ -2379,6 +2392,14 @@ CONTAINS
         END IF
       END IF
     END DO
+
+    ALLOCATE(decomp_info%inner_glb_index(n_patch_cve), &
+      &      decomp_info%inner_glb_index_to_loc(n_patch_cve), &
+      &      decomp_info%outer_glb_index(0), &
+      &      decomp_info%outer_glb_index_to_loc(0))
+    ! these need to be sorted (glb_index(:) is sorted by default)
+    decomp_info%inner_glb_index(:) = decomp_info%glb_index(:)
+    decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, n_patch_cve)/)
 
   END SUBROUTINE build_patch_start_end_short
 

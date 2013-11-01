@@ -317,10 +317,20 @@ CONTAINS
 
       DEALLOCATE( decomp_info%glb_index, decomp_info%loc_index,  &
         decomp_info%owner_local, decomp_info%owner_g, &
-        decomp_info%owner_mask, decomp_info%decomp_domain, stat=ist )
+        decomp_info%owner_mask, decomp_info%decomp_domain, &
+        stat=ist )
       IF(ist/=success)THEN
         CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
       ENDIF
+      IF (ALLOCATED(decomp_info%inner_glb_index)) THEN
+        DEALLOCATE(decomp_info%inner_glb_index, &
+          &        decomp_info%inner_glb_index_to_loc, &
+          &        decomp_info%outer_glb_index, &
+          &        decomp_info%outer_glb_index_to_loc, stat=ist)
+        IF(ist/=success)THEN
+          CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
+        ENDIF
+      END IF
     END SUBROUTINE deallocate_decomp_info
 
   END SUBROUTINE deallocate_patch
@@ -830,6 +840,8 @@ CONTAINS
       ALLOCATE( decomp_info%loc_index(n_g) )
       ALLOCATE( decomp_info%owner_g(n_g))
       ALLOCATE( decomp_info%owner_local(n))
+
+      decomp_info%global_size = n_g
     END SUBROUTINE allocate_decomp_info
 
     SUBROUTINE init_decomp_info(decomp_info, npromz, n_blk)
