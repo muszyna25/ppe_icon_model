@@ -315,10 +315,9 @@ CONTAINS
 
       INTEGER :: ist
 
-      DEALLOCATE( decomp_info%glb_index, decomp_info%loc_index,  &
-        decomp_info%owner_local, decomp_info%owner_g, &
-        decomp_info%owner_mask, decomp_info%decomp_domain, &
-        stat=ist )
+      DEALLOCATE( decomp_info%glb_index, decomp_info%owner_local, &
+        decomp_info%owner_g, decomp_info%owner_mask, &
+        decomp_info%decomp_domain, stat=ist )
       IF(ist/=success)THEN
         CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
       ENDIF
@@ -837,7 +836,6 @@ CONTAINS
       decomp_info%halo_level => decomp_info%decomp_domain
       ALLOCATE( decomp_info%owner_mask(nproma,n_blk) )
       ALLOCATE( decomp_info%glb_index(n) )
-      ALLOCATE( decomp_info%loc_index(n_g) )
       ALLOCATE( decomp_info%owner_g(n_g))
       ALLOCATE( decomp_info%owner_local(n))
 
@@ -867,7 +865,6 @@ CONTAINS
 
       DO j = 1, SIZE(decomp_info%glb_index(:))
         decomp_info%glb_index(j) = j
-        decomp_info%loc_index(j) = j
       ENDDO
       decomp_info%owner_g(:) = 0
       decomp_info%owner_local(:) = 0

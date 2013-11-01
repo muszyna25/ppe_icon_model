@@ -346,15 +346,6 @@
 
         INTEGER :: i, ist
 
-        ALLOCATE(decomp_info%loc_index(glb_n), STAT=ist)
-        IF (ist /= SUCCESS) &
-          CALL finish (routine, 'allocation for decomp_info failed')
-        ! loc_index is positive on all positions owner by sender
-        decomp_info%loc_index(:) = -1
-        DO i = 1, loc_n
-          send_decomp_info%loc_index(glb_index(i)) = i
-        END DO
-
         ALLOCATE(decomp_info%inner_glb_index(loc_n), &
           &      decomp_info%inner_glb_index_to_loc(loc_n), &
           &      decomp_info%outer_glb_index(0), &
@@ -374,8 +365,7 @@
 
         INTEGER :: ist
 
-        DEALLOCATE(decomp_info%loc_index, &
-          &        decomp_info%inner_glb_index, &
+        DEALLOCATE(decomp_info%inner_glb_index, &
           &        decomp_info%inner_glb_index_to_loc, &
           &        decomp_info%outer_glb_index, &
           &        decomp_info%outer_glb_index_to_loc, STAT=ist)

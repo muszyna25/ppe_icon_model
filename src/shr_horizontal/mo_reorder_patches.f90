@@ -340,7 +340,6 @@ CONTAINS
     CALL reorder_array_pos(decomp_info%owner_mask, idx_old2new, nblks, npromz)
     CALL reorder_array_pos(decomp_info%decomp_domain, idx_old2new, nblks, npromz)
     CALL reorder_array_pos(decomp_info%owner_local, idx_old2new, n)
-    CALL reorder_array_content(decomp_info%loc_index, decomp_info%glb_index, idx_old2new, n)
     CALL reorder_array_pos(decomp_info%glb_index, idx_old2new, n)
     CALL reorder_array_pos(temp_glb_to_loc, idx_old2new, n)
 

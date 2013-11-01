@@ -47,7 +47,8 @@ MODULE mo_sync
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
-USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
+  &                              get_valid_local_index
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: msg_level
 USE mo_math_constants,     ONLY: pi
@@ -784,17 +785,16 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
         idx(jl,jb) = idx_no(0)
         blk(jl,jb) = blk_no(0)
       ELSE
-        i_l = decomp_info%loc_index(i_g)
-        ! Determine what to do with nonlocal values
-        IF(i_l<0) THEN
-          IF(remap) THEN
-            ! Remap index to positive value like in mo_subdivision/remap_index
-            i_l = MAX(ABS(i_l)-1,1)
-          ELSE
-            ! Set it to negative global index like in mo_subdivision/get_local_idx_blk
-            i_l = -i_g
-          ENDIF
-        ENDIF
+        IF (remap) THEN
+          i_l = MAX(get_valid_local_index(decomp_info, i_g), 1)
+        ELSE
+          i_l = get_local_index(decomp_info, i_g)
+          ! Set it to negative global index like in
+          ! mo_setup_subdivision/get_local_idx_blk in case the local
+          ! index is invalid
+          ! MoHa: ...does this make sense?
+          IF (i_l <= 0) i_l = - i_g
+        END IF
         idx(jl,jb) = idx_no(i_l)
         blk(jl,jb) = blk_no(i_l)
       ENDIF

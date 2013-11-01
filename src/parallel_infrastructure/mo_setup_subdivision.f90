@@ -449,16 +449,6 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p
     INTEGER, INTENT(IN) :: n
 
-    ! loc_index is never output to NetCDF
-
-    DEALLOCATE(p%cells%decomp_info%loc_index)
-    DEALLOCATE(p%edges%decomp_info%loc_index)
-    DEALLOCATE(p%verts%decomp_info%loc_index)
-    ! Allocate it again so that we don't get problems during patch destruction
-    ALLOCATE(p%cells%decomp_info%loc_index(1))
-    ALLOCATE(p%edges%decomp_info%loc_index(1))
-    ALLOCATE(p%verts%decomp_info%loc_index(1))
-
     ! owner_g is identical everywhere and output only for the first patch
 
     IF(n>1) THEN
@@ -1306,7 +1296,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: order_type_of_halos
 
       INTEGER :: n, i, ic, j, jv, je, jl, jb, jl_e, jb_e, jl_v, jb_v, ilev, &
-                 jl_c, jb_c, jc, jc_, ie, k, a_iown(2), a_mod_iown(2), a_idx(2)
+                 jl_c, jb_c, jc, jc_, k, a_iown(2), a_mod_iown(2), a_idx(2)
       LOGICAL :: is_outer, swap
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
@@ -1936,7 +1926,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
 
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, &
-         exec_sequence, ref_flag, k, k_start, loc_index_fill
+         exec_sequence, ref_flag, k, k_start, n_inner
 
     INTEGER, ALLOCATABLE :: flag2_union(:,:)
 
@@ -1957,18 +1947,7 @@ CONTAINS
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
       decomp_info%glb_index(1:n2_ilev(0)) = flag2_list(0)%idx(1:n2_ilev(0))
-      j = 1
-      DO k = 1, n2_ilev(0)
-        DO j = j, flag2_list(0)%idx(k) - 1
-          decomp_info%loc_index(j) = -(k)
-        END DO
-        decomp_info%loc_index(j) = k
-        j = j + 1
-      END DO
-      DO j = j, n_patch_cve_g
-        decomp_info%loc_index(j) = -k
-      END DO
-      loc_index_fill = n2_ilev(0)
+      n_inner = n2_ilev(0)
 
     CASE (1)
       k = 1
@@ -1983,39 +1962,35 @@ CONTAINS
       k = 1
       jf = 1
       j = 0
-      DO WHILE (j < n_patch_cve_g)
-        j = j + 1
-        DO WHILE (j < flag2_union(jf, 1))
-          decomp_info%loc_index(j) = -k
-          j = j + 1
-        END DO
+      DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
+        j = flag2_union(jf, 1)
         jb = blk_no(j) ! block index
         jl = idx_no(j) ! line index
         irl0 = refin_ctrl(jl,jb)
         IF (refinement_predicate(flag2_union(jf, 2), irl0)) THEN
-          decomp_info%loc_index(j) = k
           decomp_info%glb_index(k) = j
           k = k + 1
-        ELSE
-          decomp_info%loc_index(j) = -k
         END IF
         jf = jf + 1
-        IF (jf > n_patch_cve) THEN
-          DO WHILE (j < n_patch_cve_g)
-            j = j + 1
-            decomp_info%loc_index(j) = -k
-          END DO
-        END IF
       END DO
-      loc_index_fill = k - 1
+      n_inner = k - 1
 
     CASE default
       CALL finish("", "Uknown order_type_of_halos")
     END SELECT
 
+    ALLOCATE(decomp_info%inner_glb_index(n_inner), &
+      &      decomp_info%inner_glb_index_to_loc(n_inner), &
+      &      decomp_info%outer_glb_index(0), &
+      &      decomp_info%outer_glb_index_to_loc(0))
+    ! these need to be sorted (glb_index(1:n_inner) is sorted by default)
+    decomp_info%inner_glb_index(:) = decomp_info%glb_index(1:n_inner)
+    decomp_info%inner_glb_index_to_loc(:) = &
+      (/(i, i = 1, n_inner)/)
+
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
+    ! setting of the inner global indices.
 
     DO j=1,max_childdom
       ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
@@ -2069,7 +2044,6 @@ CONTAINS
       DO k = k_start + 1, n_patch_cve
         j = flag2_union(k - k_start, 1)
         decomp_info%glb_index(k) = j
-        decomp_info%loc_index(j) = k
       END DO
 
       ! Set end index when the last point is processed
@@ -2079,7 +2053,7 @@ CONTAINS
       start_blk(min_rlcve:irlev-1,:) = start_blk(irlev,1)
 
     CASE(1)
-      k = loc_index_fill
+      k = n_inner
       ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
       ! at the end. They are sorted by the flag2 value and will be placed at the
       ! index levels between min_rlcve_int-1 and min_rlcve
@@ -2089,10 +2063,12 @@ CONTAINS
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
         DO j = 1, n2_ilev(ilev)
           jf = flag2_list(ilev)%idx(j)
-          IF (decomp_info%loc_index(jf) < 0) THEN
+          jb = blk_no(jf) ! block index
+          jl = idx_no(jf) ! line index
+          irl0 = refin_ctrl(jl,jb)
+          IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
-            decomp_info%loc_index(jf) = k
             jb = blk_no(k) ! block index
             jl = idx_no(k) ! line index
             ! This ensures that just the first point found at this irlev is saved as start point
@@ -2199,17 +2175,12 @@ CONTAINS
 
     END DO
 
-    ALLOCATE(decomp_info%inner_glb_index(loc_index_fill), &
-      &      decomp_info%inner_glb_index_to_loc(loc_index_fill), &
-      &      decomp_info%outer_glb_index(n_patch_cve-loc_index_fill), &
-      &      decomp_info%outer_glb_index_to_loc(n_patch_cve-loc_index_fill))
-    ! these need to be sorted (glb_index(1:loc_index_fill) is sorted by default)
-    decomp_info%inner_glb_index(:) = decomp_info%glb_index(1:loc_index_fill)
-    decomp_info%inner_glb_index_to_loc(:) = &
-      (/(i, i = 1, loc_index_fill)/)
-    decomp_info%outer_glb_index(:) = decomp_info%glb_index(loc_index_fill+1:)
+    DEALLOCATE(decomp_info%outer_glb_index, decomp_info%outer_glb_index_to_loc)
+    ALLOCATE(decomp_info%outer_glb_index(n_patch_cve-n_inner), &
+      &      decomp_info%outer_glb_index_to_loc(n_patch_cve-n_inner))
+    decomp_info%outer_glb_index(:) = decomp_info%glb_index(n_inner+1:)
     decomp_info%outer_glb_index_to_loc(:) = &
-      (/(i, i = loc_index_fill+1, n_patch_cve)/)
+      (/(i, i = n_inner+1, n_patch_cve)/)
     CAll quicksort(decomp_info%outer_glb_index(:), &
       &       decomp_info%outer_glb_index_to_loc(:))
 
@@ -2244,14 +2215,21 @@ CONTAINS
 
     IF (ANY(order_type_of_halos == (/0,1,2/))) THEN
       decomp_info%glb_index(:) = flag2_list(0)%idx(:)
-      decomp_info%loc_index(:) = flag2_list(0)%idx(:)
     ELSE
       CALL finish("build_patch_start_end_short", "Uknown order_type_of_halos")
     END IF
 
+    ALLOCATE(decomp_info%inner_glb_index(n_patch_cve), &
+      &      decomp_info%inner_glb_index_to_loc(n_patch_cve), &
+      &      decomp_info%outer_glb_index(0), &
+      &      decomp_info%outer_glb_index_to_loc(0))
+    ! these need to be sorted (glb_index(:) is sorted by default)
+    decomp_info%inner_glb_index(:) = decomp_info%glb_index(:)
+    decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, n_patch_cve)/)
+
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
-    ! setting of the loc_index array.
+    ! setting of the inner global indices.
 
     DO j=1,max_childdom
       ! Note: the segments between min_rlcell and min_rlcell_int-1 are reserved for
@@ -2393,14 +2371,6 @@ CONTAINS
         END IF
       END IF
     END DO
-
-    ALLOCATE(decomp_info%inner_glb_index(n_patch_cve), &
-      &      decomp_info%inner_glb_index_to_loc(n_patch_cve), &
-      &      decomp_info%outer_glb_index(0), &
-      &      decomp_info%outer_glb_index_to_loc(0))
-    ! these need to be sorted (glb_index(:) is sorted by default)
-    decomp_info%inner_glb_index(:) = decomp_info%glb_index(:)
-    decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, n_patch_cve)/)
 
   END SUBROUTINE build_patch_start_end_short
 

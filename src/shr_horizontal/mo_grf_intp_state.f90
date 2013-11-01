@@ -393,7 +393,8 @@ END SUBROUTINE construct_2d_gridref_state
 !>
 !! Get local idx_no and blk_no
 !!
-ELEMENTAL SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
+! ELEMENTAL SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
+SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
 
   TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
   INTEGER, INTENT(IN) :: glb_index
@@ -442,7 +443,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   INTEGER, INTENT(IN) :: jcd
 
   INTEGER, ALLOCATABLE :: owner(:)
-  INTEGER :: j, k, n, i_nchdom, jc, je, jb, icid
+  INTEGER :: j, k, l, m, n, i_nchdom, jc, je, jb, icid
   INTEGER :: isb_e, ieb_e, isb_le, ieb_le, is_e, ie_e
   INTEGER :: isb_c, ieb_c, isb_lc, ieb_lc, is_c, ie_c
 
@@ -564,27 +565,43 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     n = 0
     DO k = 1, grf_vec_dim_1
       n = n+1
-      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
-        &                 p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,isb_e:ieb_e), &
-        &                 p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,isb_e:ieb_e))
+      DO l = isb_e, ieb_e
+        DO m = 1, nproma
+          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+            &                 p_grf%p_dom(jcd)%grf_vec_ind_1a(m,k,l), &
+            &                 p_grf%p_dom(jcd)%grf_vec_blk_1a(m,k,l))
+        ENDDO
+      ENDDO
     ENDDO
     DO k = 1, grf_vec_dim_1
       n = n+1
-      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
-        &                 p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,isb_e:ieb_e), &
-        &                 p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,isb_e:ieb_e))
+      DO l = isb_e, ieb_e
+        DO m = 1, nproma
+          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+            &                 p_grf%p_dom(jcd)%grf_vec_ind_1b(m,k,l), &
+            &                 p_grf%p_dom(jcd)%grf_vec_blk_1b(m,k,l))
+        ENDDO
+      ENDDO
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
-        &                 p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,isb_e:ieb_e), &
-        &                 p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,isb_e:ieb_e))
+      DO l = isb_e, ieb_e
+        DO m = 1, nproma
+          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+            &                 p_grf%p_dom(jcd)%grf_vec_ind_2a(m,k,l), &
+            &                 p_grf%p_dom(jcd)%grf_vec_blk_2a(m,k,l))
+        ENDDO
+      ENDDO
     ENDDO
     DO k = 1, grf_vec_dim_2
       n = n+1
-      CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(:,n,isb_e:ieb_e)), &
-        &                 p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,isb_e:ieb_e), &
-        &                 p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,isb_e:ieb_e))
+      DO l = isb_e, ieb_e
+        DO m = 1, nproma
+          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+            &                 p_grf%p_dom(jcd)%grf_vec_ind_2b(m,k,l), &
+            &                 p_grf%p_dom(jcd)%grf_vec_blk_2b(m,k,l))
+        ENDDO
+      ENDDO
     ENDDO
   ENDIF
 

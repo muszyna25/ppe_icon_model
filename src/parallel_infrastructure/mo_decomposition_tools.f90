@@ -112,7 +112,6 @@ MODULE mo_decomposition_tools
     INTEGER, ALLOCATABLE :: owner_local(:)
 
     ! The following is only used internally for domain decomposition
-    INTEGER, ALLOCATABLE :: loc_index(:)
     INTEGER, ALLOCATABLE :: glb_index(:)
     INTEGER, ALLOCATABLE :: inner_glb_index(:)
     INTEGER, ALLOCATABLE :: inner_glb_index_to_loc(:)
@@ -1365,30 +1364,11 @@ CONTAINS
 
     INTEGER :: i, last
 
-    decomp_info%loc_index(:) = -1
-
     ! test global indices
     DO i = 1, n
       IF (decomp_info%glb_index(i) < 1 .OR. &
         & decomp_info%glb_index(i) > n_g) &
         CALL finish("generate_glb_to_loc_lookup",'Got illegal global index')
-    ENDDO
-
-    DO i = 1, n
-      decomp_info%loc_index(decomp_info%glb_index(i)) = i
-    ENDDO
-
-    ! Set the negative values (indicating non local points) in the same way
-    ! as during subdivision: To the negative number of the next value to come
-
-    last = 0
-    DO i = 1, n_g
-      IF (decomp_info%loc_index(i) > 0) THEN
-        ! Increase last (unless it is an interspersed boundary point)
-        IF(decomp_info%loc_index(i) == last+1) last = last+1
-      ELSE
-        decomp_info%loc_index(i) = -(last+1)
-      ENDIF
     ENDDO
 
     ALLOCATE(decomp_info%inner_glb_index(n_inner), &
@@ -1407,6 +1387,47 @@ CONTAINS
       decomp_info%outer_glb_index_to_loc(:))
 
   END SUBROUTINE generate_glb_to_loc_lookup
+
+  !-------------------------------------------------------------------------
+
+  PURE FUNCTION binary_search(array, key)
+
+    INTEGER, INTENT(IN) :: array(:), key
+    INTEGER :: binary_search
+
+    INTEGER :: lb, ub, middle
+
+    lb = 1
+    ub = SIZE(array)
+    middle = ub / 2
+
+    IF (ub == 0) THEN
+      binary_search = 0
+      RETURN
+    END IF
+
+    DO WHILE (ub >= lb)
+
+      middle = (ub + lb) / 2;
+ 
+      IF (array(middle) < key) THEN
+        lb = middle + 1
+      ELSE IF (array(middle) > key) THEN
+        ub = middle - 1
+      ELSE
+        EXIT
+      END IF
+    END DO
+
+    IF (array(middle) == key) THEN
+      binary_search = middle
+    ELSE IF (array(middle) > key) THEN
+      binary_search = -middle + 1
+    ELSE
+      binary_search = -middle
+    END IF
+  END FUNCTION binary_search
+
   !-------------------------------------------------------------------------
 
   ! returns the local index for a given global index
@@ -1418,13 +1439,21 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index
     INTEGER :: get_local_index
 
-    INTEGER :: local_index
+    INTEGER :: temp
 
-    IF (glb_index > SIZE(decomp_info%loc_index) .OR. glb_index < 1) THEN
+    IF (glb_index > decomp_info%global_size .OR. glb_index < 1) THEN
       get_local_index = 0
     ELSE
-      local_index = decomp_info%loc_index(glb_index)
-      get_local_index = MERGE(local_index, -1, local_index > 0)
+      ! find in outer indices
+      temp = binary_search(decomp_info%outer_glb_index(:), glb_index)
+      IF (temp > 0) temp = decomp_info%outer_glb_index_to_loc(temp)
+      ! find in inner indices
+      IF (temp <= 0) THEN
+        temp = binary_search(decomp_info%inner_glb_index(:), glb_index)
+        IF (temp > 0) temp = decomp_info%inner_glb_index_to_loc(temp)
+      END IF
+
+      get_local_index = MERGE(temp, -1, temp > 0)
     END IF
 
   END FUNCTION get_local_index
@@ -1440,16 +1469,27 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index
     INTEGER :: get_valid_local_index
 
-    IF (glb_index > SIZE(decomp_info%loc_index) .OR. glb_index < 1) THEN
+    INTEGER :: temp
+
+    IF (glb_index > decomp_info%global_size .OR. glb_index < 1) THEN
 
       get_valid_local_index = 0
     ELSE
-      get_valid_local_index = &
-        MERGE(decomp_info%loc_index(glb_index), &
-        &   - decomp_info%loc_index(glb_index) - 1, &
-        &     decomp_info%loc_index(glb_index) >= 0)
-    END IF
 
+      ! find in outer indices
+      temp = binary_search(decomp_info%outer_glb_index(:), glb_index)
+      IF (temp > 0) THEN
+        get_valid_local_index = decomp_info%outer_glb_index_to_loc(temp)
+      ELSE
+        ! find in inner indices
+        temp = binary_search(decomp_info%inner_glb_index(:), glb_index)
+        IF (temp > 0) THEN
+          get_valid_local_index = decomp_info%inner_glb_index_to_loc(temp)
+        ELSE
+          get_valid_local_index = -temp
+        END IF
+      END IF
+    END IF
   END FUNCTION get_valid_local_index
 
   ! returns the local index for a given global index
@@ -1464,14 +1504,28 @@ CONTAINS
     INTEGER :: get_valid_local_index_
     LOGICAL, INTENT(in) :: use_next
 
-    IF (glb_index > SIZE(decomp_info%loc_index) .OR. &
+    INTEGER :: temp
+
+    IF (glb_index > decomp_info%global_size .OR. &
       & glb_index < 1) THEN
 
       get_valid_local_index_ = 0
     ELSE
-      get_valid_local_index_ = ABS(decomp_info%loc_index(glb_index))
-    END IF
 
+      ! find in outer indices
+      temp = binary_search(decomp_info%outer_glb_index(:), glb_index)
+      IF (temp > 0) THEN
+        get_valid_local_index_ = decomp_info%outer_glb_index_to_loc(temp)
+      ELSE
+        ! find in inner indices
+        temp = binary_search(decomp_info%inner_glb_index(:), glb_index)
+        IF (temp > 0) THEN
+          get_valid_local_index_ = decomp_info%inner_glb_index_to_loc(temp)
+        ELSE
+          get_valid_local_index_ = - temp + 1
+        END IF
+      END IF
+    END IF
   END FUNCTION get_valid_local_index_
 
 END MODULE mo_decomposition_tools
