@@ -92,6 +92,7 @@ nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1       # write restart file interval [days]
 ndays_restart=2      # stop model for restart [days]
+nyear_outpLen=1      # stop writing model output to file [years]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -101,6 +102,7 @@ ndays_restart=2      # stop model for restart [days]
 (( dt_restart    = ndays_restart * 86400 ))
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data )) # output intervals per file interval
+(( outputLength  = nyear_outpLen * 86400*365 ))
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -138,7 +140,7 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
-  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  output_bounds    = 0, ${outputLength}, ${dt_data}
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
@@ -176,8 +178,8 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .TRUE.       ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 4=mimetic_miura, 5=adpo
+  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
+  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
