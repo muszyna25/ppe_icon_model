@@ -704,6 +704,7 @@ CONTAINS
           ! resize buffer
           ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          tmp(:) = mtime_date_string(:)
           DEALLOCATE(mtime_date_string, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
           ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
