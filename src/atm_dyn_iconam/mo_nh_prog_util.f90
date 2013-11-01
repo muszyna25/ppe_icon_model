@@ -125,9 +125,10 @@ CONTAINS
 
     CALL DATE_AND_TIME( VALUES=DateTimeArray )
 
-    seed_trigger =   DateTimeArray(2)*100000000 + DateTimeArray(3)*1000000 &
-                 & + DateTimeArray(5)*10000     + DateTimeArray(6)*100     &
-                 & + DateTimeArray(7)
+!    seed_trigger =   DateTimeArray(2)*100000000 + DateTimeArray(3)*1000000 &
+!                 & + DateTimeArray(5)*10000     + DateTimeArray(6)*100     &
+!                 & + DateTimeArray(7)
+    seed_trigger = 704182209
 
     WRITE(string,*) 'the seed trigger is', seed_trigger
     CALL message('',TRIM(string))
