@@ -73,7 +73,7 @@ REAL(dp):: puen(kbdim,klev),        pven(kbdim,klev),                  &
 REAL(dp):: puu(kbdim,klev),         pud(kbdim,klev),                   &
            pvu(kbdim,klev),         pvd(kbdim,klev),                   &
            pmfu(kbdim,klev),        pmfd(kbdim,klev)
-REAL(dp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+REAL(dp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)     ! OUT
 INTEGER :: ktype(kbdim),            kcbot(kbdim)
 LOGICAL :: ldcum(kbdim)
 !
