@@ -219,7 +219,9 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(p_patch(jg))
 
-      CALL set_owner_mask(p_patch(jg))
+      CALL set_owner_mask(p_patch(jg)%cells%decomp_info)
+      CALL set_owner_mask(p_patch(jg)%verts%decomp_info)
+      CALL set_owner_mask(p_patch(jg)%edges%decomp_info)
 
       IF(jg == n_dom_start) THEN
         ! parent_idx/blk is set to 0 since it just doesn't exist,
@@ -254,7 +256,9 @@ CONTAINS
         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
           &                   p_patch(jg)%parent_child_index)
 
-        CALL set_owner_mask(p_patch_local_parent(jg))
+        CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
+        CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
+        CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
       ENDIF
 
     ENDDO
@@ -287,56 +291,26 @@ CONTAINS
   !-----------------------------------------------------------------------------
   !>
   !! Sets the owner mask
-  SUBROUTINE set_owner_mask(p_patch)
+  SUBROUTINE set_owner_mask(decomp_info)
 
-    TYPE(t_patch), INTENT(inout) :: p_patch
+    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
 
     INTEGER :: j, jb, jl, jg
 
-    p_patch%cells%decomp_info%owner_mask = .false.
-    p_patch%edges%decomp_info%owner_mask = .false.
-    p_patch%verts%decomp_info%owner_mask = .false.
+    decomp_info%owner_mask = .false.
+    decomp_info%owner_local(:) = -1
 
-    p_patch%cells%decomp_info%owner_local(:) = -1
-    p_patch%edges%decomp_info%owner_local(:) = -1
-    p_patch%verts%decomp_info%owner_local(:) = -1
-
-    DO j = 1, p_patch%n_patch_cells
+    DO j = 1, SIZE(decomp_info%glb_index)
 
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
-      jg = p_patch%cells%decomp_info%glb_index(j) ! index in global patch
+      jg = decomp_info%glb_index(j) ! index in global patch
 
-      p_patch%cells%decomp_info%owner_mask(jl,jb) = p_patch%cells%decomp_info%owner_g(jg)==p_pe_work
+      decomp_info%owner_mask(jl,jb) = decomp_info%owner_g(jg)==p_pe_work
       ! fill local owner
-      p_patch%cells%decomp_info%owner_local(j) = p_patch%cells%decomp_info%owner_g(jg)
+      decomp_info%owner_local(j) = decomp_info%owner_g(jg)
 
     ENDDO
-
-    DO j = 1, p_patch%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-      jg = p_patch%edges%decomp_info%glb_index(j) ! index in global patch
-
-      p_patch%edges%decomp_info%owner_mask(jl,jb) = p_patch%edges%decomp_info%owner_g(jg)==p_pe_work
-      ! fill local owner
-      p_patch%edges%decomp_info%owner_local(j) = p_patch%edges%decomp_info%owner_g(jg)
-
-    ENDDO
-
-    DO j = 1, p_patch%n_patch_verts
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-      jg = p_patch%verts%decomp_info%glb_index(j) ! index in global patch
-
-      p_patch%verts%decomp_info%owner_mask(jl,jb) = p_patch%verts%decomp_info%owner_g(jg)==p_pe_work
-      ! fill local owner
-      p_patch%verts%decomp_info%owner_local(j) = p_patch%verts%decomp_info%owner_g(jg)
-
-    ENDDO
-
   END SUBROUTINE set_owner_mask
 
   !-------------------------------------------------------------------------------------------------
@@ -1793,7 +1767,9 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(p_patch_2D(jg))
 
-      CALL set_owner_mask(p_patch_2D(jg))
+      CALL set_owner_mask(p_patch_2D(jg)%cells%decomp_info)
+      CALL set_owner_mask(p_patch_2D(jg)%verts%decomp_info)
+      CALL set_owner_mask(p_patch_2D(jg)%edges%decomp_info)
 
       IF(jg == n_dom_start) THEN
 
@@ -1822,7 +1798,9 @@ CONTAINS
 !         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
 !           &                   p_patch(jg)%parent_child_index)
 !
-!         CALL set_owner_mask(p_patch_local_parent(jg))
+!         CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
+!         CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
+!         CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
       ENDIF
 
     ENDDO
