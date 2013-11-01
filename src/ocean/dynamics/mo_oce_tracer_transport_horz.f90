@@ -213,7 +213,7 @@ SUBROUTINE advect_diffuse_horz_high_res( p_patch_3D,          &
 !input data for limiter sbr: grid, tracer grad, fluxes Q 
 !output of limiter sbr: a) the term psi times abs(Q)times grad tracer                            
 !                       b) effective diffusion coeff    
-write(*,*)'INSIDE input tracer',maxval(trac_old(:,1,:)), minval(trac_old(:,1,:))
+!write(*,*)'INSIDE input tracer',maxval(trac_old(:,1,:)), minval(trac_old(:,1,:))
 !      CALL upwind_hflux_oce( p_patch_3D,                   &
 !                             & trac_old,                     &
 !                             & p_os%p_diag%vn_time_weighted, &
@@ -327,10 +327,19 @@ write(*,*)'INSIDE input tracer',maxval(trac_old(:,1,:)), minval(trac_old(:,1,:))
 ! write(*,*)'max-min LIMITER',&
 ! maxval(0.5_wp*(z_limit_phi+z_limit_psi)),minval(0.5_wp*(z_limit_phi+z_limit_psi)),ictr,ictr1,&
 ! &  (edges_in_domain%end_block-edges_in_domain%start_block+1)*(i_endidx_e-i_startidx_e+1) 
-write(*,*)'max-min ADV-DIFF-SUM',&
-maxval(z_adv_flux_h),minval(z_adv_flux_h),    &
-maxval(z_diff_flux_h),minval(z_diff_flux_h),&
-maxval(z_adv_plus_diff_flux),minval(z_adv_plus_diff_flux)
+!write(*,*)'max-min ADV-DIFF-SUM',&
+!maxval(z_adv_flux_h),minval(z_adv_flux_h),  &
+!maxval(z_diff_flux_h),minval(z_diff_flux_h),&
+!maxval(z_adv_plus_diff_flux),minval(z_adv_plus_diff_flux)
+      
+   !---------DEBUG DIAGNOSTICS-------------------------------------------
+   idt_src=4  ! output print level (1-5, fix)
+   CALL dbg_print('AdvDifHorzHR: adv_flux_h', z_adv_flux_h, str_module,idt_src, p_patch_3d%p_patch_2d(1)%edges%owned)
+   CALL dbg_print('AdvDifHorzHR: adv+diff_h', z_adv_flux_h, str_module,idt_src, p_patch_3d%p_patch_2d(1)%edges%owned)
+   idt_src=5  ! output print level (1-5, fix)
+   CALL dbg_print('AdvDifHorzHR: limit_phi ', z_limit_phi,  str_module,idt_src, p_patch_3d%p_patch_2d(1)%edges%owned)
+   CALL dbg_print('AdvDifHorzHR: limit_psi ', z_limit_psi,  str_module,idt_src, p_patch_3d%p_patch_2d(1)%edges%owned)
+   !---------------------------------------------------------------------
 
 
 
@@ -574,23 +583,27 @@ END SUBROUTINE advect_diffuse_horz_high_res
         END DO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
-write(*,*)'max-min ADV-DIFF-SUM',&
-maxval(z_adv_flux_h),minval(z_adv_flux_h),    &
-maxval(z_diff_flux_h),minval(z_diff_flux_h),&
-maxval(z_adv_plus_diff_flux),minval(z_adv_plus_diff_flux)
 
-
+!write(*,*)'max-min ADV-DIFF-SUM',&
+!maxval(z_adv_flux_h),minval(z_adv_flux_h),    &
+!maxval(z_diff_flux_h),minval(z_diff_flux_h),&
+!maxval(z_adv_plus_diff_flux),minval(z_adv_plus_diff_flux)
 
 ! write(*,*)'max-min LIMITER PHI-PSI-CONSEC-GRAD',&
 ! maxval(z_limit_phi),minval(z_limit_phi),    &
 ! maxval(z_limit_psi),minval(z_limit_psi),&
 ! maxval(z_consec_grad),minval(z_consec_grad)
-
-        
-        
+      
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=5  ! output print level (1-5, fix)
         CALL dbg_print('AdvH*thick_e: adv_flux_h', z_adv_flux_h,str_module, idt_src, patch_2d%edges%owned)
+        CALL dbg_print('AdvDifHorz  : adv+diff_h', z_adv_flux_h, str_module,idt_src, patch_2d%edges%owned)
+        CALL dbg_print('AdvDifHorzHR: limit_phi ', z_limit_phi,  str_module,idt_src, patch_2d%edges%owned)
+        CALL dbg_print('AdvDifHorzHR: limit_psi ', z_limit_psi,  str_module,idt_src, patch_2d%edges%owned)
+        !---------------------------------------------------------------------
+        
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=5  ! output print level (1-5, fix)
         !---------------------------------------------------------------------
         
         ! !-------------------------------------------------------------------------------
