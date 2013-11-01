@@ -389,6 +389,11 @@ CONTAINS
     ELSE
       WRITE (dst,'(a,a,a)') 'output "', TRIM(event%event_data%name), '", does not write ready files:'
     END IF
+#ifdef __SX__
+    IF (dst == 0) THEN
+      WRITE (dst,'(a)') "output on SX9 has been shortened, cf. 'output_schedule.txt'."
+    END IF
+#endif
 
     ! classic output
     !    DO i=1,event%n_event_steps
@@ -402,10 +407,14 @@ CONTAINS
     CALL add_table_column(table, "filename")
     CALL add_table_column(table, "I/O PE")
     CALL add_table_column(table, "output date")
-#ifndef __SX__
-    ! do not add the file-part column on the NEC SX9, because we have a
-    ! line limit of 132 characters there
-    CALL add_table_column(table, "#")
+#ifdef __SX__
+    IF (dst /= 0) THEN
+#endif
+      ! do not add the file-part column on the NEC SX9, because we have a
+      ! line limit of 132 characters there
+      CALL add_table_column(table, "#")
+#ifdef __SX__
+    END IF
 #endif
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
@@ -423,7 +432,7 @@ CONTAINS
         END IF
 #ifdef __SX__
         ! save some characters on SX:
-        IF (LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) THEN
+        IF ((LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) .AND. (dst == 0)) THEN
           CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string(1:20)//"..."))
         ELSE
           CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
@@ -434,11 +443,15 @@ CONTAINS
         CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
 
         CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
-#ifndef __SX__
-        ! do not add the file-part column on the NEC SX9, because we have a
-        ! line limit of 132 characters there
-        CALL set_table_entry(table,irow,"#",           &
-          & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+#ifdef __SX__
+        IF (dst /= 0) THEN
+#endif
+          ! do not add the file-part column on the NEC SX9, because we have a
+          ! line limit of 132 characters there
+          CALL set_table_entry(table,irow,"#",           &
+            & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+#ifdef __SX__
+        END IF
 #endif
         ! append "+ open" or "+ close" according to event step data:
         IF (event_step%event_step_data(j)%l_open_file) THEN
