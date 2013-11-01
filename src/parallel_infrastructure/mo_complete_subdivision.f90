@@ -295,21 +295,15 @@ CONTAINS
 
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
 
-    INTEGER :: j, jb, jl, jg
+    INTEGER :: i, j, jb, jl
 
     decomp_info%owner_mask = .false.
-    decomp_info%owner_local(:) = -1
 
     DO j = 1, SIZE(decomp_info%glb_index)
 
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
-      jg = decomp_info%glb_index(j) ! index in global patch
-
-      decomp_info%owner_mask(jl,jb) = decomp_info%owner_g(jg)==p_pe_work
-      ! fill local owner
-      decomp_info%owner_local(j) = decomp_info%owner_g(jg)
-
+      decomp_info%owner_mask(jl,jb) = decomp_info%owner_local(j) == p_pe_work
     ENDDO
   END SUBROUTINE set_owner_mask
 

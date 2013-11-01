@@ -2003,7 +2003,8 @@ CONTAINS
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, &
          exec_sequence, ref_flag, k, k_start, n_inner
 
-    INTEGER, ALLOCATABLE :: flag2_union(:,:)
+    INTEGER, ALLOCATABLE :: temp_glb_index(:), permutation(:), temp_ilev(:), &
+      &                     temp_owner(:)
 
     ! if all cells/vertices/edges have flag == 0
     IF ((n2_ilev(0) == n_patch_cve) .AND. (n2_ilev(0) == n_patch_cve_g)) THEN
@@ -2018,37 +2019,45 @@ CONTAINS
       RETURN
     END IF
 
-    ALLOCATE(flag2_union(n_patch_cve, 2))
+    ALLOCATE(temp_glb_index(n_patch_cve), temp_owner(n_patch_cve))
+
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
       decomp_info%glb_index(1:n2_ilev(0)) = flag2_list(0)%idx(1:n2_ilev(0))
+      decomp_info%owner_local(1:n2_ilev(0)) = flag2_list(0)%owner(1:n2_ilev(0))
       n_inner = n2_ilev(0)
 
     CASE (1)
+      ALLOCATE(temp_ilev(n_patch_cve), permutation(n_patch_cve))
       k = 1
       DO ilev = 0, max_ilev
-        flag2_union(k:k+n2_ilev(ilev)-1, 1) &
-             = flag2_list(ilev)%idx(1:n2_ilev(ilev))
-        flag2_union(k:k+n2_ilev(ilev)-1, 2) &
-             = ilev
+        temp_glb_index(k:k+n2_ilev(ilev)-1) = flag2_list(ilev)%idx(1:n2_ilev(ilev))
+        temp_owner(k:k+n2_ilev(ilev)-1) = flag2_list(ilev)%owner(1:n2_ilev(ilev))
+        temp_ilev(k:k+n2_ilev(ilev)-1) = ilev
         k = k + n2_ilev(ilev)
       END DO
-      CALL quicksort(flag2_union(:, 1), flag2_union(:, 2))
+      permutation(:) = (/(k, k = 1, n_patch_cve)/)
+      CALL quicksort(temp_glb_index(:), permutation(:))
+      temp_owner(:) = temp_owner(permutation(:))
+      temp_ilev(:) = temp_ilev(permutation(:))
+      DEALLOCATE(permutation)
       k = 1
       jf = 1
       j = 0
       DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
-        j = flag2_union(jf, 1)
+        j = temp_glb_index(jf)
         jb = blk_no(j) ! block index
         jl = idx_no(j) ! line index
         irl0 = refin_ctrl(jl,jb)
-        IF (refinement_predicate(flag2_union(jf, 2), irl0)) THEN
+        IF (refinement_predicate(temp_ilev(jf), irl0)) THEN
           decomp_info%glb_index(k) = j
+          decomp_info%owner_local(k) = temp_owner(jf)
           k = k + 1
         END IF
         jf = jf + 1
       END DO
       n_inner = k - 1
+      DEALLOCATE(temp_ilev, temp_glb_index, temp_owner)
 
     CASE default
       CALL finish("", "Uknown order_type_of_halos")
@@ -2105,11 +2114,13 @@ CONTAINS
       ! write(0,*) "ref_flag=", ref_flag
       j = 1
       DO ilev = ref_flag + 1, max_ilev
-        flag2_union(j:j+n2_ilev(ilev)-1, 1) &
+        temp_glb_index(j:j+n2_ilev(ilev)-1) &
              = flag2_list(ilev)%idx(1:n2_ilev(ilev))
+        temp_owner(j:j+n2_ilev(ilev)-1) &
+             = flag2_list(ilev)%owner(1:n2_ilev(ilev))
         j = j + n2_ilev(ilev)
       END DO
-      CALL quicksort(flag2_union(1:j-1, 1))
+      CALL quicksort(temp_glb_index(1:j-1), temp_owner(1:j-1))
       k_start = SUM(n2_ilev(0:ref_flag))
       IF (start_idx(irlev,1)==-9999 .AND. k_start + 1 <= n_patch_cve) THEN
         start_idx(irlev,:) = idx_no(k_start + 1) ! line index
@@ -2117,9 +2128,10 @@ CONTAINS
       ENDIF
 
       DO k = k_start + 1, n_patch_cve
-        j = flag2_union(k - k_start, 1)
-        decomp_info%glb_index(k) = j
+        decomp_info%glb_index(k) = temp_glb_index(k - k_start)
+        decomp_info%owner_local(k) = temp_owner(k - k_start)
       END DO
+      DEALLOCATE(temp_glb_index, temp_owner)
 
       ! Set end index when the last point is processed
       end_idx(min_rlcve:irlev,:) = idx_no(n_patch_cve)
@@ -2144,6 +2156,7 @@ CONTAINS
           IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
+            decomp_info%owner_local(k) = flag2_list(ilev)%owner(j)
             jb = blk_no(k) ! block index
             jl = idx_no(k) ! line index
             ! This ensures that just the first point found at this irlev is saved as start point
@@ -2290,6 +2303,7 @@ CONTAINS
 
     IF (ANY(order_type_of_halos == (/0,1,2/))) THEN
       decomp_info%glb_index(:) = flag2_list(0)%idx(:)
+      decomp_info%owner_local(:) = flag2_list(0)%owner(:)
     ELSE
       CALL finish("build_patch_start_end_short", "Uknown order_type_of_halos")
     END IF
