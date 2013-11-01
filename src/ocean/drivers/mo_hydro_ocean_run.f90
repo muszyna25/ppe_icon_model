@@ -245,10 +245,14 @@ CONTAINS
       p_os(jg)%p_diag%t = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
       p_os(jg)%p_diag%s = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(jg)%p_diag%h = p_os(jg)%p_prog(nold(1))%h
+      CALL calc_potential_density( patch_3D,                     &
+        &                          p_os(jg)%p_prog(nold(1))%tracer,&
+        &                          p_os(jg)%p_diag%rhopot )
 
       p_os(jg)%p_acc%tracer(:,:,:,1)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
       p_os(jg)%p_acc%tracer(:,:,:,2)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(jg)%p_acc%h                = p_os(jg)%p_prog(nold(1))%h
+      p_os(jg)%p_acc%rhopot           = p_os(jg)%p_diag%rhopot
     ENDIF
     CALL write_name_list_output(jstep=0)
     IF (.NOT. is_restart_run()) THEN
