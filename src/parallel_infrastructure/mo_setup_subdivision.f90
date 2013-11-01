@@ -60,7 +60,8 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
+    &                              get_local_index, get_valid_local_index
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
@@ -2440,29 +2441,14 @@ CONTAINS
 
     j_g = idx_1d(g_idx, g_blk)
 
-    ! If j_g is invalid, return 0
-
-    IF(j_g < 1 .OR. j_g > UBOUND(decomp_info%loc_index,1)) THEN
-      l_idx = idx_no(0)
-      l_blk = blk_no(0)
-      RETURN
-    ENDIF
-
-    ! Get local index corresponding to j_g; if this is outside the local domain,
-    ! do what was requested by the mode setting
-
-    j_l = decomp_info%loc_index(j_g)
-
-    IF(j_l < 0) THEN
-      ! Please note: ABS(j_l) is the (last valid one + 1) or n_local+1 if after the last one
-      IF(mode > 0) THEN
-        j_l = ABS(j_l)
-      ELSE IF(mode < 0) THEN
-        j_l = ABS(j_l)-1
-      ELSE
-        j_l = -j_g
-      ENDIF
-    ENDIF
+    IF (mode == 0) THEN
+      j_l = get_local_index(decomp_info, j_g)
+      IF (j_l < 0) j_l = -j_g
+    ELSE IF (mode > 0) THEN
+      j_l = get_valid_local_index(decomp_info, j_g, .TRUE.)
+    ELSE
+      j_l = get_valid_local_index(decomp_info, j_g)
+    END IF
 
     l_idx = idx_no(j_l)
     l_blk = blk_no(j_l)
