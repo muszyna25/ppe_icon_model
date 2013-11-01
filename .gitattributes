@@ -668,8 +668,6 @@ run/add_required_atmo_hydrostatic_files -text
 run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
 run/ana_varnames_map_file.txt -text
-run/compile_for_dev.mpi.ksh -text
-run/compile_for_developers.ksh -text
 run/dict.cmor -text
 run/exec.iconrun -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
@@ -885,6 +883,8 @@ scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/Rakefile -text
+scripts/building/compile_for_dev.mpi.ksh -text
+scripts/building/compile_for_developers.ksh -text
 scripts/building/get_ocean_only -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
