@@ -610,17 +610,17 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_output_event"
     !> Max. no. of event steps (used for local array sizes)
-    INTEGER, PARAMETER :: MAX_NEVENT_STEPS = 10000
+    INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
       &                         mtime_dom_start
     TYPE(timedelta), POINTER :: delta, delta_1day
     INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
     LOGICAL                  :: l_active
-    CHARACTER(len=MAX_DATETIME_STR_LEN)  :: mtime_date_string(MAX_NEVENT_STEPS)
-    INTEGER                              :: mtime_sim_steps(MAX_NEVENT_STEPS)
-    CHARACTER(len=MAX_DATETIME_STR_LEN)  :: mtime_exactdate(MAX_NEVENT_STEPS)
-    TYPE(t_event_step_data)              :: filename_metadata(MAX_NEVENT_STEPS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
+    INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
+    TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
 
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
@@ -649,6 +649,10 @@ CONTAINS
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
 
     ! loop over the event occurrences
+
+    ALLOCATE(mtime_date_string(INITIAL_NEVENT_STEPS), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
     delta_1day => newTimedelta("P01D")          ! create a time delta for 1 days
@@ -658,7 +662,17 @@ CONTAINS
         & (mtime_date >= mtime_dom_start)) THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
-          CALL finish(routine, "Internal error: step buffer size exceeded!")
+          ! resize buffer
+          ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          tmp(:) = mtime_date_string(:)
+          DEALLOCATE(mtime_date_string, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+          ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          mtime_date_string(1:SIZE(tmp)) = tmp(:)
+          DEALLOCATE(tmp, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
         END IF
         CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
@@ -678,7 +692,16 @@ CONTAINS
       IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
-          CALL finish(routine, "Internal error: step buffer size exceeded!")
+          ! resize buffer
+          ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          DEALLOCATE(mtime_date_string, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+          ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          mtime_date_string(1:SIZE(tmp)) = tmp(:)
+          DEALLOCATE(tmp, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
         END IF
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
@@ -688,6 +711,11 @@ CONTAINS
         EXIT EVENT_LOOP
       END IF
     END DO EVENT_LOOP
+
+    ALLOCATE(mtime_sim_steps(SIZE(mtime_date_string)),   &
+      &      mtime_exactdate(SIZE(mtime_date_string)),   &
+      &      filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL fct_time2simstep(n_event_steps, mtime_date_string,                            &
       &                   sim_step_info, mtime_sim_steps, mtime_exactdate)
@@ -731,6 +759,10 @@ CONTAINS
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
     CALL resetCalendar()
+    DEALLOCATE(mtime_date_string, mtime_sim_steps, &
+      &        mtime_exactdate, filename_metadata, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
   END FUNCTION new_output_event
 
 
