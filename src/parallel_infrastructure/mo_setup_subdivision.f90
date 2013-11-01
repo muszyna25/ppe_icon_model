@@ -107,6 +107,7 @@ MODULE mo_setup_subdivision
 
   TYPE nb_flag_list_elem
     INTEGER, ALLOCATABLE :: idx(:)
+    INTEGER, ALLOCATABLE :: owner(:)
   END TYPE nb_flag_list_elem
 
 CONTAINS
@@ -1295,14 +1296,13 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, je, jl, jb, jl_e, jb_e, jl_v, jb_v, ilev, &
-                 jl_c, jb_c, jc, jc_, k, a_iown(2), a_mod_iown(2), a_idx(2)
-      LOGICAL :: is_outer, swap
+      INTEGER :: n, i, ic, j, jv, je, jl_e, jb_e, jl_v, jb_v, ilev, &
+                 jl_c, jb_c, jc, jc_, k
       LOGICAL, ALLOCATABLE :: pack_mask(:)
-      INTEGER :: t_cells(1:wrk_p_patch_g%verts%max_connectivity), &
-           t_cell_owner(1:wrk_p_patch_g%verts%max_connectivity)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
-                              temp_edges(:), inner_edges(:), edge_cells(:)
+                              temp_vertices_owner(:), temp_edges(:), &
+                              temp_edges_owner(:), inner_edges(:), &
+                              edge_cells(:)
       INTEGER :: n_inner_edges, n_temp_edges, n_temp_cells, n_temp_vertices
 
       !---------------------------------------------------------------------
@@ -1371,7 +1371,8 @@ CONTAINS
         RETURN
       END IF
 
-      ALLOCATE(flag2_c_list(0)%idx(n2_ilev_c(0)))
+      ALLOCATE(flag2_c_list(0)%idx(n2_ilev_c(0)), &
+        &      flag2_c_list(0)%owner(n2_ilev_c(0)))
 
       j = 0
       DO i = 1, wrk_p_patch_g%n_patch_cells
@@ -1380,6 +1381,7 @@ CONTAINS
           flag2_c_list(0)%idx(j) = i
         END IF
       END DO
+      flag2_c_list(0)%owner(:) = my_proc
 
       n_inner_edges = 0
       n_temp_edges = 0
@@ -1445,36 +1447,11 @@ CONTAINS
         ALLOCATE(pack_mask(n_temp_vertices))
       END IF
 
-      ! compute ownership of vertices
-      DO i = 1, n_temp_vertices
-        jv = temp_vertices(i)
-        jb_v = blk_no(jv) ! block index
-        jl_v = idx_no(jv) ! line index
-        n = wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
-        DO j = 1, n
-          jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, j)
-          jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, j)
-          jc = idx_1d(jl,jb)
-          t_cells(j) = jc
-        END DO
-        CALL insertion_sort(t_cells(1:n))
-        t_cell_owner(1:n) = cell_owner(t_cells(1:n))
-        jc = COUNT(t_cell_owner(1:n) >= 0)
-        t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
-        n = jc
-        a_iown(1) = t_cell_owner(1)
-        a_mod_iown(1) = MOD(a_iown(1), 2)
-        DO j = 2, n
-          a_iown(2) = t_cell_owner(j)
-          a_mod_iown(2) = MOD(a_iown(2), 2)
-          ! 50% chance of acquiring a vertex
-          swap = a_iown(1) > a_iown(2) &
-               .NEQV. a_mod_iown(1) == a_mod_iown(2)
-          a_iown(1) = MERGE(a_iown(2), a_iown(1), swap)
-          a_mod_iown(1) = MERGE(a_mod_iown(2), a_mod_iown(1), swap)
-        END DO
-        pack_mask(i) = a_iown(1) == my_proc
-      END DO
+      ALLOCATE(temp_vertices_owner(n_temp_vertices))
+      CALL compute_vertex_owner(temp_vertices(1:n_temp_vertices), &
+        &                       temp_vertices_owner(1:n_temp_vertices))
+      pack_mask(1:n_temp_vertices) = temp_vertices_owner(1:n_temp_vertices) &
+        &                            == my_proc
 
       n = COUNT(pack_mask(1:n_temp_vertices))
 
@@ -1485,41 +1462,40 @@ CONTAINS
       ! generate flag2_v_list(0) and flag2_v_list(1)
       IF (order_type_of_halos == 0 .OR. order_type_of_halos == 2 ) THEN
         ALLOCATE(flag2_v_list(0)%idx(n_temp_vertices), &
-                 flag2_v_list(1)%idx(0))
+          &      flag2_v_list(0)%owner(n_temp_vertices), &
+          &      flag2_v_list(1)%idx(0), &
+          &      flag2_v_list(1)%owner(0))
         n2_ilev_v(0) = n_temp_vertices
         flag2_v_list(0)%idx(:) = temp_vertices(1:n_temp_vertices)
+        flag2_v_list(0)%owner(:) = temp_vertices_owner(1:n_temp_vertices)
         n2_ilev_v(1) = 0
       ELSE
-        ALLOCATE(flag2_v_list(0)%idx(n), &
-                 flag2_v_list(1)%idx(n_temp_vertices - n))
+        ALLOCATE(flag2_v_list(0)%idx(n), flag2_v_list(0)%owner(n), &
+                 flag2_v_list(1)%idx(n_temp_vertices - n), &
+                 flag2_v_list(1)%owner(n_temp_vertices - n))
         n2_ilev_v(0) = n
         flag2_v_list(0)%idx(:) = owned_verts(:)
+        flag2_v_list(0)%owner(:) = &
+          PACK(temp_vertices_owner(1:n_temp_vertices), &
+            &  pack_mask(1:n_temp_vertices))
         n2_ilev_v(1) = n_temp_vertices - n
         flag2_v_list(1)%idx(:) = PACK(temp_vertices(1:n_temp_vertices), &
                                       .NOT. pack_mask(1:n_temp_vertices))
+        flag2_v_list(1)%owner(:) = &
+          PACK(temp_vertices_owner(1:n_temp_vertices), &
+            &  .NOT. pack_mask(1:n_temp_vertices))
       END IF
 
+      CALL quicksort(temp_edges(1:n_temp_edges), edge_cells(1:n_temp_edges))
       IF (SIZE(pack_mask(:)) < n_temp_edges) THEN
         DEALLOCATE(pack_mask)
         ALLOCATE(pack_mask(n_temp_edges))
       END IF
-      DO i = 1, n_temp_edges
-
-        je = temp_edges(i)
-        jl_e = idx_no(je)
-        jb_e = blk_no(je)
-        a_idx(1:2) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
-                            wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
-        ! outer boundary edges always belong to single adjacent cell owner
-        a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
-        a_iown(1:2) = cell_owner(a_idx(1:2))
-        is_outer = ANY(a_idx <= 0) .OR. a_idx(1) == a_idx(2) .OR. ANY(a_iown(:) < 0)
-        a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
-        ! 50% chance of acquiring an edge
-        pack_mask(i) = .NOT. is_outer .AND. (MAXVAL(a_iown) == my_proc &
-                                             .NEQV. a_mod_iown(1) == a_mod_iown(2))
-      END DO
-
+      ALLOCATE(temp_edges_owner(n_temp_edges))
+      CALL compute_edge_owner(temp_edges(1:n_temp_edges), &
+        &                     temp_edges_owner(1:n_temp_edges))
+      pack_mask(1:n_temp_edges) = &
+        .NOT. temp_edges_owner(1:n_temp_edges) == my_proc
       n = COUNT(pack_mask(1:n_temp_edges))
       ALLOCATE(owned_edges(n_inner_edges + n_temp_edges - n))
       owned_edges(1:n_inner_edges) = inner_edges(1:n_inner_edges)
@@ -1532,22 +1508,28 @@ CONTAINS
       IF (n_boundary_rows > 0 .AND. order_type_of_halos == 1) THEN
 
         ALLOCATE(flag2_e_list(0)%idx(n_inner_edges + n_temp_edges - n), &
-                 flag2_e_list(1)%idx(n))
+          &      flag2_e_list(0)%owner(n_inner_edges + n_temp_edges - n), &
+          &      flag2_e_list(1)%idx(n), flag2_e_list(1)%owner(n))
         n2_ilev_e(0) = n_inner_edges + n_temp_edges - n
         n2_ilev_e(1) = n
         flag2_e_list(0)%idx(:) = owned_edges(:)
+        flag2_e_list(0)%owner(:) = my_proc
         flag2_e_list(1)%idx(:) = PACK(temp_edges(1:n_temp_edges), &
                                         pack_mask(1:n_temp_edges))
-        CALL insertion_sort(flag2_e_list(1)%idx(1:n2_ilev_e(1)))
+        flag2_e_list(1)%owner(:) = PACK(temp_edges_owner(1:n_temp_edges), &
+                                        pack_mask(1:n_temp_edges))
       ELSE
 
         ALLOCATE(flag2_e_list(0)%idx(n_inner_edges + n_temp_edges), &
-                 flag2_e_list(1)%idx(0))
+          &      flag2_e_list(0)%owner(n_inner_edges + n_temp_edges), &
+          &      flag2_e_list(1)%idx(0), flag2_e_list(1)%owner(0))
         n2_ilev_e(0) = n_inner_edges + n_temp_edges
         n2_ilev_e(1) = 0
         flag2_e_list(0)%idx(1:n_inner_edges) = inner_edges(1:n_inner_edges)
+        flag2_e_list(0)%owner(1:n_inner_edges) = my_proc
         flag2_e_list(0)%idx(n_inner_edges+1:) = temp_edges(1:n_temp_edges)
-        CALL insertion_sort(flag2_e_list(0)%idx(1:n2_ilev_e(0)))
+        flag2_e_list(0)%owner(n_inner_edges+1:) = temp_edges_owner(1:n_temp_edges)
+        CALL quicksort(flag2_e_list(0)%idx(:), flag2_e_list(0)%owner(:))
       END IF
 
       DEALLOCATE(inner_edges)
@@ -1588,8 +1570,10 @@ CONTAINS
 
         ! store cells of level 2*ilev-1
         n2_ilev_c(2*ilev-1) = n_temp_cells
-        ALLOCATE(flag2_c_list(2*ilev-1)%idx(n_temp_cells))
+        ALLOCATE(flag2_c_list(2*ilev-1)%idx(n_temp_cells), &
+          &      flag2_c_list(2*ilev-1)%owner(n_temp_cells))
         flag2_c_list(2*ilev-1)%idx(:) = temp_cells(1:n_temp_cells)
+        flag2_c_list(2*ilev-1)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
 
         ! collect all cells adjacent to the outer vertices
         IF (SIZE(temp_cells(:)) < n_temp_vertices * &
@@ -1623,8 +1607,10 @@ CONTAINS
         END DO
         ! store cells of level 2*ilev
         n2_ilev_c(2*ilev) = n_temp_cells
-        ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells))
+        ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells), &
+          &      flag2_c_list(2*ilev)%owner(n_temp_cells))
         flag2_c_list(2*ilev)%idx(:) = temp_cells(1:n_temp_cells)
+        flag2_c_list(2*ilev)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
 
         ! get all edges of cells of level 2*ilev and level 2*ilev-1
         IF (SIZE(temp_edges(:)) < (n2_ilev_c(2*ilev) + &
@@ -1679,12 +1665,14 @@ CONTAINS
                                         (temp_edges(1:n_temp_edges-1) > 0)
           pack_mask(n_temp_edges) = .FALSE.
           n = COUNT(pack_mask(1:n_temp_edges))
-          ALLOCATE(flag2_e_list(2*ilev)%idx(n))
+          ALLOCATE(flag2_e_list(2*ilev)%idx(n), flag2_e_list(2*ilev)%owner(n))
           flag2_e_list(2*ilev)%idx(:) = PACK(temp_edges(1:n_temp_edges), &
                                                pack_mask(1:n_temp_edges))
+          CALL compute_edge_owner(flag2_e_list(2*ilev)%idx(:), &
+            &                     flag2_e_list(2*ilev)%owner(:))
           n2_ilev_e(2*ilev) = n
         ELSE
-          ALLOCATE(flag2_e_list(2*ilev)%idx(0))
+          ALLOCATE(flag2_e_list(2*ilev)%idx(0), flag2_e_list(2*ilev)%owner(0))
           n2_ilev_e(2*ilev) = 0
           pack_mask(1:n_temp_edges) = .FALSE.
         END IF
@@ -1700,9 +1688,11 @@ CONTAINS
         ELSE
           n = 0
         END IF
-        ALLOCATE(flag2_e_list(2*ilev+1)%idx(n))
+        ALLOCATE(flag2_e_list(2*ilev+1)%idx(n), flag2_e_list(2*ilev+1)%owner(n))
         flag2_e_list(2*ilev+1)%idx(:) = PACK(temp_edges(1:n_temp_edges), &
                                                .NOT. pack_mask(1:n_temp_edges))
+        CALL compute_edge_owner(flag2_e_list(2*ilev+1)%idx(:), &
+          &                     flag2_e_list(2*ilev+1)%owner(:))
         n2_ilev_e(2*ilev+1) = n
         temp_edges(1:n) = flag2_e_list(2*ilev+1)%idx(:)
         edge_cells(1:n) = PACK(edge_cells(1:n_temp_edges), &
@@ -1747,10 +1737,18 @@ CONTAINS
           CALL remove_entries_from_ref_list(temp_vertices(1:n_temp_vertices), &
             n_temp_vertices, flag2_v_list(ilev+k)%idx(1:n2_ilev_v(ilev+k)))
         END DO
-        ALLOCATE(flag2_v_list(ilev+1)%idx(n_temp_vertices))
-        flag2_v_list(ilev+1)%idx(:) = PACK(temp_vertices(1:n_temp_vertices), &
-                                             temp_vertices(1:n_temp_vertices) > 0)
+
+        IF (SIZE(temp_vertices_owner(:)) < n_temp_vertices) THEN
+          DEALLOCATE(temp_vertices_owner)
+          ALLOCATE(temp_vertices_owner(n_temp_vertices))
+        END IF
+
+        ALLOCATE(flag2_v_list(ilev+1)%idx(n_temp_vertices), &
+          &      flag2_v_list(ilev+1)%owner(n_temp_vertices))
+        flag2_v_list(ilev+1)%idx(:) = temp_vertices(1:n_temp_vertices)
         n2_ilev_v(ilev+1) = n_temp_vertices
+        CALL compute_vertex_owner(flag2_v_list(ilev+1)%idx(:), &
+          &                       flag2_v_list(ilev+1)%owner(:))
       END DO
 
       DEALLOCATE(temp_cells, temp_vertices, temp_edges, edge_cells, pack_mask)
@@ -1836,28 +1834,38 @@ CONTAINS
 
       ! allocate and set flag2_cve_list arrays
       ALLOCATE(flag2_c_list(0)%idx(wrk_p_patch_g%n_patch_cells), &
+        &      flag2_c_list(0)%owner(wrk_p_patch_g%n_patch_cells), &
         &      flag2_v_list(0)%idx(wrk_p_patch_g%n_patch_verts), &
+        &      flag2_v_list(0)%owner(wrk_p_patch_g%n_patch_verts), &
         &      flag2_v_list(1)%idx(0), &
+        &      flag2_v_list(1)%owner(0), &
         &      flag2_e_list(0)%idx(wrk_p_patch_g%n_patch_edges), &
-        &      flag2_e_list(1)%idx(0))
+        &      flag2_e_list(0)%owner(wrk_p_patch_g%n_patch_edges), &
+        &      flag2_e_list(1)%idx(0), &
+        &      flag2_e_list(1)%owner(0))
 
       DO i = 1, wrk_p_patch_g%n_patch_cells
         flag2_c_list(0)%idx(i) = i
       END DO
+      flag2_c_list(0)%owner(:) = my_proc
 
       DO i = 1, wrk_p_patch_g%n_patch_verts
         flag2_v_list(0)%idx(i) = i
       END DO
+      flag2_v_list(0)%owner(:) = my_proc
 
       DO i = 1, wrk_p_patch_g%n_patch_edges
         flag2_e_list(0)%idx(i) = i
       END DO
+      flag2_e_list(0)%owner(:) = my_proc
 
       DO i = 1, n_boundary_rows
 
         ALLOCATE(flag2_c_list(2*i-1)%idx(0), flag2_c_list(2*i)%idx(0), &
-          &      flag2_v_list(i+1)%idx(0), &
-          &      flag2_e_list(2*i)%idx(0), flag2_e_list(2*i+1)%idx(0))
+          &      flag2_c_list(2*i-1)%owner(0), flag2_c_list(2*i)%owner(0), &
+          &      flag2_v_list(i+1)%idx(0), flag2_v_list(i+1)%owner(0), &
+          &      flag2_e_list(2*i)%idx(0), flag2_e_list(2*i+1)%idx(0), &
+          &      flag2_e_list(2*i)%owner(0), flag2_e_list(2*i+1)%owner(0))
       END DO
 
       ! allocate and set owner arrays
@@ -1866,6 +1874,73 @@ CONTAINS
       owned_verts(:) = flag2_v_list(0)%idx(:)
       owned_edges(:) = flag2_e_list(0)%idx(:)
     END SUBROUTINE compute_flag_lists_short
+
+    SUBROUTINE compute_vertex_owner(vertices, owner)
+      INTEGER, INTENT(IN) :: vertices(:)
+      INTEGER, INTENT(OUT) :: owner(:)
+
+      INTEGER :: i, jv, jb_v, jl_v, n, j, jl, jb, jc, &
+        &        t_cells(wrk_p_patch_g%verts%max_connectivity), &
+        &        t_cell_owner(wrk_p_patch_g%verts%max_connectivity), &
+        &        a_iown(2), a_mod_iown(2)
+      LOGICAL :: swap
+
+      ! compute ownership of vertices
+      DO i = 1, SIZE(vertices)
+        jv = vertices(i)
+        jb_v = blk_no(jv) ! block index
+        jl_v = idx_no(jv) ! line index
+        n = wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+        DO j = 1, n
+          jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, j)
+          jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, j)
+          jc = idx_1d(jl,jb)
+          t_cells(j) = jc
+        END DO
+        CALL insertion_sort(t_cells(1:n))
+        t_cell_owner(1:n) = cell_owner(t_cells(1:n))
+        jc = COUNT(t_cell_owner(1:n) >= 0)
+        t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
+        n = jc
+        a_iown(1) = t_cell_owner(1)
+        a_mod_iown(1) = MOD(a_iown(1), 2)
+        DO j = 2, n
+          a_iown(2) = t_cell_owner(j)
+          a_mod_iown(2) = MOD(a_iown(2), 2)
+          ! 50% chance of acquiring a vertex
+          swap = a_iown(1) > a_iown(2) &
+               .NEQV. a_mod_iown(1) == a_mod_iown(2)
+          a_iown(1) = MERGE(a_iown(2), a_iown(1), swap)
+          a_mod_iown(1) = MERGE(a_mod_iown(2), a_mod_iown(1), swap)
+        END DO
+        owner(i) = a_iown(1)
+      END DO
+    END SUBROUTINE compute_vertex_owner
+
+    SUBROUTINE compute_edge_owner(edges, owner)
+      INTEGER, INTENT(IN) :: edges(:)
+      INTEGER, INTENT(OUT) :: owner(:)
+
+      INTEGER :: i, je, jl_e, jb_e, a_idx(2), a_iown(2), a_mod_iown(2)
+
+      DO i = 1, SIZE(edges)
+
+        je = edges(i)
+        jl_e = idx_no(je)
+        jb_e = blk_no(je)
+        a_idx(:) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
+                          wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
+        ! outer boundary edges always belong to single adjacent cell owner
+        a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
+        a_iown(:) = cell_owner(a_idx(:))
+        a_iown(:) = MERGE(a_iown(:), MAXVAL(a_iown(:)), a_iown(:) >= 0)
+        a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
+        ! 50% chance of acquiring an edge
+        owner(i) = MERGE(a_iown(1), a_iown(2), &
+          &              (a_iown(1) > a_iown(2)) .EQV. &
+          &              (a_mod_iown(1) == a_mod_iown(2)))
+      END DO
+    END SUBROUTINE compute_edge_owner
 
   END SUBROUTINE divide_patch
 
