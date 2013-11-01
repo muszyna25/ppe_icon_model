@@ -41,11 +41,8 @@ begin
 ;----------------------------------------------------------------------
   
   File  = addfile( iFile, "r" )
-  
   times = File->time                 ; time      [time steps]
-
   var   = File->$varName$
-
   varlongname = var@long_name
   varunit     = var@units
 
@@ -57,22 +54,22 @@ begin
   print("Outputfile: "+str_concat((/oFile,".",oType/)))
 
   res = True
-  res@tiXAxisFontHeightF     = 0.018
-  res@tiYAxisFontHeightF     = 0.018
+  res@gsnCenterString        = expnum
+  res@gsnCenterStringOrthogonalPosF = 0.08
   res@gsnLeftString          = varlongname 
   res@tiXAxisString          = "Time [h]" 
   res@tiYAxisString          = "[" +  varunit + "]"
-  res@gsnStringFontHeightF   = 0.020
+  res@tiXAxisFontHeightF     = 0.018
   res@tiYAxisFontHeightF     = 0.018
+  res@gsnStringFontHeightF   = 0.020
   res@gsnStringFontHeightF   = 0.018
   res@tmXBLabelFontHeightF   = 0.016
   res@tmYLLabelFontHeightF   = 0.016
   res@tmYROn                 = False
-  
   res@gsnMaximize            = True
   res@gsnPaperOrientation    = "portrait"
   res@xyLineThicknessF       = 3.0
-  res@xyLineColor            = "blue"   ; "red","green","blue","yellow"
+  res@xyLineColor            = "blue"       ; "red","green","blue","yellow"
 
   wks = gsn_open_wks(oType,oFile) 
 
@@ -98,6 +95,5 @@ begin
 ;----------------------------------------------------------------------
 
   plot = gsn_csm_xy(wks,times1,vals1,res)
-
 
 end

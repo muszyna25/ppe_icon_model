@@ -1,11 +1,11 @@
 ;----------------------------------------------------------------------
-; plot_torus.ncl 
+; plot_torus_tz.ncl 
 ;----------------------------------------------------------------------
-; Plot torus profile.
+; Plot torus profile over time.
 ;
 ; Basic Usage:
 ; oFile=${plotdir}/${var}_${case}"_"${turb}
-; ncl -n plot_torus.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
+; ncl -n plot_torus_tz.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
 ;    varName=\"${var}\" expnum=\"${title}\"
 ;
 ; Required Parameters:
@@ -32,8 +32,6 @@ begin
 
   ntop   = 75
   nbot   = 90
-  isteps = (/0,3,6,8/)
-  nsteps = 4
 
 ;----------------------------------------------------------------------
 ; argument list and defaults
@@ -75,6 +73,8 @@ begin
   res@trYReverse             = True		; reverse the Y-axis
   res@trYMinF                = ntop
   res@trYMaxF                = nbot
+  res@gsnCenterString        = expnum
+  res@gsnCenterStringOrthogonalPosF = 0.08
   res@gsnLeftString          = varlongname 
   res@tiXAxisString          = "Time [h]" 
   res@tiYAxisString          = "Model Level"
@@ -87,7 +87,6 @@ begin
   res@tmYROn                 = False
   res@gsnMaximize            = False
   res@gsnPaperOrientation    = "portrait"
-  res@xyLineThicknessF       = 3.0
   res@cnLinesOn              = False             ; optional lines
   res@cnFillMode             = "RasterFill"      ; optional raster
   res@cnFillOn               = True              ; turn on color fill
@@ -156,7 +155,7 @@ begin
   res@sfYArray  = z0
 
 ;----------------------------------------------------------------------
-; line plot
+; contour plot
 ;----------------------------------------------------------------------
 
   plot = gsn_csm_contour(wks,var1,res)

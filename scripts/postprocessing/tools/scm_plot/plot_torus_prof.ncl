@@ -1,11 +1,11 @@
 ;----------------------------------------------------------------------
-; plot_torus.ncl 
+; plot_torus_prof.ncl 
 ;----------------------------------------------------------------------
 ; Plot torus profile.
 ;
 ; Basic Usage:
 ; oFile=${plotdir}/${var}_${case}"_"${turb}
-; ncl -n plot_torus.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
+; ncl -n plot_torus_prof.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
 ;    varName=\"${var}\" expnum=\"${title}\"
 ;
 ; Required Parameters:
@@ -50,7 +50,6 @@ begin
 ;----------------------------------------------------------------------
   
   File = addfile( iFile, "r" )
-  
   if (varName.eq."w") then
     lev = File->height_2             ;lev_2 or ilev
     zz  = File->z_ifc
@@ -59,11 +58,8 @@ begin
     zz  = File->z_mc
   end if
   nlevs = doubletoint(max(lev))
-
   times = File->time                 ; time      [time steps]
-
   var   = File->$varName$
-
   varlongname = var@long_name
   varunit     = var@units
 
@@ -76,25 +72,26 @@ begin
 
   res = True
   res@trYReverse             = True		; reverse the Y-axis
-  res@tiXAxisFontHeightF     = 0.018
-  res@tiYAxisFontHeightF     = 0.018
   res@trYMinF                = ntop
   res@trYMaxF                = nbot
-  res@xyComputeXMin          = True
+  res@gsnCenterString        = expnum
+  res@gsnCenterStringOrthogonalPosF = 0.08
   res@gsnLeftString          = varlongname 
   res@tiXAxisString          = "[" +  varunit + "]"
   res@tiYAxisString          = "Model Levels"
-  res@gsnStringFontHeightF   = 0.020
+  res@tiXAxisFontHeightF     = 0.018
   res@tiYAxisFontHeightF     = 0.018
+  res@gsnStringFontHeightF   = 0.020
   res@gsnStringFontHeightF   = 0.018
   res@tmXBLabelFontHeightF   = 0.016
   res@tmYLLabelFontHeightF   = 0.016
   res@tmYROn                 = False
   res@gsnMaximize            = False
   res@gsnPaperOrientation    = "portrait"
+  res@xyLineThicknessF       = 3.0
+  res@xyComputeXMin          = True
   res@gsnDraw                = False
   res@gsnFrame               = False
-  res@xyLineThicknessF       = 3.0
   
   wks = gsn_open_wks(oType,oFile) 
 
@@ -183,18 +180,11 @@ begin
   lgres@lgMonoDashIndex    = True
   lgres@lgDashIndex        = 0
 
-  labels = "t = "+ ( 24.0 * ( times(isteps) - times(0) ) - 24.0 ) + "h"
+  labels = " t = "+ ( ( times(isteps) - times(0) )* 24.0 ) + "h "
   legend = gsn_create_legend (wks, nsteps, labels,lgres)
 
-; Use gsn_add_annotation to attach this legend to our existing plot.
-; This way, if we resize the plot, the legend will stay with the
-; plot and be resized automatically.
-; Point (0,0) is the dead center of the plot. Point (0,.5) is center,
-; flush bottom. Point (0.5,0.5) is flush bottom, flush right.
-
   amres                  = True
-  amres@amJust           = "TopRight"       ; Use bottom right corner of box
-                                            ; for determining its location.
+  amres@amJust           = "TopRight"       ; box location
   amres@amParallelPosF   =  0.5             ; Move legend to right
   amres@amOrthogonalPosF = -0.5             ; Move legend down.
   annoid = gsn_add_annotation(plot0,legend,amres)  ; add legend to plot
@@ -203,7 +193,6 @@ begin
 ; line plot
 ;----------------------------------------------------------------------
 
- draw(plot0)
-
+  draw(plot0)
 
 end
