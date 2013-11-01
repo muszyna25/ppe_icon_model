@@ -57,6 +57,7 @@ blas/xerbla.f -text
 /build_all -text
 /build_command.ecmwf -text
 /cmake.configure -text
+cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
 cmake/FindNETCDF.cmake -text
 config/config.guess -text
@@ -225,6 +226,7 @@ externals/mtime/include/mtime_julianDay.h -text
 externals/mtime/include/mtime_time.h -text
 externals/mtime/include/mtime_timedelta.h -text
 externals/mtime/include/orbit.h -text
+externals/mtime/src/CMakeLists.txt -text
 externals/mtime/src/kepler.c -text
 externals/mtime/src/mtime_calendar.c -text
 externals/mtime/src/mtime_calendar360day.c -text

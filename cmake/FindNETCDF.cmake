@@ -84,6 +84,7 @@ find_library(
 mark_as_advanced(NETCDF_C_LIBRARY NETCDF_C_INCLUDE_DIR)
 
 message ("   netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
+message ("   netCDF C library directory       : ${NETCDF_C_LIBRARY_DIR}")
 message ("   netCDF C libraries               : ${NETCDF_C_LIBRARY}")
 
 if (_netcdf_nc4_support)
@@ -154,8 +155,7 @@ elseif (_netcdf_version VERSION_LESS 4.2)
   find_library(
     NETCDF_Fortran_LIBRARY 
     NAMES netcdff
-    HINTS ${_netcdf_root}/lib
-)
+    HINTS ${_netcdf_root}/lib)
 
 else()
 
@@ -207,12 +207,16 @@ endif()
 
 message ("   netCDF Fortran include directory : ${NETCDF_Fortran_INCLUDE_DIR}")
 message ("   netCDF Fortran module directory  : ${NETCDF_Fortran_MODULE_DIR}")
+message ("   netCDF Fortran library directory : ${NETCDF_Fortran_LIBRARY_DIR}")
 message ("   netCDF Fortran libraries         : ${NETCDF_Fortran_LIBRARY}")
 
-set (NETCDF_INCLUDE_DIRS "${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_DIR} ${NETCDF_INCLUDE_DIR}")
-set (NETCDF_LIBRARIES    "${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY}")
+set (NETCDF_INCLUDE_DIRS ${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_DIR} ${NETCDF_INCLUDE_DIR})
+set (NETCDF_LIBRARY_DIRS ${NETCDF_Fortran_LIBRARY_DIR} ${NETCDF_C_LIBRARY_DIR})
+set (NETCDF_LIBRARIES    ${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY})
 
 # handle the QUIETLY and REQUIRED arguments and set NETCDF_FOUND to TRUE if 
 # all listed variables are TRUE
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NETCDF DEFAULT_MSG _netcdf_root)
+
+mark_as_advanced(NETCDF_INCLUDE_DIRS NETCDF_LIBRARY_DIRS NETCDF_LIBRARIES)

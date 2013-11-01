@@ -29,6 +29,7 @@ include_directories (
     ${PROJECT_SOURCE_DIR}/src/include 
     ${PROJECT_SOURCE_DIR}/include 
     ${PROJECT_SOURCE_DIR}/support 
+    ${PROJECT_SOURCE_DIR}/externals/mtime/include
     ${PROJECT_BINARY_DIR}/lib
 )
 #_________________________________________________________________________________________________
@@ -70,6 +71,7 @@ add_definitions (-DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE)
 add_subdirectory (blas)
 add_subdirectory (lapack)
 add_subdirectory (support)
+add_subdirectory (externals/mtime/src)
 #_________________________________________________________________________________________________
 #
 add_subdirectory (src)
