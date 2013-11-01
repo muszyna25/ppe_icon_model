@@ -48,7 +48,7 @@ MODULE mo_run_config
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
-  PUBLIC :: ltransport, ntracer, nlev, nlevp1, nvclev
+  PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
@@ -201,7 +201,8 @@ MODULE mo_run_config
 
     INTEGER :: num_levp1(MAX_DOM) !< number of half levels for each domain
     INTEGER :: nlev               !< number of full levels for each domain
-    INTEGER :: nlevp1             !< number of half levels for each domain
+    INTEGER :: nlevm1             !< number of half levels for each domain without boundaries
+    INTEGER :: nlevp1             !< number of half levels for each domain with    boundaries
     INTEGER :: nvclev             !< number of levels at which the coeffs A, B are given
 
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
@@ -247,6 +248,7 @@ CONTAINS
       nshift (:) = 0
     END IF
 
+    nlevm1       = nlev - 1
     nlevp1       = nlev + 1
     nvclev       = nlev + 1
     num_levp1(:) = num_lev(:) + 1

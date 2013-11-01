@@ -80,7 +80,7 @@ MODULE m_dyn
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
+  USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs, output_mode
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
@@ -94,7 +94,7 @@ MODULE m_dyn
   USE mo_impl_constants,     ONLY: iecham,ildf_echam, inwp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_vertical_coord_table, ONLY: delpr, nlevm1, nplev, nplvp1,             &
+  USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1,             &
     &                                vct_b, alrrdic, rdlnp0i, rdt0ral, t0icao
 
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array

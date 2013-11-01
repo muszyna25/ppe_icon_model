@@ -73,7 +73,6 @@ MODULE mo_vertical_coord_table
   PUBLIC
   PRIVATE :: alloc_vct, init_vct
 
-  INTEGER :: nlevm1         ! (number of levels)-1.
   INTEGER :: nplev          ! *number of pressure levels.
   INTEGER :: nplvp1         ! *nplev+1.*
   INTEGER :: nplvp2         ! *nplev+2.*
@@ -392,7 +391,6 @@ CONTAINS
     ilev      = klev
     ilevp1    = ilev + 1
     klevp1    = ilevp1
-    nlevm1    = ilev - 1
     iplev     = 0
     iplvp1    = 1
     is        = klevp1 + ilevp1

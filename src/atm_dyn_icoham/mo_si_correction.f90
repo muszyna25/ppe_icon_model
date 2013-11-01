@@ -98,9 +98,9 @@ MODULE mo_si_correction
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_dynamics_config,    ONLY: idiv_method, sw_ref_height
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_run_config,         ONLY: msg_level, nlev, nlevp1
+  USE mo_run_config,         ONLY: msg_level, nlev, nlevm1, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog
-  USE mo_vertical_coord_table,ONLY: delpr, rdelpr, nlevm1
+  USE mo_vertical_coord_table,ONLY: delpr, rdelpr
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, auxhyb
   USE mo_gmres,               ONLY: gmres
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e

@@ -48,7 +48,7 @@ MODULE mo_ha_dynamics_adv
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, l_diagtime
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_run_config,         ONLY: nlev, nlevp1
+  USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_edge
   USE mo_intp,               ONLY: cells2edges_scalar, edges2cells_scalar, &
@@ -56,7 +56,7 @@ MODULE mo_ha_dynamics_adv
                                    edges2verts_scalar, verts2cells_scalar, &
                                    edges2edges_scalar
   USE mo_interpol_config,    ONLY: i_cori_method, l_corner_vort
-  USE mo_vertical_coord_table, ONLY: rdelpr, nlevm1, nplev, nplvp1
+  USE mo_vertical_coord_table, ONLY: rdelpr, nplev, nplvp1
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,     ONLY: min_rledge
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
