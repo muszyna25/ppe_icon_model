@@ -262,6 +262,9 @@ MODULE mo_output_event_handler
   !> Internal switch for debugging output
   LOGICAL, PARAMETER :: ldebug  = .FALSE.
 
+  !> Max. no. of steps printed out to stderr
+  INTEGER, PARAMETER :: MAX_PRINTOUT = 2000
+
 
 #ifdef NOMPI
   !---------------------------------------------------------------
@@ -394,6 +397,12 @@ CONTAINS
       WRITE (dst,'(a)') "output on SX9 has been shortened, cf. 'output_schedule.txt'."
     END IF
 #endif
+
+    ! do not print to screen if the table is excessively long
+    IF ((event%n_event_steps > MAX_PRINTOUT) .AND. (dst == 0)) THEN
+      WRITE (dst,*) "detailed print-out of output steps has been omitted, cf. 'output_schedule.txt'."
+      RETURN
+    END IF
 
     ! classic output
     !    DO i=1,event%n_event_steps
@@ -655,7 +664,7 @@ CONTAINS
 
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
-    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 days
+    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
     n_event_steps = 0
     EVENT_LOOP: DO
       IF ((mtime_date >= mtime_begin) .AND. &
