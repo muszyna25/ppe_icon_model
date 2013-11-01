@@ -7,7 +7,7 @@
    # use add_required_file ${in_path_file} ./${new_name} 
    # --------------------------------------------------
    pool_icon_folder=/pool/data/ICON
-   local_grid_folder=$(readlink -m ../grids)
+   local_grid_folder=${ICONDIR}/grids
    # if not defined, get them from the pool
    if [ "x${LOC}" = 'xPOOL' ] ; then
      grids_folder=${pool_icon_folder}/ocean_data/ocean_grid
@@ -48,7 +48,7 @@
      ocean_flux_file=${ocean_forcing_folder}/$ocean_force_filename     
      ls -l $ocean_flux_file
      if [ $? -eq 0 ]; then
-       add_required_file ${ocean_flux_file}          ./$ocean_flux_filename
+       add_required_file ${ocean_flux_file}          $ocean_flux_filename
      else
        echo "WARNING: $ocean_flux_file does not exist - proceed from local disk"
      fi
