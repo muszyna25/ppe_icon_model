@@ -289,12 +289,11 @@ CONTAINS
 
         ! CALL MIURA with second order accurate reconstruction
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),    &! in
-          &                 lcleanup%miura_h(jt), p_igrad_c_miura,         &! in
-          &                 p_itype_hlimit(jt), p_iord_backtraj,           &! in
-          &                 p_upflux(:,:,:,jt),                            &! inout
+          &                 p_vn, z_real_vt, p_dtime, p_int,               &! in
+          &                 lcompute%miura_h(jt), lcleanup%miura_h(jt),    &! in
+          &                 p_igrad_c_miura, p_itype_hlimit(jt),           &! in
+          &                 p_iord_backtraj, p_upflux(:,:,:,jt),           &! in,inout
           &                 opt_lconsv  = llsq_lin_consv,                  &! in
-          &                 opt_real_vt = z_real_vt,                       &! in
           &                 opt_rlend   = i_rlend,                         &! in
           &                 opt_slev    = p_iadv_slev(jt),                 &! in
           &                 opt_ti_slev = iadv_min_slev                    )! in
@@ -306,13 +305,13 @@ CONTAINS
 
         ! CALL MIURA with third order accurate reconstruction
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
-          &                 p_vn, p_dtime, p_int, lcompute%miura3_h(jt), &! in
-          &                 lcleanup%miura3_h(jt), p_itype_hlimit(jt),   &! in
-          &                 p_upflux(:,:,:,jt),                          &! inout
-          &                 opt_real_vt = z_real_vt,                     &! in
-          &                 opt_rlend   = i_rlend,                       &! in
-          &                 opt_slev    = p_iadv_slev(jt),               &! in
-          &                 opt_ti_slev = iadv_min_slev                  )! in
+          &                p_vn, z_real_vt, p_dtime, p_int,              &! in
+          &                lcompute%miura3_h(jt), lcleanup%miura3_h(jt), &! in
+          &                p_itype_hlimit(jt),                           &! in
+          &                p_upflux(:,:,:,jt),                           &! inout
+          &                opt_rlend   = i_rlend,                        &! in
+          &                opt_slev    = p_iadv_slev(jt),                &! in
+          &                opt_ti_slev = iadv_min_slev                   )! in
 
       CASE( FFSL )
 
@@ -321,10 +320,10 @@ CONTAINS
         ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme) 
         ! with second or third order accurate reconstruction
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
-          &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
+          &                 p_itype_hlimit(jt),                           &! in
           &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_real_vt = z_real_vt,                      &! in
           &                 opt_lconsv  = llsq_high_consv,                &! in
           &                 opt_rlend   = i_rlend,                        &! in
           &                 opt_slev    = p_iadv_slev(jt),                &! in
@@ -344,13 +343,12 @@ CONTAINS
 
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
-          &             p_mass_flx_e, p_vn, p_dtime, 3, p_int,            &! in
-          &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),       &! in
+          &             p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,        &! in
+          &             p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),&! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
           &             elev = p_patch%nlev,                              &! in
           &             opt_lconsv  = llsq_lin_consv,                     &! in
-          &             opt_real_vt = z_real_vt,                          &! in
           &             opt_rlend   = i_rlend,                            &! in 
           &             opt_slev    = p_iadv_slev(jt),                    &! in
           &             opt_ti_slev = iadv_min_slev                       )! in
@@ -363,11 +361,11 @@ CONTAINS
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-          &              p_vn, p_dtime, p_int, lcompute%miura_h(jt),     &! in
-          &              lcleanup%miura_h(jt), p_igrad_c_miura,          &! in
-          &              p_itype_hlimit(jt), p_iord_backtraj,            &! in
-          &              p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv, &! inout,in
-          &              opt_real_vt = z_real_vt,                        &! in
+          &              p_vn, z_real_vt, p_dtime, p_int,                &! in
+          &              lcompute%miura_h(jt), lcleanup%miura_h(jt),     &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              opt_lconsv  = llsq_lin_consv,                   &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = qvsubstep_elev+1,                 &! in
           &              opt_elev    = p_patch%nlev,                     &! in
@@ -379,14 +377,13 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
-          &              lcompute%miura_mcycl_h(jt),                     &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
+          &              p_int, lcompute%miura_mcycl_h(jt),              &! in
           &              lcleanup%miura_mcycl_h(jt),                     &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
           &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
@@ -400,10 +397,10 @@ CONTAINS
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
-          &              p_vn, p_dtime, p_int, lcompute%miura3_h(jt),    &! in
-          &              lcleanup%miura3_h(jt), p_itype_hlimit(jt),      &! in
+          &              p_vn, z_real_vt, p_dtime, p_int,                &! in
+          &              lcompute%miura3_h(jt), lcleanup%miura3_h(jt),   &! in
+          &              p_itype_hlimit(jt),                             &! in
           &              p_upflux(:,:,:,jt),                             &! inout
-          &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = qvsubstep_elev+1,                 &! in
           &              opt_elev    = p_patch%nlev,                     &! in
@@ -416,14 +413,13 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
-          &              lcompute%miura3_mcycl_h(jt),                    &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
+          &              p_int, lcompute%miura3_mcycl_h(jt),             &! in
           &              lcleanup%miura3_mcycl_h(jt),                    &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
           &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
@@ -437,10 +433,10 @@ CONTAINS
         ! CALL standard FFSL for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, p_dtime, p_int, lcompute%ffsl_h(jt),    &! in
-          &                 lcleanup%ffsl_h(jt), p_itype_hlimit(jt),      &! in
+          &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
+          &                 lcompute%ffsl_h(jt), lcleanup%ffsl_h(jt),     &! in
+          &                 p_itype_hlimit(jt),                           &! in
           &                 p_upflux(:,:,:,jt),                           &! inout
-          &                 opt_real_vt = z_real_vt,                      &! in
           &                 opt_lconsv  = llsq_high_consv,                &! in
           &                 opt_rlend   = i_rlend,                        &! in
           &                 opt_slev    = qvsubstep_elev+1,               &! in
@@ -454,14 +450,13 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, p_dtime, 3, p_int,          &! in
-          &              lcompute%ffsl_mcycl_h(jt),                      &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
+          &              p_int, lcompute%ffsl_mcycl_h(jt),               &! in
           &              lcleanup%ffsl_mcycl_h(jt),                      &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
           &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
           &              elev        = qvsubstep_elev,                   &! in
           &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_real_vt = z_real_vt,                        &! in
           &              opt_rlend   = i_rlend,                          &! in
           &              opt_slev    = p_iadv_slev(jt),                  &! in
           &              opt_ti_slev = p_iadv_slev(jt),                  &! in
@@ -633,11 +628,12 @@ CONTAINS
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
   !!   in Press
   !!
-  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,  &
-    &                   p_int, ld_compute, ld_cleanup, p_igrad_c_miura,       &
-    &                   p_itype_hlimit, p_iord_backtraj, p_out_e, opt_lconsv, &
-    &                   opt_rlstart, opt_rlend, opt_lout_edge, opt_real_vt,   &
-    &                   opt_slev, opt_elev, opt_ti_slev, opt_ti_elev )
+  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,    &
+    &                      p_dtime, p_int, ld_compute, ld_cleanup,           &
+    &                      p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, &
+    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,      &
+    &                      opt_lout_edge, opt_slev, opt_elev, opt_ti_slev,   &
+    &                      opt_ti_elev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -655,8 +651,11 @@ CONTAINS
     REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
 
-    REAL(wp), INTENT(IN) ::    &    !< unweighted velocity field
+    REAL(wp), INTENT(IN) ::    &    !< unweighted normal velocity field
       &  p_vn(:,:,:)                !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN) ::    &    !< unweighted tangential velocity field
+      &  p_vt(:,:,:)                !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
@@ -679,19 +678,16 @@ CONTAINS
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
-     &  opt_lconsv                     !< is used
+      &  opt_lconsv                    !< is used
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'edge value'
+      &  opt_rlstart                   !< only valid for calculation of 'edge value'
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
-     & opt_lout_edge                   !< or the flux across the edge (.FALSE./not specified)
-
-    REAL(wp), INTENT(IN), OPTIONAL,  & ! optional: tangential velocity
-     & TARGET :: opt_real_vt(:,:,:)
+      & opt_lout_edge                  !< or the flux across the edge (.FALSE./not specified)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
@@ -717,11 +713,6 @@ CONTAINS
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
-
-    REAL(wp), TARGET ::   &                    !< unweighted tangential velocity
-      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
-
-    REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
     REAL(wp), POINTER :: ptr_cc(:,:,:)         !< ptr to tracer field or coefficient c0
                                                !< of lsq reconstruction (for nonconservative
@@ -797,11 +788,6 @@ CONTAINS
       l_out_edgeval = .FALSE.
     ENDIF
 
-    IF ( PRESENT(opt_real_vt) ) THEN
-      ptr_real_vt => opt_real_vt
-    ELSE
-      ptr_real_vt => z_real_vt
-    ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -848,6 +834,11 @@ CONTAINS
     !             with    flux limiter following Zalesak (1979)
     !
 
+    !
+    ! 1. Approximation of the 'departure region'. In case of a linear
+    !    reconstruction it is sufficient to calculate the barycenter
+    !    of the departure region (instead of all the vertices).
+    !
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for distance vectors and upwind cells
       ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),          &
@@ -860,10 +851,37 @@ CONTAINS
           &  'allocation for z_distv_bary, z_cell_idx, z_cell_blk ' //&
           &  'failed' )
       ENDIF
-    END IF
+
+
+      ! one half of current time step
+      z_dthalf = 0.5_wp * p_dtime
+
+      ! compute barycenter of departure region and the distance vector between
+      ! the cell center and the barycenter using backward trajectories.
+      IF (p_iord_backtraj == 1)  THEN
+
+        ! first order backward trajectory
+        CALL btraj   ( p_patch, p_int, p_vn, p_vt, z_dthalf,        &! in
+          &            z_cell_idx, z_cell_blk, z_distv_bary,        &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr, &! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti           )! in
+
+      ELSE
+
+        ! second order backward trajectory
+        CALL btraj_o2( p_patch, p_int, p_vn, p_vt, z_dthalf,        &! in
+          &            z_cell_idx, z_cell_blk, z_distv_bary,        &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr, &! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti           )! in
+
+      ENDIF
+
+    END IF ! ld_compute
+
+
 
     !
-    ! 1. reconstruction of (unlimited) cell based gradient (lat,lon)
+    ! 2. reconstruction of (unlimited) cell based gradient (lat,lon)
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
@@ -894,46 +912,6 @@ CONTAINS
 
     ENDIF
 
-
-    !
-    ! 2. Approximation of the 'departure region'. In case of a linear
-    !    reconstruction it is sufficient to calculate the barycenter
-    !    of the departure region (instead of all the vertices).
-    !
-
-    ! one half of current time step
-    z_dthalf = 0.5_wp * p_dtime
-
-
-    IF (ld_compute) THEN
-
-      IF (.NOT. PRESENT(opt_real_vt)) THEN
-        ! reconstruct tangential velocity component at edge midpoints
-        CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,             &! in
-          &                         ptr_real_vt, opt_rlend=i_rlend_vt )! inout
-      ENDIF
-
-      ! compute barycenter of departure region and the distance vector between
-      ! the cell center and the barycenter using backward trajectories.
-      IF (p_iord_backtraj == 1)  THEN
-
-        ! first order backward trajectory
-        CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
-
-      ELSE
-
-        ! second order backward trajectory
-        CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
-
-      ENDIF
-
-    END IF ! ld_compute
 
 
 
@@ -1081,10 +1059,10 @@ CONTAINS
   !!   138, 4497-4508
   !!
   SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e, p_vn,    &
-    &                   p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,          &
+    &                   p_vt, p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,    &
     &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
-    &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_real_vt,     &
-    &                   opt_slev, opt_ti_slev, opt_ti_elev  )
+    &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_slev,        &
+    &                   opt_ti_slev, opt_ti_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1106,8 +1084,12 @@ CONTAINS
       &  p_mass_flx_e(:,:,:)        !< Assumption: constant over p_dtime
                                     !< dim: (nproma,nlev,nblks_e)
 
-    REAL(wp), INTENT(IN) ::    &    !< unweighted velocity field
+    REAL(wp), INTENT(IN) ::    &    !< unweighted normal velocity field
       &  p_vn(:,:,:)                !< Assumption: constant over p_dtime
+                                    !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN) ::    &    !< unweighted tangential velocity field
+      &  p_vt(:,:,:)                !< Assumption: constant over p_dtime
                                     !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(IN) :: p_dtime !< time step
@@ -1145,9 +1127,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    REAL(wp), INTENT(IN), OPTIONAL,  & ! optional: tangential velocity
-      & TARGET :: opt_real_vt(:,:,:)
-
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
 
@@ -1166,11 +1145,6 @@ CONTAINS
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
-
-    REAL(wp), TARGET ::   &                    !< unweighted tangential velocity
-      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
-
-    REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
     REAL(wp), POINTER :: ptr_cc(:,:,:)         !< ptr to tracer field or coefficient c0
                                                !< of lsq reconstruction (for nonconservative
@@ -1254,12 +1228,6 @@ CONTAINS
      l_consv = opt_lconsv
     ELSE
      l_consv = .FALSE. ! non-conservative reconstruction
-    ENDIF
-
-    IF ( PRESENT(opt_real_vt) ) THEN
-      ptr_real_vt => opt_real_vt
-    ELSE
-      ptr_real_vt => z_real_vt
     ENDIF
 
     IF ( PRESENT(opt_rlstart) ) THEN
@@ -1347,29 +1315,23 @@ CONTAINS
       !    of the departure region (instead of all the vertices).
       !
 
-      IF (.NOT. PRESENT(opt_real_vt)) THEN
-        ! reconstruct tangential velocity component at edge midpoints
-        CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,             &! in
-          &                         ptr_real_vt, opt_rlend=i_rlend_vt )! inout
-      ENDIF
-
       ! compute barycenter of departure region and the distance vector between
       ! the cell center and the barycenter using backward trajectories.
       IF (p_iord_backtraj == 1)  THEN
 
         ! first order backward trajectory
-        CALL btraj   ( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
+        CALL btraj   ( p_patch, p_int, p_vn, p_vt, z_dthalf,         &! in
+          &            z_cell_idx, z_cell_blk, z_distv_bary,         &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,  &! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti            )! in
 
       ELSE
 
         ! second order backward trajectory
-        CALL btraj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,   &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,          &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti             )! in
+        CALL btraj_o2( p_patch, p_int, p_vn, p_vt, z_dthalf,         &! in
+          &            z_cell_idx, z_cell_blk, z_distv_bary,         &! out
+          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,  &! in
+          &            opt_slev=slev_ti, opt_elev=elev_ti            )! in
 
       ENDIF
 
@@ -1630,7 +1592,7 @@ CONTAINS
   !>
   !! MIURA scheme with third order accurate lsq-reconstruction
   !!
-  !! Calculation of time averaged horizontal tracer fluxes at triangle edges
+  !! Calculation of time averaged horizontal tracer flux at triangle edges
   !! using a Flux form semi-lagrangian (FFSL)-method based on the MIURA-scheme.
   !! Unlike the standard Miura scheme, a third or fourth order accurate
   !! (i.e. quadratic, cubic) least squares reconstruction can be applied.
@@ -1646,11 +1608,11 @@ CONTAINS
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
-  SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,   &
-    &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
-    &                      p_out_e, opt_rlstart, opt_rlend, opt_lout_edge,      &
-    &                      opt_real_vt, opt_slev, opt_elev, opt_ti_slev,        &
-    &                      opt_ti_elev )
+  SUBROUTINE upwind_hflux_miura3( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,      &
+    &                        p_dtime, p_int, ld_compute, ld_cleanup,            &
+    &                        p_itype_hlimit, p_out_e, opt_rlstart, opt_rlend,   &
+    &                        opt_lout_edge, opt_slev, opt_elev, opt_ti_slev,    &
+    &                        opt_ti_elev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1671,6 +1633,9 @@ CONTAINS
     REAL(wp), INTENT(IN) ::    &    !< normal component of velocity field
       &  p_vn(:,:,:)                !< dim: (nproma,nlev,nblks_e)
 
+    REAL(wp), INTENT(IN) ::    &    !< tangential component of velocity field
+      &  p_vt(:,:,:)                !< dim: (nproma,nlev,nblks_e)
+
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
     LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. compute geometrical terms
@@ -1683,7 +1648,8 @@ CONTAINS
       &  p_itype_hlimit             !< for horizontal transport
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the tracer mass flux
-      &  p_out_e(:,:,:)             !< or the reconstructed edge value
+      &  p_out_e(:,:,:)             !< or the reconstructed edge value depending on 
+                                    !< opt_lout_edge
                                     !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -1694,9 +1660,6 @@ CONTAINS
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
      & opt_lout_edge                   !< or the flux across the edge (.FALSE./not specified)
-
-    REAL(wp), INTENT(IN), OPTIONAL,  & !< optional: tangential velocity
-     & TARGET :: opt_real_vt(:,:,:)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
@@ -1713,16 +1676,11 @@ CONTAINS
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
 
-   REAL(wp) ::   &                     !< coefficients of lsq reconstruction
+    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
       &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
-
-    REAL(wp), TARGET ::   &                    !< tangential component of velocity field
-      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< at edges
-
-    REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
     REAL(wp) ::  &                    !< coordinates of departure region vertices. The origin
       &  z_coords_dreg_v(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
@@ -1734,7 +1692,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, SAVE ::  & !< gauss quadrature vector
       &  z_quad_vector_sum(:,:,:,:)   !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< area departure region [m**2]
+    REAL(wp), ALLOCATABLE, SAVE ::  & !< area of departure region [m**2]
       &  z_dreg_area(:,:,:)           !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line indices of upwind cell
@@ -1742,7 +1700,7 @@ CONTAINS
     INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< block indices of upwind cell
       &  z_cell_blk(:,:,:)             !< dim: (nproma,nlev,p_patch%nblks_e)
 
-    INTEGER, POINTER, SAVE ::  &       !< Pointer to line and block indices of the cell
+    INTEGER, POINTER ::  &             !< Pointer to line and block indices of the cell
       &  ptr_ilc(:,:,:), ptr_ibc(:,:,:)!< center upstream of the edge
 
     INTEGER  :: nlev               !< number of full levels
@@ -1792,12 +1750,6 @@ CONTAINS
       l_out_edgeval = .FALSE.
     ENDIF
 
-    IF ( PRESENT(opt_real_vt) ) THEN
-      ptr_real_vt => opt_real_vt
-    ELSE
-      ptr_real_vt => z_real_vt
-    ENDIF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE
@@ -1834,6 +1786,14 @@ CONTAINS
     !             with positive definite flux limiter following Zalesak (1979)
     !
 
+
+    !
+    ! 1. Approximation of the 'departure region'. The coordinates of
+    !    all vertices are computed and stored in an edge-based data
+    !    structure.
+    !    In addition the Gauss-Legendre quadrature is prepared by
+    !    calculating some tracer-invariant (i.e. purely geometric) fields.
+    !
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for quadrature and upwind cells
       ALLOCATE( z_quad_vector_sum(nproma,dim_unk,nlev,p_patch%nblks_e), &
@@ -1846,11 +1806,52 @@ CONTAINS
           &  'allocation for z_quad_vector_sum, z_dreg_area, ' //    &
           &  'z_cell_idx, z_cell_blk' )
       ENDIF
-    END IF
+
+
+      ! compute vertex coordinates for the departure region using a first
+      ! order accurate (O(\Delta t)) backward trajectory-method
+      CALL btraj_dreg( p_patch, p_int, p_vn, p_vt, p_dtime,      &! in
+        &              .TRUE.,                                   &! in
+        &              z_cell_idx, z_cell_blk, z_coords_dreg_v,  &! out
+        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend, &! in
+        &              opt_slev=slev_ti, opt_elev=elev_ti        )! in
+
+
+
+      ! maps quadrilateral onto the standard rectangle of edge length 2.
+      ! provides quadrature points and the corresponding determinant of the
+      ! Jacobian for each departure region.
+      IF (lsq_high_ord == 2) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a quadratic 2D polynomial
+        CALL prep_gauss_quadrature_q( p_patch, z_coords_dreg_v,           &! in
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+
+      ELSE IF (lsq_high_ord == 30) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a cubic 2D polynomial without cross derivatives
+        CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+
+      ELSE IF (lsq_high_ord == 3) THEN
+        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
+        ! a full cubic 2D polynomial
+        CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
+          &                      z_quad_vector_sum, z_dreg_area,          &! out
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+      ENDIF
+
+    END IF ! ld_compute
+
 
 
     !
-    ! 1. reconstruction of the tracer subgrid distribution
+    ! 2. reconstruction of the tracer subgrid distribution
     !    least squares method
     !    Note: for rlstart=2 we run into a sync-error with nests
     !
@@ -1898,66 +1899,6 @@ CONTAINS
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
     CALL sync_patch_array_4de3(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
-
-    !
-    ! 2. Approximation of the 'departure region'. The coordinates of
-    !    all vertices are computed and stored in an edge-based data
-    !    structure.
-    !    In addition the Gauss-Legendre quadrature is prepared by
-    !    calculating some tracer-invariant (i.e. purely geometric) fields.
-    !
-    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
-
-    IF (ld_compute) THEN
-
-      IF (.NOT. PRESENT(opt_real_vt)) THEN
-        ! reconstruct tangential velocity component at edge midpoints
-        CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,          &! in
-          &                         ptr_real_vt, opt_rlend=i_rlend )! inout
-      ENDIF
-
-      ! compute vertex coordinates for the departure region using a first
-      ! order accurate (O(\Delta t)) backward trajectory-method
-      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
-        &              .TRUE.,                                     &! in
-        &              z_cell_idx, z_cell_blk, z_coords_dreg_v,    &! out
-        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
-        &              opt_slev=slev_ti, opt_elev=elev_ti          )! in
-
-
-
-
-      ! maps quadrilateral onto the standard rectangle of edge length 2.
-      ! provides quadrature points and the corresponding determinant of the
-      ! Jacobian for each departure region.
-      IF (lsq_high_ord == 2) THEN
-        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a quadratic 2D polynomial
-        CALL prep_gauss_quadrature_q( p_patch, z_coords_dreg_v,           &! in
-          &                      z_quad_vector_sum, z_dreg_area,          &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
-      ELSE IF (lsq_high_ord == 30) THEN
-        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a cubic 2D polynomial without cross derivatives
-        CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
-          &                      z_quad_vector_sum, z_dreg_area,          &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-
-      ELSE IF (lsq_high_ord == 3) THEN
-        ! Gauss-Legendre quadrature with 4 quadrature points for integrating
-        ! a full cubic 2D polynomial
-        CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
-          &                      z_quad_vector_sum, z_dreg_area,          &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
-      ENDIF
-
-
-    END IF ! ld_compute
 
 
     ! Pointer to line and block indices of the cell center upstream of the edge
@@ -2173,10 +2114,10 @@ CONTAINS
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Recosntructions for Forward-in-Time Schemes, Mon. Wea. Rev.
   !!
-  SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,     &
-    &                      p_int, ld_compute, ld_cleanup, p_itype_hlimit,       &
-    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,         &
-    &                      opt_lout_edge, opt_real_vt, opt_slev, opt_elev,      &
+  SUBROUTINE upwind_hflux_ffsl( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,     &
+    &                      p_dtime, p_int, ld_compute, ld_cleanup,           &
+    &                      p_itype_hlimit, p_out_e, opt_lconsv, opt_rlstart, &
+    &                      opt_rlend, opt_lout_edge, opt_slev, opt_elev,     &
     &                      opt_ti_slev, opt_ti_elev  )
 
 
@@ -2197,6 +2138,9 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::    &    !< normal component of velocity field
       &  p_vn(:,:,:)                !< dim: (nproma,nlev,nblks_e)
+
+    REAL(wp), INTENT(IN) ::    &    !< tangential component of velocity field
+      &  p_vt(:,:,:)                !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
@@ -2225,9 +2169,6 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
      & opt_lout_edge                   !< or the flux across the edge (.FALSE./not specified)
 
-    REAL(wp), INTENT(IN), OPTIONAL,  & !< optional: tangential velocity
-     & TARGET :: opt_real_vt(:,:,:)
-
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
 
@@ -2248,11 +2189,6 @@ CONTAINS
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
-
-    REAL(wp), TARGET ::   &                    !< tangential component of velocity field
-      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< at edges
-
-    REAL(wp), POINTER :: ptr_real_vt(:,:,:)    !< pointer to z_real_vt or opt_real_vt
 
     REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
       &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
@@ -2334,12 +2270,6 @@ CONTAINS
       l_out_edgeval = .FALSE.
     ENDIF
 
-    IF ( PRESENT(opt_real_vt) ) THEN
-      ptr_real_vt => opt_real_vt
-    ELSE
-      ptr_real_vt => z_real_vt
-    ENDIF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE
@@ -2376,6 +2306,13 @@ CONTAINS
     !             with positive definite flux limiter following Zalesak (1979)
     !
 
+    !
+    ! 1. Approximation of the 'departure region'. The coordinates of
+    !    all vertices are computed and stored in an edge-based data
+    !    structure.
+    !    In addition the Gauss-Legendre quadrature is prepared by
+    !    calculating some tracer-invariant (i.e. purely geometric) fields.
+    !
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for quadrature and upwind cells
       ALLOCATE( z_quad_vector_sum0(nproma,dim_unk,nlev,p_patch%nblks_e), &
@@ -2396,106 +2333,25 @@ CONTAINS
           &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, ' // &
           &  'patch0/1/2_cell_idx,  patch0/1/2_cell_blk failed' )
       ENDIF
-    END IF
 
-
-    !
-    ! 1. reconstruction of the tracer subgrid distribution
-    !    least squares method
-    !    Note: for rlstart=2 we run into a sync-error with nests
-    !
-    IF (lsq_high_ord == 1) THEN
-      ! linear reconstruction
-      ! (computation of 3 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2, opt_lconsv=l_consv )
-      ELSE
-        CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
-          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2, opt_lconsv=l_consv )
-      ENDIF
-    ELSE IF (lsq_high_ord == 2) THEN
-      ! quadratic reconstruction
-      ! (computation of 6 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
-    ELSE IF (lsq_high_ord == 30) THEN
-      ! cubic reconstruction without cross derivatives
-      ! (computation of 8 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
-    ELSE IF (lsq_high_ord == 3) THEN
-      ! cubic reconstruction with cross derivatives
-      ! (computation of 10 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
-    ENDIF
-
-
-    ! Synchronize polynomial coefficients
-    ! Note: a special sync routine is needed here because the fourth dimension
-    ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
-
-
-    !
-    ! 2. Approximation of the 'departure region'. The coordinates of
-    !    all vertices are computed and stored in an edge-based data
-    !    structure.
-    !    In addition the Gauss-Legendre quadrature is prepared by
-    !    calculating some tracer-invariant (i.e. purely geometric) fields.
-    !
-    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
-
-    IF (ld_compute) THEN
-
-      IF (.NOT. PRESENT(opt_real_vt)) THEN
-        ! reconstruct tangential velocity component at edge midpoints
-        CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,          &! in
-          &                         ptr_real_vt, opt_rlend=i_rlend )! inout
-      ENDIF
 
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
-      CALL btraj_dreg( p_patch, p_int, p_vn, ptr_real_vt, p_dtime,        &! in
-        &              .FALSE.,                                           &! in
-        &              patch0_cell_idx, patch0_cell_blk, dreg_patch0,     &! out
-        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,          &! in
-        &              opt_slev=slev_ti, opt_elev=elev_ti                 )! in
+      CALL btraj_dreg( p_patch, p_int, p_vn, p_vt, p_dtime,            &! in
+        &              .FALSE.,                                        &! in
+        &              patch0_cell_idx, patch0_cell_blk, dreg_patch0,  &! out
+        &              opt_rlstart=i_rlstart, opt_rlend=i_rlend,       &! in
+        &              opt_slev=slev_ti, opt_elev=elev_ti              )! in
 
 
       ! Flux area (aka. departure region) is subdivided according to its overlap 
       ! with the underlying grid.
-      CALL divide_flux_area(p_patch, p_int, p_vn, ptr_real_vt,             &! in
-        &                   dreg_patch0, dreg_patch1, dreg_patch2,         &! out
-        &                   patch1_cell_idx, patch1_cell_blk,              &! out
-        &                   patch2_cell_idx, patch2_cell_blk,              &! out
-        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,      &! in
-        &                   opt_slev=slev_ti, opt_elev=elev_ti             )! in
+      CALL divide_flux_area(p_patch, p_int, p_vn, p_vt,                &! in
+        &                   dreg_patch0, dreg_patch1, dreg_patch2,     &! out
+        &                   patch1_cell_idx, patch1_cell_blk,          &! out
+        &                   patch2_cell_idx, patch2_cell_blk,          &! out
+        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,  &! in
+        &                   opt_slev=slev_ti, opt_elev=elev_ti         )! in
 
 
 
@@ -2578,6 +2434,70 @@ CONTAINS
       ENDIF
 
     END IF ! ld_compute
+
+
+    !
+    ! 2. reconstruction of the tracer subgrid distribution
+    !    least squares method
+    !    Note: for rlstart=2 we run into a sync-error with nests
+    !
+    IF (lsq_high_ord == 1) THEN
+      ! linear reconstruction
+      ! (computation of 3 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+          &                    opt_rlstart=2, opt_lconsv=l_consv )
+      ELSE
+        CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+          &                    opt_rlstart=2, opt_lconsv=l_consv )
+      ENDIF
+    ELSE IF (lsq_high_ord == 2) THEN
+      ! quadratic reconstruction
+      ! (computation of 6 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ELSE IF (lsq_high_ord == 30) THEN
+      ! cubic reconstruction without cross derivatives
+      ! (computation of 8 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ELSE IF (lsq_high_ord == 3) THEN
+      ! cubic reconstruction with cross derivatives
+      ! (computation of 10 coefficients -> z_lsq_coeff )
+      IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ELSE
+      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=2 )
+      ENDIF
+    ENDIF
+
+
+    ! Synchronize polynomial coefficients
+    ! Note: a special sync routine is needed here because the fourth dimension
+    ! of z_lsq_coeff is (for efficiency reasons) on the third index
+    CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+
+
 
 
     ! Pointer to line and block indices of the cells to which the departure 
@@ -2745,7 +2665,7 @@ CONTAINS
   !! Developed by Almut Gassmann, MPI-M (2010-11-18)
   !!
   !! @par !LITERATURE
-  !! - Skamarock and Gassmann, MWR (to be published)
+  !! - Skamarock and Gassmann (2011), Mon. Wea. Rev., 139, pp. 2962-2975
   !!
   SUBROUTINE upwind_hflux_hex( p_patch, p_int, p_cc, p_c0, p_mass_flx_e,   &
     &                          p_dtime, p_itype_hlimit, p_out_e, opt_slev, &

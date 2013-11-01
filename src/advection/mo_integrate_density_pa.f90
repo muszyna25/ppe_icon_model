@@ -54,7 +54,8 @@ MODULE mo_integrate_density_pa
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_advection_vflux,     ONLY: upwind_vflux_ppm_cfl
   USE mo_math_divrot,         ONLY: div
-  USE mo_intp,                ONLY: cells2edges_scalar 
+  USE mo_intp,                ONLY: cells2edges_scalar
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
 
 
@@ -102,6 +103,8 @@ CONTAINS
       &  z_rho_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) ::   &                   !< time averaged normal velocities
       &  z_vn_traj(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp) ::   &                   !< time averaged tangential velocities
+      &  z_vt_traj(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) ::   &                   !< time averaged vertical velocities
       &  z_w_traj(nproma,p_patch%nlevp1,p_patch%nblks_c)
     REAL(wp) ::  &                    !< flux divergence at cell center
@@ -307,6 +310,10 @@ CONTAINS
       i_startblk = p_patch%edges%start_blk(i_rlstart,1)
       i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+
+      ! reconstruct tangential velocity component at edge midpoints
+      CALL rbf_vec_interpol_edge( z_vn_traj, p_patch, p_int,    &! in
+        &                         z_vt_traj, opt_rlend=i_rlend  )! inout
       !
       ! get new Density 'edge-value'
       !
@@ -319,20 +326,22 @@ CONTAINS
       SELECT CASE( advection_config(pid)%ihadv_tracer(1) )
       CASE( MIURA )
 
-        CALL upwind_hflux_miura(p_patch, ptr_current_rho, p_prog_new%vn,       &
-          &                     z_vn_traj, p_dtime, p_int, lcompute, lcleanup, &
-          &                     advection_config(pid)%igrad_c_miura,           &
-          &                     advection_config(pid)%itype_hlimit(1),         &
-          &                     advection_config(pid)%iord_backtraj,           &
-          &                     z_rho_e, opt_lout_edge=.TRUE.,                 &
+        CALL upwind_hflux_miura(p_patch, ptr_current_rho, p_prog_new%vn, &
+          &                     z_vn_traj, z_vt_traj, p_dtime, p_int,    &
+          &                     lcompute, lcleanup,                      &
+          &                     advection_config(pid)%igrad_c_miura,     &
+          &                     advection_config(pid)%itype_hlimit(1),   &
+          &                     advection_config(pid)%iord_backtraj,     &
+          &                     z_rho_e, opt_lout_edge=.TRUE.,           &
           &                     opt_rlend=i_rlend   )
 
       CASE( MIURA3 )
 
-        CALL upwind_hflux_miura3(p_patch, ptr_current_rho, p_prog_new%vn,      &
-          &                      z_vn_traj, p_dtime, p_int, lcompute, lcleanup,&
-          &                      advection_config(pid)%itype_hlimit(1),        &
-          &                      z_rho_e, opt_lout_edge=.TRUE.,                &
+        CALL upwind_hflux_miura3(p_patch, ptr_current_rho, p_prog_new%vn,&
+          &                      z_vn_traj, z_vt_traj, p_dtime, p_int,   &
+          &                      lcompute, lcleanup,                     &
+          &                      advection_config(pid)%itype_hlimit(1),  &
+          &                      z_rho_e, opt_lout_edge=.TRUE.,          &
           &                      opt_rlend=i_rlend  )
       END SELECT
 

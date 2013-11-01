@@ -705,18 +705,18 @@ MODULE mo_solve_nonhydro
         lcompute =.TRUE.
         lcleanup =.FALSE.
         ! First call: compute backward trajectory with wind at time level nnow
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,      &
-                                p_nh%prog(nnow)%vn, dtime_r, p_int, lcompute, lcleanup, &
-                                0, z_rho_e, opt_rlstart=7, opt_lout_edge=.TRUE.,        &
-                                opt_real_vt=p_nh%diag%vt )
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn, &
+                                p_nh%prog(nnow)%vn, p_nh%diag%vt, dtime_r, p_int,  &
+                                lcompute, lcleanup, 0, z_rho_e,                    &
+                                opt_rlstart=7, opt_lout_edge=.TRUE. )
 
         ! Second call: compute only reconstructed value for flux divergence
         lcompute =.FALSE.
         lcleanup =.TRUE.
-        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn,   &
-                                p_nh%prog(nnow)%vn, dtime_r, p_int, lcompute, lcleanup,  &
-                                0, z_theta_v_e, opt_rlstart=7, opt_lout_edge=.TRUE.,     &
-                                opt_real_vt=p_nh%diag%vt )
+        CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
+                                p_nh%prog(nnow)%vn, p_nh%diag%vt, dtime_r, p_int,      &
+                                lcompute, lcleanup, 0, z_theta_v_e,                    &
+                                opt_rlstart=7, opt_lout_edge=.TRUE. )
 
       ENDIF
     ENDIF ! istep = 1
