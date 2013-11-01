@@ -1038,6 +1038,10 @@ scripts/postprocessing/tools/plot_vcs.ncl -text
 scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/postprocessing/tools/rhopot.rb -text
 scripts/postprocessing/tools/scatterPlot.rb -text
+scripts/postprocessing/tools/scm_plot/plot_torus.s -text
+scripts/postprocessing/tools/scm_plot/plot_torus_prof.ncl -text
+scripts/postprocessing/tools/scm_plot/plot_torus_sfc.ncl -text
+scripts/postprocessing/tools/scm_plot/plot_torus_tz.ncl -text
 scripts/postprocessing/tools/spectra_uv.ncl -text
 scripts/postprocessing/tools/spectra_vordiv.ncl -text
 scripts/postprocessing/tools/spectra_vordiv_plmean_tmean_res_comp.ncl -text
