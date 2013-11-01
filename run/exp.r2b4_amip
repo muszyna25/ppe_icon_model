@@ -146,7 +146,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  netcdf_dict      = '${dict_file}'
 /
 &output_nml
- output_bounds    = ${dt_data_atm_dyn},1000000000,${dt_data_atm_dyn}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_dyn},100000000,${dt_data_atm_dyn}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_dyn}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_dyn"
@@ -157,7 +157,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'pfull'   , 'gpfull'
 /
 &output_nml
- output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy"
@@ -174,7 +174,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
- output_bounds    = ${dt_data_lnd_phy},1000000000,${dt_data_lnd_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_lnd_phy},100000000,${dt_data_lnd_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_lnd_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_lnd_phy"
@@ -196,7 +196,7 @@ EOF
 if [[ "$write_tend_temp" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend_t"
@@ -210,7 +210,7 @@ fi
 if [[ "$write_tend_other" == "yes" ]]; then
     cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},1000000000,${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend"
