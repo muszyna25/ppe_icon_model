@@ -430,7 +430,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, send_decomp_inf
    DO i = 1, p_pat%n_send
 
       np = get_local_index(send_decomp_info, send_src(i))
-      IF(np == -1) CALL finish('setup_comm_pattern','Got illegal index')
+      IF(np <= 0) CALL finish('setup_comm_pattern','Got illegal index')
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
    ENDDO

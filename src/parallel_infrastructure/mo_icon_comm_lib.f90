@@ -818,7 +818,7 @@ CONTAINS
       DO point_idx = 1, p_comm_pattern%no_of_points
         local_idx = get_local_index(send_decomp_info, &
           &                         p_comm_pattern%global_index(point_idx))
-        IF ( local_idx == -1 ) &
+        IF ( local_idx <= 0 ) &
           & CALL finish(method_name,'Wrong local index')
         p_comm_pattern%block_no(point_idx) = block_no(local_idx)
         p_comm_pattern%index_no(point_idx) = index_no(local_idx)

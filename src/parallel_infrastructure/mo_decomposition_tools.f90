@@ -1410,7 +1410,8 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   ! returns the local index for a given global index
-  ! in case the global index is not valid -1 is returned
+  ! in case the global index is not available locally -1 is returned
+  ! in case the global index is no valid 0 is returned
   ELEMENTAL FUNCTION get_local_index(decomp_info, glb_index)
 
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
@@ -1420,7 +1421,7 @@ CONTAINS
     INTEGER :: local_index
 
     IF (glb_index > SIZE(decomp_info%loc_index) .OR. glb_index < 1) THEN
-      get_local_index = -1
+      get_local_index = 0
     ELSE
       local_index = decomp_info%loc_index(glb_index)
       get_local_index = MERGE(local_index, -1, local_index > 0)
@@ -1429,9 +1430,10 @@ CONTAINS
   END FUNCTION get_local_index
 
   ! returns the local index for a given global index
-  ! in case the global index is not valid, the index
-  ! of the next smaller index is return, in case there
-  ! is no smaller index 0 is returned
+  ! in case the global index is in the valid range but locally not
+  ! available, the index of the next smaller index is return, in
+  ! case there is no smaller index or the global index is
+  ! invalid 0 is returned
   ELEMENTAL FUNCTION get_valid_local_index(decomp_info, glb_index)
 
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
@@ -1451,9 +1453,10 @@ CONTAINS
   END FUNCTION get_valid_local_index
 
   ! returns the local index for a given global index
-  ! in case the global index is not valid, the index
-  ! of the next greater index is return, in case there
-  ! is no greater index the maximum local index + 1 is returned
+  ! in case the global index is in the valid range but locally not
+  ! available, the index of the next greater index is return, in
+  ! case there is no greater index the maximum local index + 1, in
+  ! case the global index is invalid 0 is returned
   ELEMENTAL FUNCTION get_valid_local_index_(decomp_info, glb_index, use_next)
 
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
