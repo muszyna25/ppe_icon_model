@@ -79,6 +79,22 @@
 !       to 0 for the global grid, 1 for the first generation of child
 !       domains etc.
 !
+!
+! Split of process_mpi_all_comm and stdio process
+! -----------------------------
+!    The process_mpi_all_comm is the whole model communicator and is split
+!    to test/work/io/restart, in this order
+!
+!    The process_mpi_stdio_id is always the 0 process of the process_mpi_all_comm
+!    If is p_test, then the testing process is also the stdio process
+!
+!    The my_process_is_mpi_workroot() is true for the 0 process of the
+!    p_comm_work communicator, this communicator does not include the test process,
+!    the io and the restart processes. This communicator and and the mpi_workroot
+!    process should be used in the case of gather and scatter procedures that do
+!    not use the io process (the third part). This will be different from using
+!    the stdio process only in the case of p_test
+
 MODULE mo_mpi
 
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
@@ -262,7 +278,7 @@ MODULE mo_mpi
   ! this is the communicator for the whole component (atmo/ocean/etc)
   INTEGER :: process_mpi_all_comm     ! communicator in the whole model-component
   INTEGER :: process_mpi_all_size     ! total number of processes in the whole model-component
-  INTEGER :: my_process_mpi_all_id
+  INTEGER :: my_process_mpi_all_id        ! the id in the whole model communicator
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
