@@ -303,9 +303,13 @@ MODULE mo_solve_nonhydro
     !
     ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
     ! with height to a value of 0.004 (= the namelist default) at 40 km
-    enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
-      MAX(0._wp,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
-    enh_divdamp_fac(:) = MAX(divdamp_fac,enh_divdamp_fac(:))
+    IF (divdamp_order == 24) THEN
+      enh_divdamp_fac(1:nlev) = MAX( 0._wp, -0.25_wp*divdamp_fac_o2 + MIN(0.004_wp, &
+        MAX(divdamp_fac,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp)) )
+    ELSE
+      enh_divdamp_fac(1:nlev) = MIN(0.004_wp, &
+        MAX(divdamp_fac,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
+    ENDIF
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
@@ -1197,26 +1201,29 @@ MODULE mo_solve_nonhydro
                 + scal_divdamp_o2*z_graddiv_vn(je,jk,jb)
             ENDDO
           ENDDO
-        ELSE IF (ANY( (/24,4/) == divdamp_order) .AND. (l_limited_area .OR. p_patch%id > 1)) THEN 
-          ! fourth-order divergence damping with reduced damping coefficient along nest boundary
-          ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
-          ! damping along nest boundaries is beneficial because this reduces the interference
-          ! with the increased diffusion applied in nh_diffusion)
-          DO jk = 1, nlev
+        ENDIF
+        IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
+          IF (l_limited_area .OR. p_patch%id > 1) THEN 
+            ! fourth-order divergence damping with reduced damping coefficient along nest boundary
+            ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
+            ! damping along nest boundaries is beneficial because this reduces the interference
+            ! with the increased diffusion applied in nh_diffusion)
+            DO jk = 1, nlev
 !DIR$ IVDEP
-            DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
-                + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
+              DO je = i_startidx, i_endidx
+                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
+                  + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
+              ENDDO
             ENDDO
-          ENDDO
-        ELSE IF (ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
-          DO jk = 1, nlev
+          ELSE ! fourth-order divergence damping
+            DO jk = 1, nlev
 !DIR$ IVDEP
-            DO je = i_startidx, i_endidx
-              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-                + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
+              DO je = i_startidx, i_endidx
+                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+                  + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
+              ENDDO
             ENDDO
-          ENDDO
+          ENDIF
         ENDIF
       ENDIF
 
