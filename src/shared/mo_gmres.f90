@@ -972,7 +972,7 @@ REAL(wp) ::    &
   den, ci
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
-INTEGER :: jb, jk, nlen
+INTEGER :: jb, nlen
 
 INTEGER :: no_of_blocks, end_nproma
 
@@ -1037,7 +1037,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
    rn2_aux = SQRT(SUM(sum_aux))
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
@@ -1118,7 +1118,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
      h_aux = SUM(sum_aux)
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
@@ -1165,7 +1165,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
 
      h_aux = SQRT(SUM(sum_aux))
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
@@ -1359,7 +1359,7 @@ REAL(wp) ::    &
   den, ci
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
-INTEGER :: jb, jk, nlen
+INTEGER :: jb, nlen
 
 INTEGER :: no_of_blocks, end_nproma
 
@@ -1427,7 +1427,7 @@ REAL(wp) :: sum_aux(nblks)
 
    rn2_aux = SQRT(SUM(sum_aux))
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
@@ -1506,7 +1506,7 @@ REAL(wp) :: sum_aux(nblks)
 
      h_aux = SUM(sum_aux)
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
@@ -1552,7 +1552,7 @@ REAL(wp) :: sum_aux(nblks)
 
      h_aux = SQRT(SUM(sum_aux))
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, no_of_blocks
        IF (jb /= no_of_blocks) THEN
          nlen = nproma
