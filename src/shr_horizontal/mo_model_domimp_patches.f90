@@ -633,9 +633,8 @@ CONTAINS
       ! divide the sphere surface by the number of cells
       ! Note: this works only for old grids
       patch%geometry_info%mean_cell_area = &
-        & (4._wp * pi * patch%geometry_info%sphere_radius &
-        & * patch%geometry_info%sphere_radius)            &
-        & / REAL(20*nroot**2*4**(patch%level),wp)
+        & (4._wp * pi * patch%geometry_info%sphere_radius**2) &
+        & / (REAL(20*nroot**2,wp)*4._wp**patch%level)
 
       patch%geometry_info%domain_length  = 2.0_wp * pi * patch%geometry_info%sphere_radius
       patch%geometry_info%domain_height  = patch%geometry_info%domain_length
