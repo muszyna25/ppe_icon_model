@@ -145,8 +145,8 @@ MODULE mo_output_event_handler
   USE mo_mpi,                    ONLY: p_int, p_pe_work, p_comm_work,                       &
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
-    &                                  p_unpack_real, p_send_packed, p_irecv_packed, p_wait,&
-    &                                  p_bcast, get_my_global_mpi_id
+    &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
+    &                                  p_wait, p_bcast, get_my_global_mpi_id
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -266,14 +266,13 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: MAX_PRINTOUT = 2000
 
 
-#ifdef NOMPI
   !---------------------------------------------------------------
-  ! non-MPI runs: local list event with event meta-data
+  ! local list event with event meta-data
   !---------------------------------------------------------------
 
-  !> event meta-data: this is only required for non-MPI runs, where we have to
+  !> event meta-data: this is only required for I/O PE #0, where we have to
   !  keep a local list of output events.
-  TYPE t_event_data_nompi
+  TYPE t_event_data_local
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN)        :: name                 !< output event name
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)          :: begin_str, end_str
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)         :: intvl_str
@@ -283,18 +282,16 @@ MODULE mo_output_event_handler
     TYPE(t_fname_metadata)                       :: fname_metadata       !< additional meta-data for generating output filename
     INTEGER                                      :: icomm                !< MPI communicator
     INTEGER                                      :: dst_rank             !< MPI destination rank
-  END TYPE t_event_data_nompi
+  END TYPE t_event_data_local
 
-  !> Maximum length of local event meta-data list: only required for non-MPI
-  !  runs
-  INTEGER, PARAMETER :: NOMPI_NMAX_EVENT_LIST = 100
+  !> Maximum length of local event meta-data list
+  INTEGER, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100
 
-  !> local list of output events: only required for non-MPI runs
-  TYPE(t_event_data_nompi) :: event_list_nompi(NOMPI_NMAX_EVENT_LIST)
+  !> local list of output events
+  TYPE(t_event_data_local) :: event_list_local(LOCAL_NMAX_EVENT_LIST)
 
-  !> length of local list of output events: only required for non-MPI runs
-  INTEGER :: ievent_list_nompi = 0
-#endif
+  !> length of local list of output events
+  INTEGER :: ievent_list_local = 0
 
 
 CONTAINS
@@ -386,6 +383,10 @@ CONTAINS
 
     dst = 0
     IF (PRESENT(opt_dstfile)) dst = opt_dstfile
+
+    IF (ldebug) THEN
+      WRITE (0,*) "PE ", get_my_global_mpi_id(), ": event%n_event_steps = ", event%n_event_steps
+    END IF
 
     IF (check_write_readyfile(event)) THEN
       WRITE (dst,'(a,a,a)') 'output "', TRIM(event%event_data%name), '", writes ready files:'
@@ -643,6 +644,7 @@ CONTAINS
 
     ! status output
     IF (ldebug) THEN
+      WRITE (0,*) "PE ",get_my_global_mpi_id(), ":"
       WRITE (0,*) 'Defining output event "'//TRIM(begin_str)//'", "'//TRIM(end_str)//'", "'//TRIM(intvl_str)//'"'
       WRITE (0,*) 'Simulation bounds:    "'//TRIM(sim_step_info%sim_start)//'", "'//TRIM(sim_step_info%sim_end)//'"'
     END IF
@@ -681,11 +683,11 @@ CONTAINS
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
           mtime_date_string(1:SIZE(tmp)) = tmp(:)
           DEALLOCATE(tmp, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
         END IF
         CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
-          WRITE (0,*) "Adding step ", n_event_steps, ": ", &
+          WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
             &         mtime_date_string(n_event_steps)
         END IF
       END IF
@@ -835,6 +837,8 @@ CONTAINS
     INTEGER :: ierrstat, this_pe, i_tag, nranks
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
+    this_pe = 0
+    nranks  = 1
 #ifndef NOMPI
     IF (icomm /= MPI_COMM_NULL) THEN
       CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
@@ -842,7 +846,7 @@ CONTAINS
       CALL MPI_COMM_SIZE (icomm, nranks, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
       IF (ldebug) THEN
-         write (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
+        WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
       END IF
     END IF
 #endif
@@ -861,6 +865,11 @@ CONTAINS
       &                                      additional_days, l_output_last, sim_step_info, fname_metadata, &
       &                                      fct_time2simstep, fct_generate_filenames)
 
+    IF (ldebug) THEN
+      WRITE (0,*) "PE ", get_my_global_mpi_id(), ": created event with ", &
+        &      p_event%output_event%n_event_steps, " steps."
+    END IF
+
     ! set the other MPI-related data fields:
     p_event%icomm         = icomm
     p_event%iroot         = ROOT_OUTEVENT
@@ -868,28 +877,32 @@ CONTAINS
     p_event%isend_req     = 0
 #ifndef NOMPI
     p_event%isend_req     = MPI_REQUEST_NULL
-    ! now send all the meta-data to the root PE
-    IF (icomm /= MPI_COMM_NULL) THEN
-      if (ldebug) then
-         write (0,*) "new_parallel_output_event: PE ", get_my_global_mpi_id(), ": send event data: ", &
-              &      TRIM(begin_str), TRIM(end_str), TRIM(intvl_str), additional_days
-      end if
-      CALL send_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
-        &                  sim_step_info, fname_metadata, icomm, ROOT_OUTEVENT)
+    IF (this_pe /= ROOT_OUTEVENT) THEN
+      ! now send all the meta-data to the root PE
+      IF (icomm /= MPI_COMM_NULL) THEN
+        IF (ldebug) THEN
+          WRITE (0,*) "new_parallel_output_event: PE ", get_my_global_mpi_id(), ": send event data: ", &
+            &      TRIM(begin_str), TRIM(end_str), TRIM(intvl_str), additional_days
+        END IF
+        CALL send_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
+          &                  sim_step_info, fname_metadata, icomm, ROOT_OUTEVENT)
+      END IF
+    ELSE
+#endif
+      ! I/O PE #0: we keep a local list of event meta-data
+      ievent_list_local = ievent_list_local + 1
+      event_list_local(ievent_list_local)%name            = name
+      event_list_local(ievent_list_local)%begin_str       = begin_str
+      event_list_local(ievent_list_local)%end_str         = end_str
+      event_list_local(ievent_list_local)%intvl_str       = intvl_str
+      event_list_local(ievent_list_local)%additional_days = additional_days
+      event_list_local(ievent_list_local)%l_output_last   = l_output_last
+      event_list_local(ievent_list_local)%sim_step_info   = sim_step_info
+      event_list_local(ievent_list_local)%fname_metadata  = fname_metadata
+      event_list_local(ievent_list_local)%icomm           = icomm
+      event_list_local(ievent_list_local)%dst_rank        = ROOT_OUTEVENT
+#ifndef NOMPI
     END IF
-#else
-    ! non-MPI runs: we keep a local list of event meta-data
-    ievent_list_nompi = ievent_list_nompi + 1
-    event_list_nompi(ievent_list_nompi)%name            = name
-    event_list_nompi(ievent_list_nompi)%begin_str       = begin_str
-    event_list_nompi(ievent_list_nompi)%end_str         = end_str
-    event_list_nompi(ievent_list_nompi)%intvl_str       = intvl_str
-    event_list_nompi(ievent_list_nompi)%additional_days = additional_days
-    event_list_nompi(ievent_list_nompi)%l_output_last   = l_output_last
-    event_list_nompi(ievent_list_nompi)%sim_step_info   = sim_step_info
-    event_list_nompi(ievent_list_nompi)%fname_metadata  = fname_metadata
-    event_list_nompi(ievent_list_nompi)%icomm           = icomm
-    event_list_nompi(ievent_list_nompi)%dst_rank        = ROOT_OUTEVENT
 #endif
   END FUNCTION new_parallel_output_event
 
@@ -960,8 +973,13 @@ CONTAINS
       &                                      i_tag, this_pe, nbcast_ranks
     LOGICAL                               :: lbroadcast
 
+    IF (ldebug)  WRITE (0,*) routine, " enter."
+#ifndef NOMPI
     lbroadcast = PRESENT(opt_broadcast_root) .AND. &
          &       PRESENT(opt_broadcast_comm)
+#else
+    lbroadcast = .FALSE.
+#endif
 
     NULLIFY(union_of_all_events)
     ! get the number of ranks in this MPI communicator
@@ -989,14 +1007,37 @@ CONTAINS
     ! loop over all PEs of the I/O communicator:
     DO i_pe = 0,(nranks-1)
       i_tag = SENDRECV_TAG_OUTEVENT + i_pe
-      lrecv = .TRUE.
       RECEIVE_LOOP : DO
+        lrecv = .FALSE.
 #ifndef NOMPI
         ! receive event meta-data from participating I/O PEs:
-        IF (this_pe == ROOT_OUTEVENT) THEN
-          lrecv = receive_event_data(recv_name, recv_begin_str, recv_end_str, recv_intvl_str, recv_additional_days, &
-            &                        recv_l_output_last, recv_sim_step_info, recv_fname_metadata, icomm, i_pe,      &
-            &                        SENDRECV_TAG_SETUP)
+        IF (this_pe == i_pe) THEN
+          lrecv = .FALSE.
+        ELSE
+          IF (this_pe == ROOT_OUTEVENT) THEN
+            lrecv = receive_event_data(recv_name, recv_begin_str, recv_end_str, recv_intvl_str, recv_additional_days, &
+              &                        recv_l_output_last, recv_sim_step_info, recv_fname_metadata, icomm, i_pe,   &
+              &                        SENDRECV_TAG_SETUP)
+          END IF
+        END IF
+#endif
+        ! I/O PE #0: we keep a local list of event meta-data
+        IF (.NOT. lrecv .AND. (ievent_list_local > 0)) THEN
+          lrecv =  .TRUE.
+          recv_name             = event_list_local(ievent_list_local)%name
+          recv_begin_str        = event_list_local(ievent_list_local)%begin_str
+          recv_end_str          = event_list_local(ievent_list_local)%end_str
+          recv_intvl_str        = event_list_local(ievent_list_local)%intvl_str
+          recv_additional_days  = event_list_local(ievent_list_local)%additional_days
+          recv_l_output_last    = event_list_local(ievent_list_local)%l_output_last
+          recv_sim_step_info    = event_list_local(ievent_list_local)%sim_step_info
+          recv_fname_metadata   = event_list_local(ievent_list_local)%fname_metadata
+          ievent_list_local = ievent_list_local - 1
+          IF (ldebug) THEN
+            WRITE (0,*) "Taking event ", TRIM(recv_begin_str), " / ", TRIM(recv_end_str), " / ", TRIM(recv_intvl_str), &
+              &         " from local list."
+            WRITE (0,*) ievent_list_local, " entries are left."
+          END IF
         END IF
         ! forward the event meta-data to the worker PEs
         IF (lbroadcast) THEN
@@ -1005,26 +1046,7 @@ CONTAINS
             &                           recv_sim_step_info, recv_fname_metadata, opt_broadcast_comm, &
             &                           opt_broadcast_root, lrecv)
         END IF
-#else
-        ! non-MPI runs: we keep a local list of event meta-data
-        lrecv = (ievent_list_nompi > 0)
-        IF (ievent_list_nompi > 0) THEN
-          recv_name             = event_list_nompi(ievent_list_nompi)%name
-          recv_begin_str        = event_list_nompi(ievent_list_nompi)%begin_str
-          recv_end_str          = event_list_nompi(ievent_list_nompi)%end_str
-          recv_intvl_str        = event_list_nompi(ievent_list_nompi)%intvl_str
-          recv_additional_days  = event_list_nompi(ievent_list_nompi)%additional_days
-          recv_l_output_last    = event_list_nompi(ievent_list_nompi)%l_output_last
-          recv_sim_step_info    = event_list_nompi(ievent_list_nompi)%sim_step_info
-          recv_fname_metadata   = event_list_nompi(ievent_list_nompi)%fname_metadata
-          ievent_list_nompi = ievent_list_nompi - 1
-          IF (ldebug) THEN
-            WRITE (0,*) "Taking event ", TRIM(recv_begin_str), " / ", TRIM(recv_end_str), " / ", TRIM(recv_intvl_str), &
-              &         " from local list."
-          END IF
-        END IF
-#endif
-
+        
         IF (.NOT. lrecv) EXIT RECEIVE_LOOP
 
         ! create the event steps from the received meta-data:
@@ -1074,8 +1096,13 @@ CONTAINS
         ELSE
           par_event%output_event => ev2
         END IF
+        IF (ldebug) THEN
+          WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
+            & union_of_all_events%output_event%n_event_steps
+        END IF
       END DO RECEIVE_LOOP
     END DO
+    IF (ldebug)  WRITE (0,*) routine, " done."
   END FUNCTION union_of_all_events
 
 
@@ -1619,23 +1646,29 @@ CONTAINS
     ! local variables
 #ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::complete_event_setup"
-    INTEGER :: nitems, ierrstat, position
+    INTEGER :: nitems, ierrstat, position, this_pe
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
     IF (icomm /= MPI_COMM_NULL) THEN
-      ! allocate message buffer
-      ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
-      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
-      position = 0
-      ! prepare an empty MPI message:
-      nitems = 0
-      CALL p_pack_int(nitems, buffer, MAX_BUF_SIZE, position, icomm)
-
-      ! send packed message:
-      CALL p_send_packed(buffer, ROOT_OUTEVENT, SENDRECV_TAG_SETUP, position, icomm)
-      ! clean up
-      DEALLOCATE(buffer, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
+      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
+      
+      IF (this_pe /= ROOT_OUTEVENT) THEN
+        ! allocate message buffer
+        ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
+        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
+        position = 0
+        ! prepare an empty MPI message:
+        nitems = 0
+        CALL p_pack_int(nitems, buffer, MAX_BUF_SIZE, position, icomm)
+        
+        ! send packed message:
+        CALL p_send_packed(buffer, ROOT_OUTEVENT, SENDRECV_TAG_SETUP, position, icomm)
+        
+        ! clean up
+        DEALLOCATE(buffer, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      END IF
     END IF
 #endif
   END SUBROUTINE complete_event_setup
@@ -1745,14 +1778,17 @@ CONTAINS
         CALL p_pack_int(nitems,         buffer, MAX_BUF_SIZE, position, icomm)
         CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, additional_days, &
           &                l_output_last, sim_step_info, fname_metadata, icomm)
+        IF (ldebug) THEN
+          WRITE (0,*) "PE ", get_my_global_mpi_id(), ": send event data: ", TRIM(begin_str), TRIM(end_str), TRIM(intvl_str)
+        END IF
       ELSE
         ! empty, "end message":
         nitems = 0
         CALL p_pack_int(nitems, buffer, MAX_BUF_SIZE, position, icomm)
+        IF (ldebug) THEN
+          WRITE (0,*) "PE ", get_my_global_mpi_id(), ": send end message after "
+        END IF
       END IF
-      if (ldebug) then
-         write (0,*) "PE ", get_my_global_mpi_id(), ": send event data: ", trim(begin_str), trim(end_str), trim(intvl_str)
-      end if
     END IF
 
 #ifndef NOMPI
@@ -1897,8 +1933,10 @@ CONTAINS
     IF (.NOT. is_output_event_finished(event) .AND. &
       & (event%icomm /= MPI_COMM_NULL)) THEN
       ! wait for the last ISEND to be processed:
+      IF (ldebug) WRITE (0,*) "waiting for request handle."
       CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAIT.')
+      IF (ldebug) WRITE (0,*) "waiting for request handle."
       ! launch a new non-blocking send:
       istep = event%output_event%i_event_step
       i_tag = event%output_event%event_step(istep)%event_step_data(1)%i_tag
