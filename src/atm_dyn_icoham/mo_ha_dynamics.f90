@@ -414,7 +414,7 @@ CONTAINS
 
 ! Check optional input
 
-  IF (PRESENT(opt_lseparate)) THEN
+  IF (PRESENT(opt_lseparate).AND.PRESENT(opt_ddt_temp_fast)) THEN
      lseparate = opt_lseparate
   ELSE
      lseparate = .FALSE.
