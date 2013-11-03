@@ -113,22 +113,22 @@ INTEGER                       :: k
 icestiff%dim=nod2D
 allocate(icestiff%rowptr(icestiff%dim+1))
 icestiff%rowptr(1)=1
-	DO k=1,nod2D
-	icestiff%rowptr(k+1)=icestiff%rowptr(k)+nghbr_nod2D(k)%nmb
-	END DO
+DO k=1,nod2D
+  icestiff%rowptr(k+1)=icestiff%rowptr(k)+nghbr_nod2D(k)%nmb
+END DO
 icestiff%nza=icestiff%rowptr(nod2D+1)-1
 ! b)
 allocate(icestiff%colind(icestiff%nza))
 allocate(icestiff%values(icestiff%nza))
 allocate(mass_matrix(icestiff%nza))
- icestiff%values=0.0_wp
+icestiff%values=0.0_wp
 
 ! c)
         ! ===== FIND colind ======
-	DO k=1,nod2D
-	icestiff%colind(icestiff%rowptr(k):icestiff%rowptr(k+1)-1)= &
-	   nghbr_nod2D(k)%addresses
-	END DO
+DO k=1,nod2D
+  icestiff%colind(icestiff%rowptr(k):icestiff%rowptr(k+1)-1)= &
+    nghbr_nod2D(k)%addresses
+END DO
 END SUBROUTINE icestiff_matrix
 
 !=========================================================================
@@ -153,25 +153,25 @@ INTEGER                       :: ipos, row, q, n, i
   DO i=1, myDim_elem2D   
      elem=myList_elem2D(i)
      elnodes=elem2D_nodes(:,elem)   
-     do n=1,3
+     DO n=1,3
         row=elnodes(n)
-	if(part(row).ne.mype) cycle             
+        IF(part(row).NE.mype) CYCLE             
         ! Global-to-local neighbourhood correspondence  
         DO q=1,nghbr_nod2D(row)%nmb
            col_pos(nghbr_nod2D(row)%addresses(q))=q
         END DO 
-	offset=icestiff%rowptr(row)-1
+        offset=icestiff%rowptr(row)-1
         DO q=1,3 
            col=elnodes(q)
-	   ipos=offset+col_pos(col)
-	   mass_matrix(ipos)=mass_matrix(ipos)+voltriangle(elem)/12.0_wp
-	   if(q==n) then                     
-	   mass_matrix(ipos)=mass_matrix(ipos)+voltriangle(elem)/12.0_wp
-	   end if
+           ipos=offset+col_pos(col)
+           mass_matrix(ipos)=mass_matrix(ipos)+voltriangle(elem)/12.0_wp
+           IF(q==n) THEN                     
+             mass_matrix(ipos)=mass_matrix(ipos)+voltriangle(elem)/12.0_wp
+           END IF
         END DO
-     end do	 
+     END DO
   END DO
-    
+
 END SUBROUTINE ice_mass_matrix_fill
 
 ! ============================================================================ 
@@ -224,11 +224,11 @@ integer       :: n
    meanf= 1.4e-4_wp*r_earth   !2*omega*sin(yc)*r_earth
    DO n=1, nod2d 
       elevation(n)=-0.1_wp*meanf/g *((coord_nod2d(2,n)-ymin)**2/Ly- &
-                     (coord_nod2d(2,n)-ymin)+ &  
+                    (coord_nod2d(2,n)-ymin)+ &  
                     (coord_nod2d(1,n)-xmin)**2/Lx -&
-		    (coord_nod2d(1,n)-xmin))
+                    (coord_nod2d(1,n)-xmin))
    END DO
-   		    
+
 end subroutine init_fields
 ! =============================================================================
 Subroutine update_forcing(step)
@@ -246,7 +246,7 @@ Subroutine update_forcing(step)
   use mo_ice_therm_parms
 USE mo_kind,    ONLY: wp
 IMPLICIT NONE
-REAL(wp)  :: xmin, xmax, ymin, ymax, Lx, Ly, yc, xc, meanf, td
+REAL(wp)  :: xmin, xmax, ymin, ymax, Lx, Ly, td
 integer       :: step, n    
    ! Set wind velocity (stationary in time):
    xmin=minval(coord_nod2d(1,:))
