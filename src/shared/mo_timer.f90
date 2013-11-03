@@ -73,6 +73,7 @@ MODULE mo_timer
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs
   PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
+  PUBLIC :: timer_back_traj
   PUBLIC :: timer_cover, timer_cloud
   PUBLIC :: timer_cucall
   PUBLIC :: timer_vdiff
@@ -223,6 +224,7 @@ MODULE mo_timer
   INTEGER :: timer_intp
 
   INTEGER :: timer_transport    ! tracer transport
+  INTEGER :: timer_back_traj
 
   ! Timer ID's for ECHAM6 physics
   INTEGER :: timer_cover
@@ -345,6 +347,7 @@ CONTAINS
     timer_echam_phy = new_timer("echam_phy")
     timer_jsbach    = new_timer("jsbach")
     timer_transport = new_timer("transport")
+    timer_back_traj = new_timer("back_traj")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
 

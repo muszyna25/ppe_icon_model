@@ -67,7 +67,7 @@ MODULE mo_advection_traj
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int
-  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, new_timer
+  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
 
 
   IMPLICIT NONE
@@ -80,8 +80,6 @@ MODULE mo_advection_traj
 
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-  INTEGER :: timer_back_traj_o1   = 0
 
 CONTAINS
 
@@ -193,8 +191,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     IF (timers_level > 5) THEN
-      timer_back_traj_o1 = new_timer("back_traj_o1", timer_back_traj_o1)
-      CALL timer_start(timer_back_traj_o1)
+      CALL timer_start(timer_back_traj)
     ENDIF
 
 !$OMP PARALLEL
@@ -266,7 +263,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1)
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
   END SUBROUTINE btraj
 
@@ -377,6 +374,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    IF (timers_level > 5) THEN
+      CALL timer_start(timer_back_traj)
+    ENDIF
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -573,6 +573,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
   END SUBROUTINE btraj_dreg
 
