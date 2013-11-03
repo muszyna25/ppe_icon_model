@@ -120,7 +120,7 @@ MODULE mo_velocity_advection
     REAL(vp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(vp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v) ! should also become vp
+    REAL(vp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
 
     ! Pointers
     INTEGER, DIMENSION(:,:,:), POINTER   &

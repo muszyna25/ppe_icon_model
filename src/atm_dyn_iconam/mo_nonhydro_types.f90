@@ -43,7 +43,7 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, vp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d,t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
@@ -227,6 +227,7 @@ MODULE mo_nonhydro_types
 
   TYPE t_nh_metrics
 
+    ! Variables that are always in double precision
     REAL(wp), POINTER      &
 #ifdef _CRAYFTN
     , CONTIGUOUS           &
@@ -236,12 +237,7 @@ MODULE mo_nonhydro_types
      !
      z_ifc(:,:,:)        , & ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
      z_mc(:,:,:)         , & ! geometric height at full levels (nproma,nlev,nblks_c)
-     ddxn_z_full(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
-     ddxt_z_full(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
      ddqz_z_full(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
-     ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-     ddqz_z_full_r(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-     ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
      geopot(:,:,:)       , & ! geopotential at cell center (nproma,nlev,nblks_c)
      geopot_agl(:,:,:)   , & ! geopotential above ground level at cell center (nproma,nlev,nblks_c)
      geopot_agl_ifc(:,:,:),& ! geopotential above ground level at interfaces and cell center (nproma,nlevp1,nblks_c)
@@ -252,21 +248,6 @@ MODULE mo_nonhydro_types
      !
      ! b) Variables needed for the triangular grid only
      !
-     wgtfac_c(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_c)
-     wgtfac_e(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_e)
-     wgtfacq_c(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_c)
-     wgtfacq_e(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_e)
-     wgtfacq1_c(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_c)
-     wgtfacq1_e(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
-     coeff_gradekin(:,:,:), & ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
-     inv_ddqz_z_full(:,:,:),& ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
-     coeff1_dwdz(:,:,:)   , & 
-     coeff2_dwdz(:,:,:)   , & ! Coefficients for second-order accurate dw/dz term (nproma,nlev,nblks_c)
-     zdiff_gradp(:,:,:,:) , & ! Height differences between local edge point and neighbor cell points used for
-                              ! pressure gradient computation (2,nproma,nlev,nblks_e)
-     coeff_gradp(:,:,:,:) , & ! Interpolation coefficients for cubic interpolation of Exner pressure (8,nproma,nlev,nblks_e)
-     exner_exfac(:,:,:)   , & ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
-                              ! (nproma,nlev,nblks_c)
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt_sv(:,:),& ! save array for the above coefficient field (nproma,nblks_c)
@@ -278,6 +259,7 @@ MODULE mo_nonhydro_types
      ddeast_z(:,:,:)     , &  ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
      ddqz_z_full_v(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_v)
      ddqz_z_half_e(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
+     ddqz_z_full_r(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
      diff_1_o_dz(:,:,:)  , &  ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
      mult_1_o_dz(:,:,:)  , &  ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
      !
@@ -290,9 +272,6 @@ MODULE mo_nonhydro_types
      exner_ref_mc(:,:,:) , & 
      rho_ref_mc  (:,:,:) , &  
      rho_ref_me  (:,:,:) , & 
-     d_exner_dz_ref_ic(:,:,:), & 
-     d2dexdz2_fac1_mc(:,:,:) , & 
-     d2dexdz2_fac2_mc(:,:,:) , &
      !
      ! e) Fields for truly horizontal temperature diffusion
      !
@@ -320,6 +299,43 @@ MODULE mo_nonhydro_types
      rho_ref_corr(:,:,:) , & 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
+
+
+    ! Variables that are in single precision when "__MIXED_PRECISION" is defined
+    REAL(vp), POINTER      &
+#ifdef _CRAYFTN
+    , CONTIGUOUS           &
+#endif
+     ::                    &
+     ! a) Layer thicknesses
+     !
+     ddxn_z_full(:,:,:)  , & ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
+     ddxt_z_full(:,:,:)  , & ! slope of the terrain in tangential direction (nproma,nlev,nblks_e)
+     ddqz_z_full_e(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+     ddqz_z_half(:,:,:)  , & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
+     inv_ddqz_z_full(:,:,:),& ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
+     !
+     ! b) Interpolation coefficients
+     !
+     wgtfac_c(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_c)
+     wgtfac_e(:,:,:)      , & ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_e)
+     wgtfacq_c(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_c)
+     wgtfacq_e(:,:,:)     , & ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_e)
+     wgtfacq1_c(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_c)
+     wgtfacq1_e(:,:,:)    , & ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
+     coeff_gradekin(:,:,:), & ! Coefficients for improved discretization of horizontal kinetic energy gradient (nproma,2,nblks_e)
+     coeff1_dwdz(:,:,:)   , & 
+     coeff2_dwdz(:,:,:)   , & ! Coefficients for second-order accurate dw/dz term (nproma,nlev,nblks_c)
+     zdiff_gradp(:,:,:,:) , & ! Height differences between local edge point and neighbor cell points used for
+                              ! pressure gradient computation (2,nproma,nlev,nblks_e)
+     coeff_gradp(:,:,:,:) , & ! Interpolation coefficients for cubic interpolation of Exner pressure (8,nproma,nlev,nblks_e)
+     exner_exfac(:,:,:)   , & ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
+     !
+     ! c) Fields for reference atmosphere
+     !
+     d_exner_dz_ref_ic(:,:,:), & 
+     d2dexdz2_fac1_mc(:,:,:) , & 
+     d2dexdz2_fac2_mc(:,:,:)
 
 
     INTEGER, POINTER          &

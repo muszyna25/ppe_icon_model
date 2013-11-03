@@ -1018,7 +1018,8 @@ MODULE mo_divergent_modes
         ! compute directional laplace
         CALL grad_dir_edge(p_vn,z_ddxn_s_e,p_patch,p_int,z_lapl_s_e)
         ! terrain following correction
-        CALL grad_dir_edge(p_vn,p_metrics%ddxn_z_full,p_patch,p_int,z_lapl_terrain_e)
+        z_ddxn_s_e = p_metrics%ddxn_z_full ! necessary because ddxn_z_full is optionally single precision
+        CALL grad_dir_edge(p_vn,z_ddxn_s_e,p_patch,p_int,z_lapl_terrain_e)
       ELSE
         CALL directional_laplace(p_vn,p_s_c,p_patch,p_int,upstr_beta,z_lapl_s_e)
         CALL directional_laplace(p_vn,p_metrics%z_mc,p_patch,p_int,upstr_beta,z_lapl_terrain_e)

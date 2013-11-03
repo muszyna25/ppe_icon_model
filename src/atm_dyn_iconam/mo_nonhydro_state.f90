@@ -2077,7 +2077,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c,                                              &
                 & isteptype=TSTEP_CONSTANT )
 
-
+#ifndef __MIXED_PRECISION
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
     !
@@ -2086,7 +2086,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e,                                              &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2098,19 +2098,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e,                                              &
-                & isteptype=TSTEP_CONSTANT )
-
-
-    ! functional determinant of the metrics [sqrt(gamma)]
-    ! ddqz_z_full  p_metrics%ddqz_z_full(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
-      &                   'metrics functional determinant', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'ddqz_z_full', p_metrics%ddqz_z_full,         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c,                                              &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2122,7 +2110,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e,                                              &
+                & ldims=shape3d_e, loutput=.FALSE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2134,7 +2122,25 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'ddqz_z_half', p_metrics%ddqz_z_half,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf,                                          &
+                & ldims=shape3d_chalf, loutput=.FALSE.,                         &
+                & isteptype=TSTEP_CONSTANT )
+#else
+    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
+             p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
+             p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
+             p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
+#endif
+
+
+    ! functional determinant of the metrics [sqrt(gamma)]
+    ! ddqz_z_full  p_metrics%ddqz_z_full(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('metrics_functional_determinant', '-',                &
+      &                   'metrics functional determinant', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_metrics_list, 'ddqz_z_full', p_metrics%ddqz_z_full,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, loutput=.FALSE.,                             &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2247,6 +2253,7 @@ MODULE mo_nonhydro_state
 ! These fields are needed for triangles only once the initialization in
 ! mo_nh_testcases is properly rewritten for hexagons
 !    IF (p_patch%cell_type== 3) THEN
+#ifndef __MIXED_PRECISION
       ! weighting factor for interpolation from full to half levels
       ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
       !
@@ -2256,7 +2263,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'wgtfac_c', p_metrics%wgtfac_c,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_chalf,                                        &
+                  & ldims=shape3d_chalf, loutput=.FALSE.,                       &
                   & isteptype=TSTEP_CONSTANT )
 
 
@@ -2269,7 +2276,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'wgtfac_e', p_metrics%wgtfac_e,             &
                   & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_ehalf,                                        &
+                  & ldims=shape3d_ehalf, loutput=.FALSE.,                       &
                   & isteptype=TSTEP_CONSTANT )
 
 
@@ -2344,7 +2351,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'inv_ddqz_z_full', p_metrics%inv_ddqz_z_full, &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_c,                                              &
+                  & ldims=shape3d_c, loutput=.FALSE.,                             &
                   & isteptype=TSTEP_CONSTANT )
 
 
@@ -2356,7 +2363,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'coeff1_dwdz', p_metrics%coeff1_dwdz,           &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
-                  & ldims=shape3d_c,                                                &
+                  & ldims=shape3d_c, loutput=.FALSE.,                               &
                   & isteptype=TSTEP_CONSTANT )
       !
       ! coeff2_dwdz  p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)
@@ -2366,9 +2373,20 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'coeff2_dwdz', p_metrics%coeff2_dwdz,           &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
-                  & ldims=shape3d_c,                                                &
+                  & ldims=shape3d_c, loutput=.FALSE.,                               &
                   & isteptype=TSTEP_CONSTANT )
-
+#else
+      ALLOCATE(p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c), & 
+               p_metrics%wgtfac_c(nproma,nlevp1,nblks_c),      &
+               p_metrics%wgtfac_e(nproma,nlevp1,nblks_e),      &
+               p_metrics%wgtfacq_c(nproma,3,nblks_c),          &
+               p_metrics%wgtfacq_e(nproma,3,nblks_e),          &
+               p_metrics%wgtfacq1_c(nproma,3,nblks_c),         &
+               p_metrics%wgtfacq1_e(nproma,3,nblks_e),         &
+               p_metrics%coeff_gradekin(nproma,2,nblks_e),     &
+               p_metrics%coeff1_dwdz(nproma,nlev,nblks_c),     & 
+               p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)      )
+#endif
 
       ! Reference atmosphere field exner
       ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
@@ -2401,6 +2419,7 @@ MODULE mo_nonhydro_state
         ! pressure gradient computation
         ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
         !
+#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Height_differences', 'm',                          &
         &                     'Height differences', DATATYPE_FLT32)
         grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
@@ -2408,10 +2427,14 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_esquared, loutput=.FALSE.,                    &
                     & isteptype=TSTEP_CONSTANT  )
+#else
+        ALLOCATE(p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e))
+#endif
       ELSE
         ! Coefficients for cubic interpolation of Exner pressure
         ! coeff_gradp  p_metrics%coeff_gradp(8,nproma,nlev,nblks_e)
         !
+#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Interpolation_coefficients', '-',                  &
         &                     'Interpolation coefficients', DATATYPE_FLT32)
         grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
@@ -2419,20 +2442,26 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_e8, loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT  )
+#else
+        ALLOCATE(p_metrics%coeff_gradp(8,nproma,nlev,nblks_e))
+#endif
       ENDIF
 
 
       ! Extrapolation factor for Exner pressure
       ! exner_exfac  p_metrics%exner_exfac(nproma,nlev,nblks_c)
       !
+#ifndef __MIXED_PRECISION
       cf_desc    = t_cf_var('Extrapolation_factor_for_Exner_pressure', '-',     &
       &                     'Extrapolation factor for Exner pressure', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'exner_exfac', p_metrics%exner_exfac,       &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c,                                            &
+                  & ldims=shape3d_c, loutput=.FALSE.,                           &
                   & isteptype=TSTEP_CONSTANT )
-
+#else
+      ALLOCATE(p_metrics%exner_exfac(nproma,nlev,nblks_c))
+#endif
 
       ! Reference atmosphere field theta
       ! theta_ref_mc  p_metrics%theta_ref_mc(nproma,nlev,nblks_c)
@@ -2506,6 +2535,7 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
 
+#ifndef __MIXED_PRECISION
       ! Reference atmosphere field exner
       ! d_exner_dz_ref_ic  p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c)
       !
@@ -2514,7 +2544,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'd_exner_dz_ref_ic', p_metrics%d_exner_dz_ref_ic, &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_chalf,                                        &
+                  & ldims=shape3d_chalf,  loutput=.FALSE.,                      &
                   & isteptype=TSTEP_CONSTANT )
 
 
@@ -2527,7 +2557,7 @@ MODULE mo_nonhydro_state
         grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_metrics_list, 'd2dexdz2_fac1_mc', p_metrics%d2dexdz2_fac1_mc, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                    & ldims=shape3d_c,                                            &
+                    & ldims=shape3d_c,  loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT )
 
 
@@ -2539,9 +2569,16 @@ MODULE mo_nonhydro_state
         grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_metrics_list, 'd2dexdz2_fac2_mc', p_metrics%d2dexdz2_fac2_mc, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                    & ldims=shape3d_c,                                            &
+                    & ldims=shape3d_c,  loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT )
       ENDIF
+#else
+      ALLOCATE(p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c))
+      IF (igradp_method <= 3) THEN
+        ALLOCATE(p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c), &
+                 p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)  )
+      ENDIF
+#endif
 
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
