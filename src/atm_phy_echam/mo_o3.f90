@@ -68,9 +68,9 @@ CONTAINS
     CHARACTER(len=12)                 :: fname
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=18)                 :: subprog_name
-    INTEGER                           :: ncid, varid, mpi_comm,i
+    INTEGER                           :: ncid, varid, mpi_comm
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
-  
+
     IF (year > pre_year) THEN
 
       IF (ALLOCATED(o3_plev)) THEN

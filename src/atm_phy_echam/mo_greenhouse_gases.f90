@@ -36,6 +36,7 @@ MODULE mo_greenhouse_gases
 
   PUBLIC :: read_ghg_bc
   PUBLIC :: ghg_time_interpolation, co2_time_interpolation
+  PUBLIC :: cleanup_greenhouse_gases
 
   PUBLIC :: ghg_no_cfc
   PUBLIC :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
