@@ -2197,7 +2197,7 @@ CONTAINS
   !! the two lines indeed do intersect (e.g. by making use of the
   !! ccw-function)
   !!
-  !! The two lines are given in the from:
+  !! The two lines are given in the form:
   !! f1(x) = y_a1 + m1*(x-x_a1)
   !! f2(x) = y_b1 + m2*(x-x_b1)
   !! with

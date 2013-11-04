@@ -52,10 +52,11 @@ MODULE mo_nml_crosscheck
     &                              ildf_dry, inoforcing, ihs_atm_temp,        &
     &                              ihs_atm_theta, tracer_only, inh_atmosphere,&
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
-    &                              NO_HADV, UP, MIURA, MIURA3, FFSL, UP3,     &
-    &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,          &
-    &                              FFSL_MCYCL, ifluxl_sm, ifluxl_m, ihs_ocean,&
-    &                              RAYLEIGH_CLASSIC, iedmf, icosmo
+    &                              NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,&
+    &                              UP3, MCYCL, MIURA_MCYCL, MIURA3_MCYCL,     &
+    &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
+    &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
+    &                              iedmf, icosmo
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -292,7 +293,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
-    INTEGER :: z_go_hex(3), z_go_tri(9), z_nogo_tri(3)   ! for crosscheck
+    INTEGER :: z_go_hex(3), z_go_tri(11), z_nogo_tri(3)   ! for crosscheck
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
 
@@ -799,12 +800,13 @@ CONTAINS
 
       SELECT CASE (global_cell_type)
       CASE (3)
-        z_go_tri(1:9)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,MCYCL,MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL/)
+        z_go_tri(1:11)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,FFSL_HYB,MCYCL,       &
+          &              MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL,FFSL_HYB_MCYCL/)
         DO jt=1,ntracer
           IF ( ALL(z_go_tri /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
             CALL finish( TRIM(method_name),                                       &
               &  'incorrect settings for TRI-C grid ihadv_tracer. Must be '// &
-              &  '0,1,2,3,4,20,22,32 or 42 ')
+              &  '0,1,2,3,4,5,6,20,22,32,42 or 52 ')
           ENDIF
         ENDDO
 

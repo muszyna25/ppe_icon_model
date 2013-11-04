@@ -68,6 +68,7 @@ MODULE mo_advection_traj
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
+  USE mo_advection_utils,     ONLY: t_list2D
 
 
   IMPLICIT NONE
@@ -302,10 +303,14 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2012-04-24)
   !! - bug fix: counterclockwise numbering is now ensured independent of the 
   !!   edge system-orientation.
+  !! Modification by Daniel Reinert, DWD (2013-11-01)
+  !! - optionally derive list of edges for which the standard Miura scheme is 
+  !!   potentially insufficient
   !!
   SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, lcounterclock, &
        &                   p_cell_idx, p_cell_blk, p_coords_dreg_v,       &
-       &                   opt_rlstart, opt_rlend, opt_slev, opt_elev )
+       &                   opt_rlstart, opt_rlend, opt_slev, opt_elev,    &
+       &                   opt_falist )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
          &  ptr_p
@@ -349,6 +354,11 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
+    TYPE(t_list2D), INTENT(INOUT), OPTIONAL :: & !< list with points for which a local
+         &  opt_falist                      !< polynomial approximation is insufficient 
+                                            !< and a piecewise approximation is needed, 
+                                            !< instead
+
     REAL(wp) ::            &       !< coordinates of departure points 
          &  depart_pts(2,2)           !< in edge-based coordinate system
 
@@ -372,6 +382,11 @@ CONTAINS
     LOGICAL :: lvn_pos             !< vn > 0: TRUE/FALSE
     LOGICAL :: lvn_sys_pos         !< vn*system_orient > 0
 
+    ! for index list generation
+    LOGICAL :: llist_gen           !< if TRUE, generate index list
+    INTEGER :: ie                  !< counter
+    REAL(wp):: traj_length         !< backward trajectory length [m]
+    REAL(wp):: e2c_length          !< edge-upwind cell circumcenter length [m]
     !-------------------------------------------------------------------------
 
     IF (timers_level > 5) THEN
@@ -403,6 +418,11 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
+    IF (PRESENT(opt_falist)) THEN
+      llist_gen = .TRUE.
+    ELSE
+      llist_gen = .FALSE.
+    ENDIF
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -412,12 +432,44 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,depart_pts,pos_dreg_vert_c, &
-!$OMP            pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,lvn_sys_pos,edge_verts) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx,traj_length,e2c_length, &
+!$OMP depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,&
+!$OMP lvn_sys_pos,edge_verts) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
            i_startidx, i_endidx, i_rlstart, i_rlend)
+
+
+      ! generate list of points that require special treatment
+      !
+      IF (llist_gen) THEN
+        ie = 0
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+            ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
+            lvn_pos     = p_vn(je,jk,jb) * p_dt >= 0._wp
+
+            ! compute length of backward trajectory
+            traj_length = SQRT(p_vn(je,jk,jb)**2 + p_vt(je,jk,jb)**2) * p_dt
+
+            ! distance from edge midpoint to upwind cell circumcenter [m]
+            e2c_length  = MERGE(ptr_p%edges%edge_cell_length(je,jb,1),       &
+              &                 ptr_p%edges%edge_cell_length(je,jb,2),lvn_pos)
+
+            IF (traj_length > 0.40_wp*e2c_length) THEN   ! add point to index list
+              ie = ie + 1
+              opt_falist%eidx(ie,jb) = je
+              opt_falist%elev(ie,jb) = jk
+            ENDIF
+          ENDDO ! loop over edges
+        ENDDO   ! loop over vertical levels
+
+        ! store list dimension
+        opt_falist%len(jb) = ie
+      ENDIF
+
+
 
       DO jk = slev, elev
         DO je = i_startidx, i_endidx

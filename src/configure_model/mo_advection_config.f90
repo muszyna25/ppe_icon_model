@@ -43,9 +43,10 @@
 MODULE mo_advection_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,      &
-    &                              MIURA, MIURA3, FFSL, MCYCL, MIURA_MCYCL,    &
-    &                              MIURA3_MCYCL, FFSL_MCYCL, ippm_vcfl, ippm_v,&
+  USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
+    &                              MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
+    &                              MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
+    &                              FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
     &                              ino_flx, izero_grad, iparent_flx, inwp
 
   IMPLICIT NONE
@@ -59,14 +60,16 @@ MODULE mo_advection_config
   ! of tracer independent parts
   !
   TYPE t_compute                                                               
-    LOGICAL :: ppm_v    (MAX_NTRACER)                                           
-    LOGICAL :: miura_h  (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h (MAX_NTRACER)
-    LOGICAL :: ffsl_h   (MAX_NTRACER)
-    LOGICAL :: mcycl_h  (MAX_NTRACER)
-    LOGICAL :: miura_mcycl_h (MAX_NTRACER)
-    LOGICAL :: miura3_mcycl_h(MAX_NTRACER)
-    LOGICAL :: ffsl_mcycl_h(MAX_NTRACER)                                          
+    LOGICAL :: ppm_v     (MAX_NTRACER)                                           
+    LOGICAL :: miura_h   (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h  (MAX_NTRACER)
+    LOGICAL :: ffsl_h    (MAX_NTRACER)
+    LOGICAL :: ffsl_hyb_h(MAX_NTRACER)
+    LOGICAL :: mcycl_h   (MAX_NTRACER)
+    LOGICAL :: miura_mcycl_h   (MAX_NTRACER)
+    LOGICAL :: miura3_mcycl_h  (MAX_NTRACER)
+    LOGICAL :: ffsl_mcycl_h    (MAX_NTRACER)
+    LOGICAL :: ffsl_hyb_mcycl_h(MAX_NTRACER)                            
   END TYPE t_compute                                                           
 
 
@@ -93,11 +96,15 @@ MODULE mo_advection_config
       &  ihadv_tracer(MAX_NTRACER)  !< 0:  no horizontal advection                
                                     !< 1:  1st order upwind                       
                                     !< 2:  2nd order miura                        
-                                    !< 3:  3rd order miura with quadr./cubic reconstr.            
-                                    !< 4:  3rd or 4th order upstream (on hexagons only)
+                                    !< 3:  3rd order miura with quadr./cubic reconstr.
+                                    !< 4:  Flux form semi lagrange (FFSL)
+                                    !< 5:  hybrid FFSL Miura3
+                                    !< 6:  3rd or 4th order upstream (on hexagons only)
                                     !< 20: subcycling version of miura
                                     !< 22: 2nd order miura and miura_cycl
-                                    !< 32: 3rd order miura with miura_cycl  
+                                    !< 32: 3rd order miura with miura_cycl
+                                    !< 42: FFSL with miura_cycl
+                                    !< 52: FFSL_HYB with miura_cycl
 
     INTEGER :: &                    !< selects vertical transport scheme         
       &  ivadv_tracer(MAX_NTRACER)  !< 0 : no vertical advection                 
@@ -173,13 +180,16 @@ MODULE mo_advection_config
     TYPE(t_scheme) :: miura_h    !< horizontal miura scheme (linear reconstr.)
     TYPE(t_scheme) :: miura3_h   !< horizontal miura scheme (higher order reconstr.)
     TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
+    TYPE(t_scheme) :: ffsl_hyb_h !< horizontal hybrid FFSL/miura3 scheme
     TYPE(t_scheme) :: mcycl_h    !< horizontal miura scheme (linear) with subcycling
     TYPE(t_scheme) ::  &         !< combination of horizontal miura scheme and miura 
       &  miura_mcycl_h           !< scheme with subcycling
     TYPE(t_scheme) ::  &         !< combination of horizontal miura3 scheme and miura
       &  miura3_mcycl_h          !< scheme with subcycling
     TYPE(t_scheme) ::  &         !< combination of horizontal ffsl scheme and miura
-      &  ffsl_mcycl_h            !< scheme with subcycling 
+      &  ffsl_mcycl_h            !< scheme with subcycling
+    TYPE(t_scheme) ::  &         !< combination of horizontal hybrid ffsl scheme and miura
+      &  ffsl_hyb_mcycl_h        !< scheme with subcycling 
   END TYPE t_advection_config
 
   !>
@@ -480,6 +490,43 @@ CONTAINS
     ENDDO
 
 
+
+    !
+    ! FFSL_HYB specific settings (horizontal transport)
+    !
+    lcompute%ffsl_hyb_h(:) = .FALSE.
+    lcleanup%ffsl_hyb_h(:) = .FALSE.
+
+    advection_config(jg)%ffsl_hyb_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ANY( (/FFSL_HYB, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        advection_config(jg)%ffsl_hyb_h%iadv_min_slev =   &
+          &                  MIN( advection_config(jg)%ffsl_hyb_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type FFSL_HYB has been selected.
+    DO jt=1,ntracer
+      IF ( ANY( (/FFSL_HYB, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        lcompute%ffsl_hyb_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type FFSL_HYB has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ANY( (/FFSL_HYB, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        lcleanup%ffsl_hyb_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+
     !
     ! MCYCL specific settings (horizontal transport)
     !
@@ -619,6 +666,42 @@ CONTAINS
     DO jt=ntracer,1,-1
       IF ( ihadv_tracer(jt) == FFSL_MCYCL ) THEN
         lcleanup%ffsl_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+
+    !
+    ! FFSL_HYB_MCYCL specific settings (horizontal transport)
+    !
+    lcompute%ffsl_hyb_mcycl_h(:) = .FALSE.
+    lcleanup%ffsl_hyb_mcycl_h(:) = .FALSE.
+
+    advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev = HUGE(1)
+
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
+        advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev =  &
+          &                  MIN( advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type FFSL_MCYCL has been selected.
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
+        lcompute%ffsl_hyb_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type FFSL_HYB_MCYCL has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
+        lcleanup%ffsl_hyb_mcycl_h(jt) = .TRUE.
         exit
       ENDIF
     ENDDO

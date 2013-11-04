@@ -48,7 +48,7 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, FFSL_MCYCL, ippm_vcfl, ippm_v,       &
+    &                               MIURA, FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,   &
     &                               inol, ifluxl_m, ifluxl_sm, inol_v,          &
     &                               islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -79,11 +79,14 @@ MODULE mo_advection_nml
                                    !< 1:  1st order upwind
                                    !< 2:  2nd order miura
                                    !< 3:  3rd order miura with quadr./cubic reconstr.
-                                   !< 4:  3rd or 4th order upstream (on hexagons only)
+                                   !< 4:  Flux form semi lagrange (FFSL)
+                                   !< 5:  hybrid FFSL Miura3
+                                   !< 6:  3rd or 4th order upstream (on hexagons only)
                                    !< 20: subcycling version of miura
                                    !< 22: 2nd order miura and miura_cycl
                                    !< 32: 3rd order miura with miura_cycl
-
+                                   !< 42: FFSL with miura_cycl
+                                   !< 52: FFSL_HYB with miura_cycl
 
   INTEGER :: &                     !< selects vertical transport scheme
     &  ivadv_tracer(max_ntracer)   !< 0 : no vertical advection
@@ -224,11 +227,11 @@ CONTAINS
 
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_MCYCL) .OR.            &
+    IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_HYB_MCYCL) .OR.            &
       &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
-        &  '20,22,32 or 42 ')
+        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,6,'//&
+        &  '20,22,32,42 or 52 ')
     ENDIF
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN

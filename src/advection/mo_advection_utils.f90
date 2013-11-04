@@ -75,8 +75,17 @@ MODULE mo_advection_utils
   PUBLIC :: ptr_delp_mc_now
   PUBLIC :: ptr_delp_mc_new
 
+  PUBLIC :: t_list2D
+
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+
+  TYPE t_list2D
+    INTEGER, POINTER :: eidx(:,:)
+    INTEGER, POINTER :: elev(:,:)
+    INTEGER, POINTER :: len(:)
+  END TYPE t_list2D
 
 
   ! In order to avoid circular dependencies these two pointers
