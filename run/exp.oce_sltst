@@ -83,7 +83,7 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -91,6 +91,7 @@ nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
 ndays_restart=1      # stop model for restart [days]
+nyear_outpLen=1      # stop writing model output to file [years]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -100,6 +101,7 @@ ndays_restart=1      # stop model for restart [days]
 (( dt_restart    = ndays_restart * 86400 ))
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data )) # output intervals per file interval
+(( outputLength  = nyear_outpLen * 86400*365 ))
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -137,7 +139,7 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
-  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  output_bounds    = 0, ${outputLength}, ${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
@@ -145,13 +147,13 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','hi','conc'
 ! ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
 /
-&output_nml
-  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-! steps_per_file   = ${steps_per_file}
-! include_last     = .TRUE.
-! output_grid      = .TRUE.
-! output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-! ml_varlist       = 'wet_c','group:ice_default'
+!&output_nml
+!  output_bounds    = 0, ${outputLength}, ${dt_data}   !start, end, increment
+!  steps_per_file   = ${steps_per_file}
+!  include_last     = .TRUE.
+!  output_grid      = .TRUE.
+!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
+!  ml_varlist       = 'wet_c','group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=2                     ! initialize MIN/MAX  debug output
@@ -175,8 +177,8 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .TRUE.       ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 4=mimetic_miura, 5=adpo
+  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
+  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   !dhdtw_abort      = 3.2E-7      ! max dynamic abort criterion
@@ -201,6 +203,10 @@ cat > ${ocean_namelist} << EOF
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
+/
+&sea_ice_nml
+  i_ice_therm   = 1
+  i_ice_dyn     = 1
 /
 &ocean_forcing_and_init_nml
   idiag_oce          = 0              ! 1: write standard ocean diagnostics to stderr; 0: straits are for r2b4 only
