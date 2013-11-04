@@ -49,6 +49,7 @@ MODULE mo_icon_cpl_exchg
 
   USE mo_kind, ONLY          : wp
   USE mo_event_manager, ONLY : event_check, events
+  USE mo_run_config, ONLY    : dtime, nsteps
 
 #ifndef NOMPI
   USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE, &
@@ -212,6 +213,9 @@ CONTAINS
                    events(fptr%event_id)%restart_time -  &
                    events(fptr%event_id)%lag *           &
                    events(fptr%event_id)%time_step
+
+    IF ( .NOT. l_end_of_run ) &
+       l_end_of_run = events(fptr%event_id)%elapsed_time > INT((nsteps-events(fptr%event_id)%lag)*dtime)
 
     IF ( .NOT. l_action ) RETURN
 
@@ -836,10 +840,21 @@ CONTAINS
 
     IF ( fptr%coupling%lag > 0 ) THEN
 
+       WRITE ( cplout , * ) 'RENE restart check: ', &
+                            nsteps*dtime,                         &
+                            events(fptr%event_id)%elapsed_time,   &
+                            events(fptr%event_id)%restart_time +  &
+                                     events(fptr%event_id)%lag *  &
+                                     events(fptr%event_id)%time_step
+
        l_restart    = events(fptr%event_id)%elapsed_time == &
                       events(fptr%event_id)%restart_time +  &
                       events(fptr%event_id)%lag *           &
                       events(fptr%event_id)%time_step
+
+       IF ( .NOT. l_restart ) &
+       l_restart = events(fptr%event_id)%elapsed_time == INT(nsteps*dtime)
+
        IF ( .NOT. l_restart ) &
        l_checkpoint = events(fptr%event_id)%elapsed_time == &
                       events(fptr%event_id)%check_time +    &
