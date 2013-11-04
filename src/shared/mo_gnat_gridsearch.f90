@@ -636,7 +636,7 @@ CONTAINS
 
       ! Build an index list: Skip search points that have been externally
       ! flagged with index "SKIP_NODE":
-      indices = PACK(all_indices, (min_node_idx(1,1:end_idx,jb) /= SKIP_NODE), zero)
+      indices = PACK(all_indices(1:end_idx), (min_node_idx(1,1:end_idx,jb) /= SKIP_NODE), zero)
 
       DO jc1=1,end_idx
         jc = indices(jc1)
