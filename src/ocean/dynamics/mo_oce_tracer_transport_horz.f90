@@ -516,9 +516,15 @@ END SUBROUTINE advect_diffuse_horz_high_res
               z_adv_flux_high(je,jk,jb) = z_mflux(je,jk,jb)*z_diff_flux_h(je,jk,jb)
          
               z_tmp = 2.0_wp*k_h(je,jk,jb)/patch_2d%edges%dual_edge_length(je,jb)    
+
+           !  write(0,*) 'je,jk,jb,duallen,mflux,tmp:',je,jk,jb,patch_2d%edges%dual_edge_length(je,jb),z_mflux(je,jk,jb),z_tmp
                  
               !This corresponds to eq. (14) in Casulli-Zanolli         
-              z_limit_phi(je,jk,jb) = min(1.0_wp,z_tmp/z_mflux(je,jk,jb))
+              IF (z_mflux(je,jk,jb) == 0.0_wp) THEN
+                z_limit_phi(je,jk,jb) = 1.0_wp   !  bugfix, z_mflux can be zero!
+              ELSE
+                z_limit_phi(je,jk,jb) = min(1.0_wp,z_tmp/z_mflux(je,jk,jb))
+              ENDIF
          
             END DO
           END DO
