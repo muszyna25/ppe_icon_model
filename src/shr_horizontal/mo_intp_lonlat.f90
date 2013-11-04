@@ -356,6 +356,7 @@
         decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, loc_n)/)
         CALL quicksort(decomp_info%inner_glb_index(:), &
           &       decomp_info%inner_glb_index_to_loc(:))
+        decomp_info%global_size = glb_n
 
       END SUBROUTINE generate_decomp_info
 
