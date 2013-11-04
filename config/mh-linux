@@ -343,47 +343,6 @@ case "$ac_sitename" in
                 ;;
         *)
            case "$host" in
-              i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
-                  config_target=mpipc
-                  load_modules="ncl/5.2.0-bin" "cdo/default" "jdk" "${load_modules}"
-                  load_profile="." "/client/etc/profile.zmaw"
-                  submit=""
-                  make_command="make" "-j" "2"
-                  NETCDFROOT  = /sw/etch-ia32/netcdf-3.6.3
-
-                  case "$fortran_compiler" in
-                      default|gcc)
-                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-gcc43
-                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-                          load_modules="GCC/4.3.3" "${load_modules}"
-                          ;;
-                      nag)
-                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-nag52
-                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-                          load_modules="GCC/4.3.3" "NAG/5.2.721" "${load_modules}"
-                          ;;
-                      pgi)
-                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-pgi9
-                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-                          load_modules="GCC/4.3.3" "PGI/9.0-4" "${load_modules}"
-
-                          ;;
-                      intel)
-                          MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-intel11
-                          MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-                          load_modules="GCC/4.3.3" "jdk" "Intel/11.1.072" "${load_modules}"
-                          ;;
-                      sun)
-                          echo
-                          echo
-                          echo SunStudio12 update 1 patch level 3 is not supported with DEBIAN etch
-                          echo
-                          exit
-                        #
-                          ;;
-                  esac
-                  ;;
-              #-------------------------------------
               x86_64-*-linux-*)        # 64 bit lenny or squeeze MPI/ZMAW workstation
                   dist_codename=$(lsb_release -c)
                   case "$dist_codename" in
