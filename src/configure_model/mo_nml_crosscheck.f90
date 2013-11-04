@@ -201,7 +201,14 @@ CONTAINS
 
     END IF
 
-    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf)
+    IF ( iequations /= IHS_OCEAN     .AND. &
+         iequations /= IHS_ATM_TEMP  .AND. &
+         iequations /= IHS_ATM_THETA ) THEN
+      !
+      ! for non-hydrostatic atmosphere
+      ! - ocean does not know iadv_rcf)
+      ! - not relevant for the hydrostatic atmosphere
+      !
       ! Check whether the end of the restart cycle is synchronized with a transport
       ! event. If not, adapt dt_restart accordingly.
       ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
@@ -215,7 +222,6 @@ CONTAINS
         CALL message(method_name, message_text)
       ENDIF
     ENDIF
-
 
     ! Length of this integration is limited by length of the restart cycle.
     !
@@ -252,8 +258,14 @@ CONTAINS
     !
     dt_checkpoint = MIN(dt_checkpoint,time_config%dt_restart)
 
-
-    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf)
+    IF ( iequations /= IHS_OCEAN     .AND. &
+         iequations /= IHS_ATM_TEMP  .AND. &
+         iequations /= IHS_ATM_THETA ) THEN
+      !
+      ! for non-hydrostatic atmosphere
+      ! - ocean does not know iadv_rcf)
+      ! - not relevant for the hydrostatic atmosphere
+      !
       ! Check whether checkpointing is synchronized with a transport event.
       ! If not, adapt dt_checkpoint accordingly.
       ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
