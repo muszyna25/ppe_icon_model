@@ -225,6 +225,7 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
   REAL(wp), DIMENSION(kbdim,nb_lw)      :: zaod_t, zext_t_int, zfact_t 
   REAL(wp)                              :: p_lat_shift, p_rdeltalat
   INTEGER                               :: n_lat
+  INTEGER                               :: jc
 
 ! It is assumed that the pressure levels of the climatology do not change with time but
 ! are unequally spaced. Since the pressure of each icon level may change with time,
@@ -391,8 +392,14 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
 !     inverse height profile
   DO jk=1,klev
      jki=klev-jk+1
-     paer_tau_lw_vr(1:kproma,jk,1:nb_lw)=paer_tau_lw_vr(1:kproma,jk,1:nb_lw)+ &
-          zext_t(1:kproma,jki,1:nb_lw)*(1._wp-zomg_t(1:kproma,jki,1:nb_lw))
+!!$     paer_tau_lw_vr(1:kproma,jk,1:nb_lw)=paer_tau_lw_vr(1:kproma,jk,1:nb_lw) + &
+!!$          zext_t(1:kproma,jki,1:nb_lw)*(1._wp-zomg_t(1:kproma,jki,1:nb_lw))
+     ! use explicit DO loop to circumvent possible SXf90 compiler bug
+     ! this should be equivalent to the formulation above.
+     DO jc = 1,kproma
+     paer_tau_lw_vr(jc,jk,1:nb_lw)=paer_tau_lw_vr(jc,jk,1:nb_lw) + &
+          zext_t(jc,jki,1:nb_lw)*(1._wp-zomg_t(jc,jki,1:nb_lw))
+     ENDDO
   END DO  
 
 END SUBROUTINE add_aop_stenchikov
