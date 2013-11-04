@@ -519,7 +519,7 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-6')
      ENDIF
 
-     IF( FLUX_CALCULATION_VERT > 5 .OR. FLUX_CALCULATION_VERT <1 ) THEN
+     IF( FLUX_CALCULATION_VERT > 6 .OR. FLUX_CALCULATION_VERT <1 ) THEN
        CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-6')
      ENDIF
 
