@@ -227,15 +227,12 @@ esac
 # Define site dependent library paths
 #
 case "$ac_sitename" in
-
-#===============================================
-    cray)
-        NETCDFROOT=${NETCDF_DIR}
-	LIBS        = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
-    ;;
-#===============================================
     dwd.de)
         case "$(hostname)" in
+            xct*)
+                NETCDFROOT  =${NETCDF_DIR}
+                LIBS        = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+		;;
             oflws*)             # Linux workstations with gfortran
                 NETCDFROOT  = /usr
                 NETCDFLIBPATH = /usr/lib64
