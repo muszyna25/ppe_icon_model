@@ -91,7 +91,7 @@ nhours_data=6        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
 ndays_restart=1      # stop model for restart [days]
-nyear_outpLen=1      # stop writing model output to file [years]
+nyear_outpLen=1      # stop writing model output to file [years] - must be <60y
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
