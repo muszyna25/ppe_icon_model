@@ -732,8 +732,6 @@ run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_numeric_noland -text
 run/exp.oce_test_parallel -text
-run/exp.oce_tracer_conservation -text
-run/exp.oce_tracer_conservation_force-5-0 -text
 run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
