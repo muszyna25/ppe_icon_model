@@ -294,7 +294,6 @@ CONTAINS
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
     INTEGER :: z_go_hex(3), z_go_tri(11), z_nogo_tri(3)   ! for crosscheck
-    REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
 
     !--------------------------------------------------------------------
@@ -974,7 +973,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
 
-    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
+!!$    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 #ifndef __JSBACH__
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
