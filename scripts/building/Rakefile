@@ -91,8 +91,6 @@ $builds = {
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
-$_temps = []
-# ============================================================================
 
 # run the commands and try to get back stdout or possible error messages
 def call(cmd,unthreadded=false)
@@ -180,6 +178,10 @@ $buildCall = lambda {|build|
   buildCall << './build_command;'
 }
 
+# ============================================================================
+# global tempfile array: little hack because the call generator does not really
+# call the system command
+$_temps = []
 # synchronization call for given build
 def sync(build)
   dir      = $targetDir[build]
