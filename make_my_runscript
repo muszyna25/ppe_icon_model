@@ -60,7 +60,7 @@ no_of_nodes=1
 #   Define how many mpi procs to use. On blizzard it defines the mpi procs per node,
 #   on all other machines at DKRZ and MPI-M it defines the total mpi procs. 
 #   On tornado this should be a multiple of 8.
-mpi_procs=32
+mpi_procs_pernode=32
 
 #   Define how many openmp threads. This has effect only when compiled with openmp.
 openmp_threads=2
@@ -91,7 +91,7 @@ $make_runscript                  \
   EXPNAME=${exp_name}            \
   nproma=$nproma                 \
   no_of_nodes=$no_of_nodes       \
-  mpi_procs=$mpi_procs           \
+  mpi_procs_pernode=$mpi_procs_pernode  \
   openmp_threads=$openmp_threads \
   memory_model=$memory_model     \
   cpu_time=$cpu_time              
