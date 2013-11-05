@@ -196,6 +196,8 @@ def sync(build)
   file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
   # add non-added runscripts
   file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
+  # add grids directory for local external data
+  file.write(Dir.glob("grids/*.nc").join("\n"))
   file.close
 
   if isLocal?(build)
