@@ -36,12 +36,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-#  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -90,20 +90,24 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 # global timing
 start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-11T00:00:00Z"
+(( expLength = 10 * 86400 ))
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=6
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
-ndays_restart=10     # stop model for restart [days]
+ndays_restart=20
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-dt_data=`expr ${nhours_data} \* 3600`
-dt_file=`expr ${ndays_file} \* 86400`
-dt_checkpoint=`expr ${ndays_checkp} \* 86400`
-dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# calculate model timesteps using $ndays
+(( dt_data       = nhours_data   * 3600 ))
+(( dt_file       = ndays_file    * 86400 ))
+(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_restart    = ndays_restart * 86400 ))
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data )) # output intervals per file interval
 #
@@ -143,7 +147,7 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .TRUE.
 /
 &output_nml
-  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  output_bounds    = 0 , ${expLength}, ${dt_data}   !start, end, increment
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.

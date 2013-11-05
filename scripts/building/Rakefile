@@ -47,15 +47,15 @@ $hosts = {
 
   :thunder4 => {
     :user     => REMOTE_USER,
-    :hostname => 'localhost',
-    :port     => 40022,
-   #:hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
+   #:hostname => 'localhost',
+   #:port     => 40022,
+   :hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :thunder5 => {
     :user     => REMOTE_USER,
-    :hostname => 'localhost',
-    :port     => 50022,
-   #:hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
+   #:hostname => 'localhost',
+   #:port     => 50022,
+    :hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :passat => {
     :user     => REMOTE_USER,
@@ -252,7 +252,7 @@ end
 def doRunExp(build,exp,post=false)
   runScript = (post) ? 'post' : 'exp'
   runScript << '.' + exp +'.run'
-  call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc | cut -d ' ' -f 1) && rm #{exp}*.nc"))
+  call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc* | cut -d ' ' -f 1) && rm #{exp}*.nc*"))
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       test -f $(echo #{exp}*.nc | cut -d \' \' -f 1) && rm #{exp}*.nc
@@ -288,7 +288,7 @@ end
 def doCheckExp(build,exp)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
-      for file in #{exp}*.nc #{exp}*001_TEST.nc; do
+      for file in #{exp}*.nc* #{exp}*001_TEST.nc; do
         if [ -f $file ]; then
           echo '#===========================================================================';
           echo " $file";echo
