@@ -48,15 +48,15 @@ $hosts = {
 
   :thunder4 => {
     :user     => REMOTE_USER,
-   #:hostname => 'localhost',
-   #:port     => 40022,
-   :hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
+    :hostname => 'localhost',
+    :port     => 40022,
+   #:hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :thunder5 => {
     :user     => REMOTE_USER,
-   #:hostname => 'localhost',
-   #:port     => 50022,
-    :hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
+    :hostname => 'localhost',
+    :port     => 50022,
+   #:hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
     :dir      => '/scratch/mpi/mh0287/users/m300064/builds/remote/icon' },
   :passat => {
     :user     => REMOTE_USER,
@@ -192,12 +192,14 @@ def sync(build)
   file.write(`git ls-files | grep -v -E '^(data|doc)'`)
   file.write("\n")
   file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
+  # add non-added runscripts
+  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
   file.close
 
   if isLocal?(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
   else
-    syncCmd = "rsync #{rsyncOpts} -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir}"
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
   end
   syncCmd
 end
