@@ -73,7 +73,7 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
-USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_valid_local_index
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
@@ -393,16 +393,15 @@ END SUBROUTINE construct_2d_gridref_state
 !>
 !! Get local idx_no and blk_no
 !!
-! ELEMENTAL SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
-SUBROUTINE loc_idx_blk_no(decomp_info, glb_index, loc_idx, loc_blk)
+ELEMENTAL SUBROUTINE loc_idx_blk_no(glb2loc_index, glb_index, loc_idx, loc_blk)
 
-  TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
+  TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
   INTEGER, INTENT(IN) :: glb_index
   INTEGER, INTENT(OUT) :: loc_idx, loc_blk
 
   INTEGER :: valid_local_index
 
-  valid_local_index = get_valid_local_index(decomp_info, glb_index, .TRUE.)
+  valid_local_index = get_valid_local_index(glb2loc_index, glb_index, .TRUE.)
 
   loc_idx = idx_no(valid_local_index)
   loc_blk = blk_no(valid_local_index)
@@ -492,7 +491,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
-    & p_lp%edges%decomp_info, comm_pat_loc_to_glb_e)
+    & p_lp%edges%decomp_info%glb2loc_index, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
@@ -505,7 +504,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     ENDIF
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
-    & p_lp%cells%decomp_info, comm_pat_loc_to_glb_c)
+    & p_lp%cells%decomp_info%glb2loc_index, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,4,p_lp%nblks_e))
@@ -567,7 +566,8 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       n = n+1
       DO l = isb_e, ieb_e
         DO m = 1, nproma
-          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+          CALL loc_idx_blk_no(p_p%edges%decomp_info%glb2loc_index, &
+            &                 int(z_tmp_r(m,n,l)), &
             &                 p_grf%p_dom(jcd)%grf_vec_ind_1a(m,k,l), &
             &                 p_grf%p_dom(jcd)%grf_vec_blk_1a(m,k,l))
         ENDDO
@@ -577,7 +577,8 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       n = n+1
       DO l = isb_e, ieb_e
         DO m = 1, nproma
-          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+          CALL loc_idx_blk_no(p_p%edges%decomp_info%glb2loc_index, &
+            &                 int(z_tmp_r(m,n,l)), &
             &                 p_grf%p_dom(jcd)%grf_vec_ind_1b(m,k,l), &
             &                 p_grf%p_dom(jcd)%grf_vec_blk_1b(m,k,l))
         ENDDO
@@ -587,7 +588,8 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       n = n+1
       DO l = isb_e, ieb_e
         DO m = 1, nproma
-          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+          CALL loc_idx_blk_no(p_p%edges%decomp_info%glb2loc_index, &
+            &                 int(z_tmp_r(m,n,l)), &
             &                 p_grf%p_dom(jcd)%grf_vec_ind_2a(m,k,l), &
             &                 p_grf%p_dom(jcd)%grf_vec_blk_2a(m,k,l))
         ENDDO
@@ -597,7 +599,8 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
       n = n+1
       DO l = isb_e, ieb_e
         DO m = 1, nproma
-          CALL loc_idx_blk_no(p_p%edges%decomp_info, int(z_tmp_r(m,n,l)), &
+          CALL loc_idx_blk_no(p_p%edges%decomp_info%glb2loc_index, &
+            &                 int(z_tmp_r(m,n,l)), &
             &                 p_grf%p_dom(jcd)%grf_vec_ind_2b(m,k,l), &
             &                 p_grf%p_dom(jcd)%grf_vec_blk_2b(m,k,l))
         ENDDO
@@ -704,7 +707,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     owner(j) = p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%decomp_info%glb_index, &
-    & p_lp%edges%decomp_info, comm_pat_loc_to_glb_e)
+    & p_lp%edges%decomp_info%glb2loc_index, comm_pat_loc_to_glb_e)
   DEALLOCATE(owner)
 
   ALLOCATE(owner(p_p%n_patch_cells))
@@ -712,7 +715,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
     owner(j) = p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
   ENDDO
   CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%decomp_info%glb_index, &
-    & p_lp%cells%decomp_info, comm_pat_loc_to_glb_c)
+    & p_lp%cells%decomp_info%glb2loc_index, comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
   ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_c))

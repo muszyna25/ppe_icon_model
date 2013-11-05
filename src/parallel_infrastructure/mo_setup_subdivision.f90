@@ -61,7 +61,8 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
-    &                              get_local_index, get_valid_local_index
+    &                              get_local_index, get_valid_local_index, &
+    &                              set_inner_glb_index, set_outer_glb_index
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
@@ -1077,7 +1078,7 @@ CONTAINS
     DO j = 0, 2 * n_boundary_rows
       DO i = 1, n2_ilev_c(j)
         jg = flag2_c_list(j)%idx(i)
-        jc = get_local_index(wrk_p_patch%cells%decomp_info, jg)
+        jc = get_local_index(wrk_p_patch%cells%decomp_info%glb2loc_index, jg)
         jb = blk_no(jc)
         jl = idx_no(jc)
         wrk_p_patch%cells%decomp_info%decomp_domain(jl,jb) = j
@@ -1110,7 +1111,7 @@ CONTAINS
     DO j = 0, 2 * n_boundary_rows + 1
       DO i = 1, n2_ilev_e(j)
         jg = flag2_e_list(j)%idx(i)
-        je = get_local_index(wrk_p_patch%edges%decomp_info, jg)
+        je = get_local_index(wrk_p_patch%edges%decomp_info%glb2loc_index, jg)
         jb = blk_no(je)
         jl = idx_no(je)
         wrk_p_patch%edges%decomp_info%decomp_domain(jl,jb) = j
@@ -1135,7 +1136,7 @@ CONTAINS
     DO j = 0, n_boundary_rows + 1
       DO i = 1, n2_ilev_v(j)
         jg = flag2_v_list(j)%idx(i)
-        jv = get_local_index(wrk_p_patch%verts%decomp_info, jg)
+        jv = get_local_index(wrk_p_patch%verts%decomp_info%glb2loc_index, jg)
         jb = blk_no(jv)
         jl = idx_no(jv)
         wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = j
@@ -2063,14 +2064,9 @@ CONTAINS
       CALL finish("", "Uknown order_type_of_halos")
     END SELECT
 
-    ALLOCATE(decomp_info%inner_glb_index(n_inner), &
-      &      decomp_info%inner_glb_index_to_loc(n_inner), &
-      &      decomp_info%outer_glb_index(0), &
-      &      decomp_info%outer_glb_index_to_loc(0))
-    ! these need to be sorted (glb_index(1:n_inner) is sorted by default)
-    decomp_info%inner_glb_index(:) = decomp_info%glb_index(1:n_inner)
-    decomp_info%inner_glb_index_to_loc(:) = &
-      (/(i, i = 1, n_inner)/)
+    CALL set_inner_glb_index(decomp_info%glb2loc_index, &
+      &                      decomp_info%glb_index(1:n_inner), &
+      &                      (/(i, i = 1, n_inner)/))
 
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
@@ -2263,14 +2259,9 @@ CONTAINS
 
     END DO
 
-    DEALLOCATE(decomp_info%outer_glb_index, decomp_info%outer_glb_index_to_loc)
-    ALLOCATE(decomp_info%outer_glb_index(n_patch_cve-n_inner), &
-      &      decomp_info%outer_glb_index_to_loc(n_patch_cve-n_inner))
-    decomp_info%outer_glb_index(:) = decomp_info%glb_index(n_inner+1:)
-    decomp_info%outer_glb_index_to_loc(:) = &
-      (/(i, i = n_inner+1, n_patch_cve)/)
-    CAll quicksort(decomp_info%outer_glb_index(:), &
-      &       decomp_info%outer_glb_index_to_loc(:))
+    CALL set_outer_glb_index(decomp_info%glb2loc_index, &
+      &                      decomp_info%glb_index(n_inner+1:), &
+      &                      (/(i, i = n_inner+1, n_patch_cve)/))
 
   END SUBROUTINE build_patch_start_end
 
@@ -2308,13 +2299,9 @@ CONTAINS
       CALL finish("build_patch_start_end_short", "Uknown order_type_of_halos")
     END IF
 
-    ALLOCATE(decomp_info%inner_glb_index(n_patch_cve), &
-      &      decomp_info%inner_glb_index_to_loc(n_patch_cve), &
-      &      decomp_info%outer_glb_index(0), &
-      &      decomp_info%outer_glb_index_to_loc(0))
-    ! these need to be sorted (glb_index(:) is sorted by default)
-    decomp_info%inner_glb_index(:) = decomp_info%glb_index(:)
-    decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, n_patch_cve)/)
+    CALL set_inner_glb_index(decomp_info%glb2loc_index, &
+      &                      decomp_info%glb_index(:), &
+      &                      (/(i, i = 1, n_patch_cve)/))
 
     ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
@@ -2501,12 +2488,12 @@ CONTAINS
     j_g = idx_1d(g_idx, g_blk)
 
     IF (mode == 0) THEN
-      j_l = get_local_index(decomp_info, j_g)
+      j_l = get_local_index(decomp_info%glb2loc_index, j_g)
       IF (j_l < 0) j_l = -j_g
     ELSE IF (mode > 0) THEN
-      j_l = get_valid_local_index(decomp_info, j_g, .TRUE.)
+      j_l = get_valid_local_index(decomp_info%glb2loc_index, j_g, .TRUE.)
     ELSE
-      j_l = get_valid_local_index(decomp_info, j_g)
+      j_l = get_valid_local_index(decomp_info%glb2loc_index, j_g)
     END IF
 
     l_idx = idx_no(j_l)

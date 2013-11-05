@@ -50,7 +50,7 @@ MODULE mo_icon_comm_lib
 
   USE mo_grid_subset,    ONLY: block_no, index_no
   USE mo_model_domain,    ONLY: t_patch
-  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_local_index
+  USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
      & process_mpi_all_comm, work_mpi_barrier, p_stop, &
@@ -480,50 +480,52 @@ CONTAINS
     IF (omp_in_parallel()) &
       CALL finish(method_name, 'cannot be called from openmp parallel')
 #endif
-    
 
     ! halo cells comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
     patch%sync_cells_not_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
-      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info, &
-      & name="cells_not_in_domain" )
+      patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
+      patch%cells%decomp_info%glb_index, &
+      patch%cells%decomp_info%glb2loc_index, name="cells_not_in_domain" )
     patch%sync_cells_not_owned = patch%sync_cells_not_in_domain
                
     patch%sync_cells_one_edge_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
-      & patch%cells%decomp_info%glb_index, patch%cells%decomp_info, &
-      & halo_level=patch%cells%decomp_info%halo_level, level_start=1, level_end=1,&
-      & name="cells_one_edge_in_domain" )
+      patch%n_patch_cells,   patch%cells%decomp_info%owner_local, &
+      patch%cells%decomp_info%glb_index, &
+      patch%cells%decomp_info%glb2loc_index, &
+      halo_level=patch%cells%decomp_info%halo_level, level_start=1, &
+      level_end=1, name="cells_one_edge_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
     patch%sync_edges_not_owned = new_icon_comm_pattern(   &
-      & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
-      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info, &
-      & name="edges_not_owned")
+      patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
+      patch%edges%decomp_info%glb_index, &
+      patch%edges%decomp_info%glb2loc_index, name="edges_not_owned")
     
     patch%sync_edges_not_in_domain = new_icon_comm_pattern( &
-      & patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
-      & patch%edges%decomp_info%glb_index, patch%edges%decomp_info, &
-      & halo_level=patch%edges%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
-      & name="edges_not_in_domain")
+      patch%n_patch_edges,   patch%edges%decomp_info%owner_local, &
+      patch%edges%decomp_info%glb_index, &
+      patch%edges%decomp_info%glb2loc_index, &
+      halo_level=patch%edges%decomp_info%halo_level, level_start=2, &
+      level_end=HALO_LEVELS_CEILING, name="edges_not_in_domain")
     
     ! halo verts comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
     patch%sync_verts_not_owned = new_icon_comm_pattern(   &
-      & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
-      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info, &
-      & name="verts_not_owned" )
+      patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
+      patch%verts%decomp_info%glb_index, &
+      patch%verts%decomp_info%glb2loc_index, name="verts_not_owned" )
         
     patch%sync_verts_not_in_domain = new_icon_comm_pattern(  &
-      & patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
-      & patch%verts%decomp_info%glb_index, patch%verts%decomp_info, &
-      & halo_level=patch%verts%decomp_info%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
-      & name="verts_not_in_domain" )
+      patch%n_patch_verts,   patch%verts%decomp_info%owner_local, &
+      patch%verts%decomp_info%glb_index, &
+      patch%verts%decomp_info%glb2loc_index, &
+      halo_level=patch%verts%decomp_info%halo_level, level_start=2, &
+      level_end=HALO_LEVELS_CEILING, name="verts_not_in_domain" )
         
     CALL print_grid_comm_stats(patch%sync_cells_not_in_domain)
     CALL print_grid_comm_stats(patch%sync_cells_one_edge_in_domain)
@@ -548,15 +550,14 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   INTEGER FUNCTION new_icon_comm_pattern(total_no_of_points, &
-    & receive_from_owner, my_global_index, send_decomp_info, &
+    & receive_from_owner, my_global_index, send_glb2loc_index, &
     & allow_send_to_myself, halo_level, level_start, level_end, name)
 
     INTEGER, INTENT(in) :: total_no_of_points
     INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:)
-    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
-                                                   ! domain decomposition
-                                                   ! information of the
-                                                   ! SENDER array
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: send_glb2loc_index
+                                          ! global to local index lookup
+                                          ! information of the SENDER array
     LOGICAL, INTENT(in), OPTIONAL :: allow_send_to_myself
     INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
     CHARACTER(*), INTENT(in) :: name
@@ -572,7 +573,7 @@ CONTAINS
     
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(max_comm_patterns), &
       & total_no_of_points, receive_from_owner, my_global_index,            &
-      & send_decomp_info, allow_send_to_myself, halo_level, level_start,    &
+      & send_glb2loc_index, allow_send_to_myself, halo_level, level_start,    &
       & level_end, name)
 
 
@@ -582,16 +583,15 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE setup_grid_comm_pattern(grid_comm_pattern, total_no_of_points, &
-    & receive_from_owner, my_global_index, send_decomp_info,  allow_send_to_myself,   &
+    & receive_from_owner, my_global_index, send_glb2loc_index,  allow_send_to_myself,   &
     & halo_level, level_start, level_end, name)
 
     TYPE(t_grid_comm_pattern), INTENT(inout) :: grid_comm_pattern
     INTEGER, INTENT(in) :: total_no_of_points
     INTEGER, INTENT(in) :: receive_from_owner(:), my_global_index(:)
-    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
-                                                   ! domain decomposition
-                                                   ! information of the
-                                                   ! SENDER array
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: send_glb2loc_index
+                                          ! global to local index lookup
+                                          ! information of the SENDER array
     LOGICAL, INTENT(in), OPTIONAL :: allow_send_to_myself
     INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
     CHARACTER(*), INTENT(in) :: name
@@ -816,7 +816,7 @@ CONTAINS
     DO i=1,no_of_recv_requests
       p_comm_pattern => grid_comm_pattern%send(i)
       DO point_idx = 1, p_comm_pattern%no_of_points
-        local_idx = get_local_index(send_decomp_info, &
+        local_idx = get_local_index(send_glb2loc_index, &
           &                         p_comm_pattern%global_index(point_idx))
         IF ( local_idx <= 0 ) &
           & CALL finish(method_name,'Wrong local index')

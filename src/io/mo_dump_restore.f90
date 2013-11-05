@@ -2901,13 +2901,13 @@ CONTAINS
     CALL patch_io(p, lfull)
 
     ! Restore local index arrays since these are not saved due to size
-    CALL generate_glb_to_loc_lookup(p%n_patch_cells, p%n_patch_cells_g, &
+    CALL generate_glb_to_loc_lookup(p%n_patch_cells, &
       idx_1d(p%cells%start_idx(min_rlcell_int-1,1), &
       &      p%cells%start_blk(min_rlcell_int-1,1))-1, p%cells%decomp_info)
-    CALL generate_glb_to_loc_lookup(p%n_patch_edges, p%n_patch_edges_g, &
+    CALL generate_glb_to_loc_lookup(p%n_patch_edges, &
       idx_1d(p%edges%start_idx(min_rledge_int-1,1), &
       &      p%edges%start_blk(min_rledge_int-1,1))-1, p%edges%decomp_info)
-    CALL generate_glb_to_loc_lookup(p%n_patch_verts, p%n_patch_verts_g, &
+    CALL generate_glb_to_loc_lookup(p%n_patch_verts, &
       idx_1d(p%verts%start_idx(min_rlvert_int-1,1), &
       &      p%verts%start_blk(min_rlvert_int-1,1))-1, p%verts%decomp_info)
 

@@ -60,7 +60,9 @@
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
       &                               HINTP_TYPE_LONLAT_NNB
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
+    USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, &
+      &                               init_glb2loc_index_lookup, &
+      &                               set_inner_glb_index
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
     USE mo_timer,               ONLY: timer_start, timer_stop,                              &
@@ -104,6 +106,7 @@
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
     USE mo_util_sort,           ONLY: quicksort
+    USE mo_alloc_patches,       ONLY: deallocate_glb2loc_index_lookup
 
     IMPLICIT NONE
 
@@ -239,7 +242,7 @@
       INTEGER              :: i, j, jg, n_points,  &
         &                     ist, glb_idx, my_id, nthis_local_pts
       INTEGER, ALLOCATABLE :: glb_owner(:)
-      TYPE(t_grid_domain_decomp_info) :: send_decomp_info
+      TYPE(t_glb2loc_index_lookup) :: send_glb2loc_index
       TYPE(t_lon_lat_grid), POINTER  :: grid
       TYPE(t_gnat_tree)    :: gnat
 
@@ -289,10 +292,12 @@
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
-            ! send_decomp_info: decomposition information about data in SENDER array.
-            CALL generate_decomp_info(lonlat_grid_list(i)%intp(jg)%global_idx,&
-              &                       nthis_local_pts, n_points, &
-              &                       send_decomp_info)
+            ! send_glb2loc_index: global to local index lookup information for
+            !                      data in SENDER array.
+            CALL init_glb2loc_index_lookup(send_glb2loc_index, n_points)
+            CALL set_inner_glb_index(send_glb2loc_index, &
+              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
+              (/(i, i = 1, nthis_local_pts)/))
 
             ! glb_owner    : owner PE number of every point in the RECEIVER array
             glb_owner(:) = -1
@@ -307,7 +312,7 @@
             IF (.NOT. my_process_is_mpi_seq()) THEN
               IF (my_process_is_mpi_workroot()) THEN
                 CALL setup_comm_pattern(n_points, glb_owner, &
-                  &                     send_decomp_info=send_decomp_info, &
+                  &                     send_glb2loc_index=send_glb2loc_index, &
                   &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
               ELSE
                 ! We don't want to receive any data, i.e. the number of
@@ -315,7 +320,7 @@
                 ! dummies!
                 glb_owner(:) = -1
                 CALL setup_comm_pattern(0, glb_owner, &
-                  &                     send_decomp_info=send_decomp_info, &
+                  &                     send_glb2loc_index=send_glb2loc_index, &
                   &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
               END IF
             END IF
@@ -323,7 +328,7 @@
             DEALLOCATE( glb_owner, STAT=ist )
             IF (ist /= SUCCESS) &
               CALL finish (routine, 'deallocation for working arrays failed')
-            CALL deallocate_decomp_info(send_decomp_info)
+            CALL deallocate_glb2loc_index_lookup(send_glb2loc_index)
 
             ! resize global data structures, after the setup only
             ! local information is needed:
@@ -335,45 +340,6 @@
 
       END DO ! i
       IF (dbg_level > 5) CALL message(routine, "Done")
-
-    CONTAINS
-
-      SUBROUTINE generate_decomp_info(glb_index, loc_n, glb_n, decomp_info)
-
-        INTEGER, INTENT(IN) :: loc_n, glb_n
-        INTEGER, INTENT(IN) :: glb_index(loc_n)
-        TYPE(t_grid_domain_decomp_info), INTENT(OUT) :: decomp_info
-
-        INTEGER :: i, ist
-
-        ALLOCATE(decomp_info%inner_glb_index(loc_n), &
-          &      decomp_info%inner_glb_index_to_loc(loc_n), &
-          &      decomp_info%outer_glb_index(0), &
-          &      decomp_info%outer_glb_index_to_loc(0), STAT=ist)
-        IF (ist /= SUCCESS) &
-          CALL finish (routine, 'allocation for decomp_info failed')
-        decomp_info%inner_glb_index(:) = glb_index(:)
-        decomp_info%inner_glb_index_to_loc(:) = (/(i, i = 1, loc_n)/)
-        CALL quicksort(decomp_info%inner_glb_index(:), &
-          &       decomp_info%inner_glb_index_to_loc(:))
-        decomp_info%global_size = glb_n
-
-      END SUBROUTINE generate_decomp_info
-
-      SUBROUTINE deallocate_decomp_info(decomp_info)
-
-        TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
-
-        INTEGER :: ist
-
-        DEALLOCATE(decomp_info%inner_glb_index, &
-          &        decomp_info%inner_glb_index_to_loc, &
-          &        decomp_info%outer_glb_index, &
-          &        decomp_info%outer_glb_index_to_loc, STAT=ist)
-        IF (ist /= SUCCESS) &
-          CALL finish (routine, 'deallocation for decomp_info failed')
-
-      END SUBROUTINE deallocate_decomp_info
 
     END SUBROUTINE compute_lonlat_intp_coeffs
 

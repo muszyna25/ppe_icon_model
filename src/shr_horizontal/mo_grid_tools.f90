@@ -49,7 +49,7 @@ MODULE mo_grid_tools
     & block_no, index_no, index_1d
   USE mo_impl_constants,     ONLY: on_cells, on_edges, on_vertices, land
   USE mo_mpi,                ONLY: get_my_mpi_work_id
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index
+  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_local_index
   
   IMPLICIT NONE
   
@@ -89,7 +89,7 @@ CONTAINS
     REAL(wp) :: edge_orientation
     REAL(wp), ALLOCATABLE :: tmp_orientation(:)
     INTEGER, POINTER :: local_vertex_array(:), owner_edge_local(:)
-    TYPE(t_grid_domain_decomp_info), POINTER :: verts_decomp_info
+    TYPE(t_glb2loc_index_lookup), POINTER :: verts_glb2loc_index
 
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:get_oriented_edges_from_global_vertices"
 
@@ -112,7 +112,7 @@ CONTAINS
     ELSE
       CALL finish(method_name, "patch is not present")
     ENDIF
-    verts_decomp_info => edge_subset%patch%verts%decomp_info
+    verts_glb2loc_index => edge_subset%patch%verts%decomp_info%glb2loc_index
     owner_edge_local   => edge_subset%patch%edges%decomp_info%owner_local
 
     my_proc_id = get_my_mpi_work_id()
@@ -131,12 +131,12 @@ CONTAINS
       & tmp_orientation(max_allocation_size))
     owned_edges = 0
     IF (max_allocation_size > 1) &
-      & local_vertex_1d_index(1) = get_local_index(verts_decomp_info, &
+      & local_vertex_1d_index(1) = get_local_index(verts_glb2loc_index, &
       &                                            global_vertex_array(1))
 
     DO i=2, max_allocation_size
       ! get a pair of vertices
-      local_vertex_1d_index(2) = get_local_index(verts_decomp_info, &
+      local_vertex_1d_index(2) = get_local_index(verts_glb2loc_index, &
         &                                        global_vertex_array(i))
 
       IF (local_vertex_1d_index(1) > 0 .AND. local_vertex_1d_index(2) > 0 ) THEN

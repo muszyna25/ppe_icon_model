@@ -51,7 +51,9 @@ MODULE mo_alloc_patches
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info
+  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
+    &                              init_glb2loc_index_lookup, &
+    &                              t_glb2loc_index_lookup
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -70,6 +72,7 @@ MODULE mo_alloc_patches
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: deallocate_patch
+  PUBLIC :: deallocate_glb2loc_index_lookup
   PUBLIC :: destruct_patches
   PUBLIC :: allocate_basic_patch
   PUBLIC :: deallocate_basic_patch
@@ -315,27 +318,37 @@ CONTAINS
 
       INTEGER :: ist
 
-      DEALLOCATE( decomp_info%glb_index, decomp_info%owner_local, &
-        decomp_info%owner_g, decomp_info%owner_mask, &
-        decomp_info%decomp_domain, stat=ist )
+      DEALLOCATE(decomp_info%glb_index, &
+        &        decomp_info%owner_local, &
+        &        decomp_info%owner_g, &
+        &        decomp_info%owner_mask, &
+        &        decomp_info%decomp_domain, stat=ist )
       IF(ist/=success)THEN
         CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
       ENDIF
-      IF (ALLOCATED(decomp_info%inner_glb_index)) THEN
-        DEALLOCATE(decomp_info%inner_glb_index, &
-          &        decomp_info%inner_glb_index_to_loc, &
-          &        decomp_info%outer_glb_index, &
-          &        decomp_info%outer_glb_index_to_loc, stat=ist)
-        IF(ist/=success)THEN
-          CALL finish  (routine,  'deallocate in deallocate_decomp_info failed')
-        ENDIF
-      END IF
+      CALL deallocate_glb2loc_index_lookup(decomp_info%glb2loc_index)
     END SUBROUTINE deallocate_decomp_info
 
   END SUBROUTINE deallocate_patch
   !-------------------------------------------------------------------------
 
+  SUBROUTINE deallocate_glb2loc_index_lookup(glb2loc)
+
+    TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
+
+    INTEGER :: ist
+
+    DEALLOCATE(glb2loc%inner_glb_index, &
+      &        glb2loc%inner_glb_index_to_loc, &
+      &        glb2loc%outer_glb_index, &
+      &        glb2loc%outer_glb_index_to_loc, stat=ist)
+    IF(ist/=success) &
+      CALL finish  ('deallocate_glb2loc_index_lookup', 'deallocate failed')
+
+  END SUBROUTINE deallocate_glb2loc_index_lookup
+
   !-------------------------------------------------------------------------
+
   SUBROUTINE allocate_patch_cartesian( p_patch )
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
 
@@ -759,11 +772,11 @@ CONTAINS
         &                  p_patch%nblks_v)
 
       CALL init_decomp_info(p_patch%cells%decomp_info, p_patch%npromz_c, &
-        &                   p_patch%alloc_cell_blocks)
+        &                   p_patch%alloc_cell_blocks, p_patch%n_patch_cells_g)
       CALL init_decomp_info(p_patch%edges%decomp_info, p_patch%npromz_e, &
-        &                   p_patch%nblks_e)
+        &                   p_patch%nblks_e, p_patch%n_patch_edges_g)
       CALL init_decomp_info(p_patch%verts%decomp_info, p_patch%npromz_v, &
-        &                   p_patch%nblks_v)
+        &                   p_patch%nblks_v, p_patch%n_patch_verts_g)
     END IF
 
     ! Set all newly allocated arrays to 0
@@ -838,13 +851,11 @@ CONTAINS
       ALLOCATE( decomp_info%glb_index(n) )
       ALLOCATE( decomp_info%owner_g(n_g))
       ALLOCATE( decomp_info%owner_local(n))
-
-      decomp_info%global_size = n_g
     END SUBROUTINE allocate_decomp_info
 
-    SUBROUTINE init_decomp_info(decomp_info, npromz, n_blk)
+    SUBROUTINE init_decomp_info(decomp_info, npromz, n_blk, n_g)
       TYPE(t_grid_domain_decomp_info), INTENT(INOUT) :: decomp_info
-      INTEGER, INTENT(IN) :: npromz, n_blk
+      INTEGER, INTENT(IN) :: npromz, n_blk, n_g
 
       INTEGER :: j
 
@@ -868,6 +879,8 @@ CONTAINS
       ENDDO
       decomp_info%owner_g(:) = 0
       decomp_info%owner_local(:) = 0
+
+      CALL init_glb2loc_index_lookup(decomp_info%glb2loc_index, n_g)
 
     END SUBROUTINE init_decomp_info
 

@@ -786,9 +786,9 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
         blk(jl,jb) = blk_no(0)
       ELSE
         IF (remap) THEN
-          i_l = MAX(get_valid_local_index(decomp_info, i_g), 1)
+          i_l = MAX(get_valid_local_index(decomp_info%glb2loc_index, i_g), 1)
         ELSE
-          i_l = get_local_index(decomp_info, i_g)
+          i_l = get_local_index(decomp_info%glb2loc_index, i_g)
           ! Set it to negative global index like in
           ! mo_setup_subdivision/get_local_idx_blk in case the local
           ! index is invalid

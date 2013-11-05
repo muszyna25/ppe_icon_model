@@ -63,7 +63,7 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
   & timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
-USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_local_index
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 
 
 IMPLICIT NONE
@@ -259,17 +259,18 @@ END FUNCTION idx_1d
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, send_decomp_info, p_pat)
+SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, &
+                              send_glb2loc_index, p_pat)
 
 !
 
    INTEGER, INTENT(IN)           :: n_points             ! Total number of points
    INTEGER, INTENT(IN)           :: owner(:)             ! Owner of every point
    INTEGER, INTENT(IN), OPTIONAL :: opt_global_index(:)  ! Global index of every point
-   TYPE(t_grid_domain_decomp_info), INTENT(IN) :: send_decomp_info
-                                                         ! domain decomposition
-                                                         ! information of the
-                                                         ! SENDER array
+   TYPE(t_glb2loc_index_lookup), INTENT(IN) :: send_glb2loc_index
+                                                         ! global to local index
+                                                         ! lookup information
+                                                         ! of the SENDER array
 
    TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
 
@@ -429,7 +430,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, send_decomp_inf
 
    DO i = 1, p_pat%n_send
 
-      np = get_local_index(send_decomp_info, send_src(i))
+      np = get_local_index(send_glb2loc_index, send_src(i))
       IF(np <= 0) CALL finish('setup_comm_pattern','Got illegal index')
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)

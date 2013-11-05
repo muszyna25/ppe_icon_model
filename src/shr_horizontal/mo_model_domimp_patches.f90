@@ -118,7 +118,7 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, &
                                    p_patch_local_parent
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_valid_local_index
+  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_valid_local_index
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
@@ -1589,7 +1589,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, &
-          & p_p%edges%decomp_info%glb_index, p_p%cells%decomp_info, &
+          & p_p%edges%decomp_info%glb_index, p_p%cells%decomp_info%glb2loc_index, &
           & p_p%edges%cell_idx(:,:,ji), p_p%edges%cell_blk(:,:,ji) )
       END DO
     END DO
@@ -1602,7 +1602,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, &
-          & p_p%edges%decomp_info%glb_index, p_p%verts%decomp_info, &
+          & p_p%edges%decomp_info%glb_index, p_p%verts%decomp_info%glb2loc_index, &
           & p_p%edges%vertex_idx(:,:,ji), p_p%edges%vertex_blk(:,:,ji) )
       END DO
     END DO
@@ -1719,7 +1719,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
-          & p_p%verts%decomp_info%glb_index, p_p%verts%decomp_info, &
+          & p_p%verts%decomp_info%glb_index, p_p%verts%decomp_info%glb2loc_index, &
           & p_p%verts%neighbor_idx(:,:,ji), p_p%verts%neighbor_blk(:,:,ji) )
       END DO
     END DO
@@ -1738,7 +1738,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
-          & p_p%verts%decomp_info%glb_index, p_p%cells%decomp_info, &
+          & p_p%verts%decomp_info%glb_index, p_p%cells%decomp_info%glb2loc_index, &
           & p_p%verts%cell_idx(:,:,ji), p_p%verts%cell_blk(:,:,ji) )
       END DO
     END DO
@@ -1758,7 +1758,7 @@ CONTAINS
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, &
-          & p_p%verts%decomp_info%glb_index, p_p%edges%decomp_info, &
+          & p_p%verts%decomp_info%glb_index, p_p%edges%decomp_info%glb2loc_index, &
           & p_p%verts%edge_idx(:,:,ji), p_p%verts%edge_blk(:,:,ji) )
       END DO
     END DO
@@ -2307,7 +2307,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Rainer Johanni (2011-12-04)
   !!
-  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, decomp_info, &
+  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, glb2loc_index, &
     & idx_array_out, blk_array_out )
 
     ! input array
@@ -2317,7 +2317,7 @@ CONTAINS
     ! global index of values
     INTEGER, INTENT(in) :: glb_index(:)
     ! decomposition information
-    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
     ! output array
     INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
 
@@ -2329,7 +2329,7 @@ CONTAINS
 
       ! get global index in divided array
       j_g = p_idx_array_in(glb_index(j))
-      j_l = get_valid_local_index(decomp_info, j_g, .TRUE.)
+      j_l = get_valid_local_index(glb2loc_index, j_g, .TRUE.)
       ! handle values outside local domain in the same way as get_local_idx_blk
       idx_array_out(jl,jb) = idx_no(j_l)
       blk_array_out(jl,jb) = blk_no(j_l)
