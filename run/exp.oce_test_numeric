@@ -91,6 +91,8 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; els
 start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-11T00:00:00Z"
 (( expLength = 10 * 86400 ))
+# possible unix call to compute:
+# perl -MDate::Parse -e '$period = str2time("2051-01-01T00:00:00") - str2time("2001-01-01T00:00:00"); print ($period/(3600*24));
 #
 #-----------------------------------------------------------------------------
 # model timing
