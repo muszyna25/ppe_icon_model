@@ -4,6 +4,7 @@ require 'jobqueue'
 require 'facets'
 require 'iconPlot'
 require 'rake/clean'
+require 'tempfile'
 require 'test/unit/assertions'
 include Test::Unit::Assertions
 
@@ -89,6 +90,8 @@ $builds = {
   :remoteXlf         => {:host => :wizard  , :subdir => 'default'} ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
+# ============================================================================
+$_temps = []
 # ============================================================================
 
 # run the commands and try to get back stdout or possible error messages
@@ -177,27 +180,24 @@ $buildCall = lambda {|build|
   buildCall << './build_command;'
 }
 
-# exclude files for a build
-$excludeFiles = lambda {|build|
-  list =  " --exclude='.git/*'"
-  list << " --exclude='experiments/**/*nc*' --exclude='**/*.o'  --exclude='build/*' --exclude='**/*.run' --exclude=config/mh-config-use --exclude=config.log --exclude=Makefile --exclude=build_command"
-  list << " --exclude=config/mh-override --exclude=config/mh-config-use" if isRemote?(build)
-  list << " --exclude='.svn/*'" << " --exclude=config/set-up.info" << " --exclude='**/*.ps'" << " --exclude='**/*.pdf'" << " --exclude='**/*.png'"
-  list << " --exclude='**/*.log'" << " --exclude='**/*.gif'" << " --exclude='**/*.avi'" << " --exclude='experiments/*'" << " --exclude='grids/backup'" << " --exclude='scripts/**/*.nc'"<< " --exclude='scripts/**/*.grb'"
-  list
-}
-
 # synchronization call for given build
 def sync(build)
-  excludes = $excludeFiles[build]
   dir      = $targetDir[build]
   rsyncOpts = "--delete-excluded --delete"
   rsyncOpts = ""
 
+  file = Tempfile.new("rsyncIconTempfiles2Transfer")
+  $_temps << file
+  myFile = file.path
+  file.write(`git ls-files | grep -v -E '^(data|doc)'`)
+  file.write("\n")
+  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
+  file.close
+
   if isLocal?(build)
-    syncCmd = "rsync #{rsyncOpts} -avz #{SRCDIR}/ #{dir} #{excludes}"
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
   else
-    syncCmd = "rsync #{rsyncOpts} -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir} #{excludes}"
+    syncCmd = "rsync #{rsyncOpts} -avz -e '#{$remoteConnection[build]}' #{SRCDIR}/ #{dir}"
   end
   syncCmd
 end
