@@ -1475,23 +1475,12 @@ CONTAINS
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
-
-      ! For prettier output we set speed to zero where there's no ice
-      ! This does not affect the dynamics, since the EVP routine doesn't modify ice velocities where
-      ! concentration is less than 0.01
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF ( ice%hi(jc,1,jb) <= 0._wp ) THEN
-            ice%u(jc,jb) = 0._wp
-            ice%v(jc,jb) = 0._wp
-          ENDIF
-        ENDDO
-      ENDDO
     ELSE
       ice%u = 0._wp
       ice%v = 0._wp
     ENDIF
+
+    CALL ice_clean_up( p_patch, ice, p_sfc_flx, p_os )
 
     CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
 
@@ -1523,6 +1512,79 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_ice_slow)
 
   END SUBROUTINE ice_slow
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! !  ice_clean_up: Fix over and under shoots and beutify output
+  !! @par Revision History
+  !! Initial release by Einar Olason, MPI-M (2013-10).
+  !!
+  SUBROUTINE ice_clean_up( p_patch, p_ice, p_sfc_flx, p_os )
+    TYPE(t_patch),TARGET,      INTENT(IN)    :: p_patch
+    TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
+    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+
+    ! Local variables
+    ! ranges
+    TYPE(t_subset_range), POINTER :: all_cells
+    ! counters
+    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+    ! Sea surface salinity
+    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) :: sss
+
+    ! subset range pointer
+    all_cells => p_patch%cells%all 
+    ! Sea surface salinity
+    sss(:,:)  =  p_os%p_prog(nold(1))%tracer(:,1,:,2)
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+
+        ! For prettier output we set speed to zero where there's no ice
+        ! This does not affect the dynamics, since the EVP routine doesn't modify ice velocities where
+        ! concentration is less than 0.01
+        IF ( p_ice%hi(jc,1,jb) <= 0._wp ) THEN
+          p_ice%u(jc,jb) = 0._wp
+          p_ice%v(jc,jb) = 0._wp
+        ENDIF
+
+        ! Fix over shoots - ONLY for the one-ice-class case
+        IF ( p_ice%conc(jc,1,jb) > 1._wp ) p_ice%conc(jc,1,jb) = 1._wp
+
+        ! Fix under shoots and remove ice where there's almost none left
+        DO k = 1, p_ice%kice
+          IF ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) THEN
+            ! Volmue flux due to removal
+            p_sfc_flx%forc_fw_ice_vol(jc,jb) = p_sfc_flx%forc_fw_ice_vol(jc,jb) &
+              & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
+              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)      ! Snow
+            ! Tracer flux due to removal
+            p_sfc_flx%forc_fw_bc_ice (jc,jb) = p_sfc_flx%forc_fw_bc_ice (jc,jb)                      &
+              & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
+              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
+            ! Heat flux due to removal
+            p_sfc_flx%forc_hflx      (jc,jb) = p_sfc_flx%forc_hflx(jc,jb)       &
+              & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
+              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
+            p_ice%conc(jc,k,jb) = 0._wp
+            p_ice%hi  (jc,k,jb) = 0._wp
+            p_ice%vol (jc,k,jb) = 0._wp
+            p_ice%hs  (jc,k,jb) = 0._wp
+            p_ice%vols(jc,k,jb) = 0._wp
+          ENDIF
+        ENDDO
+
+      ENDDO
+    ENDDO
+
+    p_ice%concSum = SUM(p_ice%conc, 2)
+
+  END SUBROUTINE ice_clean_up
+
   !-------------------------------------------------------------------------
   !
   !

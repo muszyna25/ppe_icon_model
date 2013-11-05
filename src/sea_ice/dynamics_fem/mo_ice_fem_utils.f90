@@ -1100,7 +1100,7 @@ CONTAINS
             p_ice%conc(jc,jk,jb)= p_ice%conc(jc,jk,jb)-dtime*flux_conc(jc,jk,jb)
             p_ice%vols(jc,jk,jb)= p_ice%vols(jc,jk,jb)-dtime*flux_hs  (jc,jk,jb)
           ENDIF
-          IF ( p_ice%conc(jc,jk,jb) > 1e-4_wp) THEN ! See line 1124 and comments there above
+          IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN 
             p_ice%hi(jc,jk,jb) = p_ice%vol (jc,jk,jb)   &
               &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
             p_ice%hs(jc,jk,jb) = p_ice%vols(jc,jk,jb)   &
@@ -1109,24 +1109,6 @@ CONTAINS
         END DO
       END DO
     END DO
-
-!--------------------------------------------------------------------------------------------------
-! Fix over and under shoots
-!--------------------------------------------------------------------------------------------------
-    ! Remove ice where there's almost none left
-    ! TODO: Conservation of mass is violated here!
-    WHERE ( p_ice%vol <= 0._wp .OR. p_ice%conc <= 1e-4_wp )
-      p_ice%hi   = 0._wp
-      p_ice%vol  = 0._wp
-      p_ice%hs   = 0._wp
-      p_ice%conc = 0._wp
-    ELSEWHERE
-
-    ENDWHERE
-    WHERE ( p_ice%conc > 1._wp )
-      p_ice%conc = 1._wp
-    ENDWHERE
-    p_ice%concSum = SUM(p_ice%conc, 2)
 
 !--------------------------------------------------------------------------------------------------
 ! Sync results
