@@ -645,6 +645,9 @@ LAPACKROOT
 MPI_INCLUDE
 MPI_LIB
 MPIROOT
+SCT_INCLUDE
+SCT_LIB
+SCTROOT
 ZLIB_INCLUDE
 ZLIB_LIB
 ZLIBROOT
@@ -740,6 +743,8 @@ with_zlib
 with_szip
 with_hdf5
 with_netcdf
+with_sct
+with_sctlibs
 with_mpi
 with_hpm
 '
@@ -1377,6 +1382,8 @@ Optional Packages:
   --with-szip=DIR         Required I/O package
   --with-hdf5=DIR         Required I/O package
   --with-netcdf=DIR       Required I/O package
+  --with-sct=DIR          Optional SCT timer package
+  --with-sctlibs=PATHS    Optional libs needed for SCT
   --with-mpi=DIR          MPI library
 
 
@@ -2602,7 +2609,6 @@ for other_package in $icon_components ; do
   else
     is_icon_testbed="no"
   fi
-
 done
 
 
@@ -3734,6 +3740,162 @@ else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
   echo "       set NETCDFROOT to the netCDF root directory"
   exit 1
+fi
+
+
+SCT_LIB=""
+SCT_INCLUDE=""
+
+
+# Check whether --with-sct was given.
+if test "${with_sct+set}" = set; then :
+  withval=$with_sct;
+else
+  with_sct=no
+fi
+
+
+case $with_sct in #(
+  no) :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sct library" >&5
+$as_echo_n "checking for sct library... " >&6; }
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
+$as_echo "suppressed" >&6; } ;; #(
+  yes) :
+    as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/include/sct.mod" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/include/sct.mod" >&5
+$as_echo_n "checking for $SCTROOT/include/sct.mod... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$SCTROOT/include/sct.mod"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod" "$LINENO" 5
+fi
+
+             as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/lib/libsct.a" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/lib/libsct.a" >&5
+$as_echo_n "checking for $SCTROOT/lib/libsct.a... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$SCTROOT/lib/libsct.a"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a" "$LINENO" 5
+fi
+ ;; #(
+  *) :
+    SCTROOT=$with_sct
+           as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/include/sct.mod" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/include/sct.mod" >&5
+$as_echo_n "checking for $SCTROOT/include/sct.mod... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$SCTROOT/include/sct.mod"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod" "$LINENO" 5
+fi
+
+           as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/lib/libsct.a" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/lib/libsct.a" >&5
+$as_echo_n "checking for $SCTROOT/lib/libsct.a... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$SCTROOT/lib/libsct.a"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a" "$LINENO" 5
+fi
+
+       ;; #(
+  *) :
+     ;;
+esac
+
+if test -n "$SCTROOT" ; then
+  if test -r "$SCTROOT/lib/libsct.a" ; then
+    SCT_LIB='-L$(SCTROOT)/lib -lsct'
+  else
+    echo "cannot read $SCTROOT/lib/libsct.a"
+    exit 1
+  fi
+  if test -d "$SCTROOT/include" ; then
+    SCT_INCLUDE='-I$(SCTROOT)/include'
+  else
+    echo "cannot find $SCTROOT/include"
+    exit 1
+  fi
+
+  FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
+  CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+
+
+
+# Check whether --with-sctlibs was given.
+if test "${with_sctlibs+set}" = set; then :
+  withval=$with_sctlibs;
+fi
+
+  if test "x$with_sctlibs" != ""; then :
+  SCT_LIB="${SCT_LIB} $with_sctlibs"
+fi
+
+else
+  echo "Info: the variable SCTROOT is not set in $host_frag"
+  echo "      fallback to mo_real_timer is used"
+  echo "      otherwise, set SCTROOT to the sct root directory"
+
+  FFLAGS=$(echo ${FFLAGS} | sed "s/${DEFOPT}__SCT__//")
+  CFLAGS=$(echo ${CFLAGS} | sed "s/${DEFCOPT}__SCT__//")
 fi
 
 
@@ -5744,6 +5906,13 @@ ZLIB_LIB=$ZLIB_LIB
 ZLIB_INCLUDE=$ZLIB_INCLUDE
 
 
+SCTROOT=$SCTROOT
+
+SCT_LIB=$SCT_LIB
+
+SCT_INCLUDE=$SCT_INCLUDE
+
+
 MPIROOT=$MPIROOT
 
 MPI_LIB=$MPI_LIB
@@ -7221,6 +7390,12 @@ else
 zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
 echo "    ZLIB   : zlib-${zlib_version}"
 echo "             installation  ${ZLIBROOT}"
+fi
+if test x$SCTROOT = x; then
+echo "    SCT    : none"
+else
+sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
+echo "    SCT    : installation  ${SCTROOT}"
 fi
 fi
 #############################

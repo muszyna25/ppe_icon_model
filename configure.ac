@@ -225,7 +225,6 @@ for other_package in $icon_components ; do
   else
     is_icon_testbed="no"
   fi
-    
 done
 dnl ######################################################################
 
@@ -422,6 +421,65 @@ else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
   echo "       set NETCDFROOT to the netCDF root directory"
   exit 1
+fi
+
+dnl ######################################################################
+dnl Checks for SCT.
+
+SCT_LIB=""
+SCT_INCLUDE=""
+
+AC_ARG_WITH([sct],
+            [AC_HELP_STRING([--with-sct=DIR],
+                            [Optional SCT timer package])],
+                            [],
+                            with_sct=no)
+
+AS_CASE([$with_sct],
+      [no],[AC_MSG_CHECKING([for sct library])
+            AC_MSG_RESULT([suppressed])],
+      [yes],[AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+             AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
+      [*],[SCTROOT=$with_sct
+           AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+           AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
+      )
+
+if test -n "$SCTROOT" ; then
+  if test -r "$SCTROOT/lib/libsct.a" ; then
+    SCT_LIB='-L$(SCTROOT)/lib -lsct'
+  else
+    echo "cannot read $SCTROOT/lib/libsct.a"  
+    exit 1
+  fi
+  if test -d "$SCTROOT/include" ; then
+    SCT_INCLUDE='-I$(SCTROOT)/include'
+  else
+    echo "cannot find $SCTROOT/include"  
+    exit 1
+  fi
+
+  FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
+  CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+
+dnl checks for additional libs needed for sct, eg. papi
+
+  AC_ARG_WITH([sctlibs],
+              [AC_HELP_STRING([--with-sctlibs=PATHS],
+                              [Optional libs needed for SCT])],
+                              [],
+                              [])
+  AS_IF([test "x$with_sctlibs" != ""],
+        [SCT_LIB="${SCT_LIB} $with_sctlibs"],
+        [])
+
+else
+  echo "Info: the variable SCTROOT is not set in $host_frag"  
+  echo "      fallback to mo_real_timer is used"
+  echo "      otherwise, set SCTROOT to the sct root directory"
+
+  FFLAGS=$(echo ${FFLAGS} | sed "s/${DEFOPT}__SCT__//")
+  CFLAGS=$(echo ${CFLAGS} | sed "s/${DEFCOPT}__SCT__//")
 fi
 
 dnl ######################################################################
@@ -709,6 +767,10 @@ AC_SUBST(ZLIBROOT,$ZLIBROOT)
 AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
 AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
 
+AC_SUBST(SCTROOT,$SCTROOT)
+AC_SUBST(SCT_LIB,$SCT_LIB)
+AC_SUBST(SCT_INCLUDE,$SCT_INCLUDE)
+
 AC_SUBST(MPIROOT,$MPIROOT)
 AC_SUBST(MPI_LIB,$MPI_LIB)
 AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
@@ -888,7 +950,13 @@ else
 zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
 echo "    ZLIB   : zlib-${zlib_version}"
 echo "             installation  ${ZLIBROOT}"
-fi  
+fi
+if test x$SCTROOT = x; then
+echo "    SCT    : none"
+else
+sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
+echo "    SCT    : installation  ${SCTROOT}"
+fi
 fi
 #############################
 echo ""

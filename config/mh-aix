@@ -6,7 +6,7 @@
 LAPACKROOT  =
 LAPACK_LIB  =
 
-LIBS        = -L../lib -lsupport
+LIBS        = "$LIBS" -L../lib -lsupport
 load_modules="NCL/6.0.0-beta" "cdo/default"
 
 #===============================================

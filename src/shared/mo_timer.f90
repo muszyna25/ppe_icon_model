@@ -33,12 +33,23 @@
 !!
 MODULE mo_timer
 
+#ifdef __SCT__
+  USE sct, ONLY: new_timer     => sct_new_timer,             &
+       &         timer_start   => sct_start,                 &
+       &         timer_stop    => sct_stop,                  &
+       &         print_timer   => sct_report,                &
+       &         cleanup_timer => sct_reset_timer,           &
+       &         delete_timer  => sct_del_timer,             &
+       &         sct_init
+#else
   USE mo_real_timer, ONLY: new_timer,                        &
        &                   timer_start,                      &
        &                   timer_stop,                       &
        &                   print_timer   => timer_report,    &
        &                   cleanup_timer => timer_reset, &
        &                   delete_timer => del_timer
+
+#endif
 
    USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
 
@@ -304,6 +315,9 @@ CONTAINS
 
   SUBROUTINE init_timer
 
+#ifdef __SCT__
+    CALL sct_init(timer_max=512)
+#endif
     ! major timers
     timer_total        = new_timer("total")
 

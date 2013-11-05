@@ -43,7 +43,7 @@
 LAPACKROOT  =
 LAPACK_LIB  =
 
-LIBS        = -L../lib -lsupport
+LIBS        = "$LIBS" -L../lib -lsupport
 
 load_modules=""
 
