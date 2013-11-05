@@ -100,7 +100,7 @@ MODULE mo_name_list_output
     &                                     pass_output_step, get_current_filename,                   &
     &                                     get_current_date, trigger_output_step_irecv,              &
     &                                     is_output_step_complete, is_output_event_finished,        &
-    &                                     check_write_readyfile, wait_for_pending_irecvs
+    &                                     check_write_readyfile, wait_for_final_irecvs
 
 #ifndef __ICON_OCEAN_ONLY__
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf
@@ -278,8 +278,10 @@ CONTAINS
 ! NOMPI
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
-        CALL close_output_file(output_file(i))
-        CALL destroy_output_vlist(output_file(i))
+        IF (output_file(i)%cdiFileID >= 0) THEN
+          CALL close_output_file(output_file(i))
+          CALL destroy_output_vlist(output_file(i))
+        END IF
       ENDDO
 #ifndef NOMPI
 #ifndef __ICON_OCEAN_ONLY__
@@ -1073,16 +1075,14 @@ CONTAINS
     ! write processes, we trigger a "ready file" on the first I/O PE.
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
+      CALL wait_for_final_irecvs(all_events)
       ev => all_events
       HANDLE_COMPLETE_STEPS : DO
         IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-        IF (.NOT. is_output_event_finished(ev)) THEN
-          CALL wait_for_pending_irecvs(ev)
-         
-          !--- write ready file
-          IF (check_write_readyfile(ev%output_event)) THEN
-            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
-          END IF
+
+        !--- write ready file
+        IF (check_write_readyfile(ev%output_event)) THEN
+          CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
         END IF
         ev => ev%next
       END DO HANDLE_COMPLETE_STEPS

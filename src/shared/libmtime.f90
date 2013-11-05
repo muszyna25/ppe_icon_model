@@ -27,7 +27,7 @@
 !___________________________________________________________________________________________________________
 module mtime_calendar
   !
-  use, intrinsic :: iso_c_binding, only: c_int, c_char, c_null_char
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int, c_char, c_null_char
   !
   implicit none
   !
@@ -467,7 +467,7 @@ end module mtime_time
 !___________________________________________________________________________________________________________
 module mtime_datetime
   !
-  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_char, c_ptr, c_null_char, c_loc, c_f_pointer
+  use, intrinsic :: iso_c_binding, only: c_int, c_int64_t, c_char, c_ptr, c_null_char, c_loc, c_f_pointer, c_double
   !
   use mtime_julianday
   use mtime_date
@@ -483,6 +483,8 @@ module mtime_datetime
   public :: deallocateDatetime
   public :: datetimeToString
   public :: getJulianDayFromDatetime
+  public :: datetimedividebyseconds
+  public :: datetimeaddseconds
   !
   public :: assignment(=)
   public :: operator(>)
@@ -650,6 +652,30 @@ module mtime_datetime
       type(c_ptr), value :: jd
     end function my_getjuliandayfromdatetime
     !
+    FUNCTION my_datetimedividebyseconds(refdt, dt, intvlsec) BIND(c,name='datetimeDivideBySeconds')
+#ifdef __SX__
+      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr, c_double
+#else
+      IMPORT :: c_ptr, c_double
+#endif
+      REAL(c_double) :: my_datetimedividebyseconds
+      TYPE(c_ptr),    VALUE :: refdt
+      TYPE(c_ptr),    VALUE :: dt
+      REAL(c_double), VALUE :: intvlsec
+    END FUNCTION my_datetimedividebyseconds
+    !
+    FUNCTION my_datetimeaddseconds(refdt, intvlsec, ret_datetime) RESULT(c_pointer) BIND(c, name='datetimeAddSeconds')
+#ifdef __SX__
+      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr, c_double
+#else
+      IMPORT :: c_ptr, c_double
+#endif
+      TYPE(c_ptr),    VALUE :: refdt
+      REAL(c_double), VALUE :: intvlsec
+      TYPE(c_ptr),    VALUE :: ret_datetime
+      type(c_ptr) :: c_pointer
+    END FUNCTION my_datetimeaddseconds
+    !
   end interface
   !
 contains
@@ -814,6 +840,25 @@ contains
     dummy_ptr = my_getjuliandayfromdatetime(c_loc(dt), c_loc(jd))
   end subroutine getJulianDayFromDatetime
   !
+  FUNCTION datetimedividebyseconds(refdt, dt, intvlsec)
+    REAL :: datetimedividebyseconds
+    TYPE(datetime), POINTER :: refdt, dt
+    REAL :: intvlsec
+    ! local variables
+    REAL(c_double) :: ret
+    ret = my_datetimedividebyseconds(C_LOC(refdt), C_LOC(dt), REAL(intvlsec, c_double))
+    datetimedividebyseconds = REAL(ret)
+  END FUNCTION datetimedividebyseconds
+
+  FUNCTION datetimeaddseconds(refdt, intvlsec) RESULT(ret_datetime)
+    TYPE(datetime), POINTER :: ret_datetime
+    TYPE(datetime), POINTER :: refdt
+    REAL :: intvlsec
+    TYPE(c_ptr) :: c_pointer, ret
+    c_pointer = my_datetimeaddseconds(C_LOC(refdt), REAL(intvlsec, c_double), ret)
+    CALL C_F_POINTER(c_pointer, ret_datetime)
+  END FUNCTION datetimeaddseconds
+
 end module mtime_datetime
 !>
 !! @brief TimeDelta and some operations supported on TimeDelta.

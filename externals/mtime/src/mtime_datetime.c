@@ -725,3 +725,82 @@ datetimeToPosixString(struct _datetime* dt, char* toStr)
   else
     return NULL;
 }
+
+
+/**
+ * @brief division by an interval given in of seconds.
+ *
+ * @param  refdt
+ *         Reference date (a pointer to struct _datetime).
+ * @param  dt
+ *         A pointer to struct _datetime.
+ * @param  intvlsec
+ *         Interval given in seconds.
+ *
+ * @return result of division. -1 indicates error.
+ */
+double
+datetimeDivideBySeconds(struct  _datetime* refdt, 
+			struct  _datetime* dt,
+			double intvlsec)
+{
+  double result = -1.0;
+ 
+  /* Convert dt to Julian. */
+  struct _julianday* jd1 = newJulianDay(0, 0);
+  if (jd1 != NULL)  jd1 = date2julian(dt, jd1);
+
+  /* Convert refdt to Julian. */
+  struct _julianday* jd2 = newJulianDay(0, 0);
+  if (jd2 != NULL)  jd2 = date2julian(refdt, jd2);
+
+  /* Substract the 2 dates on Julian axis. */
+  struct _juliandelta* jd = newJulianDelta('+', 0, 0);
+  if ((jd1 != NULL) && (jd2 != NULL) && (jd != NULL)) 
+    jd = substractJulianDay(jd1, jd2, jd);  
+
+  if (jd != NULL)
+    result = (86400.*jd->day + jd->ms/1000.) / intvlsec;
+
+  /* clean up */
+  if (jd1 != NULL)  deallocateJulianDay(jd1);
+  if (jd2 != NULL)  deallocateJulianDay(jd2);
+  if (jd  != NULL)  deallocateJulianDelta(jd);
+  return result;
+}
+
+
+
+/**
+ * @brief Add an interval given in of seconds.
+ *
+ * @param  refdt
+ *         Reference date (a pointer to struct _datetime).
+ * @param  intvlsec
+ *         Interval given in seconds.
+ *
+ * @return dt_return Date-time data structure.
+ */
+struct _datetime*
+datetimeAddSeconds(struct  _datetime* refdt, double intvlsec, struct _datetime* dt_return)
+{
+  int64_t jdays = ((int) intvlsec)/86400;
+  int64_t jsecs = intvlsec*1000. - 1000.*86400.*jdays;
+  /* Convert refdt to Julian. */
+  struct _julianday* jd1 = newJulianDay(0, 0);
+  if (jd1 != NULL)  jd1 = date2julian(refdt, jd1);
+
+  /* Add intvlsec to the date on Julian axis. */
+  struct _juliandelta* jd = newJulianDelta('+', jdays, jsecs);
+  struct _julianday*   jd2 = newJulianDay(0, 0);
+  if ((jd2 != NULL) && (jd != NULL)) addJulianDelta(jd1, jd, jd2);
+  /* Get the Datetime */
+  dt_return = newDateTime("0-01-01T00:00:00.000");
+  if ((dt_return != NULL) && (jd2 != NULL))  dt_return = julian2date(jd2, dt_return);
+
+  /* clean up */
+  if (jd1 != NULL)  deallocateJulianDay(jd1);
+  if (jd2 != NULL)  deallocateJulianDay(jd2);
+  if (jd  != NULL)  deallocateJulianDelta(jd);
+  return dt_return;
+}

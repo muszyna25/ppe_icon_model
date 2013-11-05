@@ -46,13 +46,13 @@ MODULE mo_output_event_control
   USE mo_master_nml,         ONLY: model_base_dir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
     &                              MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
-    &                              event, datetime, newEvent,                           &
-    &                              setCalendar, resetCalendar,                          &
+    &                              datetime, setCalendar, resetCalendar,                &
     &                              deallocateDatetime, datetimeToString,                &
-    &                              deallocateEvent, newDatetime, OPERATOR(>=),          &
+    &                              newDatetime, OPERATOR(>=),                           &
     &                              OPERATOR(+), timedelta, newTimedelta,                &
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
-    &                              OPERATOR(<), OPERATOR(==)
+    &                              OPERATOR(<), OPERATOR(==), datetimedividebyseconds,  &
+    &                              datetimeaddseconds
   USE mo_mtime_extensions,   ONLY: isCurrentEventActive, getPTStringFromMS
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
@@ -104,10 +104,8 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
-    INTEGER                  :: idtime_ms, sim_step, ilist, i
-    LOGICAL                  :: l_dyn_active, l_adv_active
-    TYPE(event),     POINTER :: mtime_dyn, mtime_adv
-    TYPE(datetime),  POINTER :: mtime_dyn_date, mtime_cur_date, mtime_begin, mtime_end, &
+    INTEGER                  :: idtime_ms, ilist
+    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_date1, &
       &                         mtime_dom_start, mtime_dom_end
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
@@ -129,93 +127,84 @@ CONTAINS
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
     mtime_dom_end   => newDatetime(TRIM(sim_step_info%dom_end_time))
-
     mtime_begin     => newDatetime(TRIM(sim_step_info%sim_start))
     mtime_end       => newDatetime(TRIM(sim_step_info%sim_end  ))
 
-    ! create an event for the dynamic time stepping with the "mtime" library:
-    mtime_dyn => newEvent("dynamic",                                 &  ! name
-      &                   TRIM(sim_step_info%sim_start),             &  ! ref.date
-      &                   TRIM(sim_step_info%sim_start),             &  ! first
-      &                   TRIM(sim_step_info%sim_end),               &  ! last
-      &                   TRIM(dtime_string))                           ! interval
-
-    ! create an event for the advection time stepping with the "mtime" library:
-    idtime_ms = sim_step_info%iadv_rcf * idtime_ms
-    CALL getPTStringFromMS(idtime_ms, dtime_string)
-    mtime_adv => newEvent("advection",                               &  ! name
-      &                   TRIM(sim_step_info%sim_start),             &  ! ref.date
-      &                   TRIM(sim_step_info%sim_start),             &  ! first
-      &                   TRIM(sim_step_info%sim_end),               &  ! last
-      &                   TRIM(dtime_string))                           ! interval
-
-    sim_step            =  0
-    ilist               =  0
     result_steps(:)     = -1
     result_exactdate(:) = ""
-
-    mtime_dyn_date => newDatetime(TRIM(sim_step_info%sim_start))
-    mtime_cur_date => newDatetime(date_string(1))
-    EVENT_LOOP: DO
-      ! consider only time steps which are also advection steps and
-      ! choose the dynamic time step matching or following the time
-      ! stamp string:
-
-      l_adv_active = isCurrentEventActive(mtime_adv, mtime_dyn_date) .OR. &
-        &            (mtime_dyn_date == mtime_end)
-
-      IF ((mtime_dyn_date >= mtime_dom_start) .AND.  &
-        & (mtime_dyn_date >= mtime_cur_date ) .AND.  &
-        & l_adv_active ) THEN
-
-        CALL datetimeToString(mtime_dyn_date, dtime_string)
-        ilist = ilist + 1
-        result_exactdate(ilist) = dtime_string
-        result_steps(ilist)     = sim_step
-        ! debugging output
-        IF (ldebug)  WRITE (0,*) ilist, ": ", sim_step, " -> ", TRIM(dtime_string)
-
-        IF (ilist >= nstrings) EXIT EVENT_LOOP
-        CALL deallocateDatetime(mtime_cur_date)
-        mtime_cur_date => newDatetime(date_string(ilist+1))
-
-        ! consistency check: make sure that the output event
-        ! intervals are not too small:
-        IF (mtime_dyn_date >= mtime_cur_date) THEN
-          WRITE (0,*) "ilist    = ", ilist
-          WRITE (0,*) "dyn_date = ", TRIM(dtime_string)
-          WRITE (0,*) "cur_date = ", TRIM(date_string(ilist+1))
-          CALL finish(routine, "Output interval chosen too small!")
+    DO ilist = 1,nstrings
+      mtime_date1 => newDatetime(TRIM(date_string(ilist)))
+      ! check if domain is inactive:
+      IF (((mtime_date1 >= mtime_dom_start) .AND. (mtime_date1 >= mtime_begin)) .OR.  &
+        & ((mtime_date1 <= mtime_end) .AND. (mtime_date1 <= mtime_dom_end))) THEN 
+        CALL compute_step(mtime_date1, mtime_begin, mtime_end,                &
+          &               sim_step_info%dtime, sim_step_info%iadv_rcf, delta, &
+          &               result_steps(ilist), result_exactdate(ilist))
+        IF (ldebug) THEN
+          WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
         END IF
       END IF
-      
-      ! increase simulation step
-      sim_step = sim_step + 1
-      mtime_dyn_date = mtime_dyn_date + delta
-
-      ! check if domain is inactive:
-      IF (mtime_dyn_date > mtime_dom_end)  EXIT EVENT_LOOP
-
-      ! check if dynamic time step has reached the end of the simulation:
-      l_dyn_active = isCurrentEventActive(mtime_dyn, mtime_dyn_date)
-      IF (.NOT. l_dyn_active) EXIT EVENT_LOOP
-    END DO EVENT_LOOP
-
-    ! debugging output
-    IF (ldebug)  WRITE (0,*) "result_exactdate: ", result_exactdate(1:ilist)
+      CALL deallocateDatetime(mtime_date1)
+    END DO
 
     ! clean up
-    CALL deallocateEvent(mtime_dyn)
-    CALL deallocateEvent(mtime_adv)
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_dom_end)
-    CALL deallocateDatetime(mtime_cur_date)
-    CALL deallocateDatetime(mtime_dyn_date)
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
     CALL resetCalendar()
   END SUBROUTINE compute_matching_sim_steps
+
+
+  ! --------------------------------------------------------------------------------------------------
+  !> Utility function: Compute "(date1-sim_start)/(iadv_rcf*dtime)"
+  !
+  !  @author F. Prill, DWD
+  ! --------------------------------------------------------------------------------------------------
+  SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime, &
+    &                     iadv_rcf, delta, step, exact_date)
+    TYPE(datetime),  POINTER                         :: mtime_date1, mtime_begin, mtime_end
+    REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
+    INTEGER,                             INTENT(IN)  :: iadv_rcf            !< advection step: frequency ratio
+    TYPE(timedelta), POINTER                         :: delta
+    INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
+    ! local variables
+    INTEGER                             :: i
+    REAL                                :: intvlsec
+    TYPE(datetime),  POINTER            :: mtime_step
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+
+    ! first, we compute the dynamic time step which is *smaller* than
+    ! the desired date "mtime_date1"
+    intvlsec    = REAL(dtime)
+    step        = FLOOR(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+    IF (step >= 0) THEN
+      mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
+
+      ! starting from this step, we make (at most iadv_rcf) steps
+      ! until we are *greater* than the desired date "mtime_date1" and
+      ! we have reached an advection time step
+      LOOP : DO i=1,iadv_rcf
+        IF (ldebug) THEN
+          CALL datetimeToString(mtime_step, dtime_string)
+          WRITE (0,*) "mtime_step = ", TRIM(dtime_string)
+          CALL datetimeToString(mtime_date1, dtime_string)
+          WRITE (0,*) "mtime_date1 = ", TRIM(dtime_string)
+        END IF
+
+        IF ((mtime_step >= mtime_date1) .AND.  &
+          & (MOD(step, iadv_rcf) == 0) .OR. (mtime_step == mtime_end)) THEN
+          EXIT LOOP
+        END IF
+        mtime_step = mtime_step + delta
+        step       = step + 1
+      END DO LOOP
+      CALL datetimeToString(mtime_step, exact_date)
+      CALL deallocateDatetime(mtime_step)
+    END IF
+  END SUBROUTINE compute_step
 
 
   ! --------------------------------------------------------------------------------------------------

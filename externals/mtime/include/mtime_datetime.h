@@ -81,6 +81,12 @@ getDayOfYearFromDateTime(struct _datetime* currentdt);
 struct _julianday*
 getJulianDayFromDateTime(struct _datetime* dt, struct _julianday* jd);
 
+double
+datetimeDivideBySeconds(struct  _datetime* refdt, struct  _datetime* dt, double intvlsec);
+
+struct _datetime*
+datetimeAddSeconds(struct  _datetime* refdt, double intvlsec, struct _datetime* dt_return);
+
 /**
  * @}
  */
