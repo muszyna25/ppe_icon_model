@@ -491,12 +491,15 @@ CONTAINS
 
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
-        IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
+        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0).OR.(echam_phy_config%lrad) )  THEN
 
           SELECT CASE (irad_o3)
-          CASE (0,4,6,7) ! ok
+          CASE (0) ! ok
+            CALL message(TRIM(method_name),'radiation is used without ozone')
+          CASE (2,4,6,7,8) ! ok
+            CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE default
-            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0 , 4, 6, or 7.')
+            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7 or 8.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
@@ -507,7 +510,8 @@ CONTAINS
         ELSE
 
           SELECT CASE (irad_o3)
-          CASE (4,6,7)
+          CASE(0) ! ok
+          CASE default
             irad_o3 = 0
             CALL message(TRIM(method_name),'running without radiation => irad_o3 reset to 0')
           END SELECT
