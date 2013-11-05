@@ -88,20 +88,26 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6        # ocean model output interval hours [hours]
-ndays_file=3750      # new output file generation interval [days]
+#ndays_file=3660      # new output file generation interval [days]
 ndays_checkp=1       # write restart file interval [days]
 ndays_restart=2      # stop model for restart [days]
-nyear_outpLen=1      # stop writing model output to file [years] - must be <60y
+# this is valid for short runs <60 years using output_bounds for buildbot
+nhours_data=6        # ocean model output interval hours [hours]
+nyear_outpLen=1      # stop writing model output to file [years]
+# this is valid for production runs using output_start, output_end, output_interval using ISO-format
+ndays_data=30        # ocean model output interval [days]  - no longer than 30 days ??
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-(( dt_data       = nhours_data   * 3600 ))
-(( dt_file       = ndays_file    * 86400 ))
+nout_interv="P${ndays_data}D"                    # ocean model output interval in days
+ (( dt_data       = nhours_data   * 3600 ))      # used for output_bounds and buildbot
+#(( dt_data       = ndays_data    * 86400 ))     # used for production runs
 (( dt_checkpoint = ndays_checkp  * 86400 ))
 (( dt_restart    = ndays_restart * 86400 ))
+#(( dt_file       = ndays_file    * 86400 ))
+dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = simLength / dt_data )) # output intervals per file interval
+(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
 (( outputLength  = nyear_outpLen * 86400*365 ))
 #
 #-----------------------------------------------------------------------------
@@ -140,8 +146,11 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
-  output_bounds    = 0, ${outputLength}, ${dt_data}
-  steps_per_file   = ${steps_per_file}   !start, end, increment
+  output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
+! output_start     = ${start_date}                    ! production runs: start in ISO-format
+! output_end       = "${end_date}"                    ! production runs: end in ISO-format
+! output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
+  steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
