@@ -1480,7 +1480,7 @@ CONTAINS
       ice%v = 0._wp
     ENDIF
 
-    CALL ice_clean_up( p_patch, ice, p_sfc_flx, p_os )
+    CALL ice_clean_up( p_patch_3D, ice, p_sfc_flx, p_os )
 
     CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
 
@@ -1521,8 +1521,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Einar Olason, MPI-M (2013-10).
   !!
-  SUBROUTINE ice_clean_up( p_patch, p_ice, p_sfc_flx, p_os )
-    TYPE(t_patch),TARGET,      INTENT(IN)    :: p_patch
+  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, p_sfc_flx, p_os )
+    TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
     TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
@@ -1530,12 +1530,15 @@ CONTAINS
     ! Local variables
     ! ranges
     TYPE(t_subset_range), POINTER :: all_cells
+    ! pathc
+    TYPE(t_patch),POINTER    :: p_patch
     ! counters
     INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
     ! Sea surface salinity
-    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) :: sss
+    REAL(wp), DIMENSION (nproma, p_patch_3d%p_patch_2D(1)%alloc_cell_blocks) :: sss
 
     ! subset range pointer
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all 
     ! Sea surface salinity
     sss(:,:)  =  p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1557,7 +1560,8 @@ CONTAINS
 
         ! Fix under shoots and remove ice where there's almost none left
         DO k = 1, p_ice%kice
-          IF ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) THEN
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
+            &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
             ! Volmue flux due to removal
             p_sfc_flx%forc_fw_ice_vol(jc,jb) = p_sfc_flx%forc_fw_ice_vol(jc,jb) &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
