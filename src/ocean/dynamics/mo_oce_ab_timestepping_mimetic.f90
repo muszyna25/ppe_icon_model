@@ -600,8 +600,7 @@ CONTAINS
     all_edges       => patch_3d%p_patch_2d(n_dom)%edges%ALL
     owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
     
-    gdt             = grav * dtime
-    
+    gdt             = grav * dtime    
     !---------------------------------------------------------------------
     ! STEP 1: horizontal advection
     !---------------------------------------------------------------------
@@ -695,17 +694,13 @@ CONTAINS
     !---------------------------------------------------------------------
     ! STEP 4: calculate weighted gradient of surface height at previous timestep
     !---------------------------------------------------------------------
-
-!    z_gradh_e(:,patch_3d%p_patch_2d(n_dom)%nblks_e)  = 0.0_wp
     ! zero all for the nag compiler
     z_gradh_e(:,:)  = 0.0_wp
-    !z_h_old_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c) = 0.0_wp
+        
+    !ocean_state%p_prog(nold(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
+    !&=rho_inv* ocean_state%p_diag%rho(1:nproma,1, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&  
+    !&*ocean_state%p_prog(nold(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c) 
     
-    !z_h_old_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
-    !&=rho_inv* ocean_state%p_diag%rho(1:nproma,1, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
-    !&*ocean_state%p_prog(nold(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)
-    
-    !CALL grad_fd_norm_oce_2d_3d( z_h_old_rho,&!ocean_state%p_prog(nold(1))%h,  &
     CALL grad_fd_norm_oce_2d_3d(ocean_state%p_prog(nold(1))%h, &
       & patch_horz,                  &
       & p_op_coeff%grad_coeff(:,1,:),  &
@@ -817,7 +812,6 @@ CONTAINS
               DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
-                  !IF(v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
                   ocean_state%p_diag%vn_pred(je,jk,jb) = ocean_state%p_prog(nold(1))%vn(je,jk,jb)    &
                     & + dtime*(ocean_state%p_aux%g_nimd(je,jk,jb)     &
                     & -ocean_state%p_diag%press_grad(je,jk,jb)  &
@@ -842,7 +836,6 @@ CONTAINS
               DO je = edge_start_idx, edge_end_idx
                 
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
-                  !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
                   ocean_state%p_diag%vn_pred(je,jk,jb) = ocean_state%p_prog(nold(1))%vn(je,jk,jb)  &
                     & + dtime*(ocean_state%p_aux%g_nimd(je,jk,jb) &
                     & - z_gradh_e(je, jb))
@@ -950,7 +943,6 @@ CONTAINS
           CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
           DO jk = 1, n_zlev
             DO je = edge_start_idx, edge_end_idx
-              !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
               ocean_state%p_diag%vn_pred(je,jk,jb) = (ocean_state%p_diag%vn_pred(je,jk,jb) &
                 & + ocean_state%p_aux%bc_top_vn(je,jb)    &
                 & - ocean_state%p_aux%bc_bot_vn(je,jb))
@@ -1362,7 +1354,7 @@ CONTAINS
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         
-        !lhs(jc,jb) =(p_x(jc,jb) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,jb)) / gdt2
+        !lhs(jc,jb) =(p_x(jc,jb) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,jb)) / gdt2 !rho_sfc(jc,jb)*rho_inv
         lhs(jc,jb) = p_x(jc,jb) * gdt2_inv - gam_times_beta * lhs_div_z_c(jc,jb)
         
         IF(patch_3d%lsm_c(jc,1,jb) > sea_boundary) THEN
@@ -1415,14 +1407,8 @@ CONTAINS
     
     gdt=grav*dtime
     
-    !z_h_new_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c) = 0.0_wp
-    !z_h_new_rho(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
-    !&=rho_inv* ocean_state%p_diag%rho(1:nproma,1, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)&
-    !&*ocean_state%p_prog(nnew(1))%h(1:nproma, 1:patch_3d%p_patch_2d(n_dom)%nblks_c)
-    
     ! Step 1) Compute normal derivative of new surface height
     IF(.NOT.l_rigid_lid.OR.iswm_oce == 1) THEN
-      !CALL grad_fd_norm_oce_2d_3d( z_h_new_rho,                   &
       CALL grad_fd_norm_oce_2d_3d( ocean_state%p_prog(nnew(1))%h, &
         & patch,                                                  &
         & p_op_coeff%grad_coeff(:,1,:),                           &
