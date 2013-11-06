@@ -183,7 +183,7 @@ CONTAINS
 
     TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:init_ext_data'
+      routine = 'mo_ext_data_state:init_ext_data'
 
     !-------------------------------------------------------------------------
     CALL message (TRIM(routine), 'Start')
@@ -362,7 +362,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:construct_ext_data'
+      routine = 'mo_ext_data_state:construct_ext_data'
 
 !-------------------------------------------------------------------------
 
@@ -1723,7 +1723,7 @@ CONTAINS
 
     INTEGER :: jg, errstat
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_ext_data:destruct_ext_data'
+      routine = 'mo_ext_data_state:destruct_ext_data'
     !-------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
@@ -1773,7 +1773,7 @@ CONTAINS
     LOGICAL :: l_exist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:inquire_external_files'
+      routine = 'mo_ext_data_state:inquire_external_files'
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
@@ -2020,7 +2020,7 @@ CONTAINS
     INTEGER, INTENT(IN)                  :: nlev_o3
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:read_ext_data_atm'
+      routine = 'mo_ext_data_state:read_ext_data_atm'
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
@@ -2799,7 +2799,7 @@ CONTAINS
     REAL(wp) :: zfr_land      ! fr_land derived from land tile fractions
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:init_index_lists'
+      routine = 'mo_ext_data_state:init_index_lists'
 
     !-------------------------------------------------------------------------
 
@@ -3260,7 +3260,7 @@ CONTAINS
     REAL(wp) :: area_frac
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:diagnose_ext_aggr'
+      routine = 'mo_ext_data_state:diagnose_ext_aggr'
     !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom 
@@ -3389,7 +3389,7 @@ CONTAINS
     REAL(wp):: zw1, zw2
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: interpol_monthly_mean'
+      routine = 'mo_ext_data_state: interpol_monthly_mean'
 
     !---------------------------------------------------------------
 
