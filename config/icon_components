@@ -1,4 +1,4 @@
 #===============================================
 # define the components to be compiled with ICON
-icon_components="ICON_ATMO JSBACH ICON_OCEAN ICON_TESTBED" 
+icon_components=ICON_ATMO JSBACH ICON_OCEAN ICON_TESTBED 
 
