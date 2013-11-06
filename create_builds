@@ -30,6 +30,7 @@ link_files_blevel=[
 "config/mh-nec",
 "config/mh-override",
 "config/icon_components",
+"config/pvcs.pl",
 "config/missing"]
 
 
