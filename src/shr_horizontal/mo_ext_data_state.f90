@@ -1896,7 +1896,7 @@ CONTAINS
           o3unit    = 'g/g'
         ELSE ! o3_clim
           levelname= 'plev'
-          cellname = 'cell'
+          cellname = 'ncells'
           o3name   = 'O3'
           o3unit   = 'g/g' !this unit ozon will have after being read out
                            ! and converted from ppmv
