@@ -205,7 +205,9 @@ cat >> ${atmo_namelist} << EOF
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,31104000.,21600.      ! start, end, increment 
+ output_start     = "2008-08-01T00:00:00.000Z" 
+ output_end       = "2008-08-26T00:00:00.000Z" 
+ output_interval  = "P00DT06H00M00S"
  steps_per_file   = 100
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 0                ! lon/lat output

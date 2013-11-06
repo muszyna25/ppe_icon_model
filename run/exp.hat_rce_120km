@@ -198,7 +198,6 @@ cat >> ${atmo_namelist} << EOF
 &output_nml
  filetype         = 4
  dom              = -1
-! output_bounds    = 0.,2592000.,21600.      ! start, end, increment 
  output_start     = "2008-08-01T00:00:00.000Z" 
  output_end       = "2008-08-26T00:00:00.000Z" 
  output_interval  = "P00DT06H00M00S"
@@ -210,30 +209,6 @@ cat >> ${atmo_namelist} << EOF
 ! for runs with icoham   
  ml_varlist       = 'prm_r','prm_qvi','prm_xlvi','prm_xivi','prm_evap','prm_t','prm_omega','prm_aclcov','prm_aclc','prm_rsfl','prm_rsfc','prm_totprec_avg','prm_totprec','prm_lhflx','prm_shflx','prm_swflxsfc','prm_lwflxsfc','prm_tsfc','prm_lwflxtoa','prm_swflxtoa','prm_flxdwswtoa'
 /
-!&output_nml
-! filetype         = 4
-! dom              = -1
-! output_bounds    = 0.,2592000.,240.      ! start(about 1 yr), end(about 5 yr), increment (210 s)
-! steps_per_file   = 100
-! include_last     = .TRUE.           ! flag whether to include the last time step
-! remap            = 0                ! lon/lat output
-! output_filename  = '${EXPNAME}_highres'     ! file name base
-! output_grid      = .TRUE.
-!! ml_varlist       = 'u','v','w','temp','theta_v','shfl_s','lhfl_s','qhfl_s','rain_gsp_rate','rain_con_rate','tot_prec_rate','tot_prec_rate_avg','rh','clc',clct','tot_qv','aqhfl_s','pres_sfc','vio3','hmo3','pres','div','flxdwswtoa','ddt_temp_radsw','ddt_temp_radlw','ddt_temp_turb','ddt_temp_drag','sob_s','thb_s'
-! ml_varlist       = 'prm_r','prm_qvi','prm_xlvi','prm_xivi','prm_evap','prm_t','prm_omega','prm_aclcov','prm_aclc','prm_rsfl','prm_rsfc','prm_totprec_avg','prm_totprec','prm_lhflx','prm_shflx','prm_swflxsfc','prm_lwflxsfc','prm_tsfc','prm_lwflxtoa','prm_swflxtoa','prm_flxdwswtoa'
-!/
-!&output_nml
-! filetype         = 4
-! dom              = -1
-!!! output_bounds    = 0.,172800.,3600.      ! start, end(2d), increment (1h)
-! output_bounds    = 0.,864000.,3600.      ! start, end(2d), increment (1h)
-! include_last     = .TRUE.           ! flag whether to include the last time step
-! remap            = 0                ! lon/lat output
-! output_filename  = '${EXPNAME}_tend'     ! file name base
-!! output_grid      = .TRUE.
-!!! ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','vio3','hmo3','pres','div','flxdwswtoa','ddt_temp_radsw','ddt_temp_radlw','ddt_temp_turb','ddt_temp_drag','sob_s','thb_s'
-! ml_varlist       = 'prm_tend_temp','prm_tend_temp_radsw','prm_tend_temp_radlw','prm_tend_temp_vdf','ha_tend_phy_q1','ha_tend_phy_q2','ha_tend_phy_q3','ha_tend_phy_q4','ha_tend_phy_q5'
-!/
 &extpar_nml
  itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
 /
