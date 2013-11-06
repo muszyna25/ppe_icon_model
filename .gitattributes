@@ -688,6 +688,7 @@ run/exp.hat_jww-moist_cld-cnv-vdf_ptest -text
 run/exp.hat_jww_echam -text
 run/exp.hat_jww_ptest -text
 run/exp.hat_jww_rescale -text
+run/exp.hat_rce_120km -text
 run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text

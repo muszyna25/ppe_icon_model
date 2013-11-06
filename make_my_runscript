@@ -51,7 +51,7 @@ base_folder=$(pwd)
 #   exp_name="nh_dcmip_tc_52_r2b4"
 #   exp_name="nh_dcmip_bi_410_R3B4L31_defnew"
 #   exp_name="hat_icoham_ape_jsbach"
-   exp_name="r2b4_amip"
+   exp_name="nat_rce_120km"
 
 #   Define how many nodes to use on blizzard, should be 1 for all other machines
 #   at DKRZ and MPI-M

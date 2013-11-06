@@ -38,7 +38,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 # global timing
 start_date="2008-09-01T00:00:00Z"
 # note: the end date has to be changed manually
-end_date=${end_date:="2008-09-15T00:00:00Z"}
+end_date="2008-09-03T00:00:00Z"
 #
 one_day=86400
 one_hour=3600
@@ -160,10 +160,10 @@ inwp_surface    = 0
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
-&nh_pzlev_nml
- nplev            = 1
- plevels          = 85000.
-/
+!&nh_pzlev_nml
+! nplev            = 1
+! plevels          = 85000.
+!/
 &io_nml
  out_expname     = '${EXPNAME}'     ! file name base
  dt_data         = ${dt_data}       ! [s]
@@ -174,6 +174,7 @@ inwp_surface    = 0
 &output_nml
  filetype         = 4                ! this is the default, probably doesn't need to be here
  dom              = -1
+ output_bounds    = 0.,259200.,3600.      ! start, end, increment 
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 1                ! lon/lat output
  reg_lat_def      = -90.,1.,90.
@@ -182,14 +183,15 @@ inwp_surface    = 0
  pl_varlist       = 'u','v','ZH3','temp'
  ml_varlist       = 'u','v','w','ZH3','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc','extra_3d1'
 /
-&output_nml
- filetype         = 4                ! this is the default, probably doesn't need to be here
- dom              = -1
- include_last     = .TRUE.           ! flag whether to include the last time step
- remap            = 0                ! lon/lat output
- output_grid      = .TRUE.
- pl_varlist       = 'u','v','ZH3','temp'
- ml_varlist       = 'u','v','w','ZH3','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc','extra_3d1'
+!&output_nml
+! filetype         = 4                ! this is the default, probably doesn't need to be here
+! dom              = -1
+! include_last     = .TRUE.           ! flag whether to include the last time step
+! remap            = 0                ! lon/lat output
+! output_grid      = .TRUE.
+! pl_varlist       = 'u','v','ZH3','temp'
+! ml_varlist       = 'u','v','w','ZH3','temp','theta_v','pres_sfc','pres','omega_z','z_ifc','z_mc','extra_3d1'
+!/
 &interpol_nml
 nudge_zone_width = 4
 /

@@ -30,12 +30,12 @@ cd $WRKDIR
 # Naming convention for grid file: torus_grid_r{resolution_in_m}_s{grid_size}.nc
 cat > $parameterFile << EOF
 &torus_grid_parameters
-    y_no_of_rows = 2000
-    x_no_of_columns = 2000
-    edge_length = 100.0
+    y_no_of_rows = 64
+    x_no_of_columns = 64
+    edge_length = 222.0
     x_center = 0.0
     y_center = 0.0
-    out_file_name = 'torus_grid_r100s2000.nc'
+    out_file_name = 'torus_grid_r222s64.nc'
     unfolded_torus_file_name = 'unfoldedTorus_grid.nc'
     ascii_filename = 'torus_grid.ascii'
 /

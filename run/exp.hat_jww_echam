@@ -68,6 +68,16 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 #
 cat > ${atmo_namelist} << EOF
 !
+&dbg_index_nml
+  idbg_mxmn=4                     ! initialize MIN/MAX  debug output
+  idbg_val =0                     ! initialize one cell debug output
+  dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
+  str_mod_tst='all', 'module'     ! define modules to print out in debug mode
+  idbg_slev=28                     ! initialize MIN/MAX  debug output
+  idbg_elev=31                     ! initialize MIN/MAX  debug output
+!  idbg_idx =0                     ! initialize index number for single cell
+!  idbg_blk =0                     ! initialize block number for single cell
+/
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.
