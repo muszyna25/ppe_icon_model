@@ -976,6 +976,7 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 !!$    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 #ifndef __JSBACH__
