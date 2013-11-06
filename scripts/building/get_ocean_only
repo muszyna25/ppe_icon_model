@@ -70,7 +70,7 @@ link_source_list src/testcases "mo_ape_params.f90"
 #get the rest
 cd ${icon_dev}/run
 run_scripts=`ls *oce*`
-run_scripts="$run_scripts exec.iconrun add_required_ocean_files"
+run_scripts="$run_scripts exec.iconrun"
 cd -
 
 link_source_list run "$run_scripts"
@@ -87,7 +87,7 @@ rm -f ${ocean_only}/config/icon_components
 cat > ${ocean_only}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=ICON_OCEAN ICON_TESTBED
+icon_components=ICON_OCEAN_ONLY
 EOF
 
 

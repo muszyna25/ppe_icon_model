@@ -44,7 +44,7 @@ MODULE mo_icon_testbed
 
   USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_test_coupler,        ONLY: test_coupler
   USE mo_test_communication,  ONLY: test_communication
   USE mo_test_jitter,         ONLY: test_jitter
@@ -82,7 +82,7 @@ CONTAINS
       CALL test_ocean_performance(testbed_namelist_filename,shr_namelist_filename)
 
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     CASE(test_coupler_model)
       CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
 

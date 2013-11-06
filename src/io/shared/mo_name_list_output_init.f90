@@ -108,7 +108,7 @@ MODULE mo_name_list_output_init
   USE mo_ocean_nml,                         ONLY: n_zlev
   USE mo_oce_state,                         ONLY: set_zlev
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_lnd_jsbach_config,                 ONLY: lnd_jsbach_config
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
@@ -475,7 +475,7 @@ CONTAINS
       ! If "remap=1": lon-lat interpolation requested
       IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
         CALL finish(routine,'Unsupported value for remap')
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
       IF (remap == REMAP_REGULAR_LATLON) THEN
         ! Register a lon-lat grid data structure in global list
         p_onl%lonlat_id = get_free_lonlat_grid()
@@ -1384,7 +1384,7 @@ CONTAINS
 
     ENDDO ! jp
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     ! A similar process as above - for the lon-lat grids
     ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -1857,7 +1857,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Sets the reorder_info for lon-lat-grids
   !
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
   SUBROUTINE set_reorder_info_lonlat(grid, intp, p_ri)
     TYPE(t_lon_lat_grid), INTENT(IN)    :: grid
     TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
@@ -2020,7 +2020,7 @@ CONTAINS
     ! 3. add horizontal grid descriptions
 
     IF(of%name_list%remap == REMAP_REGULAR_LATLON) THEN
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
 
       ! Lon/Lat Interpolation requested
 
@@ -2177,7 +2177,7 @@ CONTAINS
     DEALLOCATE(levels)
 
     ! atm (pressure) height, ocean depth
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     IF (iequations/=ihs_ocean) THEN ! atm
 
       nlev   = num_lev(of%log_patch_id)
@@ -2613,7 +2613,7 @@ CONTAINS
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
 #endif
 ! __ICON_OCEAN_ONLY__
@@ -3461,7 +3461,7 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     ! Replicate vertical coordinate table
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     IF(.NOT.my_process_is_io()) ivct_len = SIZE(vct)
     CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
@@ -3711,7 +3711,7 @@ CONTAINS
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
           CASE (GRID_REGULAR_LONLAT)
             lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
             i_log_dom = output_file(i)%log_patch_id

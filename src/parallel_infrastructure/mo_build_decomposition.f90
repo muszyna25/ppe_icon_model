@@ -48,7 +48,7 @@ MODULE mo_build_decomposition
   USE mo_exception,           ONLY: finish, message, message_text, get_filename_noext
   USE mo_run_config,          ONLY: ldump_dd, lread_dd, nproc_dd
   
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
   USE mo_dump_restore,        ONLY: restore_patches_netcdf, dump_domain_decomposition
 #endif
   
@@ -109,7 +109,7 @@ CONTAINS
     
     lrestore = .FALSE.
     
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     lrestore = l_restore_states
     
     IF (lrestore .AND. .NOT. my_process_is_mpi_test()) THEN
@@ -171,7 +171,7 @@ CONTAINS
         
         DEALLOCATE(p_patch_global)
         
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
       ENDIF ! lread_dd
       
       
@@ -204,7 +204,7 @@ CONTAINS
       IF (my_process_is_mpi_test() .AND. (lread_dd .OR. lrestore)) &
         & CALL set_comm_input_bcast()
       
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
     ENDIF
 #endif
     

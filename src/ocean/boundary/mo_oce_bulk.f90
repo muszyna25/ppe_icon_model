@@ -89,7 +89,7 @@ USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,                  &
   &                               ice_slow, ice_fast
 
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
 USE mo_coupling_config,     ONLY: is_coupled_run
 # ifdef YAC_coupling
 USE finterface_description  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
@@ -681,7 +681,7 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
-#ifdef __ICON_ATMO__
+#ifndef __ICON_OCEAN_ONLY__
       IF ( is_coupled_run() ) THEN
         IF (ltimer) CALL timer_start(timer_coupling)
 
