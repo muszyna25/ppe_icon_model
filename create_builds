@@ -12,7 +12,7 @@ import glob
 create_folders=["run", "config"]
 
 link_files_alevel=["blas", "data", "doc", "grids", "vertical_coord_tables",
-"include", "lapack", "scripts", "src", "support", 
+"include", "lapack", "scripts", "src", "support", "externals", 
 "aclocal.m4", "configure.ac","configure", "make_runscripts", "Makefile.in"]
 link_files_blevel=[
 "config/config.guess",
