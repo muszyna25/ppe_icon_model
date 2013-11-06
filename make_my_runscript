@@ -18,8 +18,8 @@
 #
 #    out_folder=<output folder>. By default is <in_folder>
 #
-#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
-#       defines how many processes per node will be used.
+#    mpi_procs_pernode=<number of mpi processes per node>. In the case of MPI 
+#      configuration, defines how many processes per node will be used.
 # 
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
 #       defines how many nodes will be used.
@@ -57,9 +57,9 @@ base_folder=$(pwd)
 #   at DKRZ and MPI-M
 no_of_nodes=1
 
-#   Define how many mpi procs to use. On blizzard it defines the mpi procs per node,
-#   on all other machines at DKRZ and MPI-M it defines the total mpi procs. 
-#   On tornado this should be a multiple of 8.
+#   Define how many mpi procs to use per node.
+#   On thunder this should be 16.
+#   On blizzard it should be mpi_procs_pernode * openmp_threads = 64 in SMT mode (or 32 in none-SMT)
 mpi_procs_pernode=32
 
 #   Define how many openmp threads. This has effect only when compiled with openmp.
