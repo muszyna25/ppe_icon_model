@@ -224,7 +224,7 @@ CONTAINS
 
     DO icol = 1, table%n_columns
       title_str = table%column(icol)%title
-      width = table%column(icol)%width
+      width = MIN(table%column(icol)%width,MAX_TITLE_LEN)
       format_str = "(a"//TRIM(int2string(width))//',a)'
       WRITE (dst,TRIM(format_str), advance='no') ADJUSTL(title_str(1:width)), delimiter
     END DO
