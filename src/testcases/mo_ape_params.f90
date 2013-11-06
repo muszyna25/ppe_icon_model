@@ -45,7 +45,7 @@ MODULE mo_ape_params
 #else
   USE mo_constants,          ONLY: pi=>api, tmelt
 #endif
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   USE mo_nh_testcases_nml,   ONLY: ape_sst_val
 #endif
   USE mo_impl_constants,     ONLY: max_char_length
@@ -53,8 +53,9 @@ MODULE mo_ape_params
 
   IMPLICIT NONE
 
-  PUBLIC
-  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice, ape_sst_const
+  PRIVATE
+  PUBLIC :: ape_sst
+  ! PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice, ape_sst_const
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -228,10 +229,10 @@ CONTAINS
 
     REAL(wp) :: sst
 
-#ifdef __ICON_OCEAN_ONLY__
-    sst = tmelt + 29.0_wp
-#else
+#ifdef __ICON_ATMO__
     sst = tmelt + ape_sst_val
+#else
+    sst = tmelt + 29.0_wp
 #endif
 
   END FUNCTION ape_sst_const
