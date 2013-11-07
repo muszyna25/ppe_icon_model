@@ -46,7 +46,9 @@ MODULE mo_surface
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
+#ifdef __ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
+#endif
   USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
   IMPLICIT NONE
   PRIVATE
@@ -223,6 +225,7 @@ CONTAINS
     REAL(wp) :: Tfw(kbdim), LWin(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice)
 
+   CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
     !===================================================================
@@ -242,8 +245,8 @@ CONTAINS
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
 
-#ifdef __JSBACH__
     IF (phy_config%ljsbach) THEN
+#ifdef __JSBACH__
 
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                     & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
@@ -324,17 +327,16 @@ CONTAINS
         surface_temperature_eff(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
         surface_temperature_rad(1:kproma) = ptsfc_tile(1:kproma,idx_wtr)
       ENDWHERE
-
+#else
+      CALL finish(method_name, "The JSBACH component is not activated")
+#endif
     ELSE
-#endif  
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                     & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
                                     & aa_btm, bb_btm,                          &! inout
                                     & zen_h, zfn_h, zen_qv, zfn_qv             )! out
 
-#ifdef __JSBACH__
     END IF
-#endif
 
     ! Set the evapotranspiration coefficients, to be used later in
     ! blending and in diagnoising surface fluxes.
@@ -452,7 +454,12 @@ CONTAINS
                       & pevap_tile,                           &! out
                       & evapotranspiration)                    ! in (optional)
 
+
     IF(phy_config%lice) THEN
+#ifdef __ICON_OCEAN__
+! LL This is a temporary solution,
+! we should restrcure ice thermodynamics in a more stand-alone way
+
 ! For explicit coupling to ice:
     IF ( idx_ice <= nsfc_type ) THEN
 ! Freezing point of sea-water
@@ -584,6 +591,10 @@ CONTAINS
 ! Set the tile temperature
       ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
     ENDIF
+#else
+    ! not __ICON_OCEAN__
+      CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
+#endif
     ENDIF ! lice
 
   END SUBROUTINE update_surface
