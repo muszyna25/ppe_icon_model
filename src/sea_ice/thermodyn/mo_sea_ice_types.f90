@@ -46,6 +46,7 @@ MODULE mo_sea_ice_types
   ! Definition of forcing types
   ! public types
   PUBLIC  :: t_sea_ice
+  PUBLIC  :: t_sea_ice_acc
   PUBLIC  :: t_sfc_flx
   PUBLIC  :: t_atmos_fluxes
   PUBLIC  :: t_atmos_for_ocean
