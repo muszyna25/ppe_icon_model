@@ -886,7 +886,7 @@ scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/get_atmo -text
 scripts/building/get_icon -text
-scripts/building/get_ocean_only -text
+scripts/building/get_ocean -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
 scripts/codestyle_scripts/check_style.py -text
@@ -1687,6 +1687,7 @@ support/util_timer.c -text
 support/util_uuid.c -text
 /target_confmake.ksh -text
 /target_database.ksh -text
+/tau.selective -text
 vertical_coord_tables/README -text
 vertical_coord_tables/atm_hyb_sp_1 -text
 vertical_coord_tables/atm_hyb_sp_19 -text

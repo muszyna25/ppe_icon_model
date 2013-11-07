@@ -1054,7 +1054,10 @@ CONTAINS
    
     REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), &
       & pollat,pollon,wgt_loc
-    
+
+    REAL(wp) :: cell_area   ! area of triangular cell made up by 3 neighboring cell centers
+    REAL(wp) :: mfac        ! 1 or -1, depending on the sign of yloc
+                            ! takes care of correct sign of B-matrix
     !-----------------------------------------------------------------------
         
     ! Initial weighting factor of the local grid point
@@ -1071,7 +1074,7 @@ CONTAINS
     ! Compute coefficients for bilinear interpolation
 !$OMP PARALLEL        
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,yloc,xloc,pollat,pollon,&
-!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,xtemp,ytemp,wgt,x,y,cell_area,mfac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
       
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1087,8 +1090,10 @@ CONTAINS
         ! Rotate local point into the equator for better accuracy of bilinear weights
         IF (yloc >= 0._wp) THEN
           pollat = yloc - pi2/4._wp
+          mfac   = -1._wp
         ELSE
           pollat = yloc + pi2/4._wp
+          mfac   = 1._wp
         ENDIF
         pollon = xloc
         
@@ -1159,7 +1164,24 @@ CONTAINS
         ptr_int%c_bln_avg(jc,2,jb) = wgt(1)
         ptr_int%c_bln_avg(jc,3,jb) = wgt(2)
         ptr_int%c_bln_avg(jc,4,jb) = wgt(3)
-        
+
+
+        ! B-matrix for cell based gradient (based on linear triangular finite element)
+        !
+        ! !!Attention!!: pollat IF-statement flips sign of (xi-xj), (yi-yj) terms
+        ! That's why we need to multiply by -1 for yloc >= 0._wp
+        !
+        cell_area = 0.5_wp*grid_sphere_radius**2  &
+          &       *((x(2)*y(3)-x(3)*y(2)) - (x(1)*y(3)-x(3)*y(1)) + (x(1)*y(2)-x(2)*y(1)))
+        ! compute b-matrix
+        ptr_int%gradc_bmat(jc,1,1,jb) = mfac*grid_sphere_radius*(y(2) - y(3))/(2._wp*cell_area)
+        ptr_int%gradc_bmat(jc,1,2,jb) = mfac*grid_sphere_radius*(y(3) - y(1))/(2._wp*cell_area)
+        ptr_int%gradc_bmat(jc,1,3,jb) = mfac*grid_sphere_radius*(y(1) - y(2))/(2._wp*cell_area) 
+
+        ptr_int%gradc_bmat(jc,2,1,jb) = mfac*grid_sphere_radius*(x(3) - x(2))/(2._wp*cell_area)
+        ptr_int%gradc_bmat(jc,2,2,jb) = mfac*grid_sphere_radius*(x(1) - x(3))/(2._wp*cell_area)
+        ptr_int%gradc_bmat(jc,2,3,jb) = mfac*grid_sphere_radius*(x(2) - x(1))/(2._wp*cell_area) 
+
       ENDDO !cell loop
       
     END DO !block loop
@@ -1167,6 +1189,8 @@ CONTAINS
 !$OMP END PARALLEL
         
     CALL sync_patch_array(sync_c,ptr_patch,ptr_int%c_bln_avg)
+    CALL sync_patch_array(sync_c,ptr_patch,ptr_int%gradc_bmat(:,1,:,:))
+    CALL sync_patch_array(sync_c,ptr_patch,ptr_int%gradc_bmat(:,2,:,:))
     
   END SUBROUTINE calculate_bilinear_cellavg_wgt
   !-----------------------------------------------------------------------

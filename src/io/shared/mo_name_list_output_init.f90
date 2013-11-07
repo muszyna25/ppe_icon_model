@@ -115,9 +115,10 @@ MODULE mo_name_list_output_init
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
   USE mo_vertical_coord_table,              ONLY: vct
-  USE mo_dynamics_config,                   ONLY: iequations
   USE mo_nonhydrostatic_config,             ONLY: ivctype
 #endif
+  USE mo_dynamics_config,                   ONLY: iequations
+
 ! __ICON_ATMO__
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
     &                                             compute_lonlat_specs

@@ -187,12 +187,7 @@ MODULE mo_lnd_nwp_nml
     ntiles         = 1       ! 1 = default value for number of static surface types
     frlnd_thrhld   = 0.05_wp ! fraction threshold for creating a land grid point
 
-    ! For the time being, we need to stick to a fr_lake threshold of 0.5, since the external 
-    ! parameter field depth_lk is only filled with meaningful values for fr_lake>0.5. 
-    ! For fr_lake<0.5 depth_lk is currently set to -1. As soon as this is 'fixed' in extpar, 
-    ! the lake threshold value can be set to lower values, again. 
-!DR    frlake_thrhld  = 0.05_wp ! fraction threshold for creating a lake grid point
-    frlake_thrhld  = 0.5_wp  ! fraction threshold for creating a lake grid point
+    frlake_thrhld  = 0.05_wp ! fraction threshold for creating a lake grid point
 
     frsea_thrhld   = 0.05_wp ! fraction threshold for creating a sea grid point
     frlndtile_thrhld = 0.05_wp ! fraction threshold for retaining the respective 

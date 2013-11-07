@@ -266,6 +266,9 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: cells_plwa_verts(:,:,:)! coefficient for interpolation
                                             ! from cells to verts by pseudo-Laplacian
                                             ! weighted averaging (PLWA)
+  REAL(wp), ALLOCATABLE :: gradc_bmat(:,:,:,:) ! Bmatrix for cell centered shape function based
+                                            ! gradient (nproma,2,3,nblks_c)
+                                            
 
   ! b) weights which are consistent with the Hamiltonian viewpoint
   !---------------------------------------------------------------

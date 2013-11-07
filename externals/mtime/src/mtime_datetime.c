@@ -784,7 +784,7 @@ datetimeDivideBySeconds(struct  _datetime* refdt,
 struct _datetime*
 datetimeAddSeconds(struct  _datetime* refdt, double intvlsec, struct _datetime* dt_return)
 {
-  int64_t jdays = ((int) intvlsec)/86400;
+  int64_t jdays = ((int64_t) intvlsec)/86400;
   int64_t jsecs = intvlsec*1000. - 1000.*86400.*jdays;
   /* Convert refdt to Julian. */
   struct _julianday* jd1 = newJulianDay(0, 0);
