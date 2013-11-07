@@ -94,7 +94,7 @@ MODULE mo_advection_hflux
     &                               FFSL_HYB_MCYCL, UP3, ifluxl_m, ifluxl_sm
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
-  USE mo_math_gradients,      ONLY: grad_green_gauss_cell
+  USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
   USE mo_math_laplace,        ONLY: directional_laplace
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_q,         &
     &                               recon_lsq_cell_cpoor, recon_lsq_cell_c,     &
@@ -971,6 +971,14 @@ CONTAINS
       ptr_cc   => p_cc(:,:,:)
       ptr_grad => z_grad(:,:,:,:)
 
+    ELSE IF (p_igrad_c_miura == 3) THEN
+      ! gradient based on three-node triangular element
+      CALL grad_fe_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
+        &                opt_elev=elev, opt_rlend=i_rlend_c )
+
+      ptr_cc   => p_cc(:,:,:)
+      ptr_grad => z_grad(:,:,:,:)
+
     ENDIF
 
 
@@ -1433,6 +1441,15 @@ CONTAINS
         CALL grad_green_gauss_cell( z_tracer(:,:,:,nnow), p_patch, p_int, &
           &                         z_grad, opt_slev=slev, opt_elev=elev, &
           &                         opt_rlend=i_rlend_c )
+
+        ptr_cc   => z_tracer(:,:,:,nnow)
+        ptr_grad => z_grad(:,:,:,:)
+
+      ELSE IF (p_igrad_c_miura == 3) THEN
+        ! gradient based on three-node triangular element
+        CALL grad_fe_cell( z_tracer(:,:,:,nnow), p_patch, p_int, &
+          &                z_grad, opt_slev=slev, opt_elev=elev, &
+          &                opt_rlend=i_rlend_c )
 
         ptr_cc   => z_tracer(:,:,:,nnow)
         ptr_grad => z_grad(:,:,:,:)

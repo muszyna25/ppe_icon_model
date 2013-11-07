@@ -69,6 +69,7 @@ MODULE mo_advection_traj
   USE mo_impl_constants,      ONLY: min_rledge_int
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
   USE mo_advection_utils,     ONLY: t_list2D
+!!$  USE mo_math_constants,      ONLY: dbl_eps
 
 
   IMPLICIT NONE
@@ -452,12 +453,15 @@ CONTAINS
 
             ! compute length of backward trajectory
             traj_length = SQRT(p_vn(je,jk,jb)**2 + p_vt(je,jk,jb)**2) * p_dt
+!!$            traj_length = ABS(p_vn(je,jk,jb)) * p_dt
 
             ! distance from edge midpoint to upwind cell circumcenter [m]
             e2c_length  = MERGE(ptr_p%edges%edge_cell_length(je,jb,1),       &
               &                 ptr_p%edges%edge_cell_length(je,jb,2),lvn_pos)
 
-            IF (traj_length > 0.40_wp*e2c_length) THEN   ! add point to index list
+            IF (traj_length > 1.0_wp*e2c_length) THEN   ! add point to index list
+!!$            IF (traj_length > ((1.4_wp - MIN(0.5_wp,(0.1_wp*ABS(p_vt(je,jk,jb)/MAX(dbl_eps,p_vn(je,jk,jb)))))) &
+!!$                               *e2c_length)) THEN   ! add point to index list
               ie = ie + 1
               opt_falist%eidx(ie,jb) = je
               opt_falist%elev(ie,jb) = jk

@@ -298,6 +298,14 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for c_bln_avg failed')
     ENDIF
     !
+    ! gradc_bmat
+    !
+    ALLOCATE (ptr_int%gradc_bmat(nproma,2,3,nblks_c), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state', &
+      &            'allocation for gradc_bmat failed')
+    ENDIF
+    !
     ! e_flx_avg
     !
     ALLOCATE (ptr_int%e_flx_avg(nproma,5,nblks_e), STAT=ist )
@@ -1296,6 +1304,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ptr_int%e_bln_c_u     = 0._wp
     ptr_int%e_bln_c_v     = 0._wp
     ptr_int%c_bln_avg     = 0._wp
+    ptr_int%gradc_bmat    = 0._wp
     ptr_int%e_flx_avg     = 0._wp
     ptr_int%e_aw_v        = 0._wp
   ENDIF
@@ -1908,6 +1917,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_u,po%e_bln_c_u)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_v,po%e_bln_c_v)
   CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%c_bln_avg,po%c_bln_avg)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%gradc_bmat,po%gradc_bmat)
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%e_flx_avg,po%e_flx_avg)
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%v_1o2_e,po%v_1o2_e)
   ENDIF
@@ -2078,6 +2088,14 @@ INTEGER :: ist
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:destruct_int_state',                      &
         &             'deallocation for c_bln_avg failed')
+    ENDIF
+    !
+    ! gradc_bmat
+    !
+    DEALLOCATE (ptr_int%gradc_bmat, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                      &
+        &             'deallocation for gradc_bmat failed')
     ENDIF
     !
     ! e_flx_avg

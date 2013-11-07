@@ -133,12 +133,17 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: grad_fd_norm, grad_fd_tang
 PUBLIC :: grad_green_gauss_cell
 PUBLIC :: grad_dir_edge
+PUBLIC :: grad_fe_cell
 
 INTERFACE grad_green_gauss_cell
   MODULE PROCEDURE grad_green_gauss_cell_adv
   MODULE PROCEDURE grad_green_gauss_cell_dycore
 END INTERFACE
 
+INTERFACE grad_fe_cell
+  MODULE PROCEDURE grad_fe_cell_adv
+  MODULE PROCEDURE grad_fe_cell_dycore
+END INTERFACE
 
 CONTAINS
 
@@ -512,6 +517,308 @@ END SUBROUTINE grad_fd_tang
 !>
 !! Computes the cell centered gradient in geographical coordinates.
 !!
+!! The gradient is computed by taking the derivative of the shape functions 
+!! for a three-node triangular element (Finite Element thinking).
+!!
+!! @par Revision History
+!!  Initial revision by Daniel Reinert, DWD (2013-11-07)
+!!
+!! LITERATURE:
+!! Fish. J and T. Belytschko, 2007: A first course in finite elements,
+!!                                  John Wiley and Sons
+!!
+!!
+SUBROUTINE grad_fe_cell_adv( p_cc, ptr_patch, ptr_int, p_grad, &
+  &                      opt_slev, opt_elev, opt_rlstart,  &
+  &                      opt_rlend                         )
+!
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in)     :: ptr_patch
+!
+!  data structure for interpolation
+!
+TYPE(t_int_state), TARGET, INTENT(in) :: ptr_int
+
+!
+!  cell centered variable
+!
+REAL(wp), INTENT(in) ::  &
+  &  p_cc(:,:,:)
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
+!
+! cell based Green-Gauss reconstructed geographical gradient vector
+!
+REAL(wp), INTENT(inout) ::  &
+  &  p_grad(:,:,:,:)      ! dim:(nproma,nlev,2,nblks_c)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_cc,2)
+END IF
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 2
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlcell
+END IF
+
+
+iidx => ptr_patch%cells%neighbor_idx
+iblk => ptr_patch%cells%neighbor_blk
+
+i_nchdom = MAX(1,ptr_patch%n_childdom)
+
+
+!
+! 2. reconstruction of cell based geographical gradient
+!
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+  IF (ptr_patch%id > 1) THEN
+  ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
+!$OMP WORKSHARE
+    p_grad(:,:,1,1:i_startblk) = 0._wp
+    p_grad(:,:,2,1:i_startblk) = 0._wp
+!$OMP END WORKSHARE
+  ENDIF
+
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose, 
+        ! since it is extremely slow on the SX9, when combined with indirect 
+        ! addressing.
+ 
+        ! multiply cell-based input values with precomputed grid geometry factor
+
+        ! zonal(u)-component of Green-Gauss gradient
+        p_grad(jc,jk,1,jb) = &
+          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+        ! meridional(v)-component of Green-Gauss gradient
+        p_grad(jc,jk,2,jb) =  &
+          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+END SUBROUTINE grad_fe_cell_adv
+
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes the cell centered gradient in geographical coordinates.
+!!
+!! The gradient is computed by taking the derivative of the shape functions 
+!! for a three-node triangular element (Finite Element thinking).
+!! Special dycore version, which handles two fields at a time.
+!!
+!! @par Revision History
+!!  Initial revision by Daniel Reinert, DWD (2013-11-07)
+!!
+!! LITERATURE:
+!! Fish. J and T. Belytschko, 2007: A first course in finite elements,
+!!                                  John Wiley and Sons
+!!
+!!
+SUBROUTINE grad_fe_cell_dycore( p_ccpr, ptr_patch, ptr_int, p_grad, &
+  &                      opt_slev, opt_elev, opt_rlstart,  &
+  &                      opt_rlend                         )
+!
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in)     :: ptr_patch
+!
+!  data structure for interpolation
+!
+TYPE(t_int_state), TARGET, INTENT(in) :: ptr_int
+
+REAL(wp), INTENT(in) ::  & ! perturbation fields passed from dycore (nproma,2,nlev,nblks_c)
+  &  p_ccpr(:,:,:,:)
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
+!
+! cell based Green-Gauss reconstructed geographical gradient vector
+!
+REAL(wp), INTENT(inout) ::  &
+  &  p_grad(:,:,:,:)      ! dim:(nproma,4,nlev,nblks_c)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_ccpr,3)
+END IF
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 2
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlcell
+END IF
+
+
+iidx => ptr_patch%cells%neighbor_idx
+iblk => ptr_patch%cells%neighbor_blk
+
+i_nchdom = MAX(1,ptr_patch%n_childdom)
+
+
+!
+! 2. reconstruction of cell based geographical gradient
+!
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose, 
+        ! since it is extremely slow on the SX9, when combined with indirect 
+        ! addressing.
+ 
+        ! multiply cell-based input values with shape function derivatives
+
+        ! zonal(u)-component of gradient, field 1
+        p_grad(jc,1,jk,jb) = &
+          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+
+        ! meridional(v)-component of gradient, field 1
+        p_grad(jc,2,jk,jb) =  &
+          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+
+        ! zonal(u)-component of gradient, field 2
+        p_grad(jc,3,jk,jb) = &
+          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+
+        ! meridional(v)-component of gradient, field 2
+        p_grad(jc,4,jk,jb) =  &
+          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+END SUBROUTINE grad_fe_cell_dycore
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes the cell centered gradient in geographical coordinates.
+!!
 !! The Green-Gauss approach is used. See for example:
 !! http://www.cfd-online.com/Wiki/Gradient_computation
 !!
@@ -746,7 +1053,6 @@ END SUBROUTINE grad_green_gauss_cell_adv
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-  INTEGER :: nlen, npromz_c, nblks_c
 
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
