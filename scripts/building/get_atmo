@@ -38,8 +38,39 @@ link_source_list()
 
 #-----------------------------------------------------------------------------------
 #link folder
+#-----------------------------------------------------------------------------------
+#get src
+link_source_list "src/" "advection 
+art_interface 
+atm_dyn_icoham 
+atm_dyn_iconam 
+atm_phy_echam 
+atm_phy_edmf 
+atm_phy_les 
+atm_phy_nwp 
+atm_phy_schemes 
+CMakeLists.txt 
+configure_model 
+coupler 
+diagnostics 
+drivers 
+grid_generator 
+include 
+io 
+lnd_phy_jsbach 
+lnd_phy_nwp 
+lnd_phy_schemes 
+namelists 
+parallel_infrastructure 
+shared 
+shr_horizontal 
+templates 
+testcases 
+drivers"
+#-----------------------------------------------------------------------------------
 
-link_source_list "" "src data doc include scripts support create_builds build_all 
+
+link_source_list "" "data doc include scripts support create_builds build_all 
 aclocal.m4 configure.ac configure make_my_runscript make_runscripts make_nat-ape-dec_runs 
 Makefile.in externals lapack blas conrib vertical_coord_tables"
 
@@ -47,6 +78,12 @@ link_source_list "config/" all
 link_source_list "run/" all
 
 #-----------------------------------------------------------------------------------
+rm ${icon_dev_to}/config/icon_components
+cat > ${icon_dev_to}/config/icon_components << EOF
+#===============================================
+# define the components to be compiled with ICON
+icon_components=ICON_ATMO JSBACH 
+EOF
 
 cat > ${icon_dev_to}/config/multiple_builds << EOF
 #==============================================

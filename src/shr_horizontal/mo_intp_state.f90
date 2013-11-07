@@ -183,15 +183,15 @@ USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,       
   &                               rbf_compute_coeff_c2grad
 USE mo_intp_coeffs,         ONLY: compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
-  &                               init_tplane_c, init_geo_factors_oce,                 &
-  &                               init_nudgecoeffs,                                    &
-  &                               tri_quadrature_pts, par_init_scalar_product_oce
+  &                               init_tplane_c,   tri_quadrature_pts,                 &
+  &                               init_nudgecoeffs, tri_quadrature_pts
+  !                               init_geo_factors_oce, par_init_scalar_product_oce
 USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell,          &
   &                               scalar_int_coeff, bln_int_coeff_e2c
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
-USE mo_ocean_nml,           ONLY: idisc_scheme
+! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 
 
@@ -1561,12 +1561,12 @@ DO jg = n_dom_start, n_dom
       &                       lsq_high_set%dim_unk, lsq_high_set%wgt_exp )
   ENDIF
 
-  IF ( iequations == ihs_ocean) THEN
-    IF (idisc_scheme==1) THEN
-      CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
-    ENDIF
-    CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
-  ENDIF
+!  IF ( iequations == ihs_ocean) THEN
+!    IF (idisc_scheme==1) THEN
+!      CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+!    ENDIF
+!    CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
+!  ENDIF
 ENDDO
 
 CALL message('mo_intp_state:construct_2d_interpol_state', &

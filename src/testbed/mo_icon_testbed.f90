@@ -42,7 +42,9 @@ MODULE mo_icon_testbed
     & test_netcdf_read_model, testbed_ocean_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
+#ifdef __ICON_OCEAN__
   USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
+#endif
 
 #ifdef __ICON_ATMO__
   USE mo_test_coupler,        ONLY: test_coupler
