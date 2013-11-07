@@ -101,7 +101,6 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
 USE mo_output,                 ONLY: create_restart_file
-USE mo_fortran_tools,          ONLY: assign_if_present
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
@@ -136,11 +135,6 @@ PUBLIC :: construct_ocean_states
 PUBLIC :: finalise_ho_integration
 PRIVATE:: update_intermediate_tracer_vars
 !
-INTERFACE add_fields
-  MODULE PROCEDURE add_fields_3d
-  MODULE PROCEDURE add_fields_2d
-END INTERFACE add_fields
-
 CHARACTER(len=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
 INTEGER            :: idt_src                      ! Level of detail for 1 line debug
 !
@@ -410,6 +404,10 @@ CONTAINS
 
       ENDIF
       ! compute mean values for output interval
+      !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
+      !TODO [ram] nsteps_since_last_output =
+      !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
+
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
 
       ! set the output variable pointer to the correct timelevel
@@ -659,6 +657,28 @@ CONTAINS
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
     INTEGER,INTENT(IN)                     :: nsteps_since_last_output
 
+
+    !TODO [ram] trigger aoutput wrt to multiple output intervals
+    !TODO [ram] CALL collect_group(TRIM(grp_name), grp_vars_fg_sfc, ngrp_vars_fg_sfc,    &
+    !TODO [ram]       &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+    !TODO [ram]   IF (ALLOCATED(output_file)) THEN
+    !TODO [ram]      DO i = 1, nvar_lists
+    !TODO [ram]         element => var_lists(i)%p%first_list_element
+    !TODO [ram]         DO
+    !TODO [ram]           IF(.NOT. ASSOCIATED(element)) EXIT
+    !TODO [ram]           if (.not. element%isteptype==TSTEP_ACCUM) cycle
+    !TODO [ram]           DO i = 1, SIZE(output_file)
+    !TODO [ram]              if (istime4output*output_file(i)%out_event) then
+    !TODO [ram]                 if (one_of(element%name, output_file(i)%namelist%ml_varlist(1:output_file(i)%num_vars)) then
+    !TODO [ram]               ! do accumulation for variable varlist(j)
+    !TODO [ram]                   element%field%rptr = element%field%rptr / 
+    !TODO [ram]            end if
+    !TODO [ram]         end if
+    !TODO [ram]      end DO
+    !TODO [ram]   end IF
+
+
     p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
     p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
@@ -723,57 +743,6 @@ CONTAINS
     p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
 
   END SUBROUTINE reset_ocean_statistics
-
-  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
-    REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
-    REAL(wp),INTENT(IN)             :: f_b(:,:,:)
-    TYPE(t_subset_range),INTENT(IN) :: subset
-    INTEGER,INTENT(IN),OPTIONAL     :: levels
-
-    INTEGER :: idx,block,level,startidx,endidx
-
-    INTEGER :: mylevels
-
-    mylevels = 0
-
-    CALL assign_if_present(mylevels, levels)
-
-
-    IF (ASSOCIATED(subset%vertical_levels)) THEN
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, startidx, endidx)
-        DO idx = startidx, endidx
-          DO level = 1, MAX(mylevels,subset%vertical_levels(idx,block))
-            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
-          END DO
-        END DO
-      END DO
-    ELSE
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, startidx, endidx)
-        DO idx = startidx, endidx
-          DO level = 1, mylevels
-            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
-          END DO
-        END DO
-      END DO
-    ENDIF
-  END SUBROUTINE add_fields_3d
-
-  SUBROUTINE add_fields_2d(f_a,f_b,subset)
-    REAL(wp),INTENT(INOUT)          :: f_a(:,:)
-    REAL(wp),INTENT(IN)             :: f_b(:,:)
-    TYPE(t_subset_range),INTENT(IN) :: subset
-
-    INTEGER :: jb,jc,jc_start,jc_end
-
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, jc_start, jc_end)
-      DO jc = jc_start, jc_end
-        f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
-      END DO
-    END DO
-  END SUBROUTINE add_fields_2d
 
   SUBROUTINE new_ocean_statistics()
   END SUBROUTINE new_ocean_statistics
