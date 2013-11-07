@@ -207,7 +207,7 @@ CONTAINS
         p_phys_param%K_veloc_h(:,:,:) = 3.82E-12_wp&
         &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
 
-      CASE(3)!
+      CASE(3)! calculate coefficients for each location based on MUNK layer
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
@@ -218,6 +218,7 @@ CONTAINS
           END DO
         END DO
       END SELECT
+      CALL dbg_print('horzVelocDiff:',p_phys_param%K_veloc_h ,str_module,0,in_subset=p_patch%cells%owned)
     !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
 
