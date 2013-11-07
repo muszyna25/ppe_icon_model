@@ -884,6 +884,7 @@ scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/Rakefile -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
+scripts/building/get_icon -text
 scripts/building/get_ocean_only -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
