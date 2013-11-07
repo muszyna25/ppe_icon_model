@@ -278,8 +278,8 @@ cat > $atmo_namelist << EOF
 &io_nml
   out_expname      = '${EXPNAME}_atm' ! file name base
   dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
-  output_nml_dict  = '${dict_file}'
-  netcdf_dict      = '${dict_file}'
+ !output_nml_dict  = '${dict_file}'
+ !netcdf_dict      = '${dict_file}'
   lwrite_initial   = .FALSE.          ! do/don't write out initial data
   lwrite_radiation = .TRUE.           ! add radiation fields to output
   lwrite_cloud     = .TRUE.           ! add cloud fraction to output
@@ -295,11 +295,11 @@ cat > $atmo_namelist << EOF
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_dyn"
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'ps'    , 'ta'     ,
-                    'hus'   , 'clw'    , 'cli' ,
-                    'ua'    , 'va'     , 'wap' ,
-                    'pfull' , 'gpfull' ,
-                    'ha_diag_rel_vort_c' , 'ha_diag_div' , 'prm_omega' , 'prm_vo' 
+ ml_varlist       = 'ha_prog_out_pres_sfc', 'ha_prog_out_temp'   ,
+                    'ha_prog_out_qv'      , 'ha_prog_out_qw'     , 'ha_prog_out_qi'         ,
+                    'ha_diag_out_u'       , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'   ,
+                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' , 'ha_diag_u' , 'ha_diag_v',
+                    'ha_diag_rel_vort_c'  , 'ha_diag_div'        , 'prm_omega' , 'prm_vo'
 /
 &output_nml
  output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
@@ -308,14 +308,14 @@ cat > $atmo_namelist << EOF
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_phy"
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'cosmu0' , 'rsdt' , 'prm_t' ,
-                    'rsns'   , 'rlns' , 'rsnt'  , 'rlnt'    ,
-                    'ts'     , 'sic'  , 'tro3'  , 'prm_ghm' , 'prm_ghi' ,
-                    'clt'    , 'cl'   , 
-                    'prlr'   , 'prls' , 'prcr'  , 'prcs'    ,
-                    'pr'     , 'prw'  , 'cllvi' , 'clivi'   ,
-                    'evspsbl', 'hfls' , 'hfss'  ,
-                    'tauu'   , 'tauv'
+ ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa', 'prm_t'       ,
+                    'prm_swflxsfc', 'prm_lwflxsfc'  , 'prm_swflxtoa', 'prm_lwflxtoa' ,
+                    'prm_tsfc'    , 'prm_seaice'    , 'prm_o3'      , 'prm_ghm'      , 'prm_ghi' ,
+                    'prm_aclcov'  , 'prm_aclc'      ,
+                    'prm_rsfl'    , 'prm_ssfl'      , 'prm_rsfc'    , 'prm_ssfc'  ,
+                    'prm_totprec' , 'prm_qvi'       , 'prm_xlvi'    , 'prm_xivi'  ,
+                    'prm_evap'    , 'prm_lhflx'     , 'prm_shflx'   ,
+                    'prm_u_stress', 'prm_v_stress'
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
