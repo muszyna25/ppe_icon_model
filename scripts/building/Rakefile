@@ -88,6 +88,7 @@ $builds = {
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
   :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
   :remoteXlf         => {:host => :wizard  , :subdir => 'default'} ,
+  :remoteIntelW      => {:host => :wizard  , :subdir => 'intel', :CC => 'intel' } ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
 # ============================================================================
