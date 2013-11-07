@@ -45,7 +45,7 @@ MODULE mo_output
   USE mo_grid_config,         ONLY: n_dom, &
     &                               n_dom_start !, nroot, lplane
   USE mo_io_config,           ONLY: out_expname
-  USE mo_impl_constants,      ONLY: ihs_ocean !,            &
+!  USE mo_impl_constants,      ONLY: ihs_ocean !,            &
 !     &                              ihs_atm_temp,         &
 !     &                              ihs_atm_theta,        &
 !     &                              inh_atmosphere,       &
@@ -70,7 +70,10 @@ MODULE mo_output
   USE mo_meteogram_config,    ONLY: meteogram_output_config
 #endif
 
-  USE mo_oce_state,           ONLY: set_zlev, t_hydro_ocean_state
+#ifdef __ICON_OCEAN__
+  USE mo_oce_state,           ONLY: set_zlev
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -234,6 +237,8 @@ CONTAINS
       inlev_snow = 0
     ENDIF
 !DR end preliminary fix
+    izlev = 0
+#ifdef __ICON_OCEAN__
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
       !This part is only called if opt_depth > 0
       IF(opt_depth>0)THEN
@@ -244,12 +249,14 @@ CONTAINS
         CALL set_restart_depth(zlevels_half, zlevels_full)
         DEALLOCATE(zlevels_full)
         DEALLOCATE(zlevels_half)
-      ELSE
-        izlev = 0
-      END IF
-    ELSE
-      izlev = 0
+!      ELSE
+!        izlev = 0
+!      END IF
+!    ELSE
+!      izlev = 0
     END IF
+#endif
+
     IF (.NOT.PRESENT(opt_nice_class)) THEN
       nice_class = 1
     ELSE

@@ -55,7 +55,7 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
-  USE mo_oce_state,               ONLY: set_zlev
+  ! USE mo_oce_state,               ONLY: set_zlev
   USE mo_var_metadata,            ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
@@ -2873,25 +2873,25 @@ CONTAINS
       iUsedDefLevels = iLevels
     ENDIF
 
-    ! considerate ocean
-    IF (PRESENT(lOcean)) THEN
-      ! check if half
-      IF (.NOT. lOcean) THEN
-        iUsedDefLevels = iUsedDefLevels - 1
-      ENDIF
-      ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-      ALLOCATE(rDefLevelVecH(iUsedDefLevels+1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-      CALL set_zlev(rDefLevelVecH, rDefLevelVec)
-      IF (lOcean) THEN
-        CALL zaxisDefLevels(iID, rDefLevelVec)
-      ELSE
-        CALL zaxisDefLevels(iID, rDefLevelVecH)
-      ENDIF
-      DEALLOCATE(rDefLevelVec)
-      DEALLOCATE(rDefLevelVecH)
-    ELSE
+!    ! considerate ocean
+!    IF (PRESENT(lOcean)) THEN
+!      ! check if half
+!      IF (.NOT. lOcean) THEN
+!        iUsedDefLevels = iUsedDefLevels - 1
+!      ENDIF
+!      ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
+!      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+!      ALLOCATE(rDefLevelVecH(iUsedDefLevels+1), STAT=ierrstat)
+!      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+!      CALL set_zlev(rDefLevelVecH, rDefLevelVec)
+!      IF (lOcean) THEN
+!        CALL zaxisDefLevels(iID, rDefLevelVec)
+!      ELSE
+!        CALL zaxisDefLevels(iID, rDefLevelVecH)
+!      ENDIF
+!      DEALLOCATE(rDefLevelVec)
+!      DEALLOCATE(rDefLevelVecH)
+!    ELSE
       ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
       DO i = 1, SIZE(rDefLevelVec)
@@ -2903,7 +2903,7 @@ CONTAINS
       END DO
       CALL zaxisDefLevels(iID, rDefLevelVec)
       DEALLOCATE(rDefLevelVec)
-    ENDIF
+!    ENDIF
 
   END SUBROUTINE create_cdi_zaxis
 

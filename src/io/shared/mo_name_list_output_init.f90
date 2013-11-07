@@ -105,8 +105,10 @@ MODULE mo_name_list_output_init
   ! post-ops
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
 
+#ifdef __ICON_OCEAN__
   USE mo_ocean_nml,                         ONLY: n_zlev
   USE mo_oce_state,                         ONLY: set_zlev
+#endif
 
 #ifdef __ICON_ATMO__
   USE mo_lnd_jsbach_config,                 ONLY: lnd_jsbach_config
@@ -2177,8 +2179,8 @@ CONTAINS
     DEALLOCATE(levels)
 
     ! atm (pressure) height, ocean depth
-#ifdef __ICON_ATMO__
     IF (iequations/=ihs_ocean) THEN ! atm
+#ifdef __ICON_ATMO__
 
       nlev   = num_lev(of%log_patch_id)
       nlevp1 = num_levp1(of%log_patch_id)
@@ -2547,9 +2549,6 @@ CONTAINS
       CALL zaxisDefUnits(of%cdiZaxisID(ZA_sediment_bottom_tw_half), "m")
       DEALLOCATE(levels)
 
-
-
-
       ! Define axes for output on p-, i- and z-levels
       !
       lwrite_pzlev = (of%name_list%pl_varlist(1) /= ' ')  .OR.  &
@@ -2597,10 +2596,11 @@ CONTAINS
       ENDIF
       ! for having ice variable in the atmosphere (like AMIP)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-
-    ELSE ! oce
 #endif
 ! __ICON_ATMO__
+
+    ELSE ! oce
+#ifdef __ICON_OCEAN__
       of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
       of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
@@ -2613,9 +2613,8 @@ CONTAINS
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-#ifdef __ICON_ATMO__
-    ENDIF
 #endif
+    ENDIF
 ! __ICON_ATMO__
 
 
