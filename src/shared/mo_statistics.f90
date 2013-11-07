@@ -39,6 +39,7 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, warning, finish
+  USE mo_fortran_tools,      ONLY: assign_if_present
 
 #ifndef __ICON_GRID_GENERATOR__
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
@@ -59,7 +60,7 @@ MODULE mo_statistics
 
   ! NOTE: in order to get correct results make sure you provide the proper range_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
-  PUBLIC :: global_minmaxmean, subset_sum
+  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
 
   INTERFACE global_minmaxmean
     MODULE PROCEDURE globalspace_2D_minmaxmean
@@ -195,6 +196,12 @@ MODULE mo_statistics
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
+
+  INTERFACE add_fields
+    MODULE PROCEDURE add_fields_3d
+    MODULE PROCEDURE add_fields_2d
+  END INTERFACE add_fields
+
 
 CONTAINS
 
@@ -1045,5 +1052,55 @@ CONTAINS
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
 
+  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
+    INTEGER,INTENT(IN),OPTIONAL     :: levels
+
+    INTEGER :: idx,block,level,startidx,endidx
+
+    INTEGER :: mylevels
+
+    mylevels = 0
+
+    CALL assign_if_present(mylevels, levels)
+
+
+    IF (ASSOCIATED(subset%vertical_levels)) THEN
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          DO level = 1, MAX(mylevels,subset%vertical_levels(idx,block))
+            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+          END DO
+        END DO
+      END DO
+    ELSE
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          DO level = 1, mylevels
+            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+          END DO
+        END DO
+      END DO
+    ENDIF
+  END SUBROUTINE add_fields_3d
+
+  SUBROUTINE add_fields_2d(f_a,f_b,subset)
+    REAL(wp),INTENT(INOUT)          :: f_a(:,:)
+    REAL(wp),INTENT(IN)             :: f_b(:,:)
+    TYPE(t_subset_range),INTENT(IN) :: subset
+
+    INTEGER :: jb,jc,jc_start,jc_end
+
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, jc_start, jc_end)
+      DO jc = jc_start, jc_end
+        f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
+      END DO
+    END DO
+  END SUBROUTINE add_fields_2d
 
 END MODULE mo_statistics

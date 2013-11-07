@@ -46,6 +46,7 @@ MODULE mo_sea_ice_types
   ! Definition of forcing types
   ! public types
   PUBLIC  :: t_sea_ice
+  PUBLIC  :: t_sea_ice_acc
   PUBLIC  :: t_sfc_flx
   PUBLIC  :: t_atmos_fluxes
   PUBLIC  :: t_atmos_for_ocean
@@ -197,6 +198,16 @@ MODULE mo_sea_ice_types
 
   END TYPE t_atmos_fluxes
 
+  TYPE t_sea_ice_acc
+  ! accumulated fields of the sea-ice state
+    REAL(wp), POINTER :: &
+      & hi         (:,:,:)       ,   & ! Ice thickness                                 [m]
+      & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
+      & conc       (:,:,:)             ! ice concentration in each ice class
+    REAL(wp), POINTER :: &
+      & u(:,:)          ,      & ! Zonal velocity on cell centre (diagnostic)    [m/s]
+      & v(:,:)                   ! Meridional velocity on cell centre (diagn.)   [m/s]
+  END TYPE t_sea_ice_acc
   TYPE t_sea_ice
 
   ! The description of the sea-ice state, defined on cell-centers
@@ -234,9 +245,11 @@ MODULE mo_sea_ice_types
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
-     INTEGER ::  kice           ! Number of ice-thickness classes
+    INTEGER ::  kice           ! Number of ice-thickness classes
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
+
+    TYPE(t_sea_ice_acc), ALLOCATABLE :: acc
 
   END TYPE t_sea_ice
 
