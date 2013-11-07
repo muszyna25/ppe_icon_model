@@ -390,7 +390,7 @@ CONTAINS
       &                          p_os(jg)%p_diag%rhopot )
 
     ! update accumulated vars
-    CALL update_ocean_statistics(p_os(1),p_sfc_flx,patch_3D%p_patch_2D(1)%cells%owned)
+    CALL update_ocean_statistics(p_os(1),p_sfc_flx,patch_3D%p_patch_2D(1)%cells%owned,n_zlev)
 
     IF (istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN
@@ -607,10 +607,11 @@ CONTAINS
     p_os%p_aux%g_n   = 0.0_wp
   END SUBROUTINE update_intermediate_tracer_vars
 
-  SUBROUTINE update_ocean_statistics(p_os,p_sfc_flx,subset)
+  SUBROUTINE update_ocean_statistics(p_os,p_sfc_flx,subset,max_zlev)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
     TYPE(t_subset_range),      INTENT(IN)    :: subset
+    INTEGER, INTENT(IN)                      :: max_zlev
 
     INTEGER :: jtrc,i
 
@@ -626,7 +627,7 @@ CONTAINS
       &                  subset)
     END DO
     CALL add_fields(p_os%p_acc%u_vint        , p_os%p_diag%u_vint        , subset)
-    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , subset,n_zlev+1)
+    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , subset,max_zlev+1)
     CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, subset)
 
     ! update forcing accumulated values
@@ -729,20 +730,34 @@ CONTAINS
     TYPE(t_subset_range),INTENT(IN) :: subset
     INTEGER,INTENT(IN),OPTIONAL     :: levels
 
+    INTEGER :: idx,block,level,startidx,endidx
+
     INTEGER :: mylevels
-    INTEGER :: jb,jc,jk,jc_start,jc_end
 
-    mylevels = n_zlev
-    CALL assign_if_present(mylevels,levels)
+    mylevels = 0
 
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, jc_start, jc_end)
-      DO jk=1,mylevels
-        DO jc = jc_start, jc_end
-          f_a(jc,jk,jb) = f_a(jc,jk,jb) + f_b(jc,jk,jb)
+    CALL assign_if_present(mylevels, levels)
+
+
+    IF (ASSOCIATED(subset%vertical_levels)) THEN
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          DO level = 1, MAX(mylevels,subset%vertical_levels(idx,block))
+            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+          END DO
         END DO
       END DO
-    END DO
+    ELSE
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          DO level = 1, mylevels
+            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+          END DO
+        END DO
+      END DO
+    ENDIF
   END SUBROUTINE add_fields_3d
 
   SUBROUTINE add_fields_2d(f_a,f_b,subset)
