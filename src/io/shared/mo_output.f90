@@ -251,7 +251,7 @@ CONTAINS
         DEALLOCATE(zlevels_half)
 !      ELSE
 !        izlev = 0
-!      END IF
+      END IF
 !    ELSE
 !      izlev = 0
     END IF
