@@ -65,7 +65,7 @@ MODULE mo_ext_data_state
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
-  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
+  ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
@@ -370,7 +370,7 @@ CONTAINS
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data started')
 
-    IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
+   ! IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
 
       ! Build external data list for constant-in-time fields for the atm model
       !write(*,*) 'create new external data list for atmosphere'
@@ -389,20 +389,20 @@ CONTAINS
       END DO
       END IF
 
-    ELSE ! iequations==ihs_ocean ------------------------------------------
-
-      write(0,*) 'create new external data list for ocean'
-      ! Build external data list for constant-in-time fields for the ocean model
-      DO jg = 1, n_dom
-        WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
-        CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
-          &                        ext_data(jg)%oce_list, TRIM(listname))
-      END DO ! jg = 1,n_dom
-
-      ! Build external data list for time-dependent fields
-      ! ### to be done ###
-
-    ENDIF ! atmosphere or ocean ------
+!    ELSE ! iequations==ihs_ocean ------------------------------------------
+!
+!      write(0,*) 'create new external data list for ocean'
+!      ! Build external data list for constant-in-time fields for the ocean model
+!      DO jg = 1, n_dom
+!        WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
+!        CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
+!          &                        ext_data(jg)%oce_list, TRIM(listname))
+!      END DO ! jg = 1,n_dom
+!
+!      ! Build external data list for time-dependent fields
+!      ! ### to be done ###
+!
+!    ENDIF ! atmosphere or ocean ------
 
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data finished')
@@ -1585,128 +1585,126 @@ CONTAINS
     ENDIF ! inwp
 
   END SUBROUTINE new_ext_data_atm_td_list
-
-
-
   !-------------------------------------------------------------------------
-  !
-  !
-  !>
-  !! Allocation of oceanic external data structure
-  !!
-  !! Allocation of oceanic external data structure used for elements that are
-  !! stationary in time.
-  !!
-  !! Initialization of elements with zero.
-  !!
-  !! @par Revision History
-  !! Initial release by Daniel Reinert (2011-06-24)
-  !!
-  SUBROUTINE new_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
-    &                                listname)
+
+
+!  !-------------------------------------------------------------------------
+!  !>
+!  !! Allocation of oceanic external data structure
+!  !!
+!  !! Allocation of oceanic external data structure used for elements that are
+!  !! stationary in time.
+!  !!
+!  !! Initialization of elements with zero.
+!  !!
+!  !! @par Revision History
+!  !! Initial release by Daniel Reinert (2011-06-24)
+!  !!
+!  SUBROUTINE new_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
+!    &                                listname)
 !
-    TYPE(t_patch), TARGET, INTENT(IN)   :: & !< current patch
-      &  p_patch
-
-    TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
-      &  p_ext_oce 
-
-    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
-
-    CHARACTER(len=*), INTENT(IN)  :: & !< list name
-      &  listname
-
-    TYPE(t_cf_var)    :: cf_desc
-    TYPE(t_grib2_var) :: grib2_desc
-
-    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
-      &        nblks_e       !< number of edge blocks to allocate
-
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
-    INTEGER :: idim_omip
-
-    INTEGER :: ibits         !< "entropy" of horizontal slice
-
-    !--------------------------------------------------------------
-
-    !determine size of arrays
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-
-
-    ibits = 16   ! "entropy" of horizontal slice
-
-    ! predefined array shapes
-    shape2d_c = (/ nproma, nblks_c /)
-    shape2d_e = (/ nproma, nblks_e /)
-
-    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
-    ! for type of forcing see mo_oce_bulk
-    idim_omip = 0
-    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
-    IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
-    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
-    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
-    shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
-
-    !
-    ! Register a field list and apply default settings
-    !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_oce_list,            &
-                                  & lrestart=.FALSE.,          &
-                                  & restart_type=FILETYPE_NC2, &
-                                  & model_type='oce'  )
-
-    ! bathymetric height at cell center
-    !
-    ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
-      &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-
-
-    ! bathymetric height at cell edge
-    !
-    ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
-    cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
-      &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
-      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
-
-    ! ocean land-sea-mask at surface on cell centers
-    !
-    ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
-      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-    !#slo-2011-08-08# does not compile yet?
-    CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-
-    ! ocean land-sea-mask at surface on cell edge
-    !
-    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
-      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
-      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
-
-    ! omip forcing data on cell edge
-    !
-    IF (iforc_oce == 12) THEN
-      cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
-        &                   'OMIP forcing data', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
-    END IF
-
-  END SUBROUTINE new_ext_data_oce_list
+!    TYPE(t_patch), TARGET, INTENT(IN)   :: & !< current patch
+!      &  p_patch
+!
+!    TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
+!      &  p_ext_oce
+!
+!    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
+!
+!    CHARACTER(len=*), INTENT(IN)  :: & !< list name
+!      &  listname
+!
+!    TYPE(t_cf_var)    :: cf_desc
+!    TYPE(t_grib2_var) :: grib2_desc
+!
+!    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+!      &        nblks_e       !< number of edge blocks to allocate
+!
+!    INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
+!    INTEGER :: idim_omip
+!
+!    INTEGER :: ibits         !< "entropy" of horizontal slice
+!
+!    !--------------------------------------------------------------
+!
+!    !determine size of arrays
+!    nblks_c = p_patch%nblks_c
+!    nblks_e = p_patch%nblks_e
+!
+!
+!    ibits = 16   ! "entropy" of horizontal slice
+!
+!    ! predefined array shapes
+!    shape2d_c = (/ nproma, nblks_c /)
+!    shape2d_e = (/ nproma, nblks_e /)
+!
+!    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
+!    ! for type of forcing see mo_oce_bulk
+!    idim_omip = 0
+!    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
+!    IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
+!    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
+!    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
+!    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
+!    shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
+!
+!    !
+!    ! Register a field list and apply default settings
+!    !
+!    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
+!    CALL default_var_list_settings( p_ext_oce_list,            &
+!                                  & lrestart=.FALSE.,          &
+!                                  & restart_type=FILETYPE_NC2, &
+!                                  & model_type='oce'  )
+!
+!    ! bathymetric height at cell center
+!    !
+!    ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
+!    cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
+!      &                   'Model bathymetry', DATATYPE_FLT32)
+!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+!    CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
+!      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+!
+!
+!    ! bathymetric height at cell edge
+!    !
+!    ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
+!    cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
+!      &                   'Model bathymetry', DATATYPE_FLT32)
+!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+!    CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
+!      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+!
+!    ! ocean land-sea-mask at surface on cell centers
+!    !
+!    ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
+!    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
+!      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
+!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+!    !#slo-2011-08-08# does not compile yet?
+!    CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
+!      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+!
+!    ! ocean land-sea-mask at surface on cell edge
+!    !
+!    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
+!      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
+!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+!    CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
+!      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+!
+!    ! omip forcing data on cell edge
+!    !
+!    IF (iforc_oce == 12) THEN
+!      cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
+!        &                   'OMIP forcing data', DATATYPE_FLT32)
+!      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+!      CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
+!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
+!    END IF
+!
+!  END SUBROUTINE new_ext_data_oce_list
 
 
 
@@ -1749,12 +1747,11 @@ CONTAINS
       &                          'external data finished')
 
   END SUBROUTINE destruct_ext_data
+  !-------------------------------------------------------------------------
 
 
 
- !-------------------------------------------------------------------------
- !-------------------------------------------------------------------------
-
+  !-------------------------------------------------------------------------
   SUBROUTINE inquire_external_files(p_patch)
 
     !-------------------------------------------------------
