@@ -65,7 +65,7 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
 #endif

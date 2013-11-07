@@ -57,7 +57,7 @@ MODULE mo_ocean_read_namelists
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
 
   USE mo_name_list_output_init,ONLY: read_name_list_output_namelists
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   USE mo_coupling_nml        ,ONLY: read_coupling_namelist
 #endif
 
@@ -128,7 +128,7 @@ CONTAINS
 
     ! Coupling
     !
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
 #endif
 

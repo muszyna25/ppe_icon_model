@@ -70,7 +70,7 @@ PROGRAM control_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_icon_testbed,        ONLY: icon_testbed
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
@@ -196,7 +196,7 @@ PROGRAM control_model
   
   SELECT CASE (my_process_component)
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 

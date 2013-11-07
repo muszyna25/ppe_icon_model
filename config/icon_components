@@ -1,3 +1,4 @@
 #===============================================
 # define the components to be compiled with ICON
-icon_components=JSBACH
+icon_components=ICON_ATMO JSBACH ICON_OCEAN ICON_TESTBED 
+

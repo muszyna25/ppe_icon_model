@@ -102,7 +102,7 @@ MODULE mo_name_list_output
     &                                     is_output_step_complete, is_output_event_finished,        &
     &                                     check_write_readyfile, wait_for_final_irecvs
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf
 
 ! tool dependencies, maybe restructure
@@ -112,7 +112,7 @@ MODULE mo_name_list_output
     &                                     rotate_latlon_grid
   USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
   IMPLICIT NONE
 
@@ -138,7 +138,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Writes the grid information in output file, GRIB2 format.
   !
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
   SUBROUTINE write_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables:
@@ -252,13 +252,13 @@ CONTAINS
     INTEGER :: i, jg
 
 #ifndef NOMPI
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     IF (use_async_name_list_io    .AND.  &
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
@@ -266,14 +266,14 @@ CONTAINS
         END IF
       END DO
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
 
     ELSE
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 #endif
 ! NOMPI
       !-- asynchronous I/O PEs (receiver):
@@ -284,10 +284,10 @@ CONTAINS
         END IF
       ENDDO
 #ifndef NOMPI
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     ENDIF
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 #endif
 ! NOMPI
 
@@ -316,7 +316,7 @@ CONTAINS
       &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
       IF (of%name_list%output_grid .AND. &
         & is_output_process        .AND. &
         & (of%name_list%filetype == FILETYPE_GRB2)) THEN
@@ -381,7 +381,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_write_output)
 #ifndef NOMPI
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
         ! write recent samples of meteogram output
@@ -401,7 +401,7 @@ CONTAINS
       END IF
     ENDIF
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 #endif
 ! NOMPI
 
@@ -625,7 +625,7 @@ CONTAINS
         ! set a default time level (which is not used anyway, but must
         ! be a valid array subscript):
       tl = 1
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
@@ -643,7 +643,7 @@ CONTAINS
         END IF
       ENDIF
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
       IF (info%lcontained) THEN
         nindex = info%ncontained
@@ -751,13 +751,13 @@ CONTAINS
         ELSE
           p_pat => p_patch(i_dom)%comm_pat_gather_v
         ENDIF
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
@@ -1017,7 +1017,7 @@ CONTAINS
     INTEGER,                INTENT(in) :: isample
     ! local variables:
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     LOGICAL             :: done
     INTEGER             :: jg, jstep
     TYPE(t_par_output_event), POINTER :: ev
@@ -1107,7 +1107,7 @@ CONTAINS
 
     STOP
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
   END SUBROUTINE name_list_io_main_proc
   !------------------------------------------------------------------------------------------------
@@ -1169,7 +1169,7 @@ CONTAINS
     nval = MAX(patch_info(i_dom)%cells%n_glb, &
                patch_info(i_dom)%edges%n_glb, &
                patch_info(i_dom)%verts%n_glb)
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
     ! take also the lon-lat grids into account
     DO iv = 1, of%num_vars
       info => of%var_desc(iv)%info
@@ -1181,7 +1181,7 @@ CONTAINS
       END IF
     END DO
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
     nlev_max = 1
     DO iv = 1, of%num_vars
@@ -1225,13 +1225,13 @@ CONTAINS
         CASE (GRID_UNSTRUCTURED_VERT)
           p_ri => patch_info(of%phys_patch_id)%verts
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifdef __ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = info%hor_interp%lonlat_id
           i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)
 #endif
-! __ICON_OCEAN_ONLY__
+! __ICON_ATMO__
 
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
