@@ -258,15 +258,12 @@ CONTAINS
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
 
-#ifdef __ICON_ATMO__
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_flush_file(jg)
         END IF
       END DO
-#endif
-! __ICON_ATMO__
 
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()

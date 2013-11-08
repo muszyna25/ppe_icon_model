@@ -2616,7 +2616,7 @@ CONTAINS
       of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 #endif
     ENDIF
-! __ICON_ATMO__
+
 
 
     !
