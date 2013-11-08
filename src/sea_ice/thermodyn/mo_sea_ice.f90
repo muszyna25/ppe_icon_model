@@ -362,7 +362,6 @@ CONTAINS
       CALL init_fem_wgts(p_patch_3D)
     ENDIF
 
-    allocate(p_ice%acc)
     ! add accumulated fields
     CALL add_var(ocean_default_list, 'hi_acc', p_ice%acc%hi ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
