@@ -85,6 +85,7 @@ MODULE mo_advection_utils
     INTEGER, POINTER :: eidx(:,:)
     INTEGER, POINTER :: elev(:,:)
     INTEGER, POINTER :: len(:)
+    INTEGER          :: npoints
   END TYPE t_list2D
 
 
@@ -269,4 +270,3 @@ CONTAINS
 
 
 END MODULE mo_advection_utils
-

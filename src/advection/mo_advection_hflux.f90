@@ -2832,30 +2832,26 @@ CONTAINS
                                        !< meridional direction
 
     REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
-      &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
-      &  dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
-      &  dreg_patch2(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
+      &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e)  !< coordinates
+
+    REAL(wp), ALLOCATABLE ::   & !< dim: (npoints,4,2,nblks_e)
+      &  dreg_patch1(:,:,:,:), &
+      &  dreg_patch2(:,:,:,:)
 
 
     REAL(wp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
       &  z_quad_vector_sum0(:,:,:,:),& !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
-      &  z_quad_vector_sum1(:,:,:,:),&
-      &  z_quad_vector_sum2(:,:,:,:)
+      &  z_quad_vector_sum1(:,:,:),  & !< dim: (npoints,lsq_dim_unk+1,nblks_e)
+      &  z_quad_vector_sum2(:,:,:)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< area of each departure region patch
-      &  z_dreg_area0(:,:,:),       & !< dim: (nproma,nlev,nblks_e)
-      &  z_dreg_area1(:,:,:),       &
-      &  z_dreg_area2(:,:,:)
+    REAL(wp), ALLOCATABLE, SAVE ::  & !< sum of area of departure region patches
+      &  z_dreg_area(:,:,:)
 
-    INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line and block indices of underlying cell
+    INTEGER, ALLOCATABLE, SAVE  ::  & !< line and block indices of underlying cell
       &  patch0_cell_idx(:,:,:), patch0_cell_blk(:,:,:), & !< dim: (nproma,nlev,p_patch%nblks_e)
-      &  patch1_cell_idx(:,:,:), patch1_cell_blk(:,:,:), &
-      &  patch2_cell_idx(:,:,:), patch2_cell_blk(:,:,:)
+      &  patch1_cell_idx(:,:),   patch1_cell_blk(:,:),   & !< dim: (npoints,p_patch%nblks_e)
+      &  patch2_cell_idx(:,:),   patch2_cell_blk(:,:)
 
-    INTEGER, POINTER ::                    & !< Pointer to line and block indices of the cells
-      &  ptr_ilc0(:,:,:), ptr_ibc0(:,:,:), & !< to which the departure region patches belong.
-      &  ptr_ilc1(:,:,:), ptr_ibc1(:,:,:), &
-      &  ptr_ilc2(:,:,:), ptr_ibc2(:,:,:)
 
     TYPE(t_list2D) ::         &    !< list with points for which a local
       &  falist                    !< polynomial approximation is insufficient 
@@ -2864,6 +2860,7 @@ CONTAINS
 
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nlev               !< number of full levels
+    INTEGER  :: npoints            !< number of points per block for ndex list allocation
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
@@ -2960,34 +2957,21 @@ CONTAINS
     !    In addition the Gauss-Legendre quadrature is prepared by
     !    calculating some tracer-invariant (i.e. purely geometric) fields.
     !
+
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for quadrature and upwind cells
-      ALLOCATE( z_quad_vector_sum0(nproma,dim_unk,nlev,p_patch%nblks_e), &
-        &       z_quad_vector_sum1(nproma,dim_unk,nlev,p_patch%nblks_e), &
-        &       z_quad_vector_sum2(nproma,dim_unk,nlev,p_patch%nblks_e), &
-        &       z_dreg_area0(nproma,nlev,p_patch%nblks_e),               &
-        &       z_dreg_area1(nproma,nlev,p_patch%nblks_e),               &
-        &       z_dreg_area2(nproma,nlev,p_patch%nblks_e),               &
-        &       patch0_cell_idx(nproma,nlev,p_patch%nblks_e),            &
-        &       patch1_cell_idx(nproma,nlev,p_patch%nblks_e),            &
-        &       patch2_cell_idx(nproma,nlev,p_patch%nblks_e),            &
+      ALLOCATE( patch0_cell_idx(nproma,nlev,p_patch%nblks_e),            &
         &       patch0_cell_blk(nproma,nlev,p_patch%nblks_e),            &
-        &       patch1_cell_blk(nproma,nlev,p_patch%nblks_e),            &
-        &       patch2_cell_blk(nproma,nlev,p_patch%nblks_e),            &
         &       falist%eidx(nproma*nlev,p_patch%nblks_e),                &
         &       falist%elev(nproma*nlev,p_patch%nblks_e),                &
         &       falist%len(p_patch%nblks_e),                             &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                        &
-          &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, ' // &
-          &  'patch0/1/2_cell_idx,  patch0/1/2_cell_blk, falist failed' )
+          &  'allocation for patch0_cell_idx,  patch0_cell_blk, falist failed' )
       ENDIF
 
-      ! make sure that flux areas are initially 0
-      ! not strictly  necessary for z_flux_area0, since every grid point is always touched
-      z_dreg_area1(:,:,:) = 0._wp
-      z_dreg_area2(:,:,:) = 0._wp
+      falist%len(:) = 0 ! To be safe with the subsequent MAXVAL in the case of nesting
 
       ! compute vertex coordinates for the departure region using a first
       ! order accurate (O(\Delta t)) backward trajectory-method
@@ -2998,6 +2982,26 @@ CONTAINS
         &              opt_slev=slev_ti, opt_elev=elev_ti,             &! in
         &              opt_falist=falist                               )! inout
 
+      npoints = MAXVAL(falist%len(:))
+      falist%npoints = npoints
+
+      ! allocate temporary arrays for quadrature and upwind cells
+      ALLOCATE( z_quad_vector_sum0(nproma,dim_unk,nlev,p_patch%nblks_e), &
+        &       z_quad_vector_sum1(npoints,dim_unk,p_patch%nblks_e),     &
+        &       z_quad_vector_sum2(npoints,dim_unk,p_patch%nblks_e),     &
+        &       z_dreg_area(nproma,nlev,p_patch%nblks_e),                &
+        &       patch1_cell_idx(npoints,p_patch%nblks_e),                &
+        &       patch2_cell_idx(npoints,p_patch%nblks_e),                &
+        &       patch1_cell_blk(npoints,p_patch%nblks_e),                &
+        &       patch2_cell_blk(npoints,p_patch%nblks_e),                &
+        &       dreg_patch1(npoints,4,2,p_patch%nblks_e),                &
+        &       dreg_patch2(npoints,4,2,p_patch%nblks_e),                &
+        &       STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine),                                      &
+          &  'allocation for z_quad_vector_sum0/1/2, z_dreg_area, ' //    &
+          &  'patch1/2_cell_idx,  patch1/2_cell_blk, dreg_patch1/2 failed' )
+      ENDIF
 
       ! Flux area (aka. departure region) is subdivided according to its overlap 
       ! with the underlying grid.
@@ -3009,7 +3013,6 @@ CONTAINS
         &                   opt_slev=slev_ti, opt_elev=elev_ti         )! in
 
 
-
       ! maps quadrilateral onto the standard rectangle of edge length 2.
       ! provides quadrature points and the corresponding determinant of the
       ! Jacobian for each departure region.
@@ -3018,17 +3021,17 @@ CONTAINS
         ! Gauss-Legendre quadrature with 1 quadrature point for integrating
         ! a linear 2D polynomial
         CALL prep_gauss_quadrature_l( p_patch, dreg_patch0,               &! in
-          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      z_quad_vector_sum0, z_dreg_area,         &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch1, falist,  &! in
-          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch2, falist,  &! in
-          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
@@ -3036,17 +3039,17 @@ CONTAINS
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a quadratic 2D polynomial
         CALL prep_gauss_quadrature_q( p_patch, dreg_patch0,               &! in
-          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      z_quad_vector_sum0, z_dreg_area,         &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch1, falist,  &! in
-          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch2, falist,  &! in
-          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
@@ -3054,17 +3057,17 @@ CONTAINS
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a full cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, dreg_patch0,               &! in
-          &                      z_quad_vector_sum0, z_dreg_area0,        &! out
+          &                      z_quad_vector_sum0, z_dreg_area,         &! out
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch1, falist,  &! in
-          &                      z_quad_vector_sum1, z_dreg_area1,        &! out
+          &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch2, falist,  &! in
-          &                      z_quad_vector_sum2, z_dreg_area2,        &! out
+          &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
           &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
           &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
 
@@ -3102,18 +3105,6 @@ CONTAINS
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
-    ELSE IF (lsq_high_ord == 30) THEN
-      ! cubic reconstruction without cross derivatives
-      ! (computation of 8 coefficients -> z_lsq_coeff )
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=2 )
-      ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
@@ -3135,16 +3126,6 @@ CONTAINS
     CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
 
-
-
-    ! Pointer to line and block indices of the cells to which the departure 
-    ! region patches belong.
-    ptr_ilc0 => patch0_cell_idx(:,:,:)
-    ptr_ibc0 => patch0_cell_blk(:,:,:)
-    ptr_ilc1 => patch1_cell_idx(:,:,:)
-    ptr_ibc1 => patch1_cell_blk(:,:,:)
-    ptr_ilc2 => patch2_cell_idx(:,:,:)
-    ptr_ibc2 => patch2_cell_blk(:,:,:)
 
     !
     ! 3. Calculate approximation to the area average \Phi_{avg} of the tracer
@@ -3180,7 +3161,7 @@ CONTAINS
 
 !CDIR EXPAND=3
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:3,ptr_ibc0(je,jk,jb)), &
+            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:3,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb))
         ENDDO
       ENDDO
@@ -3194,10 +3175,10 @@ CONTAINS
 
 !CDIR EXPAND=3
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:3,ptr_ibc1(je,jk,jb)),  &
-          &      z_quad_vector_sum1(je,1:3,jk,jb) )                                      &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:3,ptr_ibc2(je,jk,jb)),  &
-          &      z_quad_vector_sum2(je,1:3,jk,jb) )
+          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:3,patch1_cell_blk(ie,jb)),  &
+          &      z_quad_vector_sum1(ie,1:3,jb) )                                      &
+          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:3,patch2_cell_blk(ie,jb)),  &
+          &      z_quad_vector_sum2(ie,1:3,jb) )
       ENDDO  ! ie
 
 
@@ -3209,7 +3190,7 @@ CONTAINS
 
 !CDIR EXPAND=6
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:6,ptr_ibc0(je,jk,jb)), &
+            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:6,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb))
         ENDDO
       ENDDO
@@ -3223,10 +3204,10 @@ CONTAINS
 
 !CDIR EXPAND=6
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:6,ptr_ibc1(je,jk,jb)),  &
-          &      z_quad_vector_sum1(je,1:6,jk,jb) )                                      &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:6,ptr_ibc2(je,jk,jb)),  &
-          &      z_quad_vector_sum2(je,1:6,jk,jb) )
+          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:6,patch1_cell_blk(ie,jb)),  &
+          &      z_quad_vector_sum1(ie,1:6,jb) )                                      &
+          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:6,patch2_cell_blk(ie,jb)),  &
+          &      z_quad_vector_sum2(ie,1:6,jb) )
       ENDDO  ! ie
 
 
@@ -3237,7 +3218,7 @@ CONTAINS
 
 !CDIR EXPAND=10
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:10,ptr_ibc0(je,jk,jb)),&
+            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:10,patch0_cell_blk(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb))
         ENDDO
       ENDDO
@@ -3251,10 +3232,10 @@ CONTAINS
 
 !CDIR EXPAND=10
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)  &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:10,ptr_ibc1(je,jk,jb)),&
-          &      z_quad_vector_sum1(je,1:10,jk,jb) )                                    &
-          &    + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:10,ptr_ibc2(je,jk,jb)),&
-          &      z_quad_vector_sum2(je,1:10,jk,jb) )
+          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:10,patch1_cell_blk(ie,jb)),&
+          &      z_quad_vector_sum1(ie,1:10,jb) )                                    &
+          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:10,patch2_cell_blk(ie,jb)),&
+          &      z_quad_vector_sum2(ie,1:10,jb) )
       ENDDO  ! ie
 
       END SELECT
@@ -3263,8 +3244,7 @@ CONTAINS
 !CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
-          p_out_e(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_out_e(je,jk,jb)                 &
-            &    / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )
+          p_out_e(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_out_e(je,jk,jb) / z_dreg_area(je,jk,jb)
         ENDDO  ! je
       ENDDO  ! jk
 
@@ -3294,10 +3274,10 @@ CONTAINS
       ! deallocate temporary arrays for quadrature, departure region and
       ! upwind cell indices
       DEALLOCATE( z_quad_vector_sum0, z_quad_vector_sum1, z_quad_vector_sum2, &
-        &         z_dreg_area0, z_dreg_area1, z_dreg_area2, patch0_cell_idx,  &
+        &         z_dreg_area, patch0_cell_idx,                               &
         &         patch1_cell_idx, patch2_cell_idx, patch0_cell_blk,          &
         &         patch1_cell_blk, patch2_cell_blk, falist%eidx, falist%elev, &
-        &         falist%len, STAT=ist )
+        &         falist%len, dreg_patch1, dreg_patch2, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
