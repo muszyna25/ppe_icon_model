@@ -217,6 +217,7 @@ MODULE mo_ocean_nml
   INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
+  INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
   INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
   INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
@@ -346,6 +347,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
     &                 no_tracer, HORZ_VELOC_DIFF_TYPE,                     &
+    &                 N_POINTS_IN_MUNK_LAYER,                              &
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
