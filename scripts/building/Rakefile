@@ -292,6 +292,15 @@ end
 def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
+def doCmpExps(build,expA,expB)
+  call(connect(build,<<-EOS
+      cd experiments/;
+      fileA=$(ls -1 #{expA}/#{expA}*.nc | head -1);
+      fileB=$(ls -1 #{expA}/#{expA}*.nc | head -1);
+      cdo diffv $fileA $fileB
+               EOS
+              ),true)
+end
 def doCheckExp(build,exp)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
@@ -380,6 +389,11 @@ $builds.each_key {|build|
   task "#{build.to_s}_check".to_sym , [:exp] => ["#{build.to_s}_run".to_sym] do |t, args|
     doCheckExp(build,args.exp || DEFAULT_EXP)
   end
+  desc "Compare outputs of two experiments"
+  task "#{build.to_s}_cmp".to_sym, [:expA,:expB] => ["#{build.to_s}_run".to_sym] do |t, args|
+    doCmpExps(build,args.expA,args.expB)
+  end
+
   # post processing
   desc "Run post-processing on given exp (build:#{build.to_s})"
   task "#{build.to_s}_post".to_sym, [:exp] => ["#{build.to_s}_sync".to_sym] do |t, args|
@@ -409,6 +423,10 @@ $builds.each_key {|build|
   desc "Check output files"
   task "#{build.to_s}_checkOnly".to_sym , [:exp] => ["#{build.to_s}_sync".to_sym] do |t, args|
     doCheckExp(build,args.exp || DEFAULT_EXP)
+  end
+  desc "Compare outputs of two experiments"
+  task "#{build.to_s}_cmpOnly".to_sym, [:expA,:expB] => ["#{build.to_s}_sync".to_sym] do |t, args|
+    doCmpExps(build,args.expA,args.expB)
   end
   # }
 
