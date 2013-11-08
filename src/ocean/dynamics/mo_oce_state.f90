@@ -3192,6 +3192,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
     REAL(wp), PARAMETER   :: z_fac_limitthick = 0.8_wp  !  limits additional thickness of bottom cell
     REAL(wp) :: global_ocean_volume
+    REAL(wp) :: z_prism_center_dist_e
     INTEGER, POINTER :: dolic_c(:,:), dolic_e(:,:)
 
     CHARACTER(*), PARAMETER :: method_name = "mo_oce_state:init_patch_3D"
@@ -3338,12 +3339,18 @@ CONTAINS
                 &      (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
             ENDIF
 
+         !  this is necessary update for flat surface array but leads to abort in height equation
+         !  patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) =      &
+         !    &  patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
               & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
             patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      =      &
               &  1.0_wp/patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,jk,jb)=      &
               &  1.0_wp/patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb)
+
+         !  write(0,*)'XXXX flat_sfc_c',jk,jc,jb,&
+         !    &patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb),patch_3D%p_patch_1D(1)%del_zlev_m(jk)         
 
             ! bottom and column thickness for solver and output
             ! bottom cell thickness at jk=dolic
@@ -3395,13 +3402,18 @@ CONTAINS
                 &      (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
             ENDIF
 
+         !  this is necessary update for flat surface array but leads to abort in height equation
+         !  patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(jc,jk,jb) =      &
+         !    &  patch_3D%p_patch_1D(1)%prism_thick_e(jc,jk,jb)
+            patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = &
+              &  1.0_wp/patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
             ! no matching prism_center_dist_e ?
       !     patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
       !       & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
-            patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = &
-              &  1.0_wp/patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
+      !     z_prism_center_dist_e = 0.5_wp*                           &
+      !       & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
       !     patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= &
-      !       &  1.0_wp/patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb)
+      !       &  1.0_wp/z_prism_center_dist_e
 
             ! bottom and column thickness for solver and output
             ! bottom edge thickness at jk=dolic
