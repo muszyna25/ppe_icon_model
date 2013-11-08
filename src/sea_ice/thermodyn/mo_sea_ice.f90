@@ -1504,6 +1504,8 @@ CONTAINS
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
 
+    CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
+
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
       CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_op_coeff )
@@ -1514,8 +1516,6 @@ CONTAINS
     ENDIF
 
     CALL ice_clean_up( p_patch_3D, ice, p_sfc_flx, p_os )
-
-    CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
 
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,QatmAve,1,ie,je)
