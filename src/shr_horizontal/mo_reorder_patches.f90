@@ -44,6 +44,7 @@ MODULE mo_reorder_patches
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     &                               t_glb2loc_index_lookup
+  USE mo_util_sort,       ONLY: quicksort
 
   IMPLICIT NONE
   PRIVATE
@@ -337,29 +338,34 @@ CONTAINS
     CALL reorder_array_pos(decomp_info%glb_index, idx_old2new, n)
 
     CALL reorder_glb2loc_index_lookup(decomp_info%glb2loc_index, &
-      &                               idx_old2new, n)
+      &                               decomp_info%glb_index, n)
 
   END SUBROUTINE reorder_decomp_info
 
-  SUBROUTINE reorder_glb2loc_index_lookup(glb2loc_index, idx_old2new, n)
+  SUBROUTINE reorder_glb2loc_index_lookup(glb2loc_index, glb_index, n)
 
     TYPE(t_glb2loc_index_lookup), INTENT(inout) :: glb2loc_index
-    INTEGER, INTENT(IN) :: idx_old2new(:) ! permutation array
     INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(IN) :: glb_index(n)
 
-    INTEGER :: temp_glb_to_loc(n), n_inner
+    INTEGER :: i
 
-    n_inner = SIZE(glb2loc_index%inner_glb_index_to_loc(:))
+    DEALLOCATE(glb2loc_index%inner_glb_index, &
+      &        glb2loc_index%inner_glb_index_to_loc, &
+      &        glb2loc_index%outer_glb_index, &
+      &        glb2loc_index%outer_glb_index_to_loc)
+    ALLOCATE(glb2loc_index%inner_glb_index(0), &
+      &      glb2loc_index%inner_glb_index_to_loc(0), &
+      &      glb2loc_index%outer_glb_index(n), &
+      &      glb2loc_index%outer_glb_index_to_loc(n))
 
-    temp_glb_to_loc(1:n_inner) = glb2loc_index%inner_glb_index_to_loc(:)
-    temp_glb_to_loc(n_inner+1:) = glb2loc_index%outer_glb_index_to_loc(:)
+    glb2loc_index%outer_glb_index(:) = glb_index(:)
+    glb2loc_index%outer_glb_index_to_loc(:) = (/(i, i = 1, n)/)
 
-    CALL reorder_array_pos(temp_glb_to_loc, idx_old2new, n)
+    CALL quicksort(glb2loc_index%outer_glb_index(:), &
+      &            glb2loc_index%outer_glb_index_to_loc(:))
 
-    glb2loc_index%inner_glb_index_to_loc(:) = temp_glb_to_loc(1:n_inner)
-    glb2loc_index%outer_glb_index_to_loc(:) = temp_glb_to_loc(n_inner+1:)
-
-  END SUBROUTINE
+  END SUBROUTINE reorder_glb2loc_index_lookup
 
   !> reorder array entries according to a given permutation array.
   !  2D implementation, INTEGERS.
