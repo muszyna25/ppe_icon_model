@@ -262,9 +262,10 @@ foreach $dir ( @directories ) {
 	for $i ( 0 .. $#modules) {		 
 	    my ($ofile) = $module_definitions{$modules[$i]};
 	    $ofile =~ s/f90$/o/;
-	    next if $object =~$ofile;
+	    next if $object =~ $ofile;
 	    push @dependencies, $ofile;
 	}
+	next if $object =~ $file;
 	print MAKEFILE "$object: $file ";
 	&PrintWords (length($object)+length($file)+3, 0, @dependencies);
 	print MAKEFILE "\n\n";
