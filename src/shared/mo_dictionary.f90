@@ -291,9 +291,9 @@ CONTAINS
       CALL parse_line(line,key,val,valid)
       IF(valid) THEN
         IF (.NOT. lread_inverse) THEN
-          CALL  dict_set(dict, TRIM(key), TRIM(val))
+          CALL  dict_set(dict, TRIM(ADJUSTL(key)), TRIM(ADJUSTL(val)))
         ELSE
-          CALL  dict_set(dict, TRIM(val), TRIM(key))
+          CALL  dict_set(dict, TRIM(ADJUSTL(val)), TRIM(ADJUSTL(key)))
         END IF
       END IF
     ENDDO
@@ -318,6 +318,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_find'
     INTEGER :: idx, key_column
+    CHARACTER(LEN=DICT_MAX_STRLEN) :: cmp_key, this_key
 
     IF (PRESENT(opt_key_column)) THEN
       key_column = opt_key_column
@@ -329,7 +330,9 @@ CONTAINS
     dict_find = DICT_UNDEFID
     LOOP_IDX : DO idx=1,dict%nentries
       IF (.NOT. dict%lcase_sensitive) THEN
-        IF (TRIM(tolower(TRIM(key))) == TRIM(tolower(TRIM(dict%array(key_column,idx))))) THEN
+        this_key = tolower(TRIM(key))
+        cmp_key = tolower(TRIM(dict%array(key_column,idx)))
+        IF (TRIM(this_key) == TRIM(cmp_key)) THEN
           dict_find = idx
           EXIT LOOP_IDX
         END IF

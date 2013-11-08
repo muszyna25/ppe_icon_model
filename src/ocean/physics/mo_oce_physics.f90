@@ -55,6 +55,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
   &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
   &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
   &                               HORZ_VELOC_DIFF_TYPE, veloc_diffusion_order,            &
+  &                               N_POINTS_IN_MUNK_LAYER,                                 &
   &                               biharmonic_diffusion_factor,                            &
   &                               richardson_tracer, richardson_veloc,                    &
   &                               l_constant_mixing, l_smooth_veloc_diffusion,            &
@@ -163,7 +164,7 @@ CONTAINS
     INTEGER  :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_lower_bound_diff
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
-    REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
+    REAL(wp) :: points_in_munk_layer
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
@@ -171,6 +172,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_edges => p_patch%edges%all
     !-------------------------------------------------------------------------
+    points_in_munk_layer = REAL(N_POINTS_IN_MUNK_LAYER,wp)
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
@@ -205,7 +207,7 @@ CONTAINS
       CASE(2)!calculate uniform viscosity coefficient, according to Munk criterion
 
         p_phys_param%K_veloc_h(:,:,:) = 3.82E-12_wp&
-        &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
+        &*(points_in_munk_layer*z_largest_edge_length)**3
 
       CASE(3)! calculate coefficients for each location based on MUNK layer
         DO jb = all_edges%start_block, all_edges%end_block
@@ -214,7 +216,7 @@ CONTAINS
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
             p_phys_param%K_veloc_h(je,:,jb) = 3.82E-12_wp&
-            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3
+            &*(points_in_munk_layer*p_patch%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
       END SELECT
@@ -296,7 +298,7 @@ CONTAINS
     REAL(wp), INTENT(inout)              :: lower_bound_diff
 
     ! Local variables
-    REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
+    REAL(wp) :: points_in_munk_layer
     REAL(wp)            :: z_largest_edge_length
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain
@@ -308,7 +310,8 @@ CONTAINS
 
     !calculate lower bound for diffusivity: The factor cos(lat) is omitted here, because of
     !equatorial reference (cf. Griffies, eq.  (18.29)) 
-    lower_bound_diff = 3.82E-12_wp*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
+    points_in_munk_layer = REAL(N_POINTS_IN_MUNK_LAYER,wp)
+    lower_bound_diff = 3.82E-12_wp*(points_in_munk_layer*z_largest_edge_length)**3
 
   END SUBROUTINE calc_lower_bound_veloc_diff
 

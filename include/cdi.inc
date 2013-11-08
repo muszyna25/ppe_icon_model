@@ -4,7 +4,7 @@
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   August 2013
+! Uwe Schulzweida, MPI-MET, Hamburg,   November 2013
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -230,7 +230,6 @@
       INTEGER    GRID_REFERENCE        
       PARAMETER (GRID_REFERENCE         = 9)
 
-
 !
 !  ZAXIS types
 !
@@ -401,12 +400,6 @@
 !                                     INTEGER         pioNamespace,
 !                                     REAL            partInflate)
 !DR      EXTERNAL        pioInit
-
-!                     pioWriteTimestep
-!                                    (INTEGER         ,
-!                                     INTEGER         ,
-!                                     INTEGER         )
-!DR      EXTERNAL        pioWriteTimestep
 
 !                     streamWriteVarPart
 !                                    (INTEGER         streamID,
@@ -1151,6 +1144,17 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarTimaccu
 
+!                     vlistDefVarTypeOfGeneratingProcess
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         typeOfGeneratingProcess)
+      EXTERNAL        vlistDefVarTypeOfGeneratingProcess
+
+      INTEGER         vlistInqVarTypeOfGeneratingProcess
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID)
+      EXTERNAL        vlistInqVarTypeOfGeneratingProcess
+
       INTEGER         vlistInqVarSize
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
@@ -1222,12 +1226,6 @@
 !                                     INTEGER         ensCount,
 !                                     INTEGER         forecast_type)
       EXTERNAL        vlistInqVarEnsemble
-
-!
-      INTEGER         gribGetAPIVersion
-!                                    ()
-      EXTERNAL        gribGetAPIVersion
-
 
 !                     cdiDefAdditionalKey
 !                                    (CHARACTER*(*)   string)
@@ -1629,45 +1627,45 @@
       EXTERNAL        gridDefGMEni3
 
 !
-!  Reference grid
+!  Reference of an unstructured grid
 !
-      INTEGER         gridInqNumber
-!                                    (INTEGER         gridID)
-      EXTERNAL        gridInqNumber
-
 !                     gridDefNumber
 !                                    (INTEGER         gridID,
 !                                     INTEGER         number)
       EXTERNAL        gridDefNumber
 
-      INTEGER         gridInqPosition
+      INTEGER         gridInqNumber
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqPosition
+      EXTERNAL        gridInqNumber
 
 !                     gridDefPosition
 !                                    (INTEGER         gridID,
 !                                     INTEGER         position)
       EXTERNAL        gridDefPosition
 
-      INTEGER         gridInqReference
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   reference)
-      EXTERNAL        gridInqReference
+      INTEGER         gridInqPosition
+!                                    (INTEGER         gridID)
+      EXTERNAL        gridInqPosition
 
 !                     gridDefReference
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   reference)
       EXTERNAL        gridDefReference
 
-      CHARACTER(80)   gridInqUUID
+      INTEGER         gridInqReference
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   uuid_cbuf)
-      EXTERNAL        gridInqUUID
+!                                     CHARACTER*(*)   reference)
+      EXTERNAL        gridInqReference
 
 !                     gridDefUUID
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridDefUUID
+
+      CHARACTER(80)   gridInqUUID
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   uuid_cbuf)
+      EXTERNAL        gridInqUUID
 
 !
 !  Lambert Conformal Conic grid (GRIB version)
@@ -1863,10 +1861,23 @@
 !                                     INTEGER         levelID)
       EXTERNAL        zaxisInqLevel
 
-!                     zaxisDefReference
-!                                    (INTEGER         zaxisID,
-!                                     INTEGER         refID)
-      EXTERNAL        zaxisDefReference
+!                     zaxisDefNlevRef
+!                                    (INTEGER         gridID,
+!                                     INTEGER         nhlev)
+      EXTERNAL        zaxisDefNlevRef
+
+      INTEGER         zaxisInqNlevRef
+!                                    (INTEGER         gridID)
+      EXTERNAL        zaxisInqNlevRef
+
+!                     zaxisDefNumber
+!                                    (INTEGER         gridID,
+!                                     INTEGER         number)
+      EXTERNAL        zaxisDefNumber
+
+      INTEGER         zaxisInqNumber
+!                                    (INTEGER         gridID)
+      EXTERNAL        zaxisInqNumber
 
 !                     zaxisDefUUID
 !                                    (INTEGER         zaxisID,
@@ -1877,10 +1888,6 @@
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisInqUUID
-
-      INTEGER         zaxisInqReference
-!                                    (INTEGER         zaxisID)
-      EXTERNAL        zaxisInqReference
 
 !                     zaxisDefName
 !                                    (INTEGER         zaxisID,

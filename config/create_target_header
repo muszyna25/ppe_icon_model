@@ -578,13 +578,13 @@ set_run_target_thunder()
   start_header
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue="mpi-serial"
-  #  queue="mpi-develop"
+    queue="mpi-develop"
     use_nodes=1
     tasks_per_node=1
  else
     job_type=parallel
     queue="mpi-compute"
-   # queue="mpi-develop"
+    queue="mpi-develop"
     tasks_per_node=$use_mpi_procs_pernode
   fi
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -835,13 +835,14 @@ set_run_target_sx9()
   if [[ $use_mpi == "yes" ]]; then
  
     mpimultitaskmix="ON"
-    set_default use_nodes 4
-    set_default use_mpi_procs_pernode 2
+    set_default use_nodes 1
 
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 4
+      set_default use_mpi_procs_pernode 4
+      set_default use_openmp_threads 2
       cpunum_job=8                         
     else
+      set_default use_mpi_procs_pernode 8
       set_default use_openmp_threads 1
       cpunum_job=$use_mpi_procs_pernode
     fi
@@ -849,7 +850,7 @@ set_run_target_sx9()
     set_default use_nodes 1
     set_default use_mpi_procs_pernode 1
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 4
+      set_default use_openmp_threads 8
       cpunum_job=$use_openmp_threads
     else
       cpunum_job=1
@@ -869,7 +870,7 @@ set_run_target_sx9()
 #PBS -l  cpunum_job=$cpunum_job
 #PBS -b $use_nodes
 #PBS -T mpisx
-#PBS -l elapstim_req=86400
+#PBS -l elapstim_req=1800
 #PBS -m n
 # ================
 #-----------------------------------------------------------------------------

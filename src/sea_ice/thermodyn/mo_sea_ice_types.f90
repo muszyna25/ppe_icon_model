@@ -249,7 +249,7 @@ MODULE mo_sea_ice_types
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
-    TYPE(t_sea_ice_acc), ALLOCATABLE :: acc
+    TYPE(t_sea_ice_acc)   :: acc
 
   END TYPE t_sea_ice
 

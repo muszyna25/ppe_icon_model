@@ -214,6 +214,9 @@ check_accept_script()
        *test_nh_hdcp2_lam_r15000_modified*)
           accepted_script="false"
           ;;
+       *_rce_*)
+          accepted_script="false"
+          ;;
        esac
      ;; 
 
@@ -226,6 +229,9 @@ check_accept_script()
           accepted_script="false"
           ;;
        *test_nh_hdcp2_lam_r15000_modified*)
+          accepted_script="false"
+          ;;
+       *_rce_*)
           accepted_script="false"
           ;;
        esac

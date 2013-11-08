@@ -2233,7 +2233,12 @@ CONTAINS
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference), levels ) !necessary for NetCDF
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
+!DR outdated CDI 1.6.2_alpha1
+!DR     CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
+      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
+      !
+      ! Define number of half levels for z-axis 
+      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
       !
       ! UUID not yet available - write dummy UUID
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference), uuidOfVGrid_string ) !uuidOfVGrid
@@ -2250,7 +2255,12 @@ CONTAINS
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference_half), levels)
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
+!DR outdated CDI 1.6.2_alpha1
+!DR      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
+      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
+      !
+      ! Define number of half levels for z-axis 
+      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
       !
       ! UUID not yet available - write dummy UUID
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
@@ -2271,7 +2281,12 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_reference_half_hhl), levels)  !necessary for NetCDF
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
+!DR outdated CDI 1.6.2_alpha1
+!DR      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
+      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
+      !
+      ! Define number of half levels for z-axis 
+      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
       !
       ! UUID not yet available - write dummy UUID
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half_hhl), uuidOfVGrid_string ) !uuidOfVGrid
@@ -3077,14 +3092,14 @@ CONTAINS
       &                    grib_conf%productionStatusOfProcessedData)
     CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
       &                    grib_conf%typeOfProcessedData)
-    CALL vlistDefVarIntKey(vlistID, varID, "typeOfGeneratingProcess",         &
-      &                    grib_conf%typeOfGeneratingProcess)
     CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
       &                    grib_conf%backgroundProcess)
     ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
+
+    CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
 
 
     ! Product Generation (local), !! DWD only !!

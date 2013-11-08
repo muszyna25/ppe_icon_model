@@ -583,6 +583,7 @@ CONTAINS
     REAL(dp),          ALLOCATABLE :: r_out_dp(:,:)
     TYPE(t_comm_pattern),  POINTER :: p_pat
     LOGICAL                        :: l_error
+    LOGICAL                        :: have_GRIB
 
     ! Offset in memory window for async I/O
     ioff = of%my_mem_win_off
@@ -759,6 +760,8 @@ CONTAINS
         CALL finish(routine,'unknown grid type')
       END SELECT
 
+
+
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
         ! -------------------
@@ -811,10 +814,12 @@ CONTAINS
           ENDIF
         END IF
 
+
+        have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
         IF(my_process_is_mpi_workroot()) THEN
 
           ! De-block the array
-          IF (use_dp_mpi2io) THEN
+          IF (use_dp_mpi2io .or. have_GRIB) THEN
             ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
             IF (idata_type == iREAL) THEN
@@ -885,7 +890,7 @@ CONTAINS
         ! ----------
 
         IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
-          IF (use_dp_mpi2io) THEN
+          IF (use_dp_mpi2io .or. have_GRIB) THEN
             CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
           ELSE
             CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
@@ -898,7 +903,7 @@ CONTAINS
         IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
 
         IF (my_process_is_mpi_workroot()) THEN
-          IF (use_dp_mpi2io) THEN
+          IF (use_dp_mpi2io .or. have_GRIB) THEN
             DEALLOCATE(r_out_dp, STAT=ierrstat)
           ELSE
             DEALLOCATE(r_out_sp, STAT=ierrstat)

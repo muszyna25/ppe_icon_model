@@ -83,7 +83,7 @@ CONTAINS
   !
   !  The list of date-time stamp string is given in @p date_string. We
   !  assume that the date_string list is ordered in time. We choose
-  !  the dynamic time step matching or following the time stamp
+  !  the advection time step matching or following the time stamp
   !  string. The "true" date string is also returned.
   !
   !  @note The mtime library offers no arithmetic subroutines to

@@ -1,6 +1,13 @@
 #=============================================================================
-# A simple runscript to test the implementation of the ECHAM physics package
-# into iconam.  This runs a Radiative Convective Equilibrium experiment 
+# This runscript starts a Radiative Convective Equilibrium experiment using 
+# the ECHAM physics in the hydrostatic dynamical core 
+#
+# triangle edge length: 120km
+# vert. res grid: 40 levels
+# DOM: 64x64 doubly periodic
+# length: 1 month
+# output: 6 hourly inst
+# init. cond: zero moisture, zero wind
 #
 # Levi Silvers, 2013
 #
@@ -29,7 +36,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-08-26T00:00:00Z"
+end_date="2008-09-01T00:00:00Z"
 ndays_restart=30
 dt_restart=`expr ${ndays_restart} \* 86400`
 # time interval for writing restart files
@@ -39,8 +46,6 @@ dt_rad=7200.                 # compute radiative transfer every other hour
 #-----------------------------------------------------------------------------
 # model timing
 dtime=120
-#dtime=400
-#dt_data=8640.
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,6 +59,7 @@ atmo_model_equations=1             # equation system
 nlev=31              # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files if not defined
+grids_folder=/pool/data/ICON/grids/private/m300232
 atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
 ozon_file="tor120000s64_ozone_CMIP5_aqua_1870_march.nc"
 if [ x$atmo_rad_gridname = x ] ; then
@@ -162,9 +168,6 @@ cat >> ${atmo_namelist} << EOF
  hflxon         = 0            ! SH and LH fluxes are explicitly spcfd
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
-! ltimer         = .false.
-! ldump_states   = .false.
-! lrestore_states= .false. 
  output         = 'nml'
 /
 &echam_phy_nml
@@ -178,13 +181,10 @@ cat >> ${atmo_namelist} << EOF
 /
 &radiation_nml
  irad_o3 = 4 !should be the ozone clim for APE  
-! irad_aero = 2 ! 
  izenith   = 0 ! Sun in zenith everywhere
 /
 &dynamics_nml
  iequations     = ${atmo_model_equations}       ! equation system
-! idiv_method    = 1 ! from setup with nh core
-! divavg_cntrwgt = 0.50
  lcoriolis      = .FALSE.
 /
 &transport_nml
@@ -199,7 +199,7 @@ cat >> ${atmo_namelist} << EOF
  filetype         = 4
  dom              = -1
  output_start     = "2008-08-01T00:00:00.000Z" 
- output_end       = "2008-08-26T00:00:00.000Z" 
+ output_end       = "2008-09-01T00:00:00.000Z" 
  output_interval  = "P00DT06H00M00S"
  steps_per_file   = 100
  include_last     = .TRUE.           ! flag whether to include the last time step
