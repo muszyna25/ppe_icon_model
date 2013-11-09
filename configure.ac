@@ -220,11 +220,6 @@ for other_package in $icon_components ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
 
-  if test $other_package == ICON_TESTBED ; then
-    is_icon_testbed="yes"
-  else
-    is_icon_testbed="no"
-  fi
 done
 dnl ######################################################################
 
@@ -526,11 +521,6 @@ AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
-
-if test "x$is_icon_testbed" = "xyes"  ; then
-# no mpi for the testbed
-  with_mpi=no
-fi
 
 #default is with mpi
 if test x$with_mpi != xno ; then
