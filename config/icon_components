@@ -1,4 +1,8 @@
 #===============================================
-# define the components to be compiled with ICON
-icon_components=ICON_ATMO JSBACH ICON_OCEAN ICON_TESTBED 
-
+#  define the components NOT to be compiled with ICON
+#  examples:
+# icon_components=NO_JSBACH
+# icon_components=NO_ICON_ATMO
+# icon_components=NO_ICON_OCEAN
+# JSBACH for the moment needs to be defined:
+icon_components=JSBACH

@@ -42,11 +42,11 @@ MODULE mo_surface
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
-#ifdef __JSBACH__
+#ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
   USE mo_icoham_sfc_indices,ONLY: nsfc_type
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
 #endif
   USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
@@ -246,7 +246,7 @@ CONTAINS
     ! - convert matrix entries to Richtmyer-Morton coefficients
 
     IF (phy_config%ljsbach) THEN
-#ifdef __JSBACH__
+#ifndef __NO_JSBACH__
 
       CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                     & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
@@ -456,7 +456,7 @@ CONTAINS
 
 
     IF(phy_config%lice) THEN
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
 ! LL This is a temporary solution,
 ! we should restrcure ice thermodynamics in a more stand-alone way
 

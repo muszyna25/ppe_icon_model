@@ -67,15 +67,15 @@ PROGRAM control_model
   USE mo_util_signal
   USE mo_util_svn,           ONLY: printSVNVersion
 
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
 #endif
 
-#ifdef __ICON_TESTBED__
+#ifndef __NO_ICON_TESTBED__
   USE mo_icon_testbed,        ONLY: icon_testbed
 #endif
 
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
@@ -201,7 +201,7 @@ PROGRAM control_model
   
   SELECT CASE (my_process_component)
 
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 #endif
@@ -209,12 +209,12 @@ PROGRAM control_model
 !   CASE (radiation_process)
 !     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 
-#ifdef __ICON_TESTBED__
+#ifndef __NO_ICON_TESTBED__
   CASE (testbed_process)
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 #endif

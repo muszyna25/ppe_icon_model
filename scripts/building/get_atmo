@@ -1,7 +1,7 @@
 #!/bin/ksh
 
-# usage get_atmo_only <icon-dev full path> <ocean only full path>
-
+# usage get_atmo <icon-dev full path> <atmo only full path>
+#   links from the <icon-dev full path> the atmosphere only files to <atmo only full path>
 set -x
 icon_dev_from=$1
 icon_dev_to=$2
@@ -82,7 +82,7 @@ rm ${icon_dev_to}/config/icon_components
 cat > ${icon_dev_to}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=ICON_ATMO JSBACH 
+icon_components=NO_ICON_OCEAN JSBACH
 EOF
 
 cat > ${icon_dev_to}/config/multiple_builds << EOF

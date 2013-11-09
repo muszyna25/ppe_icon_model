@@ -130,7 +130,7 @@ CONTAINS
         CALL message('','')
 
       CASE('AMIP')
-#ifndef __JSBACH__
+#ifdef __NO_JSBACH__
         CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__ to run the AMIP setup")
 #endif
         echam_phy_config% llandsurf = .FALSE.

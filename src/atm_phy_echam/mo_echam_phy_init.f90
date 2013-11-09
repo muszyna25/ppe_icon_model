@@ -59,7 +59,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
-#ifdef __JSBACH__
+#ifndef __NO_JSBACH__
   USE mo_master_control,       ONLY: master_namelist_filename
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
@@ -356,7 +356,7 @@ CONTAINS
 
     ENDIF    ! phy_config%lamip
 
-#ifdef __JSBACH__
+#ifndef __NO_JSBACH__
     IF (phy_config%ljsbach) THEN
       CALL configure_lnd_jsbach(ltestcase, ctest_name)
       ! Do basic initialization of JSBACH

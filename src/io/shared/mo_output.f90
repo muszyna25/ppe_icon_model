@@ -65,12 +65,12 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer, output_mode
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
   USE mo_meteogram_output,    ONLY: meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
 #endif
 
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
   USE mo_oce_state,           ONLY: set_zlev
 #endif
 
@@ -238,7 +238,7 @@ CONTAINS
     ENDIF
 !DR end preliminary fix
     izlev = 0
-#ifdef __ICON_OCEAN__
+#ifndef __NO_ICON_OCEAN__
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
       !This part is only called if opt_depth > 0
       IF(opt_depth>0)THEN

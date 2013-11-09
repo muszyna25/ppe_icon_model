@@ -109,7 +109,7 @@ MODULE mo_ocean_model
   
   !-------------------------------------------------------------
   ! For the coupling
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -281,7 +281,7 @@ CONTAINS
 
     CALL destruct_icon_communication()
 
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL yac_ffinalize
 # else
@@ -396,7 +396,7 @@ CONTAINS
     ! optionally read those data from netCDF file.
     CALL construct_ocean_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data)
 
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
     IF ( is_coupled_run() ) THEN
       CALL construct_ocean_coupling()
     ENDIF
@@ -411,7 +411,7 @@ CONTAINS
   !--------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------
-#ifdef __ICON_ATMO__
+#ifndef __NO_ICON_ATMO__
   !------------------------------------------------------------------
   ! Prepare the coupling
   !

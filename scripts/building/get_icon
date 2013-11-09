@@ -1,6 +1,8 @@
 #!/bin/ksh
 
-# usage get_atmo_only <icon-dev full path> <ocean only full path>
+# usage get_icon <source icon-dev full path> <target icon-dev full path>
+#  links the <source icon-dev full path> to <target icon-dev full path>.
+#  useful for multiple setups, sharing the source code
 
 set -x
 icon_dev_from=$1
