@@ -25,7 +25,7 @@ cd $WRKDIR
 # Define torus parameters
 # Note that to match a square cell of area dx*dy
 # use triangles of edge length = 2/(3**1/4)*SQRT(dx*dy) ~ 1.5*SQRT(dx*dy)
-# use time step < 1.8*(edge length in km)/SQRT(3)
+# use time step < 1.8*(edge length in km)/SQRT(3)       ~ (edge length in km)
 #
 # Naming convention for grid file:
 # - template: torus_grid_x{no. of columns}_y{no. of rows}_e{edge length with unit}.nc

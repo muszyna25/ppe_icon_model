@@ -82,7 +82,7 @@ rm ${icon_dev_to}/config/icon_components
 cat > ${icon_dev_to}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=NO_ICON_OCEAN JSBACH
+icon_components=NO_ICON_OCEAN NO_ICON_TESTBED JSBACH
 EOF
 
 cat > ${icon_dev_to}/config/multiple_builds << EOF

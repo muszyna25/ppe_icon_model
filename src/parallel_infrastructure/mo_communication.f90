@@ -2200,7 +2200,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
    ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
    ! is treated as iorder_sendrecv=1 in this routine.
-   IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3)) THEN
+   IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. my_process_is_mpi_seq()) THEN
 
      ioffset = 0
      DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
@@ -2296,6 +2296,22 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ioffset_r(np) = ioffset_r(np-1) + p_pat(np-1)%n_recv
      ioffset_s(np) = ioffset_s(np-1) + p_pat(np-1)%n_send
    ENDDO
+
+
+   IF (my_process_is_mpi_seq()) THEN
+     DO np = 1, npats
+       DO i = 1, p_pat(np)%n_pnts
+         DO n = 1, nfields
+           DO k = 1, ndim2(n) 
+             recv(n)%fld( p_pat(np)%recv_dst_idx(i), k, p_pat(np)%recv_dst_blk(i) ) =  &
+               send(np+(n-1)*npats)%fld( k, p_pat(np)%send_src_idx(p_pat(np)%recv_src(i)) )
+           ENDDO
+         ENDDO
+       ENDDO
+     ENDDO
+     RETURN
+   ENDIF
+
 
    ! Set up send buffer
 #ifdef __SX__
