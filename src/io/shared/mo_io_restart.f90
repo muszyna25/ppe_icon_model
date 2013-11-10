@@ -24,7 +24,7 @@ MODULE mo_io_restart
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   
-#ifndef  __ICON_OCEAN_ONLY__ 
+#ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
   USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
@@ -876,7 +876,7 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
-#ifndef  __ICON_OCEAN_ONLY__
+#ifndef __NO_ICON_ATMO__
 ! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
@@ -1226,7 +1226,7 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
-#ifndef  __ICON_OCEAN_ONLY__
+#ifndef __NO_ICON_ATMO__
 ! this should be removed !
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only

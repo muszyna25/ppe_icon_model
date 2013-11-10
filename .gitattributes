@@ -886,7 +886,9 @@ scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/Rakefile -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
-scripts/building/get_ocean_only -text
+scripts/building/get_atmo -text
+scripts/building/get_icon -text
+scripts/building/get_ocean -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
 scripts/codestyle_scripts/check_style.py -text
@@ -1364,7 +1366,6 @@ src/drivers/control_model.f90 -text
 src/drivers/mo_atmo_hydrostatic.f90 -text
 src/drivers/mo_atmo_model.f90 -text
 src/drivers/mo_atmo_nonhydrostatic.f90 -text
-src/drivers/mo_icon_testbed.f90 -text
 src/drivers/mo_master_control.f90 -text
 src/grid_generator/grid_command.f90 -text
 src/grid_generator/grid_definitions.inc -text
@@ -1477,6 +1478,7 @@ src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
 src/ocean/attic/impl_vert_tracer_diff -text
+src/ocean/attic/mo_ocean_intperpolation_coeffs.f90.not_used -text
 src/ocean/attic/mo_simple_expl_run -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
@@ -1626,6 +1628,7 @@ src/templates/function.f90_template -text
 src/templates/module.f90_template -text
 src/templates/program.f90_template -text
 src/templates/subroutine.f90_template -text
+src/testbed/mo_icon_testbed.f90 -text
 src/testbed/mo_icon_testbed_config.f90 -text
 src/testbed/mo_icon_testbed_nml.f90 -text
 src/testbed/mo_test_communication.f90 -text

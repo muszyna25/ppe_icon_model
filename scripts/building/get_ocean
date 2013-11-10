@@ -1,55 +1,57 @@
 #!/bin/ksh
 
-# usage get_ocean_only <icon-dev full path> <ocean only full path>
+# usage: get_ocean <icon-dev full path> <ocean only full path>
+# links the ocean only needed files from the <icon-dev full path> to the <ocean only full path>
 
 set -x
-icon_dev=$1
-ocean_only=$2
+icon_dev_from=$1
+icon_dev_to=$2
 
-if [ ! -d ${ocean_only} ] ; then
-  mkdir -p ${ocean_only}
+if [ ! -d ${icon_dev_to} ] ; then
+  mkdir -p ${icon_dev_to}
 fi
   
-cd ${ocean_only}
-
-
 #-----------------------------------------------------------------------------------
 link_source_list()
 {
   source_folder=$1
   source_files_list="$2"
 
-  if [ ! -d ${ocean_only}/${source_folder} ] ; then
-    mkdir -p ${ocean_only}/${source_folder}
+  if [ ${source_folder} != "" ] ; then
+    if [ ! -d ${icon_dev_to}/${source_folder} ] ; then
+      mkdir -p ${icon_dev_to}/${source_folder}
+    fi
   fi
   
   if [ "${source_files_list}" == "all" ] ; then
-    ln -s ${icon_dev}/${source_folder}/*  ${ocean_only}/${source_folder}
+    ln -s ${icon_dev_from}/${source_folder}*  ${icon_dev_to}/${source_folder}
   else 
     for source_file in ${source_files_list}
     do
-      ln -s ${icon_dev}/${source_folder}/${source_file}  ${ocean_only}/${source_folder}/${source_file}
+      ln -s ${icon_dev_from}/${source_folder}${source_file}  ${icon_dev_to}/${source_folder}
     done
   fi
   
 }
 
+
+
 #-----------------------------------------------------------------------------------
 #get src
-link_source_list src "ocean sea_ice parallel_infrastructure include"
-link_source_list src/io "shared"
+link_source_list "src/" "ocean sea_ice parallel_infrastructure include"
+link_source_list "src/io/" "shared"
 
-link_source_list src/advection "mo_advection_utils.f90"
+link_source_list "src/advection/" "mo_advection_utils.f90"
 
-link_source_list src/configure_model "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
+link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
 mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90"
 
-link_source_list src/drivers "control_model.f90 mo_icon_testbed.f90 mo_master_control.f90"
+link_source_list "src/drivers/" "control_model.f90 mo_master_control.f90"
 
-link_source_list src/namelists "mo_dbg_nml.f90  mo_dynamics_nml.f90 mo_gribout_nml.f90 mo_grid_nml.f90 mo_io_nml.f90 
+link_source_list "src/namelists/" "mo_dbg_nml.f90  mo_dynamics_nml.f90 mo_gribout_nml.f90 mo_grid_nml.f90 mo_io_nml.f90 
 mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_nml.f90" 
 
-link_source_list src/shared "mo_cdi_constants.f90 mo_datetime.f90 mo_dictionary.f90 mo_exception.f90 mo_fast_math_lib.f90 mo_fortran_tools.f90 
+link_source_list "src/shared/" "mo_cdi_constants.f90 mo_datetime.f90 mo_dictionary.f90 mo_exception.f90 mo_fast_math_lib.f90 mo_fortran_tools.f90 
 mo_get_utc_date_tr.f90 mo_grid_subset.f90 mo_impl_constants.f90 mo_impl_constants_grf.f90 mo_kind.f90 
 mo_linked_list.f90 mo_loopindices.f90 mo_math_constants.f90 mo_math_types.f90  mo_math_utilities.f90 
 mo_namelist.f90 mo_orbit.f90 mo_physical_constants.f90 mo_profile.f90 mo_real_timer.f90 mo_statistics.f90 
@@ -58,40 +60,40 @@ mo_util_signal.f90 mo_util_sort.f90 mo_util_string.f90 mo_util_sysinfo.f90 mo_ut
 mo_var_list_element.f90 mo_var_list.f90 mo_vertical_coord_table.f90 mo_util_svn.f90 mo_var_metadata.f90 
 mo_mtime_extensions.f90 mo_util_table.f90"
 
-link_source_list src/shr_horizontal "mo_alloc_patches.f90 mo_ext_data_types.f90 mo_grid_geometry_info.f90 mo_grid_tools.f90 
+link_source_list "src/shr_horizontal/" "mo_alloc_patches.f90 mo_ext_data_types.f90 mo_grid_geometry_info.f90 mo_grid_tools.f90 
 mo_intp_data_strc.f90 mo_lonlat_grid.f90 mo_model_domain.f90 mo_model_domimp_patches.f90 
 mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90"
          
-link_source_list src/testbed "mo_icon_testbed_config.f90 mo_icon_testbed_nml.f90  mo_testbed_ocean_performance.f90"
+link_source_list "src/testbed/" "mo_icon_testbed.f90 mo_icon_testbed_config.f90 mo_icon_testbed_nml.f90  mo_testbed_ocean_performance.f90"
 
-link_source_list src/testcases "mo_ape_params.f90"
+link_source_list "src/testcases/" "mo_ape_params.f90"
 
 #-----------------------------------------------------------------------------------
 #get the rest
-cd ${icon_dev}/run
+cd ${icon_dev_from}/run
 run_scripts=`ls *oce*`
 run_scripts="$run_scripts exec.iconrun"
 cd -
 
-link_source_list run "$run_scripts"
+link_source_list "run/" "$run_scripts"
 
-link_source_list config all
+link_source_list "config/" all
 
-link_source_list . "data doc include scripts support create_builds build_all 
+link_source_list "" "data doc include scripts support create_builds build_all 
 aclocal.m4 configure.ac configure make_my_runscript make_runscripts make_nat-ape-dec_runs 
 Makefile.in externals"
  
 #-----------------------------------------------------------------------------------
 # add some parameteres files
-rm -f ${ocean_only}/config/icon_components
-cat > ${ocean_only}/config/icon_components << EOF
+rm -f ${icon_dev_to}/config/icon_components
+cat > ${icon_dev_to}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=ICON_OCEAN_ONLY
+icon_components=NO_ICON_ATMO
 EOF
 
 
-cat > ${ocean_only}/config/multiple_builds << EOF
+cat > ${icon_dev_to}/config/multiple_builds << EOF
 #==============================================
 # This file defines multiple builds for ICON
 #==============================================

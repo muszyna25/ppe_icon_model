@@ -979,7 +979,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 !!$    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
-#ifndef __JSBACH__
+#ifdef __NO_JSBACH__
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF

@@ -67,10 +67,15 @@ PROGRAM control_model
   USE mo_util_signal
   USE mo_util_svn,           ONLY: printSVNVersion
 
+#ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
-  USE mo_icon_testbed,        ONLY: icon_testbed
+#endif
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifndef __NO_ICON_TESTBED__
+  USE mo_icon_testbed,        ONLY: icon_testbed
+#endif
+
+#ifndef __NO_ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
@@ -196,20 +201,23 @@ PROGRAM control_model
   
   SELECT CASE (my_process_component)
 
-#ifndef __ICON_OCEAN_ONLY__
+#ifndef __NO_ICON_ATMO__
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
-
+#endif
 
 !   CASE (radiation_process)
 !     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
-#endif
 
+#ifndef __NO_ICON_TESTBED__
   CASE (testbed_process)
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
+#endif
 
+#ifndef __NO_ICON_OCEAN__
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
+#endif
 
   CASE default
     CALL finish("control_model","my_process_component is unkown")
