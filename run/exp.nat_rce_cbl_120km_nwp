@@ -1,15 +1,15 @@
 #=============================================================================
 # This runscript starts a Radiative Convective Equilibrium experiment using 
-# the NWP physics in the nonhydrostatic dynamical core
+# the NWP physics and the nonhydrostatic dynamical core
 #
 # triangle edge length: 120km
-# vert. res grid: 40 levels
+# vert. grid: 40 levels
 # DOM: 64x64 doubly periodic
-# length: 1 month
-# output: 6 hourly inst
+# length: 10 days
+# output: 6 hourly
 # init. cond: convective boundary layer
 #
-# Levi Silvers, 10-2013
+# Levi Silvers, 2013
 #
 #=============================================================================
 #
@@ -36,24 +36,26 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-08-11T00:00:00Z"
-ndays_restart=40
-dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=`expr 40 \* 86400 `
+  end_date="2008-08-11T00:00:00Z"
+#
+(( dt_restart    = 10 * day )) # [s] time between model restarts = length of run
+(( dt_checkpoint =  1 * day )) # [s] time between restart file writing
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=120
+dt_dyn=120.                    # [s]  dynamics  time step
 #
 #-----------------------------------------------------------------------------
 # model parameters
-atmo_model_equations=3             # equation system
-#                     1=hydrost. atm. T
-#                     1=hydrost. atm. theta dp
-#                     3=non-hydrost. atm., 
-#                     0=shallow water model
-#                    -1=hydrost. ocean
+atmo_model_equations=3         # equation system
+#                              1=hydrost. atm. T
+#                              2=hydrost. atm. Theta
+#                              3=non-hydrost. atm.
+#                              0=shallow water model
+#                             -1=hydrost. ocean
 #
+nlev=40                        # nlev = number of full levels
+#-----------------------------------------------------------------------------
 # the grid files if not defined
 grids_folder=/pool/data/ICON/grids/private/m300232
 atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
@@ -68,7 +70,6 @@ fi
 lfeedback=.false.
 
 cell_type=${cell_type:=3}
-nlev=40              # nlev = number of full levels
 #-----------------------------------------------------------------------------
 #
 # write ICON namelist parameters
@@ -144,27 +145,21 @@ cat >> ${atmo_namelist} << EOF
  l_log_checks   = ${l_log_checks}
 /
 &nh_testcase_nml
- nh_test_name   = 'RCE_CBL'     ! test case identifier
- ape_sst_case      = 'sst_const'
-! ape_sst_val    = 27.85
-! rh_at_1000hpa  = 0.99
-! qv_max         = 35.e-3 ! specific humidity max in tropics
+ nh_test_name   = 'RCE_CBL'
+ ape_sst_case   = 'sst_const'
 /
 &io_nml
  dt_checkpoint  = ${dt_checkpoint}
 /
 &run_nml
- num_lev        = ${nlev},        ! number of full levels of vertical grid
- dtime          = ${dtime}     ! timestep in seconds
+ num_lev        = ${nlev},     ! number of full levels of vertical grid
+ dtime          = ${dt_dyn}    ! timestep in seconds
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
  iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
  echamnwp       = 0            ! temp switch for using both echam and nwp physics in iconam
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
-! ltimer         = .false.
-! ldump_states   = .false.
-! lrestore_states= .false. 
  output         = 'nml'
 /
 &nwp_phy_nml
@@ -179,38 +174,32 @@ cat >> ${atmo_namelist} << EOF
  inwp_surface    = 0 ! 0: none; 1: TERRA
 /
 &radiation_nml
-! ldiur = .FALSE. ! is this necessary or is izenith=0 suff.?
- irad_o3 = 4 !should be the ozone clim for APE  
+ irad_o3    = 4 !should be the ozone clim for APE  
  izenith    = 0 ! Sun in zenith everywhere
  irad_aero  = 0 ! switch off aerosols
  irad_cfc11 = 0 
  irad_cfc12 = 0
 /
-&nonhydrostatic_nml
- ivctype        = 2            ! sleve vertical coordinate
- iadv_rcf       = 4
-/
 &dynamics_nml
  iequations     = ${atmo_model_equations}       ! equation system
- idiv_method    = 1
-! divavg_cntrwgt = 0.50
  lcoriolis      = .FALSE.
+/
+&nonhydrostatic_nml
+/
+&sleve_nml
 /
 &transport_nml
   ctracer_list  = '12345'
 /
 &diffusion_nml
-! hdiff_order      = 5 ! default for NH
-! hdiff_efdt_ratio = 15.0 ! recommended for NH when using hdiff_order = 5
-! hdiff_smag_fac   = 0.025  ! default for NH
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_start     = "2008-08-01T00:00:00.000Z" 
- output_end       = "2008-08-11T00:00:00.000Z" 
- output_interval  = "P00DT06H00M00S"
- steps_per_file   = 100
+ output_start     = "${start_date}" 
+ output_end       = "${end_date}" 
+ output_interval  = "PT06H"
+ file_interval    = "P10D"
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 0                ! lon/lat output
  output_filename  = '${EXPNAME}'     ! file name base
@@ -219,11 +208,6 @@ cat >> ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
-/
-&time_nml
- dt_restart = ${dt_restart}
-/
-&sleve_nml
 /
 &interpol_nml
 /
