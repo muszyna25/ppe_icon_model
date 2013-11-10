@@ -1,10 +1,10 @@
 
-!#ifdef __xlC__
-! !@PROCESS nosmp
-!  !@PROCESS NOOPTimize
-! !@PROCESS smp=noopt
-!@process noopt
-!#endif
+#ifdef __xlC__
+! @PROCESS nosmp
+! @PROCESS NOOPTimize
+! @PROCESS smp=noopt
+@process noopt
+#endif
 !#ifdef __PGI
 ! !pgi$g opt=1
 !#endif
@@ -4754,7 +4754,6 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   
-
   !-------------------------------------------------------------------------
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This

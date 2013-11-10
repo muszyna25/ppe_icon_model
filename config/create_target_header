@@ -578,13 +578,13 @@ set_run_target_thunder()
   start_header
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue="mpi-serial"
-    queue="mpi-develop"
+  #  queue="mpi-develop"
     use_nodes=1
     tasks_per_node=1
  else
     job_type=parallel
     queue="mpi-compute"
-    queue="mpi-develop"
+  #  queue="mpi-develop"
     tasks_per_node=$use_mpi_procs_pernode
   fi
   if [[ "x$BB_SYSTEM" != "x" ]]; then
