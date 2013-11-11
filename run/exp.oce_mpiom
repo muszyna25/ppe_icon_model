@@ -91,10 +91,10 @@ start_date="2001-01-01T00:00:00Z"
 #ndays_file=3660      # new output file generation interval [days]
 ndays_checkp=1       # write restart file interval [days]
 ndays_restart=2      # stop model for restart [days]
-# this is valid for short runs <60 years using output_bounds for buildbot
+# this is valid for short runs <60 years using output_bounds in output_nml
 nhours_data=6        # ocean model output interval hours [hours]
 nyear_outpLen=1      # stop writing model output to file [years]
-# this is valid for production runs using output_start, output_end, output_interval using ISO-format
+# this is valid for production runs using output_start, output_end, output_interval in output_nml
 ndays_data=30        # ocean model output interval [days]  - no longer than 30 days ??
 #
 #-----------------------------------------------------------------------------
@@ -195,8 +195,8 @@ cat > ${ocean_namelist} << EOF
 !                      188.0, 212.0, 204.0, 232.0, 224.0, 254.0, 244.0, 278.0, 268.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
-  FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
+  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
+  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
