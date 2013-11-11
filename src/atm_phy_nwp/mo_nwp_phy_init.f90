@@ -859,14 +859,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ENDIF
 
-
-
-  ! Initialize turbulence models
-  !
-  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb )) THEN
   
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
-
     ! allocate and init implicit weights for tridiagonal solver
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
               STAT=istatus )
@@ -889,13 +883,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     END DO
     impl_weight(nlevp1) = impl_s
 
-    ! using constant implicit value      
-! JF:     impl_weight(:) = impl_t
+  ENDIF
 
-! JF:     DO jk = 1, nlevp1
-! JF:       PRINT *, "JF:  jg:", jg, " k:", jk, "   impl_weight(k): ", impl_weight(jk)
-! JF:     END DO
-
+  ! Initialize turbulence models
+  !
+  IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
+  
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
     rl_start = 1 ! Initialization is done also for nest boundary points
     rl_end   = min_rlcell_int
