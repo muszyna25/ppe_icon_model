@@ -39,7 +39,7 @@ MODULE mo_oce_diagnostics
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
-  USE mo_sync,               ONLY: global_sum_array
+  USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
@@ -395,8 +395,11 @@ SUBROUTINE construct_oce_diagnostics( p_patch_3D, p_os, oce_ts, datestring )
      END DO
    END DO
    ! compute global values
+
+   CALL disable_sync_checks()
    ocean_region_volumes%total = global_sum_array(ocean_region_volumes%total)
    ocean_region_areas%total   = global_sum_array(ocean_region_areas%total)
+   CALL enable_sync_checks()
 
    CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
@@ -608,6 +611,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   END SELECT
 
   ! compute global sums {
+  CALL disable_sync_checks()
   monitor%volume                     = global_sum_array(monitor%volume)
   surface_area                       = global_sum_array(surface_area)
   monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
@@ -639,6 +643,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   DO i_no_t=1,no_tracer
     monitor%tracer_content(i_no_t) = global_sum_array(monitor%tracer_content(i_no_t))
   END DO
+  CALL enable_sync_checks()
   ! fluxes through given paths
   IF (my_process_is_stdio()) &
     & write(0,*) "---------------  fluxes --------------------------------"
