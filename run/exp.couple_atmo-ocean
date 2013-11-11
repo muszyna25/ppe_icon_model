@@ -50,7 +50,7 @@ fi
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="2000-01-07T00:00:00Z"
 #
 # global resolution
 #
@@ -62,7 +62,6 @@ B=4   # number of bisections applied
 dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
-dtime=$dtime_atmo
 #
 # restart and checkpoint intervals
 #
@@ -71,6 +70,8 @@ ndays_checkpoint=$ndays_restart  # checkpointing not yet supported for coupling 
 #
 (( dt_checkpoint = ${ndays_checkpoint} * day ))
 (( dt_restart    = ${ndays_restart} * day ))
+#
+nyear_outpLen=1      # stop writing model output to file [years]
 #
 #=============================================================================
 #
@@ -90,18 +91,25 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 #
 #model timing
 #
+# calculate model timesteps 
+#
+dtime=$dtime_atmo
+#
 # radiation time step
-(( dt_rad        = 2 * hour ))
+(( dt_rad  = 2 * hour ))
 #
 # atm_dyn output - ACTIVATE WHEN USING NML OUTPUT
-(( dt_file_atm_dyn =  ${ndays_restart} * day         )) # [s] data file interval, 1 file per job
-(( dt_data_atm_dyn =  6 * hour         ))               # [s] data output interval, write output every 6 hours
-(( steps_per_file_atm_dyn = dt_file_atm_dyn / dt_data_atm_dyn ))
+(( dt_data_atm_dyn =  6 * hour ))  # [s] data output interval, write output every 6 hours
 #
 # atm_phy output
-(( dt_file_atm_phy =  ${ndays_restart} * day        ))  # [s] data file interval, 1 file per job
-(( dt_data_atm_phy =  1 * hour       ))                 # [s] data output interval, write output every 1 hour
-(( steps_per_file_atm_phy = dt_file_atm_phy / dt_data_atm_phy ))
+(( dt_data_atm_phy =  1 * hour ))  # [s] data output interval, write output every 1 hour
+#
+dt_file=$dt_restart
+#
+(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file_atm_dyn = simLength / dt_data_atm_dyn ))  # output intervals per file interval
+(( steps_per_file_atm_phy = simLength / dt_data_atm_phy ))  # output intervals per file interval
+(( outputLength = nyear_outpLen * day * 366 ))
 #
 #-----------------------------------------------------------------------------
 # define variable names
@@ -278,8 +286,8 @@ cat > $atmo_namelist << EOF
 &io_nml
   out_expname      = '${EXPNAME}_atm' ! file name base
   dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- !output_nml_dict  = '${dict_file}'
- !netcdf_dict      = '${dict_file}'
+  output_nml_dict  = '${dict_file}'
+  netcdf_dict      = '${dict_file}'
   lwrite_initial   = .FALSE.          ! do/don't write out initial data
   lwrite_radiation = .TRUE.           ! add radiation fields to output
   lwrite_cloud     = .TRUE.           ! add cloud fraction to output
@@ -289,33 +297,33 @@ cat > $atmo_namelist << EOF
   lflux_avg        = .FALSE.
 /
 &output_nml
- output_bounds    = ${dt_data_atm_dyn},100000000,${dt_data_atm_dyn}   ! start, end, increment
+ output_bounds    = 0, ${outputLength}, ${dt_data_atm_dyn}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_dyn}
  include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_dyn"
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'ha_prog_out_pres_sfc', 'ha_prog_out_temp'   ,
-                    'ha_prog_out_qv'      , 'ha_prog_out_qw'     , 'ha_prog_out_qi'         ,
-                    'ha_diag_out_u'       , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'   ,
-                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' , 'ha_diag_u' , 'ha_diag_v',
-                    'ha_diag_rel_vort_c'  , 'ha_diag_div'        , 'prm_omega' , 'prm_vo'
+ ml_varlist       = 'ps'    , 'ta'     ,
+                    'hus'   , 'clw'    , 'cli' ,
+                    'ua'    , 'va'     , 'wap' ,
+                    'pfull' , 'gpfull' ,
+                    'ha_diag_rel_vort_c' , 'ha_diag_div' , 'prm_omega' , 'prm_vo' 
 /
 &output_nml
- output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
+ output_bounds    = 0, ${outputLength}, ${dt_data_atm_phy}   ! start, end, increment
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_phy"
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa', 'prm_t'       ,
-                    'prm_swflxsfc', 'prm_lwflxsfc'  , 'prm_swflxtoa', 'prm_lwflxtoa' ,
-                    'prm_tsfc'    , 'prm_seaice'    , 'prm_o3'      , 'prm_ghm'      , 'prm_ghi' ,
-                    'prm_aclcov'  , 'prm_aclc'      ,
-                    'prm_rsfl'    , 'prm_ssfl'      , 'prm_rsfc'    , 'prm_ssfc'  ,
-                    'prm_totprec' , 'prm_qvi'       , 'prm_xlvi'    , 'prm_xivi'  ,
-                    'prm_evap'    , 'prm_lhflx'     , 'prm_shflx'   ,
-                    'prm_u_stress', 'prm_v_stress'
+ ml_varlist       = 'cosmu0' , 'rsdt' , 'prm_t' ,
+                    'rsns'   , 'rlns' , 'rsnt'  , 'rlnt'    ,
+                    'ts'     , 'sic'  , 'tro3'  , 'prm_ghm' , 'prm_ghi' ,
+                    'clt'    , 'cl'   , 
+                    'prlr'   , 'prls' , 'prcr'  , 'prcs'    ,
+                    'pr'     , 'prw'  , 'cllvi' , 'clivi'   ,
+                    'evspsbl', 'hfls' , 'hfss'  ,
+                    'tauu'   , 'tauv'
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -384,7 +392,6 @@ ndays_data=30        # ocean model output interval [days]  - no longer than 30 d
 #
 # this is valid for short runs <60 years using output_bounds for buildbot
 nhours_data=6        # ocean model output interval hours [hours]
-nyear_outpLen=1      # stop writing model output to file [years]
 #
 # not used here:
 # nout_interv="PT${ndays_data}H"             # ocean model output interval in hours
@@ -397,7 +404,7 @@ dt_file=$dt_restart
 #
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data ))   # output intervals per file interval
-(( outputLength  = nyear_outpLen * day * 365 ))
+(( outputLength  = nyear_outpLen * day * 366 ))
 #
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
