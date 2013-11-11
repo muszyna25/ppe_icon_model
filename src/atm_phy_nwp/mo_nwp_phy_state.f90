@@ -2184,7 +2184,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
                     &             lower_limit=0._wp ),                               &
                     & new_element=var_diag_rh,                                       &
-                    & l_pp_scheduler_task=TASK_COMPUTE_RH )
+                    & l_pp_scheduler_task=TASK_COMPUTE_RH, lrestart=.FALSE.          )
     END IF
 
 

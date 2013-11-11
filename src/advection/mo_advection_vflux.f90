@@ -1176,6 +1176,7 @@ CONTAINS
       &  z_slope(nproma,p_patch%nlev,p_patch%nblks_c)
 
     REAL(wp) :: z_slope_u, z_slope_l     !< one-sided slopes
+
     REAL(wp) :: z_delta_p, z_delta_m     !< difference between upper and lower face value
                                          !< for w>0 and w<0
     REAL(wp) :: z_a11, z_a12             !< 1/6 * a6,i (see Colella and Woodward (1984))
@@ -1566,28 +1567,22 @@ CONTAINS
           z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
           z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
-          IF ((z_slope_u * z_slope_l) .GT. 0._wp) THEN
+          z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
+            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
+            &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
+            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
+            &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
+            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
+            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
+            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
+            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
 
-            z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
-              &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
-              &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
-              &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
-              &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
+          z_slope(jc,jk,jb) = SIGN(                                            &
+            &  MIN( ABS(z_slope(jc,jk,jb)), ABS(z_slope_u), ABS(z_slope_l) ),  &
+            &    z_slope(jc,jk,jb))
 
-            z_slope(jc,jk,jb) = SIGN(                                            &
-              &  MIN( ABS(z_slope(jc,jk,jb)), ABS(z_slope_u), ABS(z_slope_l) ),  &
-              &    z_slope(jc,jk,jb))
-
-          ELSE
-
-            z_slope(jc,jk,jb) = 0._wp
-
-          ENDIF
-
+          IF ((z_slope_u * z_slope_l) <= 0._wp)  z_slope(jc,jk,jb) = 0._wp
+           
         END DO
 
       END DO

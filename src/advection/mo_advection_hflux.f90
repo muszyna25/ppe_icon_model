@@ -85,7 +85,7 @@
 
 MODULE mo_advection_hflux
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
@@ -781,7 +781,7 @@ CONTAINS
     REAL(wp), POINTER :: ptr_grad(:,:,:,:)     !< Pointer to reconstructed zonal and
                                                !< meridional gradients.
 
-    REAL(wp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
+    REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
       &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
@@ -1221,7 +1221,7 @@ CONTAINS
     REAL(wp), POINTER :: ptr_grad(:,:,:,:)     !< Pointer to reconstructed zonal and
                                                !< meridional gradients.
 
-    REAL(wp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
+    REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
       &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
@@ -1238,11 +1238,11 @@ CONTAINS
     REAL(wp) ::                     &   !< tracer flux at n + nsub/p_ncycl
       &  z_tracer_mflx(nproma,elev,p_patch%nblks_e,p_ncycl)
 
-    REAL(wp) ::                     &   !< tracer mass flux divergence at cell center
+    REAL(vp) ::                     &   !< tracer mass flux divergence at cell center
       &  z_rhofluxdiv_c(nproma,elev,p_patch%nblks_c)
 
-    REAL(wp) ::                     &   !< mass flux divergence at cell center
-      &  z_fluxdiv_c(nproma,elev,p_patch%nblks_c)
+    REAL(vp) ::                     &   !< mass flux divergence at cell center
+      &  z_fluxdiv_c(nproma,elev)
 
     REAL(wp), TARGET ::             &   !< 'tracer cell value' at interm.  
       &  z_tracer(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
@@ -1262,6 +1262,9 @@ CONTAINS
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nsub               !< counter for sub-timesteps
     INTEGER  :: nnow, nnew, nsav   !< time indices
+
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
+      &  iidx, iblk                          !< of edges
 
    !-------------------------------------------------------------------------
 
@@ -1325,6 +1328,9 @@ CONTAINS
       i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
     ENDIF
 
+    ! line and block indices of edges as seen from cells
+    iidx => p_patch%cells%edge_idx
+    iblk => p_patch%cells%edge_blk
 
     ! get local sub-timestep
     z_dtsub = p_dtime/REAL(p_ncycl,wp)
@@ -1457,19 +1463,6 @@ CONTAINS
       ENDIF
 
 
-
-
-!!$      ! Synchronize gradient if 10-point RBF-based reconstruction is used.
-!!$      ! Only level 1 halo points are synchronized. Thus, independent of 
-!!$      ! the reconstruction method, the correct polynomial coefficients 
-!!$      ! are available up to halo points of level 1 (after this sync).
-!!$      !
-!!$      IF ( p_igrad_c_miura == 3 ) &
-!!$        &  CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
-
-
-
-
       !
       ! 3. Calculate reconstructed tracer value at each barycenter
       !    \Phi_{bary}=\Phi_{circum} + DOT_PRODUCT(\Nabla\Psi,r).
@@ -1542,24 +1535,6 @@ CONTAINS
       IF ( nsub == p_ncycl ) EXIT
 
 
-      ! compute mass flux and tracer mass flux divergence
-      !
-      ! This computation needs to be done only once, since the mass flux
-      ! p_mass_flx_e is assumed to be constant in time.
-      IF ( nsub == 1 ) THEN
-        CALL div( p_mass_flx_e(:,:,:), p_patch, p_int,    &! in
-          &       z_rhofluxdiv_c(:,:,:),                  &! inout
-          &       opt_slev=slev, opt_elev=elev,           &! in
-          &       opt_rlend=min_rlcell_int                )! in
-      ENDIF
-
-
-      CALL div( z_tracer_mflx(:,:,:,nsub), p_patch, p_int, &! in
-        &       z_fluxdiv_c(:,:,:),                        &! inout
-        &       opt_slev=slev, opt_elev=elev,              &! in
-        &       opt_rlstart=3, opt_rlend=min_rlcell_int    )! in
-
-
       !
       ! 4.1/4.2 compute updated density and tracer fields
       !
@@ -1576,11 +1551,53 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, 3, min_rlcell_int)
+
+        ! compute mass flux divergence
+        !
+        ! This computation needs to be done only once, since the mass flux
+        ! p_mass_flx_e is assumed to be constant in time.
+        !
+        IF ( nsub == 1 ) THEN
+#ifdef __LOOP_EXCHANGE
+            DO jc = i_startidx, i_endidx
+              DO jk = slev, elev
+#else
+!CDIR UNROLL=6
+            DO jk = slev, elev
+              DO jc = i_startidx, i_endidx
+#endif
+
+              z_rhofluxdiv_c(jc,jk,jb) =  &
+                & p_mass_flx_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                & p_mass_flx_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                & p_mass_flx_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
+
+            ENDDO
+          ENDDO
+        ENDIF
+
+          ! compute tracer mass flux divergence
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = slev, elev
+#else
+!CDIR UNROLL=6
+          DO jk = slev, elev
+            DO jc = i_startidx, i_endidx
+#endif
+
+            z_fluxdiv_c(jc,jk) =  &
+              & z_tracer_mflx(iidx(jc,jb,1),jk,iblk(jc,jb,1),nsub)*p_int%geofac_div(jc,1,jb) + &
+              & z_tracer_mflx(iidx(jc,jb,2),jk,iblk(jc,jb,2),nsub)*p_int%geofac_div(jc,2,jb) + &
+              & z_tracer_mflx(iidx(jc,jb,3),jk,iblk(jc,jb,3),nsub)*p_int%geofac_div(jc,3,jb)
+
+          ENDDO
+        ENDDO
 
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
@@ -1594,9 +1611,9 @@ CONTAINS
             !
             ! 4.2 updated tracer field for intermediate timestep n + nsub/p_ncycl
             !
-            z_tracer(jc,jk,jb,nnew) = ( z_tracer(jc,jk,jb,nnow)          &
-              &                      * z_rho(jc,jk,jb,nnow)              &
-              &                      - z_dtsub * z_fluxdiv_c(jc,jk,jb) ) &
+            z_tracer(jc,jk,jb,nnew) = ( z_tracer(jc,jk,jb,nnow)       &
+              &                      * z_rho(jc,jk,jb,nnow)           &
+              &                      - z_dtsub * z_fluxdiv_c(jc,jk) ) &
               &                      / z_rho(jc,jk,jb,nnew)
           ENDDO
         ENDDO

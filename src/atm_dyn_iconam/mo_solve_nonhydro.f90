@@ -158,7 +158,7 @@ MODULE mo_solve_nonhydro
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
 
 #ifndef __LOOP_EXCHANGE
-    REAL(wp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
+    REAL(vp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
     INTEGER ::  z_cell_idx    (nproma,p_patch%nlev  ,p_patch%nblks_e)
     INTEGER ::  z_cell_blk    (nproma,p_patch%nlev  ,p_patch%nblks_e)
 #endif

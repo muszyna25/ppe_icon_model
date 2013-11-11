@@ -61,7 +61,7 @@
 !----------------------------
 MODULE mo_advection_traj
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
@@ -124,7 +124,7 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< $0.5 \Delta t$
          &  p_dthalf
 
-    REAL(wp), INTENT(OUT)   ::  &  !< distance vectors cell center --> barycenter of
+    REAL(vp), INTENT(OUT)   ::  &  !< distance vectors cell center --> barycenter of
          &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
@@ -459,7 +459,7 @@ CONTAINS
             e2c_length  = MERGE(ptr_p%edges%edge_cell_length(je,jb,1),       &
               &                 ptr_p%edges%edge_cell_length(je,jb,2),lvn_pos)
 
-            IF (traj_length > 1.0_wp*e2c_length) THEN   ! add point to index list
+            IF (traj_length > 1.25_wp*e2c_length) THEN   ! add point to index list
 !!$            IF (traj_length > ((1.4_wp - MIN(0.5_wp,(0.1_wp*ABS(p_vt(je,jk,jb)/MAX(dbl_eps,p_vn(je,jk,jb)))))) &
 !!$                               *e2c_length)) THEN   ! add point to index list
               ie = ie + 1
@@ -674,7 +674,7 @@ CONTAINS
     REAL(wp), INTENT(IN)  ::    &  !< $0.5 \Delta t$
          &  p_dthalf
 
-    REAL(wp), INTENT(OUT) ::    &  !< distance vectors cell center --> barycenter of
+    REAL(vp), INTENT(OUT) ::    &  !< distance vectors cell center --> barycenter of
          &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
                                       !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
