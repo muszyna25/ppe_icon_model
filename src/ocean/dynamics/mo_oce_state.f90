@@ -3340,8 +3340,8 @@ CONTAINS
             ENDIF
 
          !  this is necessary update for flat surface array but leads to abort in height equation
-         !  patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) =      &
-         !    &  patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
+            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb) =      &
+              &  patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)
             patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,jk,jb) = 0.5_wp* &
               & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb))
             patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)      =      &
@@ -3403,17 +3403,17 @@ CONTAINS
             ENDIF
 
          !  this is necessary update for flat surface array but leads to abort in height equation
-         !  patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(jc,jk,jb) =      &
-         !    &  patch_3D%p_patch_1D(1)%prism_thick_e(jc,jk,jb)
+            patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_e(jc,jk,jb) =      &
+              &  patch_3D%p_patch_1D(1)%prism_thick_e(jc,jk,jb)
             patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,jk,jb)      = &
               &  1.0_wp/patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb)
             ! no matching prism_center_dist_e ?
       !     patch_3D%p_patch_1D(1)%prism_center_dist_e(je,jk,jb) = 0.5_wp* &
       !       & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
-      !     z_prism_center_dist_e = 0.5_wp*                           &
-      !       & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
-      !     patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= &
-      !       &  1.0_wp/z_prism_center_dist_e
+            z_prism_center_dist_e = 0.5_wp*                           &
+              & (v_base%del_zlev_m(jk-1) + patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb))
+            patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,jk,jb)= &
+              &  1.0_wp/z_prism_center_dist_e
 
             ! bottom and column thickness for solver and output
             ! bottom edge thickness at jk=dolic
