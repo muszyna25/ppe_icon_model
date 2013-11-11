@@ -178,7 +178,7 @@ cat > ${ocean_namelist} << EOF
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
-  l_partial_cells = .TRUE.       ! partial bottom cells=true: local varying bottom depth
+  l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 1      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
