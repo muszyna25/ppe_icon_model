@@ -88,14 +88,14 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #start_date="2001-01-01T00:00:00Z"
 #  end_date="2003-06-20T00:00:00Z"
 start_date="2001-01-01T00:00:00Z"
-  end_date="2011-01-09T00:00:00Z" # 3660 days of simulation
+  end_date="2504-04-14T00:00:00Z" # 3660 days of simulation
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=720        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
-ndays_checkp=1850    # write restart file interval [days]
-ndays_restart=1830      # stop model for restart [days]
+ndays_checkp=4850    # write restart file interval [days]
+ndays_restart=2020      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -155,10 +155,10 @@ cat > ${ocean_namelist} << EOF
   output_start     = "2001-01-30T00:00:00Z"
   output_end       = ${end_date}
   output_interval  = "P30D"
-  steps_per_file   = 61
+  steps_per_file   = 67
   include_last     = .TRUE.
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce_500y"
   filename_format  = "<output_filename>_<jfile>"
   ml_varlist       =  'group:oce_default','hi','conc'
 /
