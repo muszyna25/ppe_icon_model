@@ -90,8 +90,6 @@ MODULE mo_nonhydrostatic_config
     INTEGER :: ih_clcm(max_dom)         ! end index for levels contributing to mid-level clouds, clcm
 
 
-  
-    ! Parameters active with cell_type=3 only
 
     REAL(wp):: rayleigh_type    ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
     REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
@@ -112,16 +110,6 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: thslp_zdiffu     ! threshold slope above which temperature diffusion is applied
     REAL(wp):: thhgtd_zdiffu    ! threshold height difference between adjacent model grid points
                                 ! above which temperature diffusion is applied
-  
-    ! Parameters active with cell_type=6 only
-
-    REAL(wp) :: gmres_rtol_nh   ! relative tolerance for gmres convergence
-    LOGICAL  :: ltheta_up_hori  ! horizontal 3rd order advection of theta_v
-    REAL(wp) :: upstr_beta      ! =1 for 3rd order upstream, =0 for 4th order centered
-                                ! theta advection
-    LOGICAL  :: ltheta_up_vert  ! upwind vertical advection of theta
-    REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
-                                ! coefficient in the uppper damping zone
 
 
 !  END TYPE t_nonhydrostatic_config 

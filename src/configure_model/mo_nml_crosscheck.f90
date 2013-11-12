@@ -323,16 +323,6 @@ CONTAINS
       ! after the integration from N-1 to N is finished.
     ENDIF
 
-    !--------------------------------------------------------------------
-    ! Horizontal interpolation
-    !--------------------------------------------------------------------
-    IF (global_cell_type == 6) THEN
-    ! ... check i_cori_method
-      IF (i_cori_method <1 .OR. i_cori_method>4) THEN
-        CALL finish( TRIM(method_name),'value of i_cori_method out of range [1,2,3,4]')
-      ENDIF
-    ENDIF
-
 
     !--------------------------------------------------------------------
     ! Grid and dynamics
@@ -341,12 +331,8 @@ CONTAINS
     ! check the configuration
     CALL init_grid_configuration()
     
-    IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(method_name),&
-      'Currently only the hexagon model can run on a plane')
-
-    IF (global_cell_type==6.AND.idiv_method==2) THEN
-      CALL finish( TRIM(method_name),'idiv_method =2 not valid for the hexagonal model')
-    ENDIF
+    IF (lplane) CALL finish( TRIM(method_name),&
+      'Currently a plane version is not available')
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
@@ -371,9 +357,6 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
-    IF(global_cell_type==6) THEN
-      linit_tracer_fv  = .FALSE.
-    ENDIF
 
     IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
       CALL finish(TRIM(method_name),'nlev MUST be 20 for the gravity-wave test case')
@@ -782,21 +765,6 @@ CONTAINS
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
-      !---------------------------------------
-      ! Special check for the hexagonal model
-
-      SELECT CASE (global_cell_type)
-      CASE (6)
-        WRITE(0,*)'nml_Crosscheck'
-        ! 3rd order upwind horizontal advection scheme
-        advection_config(jg)%ihadv_tracer(:) = UP3
-        ! semi monotonous flux limiter
-        advection_config(jg)%itype_hlimit(:) = ifluxl_sm
-        WRITE(message_text,'(a,i2)') 'NOTE: For hex grid works only ihadv_tracer =',UP3
-        CALL message(TRIM(method_name),message_text)
-        WRITE(message_text,'(a,i2)')' and itype_hlimit= ', ifluxl_sm
-        CALL message(TRIM(method_name),message_text)
-      END SELECT
 
       !----------------------------------------------
       ! Flux compuation methods - consistency check
@@ -825,26 +793,10 @@ CONTAINS
         ENDIF
 
       CASE (6)
-        z_go_hex(1:3) = (/NO_HADV,UP,UP3/)
-        DO jt=1,ntracer
-          IF ( ALL(z_go_hex /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
-            CALL finish( TRIM(method_name),                                       &
-               'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 5 ')
-          ENDIF
-        ENDDO
+        CALL finish( TRIM(method_name),         &
+         'hexagonal code is no longer available')
 
       END SELECT
-
-
-      !----------------------------------------------
-      ! Limiter - consistency check
-
-      IF (global_cell_type == 6) THEN
-        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m )) THEN
-          CALL finish( TRIM(method_name),                                     &
-           'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
-        ENDIF
-      ENDIF
 
     END DO ! jg = 1,n_dom
     END IF ! ltransport
@@ -862,12 +814,8 @@ CONTAINS
                                        'switched off for domain ', jg
         CALL message(TRIM(method_name),TRIM(message_text))
 
-      CASE(2,3,4)
+      CASE(2,3,4,5)
         CONTINUE
-
-      CASE(5)
-        IF (global_cell_type==6) CALL finish(TRIM(method_name), &
-        ' hdiff_order = 5 invalid for hexagonal model.')
 
       CASE(24,42)
         IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(method_name), &

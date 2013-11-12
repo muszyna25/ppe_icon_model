@@ -116,7 +116,6 @@ USE mo_impl_constants,     ONLY: min_rlcell, min_rledge
 USE mo_intp_data_strc,     ONLY: t_int_state
 USE mo_intp,               ONLY: cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
-USE mo_nonhydrostatic_config,   ONLY: upstr_beta
 USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: ltimer, timers_level
 USE mo_exception,          ONLY: finish
@@ -132,7 +131,6 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 PUBLIC :: grad_fd_norm, grad_fd_tang
 PUBLIC :: grad_green_gauss_cell
-PUBLIC :: grad_dir_edge
 PUBLIC :: grad_fe_cell
 
 INTERFACE grad_green_gauss_cell
@@ -1143,109 +1141,5 @@ END SUBROUTINE grad_green_gauss_cell_adv
 !$OMP END PARALLEL
   END SUBROUTINE grad_green_gauss_cell_dycore
 
-
-  !----------------------------------------------------------------------
-  !>
-  !! directional gradient of a vector(=gradient(scalar)) in the edge direction
-  !!
-  !! For poor men's third order advection of theta_v or other scalars one
-  !! needs the laplacian in the edge direction. Here, the gradient in the edge
-  !! direction of a given gradient field is computed. According to the given
-  !! velocity field, the gradient is computed using the upstream located cell.
-  !! The coefficients are precomputed in mo_intp_coeffs:init_geo_factors.
-  !!
-  !! CURRENTLY ONLY FOR HEXAGONAL MODEL
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann, MPI_M (2010-02-08)
-  !!
-  SUBROUTINE grad_dir_edge (p_vn, p_grads, pt_patch, pt_int, p_gradv)
-
-    TYPE(t_patch), INTENT(in) :: pt_patch           !< patch
-    TYPE(t_int_state), TARGET, INTENT(in) :: pt_int !< interpolation state
-    REAL(wp), INTENT(in)    :: p_vn(:,:,:)  &
-    & ; !< normal velocity field, needed for determination of upstream direction
-    REAL(wp), INTENT(in)    :: p_grads(:,:,:) !< gradient of scalar(=vector)
-    REAL(wp), INTENT(out)   :: p_gradv(:,:,:) !< gradient of vector(=grads)
-
-    INTEGER :: nblks_e, npromz_e, nlen, jb, jk, je
-    INTEGER :: nlev              !< number of full levels
-    INTEGER, POINTER :: ii1(:,:,:), ib1(:,:,:), ii2(:,:,:), ib2(:,:,:)
-#ifdef __LOOP_EXCHANGE
-    REAL(wp) :: z_sign(pt_patch%nlev)
-#else
-    REAL(wp) :: z_sign(nproma)
-#endif
-    !-----------------------------------------------------------------
-
-    ii1 => pt_int%dir_gradh_i1
-    ib1 => pt_int%dir_gradh_b1
-    ii2 => pt_int%dir_gradh_i2
-    ib2 => pt_int%dir_gradh_b2
-
-    nblks_e  = pt_patch%nblks_e
-    npromz_e = pt_patch%npromz_e
-
-    ! number of vertical levels
-    nlev = pt_patch%nlev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,je,z_sign) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-#ifdef __LOOP_EXCHANGE
-      DO je = 1, nlen
-        DO jk = 1, nlev
-          z_sign(jk) = upstr_beta*SIGN(0.5_wp,&
-          &               p_vn(je,jk,jb)*pt_patch%edges%system_orientation(je,jb))
-          p_gradv(je,jk,jb) = (0.5_wp+z_sign(jk))  &
-          &     *(pt_int%dir_gradhux_c1(1,je,jb)*p_grads(ii1(1,je,jb),jk,ib1(1,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(2,je,jb)*p_grads(ii1(2,je,jb),jk,ib1(2,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(3,je,jb)*p_grads(ii1(3,je,jb),jk,ib1(3,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(4,je,jb)*p_grads(ii1(4,je,jb),jk,ib1(4,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(5,je,jb)*p_grads(ii1(5,je,jb),jk,ib1(5,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(6,je,jb)*p_grads(ii1(6,je,jb),jk,ib1(6,je,jb)))&
-          &                 + (0.5_wp-z_sign(jk))  &
-          &     *(pt_int%dir_gradhux_c2(1,je,jb)*p_grads(ii2(1,je,jb),jk,ib2(1,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(2,je,jb)*p_grads(ii2(2,je,jb),jk,ib2(2,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(3,je,jb)*p_grads(ii2(3,je,jb),jk,ib2(3,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(4,je,jb)*p_grads(ii2(4,je,jb),jk,ib2(4,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(5,je,jb)*p_grads(ii2(5,je,jb),jk,ib2(5,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(6,je,jb)*p_grads(ii2(6,je,jb),jk,ib2(6,je,jb)))
-
-        ENDDO
-      ENDDO
-#else
-      DO jk = 1, nlev
-        DO je = 1, nlen
-          z_sign(je) = upstr_beta*SIGN(0.5_wp,&
-          &               p_vn(je,jk,jb)*pt_patch%edges%system_orientation(je,jb))
-          p_gradv(je,jk,jb) = (0.5_wp+z_sign(je))  &
-          &     *(pt_int%dir_gradhux_c1(1,je,jb)*p_grads(ii1(1,je,jb),jk,ib1(1,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(2,je,jb)*p_grads(ii1(2,je,jb),jk,ib1(2,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(3,je,jb)*p_grads(ii1(3,je,jb),jk,ib1(3,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(4,je,jb)*p_grads(ii1(4,je,jb),jk,ib1(4,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(5,je,jb)*p_grads(ii1(5,je,jb),jk,ib1(5,je,jb)) &
-          &      +pt_int%dir_gradhux_c1(6,je,jb)*p_grads(ii1(6,je,jb),jk,ib1(6,je,jb)))&
-          &                 + (0.5_wp-z_sign(je))  &
-          &     *(pt_int%dir_gradhux_c2(1,je,jb)*p_grads(ii2(1,je,jb),jk,ib2(1,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(2,je,jb)*p_grads(ii2(2,je,jb),jk,ib2(2,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(3,je,jb)*p_grads(ii2(3,je,jb),jk,ib2(3,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(4,je,jb)*p_grads(ii2(4,je,jb),jk,ib2(4,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(5,je,jb)*p_grads(ii2(5,je,jb),jk,ib2(5,je,jb)) &
-          &      +pt_int%dir_gradhux_c2(6,je,jb)*p_grads(ii2(6,je,jb),jk,ib2(6,je,jb)))
-
-        ENDDO
-      ENDDO
-#endif
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE grad_dir_edge
 
 END MODULE mo_math_gradients

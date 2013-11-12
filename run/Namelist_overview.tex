@@ -1050,7 +1050,7 @@ ratio of e-folding time to time step for diffusion on vertical wind speed & iequ
 \hline
 hdiff\_min\_efdt\_ratio&
 R& 1.0 & &
-minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3 .AND. hdiff\_order=4
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3  .AND. hdiff\_order=4
 \tabularnewline
 
 \hline
@@ -1103,7 +1103,7 @@ and negative indices for the ocean.&\tabularnewline
 idiv\_method&
 I& 1& &
 Method for divergence computation:&
-grid\_nml:cell\_type=3\tabularnewline
+\tabularnewline
 & & & & 1: Standard Gaussian integral. Hydrostatic atm.~model:
 for unaveraged normal components,
 Non-hydrostatic atm.~model: for averaged normal components &
@@ -1503,8 +1503,7 @@ cell\_type&
 I & 3& &
 Cell type\\
 3: triangular cells\\
-4: quadrilateral cells (to be done)\\
-6: pentagonal/hexagonal cells&
+4: quadrilateral cells (not yet available) &
 \tabularnewline
 
 \hline
@@ -2175,22 +2174,6 @@ I& 8& &
 Total width (in units of cell rows) for lateral boundary nudging zone&
 \tabularnewline
 
-\hline
-i\_cori\_method&
-I& 3& &
-Selector for tangential wind reconstruction method
-& currently only for cell\_type=6 \tabularnewline
-& & & & 1: Almut's method for tangential wind, but PV usage as in TRSK &\tabularnewline
-& & & & 2: method of Thuburn, Ringler, Skamarock and Klemp (TRSK) &\tabularnewline
-& & & & 3: Almut's method for tangential wind and PV usage &\tabularnewline
-
-\hline
-l\_corner\_vort&
-L& .TRUE.& &
-switch whether the rhombus averaged corner vorticity is averaged
-to the hexagon (.TRUE.) or the rhombi are directly averaged to the hexagon (.FALSE.)&
-i\_cori\_method=3
-\tabularnewline
 
 \hline
 l\_intp\_c2l&
@@ -3055,7 +3038,7 @@ Options for predictor-corrector time-stepping scheme:& \tabularnewline
 5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
    stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)\\
 6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive) &
-iequations=3 and cell\_type=3
+iequations=3
 \tabularnewline
 
 \hline
@@ -3064,7 +3047,6 @@ I& 2& &
 Type of Rayleigh damping\\
 1: CLASSICAL (requires velocity reference state!)\\
 2: Klemp (2008) type &
-cell\_type=3
 \tabularnewline
 
 \hline
@@ -3072,7 +3054,6 @@ rayleigh\_coeff&
 R(n\_dom)& 0.05& &
 Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
 higher values are recommended for R2B6 or finer resolution&
-cell\_type=3
 \tabularnewline
 
 \hline
@@ -3092,36 +3073,26 @@ Height above which moist physics and advection of cloud and precipitation variab
 hbot\_qvsubstep&
 R& 22500.0& m&
 Height above which QV is advected with substepping scheme (must be at least as large as htop\_moist\_proc)&
-cell\_type=3 and \\
-ihadv\_tracer=22, 32 or 42
+ihadv\_tracer=22, 32, 42 or 52
 \tabularnewline
 
-\hline
-k2\_updamp\_coeff&
-R& 2.0e6& &
-enhanced 2nd order diffusion coefficient in upper damping layer&
-cell\_type=6, hdiff\_order=3 (Smagorinski)
-\tabularnewline
 
 \hline
 vwind\_offctr&
 R& 0.15& &
 Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.&
-cell\_type=3
 \tabularnewline
 
 \hline
 rhotheta\_offctr&
 R& -0.1& &
 Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids) &
-cell\_type=3
 \tabularnewline
 
 \hline
 veladv\_offctr&
 R& 0.25& &
 Off-centering of velocity advection in corrector step &
-cell\_type=3
 \tabularnewline
 
 \hline
@@ -3145,8 +3116,7 @@ Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
 lhdiff\_rcf&
 L& .TRUE. & &
 .TRUE.: Compute diffusion only at advection time steps (in this case,
-divergence damping is applied in the dynamical core)
-& cell\_type=3
+divergence damping is applied in the dynamical core) &
 \tabularnewline
 
 \hline
@@ -3154,14 +3124,14 @@ lextra\_diffu&
 L& .TRUE. & &
 .TRUE.: Apply additional momentum diffusion at grid points close to the stability limit for vertical advection (becomes effective
 extremely rarely in practice; this is mostly an emergency fix for pathological cases with very large orographic gravity waves)
-& cell\_type=3
+& 
 \tabularnewline
 
 \hline
 lbackward\_integr&
 L& .FALSE. & &
 .TRUE.: Integrate backward in time (preparation for testing a digital filter initialization)
-& cell\_type=3
+& 
 \tabularnewline
 
 \hline
@@ -3195,14 +3165,12 @@ l\_nest\_rcf&
 L& .TRUE.& &
 Synchronize interpolation/feedback calls with advection (transport) time steps.
 l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
-cell\_type=3
 \tabularnewline
 
 \hline
 l\_masscorr\_nest&
 L& .FALSE.& &
 .TRUE.: Apply mass conservation correction also in nested domain &
-cell\_type=3
 \tabularnewline
 
 \hline
@@ -3211,7 +3179,7 @@ I& 2& &
 Advection method for rho and rhotheta:\\
 1: simple second-order upwind-biased scheme \\
 2: 2nd order Miura horizontal &
-cell\_type=3 \tabularnewline
+\tabularnewline
 & & & & 3: 3rd order Miura horizontal (not recommended)&
 \tabularnewline
 
@@ -3225,21 +3193,20 @@ Discretization of horizontal pressure gradient:\\
 for downward extrapolation over steep slopes \\
 4: Cubic/quadratic polynomial interpolation for pressure reconstruction \\
 5: Same as 4, but hydrostatic approximation for downward extrapolation over steep slopes &
-cell\_type=3
 \tabularnewline
 
 \hline
 l\_zdiffu\_t&
 L& .TRUE.& &
 .TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp = .true.
+ hdiff\_order=3/5 .AND. lhdiff\_temp = .true.
 \tabularnewline
 
 \hline
 thslp\_zdiffu&
 R& 0.025& &
 Slope threshold above which truly horizontal temperature diffusion is activated&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
 
 \hline
@@ -3247,7 +3214,7 @@ thhgtd\_zdiffu&
 R& 200& m&
 Threshold of height difference between neighboring grid points above which
 truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
-cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+ hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
 
 \hline
@@ -3255,7 +3222,6 @@ exner\_expol&
 R& 1./3.& &
 Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient.
 This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.&
-cell\_type=3
 \tabularnewline
 
 \hline
@@ -3263,29 +3229,8 @@ l\_open\_ubc&
 L& .FALSE.& &
 .TRUE.: Use open upper boundary condition (rather than w=0) to allow vertical motions related to diabatic heating to
 extend beyond the model top&
-cell\_type=3
 \tabularnewline
 
-\hline
-ltheta\_up\_hori &
-L& .FALSE.& &
-upstream biased horizontal advection for theta (see also upstr\_beta)&
-cell\_type=6
-\tabularnewline
-
-\hline
-upstr\_beta &
-R& 1.0& &
-Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
-cell\_type=6
-\tabularnewline
-
-\hline
-gmres\_rtol\_nh &
-R& 1.0e-6& &
-relative tolerance for convergence in gmres solver &
-cell\_type=6
-\tabularnewline
 
 \hline
 \end{longtab}
@@ -4808,16 +4753,16 @@ I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
 & & 5& & 0: no horiz. transport & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
-& & & & 2: Miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
+& & & & 2: Miura (2nd order, lin. reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 5: hybrid Miura3/FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
-& & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
-& & & & 22: combination of miura and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 32: combination of miura3 and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 42: combination of FFSL and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 52: combination of hybrid FFSL/Miura3 with subcycling& if cell\_type=3 \tabularnewline
-& & & & 6: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
+& & & & 20: miura (2nd order, lin. reconstr.) with subcycling&  \tabularnewline
+& & & & 22: combination of miura and miura with subcycling&  \tabularnewline
+& & & & 32: combination of miura3 and miura with subcycling&  \tabularnewline
+& & & & 42: combination of FFSL and miura with subcycling& \tabularnewline
+& & & & 52: combination of hybrid FFSL/Miura3 with subcycling& \tabularnewline
+
 
 \hline
 ivadv\_tracer&
@@ -4901,11 +4846,6 @@ lclip\_tracer&
 L& .FALSE.& & Clipping of negative values&
 \tabularnewline
 
-\hline
-upstr\_beta\_adv&
-R& 1.0& & parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
-ihadv\_tracer=iup3
-\tabularnewline
 \hline
 \end{longtab}
 

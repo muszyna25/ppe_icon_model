@@ -81,7 +81,6 @@ MODULE mo_advection_nml
                                    !< 3:  3rd order miura with quadr./cubic reconstr.
                                    !< 4:  Flux form semi lagrange (FFSL)
                                    !< 5:  hybrid FFSL Miura3
-                                   !< 6:  3rd or 4th order upstream (on hexagons only)
                                    !< 20: subcycling version of miura
                                    !< 22: 2nd order miura and miura_cycl
                                    !< 32: 3rd order miura with miura_cycl
@@ -131,15 +130,11 @@ MODULE mo_advection_nml
                                    !< ppm-scheme (approximate allowable maximum 
                                    !< CFL-number)
 
-  REAL(wp):: upstr_beta_adv        !< later, it should be combined with 
-                                   !< upstr_beta in non-hydrostatic namelist
-
-
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
     &                     niter_fct, beta_fct, iord_backtraj,             &
     &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
-    &                     lstrang, upstr_beta_adv, llsq_svd
+    &                     lstrang, llsq_svd
 
 
 CONTAINS
@@ -190,8 +185,6 @@ CONTAINS
 
     igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
 
-    upstr_beta_adv  = 1.0_wp    ! =1.0 selects 3rd order advection in up3
-                                ! =0.0 selects 4th order advection in up3
     llsq_svd        = .FALSE.   ! apply QR-decomposition (FALSE)
 
 
@@ -230,7 +223,7 @@ CONTAINS
     IF ( ANY(ihadv_tracer(1:ntracer) > FFSL_HYB_MCYCL) .OR.            &
       &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,6,'//&
+        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
@@ -239,10 +232,6 @@ CONTAINS
         &  'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
     ENDIF
 
-    IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
-      CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for upstr_beta_adv. Must be in [0,1] ')
-    ENDIF
 
 
     ! limiter - sanity check
@@ -289,7 +278,6 @@ CONTAINS
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%ivcfl_max      = ivcfl_max
-      advection_config(jg)%upstr_beta_adv = upstr_beta_adv
     ENDDO
 
 

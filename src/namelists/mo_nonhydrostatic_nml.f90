@@ -75,11 +75,6 @@ MODULE mo_nonhydrostatic_nml
                                     & config_l_zdiffu_t       => l_zdiffu_t       , &
                                     & config_thslp_zdiffu     => thslp_zdiffu     , &
                                     & config_thhgtd_zdiffu    => thhgtd_zdiffu    , &
-                                    & config_gmres_rtol_nh    => gmres_rtol_nh    , &
-                                    & config_ltheta_up_hori   => ltheta_up_hori   , &
-                                    & config_upstr_beta       => upstr_beta       , &
-                                    & config_ltheta_up_vert   => ltheta_up_vert   , &
-                                    & config_k2_updamp_coeff  => k2_updamp_coeff  , &
                                     & config_nest_substeps    => nest_substeps
 
 
@@ -96,10 +91,12 @@ MODULE mo_nonhydrostatic_nml
 
   INTEGER  :: itime_scheme   ! parameter used to select the time stepping scheme
                              ! = 1, explicit 2 time level scheme for tracer
-                             ! = 3, Matsuno, comp of velocity tendencies on corretor step only
-                             ! = 4, Matsuno scheme
-                             ! = 5, under development
-                             ! = 6, Matsuno with velocitiy tendendcies averaged over 2 time steps
+                             ! 4, 5, 6 = predictor-corrector scheme
+                             ! 4: Contravariant vertical velocity is computed in the predictor step only,
+                             !    velocity tendencies are computed in the corrector step only (most efficient option)
+                             ! 5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
+                             !    stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)
+                             ! 6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive)
 
   INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
                                      ! if 2: adv. and phys. are called every 2nd time step.
@@ -118,7 +115,6 @@ MODULE mo_nonhydrostatic_nml
                                      ! advected with internal substepping (to circumvent CFL 
                                      ! instability in the stratopause region).
 
-  ! Parameters active with cell_type=3 only
   REAL(wp):: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
@@ -141,25 +137,14 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: thhgtd_zdiffu           ! threshold height diff. between adjacent model grid points
                                      ! above which temperature diffusion is applied
 
-  ! Parameters active with cell_type=6 only
-  REAL(wp) :: gmres_rtol_nh          ! relative tolerance for gmres convergence
-  LOGICAL  :: ltheta_up_hori         ! horizontal 3rd order advection of theta_v
-  REAL(wp) :: upstr_beta             ! =1 for 3rd order upstream, =0 for 4th order centered
-                                     ! theta advection
-  LOGICAL  :: ltheta_up_vert         ! upwind vertical advection of theta
-  REAL(wp) :: k2_updamp_coeff        ! 2nd order additional horizontal diffusion
-                                     ! coefficient in the upper damping zone
-
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,         &
                               & hbot_qvsubstep, damp_height, rayleigh_type,               &
                               & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
-                              & thslp_zdiffu, thhgtd_zdiffu, gmres_rtol_nh, ltheta_up_hori, &
-                              & upstr_beta, ltheta_up_vert, k2_updamp_coeff, divdamp_order, &
-                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr, &
-                              & divdamp_type
+                              & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
+                              & rhotheta_offctr, lextra_diffu, lbackward_integr, veladv_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -273,13 +258,6 @@ CONTAINS
     thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
     thhgtd_zdiffu  = 200._wp  ! threshold for height difference between adjacent grid points 200 m
 
-    ! Settings for icell_type=6
-    gmres_rtol_nh  = 1.0e-6_wp
-    ltheta_up_hori =.FALSE.
-    upstr_beta     = 1.0_wp
-    ltheta_up_vert = .FALSE.
-    k2_updamp_coeff= 2.0e6_wp
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -325,10 +303,6 @@ CONTAINS
     ENDDO
 
 
-    IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
-      CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
-    ENDIF
-
     ! reset l_nest_rcf to false if iadv_rcf = 1
     IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
     IF (nest_substeps == 1) l_nest_rcf = .FALSE.
@@ -371,9 +345,6 @@ CONTAINS
        config_veladv_offctr     = veladv_offctr
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
-       config_ltheta_up_hori    = ltheta_up_hori
-       config_ltheta_up_vert    = ltheta_up_vert
-       config_gmres_rtol_nh     = gmres_rtol_nh
        config_iadv_rcf          = iadv_rcf
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
@@ -384,14 +355,12 @@ CONTAINS
        config_divdamp_type      = divdamp_type
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
-       config_upstr_beta        = upstr_beta
        config_l_open_ubc        = l_open_ubc
        config_l_nest_rcf        = l_nest_rcf
        config_nest_substeps     = nest_substeps
        config_l_zdiffu_t        = l_zdiffu_t
        config_thslp_zdiffu      = thslp_zdiffu
        config_thhgtd_zdiffu     = thhgtd_zdiffu
-       config_k2_updamp_coeff   = k2_updamp_coeff
        config_l_masscorr_nest   = l_masscorr_nest
        config_htop_moist_proc   = htop_moist_proc
        config_hbot_qvsubstep    = hbot_qvsubstep

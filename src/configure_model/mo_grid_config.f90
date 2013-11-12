@@ -242,11 +242,11 @@ CONTAINS
     
     !------------------------------------------------------------
     SELECT CASE (global_cell_type)
-    CASE (itri,ihex)
+    CASE (itri)
       ! ok
     CASE default
       CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "global_cell_type" must be 3 or 6')
+        & 'wrong cell type specifier, "global_cell_type" must be 3')
     END SELECT
                
 !     write(0,*) no_of_dynamics_grids
