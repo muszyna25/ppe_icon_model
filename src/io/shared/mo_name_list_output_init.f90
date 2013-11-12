@@ -87,18 +87,19 @@ MODULE mo_name_list_output_init
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_math_constants,                    ONLY: pi
-  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation
+  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
+    &                                             set_zlev, set_del_zlev
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
-  &                                               first_output_name_list,                         &
-  &                                               add_var_desc
+    &                                             first_output_name_list,                         &
+    &                                             add_var_desc
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
-  &                                               t_output_file, t_var_desc,                      &
-  &                                               t_patch_info, t_reorder_info, t_grid_info,      &
-  &                                               REMAP_NONE, REMAP_REGULAR_LATLON,               &
-  &                                               ILATLON, ICELL, IEDGE, IVERT,                   &
-  &                                               sfs_name_list, ffs_name_list, second_tos,       &
-  &                                               first_tos, GRP_PREFIX, t_fname_metadata,        &
-  &                                               all_events
+    &                                             t_output_file, t_var_desc,                      &
+    &                                             t_patch_info, t_reorder_info, t_grid_info,      &
+    &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
+    &                                             ILATLON, ICELL, IEDGE, IVERT,                   &
+    &                                             sfs_name_list, ffs_name_list, second_tos,       &
+    &                                             first_tos, GRP_PREFIX, t_fname_metadata,        &
+    &                                             all_events
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
@@ -106,8 +107,7 @@ MODULE mo_name_list_output_init
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
 
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev
-  USE mo_oce_state,                         ONLY: set_zlev
+  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
 #endif
 
 #ifndef __NO_ICON_ATMO__
@@ -2623,7 +2623,7 @@ CONTAINS
 
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
-      CALL set_zlev(levels_i, levels_m)
+      CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
       DEALLOCATE(levels_i)

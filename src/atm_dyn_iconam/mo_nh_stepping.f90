@@ -101,8 +101,7 @@ MODULE mo_nh_stepping
   USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday, &
                                     rdaylen, date_to_time
-  USE mo_output,              ONLY: create_restart_file
-  USE mo_io_restart,          ONLY: write_restart_info_file
+  USE mo_io_restart,          ONLY: write_restart_info_file, create_restart_file
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
     &                               iphysproc_short, itconv, itccov, itrad, &

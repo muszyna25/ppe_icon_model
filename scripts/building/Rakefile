@@ -309,8 +309,8 @@ def doCheckExp(build,exp)
           echo '#===========================================================================';
           echo " $file";echo
           cdo showname  $file
-          cdo showtimestamp $file
-          cdo -infov -seltimestep,2 $file
+          cdo sinfov $file
+          #cdo -infov -seltimestep,2 $file
           #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
           #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
           #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file

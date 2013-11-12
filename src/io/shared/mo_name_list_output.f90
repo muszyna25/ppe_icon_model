@@ -30,7 +30,8 @@ MODULE mo_name_list_output
 ! USE_CRAY_POINTER
 
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS
+  USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS, &
+    &                                     MAX_CHAR_LENGTH
   USE mo_grid_config,               ONLY: n_dom
   USE mo_cdi_constants              ! We need all
   USE mo_io_units,                  ONLY: filename_max, nnml, nnml_output, find_next_free_unit

@@ -159,6 +159,9 @@ MODULE mo_math_utilities
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
   PUBLIC :: check_orientation
+
+  !  vertical coordinates routines
+  PUBLIC :: set_zlev, set_del_zlev
  
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
@@ -2267,6 +2270,63 @@ CONTAINS
  
     END SUBROUTINE tdma_solver
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !
+  !!! Helper functions for computing the vertical layer structure
+  !>
+  !!
+  !!
+  !! @par Revision History
+  !! Developed  by  Stephan Lorenz, MPI-M (2011).
+  !!
+  SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
+    INTEGER , INTENT(IN)    :: n_zlev
+    REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
+    REAL(wp)                :: dzlev_m(100)  ! namelist input of layer thickness
+
+    INTEGER :: jk
+
+    zlev_m(1) = 0.5_wp * dzlev_m(1)
+    zlev_i(1) = 0.0_wp
+    ! zlev_i    : upper border surface of vertical cells
+    DO jk = 2, n_zlev+1
+      zlev_i(jk) = zlev_i(jk-1) + dzlev_m(jk-1)
+    END DO
+
+    ! zlev_m    : position of coordinate surfaces in meters below zero surface.
+    DO jk = 2, n_zlev
+      zlev_m(jk) = 0.5_wp * ( zlev_i(jk+1) + zlev_i(jk)  )
+    END DO
+  END SUBROUTINE set_zlev
+  !-------------------------------------------------------------------------
+  !
+  !!Subroutine calculates vertical coordinates
+  !>
+  !!
+  !!
+  !! @par Revision History
+  !! Developed  by  Stephan Lorenz, MPI-M (2011).
+  !!
+  SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
+    INTEGER,  INTENT(IN) :: n_zlev
+    REAL(wp), INTENT(IN) :: dzlev_m(100)
+    REAL(wp)             :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
+    REAL(wp)             :: zlev_i(n_zlev+1)  , zlev_m(n_zlev)
+
+    INTEGER :: jk
+  !!-------------------------------------
+    CALL set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
+    ! del_zlev_i: distance between two z-coordinate surfaces.
+    !             The first is the distance from the ocean surface = zlev_m(1)
+    del_zlev_i(1) = zlev_m(1)
+    DO jk = 2, n_zlev
+      del_zlev_i(jk) = zlev_m(jk) -  zlev_m(jk-1)
+    END DO
+
+    del_zlev_m(:) = dzlev_m(1:n_zlev)
+
+  END SUBROUTINE set_del_zlev
 
 
 END MODULE mo_math_utilities

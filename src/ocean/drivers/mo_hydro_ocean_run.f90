@@ -85,7 +85,7 @@ USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_in
   &                                  update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
-USE mo_io_restart,             ONLY: write_restart_info_file
+USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
 USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
@@ -100,7 +100,6 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
-USE mo_output,                 ONLY: create_restart_file
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&

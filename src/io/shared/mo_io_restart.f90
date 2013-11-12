@@ -3,17 +3,18 @@ MODULE mo_io_restart
   !
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_barrier,p_comm_work
-  USE mo_exception,             ONLY: finish, message, message_text
+  USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: separator
-  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name 
+  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist   
+  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
        &                              read_attributes, delete_attributes,           &
        &                              restart_attributes_count_text,                &
@@ -21,16 +22,23 @@ MODULE mo_io_restart
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
   USE mo_gather_scatter,        ONLY: gather_cells, gather_edges, gather_vertices,  &
-       &                              scatter_cells, scatter_edges, scatter_vertices  
+       &                              scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
-  
+  USE mo_datetime,              ONLY: t_datetime,iso8601
+  USE mo_run_config,            ONLY: ltimer, output_mode
+  USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
+    &                                 timer_write_restart_file, timer_write_output
+  USE mo_io_config,             ONLY: out_expname
+  USE mo_math_utilities,        ONLY: set_zlev
+
 #ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
-  USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
+  USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
-  USE mo_ha_dyn_config,         ONLY: ha_dyn_config 
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
 #endif
+  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m
 
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
 #ifndef NOMPI
@@ -38,20 +46,21 @@ MODULE mo_io_restart
 #endif
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
-  
+
   !
   IMPLICIT NONE
-  !  
+  !
   PRIVATE
-  
+
   INCLUDE 'netcdf.inc'
   !
   PUBLIC :: set_restart_time
-  PUBLIC :: set_restart_vct, set_restart_depth  
+  PUBLIC :: set_restart_vct, set_restart_depth
   PUBLIC :: set_restart_depth_lnd
   PUBLIC :: set_restart_height_snow
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
+  PUBLIC :: create_restart_file
   PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
@@ -66,7 +75,7 @@ MODULE mo_io_restart
   END type t_restart_files
   INTEGER, PARAMETER :: max_restart_files = 257
   INTEGER, PARAMETER :: max_vertical_axes = 18
-  INTEGER, SAVE :: nrestart_files = 0 
+  INTEGER, SAVE :: nrestart_files = 0
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
   !
   TYPE t_h_grid
@@ -76,7 +85,7 @@ MODULE mo_io_restart
     TYPE(t_uuid) :: uuid
   END type t_h_grid
   !
-  INTEGER, SAVE :: nh_grids = 0 
+  INTEGER, SAVE :: nh_grids = 0
   TYPE(t_h_grid) :: hgrid_def(3)
   !
   TYPE t_v_grid
@@ -84,29 +93,29 @@ MODULE mo_io_restart
     INTEGER :: nlevels
   END type t_v_grid
   !
-  INTEGER, SAVE :: nv_grids = 0 
+  INTEGER, SAVE :: nv_grids = 0
   TYPE(t_v_grid) :: vgrid_def(max_vertical_axes)
   !
   TYPE t_t_axis
     INTEGER :: type
   END type t_t_axis
   !
-  INTEGER, SAVE :: nt_axis = 0 
+  INTEGER, SAVE :: nt_axis = 0
   TYPE(t_t_axis) :: taxis_def(2)
   !
-  CHARACTER(len=32) :: private_restart_time = '' 
+  CHARACTER(len=32) :: private_restart_time = ''
   REAL(wp), ALLOCATABLE :: private_vct(:)
   REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
   REAL(wp), ALLOCATABLE :: private_depth_lnd_full(:),  private_depth_lnd_half(:)
   REAL(wp), ALLOCATABLE :: private_generic_level(:)
   REAL(wp), ALLOCATABLE :: private_height_snow_half(:), private_height_snow_full(:)
   !
-  LOGICAL, SAVE :: lvct_initialised         = .FALSE. 
-  LOGICAL, SAVE :: ldepth_initialised       = .FALSE. 
-  LOGICAL, SAVE :: ldepth_lnd_initialised   = .FALSE. 
+  LOGICAL, SAVE :: lvct_initialised         = .FALSE.
+  LOGICAL, SAVE :: ldepth_initialised       = .FALSE.
+  LOGICAL, SAVE :: ldepth_lnd_initialised   = .FALSE.
   LOGICAL, SAVE :: lheight_snow_initialised = .FALSE.
   !
-  LOGICAL, SAVE :: lrestart_initialised     = .FALSE. 
+  LOGICAL, SAVE :: lrestart_initialised     = .FALSE.
   !
   INTEGER :: private_nc  = -1
   INTEGER :: private_ncv = -1
@@ -135,7 +144,7 @@ CONTAINS
       restart_files(nrestart_files)%functionality = functionality
       restart_files(nrestart_files)%filename      = filename
       ! need to get the links target name
-    ENDIF    
+    ENDIF
   END SUBROUTINE set_restart_filenames
   !
   SUBROUTINE get_restart_filenames()
@@ -175,14 +184,14 @@ CONTAINS
     ! just to be pedantic: status='old'
     OPEN(nrf,file=restart_info_file,STATUS='OLD')
     for_all_lines: DO
-#ifdef __SX__       
+#ifdef __SX__
       READ(nrf, '(a)', IOSTAT=ios) buffer
       iomsg = ' unknown - sxf90 does not support IOMSG'
 #else
       READ(nrf, '(a)', IOSTAT=ios, IOMSG=iomsg) buffer
 #endif
       IF (ios < 0) THEN
-        EXIT ! information missing 
+        EXIT ! information missing
       ELSE IF (ios > 0) THEN
         CALL finish('read_restart_info_file',restart_info_file//' read error '//TRIM(iomsg))
       END IF
@@ -263,7 +272,7 @@ CONTAINS
     INTEGER,      INTENT(in)           :: nelements
     INTEGER,      INTENT(in)           :: nvertices
     TYPE(t_uuid), INTENT(in), OPTIONAL :: grid_uuid
-    !    
+    !
     nh_grids = nh_grids+1
     !
     hgrid_def(nh_grids)%type      = grid_type
@@ -280,7 +289,7 @@ CONTAINS
   SUBROUTINE set_vertical_grid(type, nlevels)
     INTEGER, INTENT(in) :: type
     INTEGER, INTENT(in) :: nlevels
-    !    
+    !
     nv_grids = nv_grids+1
     !
     vgrid_def(nv_grids)%type    = type
@@ -291,7 +300,7 @@ CONTAINS
   !
   SUBROUTINE set_time_axis(type)
     INTEGER, INTENT(in) :: type
-    !    
+    !
     nt_axis = nt_axis+1
     !
     taxis_def(nt_axis)%type = type
@@ -344,10 +353,10 @@ CONTAINS
     tmp_string = ''
     CALL util_user_name (tmp_string, nlenb)
     user_name = tmp_string(1:nlenb)
-    
+
     tmp_string = ''
     CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)    
+    host_name = tmp_string(1:nlenc)
     !
     ! set CD-Convention required restart attributes
     !
@@ -370,7 +379,7 @@ CONTAINS
     CALL set_horizontal_grid(GRID_UNSTRUCTURED_VERT, nv, nvv)
     CALL set_horizontal_grid(GRID_UNSTRUCTURED_EDGE, ne, nev)
     !
-    ! define vertical grids 
+    ! define vertical grids
     !
     CALL set_vertical_grid(ZA_SURFACE             , 1          )
     CALL set_vertical_grid(ZA_HYBRID              , nlev       )
@@ -401,7 +410,7 @@ CONTAINS
     private_nev = nev
     !
 
-!AD(9July-2013): The following condition seemed unnecessary. So after 
+!AD(9July-2013): The following condition seemed unnecessary. So after
 !  discussing with DR we decided to get rid of it for time being
 
 !    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
@@ -471,7 +480,7 @@ CONTAINS
       !
       ! check restart file type
       !
-      SELECT CASE (var_lists(i)%p%restart_type)       
+      SELECT CASE (var_lists(i)%p%restart_type)
       CASE (FILETYPE_NC)
         CALL finish('open_restart_files','netCDF classic not supported')
       CASE (FILETYPE_NC2, FILETYPE_NC4)
@@ -505,7 +514,7 @@ CONTAINS
         !
         ! The following sections add the file global properties collected in init_restart
         !
-        ! 1. create cdi vlist 
+        ! 1. create cdi vlist
         !
         var_lists(i)%p%cdiVlistID = vlistCreate()
         !
@@ -515,7 +524,7 @@ CONTAINS
         !
         ! 2. add global attributes
         !
-        ! 2.1 namelists as text attributes 
+        ! 2.1 namelists as text attributes
         !
         DO ia = 1, nmls
           status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
@@ -736,7 +745,7 @@ CONTAINS
               &              private_depth_half)
 
           CASE (ZA_GENERIC_ICE)
-            !!!!!!!!! ATTENTION: !!!!!!!!!!! 
+            !!!!!!!!! ATTENTION: !!!!!!!!!!!
             ! As soon as i_no_ice_thick_class is set to i_no_ice_thick_class>1 this no longer works
             var_lists(i)%p%cdiIceGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                           vgrid_def(ivg)%nlevels)
@@ -752,7 +761,7 @@ CONTAINS
 
 
         !
-        ! 5. restart does contain absolute time 
+        ! 5. restart does contain absolute time
         !
         var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
@@ -835,7 +844,7 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE open_writing_restart_files
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! define variables and attributes
@@ -843,7 +852,7 @@ CONTAINS
   SUBROUTINE addVarListToVlist(this_list, vlistID)
     TYPE (t_var_list), INTENT(inout) :: this_list
     INTEGER,           INTENT(inout) :: vlistID
-    !      
+    !
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
@@ -967,7 +976,7 @@ CONTAINS
       END IF
       !
       info%cdiVarID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
-      varID = info%cdiVarID 
+      varID = info%cdiVarID
       !
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
       CALL vlistDefVarName(vlistID, varID, info%name)
@@ -993,7 +1002,213 @@ CONTAINS
     ENDDO for_all_list_elements
     !
   END SUBROUTINE addVarListToVlist
-  
+
+  !-------------
+  !>
+  !!
+  !! Hui Wan (MPI-M, 2011-05)
+  !!
+  SUBROUTINE create_restart_file( patch, datetime,             &
+                                & jstep,                       &
+                                & opt_pvct,                    &
+                                & opt_t_elapsed_phy,           &
+                                & opt_lcall_phy, opt_sim_time, &
+                                & opt_jstep_adv_ntsteps,       &
+                                & opt_jstep_adv_marchuk_order, &
+                                & opt_depth, opt_depth_lnd,    &
+                                & opt_nlev_snow,               &
+                                & opt_nice_class)
+
+    TYPE(t_patch),   INTENT(IN) :: patch
+    TYPE(t_datetime),INTENT(IN) :: datetime
+    INTEGER, INTENT(IN) :: jstep                ! simulation step
+
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd   ! vertical levels soil model
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
+    LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
+
+    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
+    INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
+    REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+
+
+    CHARACTER(LEN=132) :: string
+    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+    INTEGER :: jp, jp_end   ! loop index and array size
+
+
+    IF (ltimer) CALL timer_start(timer_write_restart_file)
+    !----------------
+    ! Initialization
+    klev      = patch%nlev
+    jg        = patch%id
+    kcell     = patch%n_patch_cells_g
+    kvert     = patch%n_patch_verts_g
+    kedge     = patch%n_patch_edges_g
+    icelltype = patch%cell_type
+
+    CALL set_restart_attribute( 'current_caltime', datetime%caltime )
+    CALL set_restart_attribute( 'current_calday' , datetime%calday )
+
+    CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
+
+    CALL set_restart_attribute( 'nold'    , nold    (jg))
+    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
+    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
+    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
+    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+
+    ! set simulation step
+    CALL set_restart_attribute( 'jstep', jstep )
+
+    !----------------
+    ! additional restart-output for nonhydrostatic model
+    IF (PRESENT(opt_sim_time)) THEN
+      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
+      CALL set_restart_attribute( TRIM(attname), opt_sim_time )
+    ENDIF
+
+    !-------------------------------------------------------------
+    ! DR
+    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
+    ! SET_RESTART_ATTRIBUTE
+    !-------------------------------------------------------------
+
+    IF (PRESENT(opt_jstep_adv_ntsteps)) THEN
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_ntsteps )
+    ENDIF
+
+    IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_marchuk_order )
+    ENDIF
+
+    IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
+      ! Inquire array size
+      jp_end = SIZE(opt_t_elapsed_phy,2)
+      DO jp = 1, jp_end
+        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
+        CALL set_restart_attribute( TRIM(attname), opt_t_elapsed_phy(jg,jp) )
+      ENDDO
+      ! Inquire array size
+      jp_end = SIZE(opt_lcall_phy,2)
+      DO jp = 1, jp_end
+        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
+        CALL set_restart_attribute( TRIM(attname), opt_lcall_phy(jg,jp) )
+      ENDDO
+    ENDIF
+
+    IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
+    IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
+      !This part is only called if opt_depth_lnd > 0
+      IF (opt_depth_lnd > 0) THEN
+        inlev_soil = opt_depth_lnd
+        ALLOCATE(zlevels_full(inlev_soil))
+        ALLOCATE(zlevels_half(inlev_soil+1))
+        DO i = 1, inlev_soil
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_soil+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+       inlev_soil = 0
+      END IF
+    ELSE
+      inlev_soil = 0
+    ENDIF
+    IF (PRESENT(opt_nlev_snow)) THEN  ! number of snow levels (multi layer snow model)
+      !This part is only called if opt_nlev_snow > 0
+      IF (opt_nlev_snow > 0) THEN
+        inlev_snow = opt_nlev_snow
+        ALLOCATE(zlevels_full(inlev_snow))
+        ALLOCATE(zlevels_half(inlev_snow+1))
+        DO i = 1, inlev_snow
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_snow+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_height_snow(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+      ELSE
+        inlev_snow = 0
+      ENDIF
+    ELSE
+      inlev_snow = 0
+    ENDIF
+!DR end preliminary fix
+    izlev = 0
+#ifndef __NO_ICON_OCEAN__
+    IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
+      !This part is only called if opt_depth > 0
+      IF(opt_depth>0)THEN
+        izlev = opt_depth
+        ALLOCATE(zlevels_full(izlev))
+        ALLOCATE(zlevels_half(izlev+1))
+        CALL set_zlev(zlevels_half, zlevels_full, n_zlev, dzlev_m)
+        CALL set_restart_depth(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+!      ELSE
+!        izlev = 0
+      END IF
+!    ELSE
+!      izlev = 0
+    END IF
+#endif
+
+    IF (.NOT.PRESENT(opt_nice_class)) THEN
+      nice_class = 1
+    ELSE
+      nice_class = opt_nice_class
+    END IF
+
+    CALL init_restart( TRIM(out_expname), &! exp name
+                     & '1.2.2',           &! model version
+                     & kcell, icelltype,  &! total # of cells, # of vertices per cell
+                     & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
+                     & kedge, 4,          &! total # of cells, shape of control volume for edge
+                     & klev,              &! total # of vertical layers
+                     & izlev,             &! total # of depths below sea
+                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
+                     & inlev_snow,        &! total # of vertical snow layers (TERRA)
+                     & nice_class         )! total # of ice classes (sea ice)
+
+    CALL set_restart_time( iso8601(datetime) )  ! Time tag
+
+    ! Open new file, write data, close and then clean-up.
+    message_text = get_filename_noext(patch%grid_filename)
+    WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
+
+    CALL open_writing_restart_files( TRIM(string) )
+
+#ifdef NOMPI
+    CALL write_restart
+#else
+    CALL write_restart( patch )
+#endif
+
+    CALL close_writing_restart_files
+    CALL finish_restart
+
+    IF (ltimer) CALL timer_stop(timer_write_restart_file)
+
+  END SUBROUTINE create_restart_file
+
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE close_writing_restart_files
@@ -1003,7 +1218,7 @@ CONTAINS
     !
     CHARACTER(len=80) :: linkname
     INTEGER :: i, j, iret, fileID, vlistID
-    
+
     IF (my_process_is_mpi_test()) RETURN
     !
     CALL message('',separator)
@@ -1068,7 +1283,7 @@ CONTAINS
     private_restart_time = ''
     !
   END SUBROUTINE close_writing_restart_files
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! loop over all var_lists for restart
@@ -1083,7 +1298,7 @@ CONTAINS
     LOGICAL :: write_info
     !
     IF (my_process_is_mpi_test()) RETURN
-    
+
     write_info   = .TRUE.
     !
     ! pick up first stream associated with each file
@@ -1115,7 +1330,7 @@ CONTAINS
         !
         DO j = i, nvar_lists
 
-          IF (var_lists(j)%p%cdiFileID_restart == var_lists(i)%p%cdiFileID_restart) THEN 
+          IF (var_lists(j)%p%cdiFileID_restart == var_lists(i)%p%cdiFileID_restart) THEN
             !
             !
             ! write variables
@@ -1130,7 +1345,7 @@ CONTAINS
   CALL message('','Finished Write netCDF2 restart for : '//TRIM(private_restart_time))
     !
   END SUBROUTINE write_restart
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! set time for restart in cdi format
@@ -1149,24 +1364,24 @@ CONTAINS
     !
     iret = streamDefTimestep(fileID, this_list%p%cdiTimeIndex)
     this_list%p%cdiTimeIndex = this_list%p%cdiTimeIndex + 1
-    ! 
+    !
   CONTAINS
     !
     SUBROUTINE get_date_components(iso8601, idate, itime)
       CHARACTER(len=*), INTENT(in)  :: iso8601
       INTEGER,          INTENT(out) :: idate, itime
       !
-      INTEGER :: it, iz 
+      INTEGER :: it, iz
       !
       it = INDEX(iso8601, 'T')
       iz = INDEX(iso8601, 'Z')
-      READ(iso8601(1:it-1), '(i10)') idate 
-      READ(iso8601(it+1:iz-1), '(i10)') itime 
+      READ(iso8601(1:it-1), '(i10)') idate
+      READ(iso8601(it+1:iz-1), '(i10)') itime
       !
     END SUBROUTINE get_date_components
     !
   END SUBROUTINE write_time_to_restart
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! write variables of a list for restart
@@ -1201,7 +1416,7 @@ CONTAINS
     ! Loop over all fields in linked list
     !
     element => start_with
-    element%next_list_element => this_list%p%first_list_element    
+    element%next_list_element => this_list%p%first_list_element
     !
     for_all_list_elements: DO
       !
@@ -1252,7 +1467,7 @@ CONTAINS
 #endif
 
       !
-      IF (info%lcontained) THEN 
+      IF (info%lcontained) THEN
         nindex = info%ncontained
       ELSE
         nindex = 1
@@ -1269,8 +1484,8 @@ CONTAINS
         CALL finish('write_restart_var_list','4d arrays not handled yet.')
       CASE (5)
         CALL finish('write_restart_var_list','5d arrays not handled yet.')
-      CASE DEFAULT 
-        CALL finish('write_restart_var_list','dimension not set.')        
+      CASE DEFAULT
+        CALL finish('write_restart_var_list','dimension not set.')
       END SELECT
       !
       gridtype = info%hgrid
@@ -1329,7 +1544,7 @@ CONTAINS
     END DO for_all_list_elements
     !
   END SUBROUTINE write_restart_var_list
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! finally write data ...
@@ -1349,7 +1564,7 @@ CONTAINS
     CALL streamWriteVar(fileID, varID, array, nmiss)
     !
   END SUBROUTINE write_var
-  
+
   !------------------------------------------------------------------------------------------------
   !
   ! deallocate module variables
@@ -1357,10 +1572,10 @@ CONTAINS
   SUBROUTINE finish_restart
 
     INTEGER :: i
-    
+
     IF (my_process_is_mpi_test()) RETURN
 
-    for_all_var_lists: DO i = 1, nvar_lists    
+    for_all_var_lists: DO i = 1, nvar_lists
       IF (var_lists(i)%p%cdiFileID_restart >= 0) THEN
         CALL gridDestroy(var_lists(i)%p%cdiCellGridID)
         CALL gridDestroy(var_lists(i)%p%cdiVertGridID)
@@ -1437,7 +1652,7 @@ CONTAINS
     lrestart_initialised = .FALSE.
     !
   END SUBROUTINE finish_restart
-  
+
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE read_restart_files(p_patch)
@@ -1473,7 +1688,7 @@ CONTAINS
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
     INTEGER :: string_length  !, ncid
-    
+
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
     abbreviations(1:nvar_lists)%abbreviation = ""
@@ -1507,7 +1722,7 @@ CONTAINS
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
-        write(0,*) "util_rename returned:", iret        
+        write(0,*) "util_rename returned:", iret
         iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
         write(0,*) "util_symlink:", iret
       ENDIF
@@ -1519,14 +1734,14 @@ CONTAINS
 !       write(0,*) "nf_open ", TRIM(restart_filename)
 !       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
 !       CALL nf(nf_close(ncid))
-      
+
       write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
 !       write(0,*) "vlistID=",vlistID
-      
+
       taxisID = vlistInqTaxis(vlistID)
 !       write(0,*) "taxisID=",taxisID
       !
@@ -1537,7 +1752,7 @@ CONTAINS
       !
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
-      CALL message('read_restart_files',message_text)      
+      CALL message('read_restart_files',message_text)
       !
       CALL read_attributes(vlistID)
       !
@@ -1586,32 +1801,32 @@ CONTAINS
                 IF (info%lcontained) THEN
                   nindex = info%ncontained
                 ELSE
-                  nindex = 1  
+                  nindex = 1
                 ENDIF
                 !
                 SELECT CASE (info%hgrid)
                 CASE (GRID_UNSTRUCTURED_CELL)
                   IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                     CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
                   ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                     CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
                   ENDIF
                 CASE (GRID_UNSTRUCTURED_VERT)
                   IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                     CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
                   ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                     CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
                   ENDIF
                 CASE (GRID_UNSTRUCTURED_EDGE)
                   IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
                     CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
                   ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
                     CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
                   ENDIF
                 CASE default
@@ -1643,7 +1858,7 @@ CONTAINS
     !
   END SUBROUTINE read_restart_files
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS)
     INTEGER, INTENT(in) :: STATUS
