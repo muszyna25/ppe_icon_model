@@ -4815,14 +4815,16 @@ I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
 & & 5& & 0: no horiz. transport & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
-& & & & 2: miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
-& & & & 3: miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 2: Miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
+& & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
+& & & & 5: hybrid Miura3/FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 20: miura (2nd order, lin. reconstr.) with subcycling& if cell\_type=3 \tabularnewline
 & & & & 22: combination of miura and miura with subcycling& if cell\_type=3 \tabularnewline
 & & & & 32: combination of miura3 and miura with subcycling& if cell\_type=3 \tabularnewline
 & & & & 42: combination of FFSL and miura with subcycling& if cell\_type=3 \tabularnewline
-& & & & 5: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
+& & & & 52: combination of hybrid FFSL/Miura3 with subcycling& if cell\_type=3 \tabularnewline
+& & & & 6: up3 (3rd or 4th order upstream)& if cell\_type=6 \tabularnewline
 
 \hline
 ivadv\_tracer&
@@ -4868,8 +4870,8 @@ I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_trac
 
 \hline
 beta\_fct&
-R& 1.0& & factor for multiplicative spreading of range of permissible values (limiter) \\
-\textcolor{red}{Tentative suggestion: beta\_fct=1.0015}& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+R& 1.005& & factor of allowed over-/undershooting in monotonous limiter & 
+ihadv\_tracer = 3, 32, 4, 42, 5, 52 \\ itype\_hlimit = 3
 \tabularnewline
 
 \hline

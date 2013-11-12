@@ -117,8 +117,8 @@ MODULE mo_advection_nml
   INTEGER :: niter_fct             !< number of iterations for monotone
                                    !< flux correction procedure
 
-  REAL(wp):: beta_fct              !< factor for multiplicative spreading of range
-                                   !< of permissible values (monotone limiter)
+  REAL(wp):: beta_fct              !< factor of allowed over-/undershooting in monotonous limiter
+
 
   INTEGER :: iord_backtraj         !< parameter to select the spacial order
                                    !< of accuracy for the backward trajectory
@@ -181,7 +181,7 @@ CONTAINS
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     niter_fct       = 1         ! number of FCT-iterations
-    beta_fct        = 1._wp     ! multiplicative spreading factor (limiter)
+    beta_fct        = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
     ivcfl_max       = 5         ! CFL-stability range for vertical advection
     iord_backtraj   = 1         ! 1st order backward trajectory
     lvadv_tracer    = .TRUE.    ! vertical advection yes/no

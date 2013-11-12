@@ -189,8 +189,8 @@ CONTAINS
     REAL(vp) :: z_min(nproma,ptr_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
       &         z_max(nproma,ptr_patch%nlev) 
     REAL(wp) :: z_signum             !< sign of antidiffusive velocity
-    REAL(wp) :: beta_fct             !< factor for multiplicative spreading of range 
-                                     !< of permissible values
+    REAL(wp) :: beta_fct             !< factor of allowed over-/undershooting in monotonous limiter
+    REAL(wp) :: r_beta_fct           !< ... and its reverse value   
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
@@ -217,7 +217,7 @@ CONTAINS
     elev      = ptr_patch%nlev
     i_rlstart = grf_bdywidth_e
     i_rlend   = min_rledge_int - 1
-    beta_fct  = 1._wp              ! tentative suggestion: 1.0015
+    beta_fct  = 1._wp  ! the namelist default is 1.005, but it is passed to the limiter for the Miura3 scheme only
     niter     = 1
 
 
@@ -228,6 +228,8 @@ CONTAINS
     CALL assign_if_present(i_rlend  ,opt_rlend)
     CALL assign_if_present(beta_fct ,opt_beta_fct)
     CALL assign_if_present(niter    ,opt_niter)
+
+    r_beta_fct = 1._wp/beta_fct
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
@@ -449,7 +451,7 @@ CONTAINS
 
           ! min value of cell and its neighbors
           ! also look back to previous time step
-          z_min(jc,jk) = (2._wp - beta_fct) * MIN( z_tracer_min(jc,jk,jb),     &
+          z_min(jc,jk) = r_beta_fct * MIN( z_tracer_min(jc,jk,jb),             &
             &                 z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
             &                 z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
             &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
