@@ -577,13 +577,13 @@ set_run_target_thunder()
   # create header
   start_header
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue="mpi-serial"
+    use_queue=${use_queue:="mpi-serial"}
   #  queue="mpi-develop"
     use_nodes=1
     tasks_per_node=1
  else
     job_type=parallel
-    queue="mpi-compute"
+    use_queue=${use_queue:="mpi-compute"}
   #  queue="mpi-develop"
     tasks_per_node=$use_mpi_procs_pernode
   fi
@@ -593,6 +593,7 @@ set_run_target_thunder()
   else
     job_log_name="LOG.$job_name.%j"
   fi
+  queue="$use_queue"
 
   # ------------------------------------
   s_cpu_time=""
