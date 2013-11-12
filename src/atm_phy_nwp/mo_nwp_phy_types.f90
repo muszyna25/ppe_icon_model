@@ -274,40 +274,13 @@ MODULE mo_nwp_phy_types
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
 
-    ! need only for vdiff (and some for EDMF)
+    ! need only for EDMF
     REAL(wp), POINTER       &
 #ifdef _CRAYFTN
       , CONTIGUOUS          &
 #endif
       & ::                  &
-      & ri      (:,:,:),    &!< moist Richardson number at layer interfaces
-      & mixlen  (:,:,:),    &!< mixing length at layer interfaces
-      & thvvar  (:,:,:),    &!< variance of virtual potential temperature at layer interfaces.
-                                !< Computed in "vdiff" by solving a prognostic equation of
-                                !< the variance. Used for getting "thvsig".
-      & z0m_tile(:,:,:),    &!< aerodynamic roughness length
-                                !< (grid-box mean and over each surface type)
-      & z0m     (:,:)  ,    &!< aerodynamic roughness length
-      & ustar   (:,:)  ,    &!<
-      & kedisp  (:,:)  ,    &!< time-mean (or integrated?)
-                                !< vertically integrated dissipation of kinetic energy
-      & ocu     (:,:)  ,    &!< eastward  velocity of ocean surface current
-      & ocv     (:,:)        !< northward velocity of ocean surface current
-
-
-    REAL(wp), POINTER       &
-#ifdef _CRAYFTN
-      , CONTIGUOUS          &
-#endif
-      & ::                  &
-      & cfm    (:,:,:),     &!< turbulent exchange coefficient
-      & cfm_tile(:,:,:),    &!< turbulent exchange coefficient
-      & cfh    (:,:,:),     &!< turbulent exchange coefficient
-      & cfh_tile(:,:,:),    &!< turbulent exchange coefficient
-      & cfv    (:,:,:),     &!< turbulent exchange coefficient
-      & cftke  (:,:,:),     &!< turbulent exchange coefficient
-      & cfthv  (:,:,:),     &!< turbulent exchange coefficient
-      & ghpbl  (:,:)         !< geopotential of the top of the atmospheric boundary layer
+      & z0m     (:,:)       !< aerodynamic roughness length
 
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)

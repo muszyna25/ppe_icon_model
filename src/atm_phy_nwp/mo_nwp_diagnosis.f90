@@ -54,7 +54,7 @@ MODULE mo_nwp_diagnosis
   USE mo_kind,               ONLY: wp
 
   USE mo_impl_constants,     ONLY: itccov, itfastphy, min_rlcell_int, &
-                                   icosmo, igme, iedmf, ivdiff, ismag
+                                   icosmo, igme, iedmf, ismag
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_intp_data_strc,     ONLY: t_int_state
@@ -554,19 +554,6 @@ CONTAINS
                                & * r_sim_time
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (ivdiff)
-          DO jc = i_startidx, i_endidx
-            prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
-                               &  * dt_phy_jg(itfastphy) )              &
-                               & * r_sim_time
-            prm_diag%ashfl_s(jc,jb) = ( prm_diag%ashfl_s(jc,jb)         &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
-                               &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
-                               & * r_sim_time
-          ENDDO
         END SELECT
 
         DO jc = i_startidx, i_endidx
@@ -606,15 +593,6 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy)                 !must be positive downwards 
             ENDDO  ! jc
           ENDDO  ! jk
-        CASE (ivdiff)
-          DO jc = i_startidx, i_endidx
-            prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
-                               &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
-                               &  * dt_phy_jg(itfastphy)
-            prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
-                               &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
-                               &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
-          ENDDO
         END SELECT
 
         DO jc = i_startidx, i_endidx

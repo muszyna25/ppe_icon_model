@@ -72,7 +72,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_UV,                    &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB, &
-  &                               ivdiff, iedmf 
+  &                               iedmf 
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, ltestcase
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -296,9 +296,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == ivdiff) THEN
-      shapesfc   = (/nproma,          kblks, nsfc_type /)
-    ENDIF
 
     ! Register a field list and apply default settings
 
@@ -1934,177 +1931,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, TRIM(name), diag%avmfl_s,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
           & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
-
-  !
-  ! vdiff
-  !
-
-    IF( atm_phy_nwp_config(k_jg)%inwp_turb == ivdiff) THEN
-
-      ! &      diag%cfm_tile(nproma,nblks_c)
-      cf_desc    = t_cf_var('cfm_tile','',&
-         & 'turbulent exchange coefficient of momentum at surface', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( diag_list, 'cfm_tile', diag%cfm_tile,                     &
-        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
-        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
-
-      ALLOCATE(diag%cfm_ptr(nsfc_type))
-      DO jsfc = 1,nsfc_type
-        WRITE(csfc,'(i1)') jsfc 
-        CALL add_ref( diag_list, 'cfm_tile',                                       &
-                    & 'cfm_tile_'//csfc, diag%cfm_ptr(jsfc)%p_2d,                  &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                    & t_cf_var('turb_exchng_coeff_momentum_'//csfc, '', '', DATATYPE_FLT32), &
-                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape2d, lrestart=.FALSE. )
-      END DO
-
-      ! &      diag%cfh_tile(nproma,nblks_c)
-      cf_desc    = t_cf_var('cfh_tile', '','turbulent exchange coefficient of heat at surface', &
-           &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( diag_list, 'cfh_tile', diag%cfh_tile,                          &
-        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc, &
-        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
-
-       ALLOCATE(diag%cfh_ptr(nsfc_type))
-       DO jsfc = 1,nsfc_type
-         WRITE(csfc,'(i1)') jsfc 
-         CALL add_ref( diag_list, 'cfh_tile',                                      &
-                    & 'cfh_tile_'//csfc, diag%cfh_ptr(jsfc)%p_2d,                  &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                    & t_cf_var('turb_exchng_coeff_heat_'//csfc, '', '', DATATYPE_FLT32), &
-                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape2d, lrestart=.FALSE. )
-       END DO
-
-       ! &      diag%ghpbl(nproma,nblks_c)
-       cf_desc    = t_cf_var('gh_pbl','','turbulent exchange coefficient of momentum at surface', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'ghpbl', diag%ghpbl,                          &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-       ! &      diag%z0m(nproma,nblks_c)
-       cf_desc    = t_cf_var('z0m', '', &
-            &                'geopotential of the top of the atmospheric boundary layer', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'z0m', diag%z0m,                              &
-         & GRID_UNSTRUCTURED_CELL,ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-       ! &      diag%z0m_tile(nproma,nblks_c,nsfc_type)
-       cf_desc    = t_cf_var('z0m_tile', '',&
-         &'geopotential of the top of the atmospheric boundary layer', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'z0m_tile', diag%z0m_tile,                    &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
-         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
-       diag%z0m_tile(:,:,:)=1.e-3_wp
-
-       ALLOCATE(diag%z0m_ptr(nsfc_type))
-       DO jsfc = 1,nsfc_type
-         WRITE(csfc,'(i1)') jsfc 
-         CALL add_ref( diag_list, 'z0m_tile',                                      &
-                    & 'z0m_tile_'//csfc, diag%z0m_ptr(jsfc)%p_2d,                  &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                    & t_cf_var('turb_exchng_coeff_heat_'//csfc, '', '', DATATYPE_FLT32), &
-                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape2d )
-       END DO
-
-       ! &      diag%ustar(nproma,nblks_c)
-       cf_desc    = t_cf_var('ustar', 'm s-1','friction velocity', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(0, 2, 30, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'ustar', diag%ustar,                         &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-       ! &      diag%kedisp(nproma,nblks_c)
-       cf_desc    = t_cf_var('kedisp','','KE dissipation rate', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'kedisp', diag%kedisp,                       &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-       ! &      diag%ocu(nproma,nblks_c)
-       cf_desc    = t_cf_var('ocu', 'm s-1','eastward  velocity of ocean surface current', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'ocu', diag%ocu,                             &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-       ! &      diag%ocv(nproma,nblks_c)
-       cf_desc    = t_cf_var('ocv','','northward velocity of ocean surface current', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'ocv', diag%ocv,                             &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
-
-
-       !------------------
-       !Turbulence 3D variables
-
-       ! &      diag%ri(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('ri', '', '  moist Richardson number at layer interfaces', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'ri', diag%ri,                               &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. ) 
-
-       ! &      diag%mixlen(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('mixlen', 'm s-2', 'mixing length at layer interfaces', &
-            &                DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'mixlen', diag%mixlen,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,     &
-          & ldims=shape3dkp1, lrestart=.FALSE. )
-
-       ! &      diag%thvvar(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('thvvar', 'm s-2', &
-         &'variance of virtual potential temperature at layer interfaces', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'thvvar', diag%thvvar,                       &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1 ) 
-
-       ! &      diag%cfm(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('cfm', '', 'turbulent exchange coefficient', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'cfm', diag%cfm,                             &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. ) 
-
-       ! &      diag%cfh(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('cfh', '', 'turbulent exchange coefficient', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'cfh', diag%cfh,                             &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. ) 
-
-       ! &      diag%cfv(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('cfv', '','turbulent exchange coefficient', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'cfv', diag%cfv,                             &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. )
-
-       ! &      diag%cftke(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('cftke', '', 'turbulent exchange coefficient', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'cftke', diag%cftke,                         &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. )
-
-       ! &      diag%cfthv(nproma,nlevp1,nblks_c)
-       cf_desc    = t_cf_var('cfthv', '','turbulent exchange coefficient', DATATYPE_FLT32)
-       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( diag_list, 'cfthv', diag%cfthv,                         &
-         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-         & ldims=shape3dkp1, lrestart=.FALSE. ) 
-
-    ENDIF  !inwp_turb == vdiff
 
 
   !

@@ -48,8 +48,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
-    &                               iphysproc, iphysproc_short, ismag, iedmf,  &
-    &                               ivdiff            
+    &                               iphysproc, iphysproc_short, ismag, iedmf
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_exception,           ONLY: message, message_text, finish
 
@@ -288,13 +287,6 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       dt_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
     ENDDO  ! jg loop
-
-
-
-    IF( atm_phy_nwp_config(1)%inwp_turb == ivdiff) THEN
-       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
-                                             ! to obtain the demanded parameters
-    ENDIF
 
 
 

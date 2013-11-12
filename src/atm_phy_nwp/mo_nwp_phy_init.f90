@@ -57,7 +57,7 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
-                                    igme, iedmf, ivdiff, SUCCESS, MAX_CHAR_LENGTH   
+                                    igme, iedmf, SUCCESS, MAX_CHAR_LENGTH   
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -1144,63 +1144,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
     prm_diag%rcld(:,:,:)    = 0._wp
 !$OMP END PARALLEL WORKSHARE
-
-
-  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == ivdiff) THEN  !ECHAM vdiff
-
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init ECHAM turbulence')
-      ! Currently the tracer indices are sorted such that we count
-      ! the water substances first, and then other species like 
-      ! aerosols and their precursors. "ntracer" is the total number 
-      ! of tracers (including water substances) handled in the model;
-      ! "iqt" is the starting index for non-water species.
-      ! Before more sophisticated meta-data structure becomes available, 
-      ! it is assumed here that all tracers are subject to turbulent mixing.
-
-    ! For surface processes: 
-    ! nsfc_type, iwtr, etc. are set in this subroutine. 
-    ! See mo_icoham_sfc_indicies.f90 for further details.
-
-    ! nsfc_type is used for dimensioning local variables in the NWP interface;
-    ! thus, it must be set even if vdiff is not called
-    nsfc_type = 1 ! for the time being, nsfc_type must be reset to 1 because land
-                  ! is not yet avaliable for vdiff
-
-      !<KF temporarly set in, has to moved to general place
-    CALL init_convect_tables
-
-!   CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
-                                              ! to obtain the demanded parameters
-
-    khydromet = 2 !iqt - 1        ! # of hydrometeors
-    ktrac = 1   !ntracer - iqt + 1  ! # of non-water species 
-
-     !IF (p_patch%id == 1) CALL init_vdiff_solver( khydromet, ktrac, nproma, nlev, nsfc_type )
-    IF (p_patch%id == 1) CALL init_vdiff_solver( khydromet, ktrac, nlev )
-
-    CALL init_vdiff_params( nlev, nlevp1, nlevp1, vct )
-
-      !KF special setting for ICONAM
-    tke_min = 1.e-4_wp
-        
-!$OMP PARALLEL WORKSHARE
-    prm_diag% ustar (:,:)   = 1._wp
-    prm_diag% kedisp(:,:)   = 0._wp
-    prm_diag% thvvar(:,:,:) = 1.e-4_wp
-    ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
-    prm_diag%rcld(:,:,:)    = 0._wp
-!$OMP END PARALLEL WORKSHARE
-
-    IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
-    IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
-!    IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,:,ilnd) = z0m_min  ! or maybe a larger value?
-    IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,:,ilnd) = ext_data%atm%z0(:,:)
-!    ENDIF
-        
-    WRITE(message_text,'(a,3I4)') 'init sfc inidces = ',iwtr,iice,nsfc_type
-    CALL message('', TRIM(message_text))
-
-    CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
 
   ENDIF
 

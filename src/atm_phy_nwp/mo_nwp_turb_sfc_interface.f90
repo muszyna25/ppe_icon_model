@@ -52,7 +52,7 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, iedmf, ivdiff
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, iedmf
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: alv, rd_o_cpd, grav
@@ -67,8 +67,6 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_data_turbdiff,        ONLY: t0_melt, zt_ice
   USE mo_satad,                ONLY: sat_pres_water, spec_humi
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_vdiff_config,         ONLY: vdiff_config
-  USE mo_nwp_vdiff_driver,     ONLY: vdiff
   USE mo_vdfouter,             ONLY: vdfouter
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
@@ -133,36 +131,6 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
   INTEGER :: jc,jk,jb,jt,jtile,jg    !loop indices
 
-  ! local variables for vdiff
-
-  INTEGER, PARAMETER :: itrac = 1
-  REAL(wp) ::  &                     !< cloud water + cloud ice
-    &  z_plitot(nproma,p_patch%nlev,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< fraction of land,seaice, open water in the grid box
-    &  zfrc(nproma,nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variables for input
-    &  zdummy_tsfc(nproma,1:nsfc_type,p_patch%nblks_c)       , &
-    &  zdummy_qvsfc(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variables for output
-    & z_dummy_shflx(nproma,1:nsfc_type,p_patch%nblks_c)      , &
-    & z_dummy_lhflx(nproma,1:nsfc_type,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variables for input
-    &  zdummy_i(nproma,p_patch%nlev,p_patch%nblks_c)         , &
-    &  zdummy_it(nproma,p_patch%nlev,itrac,p_patch%nblks_c)  , &
-    &  zdummy_ith(nproma,itrac,p_patch%nblks_c)
-  REAL(wp) ::  &                     !< dummy variables for output
-    &  zdummy_o1(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o2(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o3(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o4(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o5(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o6(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o7(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_o8(nproma,p_patch%nlev,p_patch%nblks_c)        , &
-    &  zdummy_ot3(nproma,p_patch%nlev,itrac,p_patch%nblks_c) , &
-    &  zdummy_ot2(nproma,p_patch%nlev,itrac,p_patch%nblks_c) , &
-    &  zdummy_oh(nproma,p_patch%nblks_c)
-  INTEGER  :: idummy_oh(nproma ,p_patch%nblks_c)    !< dummy variable for output
   INTEGER  :: nlev, nlevp1                          !< number of full and half levels
 
   ! local variables for edmf (attention: if no block index - p_patch%nblks_c - variables
@@ -358,161 +326,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     ENDIF
 
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == ivdiff ) THEN
-
-!-------------------------------------------------------------------------
-!> ECHAM version
-!-------------------------------------------------------------------------
-
-      ! GZ: setting 1 instead of i_startidx in the following assignments is needed
-      ! as a workaround for the missing istart-parameter in vdiff
-
-      DO jk = 1, nlev
-        DO jc =  1, i_endidx
-          z_plitot (jc,jk,jb) = p_prog_rcf%tracer(jc,jk,jb,iqc) &
-&                             + p_prog_rcf%tracer(jc,jk,jb,iqi) &
-&                             + p_prog_rcf%tracer(jc,jk,jb,iqr) &
-&                             + p_prog_rcf%tracer(jc,jk,jb,iqs)
-        ENDDO
-      ENDDO
-
-      ! initialize dummy fields with zero
-      zdummy_i  (:,:,jb)   = 0.0_wp
-      zdummy_it (:,:,jb,:) = 0.0_wp
-      zdummy_ith(:,:,jb)   = 0.0_wp
-      zdummy_ot3(:,:,jb,:) = 0.0_wp
-      z_dummy_shflx(:,:,jb)= 0.0_wp
-      z_dummy_lhflx(:,:,jb)= 0.0_wp
-
-      ! Merge three pieces of information into one array for vdiff
-
-      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
-      IF (ilnd <= nsfc_type) &
-           &  zfrc(1:i_endidx,ilnd,jb) = 0._wp !&
-!           & REAL(ext_data%atm%lsm_atm_c(i_startidx:i_endidx,jb),wp)
-      ! fraction of sea/lake in the grid box
-      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
-      ! => fraction of open water in the grid box
-      IF (iwtr <= nsfc_type) &
-        &  zfrc(1:i_endidx,iwtr,jb) =  1._wp
-!        &        (1._wp- REAL(ext_data%atm%lsm_atm_c(i_startidx:i_endidx,jb),wp))&
-!        &       *(1._wp-          lnd_diag%fr_seaice(i_startidx:i_endidx,jb))
-      ! fraction of sea ice in the grid box
-      IF (iice <= nsfc_type) &
-           &  zfrc(1:i_endidx,iice,jb)= 0._wp !&
-!           &                  lnd_diag%fr_seaice(i_startidx:i_endidx,jb)
-
-      !KF tendencies in vdiff are INOUT declared, so they have to be set to zero
-      prm_nwp_tend%ddt_temp_turb  (1:i_endidx,:,jb)         = 0._wp
-      prm_nwp_tend%ddt_tracer_turb(1:i_endidx,:,jb,iqv:iqi) = 0._wp
-      prm_nwp_tend%ddt_u_turb     (1:i_endidx,:,jb)         = 0._wp
-      prm_nwp_tend%ddt_v_turb     (1:i_endidx,:,jb)         = 0._wp
-!     p_prog_rcf%tke              (1:i_endidx,:,jb)         = 0._wp
-
-      ! KF as long as if nsfc_type = 1 !!!!!
-      zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
-           &                              lnd_prog_now%t_g (1:i_endidx,jb)
-      !zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
-      !     &                                 lnd_diag%qv_s (1:i_endidx,jb)
-
-      ! Workarounds needed because vdiff is not coded properly for use with nesting
-      DO jk = 1, nlev
-        p_diag%u(1:i_startidx-1,jk,jb) = 0._wp
-        p_diag%v(1:i_startidx-1,jk,jb) = 0._wp
-      ENDDO
-
-
-      CALL vdiff( lsfc_mom_flux  = vdiff_config%lsfc_mom_flux                        ,&! in
-            &     lsfc_heat_flux = vdiff_config%lsfc_heat_flux                       ,&! in
-            & jg = jg, kproma = i_endidx, kbdim   = nproma                           ,&! in
-            & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1                    ,&! in
-            & ktrac  = itrac,  ksfc_type = nsfc_type                                 ,&! in
-            & idx_wtr= iwtr,   idx_ice   = iice,   idx_lnd =ilnd                     ,&! in
-            & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg                ,&! in
-            !
-            & pfrc      = zfrc(:,:,jb)                                               ,&! in
-            !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                    ,&! in
-            & pocu      = prm_diag%ocu   (:,jb),  pocv   = prm_diag%ocv     (:,jb)   ,&! in
-            & ppsfc     = p_diag%pres_sfc(:,jb),  pcoriol= p_patch%cells%f_c(:,jb)   ,&! in
-            !
-            & pum1      = p_diag%u   (:,:,jb),   pvm1 = p_diag%v         (:,:,jb)    ,&! in
-            & ptm1      = p_diag%temp(:,:,jb),   pqm1 = p_prog_rcf%tracer(:,:,jb,iqv),&! in
-            & pxlm1     = p_prog_rcf%tracer(:,:,jb,iqc)                              ,&! in
-            & pxim1     = p_prog_rcf%tracer(:,:,jb,iqi)                              ,&! in
-            & pxm1      = z_plitot (:,:,jb) ,    pxtm1 = zdummy_it       (:,:,:,jb)  ,&! in
-            !
-            & paphm1 = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres         (:,:,jb),&! in
-            & pdelpm1= p_diag%dpres_mc(:,:,jb),  pgeom1= p_metrics%geopot_agl(:,:,jb),&! in
-            & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%clc(:,:,jb)        ,&! in
-            & ptkem1 = p_prog_now_rcf%tke (:,2:nlevp1,jb)                            ,&! in
-            !
-            & pxt_emis= zdummy_ith    (:,:,jb)                                       ,&! in
-            & ptsfc_tile = zdummy_tsfc(:,:,jb)                                       ,&! inout
-            & pxvar   = zdummy_i      (:,:,jb)                                       ,&! inout
-            & pthvvar = prm_diag%thvvar(:,2:nlevp1,jb), pustar = prm_diag%ustar(:,jb),&! inout
-            & pz0m_tile = prm_diag%z0m_tile(:,jb,:)                                  ,&! inout
-            & pkedisp  = prm_diag%kedisp(:,jb)                                       ,&! inout
-            !
-            & pute    = prm_nwp_tend%ddt_u_turb     (:,:,jb)                         ,&! inout
-            & pvte    = prm_nwp_tend%ddt_v_turb     (:,:,jb)                         ,&! inout
-            & ptte    = prm_nwp_tend%ddt_temp_turb  (:,:,jb)                         ,&! inout
-            & pqte    = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)                     ,&! inout
-            & pxlte   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)                     ,&! inout
-            & pxite   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)                     ,&! inout
-            & pxtte    = zdummy_ot3(:,:,:,jb)                                        ,&! inout
-            !
-            & pz0m    = prm_diag%z0m(:,jb)                                           ,&! out
-            & pute_vdf = zdummy_o1 (:,:,jb)                                          ,&! out
-            & pvte_vdf = zdummy_o2 (:,:,jb),        ptte_vdf = zdummy_o3 (:,:,jb)    ,&! out
-            & pqte_vdf = zdummy_o4 (:,:,jb),        pxlte_vdf= zdummy_o5 (:,:,jb)    ,&! out
-            & pxite_vdf= zdummy_o6 (:,:,jb),        pxtte_vdf= zdummy_ot2(:,:,:,jb)  ,&! out
-            !
-            & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                    ,&! out
-            & pshflx_tile = z_dummy_shflx(:,:,jb)                                    ,&! out
-            & plhflx_tile = z_dummy_lhflx(:,:,jb)                                    ,&! out
-            & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)    ,&! out
-            & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)      ,&! out
-            & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)    ,&! inout
-            & pghpbl   = prm_diag%ghpbl (:,jb),     pri = prm_diag%ri (:,2:nlevp1,jb),&! out
-            & pmixlen  = prm_diag%mixlen(:,2:nlevp1,jb)                              ,&! out
-            & pcfm     = prm_diag%cfm   (:,2:nlevp1,jb)                              ,&! out
-            & pcfh     = prm_diag%cfh   (:,2:nlevp1,jb)                              ,&! out
-            & pcfv     = prm_diag%cfv   (:,2:nlevp1,jb)                              ,&! out
-            & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                   ,&! out
-            & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                   ,&! out
-            & pcftke   = prm_diag%cftke (:,2:nlevp1,jb)                              ,&! out
-            & pcfthv   = prm_diag%cfthv (:,2:nlevp1,jb))                               ! out
-
-
-      !-------------------------------------------------------------------------
-      !> in case of ECHAM version  update temperature and moist fields
-      !-------------------------------------------------------------------------
-
-      DO jt=1,nqtendphy ! iqv,iqc,iqi
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            p_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,jt)  &
-                 &          + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,jt))
-          ENDDO
-        ENDDO
-      ENDDO
-
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-          &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
-        ENDDO
-      ENDDO
-      ! In case nsfc_type >1 , the grid-box mean should be considered instead (PR)
-      IF (nsfc_type == 1) THEN
-       lnd_diag%qv_s(1:i_endidx,jb)=zdummy_qvsfc(1:i_endidx,nsfc_type,jb)
-       !prm_diag%lhfl_s(1:i_endidx,jb)=prm_diag%qhfl_s (1:i_endidx,jb)*alv
-       prm_diag%lhfl_s(1:i_endidx,jb)=z_dummy_lhflx(1:i_endidx,nsfc_type,jb)
-       prm_diag%shfl_s(1:i_endidx,jb)=z_dummy_shflx(1:i_endidx,nsfc_type,jb)
-      ENDIF
-
-
-    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
 
 
 !-------------------------------------------------------------------------

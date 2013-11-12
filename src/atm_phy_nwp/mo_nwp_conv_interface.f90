@@ -43,8 +43,7 @@ MODULE mo_nwp_conv_interface
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, &
-                                     iedmf, ivdiff
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, iedmf
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
@@ -188,20 +187,6 @@ CONTAINS
           z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
           z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
-        CASE (ivdiff)
-
-          ! In turb2, the flux is negative upwards.
-          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
-
-          IF (nsfc_type == 1  ) THEN
-            IF (ilnd <= nsfc_type ) THEN   ! sensible heat flux not implemented over land
-              z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp  !! sens. heat fl W/m**2
-            ELSE      ! This is the case when sensible heat is implementead in vdiff.
-              z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
-            END IF
-          ELSE
-            z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
-          ENDIF
 
         END SELECT
 
