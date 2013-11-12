@@ -2,12 +2,12 @@
 #define HAVE_F95
 #endif
 !>
-!! Type definition for the dynamical sore of ICONAM.
-!!
-!! Type definition for the dynamical sore of ICONAM.
+
+!! Type definition for the dynamical core of ICONAM.
 !!
 !! @author Almut Gassmann (MPI-M)
-!! @author Daniel Reinert (DWD-M)
+!! @author Daniel Reinert (DWD)
+!! @author Guenther Zaengl (DWD)
 !!
 !! @par Revision History
 !! Initial release by Daniel Reinert, DWD (2012-02-07)
@@ -62,8 +62,6 @@ MODULE mo_nonhydro_types
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
 
-  PUBLIC :: t_buffer_memory
-
 
 
   ! prognostic variables state vector
@@ -95,7 +93,7 @@ MODULE mo_nonhydro_types
     , CONTIGUOUS            &
 #endif
     &  ::                   &
-    ! a) variables needed for triangles and hexagons
+    ! a) variables needed for intermediate storage and physics-dynamics coupling
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
@@ -136,13 +134,13 @@ MODULE mo_nonhydro_types
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
     &  e_kinh(:,:,:),       & ! horizontal spec. kinetic energy
                               ! (nproma,nlev,nblks_c)                            [m^2/s^2]
-   
-    ! b) variables needed for the triangular grid only
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
     &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+    !
+    ! b) variables needed for grid nesting
     &  grf_tend_vn(:,:,:),  & ! vn tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_e)                        [m/s^2]
     &  grf_tend_w(:,:,:),   & ! w tendency field for use in grid refinement
@@ -166,35 +164,8 @@ MODULE mo_nonhydro_types
     &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
     &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
     &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
+    &  q_ubc(:,:,:)          ! Storage field for vertical nesting: q at child upper boundary
 
-    !
-    ! c) variables needed for the hexagonal grid only
-    &  e_kin(:,:,:),        & ! spec. kinetic energy (nproma,nlev,nblks_c) [m^2/s^2]
-    &  theta_v_impl(:,:,:), & ! (nnow+nnew)/2 from impl. vert. adv. of theta_v   [K]
-    &  theta_v_ave(:,:,:),  & ! time average from horiz. adv. of theta_v         [K]
-    &  horpgrad(:,:,:),     & ! covariant horizontal pressure gradient term   [m/s^2]
-    &  vn_cov(:,:,:),       & ! covariant normal wind (nproma,nlev,nblks_e)    [m/s]
-    &  w_cov(:,:,:),        & ! covariant vert wind (nproma,nlevp1,nblks_c)  [m^2/s]
-    &  rho_e(:,:,:),        & ! density at edges nnow                       [kg/m^3]
-    &  rho_star_e(:,:,:),   & ! density at edges estim. step                [kg/m^3]
-    &  omega_z_con(:,:,:),  & ! vertical contrav. vorticity (nproma,nlev,nblks_v)
-                              ! at vertices                                    [1/s]
-    &  omega_t_con(:,:,:),  & ! tangential horiz. contravariant vorticity
-                              ! (nproma,nlev,nblks_e)[1/s]
-    &  omega_x(:,:,:),      & ! zonal vorticity (nproma,nlev,nblks_c)          [1/s]
-    &  omega_y(:,:,:),      & ! meridional vorticity (nproma,nlev,nblks_c)     [1/s]
-    &  ddt_vn(:,:,:),       & ! normal wind tendency from forcing              [m/s^2]
-    &  ddt_vn_vort(:,:,:),  & ! normal wind tendency from vorticity flux term
-                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w(:,:,:),        & ! vert. wind tendency from forcing
-                              ! (nproma,nlevp1,nblks_c)                        [m/s^2]
-    &  ddt_w_vort(:,:,:),   & ! vert. wind tendency from vorticity flux term
-                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
-    &  ddt_w_phy(:,:,:),    & ! vert. wind tendency from phyiscs
-                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
-    &  vn_con(:,:,:),       & ! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
-    &  omega_t(:,:,:)         ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
 
     REAL(wp), POINTER ::    & !
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
@@ -233,7 +204,7 @@ MODULE mo_nonhydro_types
     , CONTIGUOUS           &
 #endif
      ::                    &
-     ! a) Variables needed for triangles and hexagons
+     ! a) General geometric quantities
      !
      z_ifc(:,:,:)        , & ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
      z_mc(:,:,:)         , & ! geometric height at full levels (nproma,nlev,nblks_c)
@@ -242,28 +213,17 @@ MODULE mo_nonhydro_types
      geopot_agl(:,:,:)   , & ! geopotential above ground level at cell center (nproma,nlev,nblks_c)
      geopot_agl_ifc(:,:,:),& ! geopotential above ground level at interfaces and cell center (nproma,nlevp1,nblks_c)
      dgeopot_mc(:,:,:)   , & ! geopotential at cell center (nproma,nlev,nblks_c)
+     !
+     ! b) Specific fields for the dynamical core
+     !
      rayleigh_w(:)       , & ! Rayleigh damping on the vertical velocity
      rayleigh_vn(:)      , & ! Rayleigh damping on the normal velocity
      enhfac_diffu(:)     , & ! Enhancement factor for nabla4 background diffusion
-     !
-     ! b) Variables needed for the triangular grid only
-     !
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt_sv(:,:),& ! save array for the above coefficient field (nproma,nblks_c)
      !
-     ! c) Variables needed for the hexagonal grid only
-     !
-     z_mc_e(:,:,:)       , &  ! geometric height at full level edges (nproma,nlev,nblks_e)
-     ddnorth_z(:,:,:)    , &  ! slope of the coordinate lines towards the North (nproma,nlev,nblks_e)
-     ddeast_z(:,:,:)     , &  ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
-     ddqz_z_full_v(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_v)
-     ddqz_z_half_e(:,:,:), &  ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
-     ddqz_z_full_r(:,:,:), & ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-     diff_1_o_dz(:,:,:)  , &  ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
-     mult_1_o_dz(:,:,:)  , &  ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
-     !
-     ! d) Fields for reference atmosphere
+     ! c) Fields for the reference atmosphere
      !
      theta_ref_mc(:,:,:) , & 
      theta_ref_me(:,:,:) , & 
@@ -273,14 +233,14 @@ MODULE mo_nonhydro_types
      rho_ref_mc  (:,:,:) , &  
      rho_ref_me  (:,:,:) , & 
      !
-     ! e) Fields for truly horizontal temperature diffusion
+     ! d) Fields for truly horizontal temperature diffusion
      !
      zd_intcoef(:,:) , & 
      zd_geofac(:,:)  , & 
      zd_e2cell(:,:)  , & 
      zd_diffcoef(:)  , & 
      !
-     ! f) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
+     ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
      inv_ddqz_z_half_e(:,:,:)  , & 
@@ -291,7 +251,7 @@ MODULE mo_nonhydro_types
      ! Mixing length for Smagorinsky model
      mixing_length_sq(:,:,:)   , & 
      !
-     ! g) Other stuff
+     ! f) Other stuff
      !
      pg_exdist (:)       , & ! extrapolation distance needed for igradp_method = 3
      ! Correction term needed to use perturbation density for lateral boundary nudging
@@ -391,23 +351,6 @@ MODULE mo_nonhydro_types
    LOGICAL,  POINTER :: mask_prog_halo_c(:,:)
 
   END TYPE t_nh_metrics
-
-  TYPE :: t_buffer_memory
-
-    REAL(wp), POINTER :: send_c1(:,:)
-    REAL(wp), POINTER :: recv_c1(:,:)
-    REAL(wp), POINTER :: send_c3(:,:)
-    REAL(wp), POINTER :: recv_c3(:,:)
-    REAL(wp), POINTER :: send_e1(:,:)
-    REAL(wp), POINTER :: recv_e1(:,:)
-    REAL(wp), POINTER :: send_e2(:,:)
-    REAL(wp), POINTER :: recv_e2(:,:)
-    REAL(wp), POINTER :: send_e3(:,:)
-    REAL(wp), POINTER :: recv_e3(:,:)
-    REAL(wp), POINTER :: send_v2(:,:)
-    REAL(wp), POINTER :: recv_v2(:,:)
-
-  END TYPE t_buffer_memory
 
 
 !-------------------------------------------------------------------------

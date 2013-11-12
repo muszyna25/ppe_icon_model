@@ -60,7 +60,7 @@ MODULE mo_nonhydro_state
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
-    &                                t_nh_ref, t_nh_metrics, t_buffer_memory
+    &                                t_nh_ref, t_nh_metrics
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
@@ -107,9 +107,7 @@ MODULE mo_nonhydro_state
   PUBLIC :: duplicate_prog_state  ! Copy the prognostic state
 
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
-  PUBLIC :: bufr
   
-  TYPE (t_buffer_memory), POINTER :: bufr(:)
 
   TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
 
@@ -1282,8 +1280,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf, lrestart=.FALSE. )
 
 
-    IF (p_patch%cell_type == 3) THEN
-
       ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
       !
       cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1',               &
@@ -1512,170 +1508,6 @@ MODULE mo_nonhydro_state
                     & ldims=shape2d_c, lrestart=.FALSE. )
       ENDDO
 
-    ELSE IF (p_patch%cell_type == 6) THEN
- 
-      ! e_kin        p_diag%e_kin(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('specific_kinetic_energy', 'm2 s-2', 'specific kinetic energy', &
-           &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 2, 196, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'e_kin', p_diag%e_kin,                           &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_c )
-
-      ! theta_v_impl   p_diag%theta_v_impl(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('(nnow+nnew)/2_from_impl._vert._adv._of_theta_v', 'K', &
-        &                   '(nnow+nnew)/2 from impl. vert. adv. of theta_v', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'theta_v_impl', p_diag%theta_v_impl,           &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c )
-
-      ! theta_v_ave   p_diag%theta_v_ave(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('time average from horiz. adv. of theta_v', 'K', &
-        &                   'time average from horiz. adv. of theta_v', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'theta_v_ave', p_diag%theta_v_ave,           &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,   &
-                  & ldims=shape3d_c )
-
-
-      ! horpgrad     p_diag%horpgrad(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('covariant_horizontal_pressure_gradient', 'Pa m-1', &
-        &                   'covariant horizontal pressure gradient', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'horpgrad', p_diag%horpgrad,                   &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e )
-
-
-      ! vn_cov       p_diag%vn_cov(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('covariant_normal_wind', 'm s-1',                   &
-        &                   'covariant normal wind', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'vn_cov', p_diag%vn_cov,                       &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e )
-
-
-      ! w_cov        p_diag%w_cov(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('covariant_vertical_wind', 'm s-1',                 &
-        &                   'covariant vertical wind at half level', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'w_cov', p_diag%w_cov,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,& 
-                  & ldims=shape3d_chalf )
-
-      ! rho_e        p_diag%rho_e(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('density_at_edges_nnow', 'm s-1',                   &
-        &                   'density_at_edges_nnow', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'rho_e', p_diag%rho_e,                         &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e )
-
-      ! rho_star_e   p_diag%rho_star_e(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('density_at_edges_estim_step', 'm s-1',              &
-        &                   'density_at_edges_estim_step', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'rho_star_e', p_diag%rho_star_e,                &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,      &
-                  & ldims=shape3d_e )
-
-      ! omega_t_con  p_diag%omega_t_con(nproma,nlevp1,nblks_e)
-      !
-      cf_desc    = t_cf_var('tangential_horiz._contravariant_vorticity', 's-1', &
-        &                   'tangential horiz. contravariant vorticity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'omega_t_con', p_diag%omega_t_con,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_ehalf )
-
-
-      ! omega_x      p_diag%omega_x(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('zonal_vorticity', 's-1', 'zonal vorticity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'omega_x', p_diag%omega_x,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c )
-
-
-      ! omega_y      p_diag%omega_y(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('meridional_vorticity', 's-1', 'meridional vorticity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'omega_y', p_diag%omega_y,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c )
-
-
-      ! omega_z_con  p_diag%omega_z_con(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('vertical_vorticity', 's-1',                        &
-        &                   'contravariant vertical vorticity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_diag_list, 'omega_z_con', p_diag%omega_z_con,             &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_v )
-
-
-      ! ddt_vn       p_diag%ddt_vn(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', 'normal wind tendency', &
-           &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 2, 198, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'ddt_vn', p_diag%ddt_vn,                         &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_e )
-
-
-      ! ddt_vn_vort  p_diag%ddt_vn_vort(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &
-        &                   'normal wind tendency from vorticity flux term', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_diag_list, 'ddt_vn_vort', p_diag%ddt_vn_vort,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e )
-
-
-      ! ddt_w        p_diag%ddt_w(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2', 'vertical wind tendency', &
-           &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(0, 2, 200, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'ddt_w', p_diag%ddt_w,                           &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_chalf )
-
- 
-      ! ddt_w_vort   p_diag%ddt_w_vort(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('vert._wind_tendency', 'm s-2',                      &
-        &                   'vert. wind tendency from vorticity flux term', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'ddt_w_vort', p_diag%ddt_w_vort,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, &
-                  & ldims=shape3d_chalf )
-
-      ! ddt_w_phy   p_diag%ddt_w_phy(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('vert_wind_tendency_phy', 'm s-2',                   &
-        &                   'vertical wind tendency from physics', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'ddt_w_phy', p_diag%ddt_w_phy,                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, &
-                  & ldims=shape3d_chalf )
-
-    ENDIF
 
 
     !
@@ -2250,9 +2082,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
-! These fields are needed for triangles only once the initialization in
-! mo_nh_testcases is properly rewritten for hexagons
-!    IF (p_patch%cell_type== 3) THEN
+      ! If the __MIXED_PRECISION flag is set, the single precision fields use a direct ALLOCATE
 #ifndef __MIXED_PRECISION
       ! weighting factor for interpolation from full to half levels
       ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
@@ -2399,8 +2229,6 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c,                                            &
                   & isteptype=TSTEP_CONSTANT )
 
-
-    IF (p_patch%cell_type== 3) THEN
 
       ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
       ! vertidx_gradp  p_metrics%vertidx_gradp(2,nproma,nlev,nblks_e)
@@ -2594,104 +2422,6 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c, loutput=.FALSE.,                           &
                   & isteptype=TSTEP_CONSTANT )
 
-
-    ELSE IF (p_patch%cell_type== 6) THEN
-
-
-      ! geometric height at full level edges
-      ! z_mc_e       p_metrics%z_mc_e(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('geometric_height_at_full_level_edge', 'm',           &
-        &                   'geometric height at full level edge', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_metrics_list, 'z_mc_e', p_metrics%z_mc_e,                   &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_e,                                              &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! slope of the coordinate lines in Northern direction
-      ! ddnorth_z    p_metrics%ddnorth_z(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('slope_of_coordinate_lines_in_Northern_direction', '-', &
-      &                     'slope of coordinate lines in Northern direction', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'ddnorth_z', p_metrics%ddnorth_z,               &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,         &
-                  & ldims=shape3d_v,                                                &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! slope of the coordinate lines in Eastern direction
-      ! ddeast_z     p_metrics%ddeast_z(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('slope_of_coordinate_lines_in_Eastern_direction', '-', &
-      &                     'slope of coordinate lines in Eastern direction', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'ddeast_z', p_metrics%ddeast_z,                &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,        &
-                  & ldims=shape3d_v,                                               &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ! ddqz_z_full_v   p_metrics%ddqz_z_full_v(nproma,nlev,nblks_v)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
-      &                     'metrics functional determinant', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'ddqz_z_full_v', p_metrics%ddqz_z_full_v,   &
-                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_v,                                            &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ! ddqz_z_full_r   p_metrics%ddqz_z_full_r(nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
-      &                     'metrics functional determinant', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_metrics_list, 'ddqz_z_full_r', p_metrics%ddqz_z_full_r,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_e,                                            &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ! ddqz_z_half_e   p_metrics%ddqz_z_half_e(nproma,nlevp1,nblks_e)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
-      &                     'metrics functional determinant', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_metrics_list, 'ddqz_z_half_e', p_metrics%ddqz_z_half_e,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_ehalf,                                        &
-                  & isteptype=TSTEP_CONSTANT )
-
-
-      ! 1/dz(k-1)-1/dz(k)
-      ! diff_1_o_dz  p_metrics%diff_1_o_dz(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('difference_1_over_dz', 'm-1', 'difference 1 over dz', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'diff_1_o_dz', p_metrics%diff_1_o_dz,       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_chalf,                                        &
-                  & isteptype=TSTEP_CONSTANT )
-               
-
-      ! 1/(dz(k-1)*dz(k))
-      ! mult_1_o_dz  p_metrics%mult_1_o_dz(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('mult_1_over_dz', 'm-2', 'mult 1 over dz', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'mult_1_o_dz', p_metrics%mult_1_o_dz,       &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                  & ldims=shape3d_chalf,                                        &
-                  & isteptype=TSTEP_CONSTANT )
-
-    ENDIF
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
     jg = p_patch%id

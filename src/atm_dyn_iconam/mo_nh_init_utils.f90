@@ -148,38 +148,27 @@ CONTAINS
       ! Because the vertical discretization differs between the triangular and
       ! hexagonal NH cores, a case discrimination is needed here
       DO jk = nlev-1, 1, -1
-        IF (p_patch%cell_type == 3) THEN
-          DO jc = 1, nlen
-            z_fac1(jc) = p_nh_metrics%wgtfac_c(jc,jk+1,jb)*(temp_v(jc,jk+1) &
-              - p_nh_metrics%theta_ref_mc(jc,jk+1,jb)*exner(jc,jk+1,jb))    &
-              - (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))                   &
-              * p_nh_metrics%theta_ref_mc(jc,jk,jb)*exner(jc,jk+1,jb)
+        DO jc = 1, nlen
+          z_fac1(jc) = p_nh_metrics%wgtfac_c(jc,jk+1,jb)*(temp_v(jc,jk+1) &
+            - p_nh_metrics%theta_ref_mc(jc,jk+1,jb)*exner(jc,jk+1,jb))    &
+            - (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))                   &
+            * p_nh_metrics%theta_ref_mc(jc,jk,jb)*exner(jc,jk+1,jb)
 
-            z_fac2(jc) = (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))*temp_v(jc,jk) &
-              *exner(jc,jk+1,jb)
+          z_fac2(jc) = (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))*temp_v(jc,jk) &
+            *exner(jc,jk+1,jb)
 
-            z_fac3(jc) = p_nh_metrics%exner_ref_mc(jc,jk+1,jb)     &
-              -p_nh_metrics%exner_ref_mc(jc,jk,jb)-exner(jc,jk+1,jb)
+          z_fac3(jc) = p_nh_metrics%exner_ref_mc(jc,jk+1,jb)     &
+            -p_nh_metrics%exner_ref_mc(jc,jk,jb)-exner(jc,jk+1,jb)
 
-            za(jc) = (p_nh_metrics%theta_ref_ic(jc,jk+1,jb)                     &
-              *exner(jc,jk+1,jb)+z_fac1(jc))/p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
+          za(jc) = (p_nh_metrics%theta_ref_ic(jc,jk+1,jb)                     &
+            *exner(jc,jk+1,jb)+z_fac1(jc))/p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
 
-            zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-              + z_fac1(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
+          zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
+            + z_fac1(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
 
-            zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-              + z_fac2(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-          ENDDO !jc
-        ELSE IF (p_patch%cell_type == 6) THEN
-          DO jc = 1, nlen
-            z_fac3(jc) = grav/cpd*p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
-            z_fac1(jc) = exner(jc,jk+1,jb)
-            z_fac2(jc) = exner(jc,jk+1,jb)/temp_v(jc,jk+1)
-            za(jc) = 1.0_wp
-            zb(jc) = -(z_fac2(jc)*(temp_v(jc,jk)+2.0_wp*z_fac3(jc))-z_fac1(jc))
-            zc(jc) = temp_v(jc,jk)*z_fac2(jc)*z_fac1(jc)
-          ENDDO
-        ENDIF
+          zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
+            + z_fac2(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
+        ENDDO !jc
 
         DO jc = 1, nlen
           exner(jc,jk,jb)      = (zb(jc)+SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
@@ -937,8 +926,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2011-07-01)
   !!
-  SUBROUTINE init_vert_coord(topo, topo_smt, z3d_i, z3d_m,                      &
-                             nlev, nblks, npromz, nshift, nflat, l_half_lev_centr)
+  SUBROUTINE init_vert_coord(topo, topo_smt, z3d_i, z3d_m,     &
+                             nlev, nblks, npromz, nshift, nflat)
 
     ! Input parameters:
     INTEGER, INTENT(IN) :: nlev, nblks, & ! field dimensions
@@ -950,7 +939,6 @@ CONTAINS
     REAL(wp),  INTENT(IN) :: topo    (nproma,nblks), &
                              topo_smt(nproma,nblks)
 
-    LOGICAL, INTENT(IN) :: l_half_lev_centr ! center half levels between full levels if true
  
     ! Output fields: 3D coordinate fields at interface and main levels
     REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks), &
@@ -1053,12 +1041,6 @@ CONTAINS
        z3d_m(1:nlen,jk,jb) = 0.5_wp*(z3d_i(1:nlen,jk,jb)+z3d_i(1:nlen,jk+1,jb))
      ENDDO
 
-     IF (l_half_lev_centr) THEN
-       ! redefine half levels to be in the center between full levels
-       DO jk = 2, nlev
-         z3d_i(1:nlen,jk,jb) = 0.5_wp*(z3d_m(1:nlen,jk-1,jb)+z3d_m(1:nlen,jk,jb))
-       ENDDO
-     ENDIF
 
    ENDDO
 !$OMP END DO NOWAIT

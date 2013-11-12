@@ -140,21 +140,11 @@ MODULE mo_vertical_grid
     REAL(wp) :: extrapol_dist
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
-    LOGICAL :: l_half_lev_centr, l_found(nproma), lfound_all
+    LOGICAL :: l_found(nproma), lfound_all
 
     !------------------------------------------------------------------------
 
     DO jg = 1,n_dom
-
-      SELECT CASE (p_patch(jg)%cell_type)
-      CASE (6)
-        l_half_lev_centr = .TRUE.
-        ! The HALF LEVEL where the model layer are flat, moves one layer upward.
-        ! there could also be a zero there
-        nflat = nflat-1
-      CASE DEFAULT
-        l_half_lev_centr = .FALSE.
-      END SELECT
 
       nblks_c   = p_patch(jg)%nblks_c
       npromz_c  = p_patch(jg)%npromz_c
@@ -173,7 +163,7 @@ MODULE mo_vertical_grid
       IF (jg > 1) THEN
         nflatlev(jg)     = nflatlev(1) - p_patch(jg)%nshift_total
       ENDIF
-      IF (p_patch(jg)%cell_type == 6) nflatlev(jg) = nflat
+
       IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
         CALL finish (TRIM(routine), &
                      'flat_height too close to the top of the innermost nested domain')
@@ -189,8 +179,7 @@ MODULE mo_vertical_grid
       ! Initialize vertical coordinate for cell points
       CALL init_vert_coord(ext_data(jg)%atm%topography_c, ext_data(jg)%atm%topography_smt_c, &
                            p_nh(jg)%metrics%z_ifc, p_nh(jg)%metrics%z_mc, nlev,              &
-                           nblks_c, npromz_c, p_patch(jg)%nshift_total, nflatlev(jg),        &
-                           l_half_lev_centr                                                  )
+                           nblks_c, npromz_c, p_patch(jg)%nshift_total, nflatlev(jg)         )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -227,40 +216,24 @@ MODULE mo_vertical_grid
           p_nh(jg)%metrics%ddqz_z_half(1:nlen,jk,jb) = &
           & (p_nh(jg)%metrics%z_mc(1:nlen,jk-1,jb)     &
           & -p_nh(jg)%metrics%z_mc(1:nlen,jk  ,jb))
-          IF (p_patch(jg)%cell_type == 6) THEN
-            p_nh(jg)%metrics%diff_1_o_dz(1:nlen,jk,jb) = &
-            &  1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
-            & -1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb)
-            p_nh(jg)%metrics%mult_1_o_dz(1:nlen,jk,jb) = &
-            &  1.0_wp/(p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
-            &         *p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb))
-          ENDIF
         ENDDO
-        IF (p_patch(jg)%cell_type == 6) THEN
-          p_nh(jg)%metrics%diff_1_o_dz(1:nlen,1,jb) = 0.0_wp
-          p_nh(jg)%metrics%mult_1_o_dz(1:nlen,1,jb) = 0.0_wp
-          p_nh(jg)%metrics%diff_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
-          p_nh(jg)%metrics%mult_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
-        ENDIF
         p_nh(jg)%metrics%ddqz_z_half(1:nlen,1,jb) =   &
         & 2.0_wp*(p_nh(jg)%metrics%z_ifc(1:nlen,1,jb) &
         &       - p_nh(jg)%metrics%z_mc (1:nlen,1,jb))
         p_nh(jg)%metrics%ddqz_z_half(1:nlen,nlevp1,jb) =    &
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
-        IF (p_patch(jg)%cell_type==3) THEN
-          ! coefficients for second-order acurate dw/dz term
-          p_nh(jg)%metrics%coeff1_dwdz(:,1,jb) = 0._wp
-          p_nh(jg)%metrics%coeff2_dwdz(:,1,jb) = 0._wp
-          DO jk = 2, nlev
-            p_nh(jg)%metrics%coeff1_dwdz(1:nlen,jk,jb) = &
-              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) / &
-              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
-            p_nh(jg)%metrics%coeff2_dwdz(1:nlen,jk,jb) = &
-              p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) / &
-              ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
-          ENDDO
-        ENDIF
+        ! coefficients for second-order acurate dw/dz term
+        p_nh(jg)%metrics%coeff1_dwdz(:,1,jb) = 0._wp
+        p_nh(jg)%metrics%coeff2_dwdz(:,1,jb) = 0._wp
+        DO jk = 2, nlev
+          p_nh(jg)%metrics%coeff1_dwdz(1:nlen,jk,jb) = &
+            p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) / &
+            ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+          p_nh(jg)%metrics%coeff2_dwdz(1:nlen,jk,jb) = &
+            p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb)/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) / &
+            ( p_nh(jg)%metrics%z_ifc(1:nlen,jk-1,jb) - p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb) )
+        ENDDO
 
 
         ! surface geopotential
@@ -305,7 +278,7 @@ MODULE mo_vertical_grid
       ! Initialize vertical coordinate for vertex points
       CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
                            z_ifv, z_mfv, nlev, nblks_v, npromz_v, p_patch(jg)%nshift_total,  &
-                           nflatlev(jg), l_half_lev_centr                                    )
+                           nflatlev(jg)                                                      )
 
       ! Start index for slope computations
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
@@ -328,24 +301,6 @@ MODULE mo_vertical_grid
            &              p_patch(jg), &
            &              z_ddxn_z_half, &
            &              1, nlevp1 )
-      IF (l_half_lev_centr) THEN
-        IF (p_test_run) z_aux_e = 0._wp
-        CALL grad_fd_norm ( p_nh(jg)%metrics%z_mc, &
-             &              p_patch(jg), &
-             &              z_aux_e, 1, nlev ) ! remark: ddxn_z_full is optionally single precision
-        CALL sync_patch_array(SYNC_E,p_patch(jg),z_aux_e)
-        p_nh(jg)%metrics%ddxn_z_full(:,:,:) = z_aux_e(:,:,:)
-      ENDIF
-
-      IF (p_patch(jg)%cell_type == 6) THEN
-        IF (p_test_run) p_nh(jg)%metrics%z_mc_e = 0._wp
-
-        CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, &
-                                p_patch(jg),p_int(jg)%c_lin_e, &
-                                p_nh(jg)%metrics%z_mc_e )
-
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%z_mc_e)
-      ENDIF
 
       CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half,z_ddxn_z_half)
 
@@ -357,27 +312,24 @@ MODULE mo_vertical_grid
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
                            i_startidx, i_endidx, 2)
 
-        IF (.NOT.l_half_lev_centr) THEN
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
-              p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
-              & (z_ddxn_z_half(je,jk,jb) + z_ddxn_z_half(je,jk+1,jb))
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
+            & (z_ddxn_z_half(je,jk,jb) + z_ddxn_z_half(je,jk+1,jb))
 
-              p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
-              & (z_ddxt_z_half(je,jk,jb) + z_ddxt_z_half(je,jk+1,jb))
-            ENDDO
+            p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
+            & (z_ddxt_z_half(je,jk,jb) + z_ddxt_z_half(je,jk+1,jb))
           ENDDO
-        ENDIF
+        ENDDO
+
 
         ! Coefficients for improved calculation of kinetic energy gradient
-        IF (p_patch(jg)%cell_type == 3) THEN
-          DO je = i_startidx, i_endidx
-            p_nh(jg)%metrics%coeff_gradekin(je,1,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,2) / &
-              p_patch(jg)%edges%edge_cell_length(je,jb,1) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
-            p_nh(jg)%metrics%coeff_gradekin(je,2,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,1) / &
-              p_patch(jg)%edges%edge_cell_length(je,jb,2) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
-          ENDDO
-        ENDIF
+        DO je = i_startidx, i_endidx
+          p_nh(jg)%metrics%coeff_gradekin(je,1,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,2) / &
+            p_patch(jg)%edges%edge_cell_length(je,jb,1) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
+          p_nh(jg)%metrics%coeff_gradekin(je,2,jb) = p_patch(jg)%edges%edge_cell_length(je,jb,1) / &
+            p_patch(jg)%edges%edge_cell_length(je,jb,2) * p_patch(jg)%edges%inv_dual_edge_length(je,jb)
+        ENDDO
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -396,89 +348,6 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_aux_e)
 
-      IF(p_patch(jg)%cell_type==6)THEN
-
-        IF (p_test_run) THEN
-          p_nh(jg)%metrics%ddqz_z_half_e = 0._wp
-          p_nh(jg)%metrics%ddqz_z_full_v = 0._wp
-          p_nh(jg)%metrics%ddqz_z_full_r = 0._wp
-        ENDIF
-
-        ! functional determinant at half level the edges
-        ALLOCATE(z_aux_c(nproma,nlevp1,nblks_c))
-        z_aux_c(:,:,:) = p_nh(jg)%metrics%ddqz_z_half(:,:,:) ! necessary because ddqz_z_half is optionally single precision
-        CALL cells2edges_scalar(z_aux_c, &
-                                p_patch(jg),p_int(jg)%c_lin_e, &
-                                p_nh(jg)%metrics%ddqz_z_half_e, 1, nlevp1 )
-        DEALLOCATE(z_aux_c)
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_half_e)
-
-        ! functional determinant at full level dual centers
-        CALL cells2verts_scalar(p_nh(jg)%metrics%ddqz_z_full, &
-                                p_patch(jg),p_int(jg)%cells_aw_verts, &
-                                p_nh(jg)%metrics%ddqz_z_full_v, 1, nlev)
-
-        CALL sync_patch_array(SYNC_V,p_patch(jg), p_nh(jg)%metrics%ddqz_z_full_v)
-
-        CALL verts2edges_scalar(p_nh(jg)%metrics%ddqz_z_full_v, &
-                                p_patch(jg), p_int(jg)%tria_aw_rhom, &
-                                p_nh(jg)%metrics%ddqz_z_full_r)
-
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_full_r)
-
-        iidx => p_patch(jg)%verts%edge_idx
-        iblk => p_patch(jg)%verts%edge_blk
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jv) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1,nblks_v
-          IF (jb /= nblks_v) THEN
-             nlen = nproma
-          ELSE
-             nlen = npromz_v
-          ENDIF
-          DO jk = 1, nlev
-            DO jv = 1, nlen
-              p_nh(jg)%metrics%ddnorth_z(jv,jk,jb) = &
-              &   p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,1),jk,iblk(jv,jb,1)) &
-              & * p_int(jg)%tria_north(1,jv,jb) &
-              & + p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,2),jk,iblk(jv,jb,2)) &
-              & * p_int(jg)%tria_north(2,jv,jb) &
-              & + p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,3),jk,iblk(jv,jb,3)) &
-              & * p_int(jg)%tria_north(3,jv,jb)
-              p_nh(jg)%metrics%ddeast_z(jv,jk,jb) = &
-              &   p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,1),jk,iblk(jv,jb,1)) &
-              & * p_int(jg)%tria_east(1,jv,jb) &
-              & + p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,2),jk,iblk(jv,jb,2)) &
-              & * p_int(jg)%tria_east(2,jv,jb) &
-              & + p_nh(jg)%metrics%ddxn_z_full(iidx(jv,jb,3),jk,iblk(jv,jb,3)) &
-              & * p_int(jg)%tria_east(3,jv,jb)
-            ENDDO
-          ENDDO
-        ENDDO
-!$OMP END DO NOWAIT
-
-        ! The reference Exner pressure field is needed for physics initialization
-!$OMP DO PRIVATE(jb, nlen, jk, z_aux1) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1,nblks_c
-          IF (jb /= nblks_c) THEN
-             nlen = nproma
-          ELSE
-             nlen = npromz_c
-          ENDIF
-
-          DO jk = 1, nlev
-            ! Reference pressure, full level mass points
-            z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
-              &  *LOG((EXP(p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)      &
-              &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
-
-            ! Reference Exner pressure, full level mass points
-            p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
-          ENDDO
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-      ENDIF
 
       ! offcentering in vertical mass flux 
       p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 0.5_wp - vwind_offctr
@@ -547,7 +416,7 @@ MODULE mo_vertical_grid
           /MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))
       ENDDO
 
-      IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
+      IF (msg_level >= 10) THEN
         WRITE(message_text,'(a,i4,a,i4)') 'Domain', jg, &
           '; end index of Rayleigh damping layer for w: ', nrdmax(jg)
         CALL message(TRIM(routine),message_text)
@@ -570,107 +439,104 @@ MODULE mo_vertical_grid
 
       i_startblk = p_patch(jg)%cells%start_blk(2,1)
 
-      IF (p_patch(jg)%cell_type == 3) THEN
-        ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
+
+      ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-        ! Initialization to ensure that values are properly set at lateral boundaries
-        p_nh(jg)%metrics%exner_exfac(:,:,:) = exner_expol
+      ! Initialization to ensure that values are properly set at lateral boundaries
+      p_nh(jg)%metrics%exner_exfac(:,:,:) = exner_expol
 
-        z_maxslp(:,:,:)  = 0._wp
-        z_maxhgtd(:,:,:) = 0._wp
+      z_maxslp(:,:,:)  = 0._wp
+      z_maxhgtd(:,:,:) = 0._wp
 !$OMP END WORKSHARE
 
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,nblks_c
+      DO jb = i_startblk,nblks_c
 
-          CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
-                             i_startidx, i_endidx, 2)
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
+                           i_startidx, i_endidx, 2)
 
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-
-              z_maxslp(jc,jk,jb) =                                                     &
-                MAX(ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,1),jk,iblk(jc,jb,1))), &
-                    ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,2),jk,iblk(jc,jb,2))), &
-                    ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
-
-              z_maxhgtd(jc,jk,jb) =                                                  &
-                MAX(ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,1),jk,iblk(jc,jb,1)) &
-                 * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
-                    ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,2),jk,iblk(jc,jb,2)) &
-                 * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
-                    ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,3),jk,iblk(jc,jb,3)) &
-                 * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
-
-              ! Exner extrapolation reaches zero for a slope of 1/4 or a height difference of 500 m
-              ! between adjacent grid points (empirically determined values)
-              p_nh(jg)%metrics%exner_exfac(jc,jk,jb) = exner_expol * &
-                MIN(1._wp-(4._wp*z_maxslp(jc,jk,jb))**2._wp,         &
-                    1._wp-(0.002_wp*z_maxhgtd(jc,jk,jb))**2._wp)
-              p_nh(jg)%metrics%exner_exfac(jc,jk,jb) =  &
-                MAX(0._wp,p_nh(jg)%metrics%exner_exfac(jc,jk,jb))
-              ! For extremely steep slopes, going a bit behind time level nnow turned out
-              ! to further improve stability
-              IF (z_maxslp(jc,jk,jb) > 1.5_wp) &
-                p_nh(jg)%metrics%exner_exfac(jc,jk,jb) = &
-                  MAX(-1._wp/6._wp,1._wp/9._wp*(1.5_wp-z_maxslp(jc,jk,jb)))
-            ENDDO
-          ENDDO
-
-          jk = nlevp1
+        DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
-            z_maxslope = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                             ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                             ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
-                             ABS(z_ddxt_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                             ABS(z_ddxt_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                             ABS(z_ddxt_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
+            z_maxslp(jc,jk,jb) =                                                     &
+              MAX(ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,1),jk,iblk(jc,jb,1))), &
+                  ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,2),jk,iblk(jc,jb,2))), &
+                  ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
 
-            z_diff = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))                     &
-                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
-                         ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))                     &
-                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
-                         ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))                     &
-                           * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
+            z_maxhgtd(jc,jk,jb) =                                                  &
+              MAX(ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,1),jk,iblk(jc,jb,1)) &
+               * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
+                  ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,2),jk,iblk(jc,jb,2)) &
+               * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
+                  ABS(p_nh(jg)%metrics%ddxn_z_full(iidx(jc,jb,3),jk,iblk(jc,jb,3)) &
+               * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
 
-            ! Empirically determined values to ensure stability over steep slopes
-            z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp, MIN(0.25_wp,2.5e-4_wp*(z_diff-250._wp)))
-            z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
-
-            p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
-            p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = 0.5_wp + z_offctr
-            p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
-
+            ! Exner extrapolation reaches zero for a slope of 1/4 or a height difference of 500 m
+            ! between adjacent grid points (empirically determined values)
+            p_nh(jg)%metrics%exner_exfac(jc,jk,jb) = exner_expol * &
+              MIN(1._wp-(4._wp*z_maxslp(jc,jk,jb))**2._wp,         &
+                  1._wp-(0.002_wp*z_maxhgtd(jc,jk,jb))**2._wp)
+            p_nh(jg)%metrics%exner_exfac(jc,jk,jb) =  &
+              MAX(0._wp,p_nh(jg)%metrics%exner_exfac(jc,jk,jb))
+            ! For extremely steep slopes, going a bit behind time level nnow turned out
+            ! to further improve stability
+            IF (z_maxslp(jc,jk,jb) > 1.5_wp) &
+              p_nh(jg)%metrics%exner_exfac(jc,jk,jb) = &
+                MAX(-1._wp/6._wp,1._wp/9._wp*(1.5_wp-z_maxslp(jc,jk,jb)))
           ENDDO
+        ENDDO
 
-          ! Search for grid points with particularly strong squeezing of the low-level coordinate levels over
-          ! local peaks - these may also need increased offcentering in order to avoid sound-wave instabilities
-          DO jk = MAX(10,nlev-8),nlev
-            jk1 = jk + p_patch(jg)%nshift_total
-            DO jc = i_startidx, i_endidx
-              ! squeezing ratio with respect to nominal layer thickness
-              z_diff = (p_nh(jg)%metrics%z_ifc(jc,jk,jb)-p_nh(jg)%metrics%z_ifc(jc,jk+1,jb))/(vct_a(jk1)-vct_a(jk1+1))
-              IF (z_diff < 0.6_wp) THEN
-                p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
-                p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
-                p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
-              ENDIF
-            ENDDO
-          ENDDO
+        jk = nlevp1
+        DO jc = i_startidx, i_endidx
+
+          z_maxslope = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
+                           ABS(z_ddxt_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxt_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxt_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
+
+          z_diff = MAX(ABS(z_ddxn_z_half(iidx(jc,jb,1),jk,iblk(jc,jb,1))                     &
+                         * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
+                       ABS(z_ddxn_z_half(iidx(jc,jb,2),jk,iblk(jc,jb,2))                     &
+                         * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
+                       ABS(z_ddxn_z_half(iidx(jc,jb,3),jk,iblk(jc,jb,3))                     &
+                         * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
+
+          ! Empirically determined values to ensure stability over steep slopes
+          z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp, MIN(0.25_wp,2.5e-4_wp*(z_diff-250._wp)))
+          z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
+
+          p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
+          p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = 0.5_wp + z_offctr
+          p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
 
         ENDDO
+
+        ! Search for grid points with particularly strong squeezing of the low-level coordinate levels over
+        ! local peaks - these may also need increased offcentering in order to avoid sound-wave instabilities
+        DO jk = MAX(10,nlev-8),nlev
+          jk1 = jk + p_patch(jg)%nshift_total
+          DO jc = i_startidx, i_endidx
+            ! squeezing ratio with respect to nominal layer thickness
+            z_diff = (p_nh(jg)%metrics%z_ifc(jc,jk,jb)-p_nh(jg)%metrics%z_ifc(jc,jk+1,jb))/(vct_a(jk1)-vct_a(jk1+1))
+            IF (z_diff < 0.6_wp) THEN
+              p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
+              p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+              p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+            ENDIF
+          ENDDO
+        ENDDO
+
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-      ENDIF
+
 
       DEALLOCATE(z_ddxn_z_half,z_ddxt_z_half)
 
-      ! The remaining computations are needed for the triangular grid only
-      ! once the initialization in mo_nh_testcases is properly rewritten for hexagons
-      IF (p_patch(jg)%cell_type == 6) CYCLE
 
       ! Index lists for boundary nudging (including halo cells so that no 
       ! sync is needed afterwards; halo edges are excluded, however, because
@@ -977,7 +843,7 @@ MODULE mo_vertical_grid
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
+      IF (msg_level >= 10) THEN
         z_offctr = MAXVAL(p_nh(jg)%metrics%vwind_impl_wgt,MASK=p_patch(jg)%cells%decomp_info%owner_mask(:,:))
         z_offctr = global_max(z_offctr) - 0.5_wp
         DO jk = 1, nlev
@@ -1031,135 +897,132 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_aux_c,z_aux_e)
 
-      IF (p_patch(jg)%cell_type == 3) THEN
 
-      ! Reference atmosphere fields for triangular code
+      ! Reference atmosphere fields
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk, z_help, z_temp, z_aux1, z_aux2) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1,nblks_c
-          IF (jb /= nblks_c) THEN
-             nlen = nproma
-          ELSE
-             nlen = npromz_c
-          ENDIF
-
-          ! Reference surface temperature
-          p_nh(jg)%metrics%tsfc_ref(1:nlen,jb) = (t0sl_bg-del_t_bg)+del_t_bg*   &
-            & EXP(-p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb)/h_scal_bg)
-
-          DO jk = 1, nlev
-            ! Reference pressure, full level mass points
-            z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
-              &  *LOG((EXP(p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)      &
-              &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
-
-            ! Reference Exner pressure, full level mass points
-            p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
-
-            ! Reference temperature, full level mass points
-            z_temp(1:nlen) = (t0sl_bg-del_t_bg)+del_t_bg*        &
-              & EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)
-
-            ! Reference density, full level mass points
-            p_nh(jg)%metrics%rho_ref_mc(1:nlen,jk,jb) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
-
-            ! Reference Potential temperature, full level mass points
-            p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb) = z_temp(1:nlen) &
-              & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
-          ENDDO
-
-          IF (igradp_method <= 3) THEN
-            DO jk = 1, nlev
-              ! First vertical derivative of reference Exner pressure, full level mass points,
-              ! divided by theta_ref
-              ! Note: for computational efficiency, this field is in addition divided by
-              ! the vertical layer thickness
-              p_nh(jg)%metrics%d2dexdz2_fac1_mc(1:nlen,jk,jb)   =             &
-                & -grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**2)* &
-                & p_nh(jg)%metrics%inv_ddqz_z_full(1:nlen,jk,jb)
-
-              ! Vertical derivative of d_exner_dz/theta_ref, full level mass points
-              p_nh(jg)%metrics%d2dexdz2_fac2_mc(1:nlen,jk,jb)   =                            &
-                &  2._wp*grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**3)*(grav/cpd &
-                & -del_t_bg/h_scal_bg*EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg))   &
-                & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
-            ENDDO
-          ENDIF
-
-          DO jk = 1, nlevp1
-            ! Reference pressure, half level mass points
-            z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
-              &  *LOG((EXP(p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)/h_scal_bg)      &
-              &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
-
-            ! Reference Exner pressure, half level mass points
-            z_help(1:nlen) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
-
-            ! Reference temperature, half level mass points
-            z_temp(1:nlen) = (t0sl_bg-del_t_bg)+del_t_bg*          &
-              & EXP(-p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)/h_scal_bg)
-
-            ! Reference density, half level mass points
-            z_aux2(1:nlen) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
-
-            ! Reference Potential temperature, half level mass points
-            p_nh(jg)%metrics%theta_ref_ic(1:nlen,jk,jb) = z_temp(1:nlen)/z_help(1:nlen)
-
-            ! First vertical derivative of reference Exner pressure, half level mass points
-            p_nh(jg)%metrics%d_exner_dz_ref_ic(1:nlen,jk,jb)   =       &
-              & -grav/cpd/p_nh(jg)%metrics%theta_ref_ic(1:nlen,jk,jb)
-
-          ENDDO
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-        ALLOCATE(z_me(nproma,nlev,p_patch(jg)%nblks_e))
-        IF (p_test_run) THEN
-          z_me = 0._wp
+      DO jb = 1,nblks_c
+        IF (jb /= nblks_c) THEN
+           nlen = nproma
+        ELSE
+           nlen = npromz_c
         ENDIF
 
-        ! Compute geometric height at edge points
-        CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, p_patch(jg), &
-               p_int(jg)%c_lin_e, z_me)
+        ! Reference surface temperature
+        p_nh(jg)%metrics%tsfc_ref(1:nlen,jb) = (t0sl_bg-del_t_bg)+del_t_bg*   &
+          & EXP(-p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb)/h_scal_bg)
 
-        CALL sync_patch_array(SYNC_E,p_patch(jg),z_me)
+        DO jk = 1, nlev
+          ! Reference pressure, full level mass points
+          z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
+            &  *LOG((EXP(p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)      &
+            &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
 
-        i_startblk = p_patch(jg)%edges%start_blk(2,1)
+          ! Reference Exner pressure, full level mass points
+          p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
 
-        ! Reference fields on edges
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je, z_aux1, z_temp) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,nblks_e
+          ! Reference temperature, full level mass points
+          z_temp(1:nlen) = (t0sl_bg-del_t_bg)+del_t_bg*        &
+            & EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)
 
-          CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
-                             i_startidx, i_endidx, 2)
+          ! Reference density, full level mass points
+          p_nh(jg)%metrics%rho_ref_mc(1:nlen,jk,jb) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
 
+          ! Reference Potential temperature, full level mass points
+          p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb) = z_temp(1:nlen) &
+            & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
+        ENDDO
+
+        IF (igradp_method <= 3) THEN
           DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
+            ! First vertical derivative of reference Exner pressure, full level mass points,
+            ! divided by theta_ref
+            ! Note: for computational efficiency, this field is in addition divided by
+            ! the vertical layer thickness
+            p_nh(jg)%metrics%d2dexdz2_fac1_mc(1:nlen,jk,jb)   =             &
+              & -grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**2)* &
+              & p_nh(jg)%metrics%inv_ddqz_z_full(1:nlen,jk,jb)
 
-              ! Reference pressure, full level edge points
-              z_aux1(je) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
-                &  *LOG((EXP(z_me(je,jk,jb)/h_scal_bg)      &
-                &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
-
-              ! Reference temperature, full level edge points
-              z_temp(je) = (t0sl_bg-del_t_bg)+del_t_bg*        &
-                & EXP(-z_me(je,jk,jb)/h_scal_bg)
-
-              ! Reference density, full level edge points
-              p_nh(jg)%metrics%rho_ref_me(je,jk,jb) = z_aux1(je)/(rd*z_temp(je))
-
-              ! Reference Potential temperature, full level edge points
-              p_nh(jg)%metrics%theta_ref_me(je,jk,jb) = z_temp(je)/((z_aux1(je)/p0ref)**rd_o_cpd)
-            ENDDO
+            ! Vertical derivative of d_exner_dz/theta_ref, full level mass points
+            p_nh(jg)%metrics%d2dexdz2_fac2_mc(1:nlen,jk,jb)   =                            &
+              &  2._wp*grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**3)*(grav/cpd &
+              & -del_t_bg/h_scal_bg*EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg))   &
+              & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
           ENDDO
+        ENDIF
+
+        DO jk = 1, nlevp1
+          ! Reference pressure, half level mass points
+          z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
+            &  *LOG((EXP(p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)/h_scal_bg)      &
+            &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
+
+          ! Reference Exner pressure, half level mass points
+          z_help(1:nlen) = (z_aux1(1:nlen)/p0ref)**rd_o_cpd
+
+          ! Reference temperature, half level mass points
+          z_temp(1:nlen) = (t0sl_bg-del_t_bg)+del_t_bg*          &
+            & EXP(-p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)/h_scal_bg)
+
+          ! Reference density, half level mass points
+          z_aux2(1:nlen) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
+
+          ! Reference Potential temperature, half level mass points
+          p_nh(jg)%metrics%theta_ref_ic(1:nlen,jk,jb) = z_temp(1:nlen)/z_help(1:nlen)
+
+          ! First vertical derivative of reference Exner pressure, half level mass points
+          p_nh(jg)%metrics%d_exner_dz_ref_ic(1:nlen,jk,jb)   =       &
+            & -grav/cpd/p_nh(jg)%metrics%theta_ref_ic(1:nlen,jk,jb)
 
         ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+      ALLOCATE(z_me(nproma,nlev,p_patch(jg)%nblks_e))
+      IF (p_test_run) THEN
+        z_me = 0._wp
       ENDIF
+
+      ! Compute geometric height at edge points
+      CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, p_patch(jg), &
+             p_int(jg)%c_lin_e, z_me)
+
+      CALL sync_patch_array(SYNC_E,p_patch(jg),z_me)
+
+      i_startblk = p_patch(jg)%edges%start_blk(2,1)
+
+      ! Reference fields on edges
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, je, z_aux1, z_temp) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk,nblks_e
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
+                           i_startidx, i_endidx, 2)
+
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+
+            ! Reference pressure, full level edge points
+            z_aux1(je) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
+              &  *LOG((EXP(z_me(je,jk,jb)/h_scal_bg)      &
+              &  *(t0sl_bg-del_t_bg) +del_t_bg)/t0sl_bg))
+
+            ! Reference temperature, full level edge points
+            z_temp(je) = (t0sl_bg-del_t_bg)+del_t_bg*        &
+              & EXP(-z_me(je,jk,jb)/h_scal_bg)
+
+            ! Reference density, full level edge points
+            p_nh(jg)%metrics%rho_ref_me(je,jk,jb) = z_aux1(je)/(rd*z_temp(je))
+
+            ! Reference Potential temperature, full level edge points
+            p_nh(jg)%metrics%theta_ref_me(je,jk,jb) = z_temp(je)/((z_aux1(je)/p0ref)**rd_o_cpd)
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
       ! Compute information needed for Taylor-expansion-based pressure gradient calculation
       IF (igradp_method == 1) THEN

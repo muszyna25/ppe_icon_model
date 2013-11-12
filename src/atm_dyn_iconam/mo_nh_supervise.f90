@@ -153,11 +153,7 @@ CONTAINS
     prog_rcf => nh_state(jg)%prog(ntimlev_rcf(jg))
     diag     => nh_state(jg)%diag
 
-    IF (patch(jg)%cell_type == 3) THEN
-      ptr_ekin => z_ekin
-    ELSE
-      ptr_ekin => diag%e_kin
-    ENDIF
+    ptr_ekin => z_ekin
 
     nblks_c   = patch(jg)%nblks_c
     npromz_c  = patch(jg)%npromz_c
@@ -171,21 +167,12 @@ CONTAINS
       ELSE
         nlen = npromz_c
       ENDIF
-      IF (patch(jg)%cell_type == 3) THEN
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            ptr_ekin(jc,jk,jb) = diag%e_kinh(jc,jk,jb) + 0.25_wp* &
-              (prog%w(jc,jk,jb)**2 + prog%w(jc,jk+1,jb)**2)
-          ENDDO
+      DO jk = 1, nlev
+        DO jc = 1, nlen
+          ptr_ekin(jc,jk,jb) = diag%e_kinh(jc,jk,jb) + 0.25_wp* &
+            (prog%w(jc,jk,jb)**2 + prog%w(jc,jk+1,jb)**2)
         ENDDO
-      ELSE
-        DO jk = 1, nlev
-          ptr_ekin(1:nlen,jk,jb) = diag%e_kinh(1:nlen,jk,jb) +0.25_wp &
-            &*(prog%w(1:nlen,jk  ,jb)**2*nh_state(jg)%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
-            & +prog%w(1:nlen,jk+1,jb)**2*nh_state(jg)%metrics%ddqz_z_half(1:nlen,jk+1,jb))&
-            & /nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)
-        ENDDO
-      ENDIF
+      ENDDO
     ENDDO
 
 #ifdef NOMPI
