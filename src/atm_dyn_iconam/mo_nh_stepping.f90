@@ -78,13 +78,11 @@ MODULE mo_nh_stepping
   USE mo_model_domain,        ONLY: p_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                               n_dom_start, lredgrid_phys, start_time, end_time, &
-    &                               global_cell_type
+    &                               n_dom_start, lredgrid_phys, start_time, end_time
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
-  USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh, print_maxwinds
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -108,13 +106,12 @@ MODULE mo_nh_stepping
     &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int, MODE_DWDANA, MODIS, icosmo
-  USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
+  USE mo_nh_diffusion,        ONLY: diffusion
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
     &                               proc_split, push_glob_comm, pop_glob_comm,       &
     &                               get_my_mpi_all_id
@@ -643,17 +640,12 @@ MODULE mo_nh_stepping
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
-    IF ((global_cell_type == 3) .AND. l_supervise_total_integrals) THEN
+    IF (l_supervise_total_integrals) THEN
 #ifdef NOMPI
       IF (my_process_is_mpi_all_seq()) &
 #endif
         CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
-    ENDIF
-
-    IF ((global_cell_type == 6) .AND. l_supervise_total_integrals) THEN
-      CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,     &
-           &                             nnow(1:n_dom),  nnow_rcf(1:n_dom), jstep == (nsteps+jstep0) )
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -1008,101 +1000,73 @@ MODULE mo_nh_stepping
           ENDIF
         ENDIF
 
-        IF (p_patch(jg)%cell_type == 3) THEN
 
-          IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
-            ! apply boundary nudging if feedback is turned off and in limited-area mode
-            l_bdy_nudge = .TRUE. 
-          ELSE
-            l_bdy_nudge = .FALSE.
-          ENDIF
+        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
+          ! apply boundary nudging if feedback is turned off and in limited-area mode
+          l_bdy_nudge = .TRUE. 
+        ELSE
+          l_bdy_nudge = .FALSE.
+        ENDIF
 
-          ! index of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
-          idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
-          IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
+        ! index of dynamics time step within a large time step (ranges from 1 to iadv_rcf)
+        idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
+        IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
 
-          IF (iforcing == inwp .AND. lclean_mflx) THEN
-            l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
-          ELSE                   ! step after a physics call
-            l_recompute = .FALSE.
-          ENDIF
+        IF (iforcing == inwp .AND. lclean_mflx) THEN
+          l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
+        ELSE                   ! step after a physics call
+          l_recompute = .FALSE.
+        ENDIF
 
-          IF (diffusion_config(jg)%lhdiff_vn .AND.                     &
-            (.NOT. lhdiff_rcf .OR. lhdiff_rcf .AND. lstep_adv(jg))) THEN
-            lcall_hdiff = .TRUE.
-          ELSE
-            lcall_hdiff = .FALSE.
-          ENDIF
+        IF (diffusion_config(jg)%lhdiff_vn .AND.                     &
+          (.NOT. lhdiff_rcf .OR. lhdiff_rcf .AND. lstep_adv(jg))) THEN
+          lcall_hdiff = .TRUE.
+        ELSE
+          lcall_hdiff = .FALSE.
+        ENDIF
 
-          IF (p_patch(jg)%n_childdom > 0 .AND. (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 &
-              .OR. jg > 1 .AND. MOD(jstep,iadv_rcf) == 1) ) THEN
-            lsave_mflx = .TRUE.
-          ELSE
-            lsave_mflx = .FALSE.
-          ENDIF
+        IF (p_patch(jg)%n_childdom > 0 .AND. (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 &
+            .OR. jg > 1 .AND. MOD(jstep,iadv_rcf) == 1) ) THEN
+          lsave_mflx = .TRUE.
+        ELSE
+          lsave_mflx = .FALSE.
+        ENDIF
 
-          IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
-            lprep_adv = .TRUE.
-          ELSE
-            lprep_adv = .FALSE.
-          ENDIF
+        IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
+          lprep_adv = .TRUE.
+        ELSE
+          lprep_adv = .FALSE.
+        ENDIF
 
-          lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
+        lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
 
-          ! For real-data runs, perform an extra diffusion call before the first time
-          ! step because no other filtering of the interpolated velocity field is done
-          IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-              init_mode /= MODE_DWDANA) THEN
-            CALL diffusion_tria(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,  &
-              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
-          ENDIF
+        ! For real-data runs, perform an extra diffusion call before the first time
+        ! step because no other filtering of the interpolated velocity field is done
+        IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
+            init_mode /= MODE_DWDANA) THEN
+          CALL diffusion(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,       &
+            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
+        ENDIF
 
-          IF (itype_comm == 1) THEN
+        IF (itype_comm == 1) THEN
 
-            IF (ldynamics) THEN
-              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
-                n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
-                lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
+          IF (ldynamics) THEN
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), prep_adv(jg),        &
+              n_now, n_new, linit_dyn(jg), l_recompute, lsave_mflx, lprep_adv, lstep_adv(jg),&
+              lclean_mflx, idyn_timestep, jstep-1, l_bdy_nudge, dt_loc)
             
-              IF (lcall_hdiff) &
-                CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,   &
-                  p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
-            ELSE
-#ifdef __SX__
-              CALL finish(routine, "no dynamics - for ICON SCM - not working on NEC-SX9")
-#else
-              p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
-#endif
-            ENDIF   
+            IF (lcall_hdiff) &
+              CALL diffusion(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,        &
+                p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
           ELSE
-            CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
-          ENDIF
-
-        ELSE ! hexagonal case
-
-          lfull_comp = .TRUE.  ! full set of computations in prepare_tracer required
-
-          l_predictor=.TRUE.
-          ! 1. nonlinear advection terms (know) for the predictor step
-          !-----------------------------------------------------------
-
-          CALL momentum_adv(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, n_new, &
-                            l_predictor)
-          ! 2. predictor step -> knew values
-          !---------------------------------
-          CALL divergent_modes_5band(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                                     n_new, l_predictor)
-
-          linit_dyn(jg) = .FALSE.
-          l_predictor = .FALSE.
-          ! 3. nonlinear advection terms (knew) for the main step
-          !------------------------------------------------------
-          CALL momentum_adv(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                             n_new, l_predictor)
-          ! 4. main prediction step
-          !------------------------
-          CALL divergent_modes_5band(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                                     n_new, l_predictor)
+#ifdef __SX__
+            CALL finish(routine, "no dynamics - for ICON SCM - not working on NEC-SX9")
+#else
+            p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
+#endif
+          ENDIF   
+        ELSE
+          CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
         ENDIF
 
 
@@ -1277,13 +1241,6 @@ MODULE mo_nh_stepping
 
           IF (timers_level >= 2) CALL timer_stop(timer_nudging)
           IF (ltimer)            CALL timer_stop(timer_nesting)
-        ENDIF
-
-        ! This calls 4th order diffusion for the hexagonal case
-        IF (diffusion_config(jg)%lhdiff_vn .AND. &
-          &  p_patch(jg)%cell_type == 6) THEN
-          CALL diffusion_hex(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%metrics,&
-          &                  p_patch(jg), p_int_state(jg), dt_loc)
         ENDIF
 
       ENDIF  ! itime_scheme
@@ -1684,46 +1641,29 @@ MODULE mo_nh_stepping
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       p_vn  => p_nh_state(jg)%prog(nnow(jg))%vn
-      SELECT CASE (p_patch(jg)%cell_type)
-      CASE (3)
+
         
-        CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
-                                   p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+      CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
+                                 p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
 
-        !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
-        CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
-                                                            p_nh_state(jg)%diag%div)
+      !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
+      CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
+                                                          p_nh_state(jg)%diag%div)
 
-        IF (linit) THEN
-          CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
-        ENDIF
+      IF (linit) THEN
+        CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
+      ENDIF
 
-        ! Diagnose relative vorticity on cells
-        CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
-          p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
+      ! Diagnose relative vorticity on cells
+      CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
+        p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
 
-      CASE (6)
-        CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
-                                p_nh_state(jg)%diag%u)
-        CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_north,&
-                                p_nh_state(jg)%diag%v)
-        CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
 
-        ALLOCATE(z_tmp_e(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_e))
-        CALL verts2edges_scalar(p_nh_state(jg)%diag%omega_z,p_patch(jg), &
-        &                       p_int_state(jg)%tria_aw_rhom,z_tmp_e)
-        CALL sync_patch_array(SYNC_E,p_patch(jg),z_tmp_e)
-        CALL edges2verts_scalar(z_tmp_e,p_patch(jg),p_int_state(jg)%e_1o3_v,&
-                                  p_nh_state(jg)%diag%omega_z)
-        DEALLOCATE(z_tmp_e)
-
-      END SELECT
-
-        CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
-          &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
-          &                      p_nh_state(jg)%diag,p_patch(jg),                       &
-          &                      opt_calc_temp=.TRUE.,                                  &
-          &                      opt_calc_pres=.TRUE.                                   )
+      CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
+        &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
+        &                      p_nh_state(jg)%diag,p_patch(jg),                       &
+        &                      opt_calc_temp=.TRUE.,                                  &
+        &                      opt_calc_pres=.TRUE.                                   )
 
     ENDDO ! jg-loop
 

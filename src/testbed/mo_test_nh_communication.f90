@@ -75,7 +75,6 @@ MODULE mo_test_nh_communication
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
-  USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
@@ -96,12 +95,11 @@ MODULE mo_test_nh_communication
     &                               itradheat, itsso, itsatad, itgwd, inwp, &
     &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
                                     min_rledge_int
-  USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
+  USE mo_nh_diffusion,        ONLY: diffusion
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
     &                               proc_split, push_glob_comm, pop_glob_comm
 #ifdef NOMPI

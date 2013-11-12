@@ -1123,14 +1123,12 @@ src/atm_dyn_icoham/mo_hierarchy_management_intp.f90 -text
 src/atm_dyn_icoham/mo_icoham_dyn_memory.f90 -text
 src/atm_dyn_icoham/mo_icoham_dyn_types.f90 -text
 src/atm_dyn_icoham/mo_si_correction.f90 -text
-src/atm_dyn_iconam/mo_divergent_modes.f90 -text
 src/atm_dyn_iconam/mo_ifs_coord.f90 -text
 src/atm_dyn_iconam/mo_nh_diagnose_pres_temp.f90 -text
 src/atm_dyn_iconam/mo_nh_diffusion.f90 -text
 src/atm_dyn_iconam/mo_nh_dtp_interface.f90 -text
 src/atm_dyn_iconam/mo_nh_feedback.f90 -text
 src/atm_dyn_iconam/mo_nh_held_suarez_interface.f90 -text
-src/atm_dyn_iconam/mo_nh_hex_util.f90 -text
 src/atm_dyn_iconam/mo_nh_init_nest_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_initicon.f90 -text
@@ -1148,7 +1146,6 @@ src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text
 src/atm_dyn_iconam/mo_pp_scheduler.f90 -text
 src/atm_dyn_iconam/mo_pp_tasks.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
-src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_aero_kinne.f90 -text

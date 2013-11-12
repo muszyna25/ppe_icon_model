@@ -44,7 +44,7 @@
 MODULE mo_nh_diffusion
 
   USE mo_kind,                ONLY: wp, vp
-  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area, lfeedback, grid_sphere_radius
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -54,8 +54,7 @@ MODULE mo_nh_diffusion
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar, &
                                     edges2cells_vector
-  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff, &
-                                      iadv_rcf, lhdiff_rcf
+  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, damp_height, iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer, iforcing, lvert_nest
@@ -82,20 +81,20 @@ MODULE mo_nh_diffusion
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: diffusion_tria, diffusion_hex
+  PUBLIC :: diffusion
 
   CONTAINS
 
   !>
-  !! diffusion_tria
+  !! diffusion
   !!
-  !! Computes the horizontal diffusion of velocity and temperature for the triangular grid
+  !! Computes the horizontal diffusion of velocity and temperature
   !!
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD (2010-10-13), based on an earlier
   !! version initially developed by Almut Gassmann, MPI-M
   !!
-  SUBROUTINE  diffusion_tria(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,dtime,linit)
+  SUBROUTINE  diffusion(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,dtime,linit)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
     TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -1073,392 +1072,7 @@ MODULE mo_nh_diffusion
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
 
-  END SUBROUTINE diffusion_tria
+  END SUBROUTINE diffusion
 
-
-  !>
-  !! diffusion_hex
-  !!
-  !! Computes the horizontal diffusion of velocity and temperature for the hexagonal grid
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann, MPI-M (2009-08.25)
-  !! Modification by Guenther Zaengl, DWD (2010-10-13):
-  !! Separation of diffusion routines for triangular and hexagonal grid
-  !!
-  SUBROUTINE  diffusion_hex(p_nh_prog,p_nh_metrics,p_patch,p_int,dtime)
-
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
-    TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
-    TYPE(t_nh_prog), INTENT(inout)    :: p_nh_prog  !< single nh prognostic state
-    TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    REAL(wp), INTENT(in)            :: dtime      !< time step
-
-    ! local variables
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e)   :: z_nabla4_e
-
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: kh_smag_v
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: kh_smag_c
-
-    REAL(wp):: diff_multfac_vn
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    INTEGER :: jk, jb, jc, je, jv, id
-    INTEGER :: nlev              !< number of full levels
-
-    LOGICAL :: lsmag_diffu
-
-    ! For Smagorinski diffusion on hexagonal model
-    REAL(wp) :: z_rho_v(nproma,p_patch%nlev,p_patch%nblks_v), &
-    &           z_rho_e(nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_shear_def_1 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_shear_def_2 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_strain_def_1(nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_strain_def_2(nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_fric_heat_c1(nproma,p_patch%nlev,p_patch%nblks_c), &
-    &           z_fric_heat_v (nproma,p_patch%nlev,p_patch%nblks_v), &
-    &           z_fric_heat_c (nproma,p_patch%nlev,p_patch%nblks_c), &
-    &           z_turb_flx_c1 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_turb_flx_c2 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_turb_flx_v1 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_turb_flx_v2 (nproma,p_patch%nlev,p_patch%nblks_e), &
-    &           z_old_rth(nproma)
-    REAL(wp) :: zhelp, z_mean_area_edge
-    INTEGER, POINTER :: ih1i(:,:,:), ih2i(:,:,:), ih1b(:,:,:), ih2b(:,:,:)
-    INTEGER, POINTER :: it1i(:,:,:), it2i(:,:,:), it1b(:,:,:), it2b(:,:,:)
-    INTEGER, POINTER :: ici (:,:,:), ivi (:,:,:), icb (:,:,:), ivb (:,:,:)
-    INTEGER, POINTER :: icei(:,:,:), ivei(:,:,:), iceb(:,:,:), iveb(:,:,:)
-    INTEGER :: jg      !< patch ID
-    REAL(wp) :: sphere_radius_squared
-
-    !-----------------------------------------------------------------------
-    sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
-    !--------------------------------------------------------------------------
-
-    ! get patch ID
-    jg = p_patch%id
-
-    IF( diffusion_config(jg)%hdiff_order == 3) THEN
-      lsmag_diffu = .TRUE.
-    ELSE
-      lsmag_diffu = .FALSE.
-    ENDIF
-
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    id         = p_patch%id
-
-    ! number of vertical levels
-    nlev = p_patch%nlev
-
-    diff_multfac_vn = diffusion_config(id)%k4*3._wp
-
-    IF (.NOT. lsmag_diffu) THEN
-      CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e, opt_rlstart=7 )
-
-      i_startblk = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-      i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_e+1)
-
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-            p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  -    &
-              diff_multfac_vn * z_nabla4_e(je,jk,jb) * &
-              p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn)
-
-    ELSE
-    ! Smagorinski diffusion for hexagonal model
-    !------------------------------------------
-
-      ! a) mean area edge
-      z_mean_area_edge=8.0_wp*pi*sphere_radius_squared/REAL(p_patch%n_patch_edges_g,wp)
-
-      ! b) compute density at vertices and edges
-      CALL cells2verts_scalar(p_nh_prog%rho, p_patch, p_int%cells_aw_verts, z_rho_v)
-      CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, z_rho_e)
-
-      ! c) abbreviate indices
-      ici => p_patch%edges%cell_idx
-      icb => p_patch%edges%cell_blk
-      ivi => p_patch%edges%vertex_idx
-      ivb => p_patch%edges%vertex_blk
-      it1i => p_int%dir_gradt_i1
-      it2i => p_int%dir_gradt_i2
-      it1b => p_int%dir_gradt_b1
-      it2b => p_int%dir_gradt_b2
-      ih1i => p_int%dir_gradh_i1
-      ih2i => p_int%dir_gradh_i2
-      ih1b => p_int%dir_gradh_b1
-      ih2b => p_int%dir_gradh_b2
-      icei => p_patch%cells%edge_idx
-      iceb => p_patch%cells%edge_blk
-      ivei => p_patch%verts%edge_idx
-      iveb => p_patch%verts%edge_blk
-
-!$OMP PARALLEL
-
-      IF (p_test_run) THEN
-!$OMP WORKSHARE
-        z_turb_flx_v1(:,:,:) = 0.0_wp
-        z_turb_flx_v2(:,:,:) = 0.0_wp
-        kh_smag_e(:,:,:)     = 0.0_wp
-!$OMP END WORKSHARE
-      ENDIF
-
-      i_startblk = p_patch%edges%start_blk(3,1)
-      i_endblk   = p_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                  i_startidx, i_endidx, 3, min_rledge)
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = 1,nlev
-#else
-        DO jk = 1,nlev 
-          DO je = i_startidx, i_endidx
-#endif
-            ! d) Shear deformation at vertices
-            z_shear_def_1(je,jk,jb) = &
-            &(p_int%shear_def_v1(1,je,jb)*p_nh_prog%vn(it1i(1,je,jb),jk,it1b(1,je,jb)) &
-            &+p_int%shear_def_v1(2,je,jb)*p_nh_prog%vn(it1i(2,je,jb),jk,it1b(2,je,jb)) &
-            &+p_int%shear_def_v1(3,je,jb)*p_nh_prog%vn(it1i(3,je,jb),jk,it1b(3,je,jb)) &
-            &+p_int%shear_def_v1(4,je,jb)*p_nh_prog%vn(it1i(4,je,jb),jk,it1b(4,je,jb)) &
-            &+p_int%shear_def_v1(5,je,jb)*p_nh_prog%vn(it1i(5,je,jb),jk,it1b(5,je,jb)) &
-            &+p_int%shear_def_v1(6,je,jb)*p_nh_prog%vn(it1i(6,je,jb),jk,it1b(6,je,jb)) &
-            &+p_int%shear_def_v1(7,je,jb)*p_nh_prog%vn(it1i(7,je,jb),jk,it1b(7,je,jb)) &
-            &+p_int%shear_def_v1(8,je,jb)*p_nh_prog%vn(it1i(8,je,jb),jk,it1b(8,je,jb)) &
-            &+p_int%shear_def_v1(9,je,jb)*p_nh_prog%vn(it1i(9,je,jb),jk,it1b(9,je,jb)) )
-            z_shear_def_2(je,jk,jb) = &
-            &(p_int%shear_def_v2(1,je,jb)*p_nh_prog%vn(it2i(1,je,jb),jk,it2b(1,je,jb)) &
-            &+p_int%shear_def_v2(2,je,jb)*p_nh_prog%vn(it2i(2,je,jb),jk,it2b(2,je,jb)) &
-            &+p_int%shear_def_v2(3,je,jb)*p_nh_prog%vn(it2i(3,je,jb),jk,it2b(3,je,jb)) &
-            &+p_int%shear_def_v2(4,je,jb)*p_nh_prog%vn(it2i(4,je,jb),jk,it2b(4,je,jb)) &
-            &+p_int%shear_def_v2(5,je,jb)*p_nh_prog%vn(it2i(5,je,jb),jk,it2b(5,je,jb)) &
-            &+p_int%shear_def_v2(6,je,jb)*p_nh_prog%vn(it2i(6,je,jb),jk,it2b(6,je,jb)) &
-            &+p_int%shear_def_v2(7,je,jb)*p_nh_prog%vn(it2i(7,je,jb),jk,it2b(7,je,jb)) &
-            &+p_int%shear_def_v2(8,je,jb)*p_nh_prog%vn(it2i(8,je,jb),jk,it2b(8,je,jb)) &
-            &+p_int%shear_def_v2(9,je,jb)*p_nh_prog%vn(it2i(9,je,jb),jk,it2b(9,je,jb)) )
-            ! e) Strain deformation at centers
-            z_strain_def_1(je,jk,jb) = &
-            &(p_int%strain_def_c1(1,je,jb)*p_nh_prog%vn(ih1i(1,je,jb),jk,ih1b(1,je,jb)) &
-            &+p_int%strain_def_c1(2,je,jb)*p_nh_prog%vn(ih1i(2,je,jb),jk,ih1b(2,je,jb)) &
-            &+p_int%strain_def_c1(3,je,jb)*p_nh_prog%vn(ih1i(3,je,jb),jk,ih1b(3,je,jb)) &
-            &+p_int%strain_def_c1(4,je,jb)*p_nh_prog%vn(ih1i(4,je,jb),jk,ih1b(4,je,jb)) &
-            &+p_int%strain_def_c1(5,je,jb)*p_nh_prog%vn(ih1i(5,je,jb),jk,ih1b(5,je,jb)) &
-            &+p_int%strain_def_c1(6,je,jb)*p_nh_prog%vn(ih1i(6,je,jb),jk,ih1b(6,je,jb)) )
-            z_strain_def_2(je,jk,jb) = &
-            &(p_int%strain_def_c2(1,je,jb)*p_nh_prog%vn(ih2i(1,je,jb),jk,ih2b(1,je,jb)) &
-            &+p_int%strain_def_c2(2,je,jb)*p_nh_prog%vn(ih2i(2,je,jb),jk,ih2b(2,je,jb)) &
-            &+p_int%strain_def_c2(3,je,jb)*p_nh_prog%vn(ih2i(3,je,jb),jk,ih2b(3,je,jb)) &
-            &+p_int%strain_def_c2(4,je,jb)*p_nh_prog%vn(ih2i(4,je,jb),jk,ih2b(4,je,jb)) &
-            &+p_int%strain_def_c2(5,je,jb)*p_nh_prog%vn(ih2i(5,je,jb),jk,ih2b(5,je,jb)) &
-            &+p_int%strain_def_c2(6,je,jb)*p_nh_prog%vn(ih2i(6,je,jb),jk,ih2b(6,je,jb)) )
-            ! f) Diffusion coefficient at edge
-            !kh_smag_e(je,jk,jb) = diffusion_config(jg)%hdiff_smag_fac &
-            !  &                 * z_mean_area_edge
-            !                      (Gibt grosse Koeffizienten am Pentagon)
-            ! Erst quadrieren und dann mitteln ist besser.
-            kh_smag_e(je,jk,jb) = diffusion_config(jg)%hdiff_smag_fac               &
-            & *p_patch%edges%area_edge(je,jb)                                       &
-            & *SQRT(0.5_wp*(z_strain_def_1(je,jk,jb)**2+z_strain_def_2(je,jk,jb)**2)&
-            & +(p_patch%edges%edge_vert_length(je,jb,1)*(z_shear_def_1(je,jk,jb)**2) &
-            &  +p_patch%edges%edge_vert_length(je,jb,2)*(z_shear_def_2(je,jk,jb)**2))&
-            &  /p_patch%edges%primal_edge_length(je,jb) ) + k2_updamp_coeff*0.5_wp*(1.0_wp-&
-            & COS(pi*MAX(0.0_wp,(p_nh_metrics%z_mc_e(je,jk,jb)-damp_height(1)))&
-            &                  /(p_nh_metrics%z_mc_e(je, 1,jb)-damp_height(1))))
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      CALL sync_patch_array(SYNC_E, p_patch, kh_smag_e)
-
-      ! g) average the diffusion coefficient to the centers and vertices
-      ! to centers
-      CALL edges2cells_scalar(kh_smag_e, p_patch, p_int%e_aw_c, kh_smag_c)
-      ! to vertices
-      CALL edges2verts_scalar(kh_smag_e, p_patch, p_int%e_aw_v, kh_smag_v)
-      CALL verts2edges_scalar(kh_smag_v, p_patch, p_int%tria_aw_rhom, kh_smag_e)
-      CALL sync_patch_array(SYNC_E, p_patch, kh_smag_e)
-      CALL edges2verts_scalar(kh_smag_e, p_patch, p_int%e_1o3_v, kh_smag_v)
-
-!$OMP PARALLEL
-      i_startblk = p_patch%edges%start_blk(3,1)
-      i_endblk   = p_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                  i_startidx, i_endidx, 3, min_rledge)
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = 1,nlev
-#else
-        DO jk = 1,nlev 
-          DO je = i_startidx, i_endidx
-#endif
-            ! h) turbulent fluxes
-            z_turb_flx_c1(je,jk,jb) = &
-            &    -p_nh_prog%rho(ici(je,jb,1),jk,icb(je,jb,1))  &
-            &    *kh_smag_c(ici(je,jb,1),jk,icb(je,jb,1))      &
-            &    *z_strain_def_1(je,jk,jb)
-            z_turb_flx_c2(je,jk,jb) = &
-            &    -p_nh_prog%rho(ici(je,jb,2),jk,icb(je,jb,2))  &
-            &    *kh_smag_c(ici(je,jb,2),jk,icb(je,jb,2))      &
-            &    *z_strain_def_2(je,jk,jb)
-            z_turb_flx_v1(je,jk,jb) = &
-            &    -z_rho_v(ivi(je,jb,1),jk,ivb(je,jb,1))        &
-            &    *kh_smag_v(ivi(je,jb,1),jk,ivb(je,jb,1))      &
-            &    *z_shear_def_1(je,jk,jb)
-            z_turb_flx_v2(je,jk,jb) = &
-            &    -z_rho_v(ivi(je,jb,2),jk,ivb(je,jb,2))        &
-            &    *kh_smag_v(ivi(je,jb,2),jk,ivb(je,jb,2))      &
-            &    *z_shear_def_2(je,jk,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      IF (diffusion_config(jg)%lhdiff_temp) THEN
-        CALL sync_patch_array(SYNC_E, p_patch, z_turb_flx_v1)
-        CALL sync_patch_array(SYNC_E, p_patch, z_turb_flx_v2)
-
-        i_startblk = p_patch%cells%start_blk(2,1)
-        i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,je,zhelp,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                  i_startidx, i_endidx, 2, min_rlcell)
-          z_fric_heat_c(:,:,jb)=0.0_wp
-          DO je = 1, 6
-            DO jk = 1, nlev
-              DO jc = i_startidx,i_endidx
-
-                IF (je > p_patch%cells%num_edges(jc,jb)) CYCLE
-
-                zhelp = p_patch%edges%system_orientation(icei(jc,jb,je),iceb(jc,jb,je)) &
-                &      *p_patch%cells%edge_orientation(jc,jb,je)
-
-                ! i) frictional heating at centers
-                z_fric_heat_c(jc,jk,jb) = z_fric_heat_c(jc,jk,jb)                        &
-                &-0.5_wp*((zhelp+1.0_wp)*z_turb_flx_c1(icei(jc,jb,je),jk,iceb(jc,jb,je)) &
-                &        -(zhelp-1.0_wp)*z_turb_flx_c2(icei(jc,jb,je),jk,iceb(jc,jb,je)))&
-                &*p_nh_prog%vn(icei(jc,jb,je),jk,iceb(jc,jb,je))*p_int%geofac_div(jc,je,jb)
-
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDDO
-!$OMP END DO
-        i_startblk = p_patch%verts%start_blk(2,1)
-        i_endblk   = p_patch%verts%end_blk(min_rlvert,1)
-!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-          CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-          &                  i_startidx, i_endidx, 2, min_rlvert)
-#ifdef __LOOP_EXCHANGE
-          DO jv = i_startidx, i_endidx
-            DO jk = 1,nlev
-#else
-          DO jk = 1,nlev 
-            DO jv = i_startidx, i_endidx
-#endif
-              ! j) frictional heating at vertices
-              z_fric_heat_v(jv,jk,jb) = 0.5_wp* (&
-              & ((p_patch%verts%edge_orientation(jv,jb,1)+1.0_wp) &
-              &  *z_turb_flx_v1(ivei(jv,jb,1),jk,iveb(jv,jb,1))    &
-              & -(p_patch%verts%edge_orientation(jv,jb,1)-1.0_wp) &
-              &  *z_turb_flx_v2(ivei(jv,jb,1),jk,iveb(jv,jb,1)))   &
-              &*p_nh_prog%vn(ivei(jv,jb,1),jk,iveb(jv,jb,1))*p_int%geofac_rot(jv,1,jb) &
-              &+((p_patch%verts%edge_orientation(jv,jb,2)+1.0_wp) &
-              &  *z_turb_flx_v1(ivei(jv,jb,2),jk,iveb(jv,jb,2))    &
-              & -(p_patch%verts%edge_orientation(jv,jb,2)-1.0_wp) &
-              &  *z_turb_flx_v2(ivei(jv,jb,2),jk,iveb(jv,jb,2)))   &
-              &*p_nh_prog%vn(ivei(jv,jb,2),jk,iveb(jv,jb,2))*p_int%geofac_rot(jv,2,jb) &
-              &+((p_patch%verts%edge_orientation(jv,jb,3)+1.0_wp) &
-              &  *z_turb_flx_v1(ivei(jv,jb,3),jk,iveb(jv,jb,3))    &
-              & -(p_patch%verts%edge_orientation(jv,jb,3)-1.0_wp) &
-              &  *z_turb_flx_v2(ivei(jv,jb,3),jk,iveb(jv,jb,3)))   &
-              &*p_nh_prog%vn(ivei(jv,jb,3),jk,iveb(jv,jb,3))*p_int%geofac_rot(jv,3,jb))
-
-            ENDDO
-          ENDDO
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      ENDIF
-
-      i_startblk = p_patch%edges%start_blk(3,1)
-      i_endblk   = p_patch%edges%end_blk(min_rledge,1)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                  i_startidx, i_endidx, 3, min_rledge)
-        DO jk = 1, nlev
-          DO je = i_startidx,i_endidx
-            ! k) Tendencies to the velocity components
-            p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb) - dtime  &
-            & *((z_turb_flx_c2(je,jk,jb)- z_turb_flx_c1(je,jk,jb)) &
-            &   *p_patch%edges%inv_dual_edge_length(je,jb)    &
-            &   *p_patch%edges%system_orientation(je,jb)      &
-            &  +(z_turb_flx_v2(je,jk,jb)- z_turb_flx_v1(je,jk,jb)) &
-            &   *p_patch%edges%inv_primal_edge_length(je,jb)  &
-            &  )/z_rho_e(je,jk,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn )
-
-      IF(diffusion_config(jg)%lhdiff_temp) THEN
-        ! l) frictional heating at cells averaged from vertices
-        CALL verts2cells_scalar(z_fric_heat_v, p_patch, p_int%verts_aw_cells, z_fric_heat_c1)
-        i_startblk = p_patch%cells%start_blk(2,1)
-        i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,z_old_rth,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                  i_startidx, i_endidx, 2, min_rlcell)
-          DO jk = 1, nlev
-            ! k) update new rho theta and Exner pressure
-            z_old_rth(i_startidx:i_endidx) = p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb)
-            p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb) = &
-            & p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb) &
-            & + dtime/cpd/p_nh_prog%exner(i_startidx:i_endidx,jk,jb) &
-            & *(z_fric_heat_c(i_startidx:i_endidx,jk,jb)  &
-            &  +z_fric_heat_c1(i_startidx:i_endidx,jk,jb))/p_nh_prog%rho(i_startidx:i_endidx,jk,jb)
-            p_nh_prog%exner(i_startidx:i_endidx,jk,jb) = &
-            & p_nh_prog%exner(i_startidx:i_endidx,jk,jb) &
-            & *(1.0_wp+(p_nh_prog%theta_v(i_startidx:i_endidx,jk,jb)&
-            & /z_old_rth(i_startidx:i_endidx)-1.0_wp)/cvd_o_rd)
-          ENDDO
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%exner,p_nh_prog%theta_v)
-      ENDIF
-    ENDIF
-
-  END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
