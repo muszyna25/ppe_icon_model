@@ -1247,7 +1247,6 @@ src/atm_phy_nwp/mo_nwp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_sfc_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turbdiff_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turbtrans_interface.f90 -text
-src/atm_phy_nwp/mo_nwp_vdiff_driver.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
