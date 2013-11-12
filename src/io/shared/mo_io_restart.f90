@@ -31,14 +31,17 @@ MODULE mo_io_restart
   USE mo_io_config,             ONLY: out_expname
   USE mo_math_utilities,        ONLY: set_zlev
 
+  USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
+
 #ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
-  USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
 #endif
+#ifndef __NO_ICON_OCEAN__
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m
+#endif
 
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
 #ifndef NOMPI
