@@ -839,7 +839,6 @@ CONTAINS
                      & ztkevn (:,:)                     )! out, for "vdiff_up"
       ENDIF ! ljsbach
       IF (ltimer) CALL timer_stop(timer_vdiff)
-    END IF !lvdiff
 
     ! 5.4 Surface processes that provide time-dependent lower boundary
     !     condition for wind, temperature, tracer concentraion, etc.
@@ -995,7 +994,6 @@ CONTAINS
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
 
-    IF (phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
       CALL vdiff_up( vdiff_config%lsfc_heat_flux,     &! in
