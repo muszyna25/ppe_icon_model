@@ -80,7 +80,8 @@ restartSemaphoreFilename='isRestartRun.sem'
 #AUTOMATIC_RESTART_SETUP:
 if [ -f ${restartSemaphoreFilename} ]; then
   restart=.true.
-  [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
+  #  do not delete switch-file, to enable restart after unintended abort
+  #[[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
 fi
 #END AUTOMATIC_RESTART_SETUP
 #
