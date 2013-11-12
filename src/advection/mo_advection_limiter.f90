@@ -653,7 +653,7 @@ CONTAINS
       &  opt_elev
 
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
-      &  z_mflx(nproma,ptr_patch%nlev,ptr_patch%cell_type) !< [kg m^-3]
+      &  z_mflx(nproma,ptr_patch%nlev,3) !< [kg m^-3]
 
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
@@ -721,164 +721,80 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
 
-    SELECT CASE (ptr_patch%cell_type)
 
-    CASE(3)
+    ! Additional initialization of lateral boundary points is needed for limited-area mode
+    IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
 
-      ! Additional initialization of lateral boundary points is needed for limited-area mode
-      IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
-
-        i_startblk   = ptr_patch%cells%start_blk(1,1)
-        i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
+      i_startblk   = ptr_patch%cells%start_blk(1,1)
+      i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
 
 !$OMP WORKSHARE
-        r_m(:,:,i_startblk:i_endblk) = 0._wp
+      r_m(:,:,i_startblk:i_endblk) = 0._wp
 !$OMP END WORKSHARE
-      ENDIF
+    ENDIF
 
-      i_rlstart_c = grf_bdywidth_c 
-      i_rlend_c   = min_rlcell_int
-      i_startblk  = ptr_patch%cells%start_blk(i_rlstart_c,1)
-      i_endblk    = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
+    i_rlstart_c = grf_bdywidth_c 
+    i_rlend_c   = min_rlcell_int
+    i_startblk  = ptr_patch%cells%start_blk(i_rlstart_c,1)
+    i_endblk    = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-      !
-      ! 1. Reformulate all fluxes in terms of the total mass [kg m^-3]
-      !    that crosses each of the CV-edges and store them in a cell-based structure.
-      !
-      !    z_mflx > 0: outward
-      !    z_mflx < 0: inward
-      !
+    !
+    ! 1. Reformulate all fluxes in terms of the total mass [kg m^-3]
+    !    that crosses each of the CV-edges and store them in a cell-based structure.
+    !
+    !    z_mflx > 0: outward
+    !    z_mflx < 0: inward
+    !
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
-                           i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
+                         i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
 #ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
 #else
 !CDIR UNROLL=4
-        DO jk = slev, elev
-          DO jc = i_startidx, i_endidx
-#endif
-
-            z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
-
-            z_mflx(jc,jk,2) = ptr_int%geofac_div(jc,2,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
-  
-            z_mflx(jc,jk,3) = ptr_int%geofac_div(jc,3,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
-  
-          ENDDO
-        ENDDO
-
-        !
-        ! 2. Compute total outward mass
-        !
-        DO jk = slev, elev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            ! Sum of all outgoing fluxes out of cell jc
-            p_m =  MAX(0._wp,z_mflx(jc,jk,1))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,2))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,3))
-
-            ! fraction which must multiply all fluxes out of cell jc to guarantee no
-            ! undershoot
-            ! Nominator: maximum allowable decrease of \rho q
-            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
-              &                        /(p_m + dbl_eps) )
-
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-
-    CASE(6)
-
-      i_rlstart_c = grf_bdywidth_c 
-      i_rlend_c   = min_rlcell
-      i_startblk  = ptr_patch%cells%start_blk(i_rlstart_c,1)
-      i_endblk    = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
-
-      !
-      ! 1. Reformulate all fluxes in terms of the total mass [kg m^-3]
-      !    that crosses each of the CV-edges and store them in a cell-based structure.
-      !
-      !    z_mflx > 0: outward
-      !    z_mflx < 0: inward
-      !
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
-                           i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
-
-#ifdef __LOOP_EXCHANGE
+      DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-          DO jk = slev, elev
-#else
-!CDIR UNROLL=5
-        DO jk = slev, elev
-          DO jc = i_startidx, i_endidx
 #endif
 
-            z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+          z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
-            z_mflx(jc,jk,2) = ptr_int%geofac_div(jc,2,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+          z_mflx(jc,jk,2) = ptr_int%geofac_div(jc,2,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
   
-            z_mflx(jc,jk,3) = ptr_int%geofac_div(jc,3,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
-
-            z_mflx(jc,jk,4) = ptr_int%geofac_div(jc,4,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,4),jk,iblk(jc,jb,4))
-
-            z_mflx(jc,jk,5) = ptr_int%geofac_div(jc,5,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,5),jk,iblk(jc,jb,5))
-
-            ! For pentagons, geofac_div=0 and iidx is the 5th edge => no problem
-            z_mflx(jc,jk,6) = ptr_int%geofac_div(jc,6,jb) * p_dtime &
-              &                * p_mflx_tracer_h(iidx(jc,jb,6),jk,iblk(jc,jb,6))
+          z_mflx(jc,jk,3) = ptr_int%geofac_div(jc,3,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
   
-          ENDDO
-        ENDDO
-
-        !
-        ! 2. Compute total outward mass
-        !
-!CDIR UNROLL=5
-        DO jk = slev, elev
-
-          DO jc = i_startidx, i_endidx
-
-            ! Sum of all outgoing fluxes out of cell jc
-            p_m =  MAX(0._wp,z_mflx(jc,jk,1))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,2))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,3))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,4))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,5))  &
-              &  + MAX(0._wp,z_mflx(jc,jk,6))
-
-            ! fraction which must multiply all fluxes out of cell jc to guarantee no
-            ! undershoot
-            ! Nominator: maximum allowable decrease of \rho q
-            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
-              &                        /(p_m + dbl_eps) )
-
-          ENDDO
         ENDDO
       ENDDO
-!$OMP END DO NOWAIT
 
-    END SELECT ! triangles or hexagons
+      !
+      ! 2. Compute total outward mass
+      !
+      DO jk = slev, elev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+
+          ! Sum of all outgoing fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx(jc,jk,1))  &
+            &  + MAX(0._wp,z_mflx(jc,jk,2))  &
+            &  + MAX(0._wp,z_mflx(jc,jk,3))
+
+          ! fraction which must multiply all fluxes out of cell jc to guarantee no
+          ! undershoot
+          ! Nominator: maximum allowable decrease of \rho q
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+            &                        /(p_m + dbl_eps) )
+
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! synchronize r_m
@@ -889,76 +805,38 @@ CONTAINS
     ! 3. Limit outward fluxes
     !    The inward ones remain untouched.
     !
-    SELECT CASE (ptr_patch%cell_type)
-    CASE(3)
-
-      i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
-
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = slev, elev
-#else
-!CDIR UNROLL=5
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
-#endif
-
-            ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
-            ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
-            z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
-
-            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
-              & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-              &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-  
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    CASE(6)
-      i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = ptr_patch%edges%end_blk(min_rledge,i_nchdom)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, min_rledge)
-                          !i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
 #ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = slev, elev
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
 #else
 !CDIR UNROLL=5
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
 #endif
 
-            ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
-            ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
-            z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb)) &
-              & *ptr_patch%edges%system_orientation(je,jb)
+          ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
+          ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
+          z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
 
-            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
-              & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-              &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+          p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
+            & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
+            &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
   
-          ENDDO
         ENDDO
       ENDDO
+    ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-    END SELECT
 
   END SUBROUTINE hflx_limiter_sm
 

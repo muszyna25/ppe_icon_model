@@ -522,16 +522,8 @@ CONTAINS
     !
     ! calculate horizontal tracer flux with upwind scheme
     !
-    ! For the hexagonal model, we have to perform (at least) an RK2 time integration
-    ! without the limiter in the estimation step
-    IF (p_patch%cell_type == 6) THEN
-      itype_hlimit_0 = 0
-      i_itype_hlimit => itype_hlimit_0
-      i_rlend        = min_rledge
-    ELSE
-      i_itype_hlimit => advection_config(jg)%itype_hlimit
-      i_rlend        = min_rledge_int-1
-    ENDIF    
+    i_itype_hlimit => advection_config(jg)%itype_hlimit
+    i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer, ptr_current_tracer,            &! in
       &                  ptr_delp_mc_now,                                    &! in
@@ -543,11 +535,7 @@ CONTAINS
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
 
 
-    IF (p_patch%cell_type == 6) THEN
-      i_rlend        = min_rlcell
-    ELSE
-      i_rlend        = min_rlcell_int
-    ENDIF    
+    i_rlend        = min_rlcell_int
 
     !
     !  compute divergence of the upwind fluxes for tracers
@@ -557,53 +545,6 @@ CONTAINS
       &       ntracer, opt_slev=advection_config(jg)%iadv_slev(:), &! in
       &       opt_rlend=i_rlend                                    )! in
 
-
-    IF (p_patch%cell_type == 6) THEN
-!$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk,jb)
-      !
-      ! update tracer array
-      !
-      i_rlstart = grf_bdywidth_c+1
-      i_rlend   = min_rlcell
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-!$OMP DO PRIVATE(jk,jt,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-        DO jt = 1, ntracer ! Tracer loop
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              z_estim_c(jc,jk,jb,jt) =                                         &
-                &   ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb) &
-                &    - 0.5_wp*p_dtime * z_fluxdiv_c(jc,jk,jb,jt) )                &
-                &    / (0.5_wp*(ptr_delp_mc_now(jc,jk,jb)+ptr_delp_mc_new(jc,jk,jb)))
-            ENDDO
-          ENDDO
-        ENDDO  ! Tracer loop
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=z_estim_c)
-
-      CALL hor_upwind_flux( z_estim_c, ptr_current_tracer, p_mflx_contra_h, &! in
-        &                ptr_delp_mc_now,                                   &! in
-        &                p_vn_contra_traj, p_dtime, p_patch,                &! in
-        &                p_int_state, advection_config(jg)%ihadv_tracer,    &! in
-        &                advection_config(jg)%igrad_c_miura,                &! in
-        &                advection_config(jg)%itype_hlimit,                 &! in
-        &                advection_config(jg)%iadv_slev(:),                 &! in
-        &                advection_config(jg)%iord_backtraj,                &! in
-        &                p_mflx_tracer_h, opt_rlend=min_rledge              )! inout,in
-
-      !
-      !  compute divergence of the upwind fluxes for tracers
-      !
-      CALL div( p_patch, p_int_state, p_mflx_tracer_h,     &! in
-        &       z_fluxdiv_c, ntracer,                      &! inout
-        &       opt_slev=advection_config(jg)%iadv_slev(:) )! in
-
-    ENDIF ! cell_type == 6
 
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
     !
