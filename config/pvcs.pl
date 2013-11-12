@@ -74,7 +74,7 @@ if ( -d $srcdir."/.svn" ) {
     $branch = $remote_url;
     $branch =~ s/\S+(branches|trunk)\///;
     $branch =~ s/ *\n//;
-    my @revisions = grep(/Revision/, @svn_info); 
+    my @revisions = `svnversion $srcdir`; 
     $revision = $revisions[0];
     $revision =~ s/Revision: */r/;
     $revision =~ s/ *\n//;
@@ -113,7 +113,7 @@ print $version_c "const char revision[] = \"$revision\";\n";
 print $version_c "\n";
 print $version_c "void repository_url(char *name, int *actual_len)\n";
 print $version_c "{\n";
-print $version_c "  if (strlen(name) > *actual_len)\n";
+print $version_c "  if (strlen(remote_url) > *actual_len)\n";
 print $version_c "    {\n";
 print $version_c "      *actual_len = 0;\n";
 print $version_c "    }\n";
