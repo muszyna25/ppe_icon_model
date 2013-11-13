@@ -45,7 +45,6 @@ MODULE mo_io_restart_async
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601
   USE mo_io_config,               ONLY: out_expname
-  USE mo_run_config,              ONLY: ldump_states, ldump_dd
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -655,13 +654,6 @@ CONTAINS
 
     ! check kind of process
     IF (.NOT. my_process_is_restart()) RETURN
-
-    ! if ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
-    ! there is nothing to do at all for restart PEs
-    IF(ldump_states .OR. ldump_dd) THEN
-      CALL p_stop
-      STOP
-    ENDIF
 
     ! prepare restart (collective call)
     CALL prepare_async_restart()

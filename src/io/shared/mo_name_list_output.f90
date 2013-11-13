@@ -66,7 +66,7 @@ MODULE mo_name_list_output
   USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
   USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io
 
-  USE mo_run_config,                ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd,        &
+  USE mo_run_config,                ONLY: num_lev, num_levp1, dtime,                                &
     &                                     msg_level, output_mode, ltestcase
   USE mo_datetime,                  ONLY: t_datetime, cly360day_to_date
   USE mo_master_nml,                ONLY: model_base_dir
@@ -1024,14 +1024,6 @@ CONTAINS
     LOGICAL             :: done
     INTEGER             :: jg, jstep
     TYPE(t_par_output_event), POINTER :: ev
-
-    ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
-    ! there is nothing to do at all for I/O PEs
-
-    IF(ldump_states .OR. ldump_dd) THEN
-      CALL p_stop
-      STOP
-    ENDIF
 
     ! setup of meteogram output
     DO jg =1,n_dom

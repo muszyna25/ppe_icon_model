@@ -57,8 +57,6 @@ MODULE mo_ocean_model
     & dtime,                  & !    :
     & nsteps,                 & !    :
     & ltimer,                 & !    :
-  !& ldump_states,           & ! flag if states should be dumped
-    & lrestore_states,        & ! flag if states should be restored
     & iforcing,               & !
     & num_lev, num_levp1,     &
     & nlev, nlevp1,           &
@@ -351,7 +349,7 @@ CONTAINS
     ! 4. Import patches
     !-------------------------------------------------------------------
     CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
-      & l_restore_states=lrestore_states, patch_3d=ocean_patch_3d)
+      &                      patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
     CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))
 

@@ -85,9 +85,6 @@ MODULE mo_setup_subdivision
                              deallocate_basic_patch, deallocate_patch
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
-#ifndef __NO_ICON_ATMO__
-  USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
-#endif
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
@@ -385,15 +382,6 @@ CONTAINS
 !$OMP END PARALLEL DO
 #endif
         ENDIF
-
-#ifndef __NO_ICON_ATMO__
-        ! Dump domain decompositions to NetCDF
-        IF(jg > n_dom_start) THEN
-          CALL dump_all_domain_decompositions(p_patch_out, p_patch_lp_out)
-        ELSE
-          CALL dump_all_domain_decompositions(p_patch_out)
-        ENDIF
-#endif
 
         ! Deallocate patch arrays
         DO n = 1, opt_n_procs

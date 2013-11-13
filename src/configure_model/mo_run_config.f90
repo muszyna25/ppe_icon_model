@@ -47,7 +47,7 @@ MODULE mo_run_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
+  PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
@@ -65,21 +65,13 @@ MODULE mo_run_config
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
   PUBLIC :: check_epsilon, test_mode
-  PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
-  PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
+  PUBLIC :: configure_run
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
     ! Namelist variables
     !
-    LOGICAL :: ldump_states    !< Compute interpolation coefficients and stop.
-    LOGICAL :: lrestore_states !< Read interpolation coefficients from external file.
-    LOGICAL :: l_one_file_per_patch !< Use one or several files per patch for dump/restore
-    LOGICAL :: ldump_dd        !< Compute domain decomposition and stop
-    LOGICAL :: lread_dd        !< Read domain decomposition from external file
-    INTEGER :: nproc_dd        !< Number of procs for domain decomposition (when done on 1 CPU)
-
     LOGICAL :: ltestcase       !< Run idealized test case
     LOGICAL :: ldynamics       !< Switch on model dynamics
     INTEGER :: iforcing        !< Choice of diabatic forcing
@@ -109,10 +101,6 @@ MODULE mo_run_config
     !  one or multiple of "none", "nml", "totint"
     INTEGER, PARAMETER :: max_output_modes = 5
     CHARACTER(len=32) :: output(max_output_modes)
-
-    ! dump/restore file names, may contain keywords
-    CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
-
 
     ! Non-Namelist variables
     ! These are read from the grid file in mo_model_domimp_patches/read_basic_patch
@@ -269,16 +257,6 @@ CONTAINS
   END SUBROUTINE configure_run
   !-------------------------------------------------------------
 
-!  !---------------------------------------
-!  !>
-!  LOGICAL FUNCTION get_ldump_states()
-!    get_ldump_states = ldump_states 
-!  END FUNCTION get_ldump_states
-!  !---------------------------------------
-!  !>
-!  LOGICAL FUNCTION get_lrestore_states()
-!    get_lrestore_states = lrestore_states 
-!  END FUNCTION get_lrestore_states
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()

@@ -31,13 +31,7 @@
 !!
 MODULE mo_run_nml
 
-  USE mo_run_config, ONLY: config_ldump_states    => ldump_states,    &
-                         & config_lrestore_states => lrestore_states, &
-                         & config_l_one_file_per_patch => l_one_file_per_patch, &
-                         & config_ldump_dd        => ldump_dd,        &
-                         & config_lread_dd        => lread_dd,        &
-                         & config_nproc_dd        => nproc_dd,        &
-                         & config_ltestcase       => ltestcase,       &
+  USE mo_run_config, ONLY: config_ltestcase       => ltestcase,       &
                          & config_ldynamics       => ldynamics,       &
                          & config_iforcing        => iforcing,        &
                          & config_ltransport      => ltransport,      &
@@ -56,9 +50,6 @@ MODULE mo_run_nml
                          & config_output_mode     => output_mode,     &
                          & config_check_epsilon   => check_epsilon,   &
                          & config_test_mode       => test_mode,       &
-                         & config_dump_filename   => dump_filename,   &
-                         & config_lonlat_dump_filename => lonlat_dump_filename, &
-                         & config_dd_filename     => dd_filename,     &
                          & config_write_timer_files => write_timer_files,  &
                          & t_output_mode, max_output_modes
 
@@ -86,16 +77,6 @@ MODULE mo_run_nml
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------
-
-  LOGICAL :: ldump_states    ! Dump patch/interpolation/grid refinement state of every
-                             ! patch (after subdivision in case of a parallel run)
-                             ! end exit program
-  LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
-                             ! from dump files instead of calculating them
-  LOGICAL :: l_one_file_per_patch ! Use one or several files per patch for dump/restore
-  LOGICAL :: ldump_dd        ! Dump domain decomposition
-  LOGICAL :: lread_dd        ! Read domain decomposition
-  INTEGER :: nproc_dd        ! Number of procs for domain decomposition
 
   LOGICAL :: ltestcase       ! if .TRUE. then
                              ! - compute analytical initial state,
@@ -135,14 +116,7 @@ MODULE mo_run_nml
   !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
 
-  ! dump/restore file names, may contain keywords
-  CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
-
-  NAMELIST /run_nml/ ldump_states, lrestore_states, &
-                     l_one_file_per_patch,          &
-                     ldump_dd,     lread_dd,        &
-                     nproc_dd,                      &
-                     ltestcase,    ldynamics,       &
+  NAMELIST /run_nml/ ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
                      lvert_nest,                    &
@@ -152,9 +126,8 @@ MODULE mo_run_nml
                      activate_sync_timers,          &
                      write_timer_files,             &
                      msg_level, check_epsilon,      &
-                     test_mode,                  &
-                     dump_filename, dd_filename,    &
-                     lonlat_dump_filename, output,  &
+                     test_mode,                     &
+                     output,                        &
                      msg_timestamp
 
 CONTAINS
@@ -169,16 +142,6 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    ldump_states    = .FALSE.
-    lrestore_states = .FALSE.
-    dump_filename          = "<path>dump_<proc><gridfile>"
-    lonlat_dump_filename   = "<path>dump_lonlat_<domid>_<gridid>_<proc><gridfile>"
-    dd_filename            = "<path>dd_<gridfile>"
-
-    l_one_file_per_patch = .FALSE.
-    ldump_dd        = .FALSE.
-    lread_dd        = .FALSE.
-    nproc_dd        = 1
 
     ltestcase       = .TRUE.
     ldynamics       = .TRUE.
@@ -263,12 +226,6 @@ CONTAINS
     !----------------------------------------------------
     ! Fill part of the configuration state
     !----------------------------------------------------
-    config_ldump_states    = ldump_states
-    config_lrestore_states = lrestore_states
-    config_l_one_file_per_patch = l_one_file_per_patch
-    config_ldump_dd        = ldump_dd
-    config_lread_dd        = lread_dd
-    config_nproc_dd        = nproc_dd
 
     config_ltestcase       = ltestcase 
     config_ldynamics       = ldynamics 
@@ -293,10 +250,6 @@ CONTAINS
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
     config_test_mode    = test_mode
-
-    config_dump_filename   = dump_filename
-    config_dd_filename     = dd_filename
-    config_lonlat_dump_filename = lonlat_dump_filename
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

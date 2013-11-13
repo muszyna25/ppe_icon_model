@@ -4336,84 +4336,6 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 \begin{longtab}
 
 \hline
-ldump\_states&
-L & .FALSE.& &
-Dump patch/interpolation/grid refinement state of every
-patch (after subdivision in case of a parallel run)
-to a Netcdf file and exit program.&
-\tabularnewline
-
-\hline
-lrestore\_states&
-L & .FALSE.& &
-Restore patch/interpolation/grid refinement states
-from NetCDF dump files instead of calculating them.&
-\tabularnewline
-
-\hline
-dump\_filename&
-C &
-&
-&
-Filename of dump/restore files,
-default: ''\texttt{<path>dump\_<proc><gridfile>}''.
-May contain the keyword \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, \texttt{<proc>} substituted by ``procXofY\_'',
-and the grid filename \texttt{<gridfile>}. &
-\tabularnewline
-
-\hline
-dd\_filename&
-C &
-&
-&
-Filename of NetCDF domain decomposition dump files,
-default: ''\texttt{<path>dd\_<gridfile>}''.
-May contain the keyword \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir},
-and the grid filename \texttt{<gridfile>}. &
-\tabularnewline
-
-\hline
-l\_one\_file\_per\_patch&
-L & .FALSE.& &
-Use one file per patch for all processors.\\
-This will decrease the amount of files used for dump/restore
-considerably, especially for massively parallel runs on hundreds
-or thousands of processors.\\
-Time for dumping will increase since the file has to be written sequentially,
-the time for restore should stay roughly the same, however.&
-ldump\_states=.TRUE. or lrestore\_states=.TRUE.
-\tabularnewline
-
-\hline
-ldump\_dd&
-L & .FALSE.& &
-Dump the domain decomposition (and a few related fields).
-This can be done either in a parallel run or in a single-CPU run.
-When done in a parallel run, the domain decoposition
-is for the number of parallel processes in use.
-When done in a single-CPU run, nproc\_dd (see below) determines
-the number of processes for the decomposition.
-Uses always only one file per patch,&
-\tabularnewline
-
-\hline
-lread\_dd&
-L & .FALSE.& &
-Read the domain decomposition when dumped with ldump\_dd.
-&
-\tabularnewline
-
-\hline
-nproc\_dd&
-I & 1 & &
-Number of processors for the target domain decomposition
-(only relevant when running on a single processor).&
-ldump\_dd = TRUE and a single processor run
-\tabularnewline
-
-\hline
 nsteps &
 I & 0 & &
 number of time steps of this run.&
@@ -6118,6 +6040,25 @@ model expects {\bf height based} coordinates. For further information see <icon 
 \begin{changeitem}{output\_nml: steps\_per\_file }{ 2013-10-30 }{ 14422 }
   \begin{itemize}
    \item The default value of the namelist parameter \textbf{steps\_per\_file} has been changed to \texttt{-1}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{run\_nml}{ 2013-11-09 }{  }
+  \begin{itemize}
+   \item The dump/restore functionality for domain decompositions and interpolation coefficients has
+         been removed from the model code.
+         This means, that the parameters
+         \begin{itemize}
+           \item \texttt{ldump\_states},
+           \item \texttt{lrestore\_states},
+           \item \texttt{ldump\_dd}, 
+           \item \texttt{lread\_dd},  
+           \item \texttt{nproc\_dd},  
+           \item \texttt{dd\_filename},
+           \item \texttt{dump\_filename},
+           \item \texttt{l\_one\_file\_per\_patch}
+         \end{itemize}
+         have been removed together with the corresponding functionality from the ICON model code.
   \end{itemize}
 \end{changeitem}
 

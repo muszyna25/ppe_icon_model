@@ -66,7 +66,7 @@ MODULE mo_nml_crosscheck
     &                              lwrite_tke,lwrite_z3
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
-  USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
+  USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &

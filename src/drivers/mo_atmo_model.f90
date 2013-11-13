@@ -66,10 +66,7 @@ MODULE mo_atmo_model
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer,                                               &
     &                                   iforcing,                                             & !    namelist parameter
-    &                                   ldump_states,                                         & ! flag if states should be dumped
-    &                                   lrestore_states,                                      & ! flag if states should be restored
-    &                                   ldump_dd, lread_dd,                                   &
-    &                                   nproc_dd, nshift,                                     &
+    &                                   nshift,                                               &
     &                                   num_lev,num_levp1,                                    &
     &                                   ntracer, msg_level,                                   &
     &                                   dtime, output_mode,                                   &
@@ -130,10 +127,6 @@ MODULE mo_atmo_model
   USE mo_io_restart,              ONLY: read_restart_info_file
   USE mo_io_restart_namelist,     ONLY: read_restart_namelists, delete_restart_namelists
   USE mo_io_restart_attributes,   ONLY: read_restart_attributes
-  USE mo_dump_restore,            ONLY: dump_patch_state_netcdf, dump_domain_decomposition,   &
-    &                                   restore_patches_netcdf, restore_interpol_state_netcdf,&
-    &                                   restore_gridref_state_netcdf, dump_lonlat_data_netcdf,&
-    &                                   restore_lonlat_data_netcdf
   USE mo_time_config,            ONLY: time_config      ! variable
   USE mo_mtime_extensions,       ONLY: get_datetime_string
   USE mo_output_event_types,     ONLY: t_sim_step_info
@@ -382,8 +375,7 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    CALL build_decomposition(num_lev,num_levp1,nshift,  is_ocean_decomposition = .false., &
-      &                      l_restore_states=lrestore_states)
+    CALL build_decomposition(num_lev,num_levp1,nshift,  is_ocean_decomposition = .false.)
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
@@ -407,34 +399,16 @@ CONTAINS
     IF (error_status /= SUCCESS) &
       CALL finish(TRIM(routine),'allocation for local parents failed')
 
-    IF(lrestore_states) THEN
-      ! Interpolation state is read from NetCDF
-      ! On the test PE it is constructed at the same time to be able to check
-      ! the state read in with the constructed state
-      IF( .NOT. my_process_is_mpi_test()) THEN
-        CALL restore_interpol_state_netcdf(p_patch, p_int_state )
-      ELSE
-        ! construct_2d_interpol_state makes sync calls for checking the
-        ! results on the parallel PEs to the results on the test PE.
-        ! These checks must be disabled here!
-        CALL disable_sync_checks
-        CALL construct_2d_interpol_state(p_patch, p_int_state)
-        CALL enable_sync_checks
-      ENDIF
-    ELSE
-      ! Construct interpolation state
-      ! Please note that for parallel runs the divided state is constructed here
-      CALL construct_2d_interpol_state(p_patch, p_int_state)
-    ENDIF
+    ! Construct interpolation state
+    ! Please note that for parallel runs the divided state is constructed here
+    CALL construct_2d_interpol_state(p_patch, p_int_state)
 
     ! Transfer interpolation state to local parent
-    IF ((.NOT. lrestore_states) .OR. my_process_is_mpi_test()) THEN
-      DO jg = n_dom_start+1, n_dom
-        jgp = p_patch(jg)%parent_id
-        CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
-          &  p_int_state(jgp), p_int_state_local_parent(jg))
-      ENDDO
-    END IF
+    DO jg = n_dom_start+1, n_dom
+      jgp = p_patch(jg)%parent_id
+      CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
+        &  p_int_state(jgp), p_int_state_local_parent(jg))
+    ENDDO
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
@@ -443,37 +417,20 @@ CONTAINS
     ! construct_2d_gridref_state require the metric terms to be present
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      IF (lrestore_states) THEN
-        ! Gridref state is read from NetCDF
-        ! On the test PE it is constructed at the same time to be able to check
-        ! the state read in with the constructed state
-        IF( .NOT. my_process_is_mpi_test()) THEN
-          CALL restore_gridref_state_netcdf(p_patch, p_grf_state)
-        ELSE
-          ! construct_2d_gridref_state makes sync calls for checking the
-          ! results on the parallel PEs to the results on the test PE.
-          ! These checks must be disabled here!
-          CALL disable_sync_checks
-          CALL construct_2d_gridref_state (p_patch, p_grf_state)
-          CALL enable_sync_checks
-        ENDIF
-      ELSE
-        ! Construct gridref state
-        ! For non-parallel runs (either 1 PE only or on the test PE) this is done as usual,
-        ! for parallel runs, the main part of the gridref state is constructed on the
-        ! local parent with the following call
-        CALL construct_2d_gridref_state (p_patch, p_grf_state)
-      ENDIF
+
+      ! Construct gridref state
+      ! For non-parallel runs (either 1 PE only or on the test PE) this is done as usual,
+      ! for parallel runs, the main part of the gridref state is constructed on the
+      ! local parent with the following call
+      CALL construct_2d_gridref_state (p_patch, p_grf_state)
 
       ! Transfer gridref state from local parent to p_grf_state
-      IF ((.NOT. lrestore_states) .OR. my_process_is_mpi_test()) THEN
-        DO jg = n_dom_start+1, n_dom
-          jgp = p_patch(jg)%parent_id
-          CALL transfer_grf_state(p_patch(jgp), p_patch_local_parent(jg),         &
-            &                     p_grf_state(jgp), p_grf_state_local_parent(jg), &
-            &                     p_patch(jg)%parent_child_index)
-        ENDDO
-      END IF
+      DO jg = n_dom_start+1, n_dom
+        jgp = p_patch(jg)%parent_id
+        CALL transfer_grf_state(p_patch(jgp), p_patch_local_parent(jg),         &
+          &                     p_grf_state(jgp), p_grf_state_local_parent(jg), &
+          &                     p_patch(jg)%parent_child_index)
+      ENDDO
     ENDIF
 
 
@@ -492,36 +449,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
-
-    IF(lrestore_states) THEN
-      ! restore data from file(s):
-      CALL restore_lonlat_data_netcdf(p_patch)
-    ELSE
-      CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
-    END IF
-
-    ! Dump divided patches with interpolation and grf state to NetCDF
-    ! file and exit
-    IF(ldump_states)THEN
-
-      CALL message(TRIM(routine),'ldump_states is set: '//&
-                  'dumping patches+states and finishing')
-
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        DO jg = n_dom_start, n_dom
-          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
-        ENDDO
-      ENDIF
-
-      ! dump the setup of all lon-lat interpolation processes.
-      CALL dump_lonlat_data_netcdf(p_patch)
-
-      CALL p_stop
-      STOP
-
-    ENDIF
-
-    !--------------------------------------------------------------------------------
+    
+    CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
