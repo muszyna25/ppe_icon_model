@@ -212,6 +212,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 !DR Note thta this must be re-checked, once turbtran is called at the very end 
 !DR of the fast physics part.   
+!DIR$ IVDEP
          DO jc = i_startidx, i_endidx
           lnd_prog_new%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
                       ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
@@ -224,6 +225,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
          !
          !> adjust humidity at water surface because of changed surface pressure
          !
+!DIR$ IVDEP
          DO jc = i_startidx, i_endidx
            lnd_diag%qv_s (jc,jb) = &
              &         spec_humi(sat_pres_water(lnd_prog_new%t_g(jc,jb)),&

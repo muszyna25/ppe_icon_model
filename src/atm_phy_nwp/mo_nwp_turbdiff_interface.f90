@@ -355,6 +355,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
     ! to vn
     DO jk = 1, nlev
+!DIR$ IVDEP
       DO jc = i_startidx, i_endidx
         p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
@@ -366,6 +367,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ENDDO
     ! QC is updated only in that part of the model domain where moisture physics is active
     DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
       DO jc = i_startidx, i_endidx
         p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))

@@ -60,7 +60,7 @@ MODULE mo_nwp_diagnosis
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqr, iqs
+  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -194,13 +194,18 @@ CONTAINS
         prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:5) = 0.0_wp
 
         DO jk = kstart_moist, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
            z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
 
            ! TQV, TQC, TQI
-           prm_diag%tot_cld_vi(jc, jb,1:3) = prm_diag%tot_cld_vi(jc, jb,1:3)    + &
-                                             z_help * prm_diag%tot_cld(jc,jk,jb,1:3)
+           prm_diag%tot_cld_vi(jc, jb,iqv) = prm_diag%tot_cld_vi(jc, jb,iqv)    + &
+                                             z_help * prm_diag%tot_cld(jc,jk,jb,iqv)
+           prm_diag%tot_cld_vi(jc, jb,iqc) = prm_diag%tot_cld_vi(jc, jb,iqc)    + &
+                                             z_help * prm_diag%tot_cld(jc,jk,jb,iqc)
+           prm_diag%tot_cld_vi(jc, jb,iqi) = prm_diag%tot_cld_vi(jc, jb,iqi)    + &
+                                             z_help * prm_diag%tot_cld(jc,jk,jb,iqi)
 
            !TQR : vertical integral of prognostic rain field
            ! identical to grid scale tracer pt_diag%tracer_vi(:,:,iqr)
@@ -279,6 +284,7 @@ CONTAINS
         ENDDO
 
         ! store total cloud cover, start for mid-level clouds
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%clct(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
           clearsky(jc) = 1._wp - prm_diag%clc(jc,ih_clch+1,jb)
@@ -294,6 +300,7 @@ CONTAINS
         ENDDO
 
         ! store mid-level cloud cover, start for low-level clouds
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%clcm(jc,jb) = MAX( 0._wp, 1._wp - clearsky(jc) - eps_clc)
 
@@ -494,6 +501,7 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
 
           prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
@@ -528,6 +536,7 @@ CONTAINS
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
         CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -546,6 +555,7 @@ CONTAINS
                                & * r_sim_time
           ENDDO  ! jc
           DO jk = 1, nlev_soil
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
             prm_diag%alhfl_pl(jc,jk,jb) = ( prm_diag%alhfl_pl(jc,jk,jb)       &
                                &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -555,7 +565,7 @@ CONTAINS
             ENDDO  ! jc
           ENDDO  ! jk
         END SELECT
-
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)        &
                             &  * (p_sim_time - dt_phy_jg(itfastphy)) &
@@ -575,6 +585,7 @@ CONTAINS
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
         CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
@@ -587,6 +598,7 @@ CONTAINS
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
           ENDDO
           DO jk = 1, nlev_soil
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
                                &  + prm_diag%lhfl_pl(jc,jk,jb)          &!attention to the sign, in the output all fluxes 
@@ -594,7 +606,7 @@ CONTAINS
             ENDDO  ! jc
           ENDDO  ! jk
         END SELECT
-
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
                              &  + prm_diag%qhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
@@ -616,6 +628,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
                                  &  * (p_sim_time - dt_phy_jg(itfastphy))           &
@@ -633,6 +646,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
                                 & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
@@ -665,6 +679,7 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &

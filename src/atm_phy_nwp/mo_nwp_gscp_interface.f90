@@ -279,7 +279,7 @@ CONTAINS
         !! Calculate surface precipitation
         !!
         !-------------------------------------------------------------------------
-
+!DIR$ IVDEP
         DO jc =  i_startidx, i_endidx
 
           prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)        &

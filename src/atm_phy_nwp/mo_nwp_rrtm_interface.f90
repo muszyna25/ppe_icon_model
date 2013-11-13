@@ -283,6 +283,7 @@ CONTAINS
         ENDDO
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+!DIR$ IVDEP
           DO jc = 1,i_endidx
             ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
@@ -373,6 +374,7 @@ CONTAINS
 
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+!DIR$ IVDEP
           DO jc = 1,i_endidx
             ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
@@ -404,6 +406,7 @@ CONTAINS
         ENDDO
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+!DIR$ IVDEP
           DO jc = 1,i_endidx
             ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO

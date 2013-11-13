@@ -181,6 +181,7 @@ CONTAINS
 
         ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
             prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
@@ -226,6 +227,7 @@ CONTAINS
 
         ! Limit also gwdrag wind tendencies. They can become numerically unstable in the upper mesosphere
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MAX(-0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
             prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MIN( 0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))

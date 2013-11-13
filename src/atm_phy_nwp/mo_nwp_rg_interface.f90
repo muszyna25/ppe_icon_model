@@ -864,6 +864,7 @@ MODULE mo_nwp_rg_interface
 
         ! loop over layers
         DO jk = 1,nlev
+!DIR$ IVDEP
           DO jc = i_startidx,i_endidx
             zaeqsn         =  z_aer_ss(jc,jb)                  * zvdaes(jc,jk+1)
             zaeqln         = (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
