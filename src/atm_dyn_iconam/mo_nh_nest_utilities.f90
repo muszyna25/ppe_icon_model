@@ -310,6 +310,7 @@ CONTAINS
         i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int-2)
 
       DO jk = 1, nlev
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           p_nh%diag%grf_tend_rho(jc,jk,jb) = &
             ( p_prog_new%rho(jc,jk,jb) - p_prog_now%rho(jc,jk,jb) )*rdt
@@ -340,6 +341,7 @@ CONTAINS
         p_nh%diag%mflx_ic_int    (:,jb,iadv_rcf+1:iadv_rcf+2) = 0._wp
         p_nh%diag%dtheta_v_ic_int(:,jb,iadv_rcf+1)            = 0._wp
         DO js = 1, iadv_rcf
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh%diag%dw_int(jc,jb,iadv_rcf+1)          = p_nh%diag%dw_int(jc,jb,iadv_rcf+1) +          &
               p_nh%diag%dw_int(jc,jb,js)
@@ -355,6 +357,7 @@ CONTAINS
           p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) = p_nh%diag%dtheta_v_ic_int(jc,jb,iadv_rcf+1) / REAL(iadv_rcf,wp)
         ENDDO
         IF (iadv_rcf >= 3) THEN
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
             p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)    = (SUM(p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf-1:iadv_rcf)) -    &
@@ -380,6 +383,7 @@ CONTAINS
 
         DO jt = 1,ntracer
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                    &
                 &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)               &
@@ -404,6 +408,7 @@ CONTAINS
         i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge_int-3)
 
       DO jk = 1, nlev
+!DIR$ IVDEP
         DO je = i_startidx, i_endidx
           p_nh%diag%grf_tend_vn(je,jk,jb) = &
             ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
@@ -413,6 +418,7 @@ CONTAINS
       ENDDO
 
       IF (l_child_vertnest) THEN ! Compute tendencies for upper boundary condition
+!DIR$ IVDEP
         DO je = i_startidx, i_endidx
           p_nh%diag%dvn_ie_int(je,jb) = 0.5_wp*(p_nh%diag%dvn_ie_int(je,jb) + &
             p_nh%diag%vn_ie(je,nshift,jb) - p_nh%diag%vn_ie(je,nshift+1,jb))
@@ -584,6 +590,7 @@ CONTAINS
           1, grf_bdywidth_c)
 
         DO jk = 1, nlev_c
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nhc_dyn%rho(jc,jk,jb) = rho_prc(jc,jk,jb) + &
               p_nh_state(jgc)%metrics%rho_ref_mc(jc,jk,jb)
@@ -600,7 +607,7 @@ CONTAINS
 
         jb = p_nh_state(jgc)%metrics%bdy_halo_c_blk(ic)
         jc = p_nh_state(jgc)%metrics%bdy_halo_c_idx(ic)
-
+!DIR$ IVDEP
         DO jk = 1, nlev_c
           p_nhc_dyn%rho(jc,jk,jb) = rho_prc(jc,jk,jb) + &
             p_nh_state(jgc)%metrics%rho_ref_mc(jc,jk,jb)
@@ -1263,6 +1270,7 @@ CONTAINS
       DO ic = 1, p_metrics%nudge_c_dim
         jc = p_metrics%nudge_c_idx(ic)
         jb = p_metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
@@ -1284,6 +1292,7 @@ CONTAINS
         DO ic = 1, p_metrics%nudge_e_dim
           je = p_metrics%nudge_e_idx(ic)
           jb = p_metrics%nudge_e_blk(ic)
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1311,6 +1320,7 @@ CONTAINS
       DO ic = 1, p_metrics%nudge_c_dim
         jc = p_metrics%nudge_c_idx(ic)
         jb = p_metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
@@ -1336,6 +1346,7 @@ CONTAINS
         DO ic = 1, p_metrics%nudge_c_dim
           jc = p_metrics%nudge_c_idx(ic)
           jb = p_metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1362,6 +1373,7 @@ CONTAINS
         DO ic = 1, p_metrics%nudge_e_dim
           je = p_metrics%nudge_e_idx(ic)
           jb = p_metrics%nudge_e_blk(ic)
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1429,6 +1441,7 @@ CONTAINS
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
       jb = p_nh%metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
@@ -1510,6 +1523,7 @@ CONTAINS
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
       jb = p_nh%metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
@@ -1544,6 +1558,7 @@ CONTAINS
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
         DO jt = 1, ntracer
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
       DO jt = 1, ntracer
@@ -1612,6 +1627,7 @@ CONTAINS
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
       jb = p_nh%metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev

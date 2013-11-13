@@ -396,6 +396,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
 #ifdef __LOOP_EXCHANGE
       DO je = nshift+1, nshift+nlen
+!DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=6

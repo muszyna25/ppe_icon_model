@@ -1199,6 +1199,7 @@ CONTAINS
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=4
@@ -1215,7 +1216,8 @@ CONTAINS
           z_fbk_rho(jc,4,jk) =                                                   &
             p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-          feedback_rho(jc,jk+js,jb) = SUM(z_fbk_rho(jc,1:4,jk)) - &
+          feedback_rho(jc,jk+js,jb) =                                                      &
+           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) - &
             p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
 
           feedback_thv(jc,jk+js,jb) =                                          &
@@ -1237,6 +1239,7 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
           DO jt = 1, ntracer
+!DIR$ IVDEP
             DO jk = 1, nlev_c
 #else
         DO jt = 1, ntracer
@@ -1276,6 +1279,7 @@ CONTAINS
 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+!DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=8
@@ -1664,6 +1668,7 @@ CONTAINS
     DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
       jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
       jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
+!DIR$ IVDEP
       DO jk = nshift+1, nlev_p
 #else
     DO jk = nshift+1, nlev_p
