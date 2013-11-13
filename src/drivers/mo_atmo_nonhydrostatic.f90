@@ -56,7 +56,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
-  &                                iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg
+  &                                iqc, iqt
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -237,9 +237,9 @@ CONTAINS
     ! Unfortunatley this conflicts with our trying to call the config-routines 
     ! as early as possible. 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,                        &
-       &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
-       &                      kstart_moist(jg), kend_qvsubstep(jg),                          &
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
+       &                      iequations, iforcing, iqc, iqt,          &
+       &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 

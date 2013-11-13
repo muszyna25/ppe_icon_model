@@ -169,41 +169,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(pat_level(jg) &
           &                            -  pat_level(1)))                  !seconds
 
-
-      ! determine number of hydrometeor classes for chosen microphysics scheme
-      !
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-        CASE (1)  ! standard COSMO-EU scheme
-          !
-          ! specific humidity, cloud water, rain water, ice, snow
-          atm_phy_nwp_config(jg)%nclass_gscp = 5 
-        CASE (2)  ! non-standard COSMO-EU scheme including graupel
-          !
-          ! specific humidity, cloud water, rain water, ice, snow, graupel
-          atm_phy_nwp_config(jg)%nclass_gscp = 6 
-        CASE (3)  ! standard COSMO-EU scheme with improved ice nucleation
-          !
-          ! specific humidity, cloud water, rain water, ice, snow
-          atm_phy_nwp_config(jg)%nclass_gscp = 5
-        CASE (4)  ! two-moment scheme
-          !
-          ! specific humidity, cloud water, rain water, ice, snow
-          atm_phy_nwp_config(jg)%nclass_gscp = 5 
-        CASE (9)  ! Kessler scheme
-          !
-          ! specific humidity, cloud water, rain water
-          atm_phy_nwp_config(jg)%nclass_gscp = 3 
-        CASE (10)  ! outdated COSMO-EU scheme (fallback)
-          !
-          ! specific humidity, cloud water, rain water, ice, snow
-          atm_phy_nwp_config(jg)%nclass_gscp = 5 
-        CASE DEFAULT
-          !
-          atm_phy_nwp_config(jg)%nclass_gscp = 0 
-      END SELECT
-
     ENDDO
-
 
 
     dt_phy(:,:) = 0._wp

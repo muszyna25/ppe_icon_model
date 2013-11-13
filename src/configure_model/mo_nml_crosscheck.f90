@@ -555,7 +555,9 @@ CONTAINS
       !            moisture mixing ratio. Additional tracers for hydrometeor number concentrations (in
       !            case of a two-moment scheme) or other purposes (aerosols, qt variance or anything else)
       !            can be numbered freely after iqm_max. The parameter "iqt", denoting the start index
-      !            of tracers not related at all to moisture, is not yet actively used in NWP physics.
+      !            of tracers not related at all to moisture, is used in configure_advection to specify
+      !            the index range of tracers for which advection is turned off in the stratosphere
+      !            (i.e. all cloud and precipitation variables including number concentrations)
       !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
@@ -574,7 +576,7 @@ CONTAINS
       ! The following parameters may be reset depending on the selected physics scheme
       !
       iqm_max   = 5     !! end index of water species mixing ratios
-      iqt       = 6     !! start index of other tracers than hydrometeors
+      iqt       = 6     !! start index of other tracers not related at all to moisture
       !
       IF (.NOT. art_config(1)%lart) ntracer = 5  !! total number of tracers
       !
@@ -632,6 +634,11 @@ CONTAINS
                                       'ntracer is automatically reset to ',ntracer
          CALL message(TRIM(method_name),message_text)
        ENDIF
+
+       ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios
+       DO jg = 1, n_dom
+         atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
+       ENDDO
 
     CASE default !
 
