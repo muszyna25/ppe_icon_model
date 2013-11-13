@@ -335,7 +335,7 @@ MODULE mo_vertical_grid
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (p_test_run) z_aux_e = 0._wp
+      z_aux_e = 0._wp
 
       ! functional determinant at full level edges
       CALL cells2edges_scalar(p_nh(jg)%metrics%ddqz_z_full, &
@@ -868,9 +868,7 @@ MODULE mo_vertical_grid
       DEALLOCATE (z_maxslp,z_maxhgtd)
 
       ALLOCATE(z_aux_c(nproma,nlevp1,nblks_c),z_aux_e(nproma,nlevp1,nblks_e))
-      IF (p_test_run) THEN
-        z_aux_e = 0._wp
-      ENDIF
+      z_aux_e = 0._wp
 
       ! Interpolate weighting coefficients to edges
       z_aux_c(:,:,:) = p_nh(jg)%metrics%wgtfac_c(:,:,:) ! necessary because wgtfac* may be single precision
@@ -882,9 +880,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_aux_c,z_aux_e)
 
       ALLOCATE(z_aux_c(nproma,6,nblks_c),z_aux_e(nproma,6,nblks_e))
-      IF (p_test_run) THEN
-        z_aux_e = 0._wp
-      ENDIF
+      z_aux_e = 0._wp
 
       z_aux_c(:,1:3,:) = p_nh(jg)%metrics%wgtfacq_c(:,1:3,:)
       z_aux_c(:,4:6,:) = p_nh(jg)%metrics%wgtfacq1_c(:,1:3,:)
@@ -1051,6 +1047,9 @@ MODULE mo_vertical_grid
                            i_startidx, i_endidx, 2)
 
         IF (igradp_method <= 3) THEN
+
+          p_nh(jg)%metrics%zdiff_gradp(:,:,:,jb) = 0._vp
+
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
               p_nh(jg)%metrics%vertidx_gradp(1:2,je,jk,jb) = jk
@@ -1141,6 +1140,8 @@ MODULE mo_vertical_grid
           ENDDO
 
         ELSE IF (igradp_method >= 4) THEN ! Coefficients for polynomial interpolation
+
+          p_nh(jg)%metrics%coeff_gradp(:,:,:,jb) = 0._vp
 
           jk_start = nflatlev(jg) - 1
           DO jk = nflatlev(jg),nlev
