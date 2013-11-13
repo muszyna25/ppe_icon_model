@@ -59,7 +59,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, &
-                                     iqni, iqni_nuc, iqg !CK<
+                                     iqni, iqni_nuc !CK<
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: hydci_pp_old, kessler_pp
   USE gscp_hydci_pp,           ONLY: hydci_pp

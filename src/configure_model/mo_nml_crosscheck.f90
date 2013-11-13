@@ -78,23 +78,22 @@ MODULE mo_nml_crosscheck
   USE mo_grid_config
   USE mo_sleve_config
 
-  USE mo_dynamics_config,    ONLY: configure_dynamics,                 &
-    &                              iequations, idiv_method,            &
+  USE mo_dynamics_config,    ONLY: iequations, idiv_method,            &
     &                              divavg_cntrwgt, sw_ref_height,      &
     &                              lcoriolis, lshallow_water, ltwotime
-  USE mo_advection_config,   ONLY: advection_config, configure_advection
+  USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf, &
                                       lhdiff_rcf, rayleigh_type
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
+  USE mo_diffusion_config,   ONLY: diffusion_config
 
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
-  USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
-  USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
+  USE mo_echam_conv_config,  ONLY: echam_conv_config
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
