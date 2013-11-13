@@ -37,7 +37,7 @@ MODULE mo_cuflx
 
   USE mo_kind,                ONLY: dp
 
-  USE mo_physical_constants,  ONLY: g=>grav, alf, cpd, tmelt, vtmpc2
+  USE mo_physical_constants,  ONLY: g=>grav, alf, tmelt
 
   IMPLICIT NONE
   PRIVATE

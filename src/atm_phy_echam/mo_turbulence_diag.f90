@@ -45,15 +45,15 @@ MODULE mo_turbulence_diag
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
 #ifdef __ICON__
 !  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_physical_constants,ONLY: grav, rd, cpd, rd_o_cpd, rv,           &
-                                & vtmpc1, vtmpc2, tmelt, alv, als, p0ref
+  USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,           &
+                                & vtmpc1, tmelt, alv, als, p0ref
   USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
                                 & da1, custf, cwstf, cfreec,                &
                                 & epshr=>eps_shear, epcor=>eps_corio,       &
                                 & tkemin=>tke_min, cons2, cons25, cons5
 #else
-  USE mo_constants,ONLY: g, rd, cpd, rd_o_cpd, rv,                 &
-                       & vtmpc1,vtmpc2,tmelt,alv,als
+  USE mo_constants,ONLY: g, rd, cpd, cpv, rd_o_cpd, rv,                 &
+                       & vtmpc1,tmelt,alv,als
   USE mo_physc2,   ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
                        & da1, custf, cwstf, cfreec,                &
                        & epshr, epcor, tkemin, cons2, cons25, cons5
@@ -211,7 +211,7 @@ CONTAINS
         ! Virtual dry static energy, potential temperature, virtual potential
         ! temperature
 
-        pcptgz (jl,jk) = pgeom1(jl,jk)+ptm1(jl,jk)*cpd*(1._wp+vtmpc2*pqm1(jl,jk))
+        pcptgz (jl,jk) = pgeom1(jl,jk)+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
         ztheta (jl,jk) = ptm1(jl,jk)*(p0ref/papm1(jl,jk))**rd_o_cpd
         zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
 
@@ -619,10 +619,10 @@ CONTAINS
 
 ! csat, cair, s. mo_surface_land.f90, precalc_land, zcptl = ...
       IF (jsfc == idx_lnd) THEN
-        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2* &
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*(cpd+(cpv-cpd)* &
             (pcsat(jl)*pqsat_sfc(jl,jsfc)+(1._wp-pcair(jl))*pqm1_b(jl)))
       ELSE
-        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(jl,jsfc))
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*(cpd+(cpv-cpd)*pqsat_sfc(jl,jsfc))
       END IF 
 
         ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
@@ -698,7 +698,7 @@ CONTAINS
 
       DO jl = 1,kproma
 
-        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(jl,jsfc))
+        pcpt_sfc(jl,jsfc) = ptsfc(jl,jsfc)*(cpd+(cpv-cpd)*pqsat_sfc(jl,jsfc))
 
         ztheta      = ptsfc(jl,jsfc)*(p0ref/ppsfc(jl))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*pqsat_sfc(jl,jsfc))
@@ -1214,11 +1214,11 @@ CONTAINS
 ! dry static energy pcpt_sfc
 !
       IF(jsfc == idx_lnd) THEN
-        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*cpd*(1._wp+vtmpc2*    &
+        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*(cpd+(cpv-cpd)*    &
                 (pcsat(js)*pqsat_sfc(js,jsfc)+(1._wp-pcair(js))*pqm1_b(js)))
         zqts              = pqsat_sfc(js,jsfc)*pzhsoil(js)              ! q_total at land surface
       ELSE
-        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*cpd*(1._wp+vtmpc2*pqsat_sfc(js,jsfc))
+        pcpt_sfc(js,jsfc) = ptsfc(js,jsfc)*(cpd+(cpv-cpd)*pqsat_sfc(js,jsfc))
         zqts              = pqsat_sfc(js,jsfc)                         ! q_total at surface
       END IF
 
