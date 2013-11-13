@@ -268,7 +268,7 @@ CONTAINS
   TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 
     CALL datetime_to_string(datestring, datetime)
-    WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+    WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
     CALL message (TRIM(routine), message_text)
 
     IF(itestcase_oce==28)THEN
