@@ -107,6 +107,7 @@ nout_interv="P${ndays_data}D"                    # ocean model output interval i
 (( dt_restart    = ndays_restart * 86400 ))
 #(( dt_file       = ndays_file    * 86400 ))
 dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
+# dt_checkpoint=$dt_data                         # for production runs both must be equal
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data ))       # output intervals per file interval
 (( outputLength  = nyear_outpLen * 86400*365 ))
