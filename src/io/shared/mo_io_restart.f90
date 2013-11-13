@@ -44,10 +44,7 @@ MODULE mo_io_restart
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m
 #endif
 
-!LK comment: should not be here !!!!!! polution of namespace !!!!!!
-#ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
-#endif
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
 
