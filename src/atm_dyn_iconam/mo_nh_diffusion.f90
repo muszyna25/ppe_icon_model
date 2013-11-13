@@ -122,7 +122,7 @@ MODULE mo_nh_diffusion
 
     ! For Smagorinsky diffusion - vp means variable precision depending on the __MIXED_PRECISION cpp flag
     REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
-    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell

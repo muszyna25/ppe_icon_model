@@ -46,7 +46,7 @@
 
 MODULE mo_vertical_grid
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: wp, vp
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_model_domain,          ONLY: t_patch
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -479,7 +479,7 @@ MODULE mo_vertical_grid
               MIN(1._wp-(4._wp*z_maxslp(jc,jk,jb))**2._wp,         &
                   1._wp-(0.002_wp*z_maxhgtd(jc,jk,jb))**2._wp)
             p_nh(jg)%metrics%exner_exfac(jc,jk,jb) =  &
-              MAX(0._wp,p_nh(jg)%metrics%exner_exfac(jc,jk,jb))
+              MAX(0._vp,p_nh(jg)%metrics%exner_exfac(jc,jk,jb))
             ! For extremely steep slopes, going a bit behind time level nnow turned out
             ! to further improve stability
             IF (z_maxslp(jc,jk,jb) > 1.5_wp) &
