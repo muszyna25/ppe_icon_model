@@ -31,6 +31,7 @@ MODULE mo_io_restart
   USE mo_io_config,             ONLY: out_expname
   USE mo_math_utilities,        ONLY: set_zlev
 
+  USE mo_model_domain,          ONLY: p_patch
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
 
 #ifndef __NO_ICON_ATMO__
