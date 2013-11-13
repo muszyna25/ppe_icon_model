@@ -1,0 +1,21 @@
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(99): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(99): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(99): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(105): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(122): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(110): (col. 39) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(151): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(155): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(162): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(168): (col. 22) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(168): (col. 22) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(169): (col. 22) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(169): (col. 22) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(172): (col. 22) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90(174): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.

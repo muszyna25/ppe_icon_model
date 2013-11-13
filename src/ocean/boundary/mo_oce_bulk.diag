@@ -1,0 +1,456 @@
+../../../src/ocean/boundary/mo_oce_bulk.f90(316): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(316): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(316): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(316): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(318): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(318): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(318): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(318): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(353): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(353): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(356): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(356): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(357): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(357): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(359): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(359): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(361): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(361): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(363): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(363): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(367): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(367): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(369): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(369): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(371): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(371): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(378): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(382): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(387): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(387): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(389): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(389): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(389): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(389): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(389): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(436): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(436): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(436): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(436): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(461): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(461): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(461): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(461): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(461): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(463): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(463): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(463): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(465): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(465): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(465): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(465): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(465): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(467): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(467): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(467): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(467): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(467): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(469): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(469): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(469): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(469): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(469): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(471): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(471): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(471): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(471): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(471): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(487): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(487): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(487): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(487): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(488): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(491): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(492): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(492): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(493): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(493): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(495): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(495): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(496): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(496): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(506): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(506): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(506): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(506): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(508): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(514): (col. 16) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(514): (col. 16) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(515): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(515): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(516): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(516): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(520): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(520): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(526): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(526): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(527): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(527): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(528): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(528): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(515): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(515): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(516): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(516): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(517): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(520): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(520): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(521): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(526): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(526): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(527): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(527): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(528): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(528): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(529): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(529): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(513): (col. 16) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(535): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(535): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(535): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(535): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(536): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(536): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(536): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(536): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(537): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(537): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(537): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(537): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(538): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(538): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(538): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(538): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(566): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(599): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(599): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(596): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(622): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(622): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(622): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(622): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(623): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(623): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(623): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(623): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(635): (col. 47) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(631): (col. 30) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(653): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(653): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(657): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(960): (col. 25) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(960): (col. 25) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(992): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(992): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1012): (col. 23) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1042): (col. 27) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1043): (col. 81) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1042): (col. 27) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1055): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1058): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1060): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1075): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1105): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1111): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1111): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1111): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1111): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1151): (col. 71) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1142): (col. 27) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1172): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1174): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1176): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1191): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1196): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1196): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1196): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1196): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1207): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1226): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1224): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 42) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 12) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 12) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 42) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1238): (col. 42) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1653): (col. 25) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1697): (col. 18) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1699): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1697): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1709): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1709): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1711): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1711): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1711): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1711): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1599): (col. 25) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1599): (col. 14) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1630): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1430): (col. 25) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1463): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1484): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1484): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1484): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1465): (col. 42) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1918): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1918): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1918): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1918): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1918): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1917): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1926): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1926): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1926): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1926): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1926): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1925): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1934): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1934): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1934): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1934): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1934): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1933): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1950): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1950): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1950): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1950): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1950): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1949): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1958): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1958): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1958): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1958): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1958): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1957): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1966): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1966): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1966): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1966): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1966): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1965): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1974): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1974): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1974): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1974): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1974): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1973): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1982): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1982): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1982): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1982): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1982): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1981): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1990): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1990): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1990): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1990): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1990): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1989): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2033): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2033): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2033): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2035): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2037): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2040): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2042): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2044): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2046): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2048): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(2050): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1288): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1361): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1362): (col. 58) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1369): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1755): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1755): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1765): (col. 25) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/boundary/mo_oce_bulk.f90(1765): (col. 14) remark: loop was not vectorized: unsupported loop structure.

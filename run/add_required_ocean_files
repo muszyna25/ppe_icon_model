@@ -14,7 +14,7 @@
      ocean_forcing_folder=${pool_icon_folder}/ocean_data/ocean_forcing
      ocean_init_folder=${pool_icon_folder}/ocean_data/ocean_init
    else
-     grids_folder=${local_grid_folder}
+     # grids_folder=${local_grid_folder}
      ocean_forcing_folder=${local_grid_folder}
      ocean_init_folder=${local_grid_folder}
    fi

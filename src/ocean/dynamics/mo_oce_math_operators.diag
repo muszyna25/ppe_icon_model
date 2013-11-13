@@ -1,0 +1,40 @@
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(131): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(132): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(132): (col. 11) remark: loop skipped: multiversioned.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(129): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(129): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(138): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(383): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(383): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(386): (col. 43) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(509): (col. 15) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(508): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(509): (col. 55) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(613): (col. 15) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(613): (col. 52) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(695): (col. 16) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(696): (col. 17) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(755): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(755): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(756): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(756): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(757): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(757): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(781): (col. 16) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(772): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(772): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(789): (col. 21) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(826): (col. 39) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(810): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(810): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(832): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1362): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1376): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1461): (col. 42) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1462): (col. 20) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1486): (col. 42) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1486): (col. 74) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1512): (col. 15) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1511): (col. 16) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1553): (col. 17) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_math_operators.f90(1554): (col. 46) remark: loop was not vectorized: unsupported loop structure.

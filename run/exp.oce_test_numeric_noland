@@ -107,9 +107,10 @@ LOC='none'
 # ocean_grids="iconR2B04-ocean_etopo40_planet_m-noland.nc"
 # ocean_grids="iconR2B04-ocean_etopo40_planet_m-no_vertex_inland.nc"
 #
-grids_folder=""
-ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
-
+#grids_folder=""
+#ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
+grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
+ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 
 p_test_run=${p_test:=".false."}
 if [ $p_test_run = ".true." ] ; then

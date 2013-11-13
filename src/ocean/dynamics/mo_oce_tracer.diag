@@ -1,0 +1,164 @@
+../../../src/ocean/dynamics/mo_oce_tracer.f90(900): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(900): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(900): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(600): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(600): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(601): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(601): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(602): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(602): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(603): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(603): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(603): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(603): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(603): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(614): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(617): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(625): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(625): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(625): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(625): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(625): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(630): (col. 34) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(631): (col. 34) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(626): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(646): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(651): (col. 64) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(643): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(669): (col. 12) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(669): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(669): (col. 12) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(669): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(669): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(670): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(670): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(670): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(670): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(670): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(678): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(678): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(678): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(678): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(684): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(684): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(684): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(699): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(703): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(695): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(734): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(738): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(731): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(805): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(805): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(805): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(805): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(805): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(811): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(811): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(811): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(811): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(823): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(829): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(820): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(849): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(854): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(846): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(507): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(521): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(527): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(505): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(131): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(131): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(133): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(149): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(149): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(149): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(149): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(137): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(172): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(176): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(184): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(184): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(184): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(202): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(206): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(214): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(214): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(214): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(254): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(222): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(309): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer.f90(279): (col. 5) remark: loop was not vectorized: not inner loop.

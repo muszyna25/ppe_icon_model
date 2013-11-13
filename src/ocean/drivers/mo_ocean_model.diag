@@ -1,0 +1,8 @@
+../../../src/ocean/drivers/mo_ocean_model.f90(173): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/drivers/mo_ocean_model.f90(173): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/drivers/mo_ocean_model.f90(235): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/drivers/mo_ocean_model.f90(235): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/drivers/mo_ocean_model.f90(264): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/drivers/mo_ocean_model.f90(264): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/drivers/mo_ocean_model.f90(366): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/drivers/mo_ocean_model.f90(390): (col. 5) remark: loop was not vectorized: unsupported loop structure.

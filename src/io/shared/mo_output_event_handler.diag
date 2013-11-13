@@ -1,0 +1,74 @@
+../../../src/io/shared/mo_output_event_handler.f90(359): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(359): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(362): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(436): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(434): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(483): (col. 3) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/io/shared/mo_output_event_handler.f90(483): (col. 3) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(544): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1071): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(1102): (col. 37) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1102): (col. 37) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(1102): (col. 37) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(1102): (col. 37) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(1021): (col. 9) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1102): (col. 37) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1278): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1286): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1293): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1292): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1278): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1286): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1293): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1292): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(327): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(331): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(333): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(333): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(681): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(686): (col. 11) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/io/shared/mo_output_event_handler.f90(697): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(711): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(716): (col. 11) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/io/shared/mo_output_event_handler.f90(739): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_handler.f90(744): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(750): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(752): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(705): (col. 63) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1153): (col. 16) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1165): (col. 69) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(1202): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(1206): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(1187): (col. 9) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1272): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1278): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1286): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1287): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1293): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(1292): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(1445): (col. 7) remark: BLOCK WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_handler.f90(2016): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(2018): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(2081): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_handler.f90(2100): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_handler.f90(2100): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2100): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2115): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_handler.f90(2115): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2112): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2139): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_handler.f90(2166): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(2166): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2156): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_handler.f90(2210): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_handler.f90(2208): (col. 5) remark: loop was not vectorized: not inner loop.

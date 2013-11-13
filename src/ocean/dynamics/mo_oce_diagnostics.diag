@@ -1,0 +1,99 @@
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(232): (col. 3) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(234): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(235): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(236): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(237): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(238): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(239): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(240): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(241): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(243): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(244): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(245): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(246): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(247): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(248): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(249): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(250): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(251): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(252): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(253): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(254): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(255): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(256): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(257): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(259): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(260): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(261): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(262): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(265): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(266): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(267): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(268): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(269): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(270): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(271): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(275): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(273): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(287): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(345): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(356): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(336): (col. 4) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(415): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(445): (col. 4) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(448): (col. 4) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(449): (col. 4) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(449): (col. 4) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(530): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(532): (col. 29) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(519): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(569): (col. 71) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(573): (col. 71) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(603): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(578): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(581): (col. 39) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(578): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(643): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(651): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(651): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(651): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(651): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(651): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(726): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(674): (col. 3) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(756): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(756): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(756): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(766): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(757): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(837): (col. 3) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(838): (col. 3) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(839): (col. 3) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(891): (col. 17) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(851): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(917): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(918): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(920): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(922): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(923): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(925): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(927): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(928): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(930): (col. 5) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(850): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(939): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(937): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(952): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1020): (col. 3) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1021): (col. 3) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1033): (col. 3) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1033): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1038): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1038): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1041): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diagnostics.f90(1040): (col. 74) remark: loop was not vectorized: unsupported loop structure.

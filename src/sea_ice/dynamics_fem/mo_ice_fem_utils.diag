@@ -1,0 +1,183 @@
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(183): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(183): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(184): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(184): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(184): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(184): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(184): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(186): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(186): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(187): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(187): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(191): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(191): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(192): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(192): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(194): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(194): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(194): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(194): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(194): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(196): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(196): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(197): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(197): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(200): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(200): (col. 38) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(200): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(200): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(200): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(203): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(203): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(204): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(204): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(211): (col. 23) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(345): (col. 12) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(230): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(230): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(230): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(230): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(230): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(252): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(252): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(252): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(252): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(262): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(262): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(262): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(262): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(244): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(317): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 20) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 20) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 35) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(297): (col. 35) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(319): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(319): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(319): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(319): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(315): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(317): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(334): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(334): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(334): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(338): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(345): (col. 23) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(345): (col. 12) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(607): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(607): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(615): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(616): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(616): (col. 11) remark: loop skipped: multiversioned.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(615): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(622): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(672): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(685): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(686): (col. 21) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(870): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(877): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(877): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(878): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(878): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(871): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(904): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(911): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(911): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(912): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(912): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(905): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(938): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(945): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(945): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(946): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(946): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(939): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(992): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(992): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(994): (col. 29) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1004): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1004): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1006): (col. 30) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1015): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1016): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1016): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1019): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1020): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1020): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1024): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1024): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1024): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1024): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1024): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1025): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1025): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1027): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1027): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1027): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1027): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1028): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1030): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1030): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1030): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1030): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1031): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1077): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1083): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1089): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1099): (col. 35) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1095): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1094): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(559): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(570): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(565): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1175): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(1175): (col. 38) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(842): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(781): (col. 45) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(800): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(798): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(833): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(833): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(837): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(836): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(841): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(841): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(841): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(841): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(841): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(842): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(420): (col. 17) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90(420): (col. 17) remark: loop was not vectorized: unsupported loop structure.

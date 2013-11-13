@@ -1,0 +1,647 @@
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(171): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(172): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(184): (col. 5) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(187): (col. 30) remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(193): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(216): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(222): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(221): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(228): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(241): (col. 7) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(241): (col. 7) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(247): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(247): (col. 7) remark: loop skipped: multiversioned.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(261): (col. 32) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(275): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(275): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(276): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(276): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(283): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(283): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(318): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(324): (col. 14) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(324): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(324): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(324): (col. 14) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(324): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(356): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(375): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(399): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(291): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(438): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(442): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(788): (col. 14) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(788): (col. 14) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(788): (col. 14) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(838): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(838): (col. 29) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(838): (col. 48) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(837): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(837): (col. 10) remark: loop skipped: multiversioned.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(837): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(837): (col. 10) remark: loop skipped: multiversioned.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(837): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(848): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(849): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(850): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(851): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(852): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(853): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(963): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(963): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(963): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(963): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(964): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(964): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(964): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(964): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(966): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(965): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(975): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(975): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(975): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(975): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(976): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(976): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(976): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(976): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(978): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(977): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(987): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(987): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(987): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(987): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(988): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(988): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(988): (col. 54) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(988): (col. 54) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(990): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(989): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1007): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1007): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1007): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1007): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1008): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1008): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1008): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1008): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1020): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1012): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1059): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1059): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1060): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1060): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1074): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1079): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1084): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1104): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1104): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1105): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1105): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1108): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1112): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1117): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1133): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1137): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1142): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1146): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1146): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1146): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1759): (col. 41) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1758): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1758): (col. 55) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1758): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1758): (col. 41) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1758): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1823): (col. 12) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1829): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1829): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1830): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1830): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1831): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1831): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1848): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1851): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1853): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1856): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1858): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1861): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1863): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1875): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1875): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1876): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1876): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1895): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1902): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1902): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1904): (col. 30) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1904): (col. 30) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1904): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1904): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1908): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1890): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1932): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1935): (col. 36) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1935): (col. 36) remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1936): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1935): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1937): (col. 38) remark: loop was not vectorized: operation cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1927): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1229): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1240): (col. 13) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1235): (col. 11) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1247): (col. 13) remark: loop skipped: multiversioned.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1247): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1273): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 63) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 49) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 35) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1284): (col. 16) remark: loop was not vectorized: statement cannot be vectorized.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1360): (col. 22) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1380): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1385): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1405): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1423): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1454): (col. 7) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 24) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 24) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 24) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 24) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1460): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1470): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1470): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1471): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1471): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1478): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1478): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1480): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1480): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1480): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1480): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1479): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1479): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1483): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1483): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1483): (col. 34) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1483): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1483): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1486): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1486): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1486): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1485): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1485): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1498): (col. 7) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1502): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1502): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1503): (col. 39) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1503): (col. 39) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1503): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1503): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1516): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1516): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1517): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 34) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 34) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1518): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 36) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 36) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 36) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 36) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1520): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1529): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1529): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1530): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1531): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1531): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1532): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1532): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1553): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1576): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1576): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1577): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1591): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1588): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1604): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1613): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1613): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1614): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1641): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1637): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1641): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1653): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1664): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1668): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 41) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 41) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 41) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 41) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1670): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1678): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1678): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1683): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1683): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1683): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1686): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1688): (col. 30) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1693): (col. 41) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1693): (col. 41) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1693): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1693): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1698): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1698): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1699): (col. 27) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1699): (col. 27) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1699): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1699): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1703): (col. 38) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1707): (col. 34) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1719): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1713): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1719): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1737): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1749): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1749): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(1539): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2035): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2035): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2036): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2036): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2037): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2115): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2040): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2042): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2042): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2042): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2043): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2043): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2043): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2048): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2027): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2027): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2028): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2028): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2067): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2078): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2078): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2097): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2097): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2098): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2098): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2099): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2099): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2100): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2100): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2160): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2161): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2163): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2164): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2147): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2170): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2171): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2172): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2173): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2214): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2189): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2190): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2191): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2192): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2187): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2197): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2198): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2199): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2200): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2198): (col. 30) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2113): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2113): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2115): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2115): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2115): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2120): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2120): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2122): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2122): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2123): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2123): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2128): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2133): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2133): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2133): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2133): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2134): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2134): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2134): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2134): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2135): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2135): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2135): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2135): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2136): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2136): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2136): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2136): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2222): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2223): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2224): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2225): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2217): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2238): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2238): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2237): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2237): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2236): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2236): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2235): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2235): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2234): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2243): (col. 36) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2244): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2244): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2244): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2244): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2246): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2246): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2246): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2246): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2249): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2249): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2249): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2249): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2251): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2251): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2251): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2251): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2253): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2253): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2253): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2253): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2255): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2255): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2255): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2255): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2251): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2262): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2295): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2296): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2296): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2297): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2297): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2302): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2313): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2313): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2332): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2332): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2332): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2332): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2333): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2333): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2333): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2333): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2334): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2334): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2334): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2334): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2335): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2335): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2335): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2335): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2362): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2362): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2363): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2363): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2364): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2364): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2365): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2365): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2379): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2380): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2381): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2382): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2377): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2387): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2388): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2389): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2390): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2388): (col. 30) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2346): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2346): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2346): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2346): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2347): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2347): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2347): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2347): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2348): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2348): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2348): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2348): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2349): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2349): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2349): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2349): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2412): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2413): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2414): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2415): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2407): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2428): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2428): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2427): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2427): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2426): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2426): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2425): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2425): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2424): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2433): (col. 36) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2434): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2434): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2434): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2434): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2436): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2436): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2436): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2436): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2439): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2439): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2439): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2439): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2441): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2441): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2441): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2441): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2443): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2443): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2443): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2443): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2445): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2445): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2445): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2445): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2441): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(642): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(642): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(644): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(678): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(691): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(533): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(557): (col. 16) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(557): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(557): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(601): (col. 12) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(601): (col. 12) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(603): (col. 53) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(603): (col. 53) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(604): (col. 25) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(604): (col. 25) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(712): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(712): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2539): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2539): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2547): (col. 7) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2550): (col. 7) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2551): (col. 7) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2552): (col. 7) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2553): (col. 7) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2554): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2556): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2563): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2569): (col. 91) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2574): (col. 20) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2576): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2583): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2582): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2591): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2590): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2600): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2617): (col. 27) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2617): (col. 27) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2634): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2634): (col. 7) remark: OUTER LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2636): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2702): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2758): (col. 53) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2765): (col. 53) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2729): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2724): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2758): (col. 53) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2765): (col. 53) remark: loop was not vectorized: subscript too complex.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2729): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2724): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 41) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 41) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2789): (col. 41) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2799): (col. 18) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2783): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2810): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2814): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2810): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2814): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2831): (col. 11) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2826): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2825): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2998): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3004): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3007): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3000): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2998): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2998): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3004): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3007): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3000): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2873): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2879): (col. 15) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2879): (col. 15) remark: loop was not vectorized: insufficient computational work.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2880): (col. 15) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2880): (col. 15) remark: loop was not vectorized: insufficient computational work.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2881): (col. 15) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2881): (col. 15) remark: loop was not vectorized: insufficient computational work.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2882): (col. 15) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2882): (col. 15) remark: loop was not vectorized: insufficient computational work.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2885): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2916): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2917): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2998): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3004): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3007): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3000): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(2998): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3004): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3007): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3000): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3011): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(742): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(742): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(743): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(743): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(745): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(760): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3175): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3179): (col. 30) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_setup_subdivision.f90(3186): (col. 59) remark: loop was not vectorized: unsupported loop structure.

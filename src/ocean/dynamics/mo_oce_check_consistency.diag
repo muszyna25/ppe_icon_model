@@ -1,0 +1,10 @@
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(87): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(95): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(87): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(146): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(118): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(137): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(137): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(137): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(112): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_check_consistency.f90(138): (col. 14) remark: loop was not vectorized: not inner loop.

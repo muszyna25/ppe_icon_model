@@ -1,0 +1,1 @@
+../../../src/io/shared/mo_util_file.f90(181): (col. 7) remark: loop was not vectorized: statement cannot be vectorized.

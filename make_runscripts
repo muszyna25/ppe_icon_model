@@ -222,10 +222,7 @@ check_accept_script()
 
      hpc)
        case $check_accepted_filename in
-       *test_oce_default*)
-          accepted_script="false"
-          ;;
-       *test_oce_numeric*)
+       *test_oce_*)
           accepted_script="false"
           ;;
        *test_nh_hdcp2_lam_r15000_modified*)

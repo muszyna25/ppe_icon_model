@@ -1,0 +1,307 @@
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1500): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1500): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1501): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1501): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1502): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1502): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1503): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1503): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1512): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1512): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1512): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1513): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1513): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1518): (col. 15) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1514): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1513): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1549): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1556): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1573): (col. 56) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1631): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1612): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1612): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1660): (col. 19) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1618): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1630): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1631): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1706): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1706): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1706): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1353): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1353): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1355): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1356): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1357): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1372): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1372): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1372): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1374): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1373): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1374): (col. 30) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1246): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1246): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1246): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1255): (col. 49) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1247): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1248): (col. 20) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1189): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1189): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1189): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1198): (col. 15) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1190): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1191): (col. 34) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1089): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1103): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1103): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1103): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1105): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1104): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1103): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1020): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1020): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1022): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1021): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(1020): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(923): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(923): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(931): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(931): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(928): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(789): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(789): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(797): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(810): (col. 33) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(797): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(791): (col. 3) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(845): (col. 18) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(832): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(827): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(832): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(849): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(421): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(421): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(422): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(422): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(422): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(422): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(423): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(423): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(423): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(423): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(424): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(424): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(425): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(425): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(426): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(426): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(427): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(427): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(429): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(429): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(429): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(429): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(430): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(430): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(430): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(430): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(431): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(431): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(431): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(431): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(433): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(433): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(433): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(433): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(434): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(434): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(435): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(435): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(436): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(436): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(498): (col. 39) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(486): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(552): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(533): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(533): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(533): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(533): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(533): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(542): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(542): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(542): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(542): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(552): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(467): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(469): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(469): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(469): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(469): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(469): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(459): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(461): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(461): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(461): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(461): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(461): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(452): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(585): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(589): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(586): (col. 65) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(664): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(664): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(664): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(664): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(664): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(684): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(684): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(684): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(684): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(684): (col. 14) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(686): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(686): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(686): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(686): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(686): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(705): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(705): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(724): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(724): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(724): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(724): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(725): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(725): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(725): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(725): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(734): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(734): (col. 20) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(734): (col. 20) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(177): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(177): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(178): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(178): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(178): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(178): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(179): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(179): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(179): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(179): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(180): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(180): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(180): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(180): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(182): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(182): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(182): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(182): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(183): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(183): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(183): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(183): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(184): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(184): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(184): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(184): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(185): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(185): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(186): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(186): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(188): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(188): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(188): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(188): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(188): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(189): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(189): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(189): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(189): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(189): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(190): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(190): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(190): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(190): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(190): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(191): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(191): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(191): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(193): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(193): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(193): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(193): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(194): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(194): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(194): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(194): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(195): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(195): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(195): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(195): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(197): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(197): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(197): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(197): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(198): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(198): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(198): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(198): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(199): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(199): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(199): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(199): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(200): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(200): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(201): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(201): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(264): (col. 35) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(250): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(318): (col. 15) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(297): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(297): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(297): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(297): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(297): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(308): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(308): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_tracer_transport_horz.f90(322): (col. 13) remark: loop was not vectorized: not inner loop.

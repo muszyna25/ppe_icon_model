@@ -1,0 +1,6 @@
+../../../src/parallel_infrastructure/mo_ompthreads.f90(124): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_ompthreads.f90(214): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_ompthreads.f90(234): (col. 16) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_ompthreads.f90(253): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_ompthreads.f90(270): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/parallel_infrastructure/mo_ompthreads.f90(106): (col. 5) remark: LOOP WAS VECTORIZED.

@@ -1,0 +1,15 @@
+../../../src/io/shared/mo_output_event_control.f90(133): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_control.f90(133): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_control.f90(134): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_output_event_control.f90(140): (col. 14) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_control.f90(135): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_control.f90(189): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_output_event_control.f90(254): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/io/shared/mo_output_event_control.f90(254): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/io/shared/mo_output_event_control.f90(260): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/io/shared/mo_output_event_control.f90(260): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/io/shared/mo_output_event_control.f90(282): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_output_event_control.f90(274): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_output_event_control.f90(300): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_control.f90(300): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_output_event_control.f90(316): (col. 5) remark: loop was not vectorized: existence of vector dependence.

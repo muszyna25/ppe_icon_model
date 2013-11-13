@@ -13,7 +13,7 @@ create_folders=["run", "config"]
 
 link_files_alevel=["blas", "data", "doc", "grids", "vertical_coord_tables",
 "include", "lapack", "scripts", "src", "support", "externals", 
-"aclocal.m4", "configure.ac","configure", "make_runscripts", "Makefile.in"]
+"aclocal.m4", "configure.ac","configure", "make_runscripts", "make_my_runscript", "Makefile.in"]
 link_files_blevel=[
 "config/config.guess",
 "config/config.h.SX",

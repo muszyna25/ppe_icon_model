@@ -1,0 +1,147 @@
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(134): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(154): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(351): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(351): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(352): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(352): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(361): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(361): (col. 7) remark: OUTER LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(355): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(371): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(371): (col. 7) remark: OUTER LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(368): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(384): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(387): (col. 11) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(446): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(401): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(416): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(419): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(484): (col. 17) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(433): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(443): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(446): (col. 11) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(453): (col. 32) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(461): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(476): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(479): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(484): (col. 17) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(493): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(556): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(564): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(564): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(564): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(564): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(571): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(571): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(571): (col. 23) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(603): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(616): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(604): (col. 36) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(209): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(209): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(218): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(218): (col. 7) remark: OUTER LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(212): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(228): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(228): (col. 7) remark: OUTER LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(225): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(242): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(244): (col. 13) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(251): (col. 34) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(260): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(275): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(278): (col. 14) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(283): (col. 17) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(293): (col. 3) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(672): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(674): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(722): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(738): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(725): (col. 15) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(834): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(835): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(836): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(875): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(875): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(869): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(856): (col. 45) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1444): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1444): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1446): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1471): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1480): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1493): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1496): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1466): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1461): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1532): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1285): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1285): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1286): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1286): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1301): (col. 9) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1316): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1329): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1339): (col. 11) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1339): (col. 11) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1350): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1358): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1369): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1374): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1379): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1385): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1386): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1375): (col. 26) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1294): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1194): (col. 3) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1194): (col. 3) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1208): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1219): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1200): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1214): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1084): (col. 24) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1103): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1099): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_diffusion.f90(1114): (col. 27) remark: loop was not vectorized: unsupported loop structure.

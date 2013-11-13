@@ -1,0 +1,16 @@
+../../../src/io/shared/mo_util_grib.f90(90): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_util_grib.f90(157): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_util_grib.f90(173): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_util_grib.f90(173): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(173): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_util_grib.f90(173): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(173): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(193): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_util_grib.f90(199): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_util_grib.f90(183): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(241): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_util_grib.f90(263): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_util_grib.f90(263): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(263): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_util_grib.f90(263): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_util_grib.f90(266): (col. 5) remark: loop was not vectorized: existence of vector dependence.

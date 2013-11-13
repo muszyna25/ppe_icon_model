@@ -1,0 +1,81 @@
+../../../src/io/shared/mo_io_restart.f90(202): (col. 30) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(229): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(229): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(240): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(240): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(241): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(241): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(252): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(252): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(253): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(253): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(264): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(264): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(265): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(265): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1098): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1104): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1110): (col. 28) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1110): (col. 28) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1117): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1120): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1123): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1123): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1123): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1123): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1138): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1141): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1144): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1144): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1144): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1144): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1163): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1163): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1163): (col. 14) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1163): (col. 14) remark: loop skipped: multiversioned.
+../../../src/io/shared/mo_io_restart.f90(1202): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1202): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1205): (col. 10) remark: BLOCK WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1206): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(467): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(529): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(538): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(548): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(559): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(570): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart.f90(586): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(657): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(645): (col. 15) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(787): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(471): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart.f90(630): (col. 9) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart.f90(852): (col. 14) remark: routine skipped: no vectorization candidates.
+../../../src/io/shared/mo_io_restart.f90(1241): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1232): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1267): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1263): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1278): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1283): (col. 5) remark: BLOCK WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1331): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1306): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1501): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1505): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1511): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1515): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1521): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1525): (col. 11) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1436): (col. 11) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart.f90(1578): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/io/shared/mo_io_restart.f90(1694): (col. 5) remark: BLOCK WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1693): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1700): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1697): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/io/shared/mo_io_restart.f90(1790): (col. 17) remark: LOOP WAS VECTORIZED.
+../../../src/io/shared/mo_io_restart.f90(1853): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart.f90(1759): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart.f90(1847): (col. 9) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.

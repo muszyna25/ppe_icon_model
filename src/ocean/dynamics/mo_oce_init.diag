@@ -1,0 +1,348 @@
+../../../src/ocean/dynamics/mo_oce_init.f90(3596): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(3596): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(3596): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(3600): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(3600): (col. 22) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(3597): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(3599): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(3566): (col. 6) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(3420): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(3368): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(3020): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2939): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2856): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2746): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2220): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2220): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2220): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2221): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2221): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2221): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2222): (col. 6) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2222): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2233): (col. 37) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(2232): (col. 8) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(2246): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2246): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2246): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2246): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2141): (col. 4) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2141): (col. 4) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2141): (col. 4) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2142): (col. 4) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2142): (col. 4) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2142): (col. 4) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2145): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2145): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2145): (col. 6) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2145): (col. 6) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2149): (col. 10) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2149): (col. 10) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2149): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2150): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2150): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2150): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2150): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 10) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 10) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 37) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 37) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2152): (col. 37) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2154): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2154): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2154): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2173): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2173): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2173): (col. 8) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(2173): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(895): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(895): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(895): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1822): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1822): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1823): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1823): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1823): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1824): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1824): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1824): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1826): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1826): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1827): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1827): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1846): (col. 14) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1848): (col. 14) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1834): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1845): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1837): (col. 24) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1701): (col. 19) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1701): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1709): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1709): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1717): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1714): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1710): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1733): (col. 20) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1730): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1729): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1755): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1765): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1765): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1751): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1783): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1789): (col. 55) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1800): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1805): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1809): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1800): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1635): (col. 19) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1635): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1647): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1647): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1655): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1652): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1648): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1671): (col. 20) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1668): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1667): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1588): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1597): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1591): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1523): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1525): (col. 18) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1520): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1501): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1501): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1502): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1502): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1504): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1504): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1496): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1445): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1456): (col. 17) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1441): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1379): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1394): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1375): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1314): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1335): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1307): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1078): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1080): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1078): (col. 15) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1073): (col. 25) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1005): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1019): (col. 16) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(999): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1145): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1150): (col. 15) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1139): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1217): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1167): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1167): (col. 12) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(1167): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1168): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1168): (col. 12) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(1168): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1165): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1219): (col. 21) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1217): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(917): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(917): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(920): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(920): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(920): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(929): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(925): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(924): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(949): (col. 20) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(946): (col. 11) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(945): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(980): (col. 18) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(976): (col. 21) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1548): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1551): (col. 45) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1545): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1863): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1863): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1863): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1867): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1867): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1867): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2091): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(2088): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(2098): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2098): (col. 11) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2044): (col. 13) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(2039): (col. 47) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(2060): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2061): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2068): (col. 15) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2071): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2071): (col. 13) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2071): (col. 13) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2056): (col. 19) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2077): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2077): (col. 8) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2077): (col. 8) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2078): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2078): (col. 8) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2078): (col. 8) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2080): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2080): (col. 8) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2080): (col. 8) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2081): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2081): (col. 8) remark: loop was not vectorized: insufficient computational work.
+../../../src/ocean/dynamics/mo_oce_init.f90(2081): (col. 8) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1998): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1998): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(1999): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1999): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1999): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2000): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2000): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2000): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2002): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2002): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2003): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2003): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(2011): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(2014): (col. 20) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1960): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1960): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1960): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1960): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1960): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1961): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1961): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1961): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1961): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1961): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1969): (col. 46) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1966): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1988): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1989): (col. 44) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1920): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1920): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1920): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1920): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1920): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1921): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1921): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1921): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1921): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1921): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1929): (col. 42) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1926): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1948): (col. 11) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1949): (col. 44) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1887): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1887): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1887): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1887): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1887): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1888): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1888): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1888): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(1888): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1888): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1896): (col. 48) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(1893): (col. 19) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(1910): (col. 11) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(1910): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(1911): (col. 46) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(2106): (col. 8) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(689): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(705): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(721): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(510): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(510): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(511): (col. 11) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(510): (col. 12) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(510): (col. 12) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(512): (col. 11) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(412): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(412): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(412): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(412): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(422): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(422): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(422): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(422): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(431): (col. 14) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(428): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(451): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(456): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(463): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(467): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(476): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(476): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(476): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(476): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(479): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(479): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(479): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(479): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(227): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(227): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(227): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(227): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(227): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(238): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(250): (col. 29) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(245): (col. 9) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(244): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(261): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(275): (col. 16) remark: loop was not vectorized: existence of vector dependence.
+../../../src/ocean/dynamics/mo_oce_init.f90(270): (col. 7) remark: loop was not vectorized: unsupported loop structure.
+../../../src/ocean/dynamics/mo_oce_init.f90(269): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(286): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(286): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(286): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/ocean/dynamics/mo_oce_init.f90(289): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/ocean/dynamics/mo_oce_init.f90(289): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/ocean/dynamics/mo_oce_init.f90(289): (col. 7) remark: loop was not vectorized: subscript too complex.

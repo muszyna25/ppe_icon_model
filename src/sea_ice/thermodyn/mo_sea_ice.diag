@@ -1,0 +1,1107 @@
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(164): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(170): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(176): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(182): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(188): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(194): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(200): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(206): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(212): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(218): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(224): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(230): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(237): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(244): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(251): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(258): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(266): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(273): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(281): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(289): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(307): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(313): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(334): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(341): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(356): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(356): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(358): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(358): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(366): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(372): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(378): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(384): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(390): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(576): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(587): (col. 7) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(601): (col. 14) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(599): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(613): (col. 14) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(611): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(624): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(629): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(634): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(639): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(644): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(649): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(654): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(659): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(664): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(669): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(674): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(679): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(684): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(689): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(694): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(699): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(717): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(718): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(719): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(717): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(826): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(826): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(826): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(827): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(827): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(827): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(828): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(828): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(828): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(829): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(829): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(829): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(830): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(830): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(830): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(831): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(831): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(831): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(832): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(832): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(832): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(833): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(833): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(833): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(834): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(834): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(834): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(835): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(835): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(835): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(836): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(836): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(836): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1045): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1052): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1059): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1066): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1073): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1080): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1087): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1094): (col. 10) remark: loop was not vectorized: loop was transformed to memset or memcpy.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1103): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1103): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1103): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1103): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1104): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1104): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1104): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1104): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1105): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1105): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1105): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1105): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1106): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1106): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1106): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1106): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1107): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1107): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1107): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1107): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1108): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1108): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1108): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1108): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1109): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1109): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1109): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1109): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1110): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1110): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1110): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1110): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1111): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1111): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1111): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1112): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1112): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1112): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1113): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1113): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1113): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1114): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1114): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1114): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1115): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1115): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1115): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1116): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1116): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1116): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1117): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1117): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1117): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1118): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1118): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1118): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1118): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1119): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1119): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1119): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1122): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1122): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1122): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1122): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1122): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1123): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1123): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1123): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1123): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1123): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1124): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1124): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1124): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1124): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1124): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1125): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1125): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1125): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1125): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1125): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1126): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1126): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1126): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1126): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1127): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1127): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1127): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1127): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1128): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1128): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1128): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1128): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1129): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1129): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1129): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1129): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1434): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1434): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1443): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1484): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1486): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1487): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1514): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1514): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1515): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1515): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1518): (col. 10) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1917): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1917): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1918): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1918): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1918): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1919): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1919): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1919): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1926): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1928): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1935): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1935): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1935): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1935): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1936): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1936): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1936): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1936): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1936): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1937): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1938): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1938): (col. 31) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1941): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1942): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1943): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 23) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1949): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1952): (col. 53) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1950): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1950): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1955): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1955): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1959): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1959): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1961): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1961): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1961): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1961): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1963): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1963): (col. 7) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1968): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1969): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1970): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 61) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1971): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1982): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1982): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1982): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1982): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2006): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2012): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2012): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2013): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2013): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2022): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2022): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2023): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2023): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2024): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2024): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2025): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2025): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2026): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2026): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2027): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2027): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2057): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2057): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2059): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2064): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2065): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2069): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2069): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2071): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2071): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2071): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2071): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2075): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2075): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2075): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2075): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2079): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2079): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2079): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2079): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2080): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2080): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2080): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2080): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2086): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2086): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2088): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2088): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2088): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2088): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2092): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2092): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2092): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2092): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2093): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2093): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2093): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2093): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2098): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2098): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2099): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2099): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2100): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2100): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2100): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2100): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2103): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2105): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2105): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2106): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2106): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2107): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2107): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2108): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2108): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2109): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2109): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2110): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2110): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2111): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2111): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2112): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2112): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2113): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2113): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1577): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1577): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1595): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1588): (col. 11) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1596): (col. 16) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 21) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1621): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2382): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2382): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2383): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2383): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2384): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2384): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2404): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2404): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2405): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2405): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2406): (col. 5) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2406): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2425): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2425): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2426): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2426): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2435): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2435): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop skipped: multiversioned.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2458): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2458): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2463): (col. 30) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2463): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2469): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2469): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2470): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2470): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2472): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2472): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2474): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2474): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2477): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2477): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2478): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2478): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2479): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2479): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2481): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2481): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2490): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2490): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2491): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2491): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2492): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2492): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2493): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2493): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2174): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2174): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2175): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2175): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2197): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2197): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2215): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2215): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2216): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2216): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2228): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2228): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2233): (col. 30) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2239): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2239): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2240): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2240): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2242): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2242): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2249): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2249): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2250): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2250): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2254): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2254): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2255): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2255): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2256): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2256): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2257): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2257): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2259): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2259): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2263): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2263): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2267): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2267): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2275): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2275): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2276): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2276): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2278): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2278): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2281): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2281): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2285): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2285): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2287): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2287): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2288): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2288): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2248): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2303): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2303): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2304): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2304): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2305): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2305): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1672): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1673): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1673): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1673): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1673): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1673): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1674): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1675): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1675): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1675): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1675): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1675): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1676): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1677): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1677): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1677): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1677): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1677): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1678): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1679): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1679): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1679): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1679): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1679): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1680): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1681): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1681): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1681): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1681): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1681): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1682): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1682): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1682): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1682): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1682): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1683): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1683): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1683): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1683): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1683): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1684): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1684): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1684): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1684): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1684): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1709): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1709): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1709): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1710): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1710): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1711): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1711): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1711): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1712): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1712): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1713): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1713): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1713): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1714): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1714): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1715): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1715): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1715): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1716): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1716): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1717): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1717): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1717): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1718): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1718): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1719): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1719): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1720): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1720): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1721): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1721): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1722): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1722): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1722): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1722): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1722): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1723): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1723): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1723): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1723): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1723): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1769): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1769): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1769): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1769): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1769): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1770): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1770): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1770): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1770): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1770): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1771): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1771): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1771): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1771): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1771): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1772): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1772): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1772): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1772): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1772): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1773): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1773): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1773): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1773): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1773): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1774): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1774): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1774): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1774): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1774): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1775): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1775): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1775): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1775): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1775): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1815): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1814): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1833): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1833): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1833): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1834): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1834): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1834): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1835): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1835): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1835): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1840): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1839): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1855): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1855): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1855): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1856): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1856): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1856): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2174): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2174): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2175): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2175): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2197): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2197): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2215): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2215): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2216): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2216): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2218): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2219): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2228): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2228): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2233): (col. 30) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 31) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2239): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2239): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2240): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2240): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2242): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2242): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2247): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2249): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2249): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2250): (col. 9) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2250): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2254): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2254): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2255): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2255): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2256): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2256): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2257): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2257): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2259): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2259): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2263): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2263): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2267): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2267): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2275): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2275): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2276): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2276): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2278): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2278): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2281): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2281): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2283): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2285): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2285): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2287): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2287): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2288): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2288): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2248): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2296): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2297): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2303): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2303): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2304): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2304): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2305): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2305): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2311): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2311): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2312): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2312): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2382): (col. 5) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2382): (col. 5) remark: loop was not vectorized: subscript too complex.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2383): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2383): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2384): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2384): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2404): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2404): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2405): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2405): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2406): (col. 5) remark: PARTIAL LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2406): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2425): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2425): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2426): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2426): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2430): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2431): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2435): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2435): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop was not vectorized: existence of vector dependence.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2446): (col. 5) remark: loop skipped: multiversioned.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2458): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2458): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2463): (col. 30) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2463): (col. 25) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2469): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2469): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2470): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2470): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2472): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2472): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2474): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2474): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2477): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2477): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2478): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2478): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2479): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2479): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2481): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2481): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2490): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2490): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2491): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2491): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2492): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2492): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2493): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2493): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2499): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2499): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2500): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2500): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2539): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2539): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2539): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2539): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2539): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2540): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2540): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2540): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2540): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2540): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2541): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2541): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2541): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2541): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2542): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2542): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2542): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2542): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2543): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2543): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2543): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2543): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(2543): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1285): (col. 9) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1285): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1285): (col. 9) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1288): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1291): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1291): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1291): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1291): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1291): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1292): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1292): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1292): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1292): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1292): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1293): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1293): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1293): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1293): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1293): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1294): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1294): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1294): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1294): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1294): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1295): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1295): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1295): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1299): (col. 7) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1299): (col. 7) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1301): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1301): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1302): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1302): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1303): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1303): (col. 9) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1312): (col. 5) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1312): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1312): (col. 5) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1313): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1313): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1313): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1314): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1314): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1314): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1315): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1315): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1315): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1316): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1316): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1316): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1318): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1318): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1318): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1319): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1319): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1319): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1320): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1320): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1320): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1321): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1321): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1321): (col. 7) remark: loop was not vectorized: vectorization possible but seems inefficient.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1327): (col. 32) remark: loop was not vectorized: not inner loop.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1326): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
+../../../src/sea_ice/thermodyn/mo_sea_ice.f90(1326): (col. 5) remark: loop was not vectorized: not inner loop.

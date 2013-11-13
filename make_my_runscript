@@ -38,6 +38,7 @@
 set -x
 base_folder=$(pwd)
 . $base_folder/config/set-up.info
+input_folder=run
 #==============================================================================
 # Define run parameters
 
@@ -76,8 +77,6 @@ memory_model="large"
 #==============================================================================
 create_runscript()
 {
-base_folder=$(pwd)
-input_folder=run
 #==============================================================================
 use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript

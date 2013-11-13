@@ -1,0 +1,5 @@
+../../../src/io/shared/mo_io_restart_namelist.f90(89): (col. 5) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart_namelist.f90(136): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart_namelist.f90(227): (col. 10) remark: loop was not vectorized: unsupported loop structure.
+../../../src/io/shared/mo_io_restart_namelist.f90(250): (col. 10) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
+../../../src/io/shared/mo_io_restart_namelist.f90(316): (col. 5) remark: loop was not vectorized: unsupported loop structure.
