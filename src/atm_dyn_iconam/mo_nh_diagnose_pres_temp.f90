@@ -44,12 +44,13 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, &
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, &
     &                               lforcing, iforcing
   USE mo_impl_constants,      ONLY: min_rlcell, MAX_CHAR_LENGTH 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_diagnose_pres_temp
+  USE mo_parallel_config,     ONLY: nproma
 
   IMPLICIT NONE
 
@@ -94,7 +95,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER, INTENT(IN), OPTIONAL :: opt_slev, opt_rlend 
 
-    INTEGER  :: jb,jk,jc
+    INTEGER  :: jb,jk,jc,jt
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER  :: i_rlstart, i_rlend
@@ -102,7 +103,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
-    REAL(wp) :: dz1, dz2, dz3, z_qsum
+    REAL(wp) :: dz1, dz2, dz3, z_qsum(nproma,pt_patch%nlev)
 
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
@@ -155,43 +156,59 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc, dz1, dz2, dz3, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jt, jc, dz1, dz2, dz3, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,      &
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-      IF ( lforcing .AND. iforcing /= 1  ) THEN
+      IF ( l_opt_calc_temp) THEN
+        IF ( lforcing .AND. iforcing /= 1  ) THEN
 
-        IF ( l_opt_calc_temp) THEN
           DO jk = slev, nlev
+            DO jc = i_startidx, i_endidx
+              z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            ENDDO
+          ENDDO
+
+          ! Add further hydrometeor species to water loading term if required
+          IF (iqm_max > iqs) THEN
+            DO jt = iqs+1, iqm_max
+              DO jk = slev, nlev
+                DO jc = i_startidx, i_endidx
+                  z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+                ENDDO
+              ENDDO
+            ENDDO
+          ENDIF
+
+          DO jk = slev, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
 
               pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
 
-              z_qsum                   =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-                &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-
               pt_diag%temp(jc,jk,jb)   =  pt_diag%tempv(jc,jk,jb)          &
                 &                      /( 1._wp +  vtmpc1                  &
                 &                      * pt_prog_rcf%tracer(jc,jk,jb,iqv)  &
-                &                      - z_qsum  )
+                &                      - z_qsum(jc,jk)  )
             ENDDO
           ENDDO
 
-        ENDIF
-      ELSE ! .NOT. lforcing or Held-Suarez test forcing
-        IF ( l_opt_calc_temp) THEN
+        ELSE ! .NOT. lforcing or Held-Suarez test forcing
+
           DO jk = slev, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
                pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
                pt_diag%temp(jc,jk,jb)  = pt_diag%tempv  (jc,jk,jb)
             ENDDO
           ENDDO
-        ENDIF
 
+        ENDIF
       ENDIF
 
       !-------------------------------------------------------------------------
@@ -201,6 +218,7 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp_ifc ) THEN
         
         DO jk = MAX(slev+1,2), nlev
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,jk,jb) = &
               p_metrics%wgtfac_c(jc,jk,jb)*pt_diag%temp(jc,jk,jb) +      &
@@ -229,7 +247,7 @@ MODULE mo_nh_diagnose_pres_temp
       !-------------------------------------------------------------------------
 
       IF ( l_opt_calc_pres ) THEN
-        
+!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           ! Height differences between surface and third-lowest main level
           dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
@@ -253,6 +271,7 @@ MODULE mo_nh_diagnose_pres_temp
         !-------------------------------------------------------------------------
 
         DO jk = nlev, slev,-1
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             ! pressure at interface levels

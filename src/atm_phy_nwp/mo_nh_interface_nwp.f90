@@ -77,7 +77,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,   ONLY: diffusion_config
-  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar,    &
+  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
@@ -191,7 +191,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce      !block index
+    INTEGER :: jc,jk,jb,jce,jt   !loop indices
     INTEGER :: jg                !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
@@ -213,8 +213,8 @@ CONTAINS
 
     REAL(wp) :: r_sim_time
 
-    REAL(wp) :: z_qsum       !< summand of virtual increment
-    REAL(wp) :: z_ddt_qsum   !< summand of tendency of virtual increment
+    REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
+    REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
@@ -362,7 +362,7 @@ CONTAINS
         z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -394,15 +394,32 @@ CONTAINS
 
             ! calculate virtual temperature from condens' output temperature
             ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
+            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
 
-            z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-            
-            pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                  &
-              &                   * ( 1._wp +  vtmpc1                          &
-              &                   * pt_prog_rcf%tracer(jc,jk,jb,iqv)  - z_qsum )
+          ENDDO
+        ENDDO
+
+        ! Add further hydrometeor species to water loading term if required
+        IF (iqm_max > iqs) THEN
+          DO jt = iqs+1, iqm_max
+            DO jk = kstart_moist(jg), nlev
+              DO jc = i_startidx, i_endidx
+                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+              ENDDO
+            ENDDO
+          ENDDO
+        ENDIF
+
+        DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+
+            pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                        &
+              &                   * ( 1._wp +  vtmpc1                                &
+              &                   * pt_prog_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk) )
 
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
               &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
@@ -586,7 +603,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -598,17 +615,38 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
 
+        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
+
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+
+            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+
+          ENDDO
+        ENDDO
+
+        ! Add further hydrometeor species to water loading term if required
+        IF (iqm_max > iqs) THEN
+          DO jt = iqs+1, iqm_max
+            DO jk = kstart_moist(jg), nlev
+              DO jc = i_startidx, i_endidx
+                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+              ENDDO
+            ENDDO
+          ENDDO
+        ENDIF
+
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
-            z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
             pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)          &
 &                                  * ( 1._wp +  vtmpc1                 &
 &                                  *  pt_prog_rcf%tracer(jc,jk,jb,iqv) &
-&                                   - z_qsum )
+&                                   - z_qsum(jc,jk) )
 
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
               &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
@@ -626,6 +664,7 @@ CONTAINS
         ! optimization is applied as in a corresponding loop later in this module, where
         ! the same calculations are made for the halo points.
         DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
             ! compute dynamical temperature tendency from increments of Exner function and density
@@ -1048,6 +1087,7 @@ CONTAINS
           !T.R.: this is not correct for output after 1st timestep,
           !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
           !leading to wrong averaging.
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
           prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
@@ -1078,7 +1118,7 @@ CONTAINS
           ENDDO
 
         ELSEIF ( .NOT. lflux_avg ) THEN
-
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
           prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                    &
@@ -1204,7 +1244,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
 !$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1216,6 +1256,7 @@ CONTAINS
         ! artificial Rayleigh friction: active if GWD or SSO scheme is active
         IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
               rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
@@ -1230,6 +1271,7 @@ CONTAINS
 
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
@@ -1241,7 +1283,7 @@ CONTAINS
                                                     prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
           ENDDO
         ENDDO
-
+!DIR$ IVDEP
         z_ddt_temp(i_startidx:i_endidx,:,jb) =                                               &
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
@@ -1249,17 +1291,35 @@ CONTAINS
    &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb) 
 
 
-        ! Convert temperature tendency into Exner function tendency
-        DO jk = 1, nlev
+
+        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
+
+        DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-!            z_qsum                   = SUM(pt_prog_rcf%tracer    (jc,jk,jb,iqc:iqs))
-            z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-            
-!            z_ddt_qsum = SUM(prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc:iqs))
+            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+
+          ENDDO
+        ENDDO
+
+        ! Add further hydrometeor species to water loading term if required
+        IF (iqm_max > iqs) THEN
+          DO jt = iqs+1, iqm_max
+            DO jk = kstart_moist(jg), nlev
+              DO jc = i_startidx, i_endidx
+                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+              ENDDO
+            ENDDO
+          ENDDO
+        ENDIF
+
+        ! Convert temperature tendency into Exner function tendency
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
               &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) 
@@ -1267,7 +1327,7 @@ CONTAINS
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
+              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
               &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv)-z_ddt_qsum ))
 
           ENDDO
@@ -1278,12 +1338,13 @@ CONTAINS
         ! in the current time step, but the radiation time step should be a multiple 
         ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
         IF (l_any_slowphys) THEN
+!DIR$ IVDEP
           z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
    &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb) 
-
+!DIR$ IVDEP
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
    &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
@@ -1323,7 +1384,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
 !$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1335,6 +1396,7 @@ CONTAINS
         ! artificial Rayleigh friction: active if GWD or SSO scheme is active
         IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
               rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
@@ -1349,6 +1411,7 @@ CONTAINS
 
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
@@ -1361,25 +1424,46 @@ CONTAINS
           ENDDO
         ENDDO
 
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              z_ddt_temp(jc,jk,jb) =                             &
-                         &                 prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
-                         &              +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
-                         &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
-                         &              +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) &
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            z_ddt_temp(jc,jk,jb) =                                             &
+                       &                 prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
+                       &              +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
+                       &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
+                       &              +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) &
                                         +  prm_nwp_tend%ddt_temp_ls(jk)
-            END DO 
-          END DO
+          END DO 
+        END DO
+
+        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
+
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+
+            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+
+          ENDDO
+        ENDDO
+
+        ! Add further hydrometeor species to water loading term if required
+        IF (iqm_max > iqs) THEN
+          DO jt = iqs+1, iqm_max
+            DO jk = kstart_moist(jg), nlev
+              DO jc = i_startidx, i_endidx
+                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+              ENDDO
+            ENDDO
+          ENDDO
+        ENDIF
 
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-
-            z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
               &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
@@ -1389,7 +1473,7 @@ CONTAINS
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
+              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
               &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
               &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
 
@@ -1398,6 +1482,7 @@ CONTAINS
 
         ! add u/v forcing tendency here
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
           z_ddt_u_tot(jc,jk,jb) =                   &
    &          prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
@@ -1542,6 +1627,7 @@ CONTAINS
 
           IF (lhdiff_rcf) THEN
             DO jk = 1, nlev
+!DIR$ IVDEP
               DO jc =  i_startidx, i_endidx
 
                 IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
@@ -1557,6 +1643,7 @@ CONTAINS
             ENDDO
           ELSE
             DO jk = 1, nlev
+!DIR$ IVDEP
               DO jc =  i_startidx, i_endidx
 
                 IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
@@ -1619,6 +1706,7 @@ CONTAINS
 
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
@@ -1655,6 +1743,7 @@ CONTAINS
       ELSE IF (lcall_phy_jg(itturb) ) THEN
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
+!DIR$ IVDEP
           DO jk = 1, nlev
 #else
 !CDIR UNROLL=8
@@ -1806,6 +1895,7 @@ CONTAINS
 ! KF fix to positive values
       DO jt=1, nqtendphy  ! qv,qc,qi
         DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
@@ -1818,6 +1908,7 @@ CONTAINS
 ! KL add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
              pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
              +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
@@ -1836,18 +1927,19 @@ CONTAINS
         ENDDO
       ENDDO
 
-
+!DIR$ IVDEP
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
         &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
         &                                  + pdtime                                     &
         &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
-
+!DIR$ IVDEP
       prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
         &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
         &                                  + pdtime                                     &
         &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
 
       !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+!DIR$ IVDEP
       prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
         &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
         &                              +  pdtime                                        &
@@ -1866,6 +1958,7 @@ CONTAINS
                            i_startidx, i_endidx, rl_start, rl_end)
         DO jt=1, nqtendphy  ! qv,qc,qi
           DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
                 &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
