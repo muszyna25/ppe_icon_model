@@ -88,6 +88,24 @@ CONTAINS
   END SUBROUTINE quicksort_real
 
 
+  SUBROUTINE swap_int(a, i,j, permutation)
+    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
+    INTEGER,  INTENT(IN)              :: i,j            !< indices to be exchanged
+    INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
+    ! local variables
+    INTEGER :: t, t_p
+
+    t    = a(i)
+    a(i) = a(j)
+    a(j) = t
+    IF (PRESENT(permutation)) THEN
+      t_p            = permutation(i)
+      permutation(i) = permutation(j)
+      permutation(j) = t_p
+    END IF
+  END SUBROUTINE swap_int
+
+
   ! --------------------------------------------------------------------
   !> Simple recursive implementation of Hoare's QuickSort algorithm
   !  for a 1D array of INTEGER values.
@@ -95,9 +113,9 @@ CONTAINS
   RECURSIVE SUBROUTINE quicksort_int(a, permutation, l_in, r_in)
     INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
     INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
-    INTEGER , INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
+    INTEGER,  INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
     ! local variables
-    INTEGER :: i,j,l,r,t_p,t,v
+    INTEGER :: i,j,l,r,t_p,t,v,m
 
     IF (PRESENT(l_in)) THEN
       l = l_in
@@ -110,9 +128,21 @@ CONTAINS
       r = SIZE(a,1)
     END IF
     IF (r>l) THEN
-      v   = a(r)
-      i   = l-1
-      j   = r
+      i = l-1
+      j = r
+      
+      ! median-of-three selection of partitioning element
+      IF ((r-l) > 3) THEN 
+        m = (l+r)/2
+        IF (a(l)>a(m))  CALL swap_int(a, l,m, permutation)
+        IF (a(l)>a(r)) THEN
+          CALL swap_int(a, l,r, permutation)
+        ELSE IF (a(r)>a(m)) THEN
+          CALL swap_int(a, r,m, permutation)
+        END IF
+      END IF
+
+      v = a(r)
       LOOP : DO
         CNTLOOP1 : DO
           i = i+1
