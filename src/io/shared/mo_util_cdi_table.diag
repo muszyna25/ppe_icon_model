@@ -1,3 +1,0 @@
-../../../src/io/shared/mo_util_cdi_table.f90(242): (col. 5) remark: loop was not vectorized: existence of vector dependence.
-../../../src/io/shared/mo_util_cdi_table.f90(261): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_util_cdi_table.f90(259): (col. 7) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.

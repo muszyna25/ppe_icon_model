@@ -1,4 +1,0 @@
-../../../src/sea_ice/dynamics_fem/ice_main.f90(161): (col. 3) remark: LOOP WAS VECTORIZED.
-../../../src/sea_ice/dynamics_fem/ice_main.f90(161): (col. 3) remark: loop was not vectorized: not inner loop.
-../../../src/sea_ice/dynamics_fem/ice_main.f90(161): (col. 18) remark: LOOP WAS VECTORIZED.
-../../../src/sea_ice/dynamics_fem/ice_main.f90(161): (col. 18) remark: loop was not vectorized: not inner loop.

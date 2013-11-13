@@ -1,7 +1,0 @@
-../../../src/io/shared/mo_io_restart_attributes.f90(105): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_io_restart_attributes.f90(128): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_io_restart_attributes.f90(151): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_io_restart_attributes.f90(164): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_io_restart_attributes.f90(187): (col. 5) remark: loop was not vectorized: nonstandard loop is not a vectorization candidate.
-../../../src/io/shared/mo_io_restart_attributes.f90(295): (col. 10) remark: loop was not vectorized: unsupported loop structure.
-../../../src/io/shared/mo_io_restart_attributes.f90(332): (col. 5) remark: loop was not vectorized: unsupported loop structure.

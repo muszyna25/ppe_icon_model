@@ -1,3 +1,0 @@
-../../../src/ocean/config/mo_ocean_nml.f90(442): (col. 6) remark: LOOP WAS VECTORIZED.
-../../../src/ocean/config/mo_ocean_nml.f90(444): (col. 6) remark: LOOP WAS VECTORIZED.
-../../../src/ocean/config/mo_ocean_nml.f90(605): (col. 6) remark: loop was not vectorized: statement cannot be vectorized.

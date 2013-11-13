@@ -1,9 +1,0 @@
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(86): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(86): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(87): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(87): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(88): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(88): (col. 5) remark: LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(90): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(90): (col. 5) remark: FUSED LOOP WAS VECTORIZED.
-../../../src/parallel_infrastructure/mo_icon_comm_interface.f90(98): (col. 5) remark: loop was not vectorized: existence of vector dependence.
