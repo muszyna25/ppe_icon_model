@@ -144,6 +144,7 @@ cat > ${atmo_namelist} << EOF
 dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  output_nml_dict  = '${dict_file}'
  netcdf_dict      = '${dict_file}'
+ lzaxis_reference = .FALSE. 
 /
 &output_nml
  output_bounds    = ${dt_data_atm_dyn},100000000,${dt_data_atm_dyn}   ! start, end, increment
