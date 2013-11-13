@@ -593,6 +593,9 @@ set_run_target_thunder()
   else
     job_log_name="LOG.$job_name.%j"
   fi
+  if [ "x$use_queue" == "xdefault" ] ; then
+    use_queue="mpi-compute"
+  fi
   queue="$use_queue"
 
   # ------------------------------------
