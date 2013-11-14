@@ -831,8 +831,10 @@ schedulers/ecmwf/include/init_icon_job.h -text
 schedulers/ecmwf/include/init_job.h -text
 schedulers/ecmwf/include/tail.h -text
 schedulers/ecmwf/sms/check_progress.sms -text
+schedulers/ecmwf/sms/climplot.original.sms -text
 schedulers/ecmwf/sms/climplot.sms -text
 schedulers/ecmwf/sms/climplot_save.sms -text
+schedulers/ecmwf/sms/climplot_save_original.sms -text
 schedulers/ecmwf/sms/dumpstate.sms -text
 schedulers/ecmwf/sms/eom_archive.sms -text
 schedulers/ecmwf/sms/eom_data2dwd.sms -text

@@ -18,7 +18,7 @@
 
 #==========================================================================
 #metview=metview3
-metview=metview4
+metview=metview4_old
 
 
 #-----------------------------------------------------------------------------
@@ -35,7 +35,6 @@ export TMPDIR=${EXPDIR}
 export PLOTDATA=${EXPDIR}
 export ECDIR_SEAS="ec:icon/experiments/%SUITE%/%EXPNUM%/seasonal"
 cd ${EXPDIR}
- 
 
 
 # base name for output and namelist files
@@ -45,11 +44,19 @@ dirscripts=%ECPERM%/icon-dev/scripts/postprocessing/climplot
 cp -f $dirscripts/climplot_batch .
 #chmod u+x climplot_batch
 chmod a+x climplot_batch
-cp $dirscripts/dates.met .
-chmod a+x dates.met
-cp $dirscripts/compvar_ens.met .
-chmod a+x compvar_ens.met 
-cp $dirscripts/ttest_thresh.f90 .
+#cp $dirscripts/dates.met .
+#chmod a+x dates.met
+#cp $dirscripts/compvar_ens.met .
+#chmod a+x compvar_ens.met 
+#cp $dirscripts/ttest_thresh.f90 .
+cp $dirscripts/*.f90 .
+#cp $dirscripts/save_mean_diurnal_flux.met .
+#cp $dirscripts/plot_amp_phase_clim.met .
+#chmod a+x save_mean_diurnal_flux.met plot_amp_phase_clim.met
+cp $dirscripts/*.met .
+chmod a+x *.met
+cp $dirscripts/zondia* .
+
 ######
 
 #set a few variables to what we need
@@ -60,13 +67,14 @@ LEVELS=91
 INIDATE1=%TIME_LIST%
 BASETIME=%YMD%%INIHOUR%
 FCLENGTH=%FCLENGTH%
-PLOT_OPT=010
+PLOT_OPT=011
 #-----------------------------------------------------------------------------
 # setup
 
 EXPVER=%SUITE%_%EXPNUM%
 VERFEXP1=%SUITE%_%EXPNUM%
-VERFEXP2=%SUITE2%_%EXPNUM2%
+#VERFEXP2=%SUITE2%_%EXPNUM2%
+VERFEXP2=fycq
 
 exp=${EXPVER}
 ##  if [[ $FSFAMILY = "/climplot" ]] ; then
@@ -103,7 +111,7 @@ fi
 
 # Plotting options: significance plotting, colour, titles, diurnal ccyle
 #NCLIMPL=${NCLIMPL:-21110111}
-NCLIMPL=${NCLIMPL:-21110010}
+NCLIMPL=${NCLIMPL:-21100010}
 lsigt=$( print $NCLIMPL| cut -c1 )
 lcol=$( print $NCLIMPL| cut -c2 )
 lartic=$( print $NCLIMPL| cut -c3 )
@@ -158,7 +166,7 @@ dayl=24
       # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
       #  env  SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
       #         ARCH=$ARCH PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME EMOSLIB="$EMOSLIB" \
-        env  SCRATCH=$SCRATCH TMPDIR=$TMPDIR \
+        env  SCRATCH=$SCRATCH  ECFS_SYS_PATH=$ECFS_SYS_PATH TMPDIR=$TMPDIR \
                PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME \
                ./climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
                               -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT  \
@@ -204,7 +212,7 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
       # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
 #        env  SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
 #               ARCH=$ARCH PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME EMOSLIB="$EMOSLIB" \
-        env  SCRATCH=$SCRATCH TMPDIR=$TMPDIR \
+        env  SCRATCH=$SCRATCH  ECFS_SYS_PATH=$ECFS_SYS_PATH TMPDIR=$TMPDIR  \
                PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME \
                ./climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
                               -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT \

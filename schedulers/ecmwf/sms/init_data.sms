@@ -24,7 +24,7 @@
 
 echo "INIT_DATA.SMS"
 
-
+#rm -rf /scratch/ms/de/deia/icon/dei3/004/output/*/*METEOGR*
 if [[ %NENS% -gt 0 ]]
   then DIRENS=/%NMEM%
   else DIRENS=''

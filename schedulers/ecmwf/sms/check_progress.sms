@@ -31,7 +31,7 @@ if [[ %NENS% -gt 0 ]]
 fi
 
 if [[ %SIMMODE% -eq 3 ]]
-  then DATETXT=/%YMD%
+  then DATETXT=/%YMD%%INIHOUR%
   else DATETXT=''
 fi
 
