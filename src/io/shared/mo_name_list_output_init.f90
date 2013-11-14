@@ -1984,6 +1984,9 @@ CONTAINS
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
     CHARACTER(len=1)                :: uuidOfVGrid_string(16)
+    REAL(wp)                        :: pi_180
+
+    pi_180 = ATAN(1._wp)/45._wp   
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -2061,18 +2064,16 @@ CONTAINS
       ! Note: CALL gridDefAngle() not yet supported
 
       ALLOCATE(p_lonlat(ll_dim(1)))
-      DO k = 1, ll_dim(1)
-        p_lonlat(k) = lonlat%grid%reg_lon_def(1)  &
-          &            +  REAL(k-1,wp)*lonlat%grid%reg_lon_def(2)
-      ENDDO
+      DO k=1,ll_dim(1)
+        p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
+      END DO
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
-      DO k = 1, ll_dim(2)
-        p_lonlat(k) = lonlat%grid%reg_lat_def(1)  &
-          &            +  REAL(k-1,wp)*lonlat%grid%reg_lat_def(2)
-      ENDDO
+      DO k=1,ll_dim(2)
+        p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
+      END DO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 #endif
