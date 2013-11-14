@@ -674,6 +674,7 @@ run/exec.iconrun -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
+run/exp.couple_atmo-ocean-prod -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
 run/exp.hat_heldsuarez -text
