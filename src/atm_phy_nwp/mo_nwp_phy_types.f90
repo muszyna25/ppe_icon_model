@@ -282,6 +282,13 @@ MODULE mo_nwp_phy_types
       & ::                  &
       & z0m     (:,:)       !< aerodynamic roughness length
 
+    !> Parameter fields for LES turbulence
+    REAL(wp), POINTER      &
+#ifdef _CRAYFTN
+      , CONTIGUOUS         &
+#endif
+      ::                   &
+      z_pbl(:,:)            !> Boundary layer height  (m)
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
     REAL(wp), POINTER       &

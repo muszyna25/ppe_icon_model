@@ -160,6 +160,9 @@ CONTAINS
 
     REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
 
+    INTEGER  :: jk_max
+    REAL(wp) :: d_theta_dz, d_theta_dz_max
+
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
@@ -622,42 +625,72 @@ CONTAINS
 !  Compute average/accumulated u and v stresses for les turbulence case only- for 
 !  othercases it is calculated in nwp_interface after radheat is called. Though it 
 !  doesn't make sense to couple this calculation with radheat.(Anurag Dipankar, MPI Sept 2013)
+!  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
+!  -soon all these LES diagnostics have to be moved to different module.
 
-    IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
-                                 &  * r_sim_time
-          prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
-                                 &  * r_sim_time
-        ENDDO
-      ENDDO ! nblks     
-!$OMP END DO
-    ELSEIF (.NOT. lflux_avg .AND. atm_phy_nwp_config(jg)%is_les_phy ) THEN
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
-          prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)
-        ENDDO
-      ENDDO ! nblks     
-!$OMP END DO
-    END IF
+    IF( atm_phy_nwp_config(jg)%is_les_phy )THEN
 
- 
+      IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg ) THEN
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
+                                   &  * (p_sim_time - dt_phy_jg(itfastphy))           &
+                                   & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
+                                   &  * r_sim_time
+            prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
+                                   &  * (p_sim_time - dt_phy_jg(itfastphy))           &
+                                   & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
+                                   &  * r_sim_time
+          ENDDO
+        ENDDO ! nblks     
+!$OMP END DO
+      ELSEIF (.NOT. lflux_avg) THEN
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
+                                  & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
+            prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)                          &
+                                  & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)
+          ENDDO
+        ENDDO ! nblks     
+!$OMP END DO
+      END IF
+      
+!      !2D Boundary layer height
+       
+         d_theta_dz_max = -1.e6_wp
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = i_startblk, i_endblk
+            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+              & i_startidx, i_endidx, rl_start, rl_end)
+            DO jc = i_startidx, i_endidx           
+              DO jk = 5 , nlev-1
+                d_theta_dz  = (pt_diag%temp(jc,jk-1,jb)/ pt_prog%exner(jc,jk-1,jb) - &
+                      pt_diag%temp(jc,jk,jb)/ pt_prog%exner(jc,jk,jb))*p_metrics%inv_ddqz_z_half(jc,jk,jb) 
+
+                IF(d_theta_dz>d_theta_dz_max)THEN
+                  jk_max = jk
+                  d_theta_dz_max = d_theta_dz
+                END IF
+
+              END DO !jk
+              prm_diag%z_pbl(jb,jc) = p_metrics%z_mc(jb,jk_max,jc)
+            ENDDO
+          ENDDO ! jb
+!$OMP END DO
+
+    END IF !is_les_phy
+
+
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
 !    dt_s6avg average variables 
 
@@ -993,6 +1026,8 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE nwp_diag_output_2
-
+!
+!===========================================================================
+!
 END MODULE mo_nwp_diagnosis
 

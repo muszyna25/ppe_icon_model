@@ -1949,6 +1949,25 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ENDIF  !inwp_turb == EDMF
 
+  !
+  ! LES
+  !
+
+    !Anurag Dipankar, MPI (7 Oct 2013)
+    !Diagnostics for LES physics
+    IF ( atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
+
+      ! &      diag%z_pbl(nproma,nblks_c)
+      cf_desc    = t_cf_var('z_pbl', 'm', 'boundary layer height', &
+           &                DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'z_pbl', diag%z_pbl,                             &
+        & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
+        & ldims=shape2d, lrestart=.FALSE.,                                      &
+        & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+
+    END IF  
+
 
     !------------------
     !Turbulence 3D variables
