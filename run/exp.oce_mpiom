@@ -84,7 +84,7 @@ iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2001-01-01T00:00:00Z"
+start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
   end_date="2001-01-03T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
