@@ -50,7 +50,7 @@ fi
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-07T00:00:00Z"
+  end_date="2000-01-03T00:00:00Z"
 #
 # global resolution
 #
@@ -65,7 +65,7 @@ dt_coupling=1800
 #
 # restart and checkpoint intervals
 #
-ndays_restart=2
+ndays_restart=1
 ndays_checkpoint=$ndays_restart  # checkpointing not yet supported for coupling fields
 #
 (( dt_checkpoint = ${ndays_checkpoint} * day ))
@@ -102,7 +102,7 @@ dtime=$dtime_atmo
 (( dt_data_atm_dyn =  6 * hour ))  # [s] data output interval, write output every 6 hours
 #
 # atm_phy output
-(( dt_data_atm_phy =  1 * hour ))  # [s] data output interval, write output every 1 hour
+(( dt_data_atm_phy =  6 * hour ))  # [s] data output interval, write output every 1 hour
 #
 dt_file=$dt_restart
 #
@@ -581,19 +581,23 @@ cat > ${ocean_namelist} << EOF
   !i_bc_veloc_bot               = 1       !  0/1=bottom friction off/on
 /
 &ocean_physics_nml
-  i_sea_ice            = 1         ! 0 = no sea ice; 1 = Winton; 2 = Semtner
-  no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
- !HORZ_VELOC_DIFF_TYPE = 3         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v            = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
- !richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  MAX_VERT_DIFF_VELOC  = 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
-  k_pot_temp_h         = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v         = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h              = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v              = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
- !richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  MAX_VERT_DIFF_TRAC   = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
+  !i_sea_ice            = 1         ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  !k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE = 3         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
+  MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
+  k_pot_temp_h         = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature - r2b4
+  k_pot_temp_v         = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature - 20m
+  k_sal_h              = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity - r2b4
+  k_sal_v              = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity - 20m
+  richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+  MAX_VERT_DIFF_TRAC   = 0.1       ! max vertical tracer diffusion for convection used in case of instability
+/
+&sea_ice_nml
+  i_ice_therm   = 1
+  i_ice_dyn     = 1
 /
 &ocean_forcing_and_init_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:
