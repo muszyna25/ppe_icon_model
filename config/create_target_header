@@ -573,6 +573,14 @@ set_run_target_thunder()
     
   fi
 
+  case x$use_queue_queue in
+    "xdefault" )
+      use_queue="mpi-compute"
+      ;;
+    "xexpress" )
+      use_queue="mpi-compute"
+      ;;
+  esac
 
   # create header
   start_header
