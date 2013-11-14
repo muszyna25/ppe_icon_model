@@ -62,6 +62,12 @@ else
   vartype    =  'ins'
   stat       =  'avg'
 end if
+# for the case that the variable names in the model run and in the control run are different
+varidm=varid
+if (varid = "sst") then
+ varidm="wtmp"
+# shortNameECMF="wtmp"
+end if
 
 # --- statistic
 
@@ -93,6 +99,16 @@ dir = getenv("PLOTDATA") & "/"
 file_mod = dir&"mmean_"&expv1&"_"&levtype&"_alldates.grb"
 file_ctr = dir&"mmean_"&expv2&"_"&levtype&"_alldates.grb"
 
+##PR
+print("this is the file to read")
+print(file_mod)
+print(file_ctr)
+pr_file=file(file_mod)
+print(pr_file)
+read_file=read(file_mod)
+print(read_file)
+
+
 # --- output format & file name (ps or png or screen)
 
 #output = "screen"
@@ -113,6 +129,7 @@ else
 end if
 
 outfile(dir,title,output)
+
 
 
 
@@ -152,32 +169,72 @@ if vartype = "ins" then
            unit = "W m\\SP\\-2\\SPR\\"
         end
         otherwise: 
-	    var_mod_all = read(
+          # Special treatment for the time been
+          # sst ist wtmp in ICON
+          # sst 
+          if (varidm = "wtmp" ) then
+   
+	    var_mod_all_t = read(
             class	:	"rd",
-            type	:	"fc",
-            expver	:	expv1,
+           # type	:	"fc",
+           # type	:	"an",
+           # expver	:	expv1,
             levtype	:	levtype,
             levelist:       lev,
-            repres	:	"gg",
-            param	:	varid,
+           # repres	:	"gg",
+           # param	:	varidm,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_mod
 		 )
-         var_ctr_all = read(
+           nfields=count(var_mod_all_t)
+           nrf=nfields/24
+           print(nrf)
+           if ( nrf = 1 ) then
+            var_mod_all=var_mod_all_t[24]
+           else
+            var_mod_all=var_mod_all_t[24,96,24]
+           end if
+           seapoints=(var_mod_all[1]>260.) # and var_mod_all[1]<250)  
+           seamask=bitmap(seapoints,0)
+           var_mod_all=bitmap(var_mod_all,seamask)
+
+          else
+	    var_mod_all = read(
             class	:	"rd",
-            type	:	"fc",
-            expver	:	expv22,
+           # type	:	"fc",
+           # type	:	"an",
+           # expver	:	expv1,
             levtype	:	levtype,
             levelist:       lev,
-            repres	:	"gg",
+           # repres	:	"gg",
+            param	:	varidm,
+            date	:	dates,
+            grid	:	[res,res],
+            source	:	file_mod
+		 )
+          end if
+         var_ctr_all = read(
+            class	:	"rd",
+           # type	:	"fc",
+           # expver	:	expv22,
+            levtype	:	levtype,
+            levelist:       lev,
+           # repres	:	"gg",
             param	:	varid,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_ctr
-            )
+            )     
+            if (varid = "sst") then
+             var_ctr_all=bitmap(var_ctr_all,seamask)
+            end if
             units=grib_get_string(var_mod_all,"units")
+            #units=grib_get_string(var_ctr_all,"units")
             unit=units[1]
+            print(var_mod_all)
+            print(varid)
+            print(unit)
 	end 
 	end case
 end if
@@ -204,7 +261,17 @@ or varid = "TSR"
 or varid = "TTR" then 
    unit = "W m\\SP\\-2\\SPR\\"
 end if
-
+print(unit)
+if varid = "ssr"
+or varid = "str"
+or varid = "tsr"
+or varid = "ttr" 
+or varid = "sshf"
+or varid = "slhf" then 
+   #unit = "W m\\SP\\-2\\SPR\\"
+   unit = "W m**-2"
+end if
+print(unit)
 # --- calculate stats
 
 tcrit=-999 # switch stat plot off
@@ -222,7 +289,7 @@ if stat = "avg" then
 
   sig=0.975   # 95%% 2-tailed test level (could set to user parameter)
   dof=2*nens-2 # degrees of freedom for two ensembles of size nens
-  if lsigt and nens > 2 then
+  if lsigt  and nens > 2 then
     tcrit=ttest_thresh(sig,dof)
     mod_ctr_std = sqrt((var(var_mod_all)+var(var_ctr_all))/2.)  #stdev of all months and dates!
     mod_ctr_std = bitmap(mod_ctr_std,0.0) # replace zeros with missing 
@@ -305,7 +372,7 @@ maxlevelvar = max(maxvalue(var_mod),maxvalue(var_ctr))
 minlevelvar = min(minvalue(var_mod),minvalue(var_ctr))
 intlevelvar = ( maxlevelvar - minlevelvar ) / 10.0
 
-#print("original min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
+print("original min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
 
 power10     = round( log10(intlevelvar) - 0.5 , 0)
 intlevelvar = round( intlevelvar / 10.0^power10 + 0.5 , 0) * 10.0^power10
@@ -313,7 +380,7 @@ nconts      = round( (maxlevelvar-minlevelvar) / intlevelvar + 0.5 , 0)
 minlevelvar = round( minlevelvar / 10.0^power10 - 0.5 , 0) * 10.0^power10
 maxlevelvar = nconts * intlevelvar + minlevelvar
 
-#print("rounded min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
+print("rounded min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
 
 #maxlevelvar = 15.0
 #minlevelvar = 1.0
@@ -325,6 +392,10 @@ maxlevelvar = nconts * intlevelvar + minlevelvar
 
 maxlevelpos = max(abs(maxvalue(var_diff)),abs(minvalue(var_diff)))
 minlevelpos = maxlevelpos / 5.0
+if (varid = "sst" ) then
+ maxlevelpos = 3.0
+ minlevelpos = maxlevelpos / 6.0
+end if
 intlevelpos = minlevelpos
 
 power10     = round( log10(intlevelpos) - 0.5 , 0)
@@ -598,7 +669,8 @@ legend = mlegend(
         legend_box_x_length   	       :    2,
         legend_box_y_length    	       :    8.5,
     	legend_title		       :    "on",
-    	legend_title_text	       :    units,
+    	#legend_title_text	       :    units,
+    	legend_title_text	       :    unit,
     	legend_text_colour	       :    "black"
         )
 

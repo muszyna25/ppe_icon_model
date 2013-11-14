@@ -54,7 +54,7 @@ iperiod=iperiod-1            # ksh first index is 0
 # --- metview troubleshooting
 
 #metview=metview3
-metview=metview4
+metview=metview4_old
 export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
 #metview=/usr/local/apps/Metview/MvRun_3.12.0
 

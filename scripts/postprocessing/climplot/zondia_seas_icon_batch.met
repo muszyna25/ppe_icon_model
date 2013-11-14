@@ -88,22 +88,35 @@
   if lev_type = "pl" then
 
     levels       = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
-                    600,700,775,850,925,1000]          #23 levels (climate&ERA40)
+                   # 600,700,775,850,925,1000]          #23 levels (climate&ERA40)
+                   # 600,700,775,800,850,900,925,950,1000]      #26 levels (climate&ERA40)
+                   # 600,700,775,850,925,1000]          #23 levels (climate&ERA40)#levels in IFS experiment
+                    600,700,850,925,1000]             #22 levels, 775 excluded because it is not included in ICON
     p_max        = 1000
     p_min        = 1
    # ... variables available on pressure levels by default
     if plot_modus  = "Average Difference" then
-      param      = ["T" ,"R","U","V","W"  ,"Q" ]
-      cint_param = [0.5 ,2  ,1  ,0.2,0.002,0.2 ]
+      #param      = ["T" ,"R","U","V","W"  ,"Q" ]
+      #cint_param = [0.5 ,2  ,1  ,0.2,0.002,0.2 ]
+      #cmin_param = cint_param
+      #cmax_param = [10  ,30 ,10 ,2  ,0.05 ,2   ]
+      #scale      = [1   ,1  ,1  ,1  ,1    ,1000]
+      param      = ["T" ,"U","V","Q" ]
+      cint_param = [0.5 ,1  ,0.2,0.2 ]
       cmin_param = cint_param
-      cmax_param = [10  ,30 ,10 ,2  ,0.05 ,2   ]
-      scale      = [1   ,1  ,1  ,1  ,1    ,1000]
+      cmax_param = [10  ,10 ,2  ,2   ]
+      scale      = [1   ,1  ,1  ,1000]
     else
-      param      = ["T" ,"R","U","V","W"  ,"Q" ,"CC","CLWC","CIWC"]
-      cint_param = [2   ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
-      cmin_param = [220 ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
-      cmax_param = [300 ,100,40 ,5  ,0.1  ,20  ,100 ,60     ,20   ]
-      scale      = [1   ,1  ,1  ,1  ,1    ,1000,100 ,1000000,1000000]
+      #param      = ["T" ,"R","U","V","W"  ,"Q" ,"CC","CLWC","CIWC"]
+      #cint_param = [2   ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
+      #cmin_param = [220 ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
+      #cmax_param = [300 ,100,40 ,5  ,0.1  ,20  ,100 ,60     ,20   ]
+      #scale      = [1   ,1  ,1  ,1  ,1    ,1000,100 ,1000000,1000000]
+      param      = ["T" ,"U","V"]
+      cint_param = [2   ,2  ,0.5   ]
+      cmin_param = [220 ,2  ,0.5  ]
+      cmax_param = [300 ,40 ,5    ]
+      scale      = [1   ,1  ,1 ]
     end if
 
   else  #ml
@@ -142,8 +155,8 @@
 
   output_mode    = "PS_FILE"
   cont_modus     = "Fancy Contour Shading"
-  dlat           = 2.5
-  dlon           = 2.5
+  dlat           = 2.
+  dlon           = 2.
   lat_min        = -90
   lat_max        =  90
   lon_min        = -180
@@ -298,12 +311,12 @@
 
 # --- define postscript file names  
 
-    ps_filename = ""&wrkdir&"zon_"&exid[1]&"-"&exid[2]&"_"&statname&"_"&param[iparam]&
+    ps_filename = ""&wrkdir&"zon_"&exid[2]&"-"&exid[1]&"_"&statname&"_"&param[iparam]&
                   "_"&lev_type&"_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len
     ps_filename_2=""&wrkdir&"zon_"&exid[1]            &"_"&statname&"_"&param[iparam]&
                   "_"&lev_type&"_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len
 
-    ps_filenamelog = ""&wrkdir&"zon_"&exid[1]&"-"&exid[2]&"_"&statname&"_"&param[iparam]&
+    ps_filenamelog = ""&wrkdir&"zon_"&exid[2]&"-"&exid[1]&"_"&statname&"_"&param[iparam]&
                   "_"&lev_type&"log_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len
     ps_filenamelog_2=""&wrkdir&"zon_"&exid[1]            &"_"&statname&"_"&param[iparam]&
                   "_"&lev_type&"log_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len
@@ -358,6 +371,8 @@
     ntime=count(control)/nlev
     npar=1
 
+    print("nlev ",nlev," ntime ",ntime)
+    print(levels)
 # --- calculate average
 
     avg_con=nil
@@ -375,7 +390,6 @@
 # --- for ERA Interim on ecfs revert back to slow Metview average as avgtime assumes certain order
 #     of fields
 
-
 # --- read data and determine average for forecast
 
     forecast=read(
@@ -392,8 +406,9 @@
     nlat_for= grib_get_long(forecast[1],"Nj")
     nlev=count(levels)
     ntime=count(forecast)/nlev
+    print("nlev ",nlev," ntime ",ntime)
+    print(levels) 
     npar=1
-
 # -- calculate average
 
     if statistic = "Average" then
@@ -404,8 +419,14 @@
     end if
 
 # --- calculate difference
-
     diff = avg_for-avg_con
+    print(avg_for," ",avg_con)
+    print(diff)
+
+    if ( param[iparam] = "T" ) then
+     print(avg_con)
+     print(avg_for)
+    end if
 
 # --- title definitions
 
@@ -482,14 +503,15 @@
          DIRECTION           : "EW", 
          DATA  		    : diff  
        )
-
          if background = 1 then
            case cont_modus of
              'Contour Shading':
                 plot (Display_Window[1], title, diff_data, shade,                      legend, avg_data, contours_simple_bg)
                 end
              'Fancy Contour Shading':
+                print("plotting")
                 plot (Display_Window[1], title, diff_data, contours_neg, contours_pos, legend, avg_data, contours_simple_bg)
+                print("plotted")
                 end
              'Contour Levels':
                 plot (Display_Window[1], title, diff_data, red, blue,                  legend, avg_data, contours_simple_bg)

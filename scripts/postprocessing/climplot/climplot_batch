@@ -38,7 +38,9 @@ export LM_LICENSE_FILE="/usr/local/apps/pgi/license.dat:$LM_LICENSE_FILE"
 # Setup
 #############################################################
 
-res=2.5
+#res=2.5
+res=2.0
+
 
 integer iperiod
 
@@ -97,12 +99,16 @@ fi
 # --- metview troubleshooting
 
 #metview=metview3
-metview=metview4
-export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
+metview=metview4_old
+pgi_path="/usr/local/apps/nag/22/LP64"
+NAGLIB="-libnag.a"
+
+###export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
 
 #export MACRO_EXTRA_F90_FLAGS=-Mfixed
 export GRIB_GRIBEX_MODE_ON=1
-export MACRO_EXTRA_LIBS="$MACRO_EXTRA_LIBS $NAGLIB"
+#### export MACRO_EXTRA_LIBS="$MACRO_EXTRA_LIBS $NAGLIB"
+export MACRO_EXTRA_LIBS="-L/usr/local/apps/nag/22/LP64/lib -lnag"
 # use 32bit version of NAGLIB for metview3
 #NAGPATH="/usr/local/apps/nag/21/ILP32/lib"
 #export MACRO_EXTRA_F90_FLAGS="-L$NAGPATH -lnag_nag -rpath $NAGPATH" 
@@ -113,6 +119,7 @@ export GRIBEX_CHECK='OFF'    # (climate_obs.met)
 # read observational data from 'disc' on Linux cluster or 'ecfs'; default=disc
 freadobs=disc                # (climate_obs.met)
 obsdir=/vol/pascratch/data/
+#obsdir=/vol/pascratch/date/  ##!!!
 if [ ! -d $obsdir ]; then
   print harddisk not available obsdata retrieval will be from ecfs
   freadobs=ecfs
@@ -217,9 +224,13 @@ fi
 
 if [[ $TASK = "getmeans" ]] ; then
 
-  rm -f ${PLOTDATA}/mmean_ERA40_*_alldates.grb
-  rm -f ${PLOTDATA}/mmean_${EXPVER}_*_alldates.grb
-  rm -f ${PLOTDATA}/mmean_${EXPVER2}_*_alldates.grb
+#  rm -f ${PLOTDATA}/mmean_ERA40_*_alldates.grb
+#  rm -f ${PLOTDATA}/mmean_${EXPVER}_*_alldates.grb
+#  rm -f ${PLOTDATA}/mmean_${EXPVER2}_*_alldates.grb
+
+  rm -f ${PLOTDATA}/mmean_ERA40_*.grb
+  rm -f ${PLOTDATA}/mmean_${EXPVER}_*.grb
+  rm -f ${PLOTDATA}/mmean_${EXPVER2}_*.grb
 
 #############################################################
 # --- read experiment 1 & 2 data (multiple ensemble members)
@@ -230,7 +241,8 @@ if [[ $TASK = "getmeans" ]] ; then
     mm_len1=${mm_len[${iperiod}]}
     mm_len2=${mm_len1}
     iniyearmonth2=$iniyearmonth
-    if [[ $mm_len2 > 12 ]]; then
+   # if [[ $mm_len2 > 12 ]]; then
+    if [[ $mm_len2 -gt 12 ]]; then
       mm_len2="[12,$mm_len2]*"
       yy2a=$(print $inidates[i] |cut -c1-4)
       yy2b=$(print $iniyearmonth2 |cut -c1-4)
@@ -244,6 +256,7 @@ if [[ $TASK = "getmeans" ]] ; then
         MNFILE=mmean_${EXPVER}_*_ini${inidates[i]}_mon${iniyearmonth}_n${mm_len1}.grb
         MNFILE2=mmean_${EXPVER2}_*_ini${inidates[i]}_mon${iniyearmonth2}_n${mm_len2}.grb
         ECSUBDIR=${inidates[i]}${timestr[i]}/
+        #ECSUBDIR="ec:icon/experiments/%SUITE%/%EXPNUM%/seasonal"
       else
         MNFILE=mmean_${EXPVER}_${CLASS}_day${FCRANGE}_*_mon${iniyearmonth}_n${mm_len1}.grb
         MNFILE2=mmean_${EXPVER2}_${CLASS}_day${FCRANGE}_*_mon${iniyearmonth2}_n${mm_len2}.grb
@@ -254,9 +267,12 @@ if [[ $TASK = "getmeans" ]] ; then
         MNFILE2=mmean_${EXPVER2}_*_ini${inidates[i]}_mem${num[i]}_mon${iniyearmonth2}_n${mm_len2}]}.grb
         ECSUBDIR=${inidates[i]}/
     fi
-    ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER}/${ECSUBDIR}${MNFILE} ${PLOTDATA}
+   # ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER}/${ECSUBDIR}${MNFILE} ${PLOTDATA}
+    ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE} ${PLOTDATA}
     if [[ $DOPLOTDIFF = 1 ]] ; then                                 # *=sfc pl ml
+      echo " -- "
       ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER2}/${ECSUBDIR}${MNFILE2} ${PLOTDATA}
+   #   ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE2} ${PLOTDATA}
     fi
     i=i+1
   done
@@ -294,6 +310,7 @@ if [[ $TASK = "getmeans" ]] ; then
             target="${PLOTDATA}/mmean_ERA40_sfc_climate_ini${yearmonthera}01_mon${yearmonthera}.grb"
       retrieve,
             levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/850/925/1000,
+           # levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/800/850/900/925/950/1000,
             stream=mnth,
             time=$INITIMAN,
             levtype=pl,
@@ -340,6 +357,7 @@ EOF
             target="${PLOTDATA}/mmean_ERA40_sfc_ini${yearmonthera}01_mon${yearmonthera}.grb"
         retrieve,
             levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/850/925/1000,
+            #levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/800/850/900/925/950/1000,
             stream=mnth,
             time=$INITIMAN,
             levtype=pl,
@@ -421,7 +439,7 @@ EOF
   mm_len1=${mm_len[${iperiod}]}
   mm_len2=${mm_len1}
   iniyearmonth2=$iniyearmonth
-  if [[ $mm_len2 > 12 ]]; then
+  if [[ $mm_len2 -gt 12 ]]; then
     mm_len2="[12,$mm_len2]*"
     yy2a=$(print $inidates[i] |cut -c1-4)
     yy2b=$(print $iniyearmonth2 |cut -c1-4)
@@ -448,9 +466,9 @@ EOF
       fi
     fi
   fi
-  rm -f ${PLOTDATA}/mmean_${EXPVER}_sfc_ini*mon${iniyearmonth}_n${mm_len1}.grb  \
-        ${PLOTDATA}/mmean_${EXPVER}_pl_ini*mon${iniyearmonth}_n${mm_len1}.grb   \
-        ${PLOTDATA}/mmean_${EXPVER}_ml_ini*mon${iniyearmonth}_n${mm_len1}.grb
+#  rm -f ${PLOTDATA}/mmean_${EXPVER}_sfc_ini*mon${iniyearmonth}_n${mm_len1}.grb  \
+#        ${PLOTDATA}/mmean_${EXPVER}_pl_ini*mon${iniyearmonth}_n${mm_len1}.grb   \
+#        ${PLOTDATA}/mmean_${EXPVER}_ml_ini*mon${iniyearmonth}_n${mm_len1}.grb
 
   if [[ $DOPLOTDIFF = 1 ]] ; then
     cat   ${PLOTDATA}/${MNFILE2} >>  ${PLOTDATA}/mmean_${EXPVER2}_sfc_alldates.grb
@@ -480,17 +498,25 @@ if [[ $TASK = "plot_2d" ]] ; then
   if [[ ${FCRANGE} = -99 ]] ; then
 
     interval=24                  # output interval [h] (also modify compvar_ens.met!)
+    #interval=12                  # output interval [h] (also modify compvar_ens.met!)
 
     EXPVER3=${EXPVER2}           # experiment ID3 - to compare for extra variables
 
 # --- variables and types (instantaneous or accumulated)
 #     (SHORT LIST, 48)
-    set -A VARS    TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  TSRC TTRC TCLW TCIW CAPE
-    set -A TYPE    ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins  ins  ins  ins
-    set -A NEXP     2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2    2   2   2   2    2    2    2    2    2
-    set -A LEV      0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  925 850 700 500 300  200 100 50   0    0    0    0    0    0
-    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl   pl  pl  pl  sfc  sfc  sfc  sfc  sfc  sfc
-    set -A STAT    avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg  avg avg avg avg  avg  avg  avg  avg  avg
+   # set -A VARS    TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  TSRC TTRC TCLW TCIW CAPE
+   # set -A TYPE    ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins  ins  ins  ins
+   # set -A NEXP     2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2    2   2   2   2    2    2    2    2    2
+   # set -A LEV      0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  925 850 700 500 300  200 100 50   0    0    0    0    0    0
+   # set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl   pl  pl  pl  sfc  sfc  sfc  sfc  sfc  sfc
+   # set -A STAT    avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg  avg avg avg avg  avg  avg  avg  avg  avg
+
+    set -A VARS   2t  10u 10v z slhf sshf ssr str sst # sp
+    set -A TYPE    ins  ins ins ins ins ins ins ins ins # ins
+    set -A NEXP     2  2  2  2 2 2 2 2 2 # 2
+    set -A LEV      0  0  0  500 0 0 0 0 0 # 0
+    set -A LEVTYPE sfc sfc sfc pl sfc  sfc sfc sfc sfc # sfc
+    set -A STAT    avg avg avg avg avg avg avg avg avg # avg
 
 # --- loop over variables
 

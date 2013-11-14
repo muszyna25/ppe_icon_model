@@ -119,7 +119,7 @@ lwinds	= 0 # surface winds
 lsflux  = 0 # surface fluxes
 lciwc   = 0 # cloud ice water content
 l2d2tsd = 0 # surface 2D/2T/SD fields
-ldasilv = 0 # DaSilva surf fluxes
+ldasilv = 1 # DaSilva surf fluxes
 
 case plot of
 1: lprecip	= 1 end
@@ -134,6 +134,7 @@ case plot of
 10:l2d2tsd	= 1 end
 end case
 
+print("ldasilv ", ldasilv)
 #
 # plot a 4th curve panel
 #
@@ -1844,8 +1845,8 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
     end for
 
     mod_all = read(
-        type	:	"fc",
-        expver	:	expid,
+        #type	:	"fc",
+        #expver	:	expid,
         levtype	:	"sfc",
         grid	:	my_grid,
         param	:	param,
@@ -2032,25 +2033,36 @@ function precip(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,fi
         end if
     end for
 
-        prec_mod1 = read(
-        type	:	"fc",
-        expver	:	expid,
+      #  prec_mod1 = read(
+      #  #type	:	"fc",
+      #  #expver	:	expid,
+      #  levtype	:	"sfc",
+      #  grid	:	my_grid,
+      #  #param	:	["lsp"],
+      #  param	:	["77.1.0"],
+      #  source  : source_file_sfc
+      #  )
+
+      #  prec_mod2 = read(
+      #  #type	:	"fc",
+      #  #expver	:	expid,
+      #  levtype	:	"sfc",
+      #  grid	:	my_grid,
+      #  #param	:	["cp"],
+      #  param	:	["76.1.0"],
+      #  source  : source_file_sfc
+      #  )
+
+        prec_mod_all = read(
+        #type	:	"fc",
+        #expver	:	expid,
         levtype	:	"sfc",
         grid	:	my_grid,
-        param	:	["lsp"],
+        param	:	["tp"],
         source  : source_file_sfc
         )
 
-        prec_mod2 = read(
-        type	:	"fc",
-        expver	:	expid,
-        levtype	:	"sfc",
-        grid	:	my_grid,
-        param	:	["cp"],
-        source  : source_file_sfc
-        )
-
-    	prec_mod_all=1000*86400.*(prec_mod1+prec_mod2)
+    	#prec_mod_all=1000*86400.*(prec_mod1+prec_mod2)
 	prec_mod=mean(prec_mod_all)
 
 	# average over month string:
@@ -2232,17 +2244,39 @@ function tcc(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,par,f
         end if
 	end for
 
-        mod_all = read(
-                type	:	"fc",
-                expver	:	expid,
+    # fix for ICON, tcc is the 5th field in our file, param1.6.0
+     if (par = "tcc" ) then
+        mod_all_t = read(
+               # type	:	"fc",
+               # expver	:	expid,
+                levtype	:	"sfc",
+                grid	:	my_grid,
+                #param	:	[par],
+                source  : source_file_sfc
+        )
+        nfields=count(mod_all_t)
+           nrf=nfields/24
+           print("nrf ",nrf)
+           if ( nrf = 1 ) then
+            mod_all=mod_all_t[5]
+           else
+            mod_all=mod_all_t[5,77,24]
+           end if
+      else
+        mod_all_t = read(
+               # type	:	"fc",
+               # expver	:	expid,
                 levtype	:	"sfc",
                 grid	:	my_grid,
                 param	:	[par],
                 source  : source_file_sfc
         )
 
+
+      end if
+
 # mean fields
-        mod_all=100.*mod_all
+        #mod_all=100.*mod_all
 
         mod=mean(mod_all)
         mod=bitmap(mod,obs)
@@ -2410,8 +2444,8 @@ function isccp_ctp(expid,yys,mms,nm,nens,dates,res,display,lplot_curve,ecdir,lcl
 
 			liq = retrieve(
 					class	:	"rd",
-					type	:	"fc",
-					expver	:	expid,
+				#	type	:	"fc",
+				#	expver	:	expid,
 					area	: my_area,
 					grid	: my_grid,
 					levtype	:	"ml",
@@ -2424,8 +2458,8 @@ function isccp_ctp(expid,yys,mms,nm,nens,dates,res,display,lplot_curve,ecdir,lcl
 
 			ice = retrieve(
 					class	:	"rd",
-					type	:	"fc",
-					expver	:	expid,
+				#	type	:	"fc",
+				#	expver	:	expid,
 					area	: my_area,
 					grid	: my_grid,
 					levtype	:	"ml",
@@ -3732,8 +3766,8 @@ function surf_flux(expid,yys,mms,nm,source_file_sfc,nens,res,param,ipar,display,
 
       if ipar<5 then
            fld = read(
-              type   :	"fc",
-              expver :	expid,
+            #  type   :	"fc",
+            #  expver :	expid,
               levtype:	"sfc",
               grid   :	my_grid,
               param  :	fldnam[ipar],
@@ -3747,8 +3781,8 @@ function surf_flux(expid,yys,mms,nm,source_file_sfc,nens,res,param,ipar,display,
 
         for i=1 to 4 do
            fld = read(
-              type   :	"fc",
-              expver :	expid,
+            #  type   :	"fc",
+            #  expver :	expid,
               levtype:	"sfc",
               grid   :	my_grid,
               param  :	fldnam[i],
@@ -3841,7 +3875,7 @@ function surf_flux(expid,yys,mms,nm,source_file_sfc,nens,res,param,ipar,display,
 
     dasilva  = read(
         read_data_from	:	"metview_icon",
-        grid	:	[2.5,2.5],
+        grid	:	[2.,2.],
         data	:	dasilvaec
           )
 
@@ -3988,7 +4022,7 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
            param	:	param,
            date : date_era,
            source  : fname,
-           grid:[2.5,2.5]
+           grid:[2.,2.]
            )
         nobs=count(obs)
         if nobs=0 then
@@ -3997,7 +4031,7 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
             param	:	param,
             date : date_era1,
             source  : fname,
-            grid:[2.5,2.5]
+            grid:[2.,2.]
             )
         end if
         print (" number of fields ",count(obs))
@@ -4025,7 +4059,7 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
         grid	:	my_grid,
         param	:	param,
         source  : source_file_sfc,
-        grid:[2.5,2.5]
+        grid:[2.,2.]
         )
 
     mod=mean(mod_all)
