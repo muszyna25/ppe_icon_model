@@ -573,7 +573,7 @@ set_run_target_thunder()
     
   fi
 
-  case x$use_queue_queue in
+  case x$use_queue in
     "xdefault" )
       use_queue="mpi-compute"
       ;;
