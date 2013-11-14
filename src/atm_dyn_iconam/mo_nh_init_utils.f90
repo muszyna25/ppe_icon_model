@@ -47,6 +47,7 @@ MODULE mo_nh_init_utils
   USE mo_nonhydro_types,        ONLY: t_nh_metrics
   USE mo_parallel_config,       ONLY: nproma
   USE mo_run_config,            ONLY: msg_level
+  USE mo_grid_config,           ONLY: l_limited_area
   USE mo_dynamics_config,       ONLY: iequations
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, vct, read_vct
@@ -405,19 +406,53 @@ CONTAINS
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, je
-    INTEGER :: nlev, nblks_e, i_startblk,i_startidx, i_endidx
+    INTEGER :: nlev, nblks_e, i_startblk,i_endblk, i_startidx,i_endidx
+    REAL(wp) :: z_u, z_v
 
     INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
 
     nlev = p_patch%nlev
     nblks_e = p_patch%nblks_e
 
-    i_startblk = p_patch%edges%start_blk(2,1)
-
     iidx => p_patch%edges%cell_idx
     iblk => p_patch%edges%cell_blk
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    IF (l_limited_area .OR. p_patch%id > 1) THEN ! Fill outermost nest boundary
+
+      i_startblk = p_patch%edges%start_blk(1,1)
+      i_endblk   = p_patch%edges%end_blk(1,1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,z_u,z_v) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, 1)
+
+        DO je = i_startidx, i_endidx
+          IF (iidx(je,jb,1) >= 1 .AND. iblk(je,jb,1) >= 1) THEN
+            DO jk = 1, nlev
+              z_u = u(iidx(je,jb,1),jk,iblk(je,jb,1))
+              z_v = v(iidx(je,jb,1),jk,iblk(je,jb,1))
+              vn(je,jk,jb) =  z_u*p_patch%edges%primal_normal(je,jb)%v1 + &
+                              z_v*p_patch%edges%primal_normal(je,jb)%v2
+            END DO
+          ELSE IF (iidx(je,jb,2) >= 1 .AND. iblk(je,jb,2) >= 1) THEN
+            DO jk = 1, nlev
+              z_u = u(iidx(je,jb,2),jk,iblk(je,jb,2))
+              z_v = v(iidx(je,jb,2),jk,iblk(je,jb,2))
+              vn(je,jk,jb) =  z_u*p_patch%edges%primal_normal(je,jb)%v1 + &
+                              z_v*p_patch%edges%primal_normal(je,jb)%v2
+            END DO
+          ENDIF
+        END DO
+
+      END DO
+!$OMP END DO
+    ENDIF
+
+    i_startblk = p_patch%edges%start_blk(2,1)
+
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, nblks_e
