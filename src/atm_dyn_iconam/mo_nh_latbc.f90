@@ -126,6 +126,8 @@ MODULE mo_nh_latbc
     ! local variables
     INTEGER       :: mpi_comm
     INTEGER       :: tlev
+    INTEGER       :: tdiffsec
+    REAL(wp)      :: tdiff
     INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
       "mo_nh_latbc::allocate_latbc_data"
@@ -211,7 +213,14 @@ MODULE mo_nh_latbc
     END DO
 
     ! last reading-in time is the current time
-    last_latbc_datetime = time_config%cur_datetime
+    last_latbc_datetime = time_config%ini_datetime
+    CALL date_to_time(time_config%cur_datetime)
+    CALL date_to_time(time_config%ini_datetime)
+    tdiff = (time_config%cur_datetime%calday - time_config%ini_datetime%calday + &
+    time_config%cur_datetime%caltime - time_config%ini_datetime%caltime)*rdaylen
+    tdiffsec = FLOOR(tdiff / latbc_config%dtime_latbc)
+    tdiff    = REAL(tdiffsec,wp)*latbc_config%dtime_latbc
+    CALL add_time(tdiff,0,0,0,last_latbc_datetime)
 
     ! prepare read/last indices
     read_latbc_tlev = 1   ! read in the first time-level slot

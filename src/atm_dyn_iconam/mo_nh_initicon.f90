@@ -2709,9 +2709,7 @@ MODULE mo_nh_initicon
 !$OMP END PARALLEL
 
       !DR required to avoid crash in nabla4_vec
-      WRITE (*,*) 'syncing vn_incr'
       CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
-      WRITE (*,*) 'syncing w_incr'
       CALL sync_patch_array(SYNC_C,p_patch(jg),w_incr)
 
       ! Compute diffusion term 
@@ -2776,9 +2774,7 @@ MODULE mo_nh_initicon
 !$OMP ENDDO
 !$OMP END PARALLEL
 
-      WRITE (*,*) 'syncing vn'
       CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
-      WRITE (*,*) 'syncing w'
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
 
 
