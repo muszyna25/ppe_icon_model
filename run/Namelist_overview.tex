@@ -3919,7 +3919,8 @@ C&None& &
  reg\_lat\_def(3) &
 R&None& &
  start, increment, end latitude in degrees.
- See reg\_lon\_def for details.
+ Alternatively, the user may set the number of grid points instead of an increment.
+ Details for the setting of regular grids is given below together with an example. 
 &
 remap=1
 \tabularnewline
@@ -3928,10 +3929,8 @@ remap=1
  reg\_lon\_def(3) &
 R&None& &
  The regular grid points are specified by three values: start, increment, end given in degrees.
-It contains all grid points $start + k * increment <= end$, where $k$ is an integer.
-For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
-Instead of defining an increment it is also possible to prescribe the number of grid points, where it is expected that this
-value is larger than 5.0.
+ Alternatively, the user may set the number of grid points instead of an increment.
+ Details for the setting of regular grids is given below together with an example. 
 &
 remap=1
 \tabularnewline
@@ -3963,6 +3962,40 @@ I&3& &
 
 \hline
 \end{longtab}
+
+
+% -------------------------------------------------------------
+\paragraph{Interpolation onto regular grids:}
+% -------------------------------------------------------------
+
+Horizontal interpolation onto regular grids is possible through the namelist setting  \texttt{remap=1}, where
+the mesh is defined by the parameters
+\begin{itemize}
+  \item \texttt{reg\_lon\_def}: mesh latitudes in degrees,
+  \item \texttt{reg\_lat\_def}: mesh longitudes in degrees,
+  \item \texttt{north\_pole}: definition of north pole for rotated lon-lat grids.
+\end{itemize}
+The regular grid points in \texttt{reg\_lon\_def}, \texttt{reg\_lat\_def} are each specified by three values, given in degrees:
+\emph{start}, \emph{increment}, \emph{end}.
+The mesh then contains all grid points $start + k * increment <= end$, where $k$ is an integer.
+\textbf{Instead of defining an increment it is also possible to prescribe the number of grid points, where it is 
+expected that this value is larger than 5.0.}
+For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
+
+\begin{tabbing}
+  \parbox{0.7\textwidth}{\textbf{Examples}} \= \\
+  local grid with 0.5 degree increment: \>
+  \texttt{reg\_lon\_def = -30.,0.5,30.}
+  \\ \>
+  \texttt{reg\_lat\_def = 90.,-0.5, -90.}
+  %
+  \\[0.5em]
+  global grid with 720x360 grid points: \>
+  \texttt{reg\_lon\_def = 0.,720,360.}
+  \\ \>
+  \texttt{reg\_lat\_def = -90.,360,90.}
+\end{tabbing}
+
 
 % -------------------------------------------------------------
 \paragraph{Time stamp format:}
