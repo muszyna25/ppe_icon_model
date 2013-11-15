@@ -2870,7 +2870,7 @@ CONTAINS
       &  patch2_cell_idx(:,:),   patch2_cell_blk(:,:)
 
 
-    TYPE(t_list2D) ::         &    !< list with points for which a local
+    TYPE(t_list2D), SAVE ::   &    !< list with points for which a local
       &  falist                    !< polynomial approximation is insufficient 
                                    !< and a piecewise approximation is needed, 
                                    !< instead
@@ -3090,6 +3090,8 @@ CONTAINS
 
       ENDIF
 
+      DEALLOCATE(dreg_patch1, dreg_patch2)
+
     END IF ! ld_compute
 
 
@@ -3294,7 +3296,7 @@ CONTAINS
         &         z_dreg_area, patch0_cell_idx,                               &
         &         patch1_cell_idx, patch2_cell_idx, patch0_cell_blk,          &
         &         patch1_cell_blk, patch2_cell_blk, falist%eidx, falist%elev, &
-        &         falist%len, dreg_patch1, dreg_patch2, STAT=ist )
+        &         falist%len, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                           &
           &  'deallocation for z_quad_vector_sum0/1/2, z_dreg_area0/1/2, '  // &
