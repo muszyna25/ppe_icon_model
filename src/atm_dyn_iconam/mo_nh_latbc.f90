@@ -678,9 +678,9 @@ MODULE mo_nh_latbc
 
 #ifdef __LOOP_EXCHANGE
         DO jc = 1, i_endidx
-          DO jk = 1, p_patch%nlev
+          DO jk = 1, nlev_in
 #else
-        DO jk = 1, p_patch%nlev
+        DO jk = 1, nlev_in
           DO jc = 1, i_endidx
 #endif
 
