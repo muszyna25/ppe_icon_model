@@ -1310,7 +1310,11 @@ CONTAINS
 #ifdef USE_CRAY_POINTER
     CALL MPI_Free_mem(iptr, mpi_error)
 #else
+    ! temporarily disabled for Cray platforms (runtime error "Attempt to free
+    ! invalid pointer"), communicated to E. Tschirschnitz (Cray) : 2013-11-14
+#ifndef _CRAYFTN
     CALL MPI_Free_mem(c_mem_ptr, mpi_error)
+#endif
 #endif
     CALL check_mpi_error(subname, 'MPI_Free_mem', mpi_error, .FALSE.)
 
