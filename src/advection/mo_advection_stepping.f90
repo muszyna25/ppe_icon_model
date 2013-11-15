@@ -71,7 +71,6 @@ MODULE mo_advection_stepping
   USE mo_kind,                ONLY: wp, vp
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_transport
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_math_divrot,         ONLY: div
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
@@ -253,16 +252,13 @@ CONTAINS
                                         !< dim: (nproma,nlev,nblks_c) 
 
     REAL(vp) ::  &                      !< flux divergence at cell center
-      &  z_fluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer) 
+      &  z_fluxdiv_c(nproma,p_patch%nlev) 
 
     REAL(wp), POINTER   &
 #ifdef _CRAYFTN
     , CONTIGUOUS        &
 #endif
       & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
-
-    REAL(wp) ::  &                              !< result of intermediate RK2 step
-      &  z_estim_c(nproma,p_patch%nlev,p_patch%nblks_c,ntracer)       
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
@@ -278,6 +274,9 @@ CONTAINS
     INTEGER, POINTER :: i_itype_hlimit(:) => NULL()
     INTEGER, TARGET  :: itype_hlimit_0(ntracer)
      
+    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
+      &  iidx, iblk                          !< of edges
+
 
 !AL   REAL(wp) :: z_min, z_max
 !DR   CHARACTER(LEN=MAX_CHAR_LENGTH) :: ctrdiag
@@ -305,6 +304,9 @@ CONTAINS
       l_parallel = .TRUE.
     ENDIF
 
+    ! line and block indices of edges as seen from cells
+    iidx => p_patch%cells%edge_idx
+    iblk => p_patch%cells%edge_blk
 
     !---------------------------------------------------!
     !                                                   !
@@ -535,17 +537,6 @@ CONTAINS
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
 
 
-    i_rlend        = min_rlcell_int
-
-    !
-    !  compute divergence of the upwind fluxes for tracers
-    !  using optimized divergence routine for 4D fields
-    CALL div( p_patch, p_int_state, p_mflx_tracer_h,               &! in
-      &       z_fluxdiv_c,                                         &! inout
-      &       ntracer, opt_slev=advection_config(jg)%iadv_slev(:), &! in
-      &       opt_rlend=i_rlend                                    )! in
-
-
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
     !
     ! update tracer array
@@ -556,7 +547,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -564,15 +555,32 @@ CONTAINS
 
       DO jt = 1, ntracer ! Tracer loop
 
+!  compute divergence of the upwind fluxes for tracers
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+#else
+!CDIR UNROLL=6
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jc = i_startidx, i_endidx
+#endif
 
+            z_fluxdiv_c(jc,jk) =  &
+              & p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_int_state%geofac_div(jc,1,jb) + &
+              & p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_int_state%geofac_div(jc,2,jb) + &
+              & p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_int_state%geofac_div(jc,3,jb)
+
+          ENDDO
+        ENDDO
+
+
+        DO jk = advection_config(jg)%iadv_slev(jt), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_tracer_new(jc,jk,jb,jt) =                                         &
               &   ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb) &
-              &    - p_dtime * z_fluxdiv_c(jc,jk,jb,jt) )                       &
-              &    / ptr_delp_mc_new(jc,jk,jb)
+              &    - p_dtime * z_fluxdiv_c(jc,jk) ) / ptr_delp_mc_new(jc,jk,jb)
 
           ENDDO
         ENDDO
@@ -800,4 +808,5 @@ CONTAINS
 
 
 END MODULE mo_advection_stepping
+
 
