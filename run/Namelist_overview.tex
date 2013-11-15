@@ -1962,7 +1962,8 @@ init\_mode&
 I & 1& &
 1: start from DWD analysis \\
 2: start from IFS analysis \\
-3: combined mode: IFS atm + GME soil &
+3: combined mode: IFS atm + GME soil \\
+4: start from COSMO-DE forecast &
 \tabularnewline
 
 \hline
@@ -2557,7 +2558,7 @@ itype\_latbc&
 I & 0& &
 Type of lateral boundary nudging. Nudge from\\
 0: the initial date,\\
-1: IFS data analysis/forecast,\\
+1: IFS data analysis/forecast (if \texttt{init\_mode}=4, we take COSMO-DE data),\\
 2: ICON output data (with the identical 3d grid)&
 \tabularnewline
 

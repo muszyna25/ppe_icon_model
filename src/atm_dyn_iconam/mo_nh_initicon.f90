@@ -63,8 +63,9 @@ MODULE mo_nh_initicon
     &                               nml_filetype => filetype,                           &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
-    &                               MODE_IFSANA, MODE_COMBINED, min_rlcell,             &
-    &                               min_rledge, min_rledge_int, min_rlcell_int
+    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,           &
+    &                               min_rlcell, min_rledge, min_rledge_int,             &
+    &                               min_rlcell_int
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
   USE mo_exception,           ONLY: message, finish, message_text
@@ -109,6 +110,7 @@ MODULE mo_nh_initicon
   USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
+  USE mo_limarea_config,      ONLY: latbc_config
 
   IMPLICIT NONE
 
@@ -160,6 +162,7 @@ MODULE mo_nh_initicon
   TYPE (t_dictionary) :: ana_varnames_dict
 
 
+  ! in COSMODE mode, we copy z3d field from initicon (to be removed)
   PUBLIC :: init_icon
 
 
@@ -239,8 +242,7 @@ MODULE mo_nh_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF ((init_mode == MODE_DWDANA) .OR.   &  ! read in DWD analysis
-      & (init_mode == MODE_COMBINED)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -283,7 +285,7 @@ MODULE mo_nh_initicon
       ! process IFS land/surface analysis data
       CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
 
-    CASE(MODE_COMBINED)
+    CASE(MODE_COMBINED,MODE_COSMODE)
 
       CALL message(TRIM(routine),'Real-data mode: IFS-atm + GME-soil')
 
@@ -347,12 +349,11 @@ MODULE mo_nh_initicon
 
     ! close first guess and analysis files
     ! 
-    IF ((init_mode == MODE_DWDANA) .OR.   &
-      & (init_mode == MODE_COMBINED)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
-    DEALLOCATE (initicon, filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
+    DEALLOCATE (initicon,filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
 
     ! splitting of sea-points list into open water and sea-ice points could be placed 
@@ -992,10 +993,10 @@ MODULE mo_nh_initicon
       CALL collect_group(TRIM(grp_name), grp_vars_fg_sfc, ngrp_vars_fg_sfc,    &
         &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-      ! Special HACK for MODE_COMBINED:
-      ! remove z0 from grp_vars_fg, if init_mode=MODE_COMBINED, since it must not be read from 
-      ! GME soil input data.
-      IF (init_mode == MODE_COMBINED) THEN
+      ! Special HACK for MODE_COMBINED and MODE_COSMODE:
+      ! remove z0 from grp_vars_fg, if init_mode=MODE_COMBINED,MODE_COSMODE, 
+      ! since it must not be read from GME soil input data.
+      IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
         CALL difference(grp_vars_fg_sfc, ngrp_vars_fg_sfc, (/'gz0'/), 1)
       ENDIF
 
@@ -1027,6 +1028,7 @@ MODULE mo_nh_initicon
       ngrp_vars_fg_default = 0
       CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default,            &
         &              grp_vars_fg_sfc(1:ngrp_vars_fg_sfc), ngrp_vars_fg_sfc)
+      
       CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default,            &
         &              grp_vars_fg_atm(1:ngrp_vars_fg_atm), ngrp_vars_fg_atm)
       !
@@ -1038,38 +1040,61 @@ MODULE mo_nh_initicon
         &              grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
 
 
-
       ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
       ! the reading stuff
       !
       IF (lread_ana) THEN
 
-        ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
+        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+          ! grp_vars_fg  = grp_vars_fg_sfc   ; i.e. skip atmospheric part
+          ! grp_vars_ana = grp_vars_ana_sfc  ; i.e. skip atmospheric part
+          ngrp_vars_fg = 0
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc(1:ngrp_vars_fg_sfc), ngrp_vars_fg_sfc)
+          ngrp_vars_ana = 0
+          CALL add_to_list(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
+        ELSE
+          ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
 
-        grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-        grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-        ngrp_vars_fg  = ngrp_vars_fg_default
-        ngrp_vars_ana = ngrp_vars_ana_default
+          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+          grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+          ngrp_vars_fg  = ngrp_vars_fg_default
+          ngrp_vars_ana = ngrp_vars_ana_default
+        ENDIF
    
       ELSE ! skip analysis
 
-        ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_fg_atm + grp_vars_ana_sfc + grp_vars_ana_atm
-        ngrp_vars_fg = 0
-        CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc (1:ngrp_vars_fg_sfc) , ngrp_vars_fg_sfc)
-        CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_atm (1:ngrp_vars_fg_atm) , ngrp_vars_fg_atm)
-        CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
-        CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
+        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+          ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_ana_sfc
+          ! atmospheric fields are read from the ifs_atm branch so we do not check them here.
+          
+          ngrp_vars_fg = 0
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc (1:ngrp_vars_fg_sfc) , ngrp_vars_fg_sfc)
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
 
-        ! Remove fields 'u', 'v', 'temp', 'pres'
-        CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
+          ! grp_vars_ana = --
+          ngrp_vars_ana = 0
 
-        ! grp_vars_ana = --
-        ngrp_vars_ana = 0
+          ! COSMO-DE does not have fr_seaice, the fr_seaice-array will be
+          ! replaced with zeros
+          IF (init_mode == MODE_COSMODE) THEN
+            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'fr_seaice'/), 1)
+          ENDIF
+        ELSE
+          ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_fg_atm + grp_vars_ana_sfc + grp_vars_ana_atm
+          ngrp_vars_fg = 0
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc (1:ngrp_vars_fg_sfc) , ngrp_vars_fg_sfc)
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_atm (1:ngrp_vars_fg_atm) , ngrp_vars_fg_atm)
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
+          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
 
-      ENDIF
+          ! Remove fields 'u', 'v', 'temp', 'pres'
+          CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
 
-        
+          ! grp_vars_ana = --
+          ngrp_vars_ana = 0
+        ENDIF
 
+      ENDIF  ! lread_ana
 
 
       !===============================================================================
@@ -1159,6 +1184,7 @@ MODULE mo_nh_initicon
 !!$write(0,*) "grp_vars_ana: ", grp_vars_ana(1:ngrp_vars_ana),ngrp_vars_ana
 !!$write(0,*) "grp_vars_fgfile: ", grp_vars_fgfile(1:ngrp_vars_fgfile),ngrp_vars_fgfile
 !!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
+
 
 
       !======================================
@@ -1291,7 +1317,7 @@ MODULE mo_nh_initicon
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
-    INTEGER :: jg, jlev, jk
+    INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
@@ -1475,10 +1501,16 @@ MODULE mo_nh_initicon
       ENDIF
 
 
-      ! Note: input vertical velocity is in fact omega (Pa/s)
-      CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
-        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-        &                     nlev_in,initicon(jg)%atm_in%omega)
+      IF (init_mode == MODE_COSMODE) THEN
+        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+          &                     nlev_in+1,initicon(jg)%atm_in%w_ifc)
+      ELSE
+        ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
+        CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,           &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+          &                     nlev_in,initicon(jg)%atm_in%omega)
+      ENDIF
 
       CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,          &
         &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
@@ -1519,47 +1551,78 @@ MODULE mo_nh_initicon
 
       ! Allocate and read in vertical coordinate tables
       !
-      IF (jg == 1) THEN
+      IF (init_mode /= MODE_COSMODE) THEN 
 
-        ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
+        IF (jg == 1) THEN
+          
+          ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
-        IF(p_pe == p_io) THEN
-          CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
-          CALL nf(nf_get_var_double(ncid, varid, vct_a), routine)
+          IF(p_pe == p_io) THEN
+            CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
+            CALL nf(nf_get_var_double(ncid, varid, vct_a), routine)
 
-          CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
-          CALL nf(nf_get_var_double(ncid, varid, vct_b), routine)
-        ENDIF
+            CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
+            CALL nf(nf_get_var_double(ncid, varid, vct_b), routine)
+          ENDIF
 
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test 
-        ELSE
-          mpi_comm = p_comm_work
-        ENDIF
+          IF(p_test_run) THEN
+            mpi_comm = p_comm_work_test 
+          ELSE
+            mpi_comm = p_comm_work
+          ENDIF
 
-        CALL p_bcast(vct_a, p_io, mpi_comm)
-        CALL p_bcast(vct_b, p_io, mpi_comm)
+          CALL p_bcast(vct_a, p_io, mpi_comm)
+          CALL p_bcast(vct_b, p_io, mpi_comm)
 
 
-        vct(1:nlev_in+1)             = vct_a(:)
-        vct(nlev_in+2:2*(nlev_in+1)) = vct_b(:)
+          vct(1:nlev_in+1)             = vct_a(:)
+          vct(nlev_in+2:2*(nlev_in+1)) = vct_b(:)
 
-        nvclev = 2*(nlev_in+1)
+          nvclev = 2*(nlev_in+1)
 
-        CALL alloc_vct(nlev_in)
-        CALL init_vct(nlev_in)
+          CALL alloc_vct(nlev_in)
+          CALL init_vct(nlev_in)
 
-        IF (msg_level >= 15) THEN
-          WRITE(message_text,'(a)') 'vct table values of input data:'
-          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF  ! jg=1
 
-          DO jk = 1, nlev_in+1
-            WRITE(message_text,'(a,i4,F12.4,F12.8)') 'jk, vct_a, vct_b: ',jk, vct_a(jk), vct_b(jk)
-            CALL message(TRIM(routine), TRIM(message_text))
+      ELSE ! in case of COSMO-DE initial data
+
+        CALL read_netcdf_data_single (ncid, 'HHL', p_patch(jg)%n_patch_cells_g,       &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+        &                     nlev_in+1,initicon(jg)%atm_in%z3d_ifc)
+
+        CALL read_netcdf_data_single (ncid, 'P', p_patch(jg)%n_patch_cells_g,       &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+        &                     nlev_in,initicon(jg)%atm_in%pres)
+
+        ! Interpolate input 'z3d' and 'w' from interface levels to main levels
+!$OMP PARALLEL
+!$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = 1,p_patch(jg)%nblks_c
+        
+          IF (jb /= p_patch(jg)%nblks_c) THEN
+            i_endidx = nproma
+          ELSE
+            i_endidx = p_patch(jg)%npromz_c
+          ENDIF
+
+#ifdef __LOOP_EXCHANGE
+          DO jc = 1, i_endidx
+            DO jk = 1, nlev_in
+#else
+          DO jk = 1, nlev_in
+            DO jc = 1, i_endidx
+#endif          
+              initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
+                &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
+                &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+            ENDDO
           ENDDO
-        ENDIF
-
-      ENDIF  ! jg=1
+        ENDDO
+!$OMP END DO
+!$OMP END PARALLEL        
+      ENDIF ! init_mode = MODE_COSMODE
 
       ! close file
       !
@@ -2037,7 +2100,7 @@ MODULE mo_nh_initicon
     TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
 
-    INTEGER :: jg, jt
+    INTEGER :: jg, jt, jb, jc, i_endidx
 
     INTEGER :: mpi_comm
     INTEGER :: ngrp_vars_fg, ngrp_vars_ana
@@ -2079,10 +2142,28 @@ MODULE mo_nh_initicon
       ! read in DWD First Guess (surface)      !
       !----------------------------------------!
 
-      CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g, &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                   &
-        &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                       &
-        &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
+      ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
+      IF (init_mode /= MODE_COSMODE) THEN
+        CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g, &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                   &
+          &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                       &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
+      ELSE
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
+        ! include boundary interpolation zone of nested domains and halo points
+        DO jb = 1, p_patch(jg)%nblks_c
+          IF (jb == p_patch(jg)%nblks_c) THEN
+            i_endidx = p_patch(jg)%npromz_c
+          ELSE
+            i_endidx = nproma
+          ENDIF
+
+          DO jc = 1, i_endidx
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
+          ENDDO  ! jc
+        ENDDO  ! jb
+!$OMP END PARALLEL DO
+      ENDIF ! init_mode /= MODE_COSMODE
 
 
       ! sea-ice related fields
@@ -2106,23 +2187,40 @@ MODULE mo_nh_initicon
          &                my_ptr2d,                                                             &
          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-       ! aggregated values are not prog variables, 
-       ! aggregated values are calculated in  init_nwp_phy  (PR)
-       ! p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(:,:) = &
-       !   &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(:,:,1)
-
         my_ptr2d =>p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,jt)
         CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'qv_s', p_patch(jg)%n_patch_cells_g, &
          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,               &
          &                my_ptr2d,                                                             &
          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-       ! aggregated values are calculated in  init_nwp_phy  (PR)
-       ! p_lnd_state(jg)%diag_lnd%qv_s(:,:) = &
-       !  &    p_lnd_state(jg)%diag_lnd%qv_s_t(:,:,1)
+       
+        ! Uninitialized t_g in the boundary region will create floating point 
+        ! run-time error in the land scheme.
+        ! Aggregated values are not prog variables, aggregated values are calculated in init_nwp_phy  (PR)
+        IF (init_mode == MODE_COSMODE) THEN
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
+        ! include boundary interpolation zone of nested domains and halo points
+          DO jb = 1, p_patch(jg)%nblks_c
+            IF (jb == p_patch(jg)%nblks_c) THEN
+              i_endidx = p_patch(jg)%npromz_c
+            ELSE
+              i_endidx = nproma
+            ENDIF
+
+            DO jc = 1, i_endidx
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = &
+                &    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t(jc,jb,1)
+
+              p_lnd_state(jg)%diag_lnd%qv_s(jc,jb) = &
+               &    p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,1)
+            ENDDO  ! jc
+          ENDDO  ! jb
+!$OMP END PARALLEL DO
+        ENDIF
+
       END DO
 
-        !  tile based fields
+      !  tile based fields
       DO jt=1, ntiles_total
 
         my_ptr2d => p_lnd_state(jg)%diag_lnd%freshsnow_t(:,:,jt)
@@ -2196,7 +2294,7 @@ MODULE mo_nh_initicon
       ENDDO ! jt
 
 
-      ! Skipped in MODE_COMBINED (i.e. when starting from GME soil) 
+      ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil) 
       ! Instead z0 is re-initialized (see mo_nwp_phy_init)
       CALL read_data_2d (filetype_fg(jg), fileID_fg(jg), 'gz0',                      &
         &                p_patch(jg)%n_patch_cells_g,                                &
@@ -2363,7 +2461,7 @@ MODULE mo_nh_initicon
 
     ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
     ! Also note, that the domain-loop is missing
-    IF (init_mode == MODE_COMBINED) THEN
+    IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         DO jt=1, ntiles_total
@@ -2611,7 +2709,10 @@ MODULE mo_nh_initicon
 !$OMP END PARALLEL
 
       !DR required to avoid crash in nabla4_vec
+      WRITE (*,*) 'syncing vn_incr'
       CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
+      WRITE (*,*) 'syncing w_incr'
+      CALL sync_patch_array(SYNC_C,p_patch(jg),w_incr)
 
       ! Compute diffusion term 
       CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
@@ -2675,7 +2776,9 @@ MODULE mo_nh_initicon
 !$OMP ENDDO
 !$OMP END PARALLEL
 
+      WRITE (*,*) 'syncing vn'
       CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
+      WRITE (*,*) 'syncing w'
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
 
 
@@ -3232,20 +3335,28 @@ MODULE mo_nh_initicon
     END IF
 
     ! Allocate atmospheric input data
-    ALLOCATE(initicon(jg)%atm_in%psfc(nproma,         nblks_c), &
-      initicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
-      initicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
-      initicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
+    ALLOCATE( &
+      initicon(jg)%atm_in%psfc    (nproma,        nblks_c),   &
+      initicon(jg)%atm_in%phi_sfc (nproma,        nblks_c),   &
+      initicon(jg)%atm_in%pres    (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%z3d     (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%temp    (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%u       (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%v       (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%w       (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%omega   (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%qv      (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%qc      (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%qi      (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
+      initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
+
+    IF (init_mode == MODE_COSMODE) THEN
+      ALLOCATE( &
+        initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
+        initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
+    ENDIF
+
     initicon(jg)%atm_in%linitialized = .TRUE.
   END SUBROUTINE allocate_ifs_atm
 
@@ -3365,11 +3476,11 @@ MODULE mo_nh_initicon
       DEALLOCATE(initicon(jg)%atm_in%psfc,    &
                  initicon(jg)%atm_in%phi_sfc, &
                  initicon(jg)%atm_in%pres,    &
-                 initicon(jg)%atm_in%z3d,     &
                  initicon(jg)%atm_in%temp,    &
                  initicon(jg)%atm_in%u,       &
                  initicon(jg)%atm_in%v,       &
                  initicon(jg)%atm_in%w,       &
+                 initicon(jg)%atm_in%z3d,     &
                  initicon(jg)%atm_in%omega,   &
                  initicon(jg)%atm_in%qv,      &
                  initicon(jg)%atm_in%qc,      &
@@ -3379,6 +3490,13 @@ MODULE mo_nh_initicon
       IF (ALLOCATED(initicon(jg)%atm_in%vn)) THEN
         DEALLOCATE(initicon(jg)%atm_in%vn)
       ENDIF
+
+      IF (init_mode == MODE_COSMODE) THEN
+        DEALLOCATE( &
+                 initicon(jg)%atm_in%z3d_ifc, &
+                 initicon(jg)%atm_in%w_ifc    )
+      ENDIF
+
       initicon(jg)%atm_in%linitialized = .FALSE.
     ENDDO ! loop over model domains
 

@@ -68,7 +68,6 @@ MODULE mo_limarea_config
     CHARACTER(LEN=filename_max)   :: latbc_filename   ! prefix of latbc files
     CHARACTER(LEN=MAX_STRING_LEN) :: latbc_path       ! directory containing external latbc files
     REAL(wp)                      :: lc1, lc2         ! linear interpolation coefficients
-    LOGICAL                       :: lupdate_qvqc     ! switch to update qv, qc at boundary (only first grf_bdywidth_? layers)
 
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
@@ -97,7 +96,7 @@ CONTAINS
 
     ELSE IF (latbc_config%itype_latbc == 1) THEN
 
-       WRITE(message_text,'(a)')'Lateral boundary condition using the IFS boundary data.'
+       WRITE(message_text,'(a)')'Lateral boundary condition using the IFS or COSMO-DE boundary data.'
        CALL message(TRIM(routine),message_text)
 
     ELSE IF (latbc_config%itype_latbc == 2) THEN
@@ -106,8 +105,10 @@ CONTAINS
        CALL message(TRIM(routine),message_text)
 
     ELSE
+
        WRITE(message_text,'(a,i8)') 'Wrong lateral boundary condition mode:', latbc_config%itype_latbc
        CALL finish(TRIM(routine),message_text)
+
     END IF
   
   END SUBROUTINE configure_latbc

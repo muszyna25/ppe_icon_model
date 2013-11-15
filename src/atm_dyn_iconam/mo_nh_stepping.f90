@@ -150,8 +150,8 @@ MODULE mo_nh_stepping
   USE mo_ls_forcing,          ONLY: init_ls_forcing
   USE mo_nh_latbc,            ONLY: prepare_latbc_data , read_latbc_data, &
     &                               deallocate_latbc_data, p_latbc_data,   &
-    &                               adjust_boundary_data, read_latbc_tlev, &
-    &                               last_latbc_tlev, update_lin_interc
+    &                               read_latbc_tlev, last_latbc_tlev, &
+    &                               update_lin_interc
   USE mo_interface_les,       ONLY: les_phy_interface
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
@@ -333,10 +333,6 @@ MODULE mo_nh_stepping
       &                                       l_dom_active   = p_patch(1:)%ldom_active, &
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
-
-    ! fix the first grf_bdywidth(=4) boundary cell-layers
-    IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
-      CALL adjust_boundary_data ( p_patch(1), datetime, nnow(1), p_nh_state(1) )
 
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)

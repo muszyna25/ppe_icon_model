@@ -56,7 +56,7 @@ MODULE mo_nh_latbc
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
@@ -80,6 +80,7 @@ MODULE mo_nh_latbc
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
+  USE mo_initicon_config,     ONLY: init_mode
   
   IMPLICIT NONE
   
@@ -103,8 +104,7 @@ MODULE mo_nh_latbc
 
   PUBLIC :: prepare_latbc_data, read_latbc_data, deallocate_latbc_data,  &
     &       p_latbc_data, latbc_fileid, read_latbc_tlev, last_latbc_tlev, &
-    &       last_latbc_datetime, adjust_boundary_data,                    &
-    &       update_lin_interc
+    &       last_latbc_datetime, update_lin_interc
 
   CONTAINS
 
@@ -146,7 +146,7 @@ MODULE mo_nh_latbc
     last_latbc_datetime = time_config%ini_datetime
 
     nlev    = p_patch%nlev
-    nlevp1  = nlev + 1
+    nlevp1  = p_patch%nlevp1
     nblks_c = p_patch%nblks_c
     nblks_v = p_patch%nblks_v
     nblks_e = p_patch%nblks_e
@@ -173,6 +173,11 @@ MODULE mo_nh_latbc
                p_latbc_data(tlev)%atm_in%qi   (nproma,nlev_in,nblks_c), &
                p_latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
                p_latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
+
+      IF (init_mode == MODE_COSMODE) THEN
+        ALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc(nproma,nlev_in+1,nblks_c))
+        ALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc(nproma,nlev_in+1,nblks_c))
+      ENDIF
 
       ! Allocate atmospheric output data
       ALLOCATE(p_latbc_data(tlev)%atm%vn       (nproma,nlev  ,nblks_e), &
@@ -293,7 +298,7 @@ MODULE mo_nh_latbc
     !
     SELECT CASE (latbc_config%itype_latbc)
     CASE(1)
-      CALL message(TRIM(routine), 'IFS boundary data')
+      CALL message(TRIM(routine), 'IFS or COSMO-DE boundary data')
       CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data )
     CASE(2)
       CALL message(TRIM(routine), 'ICON output boundary data')
@@ -498,7 +503,8 @@ MODULE mo_nh_latbc
     ! local variables
     INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
                                             latbc_fileid, no_levels, varid
-    LOGICAL                             :: l_exist
+    LOGICAL                             :: l_exist, lconvert_omega2w
+    INTEGER                             :: jc, jk, jb, i_startidx, i_endidx
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_full_filename
@@ -632,9 +638,58 @@ MODULE mo_nh_latbc
         &                     nlev_in, p_latbc_data(tlev)%atm_in%v )
     ENDIF
 
-    CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,           &
-        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
-        &                     nlev_in, p_latbc_data(tlev)%atm_in%omega )
+    IF (init_mode /= MODE_COSMODE) THEN
+      lconvert_omega2w = .TRUE.
+      CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,           &
+          &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
+          &                     nlev_in, p_latbc_data(tlev)%atm_in%omega )
+    ELSE
+      lconvert_omega2w = .FALSE.
+      CALL read_netcdf_data_single( latbc_fileid, 'W', p_patch%n_patch_cells_g,         &
+        &                     p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,         &
+        &                     nlev_in+1, p_latbc_data(tlev)%atm_in%w_ifc )
+    ENDIF
+
+    IF (init_mode == MODE_COSMODE) THEN
+      CALL read_netcdf_data_single( latbc_fileid, 'HHL', p_patch%n_patch_cells_g,         &
+        &                     p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,         &
+        &                     nlev_in+1, p_latbc_data(tlev)%atm_in%z3d_ifc )
+      !
+      ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
+      !
+!$OMP PARALLEL
+!$OMP DO PRIVATE (jk,jc,jb) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1,p_patch%nblks_c
+
+        IF (jb /= p_patch%nblks_c) THEN
+          i_endidx = nproma
+        ELSE
+          i_endidx = p_patch%npromz_c
+        ENDIF
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = 1, i_endidx
+          DO jk = 1, p_patch%nlev
+#else
+        DO jk = 1, p_patch%nlev
+          DO jc = 1, i_endidx
+#endif
+
+        ! Note: In future, we want to z3d from boundary data.
+        !
+        p_latbc_data(tlev)%atm_in%z3d(jc,jk,jb) = (p_latbc_data(tlev)%atm_in%z3d_ifc(jc,jk,jb) + &
+            &   p_latbc_data(tlev)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+        p_latbc_data(tlev)%atm_in%w(jc,jk,jb) = (p_latbc_data(tlev)%atm_in%w_ifc(jc,jk,jb) + &
+            &   p_latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDIF
+
 
     CALL read_netcdf_data_single( latbc_fileid, 'QV', p_patch%n_patch_cells_g,          &
         &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
@@ -668,6 +723,12 @@ MODULE mo_nh_latbc
         &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%psfc )
 
+    IF (init_mode == MODE_COSMODE) THEN
+      CALL read_netcdf_data( latbc_fileid, 'P', p_patch%n_patch_cells_g,                &
+        &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
+        &                     nlev_in, p_latbc_data(tlev)%atm_in%pres )
+    ENDIF
+
     CALL read_netcdf_data( latbc_fileid, TRIM(geop_ml_var), p_patch%n_patch_cells_g,    &
         &                     p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,           &
         &                     p_latbc_data(tlev)%atm_in%phi_sfc )
@@ -684,7 +745,8 @@ MODULE mo_nh_latbc
     !
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
-    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev_in, p_latbc_data(tlev), opt_use_vn=lread_vn)
+    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev_in, p_latbc_data(tlev),              &
+      &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=lread_vn)
 
   END SUBROUTINE read_latbc_ifs_data
   !-------------------------------------------------------------------------
@@ -716,8 +778,8 @@ MODULE mo_nh_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    nlev = patch%nlev
-    nlevp1 = nlev + 1
+    nlev    = patch%nlev
+    nlevp1  = patch%nlevp1
     nblks_c = patch%nblks_c
     nblks_v = patch%nblks_v
     nblks_e = patch%nblks_e
@@ -741,6 +803,11 @@ MODULE mo_nh_latbc
                  p_latbc_data(tlev)%atm_in%qr, &
                  p_latbc_data(tlev)%atm_in%qs )
 
+      IF (init_mode == MODE_COSMODE) THEN
+        DEALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc)
+        DEALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc)
+      ENDIF
+
       ! Allocate atmospheric output data
       DEALLOCATE(p_latbc_data(tlev)%atm%vn, &
                  p_latbc_data(tlev)%atm%u, &
@@ -757,120 +824,15 @@ MODULE mo_nh_latbc
                  p_latbc_data(tlev)%atm%qr, &
                  p_latbc_data(tlev)%atm%qs )
 
-      DEALLOCATE(p_latbc_data(tlev)%atm_in%vn)
+      IF (ALLOCATED(p_latbc_data(tlev)%atm_in%vn)) THEN
+        DEALLOCATE(p_latbc_data(tlev)%atm_in%vn)
+      ENDIF
     END DO
 
   END SUBROUTINE deallocate_latbc_data
   !-------------------------------------------------------------------------
 
 
-  !-------------------------------------------------------------------------
-  !>
-  !! @par Revision History
-  !! Initial version by S. Brdar, DWD (2013-08-02)
-  !!
-  SUBROUTINE adjust_boundary_data ( p_patch, datetime, tlev, p_nh_state )
-    TYPE(t_patch),    INTENT(IN)    :: p_patch
-    TYPE(t_datetime), INTENT(INOUT) :: datetime
-    INTEGER,          INTENT(IN)    :: tlev   ! nnow or nnew
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state
-
-    ! Local variables
-    INTEGER                         :: i_startblk, i_endblk, &
-      &                                i_startidx, i_endidx
-    INTEGER                         :: ic, jc, jk, jb, je
-    INTEGER                         :: nlev, nlevp1
-    REAL(wp)                        :: lc1, lc2
-
-    nlev = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-
-    ! compute time integration coefficient
-    CALL update_lin_interc(datetime)
-
-    lc1 = latbc_config%lc1
-    lc2 = latbc_config%lc2
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-    ! a) Boundary update of horizontal velocity
-    i_startblk = p_patch%edges%start_blk(1,1)
-    i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, grf_bdywidth_e)
-
-      DO jk = 1, nlev
-        DO je = i_startidx, i_endidx
-          p_nh_state%prog(tlev)%vn(je,jk,jb) = &
-            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%vn(je,jk,jb) &
-            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%vn(je,jk,jb)
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO
-
-    ! b) Boundary update of variables at cell centers
-    i_startblk = p_patch%cells%start_blk(1,1)
-    i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, grf_bdywidth_c)
-
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-
-          IF (latbc_config% lupdate_qvqc) THEN
-            p_nh_state%prog(tlev)%tracer(jc,jk,jb,iqv) = & 
-              &   lc2 * p_latbc_data(read_latbc_tlev)%atm%qv(jc,jk,jb) &
-              &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%qv(jc,jk,jb)
-            
-            p_nh_state%prog(tlev)%tracer(jc,jk,jb,iqc) = &
-              &   lc2 * p_latbc_data(read_latbc_tlev)%atm%qc(jc,jk,jb) &
-              &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%qc(jc,jk,jb)
-          ENDIF
-
-          p_nh_state%prog(tlev)%rho(jc,jk,jb) = &
-            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%rho(jc,jk,jb) &
-            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%rho(jc,jk,jb)
-
-          p_nh_state%prog(tlev)%theta_v(jc,jk,jb) = &
-            &   lc2 * p_latbc_data(read_latbc_tlev)%atm%theta_v(jc,jk,jb) &
-            &   + lc1 * p_latbc_data(last_latbc_tlev)%atm%theta_v(jc,jk,jb)
-
-          ! Diagnose exner from rho*theta
-          p_nh_state%prog(tlev)%exner(jc,jk,jb) = EXP(rd/cvd*LOG(rd/p0ref* &
-            & p_nh_state%prog(tlev)%rho(jc,jk,jb)*p_nh_state%prog(tlev)%theta_v(jc,jk,jb)))
-
-          p_nh_state%prog(tlev)%w(jc,jk,jb) = &
-            &  lc2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,jk,jb) &
-            &  + lc1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb)
-
-        ENDDO
-      ENDDO
-
-      DO jc = i_startidx, i_endidx
-        p_nh_state%prog(tlev)%w(jc,nlevp1,jb) = &
-          &  lc2 * p_latbc_data(read_latbc_tlev)%atm%w(jc,nlevp1,jb) &
-          &  + lc1 * p_latbc_data(last_latbc_tlev)%atm%w(jc,nlevp1,jb)
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-    CALL sync_patch_array(SYNC_E, p_patch, p_nh_state%prog(tlev)%vn)
-    CALL sync_patch_array_mult(SYNC_C, p_patch, 4, p_nh_state%prog(tlev)%w, &
-      &   p_nh_state%prog(tlev)%theta_v, p_nh_state%prog(tlev)%rho,         &
-      &   p_nh_state%prog(tlev)%exner     )
-
-  END SUBROUTINE adjust_boundary_data
-  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>

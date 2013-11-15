@@ -57,7 +57,8 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
-                                    igme, iedmf, SUCCESS, MAX_CHAR_LENGTH   
+    &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
+    &                               MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -781,8 +782,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
-    ! GME surface (MODE_COMBINED)
-    IF (ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
+    ! GME surface (MODE_COMBINED, MODE_COSMODE)
+    IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
  
       IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init roughness length')
 
@@ -905,7 +906,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
-      IF (ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
+      IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
 
         ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
         lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)

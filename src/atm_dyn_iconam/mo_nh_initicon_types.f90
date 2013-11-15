@@ -72,7 +72,7 @@ MODULE mo_nh_initicon_types
     LOGICAL :: linitialized
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, omega, &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d_ifc, w_ifc, z3d, u, v, omega, &
       &                                         w, vn, qv, qc, qi, qr, qs
 
   END TYPE t_pi_atm_in
