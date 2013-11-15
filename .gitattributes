@@ -730,6 +730,7 @@ run/exp.oce_mpiom -text
 run/exp.oce_mpiom_R2B07_L40 -text
 run/exp.oce_mpiom_Rrefined -text
 run/exp.oce_nml_output -text
+run/exp.oce_numeric_noland_40levels -text
 run/exp.oce_r2b5 -text
 run/exp.oce_restart_test_2x1 -text
 run/exp.oce_sltst -text

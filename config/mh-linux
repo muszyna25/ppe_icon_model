@@ -325,7 +325,7 @@ case "$ac_sitename" in
                       MPIROOT = $software_tree/mpi/openmpi_ib-1.6.4-static-intel13
                       load_modules="gcc/4.6.3" "intel/13.2.0" "openmpi_ib/1.6.4-static-intel13" "${load_modules}"
                       ! HIOPT_FLAGS = -O3 -mkl -no-prec-div -static -xHost -xAVX -vec-report2 -diag-file -fpp -traceback -D__LOOP_EXCHANGE
-                      HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -fpp -traceback -D__LOOP_EXCHANGE
+                      HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -fpp -D__LOOP_EXCHANGE
                       ;;
                     nag)
                       NETCDFROOT  = $software_tree/netcdf-4.1.3-static-nag52

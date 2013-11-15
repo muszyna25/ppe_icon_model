@@ -1687,41 +1687,50 @@ CONTAINS
       CALL message(TRIM(routine), ' - here: testcase for coupled aquaplanet, using analytic s')
 
       !sst_case='sst_qobs'
-      sst_case='sst1'
-      jk = 1
+!       sst_case='sst1'
+!       jk = 1
+!       DO jb = all_cells%start_block, all_cells%end_block
+!         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!         DO jc = i_startidx_c, i_endidx_c
+!           z_lat = patch_2D%cells%center(jc,jb)%lat
+!           IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+!           END IF
+!         END DO
+!       END DO
+! 
+!       z_temp_max  = 20.0_wp
+!       z_temp_min  =  4.0_wp
+!       z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
+!       WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
+!       WRITE(message_text,*) 'Vertical temperature increment = ',z_temp_incr
+!       CALL message(TRIM(routine),TRIM(message_text))
+! 
+!       p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+!       DO jk=2,n_zlev-1
+! 
+!         z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
+!         WRITE(message_text,*) "jk=",jk,' Maximum Temperature =',z_max
+!         CALL message(TRIM(routine),TRIM(message_text))
+! 
+!         DO jb = all_cells%start_block, all_cells%end_block
+!           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!           DO jc = i_startidx_c, i_endidx_c
+!             IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+!               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+!                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
+!             ELSE
+!               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+!             ENDIF
+!           END DO
+!         END DO
+!       END DO
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = patch_2D%cells%center(jc,jb)%lat
-          IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
-          END IF
-        END DO
-      END DO
-
-      z_temp_max  = 20.0_wp
-      z_temp_min  =  4.0_wp
-      z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
-      WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
-      WRITE(message_text,*) 'Vertical temperature increment = ',z_temp_incr
-      CALL message(TRIM(routine),TRIM(message_text))
-
-      p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
-      DO jk=2,n_zlev-1
-
-        z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
-        WRITE(message_text,*) "jk=",jk,' Maximum Temperature =',z_max
-        CALL message(TRIM(routine),TRIM(message_text))
-
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
-            ELSE
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-            ENDIF
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
           END DO
         END DO
       END DO
@@ -1741,10 +1750,7 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-!              IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile(jk)
-              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-!              ENDIF
             END DO
           END DO
         END DO
