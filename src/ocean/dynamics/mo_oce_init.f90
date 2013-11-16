@@ -1667,17 +1667,16 @@ CONTAINS
       !  - add horizontally homogen, vertically increasing / homogen salinity
       IF (no_tracer==2) THEN
 
+        DO jk=1,n_zlev
+         WRITE(0,*) TRIM(routine),': jk=',jk,' Salinity =', salinity_profile_20levels(jk)
+        END DO
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-!              IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
-              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-!              ENDIF
             END DO
           END DO
-          WRITE(0,*) TRIM(routine),': jk=',jk,' Salinity =', salinity_profile_20levels(jk)
         END DO
       END IF
 
