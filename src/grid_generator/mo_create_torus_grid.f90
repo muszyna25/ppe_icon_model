@@ -289,12 +289,17 @@ CONTAINS
 
     !--------------------------------------------------------------
     ! create unfolded grid
-    !CALL create_unfolded_torus()
-    !  write netcdf file
-    !CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
+    IF (TRIM(unfolded_torus_file_name) /= "") THEN
+      CALL create_unfolded_torus()
+      !  write netcdf file
+      CALL write_netcdf_grid(unfolded_grid_id, unfolded_torus_file_name)
+    ENDIF
+
 !almut    !  write unfolded_grid to ascii file
-!     CALL write_grid_ascii(torus_grid_id, ascii_filename)
-    
+
+    ! IF (TRIM(ascii_filename) /= "") THEN
+    !   CALL write_grid_ascii(torus_grid_id, ascii_filename)
+    ! ENDIF
     !--------------------------------------------------------------
   END SUBROUTINE create_torus_grid
 
@@ -1141,9 +1146,9 @@ CONTAINS
     unfolded_grid_id = new_grid()
     unfolded_grid => get_grid(unfolded_grid_id)
 
-    unfolded_grid%ncells = no_of_cells
-    unfolded_grid%nedges = no_of_edges
-    unfolded_grid%nverts = no_of_vertices
+    unfolded_grid%ncells = no_of_unfolded_cells
+    unfolded_grid%nedges = no_of_unfolded_edges
+    unfolded_grid%nverts = no_of_unfolded_vertices
     unfolded_grid%cells%max_no_of_vertices = max_cell_vertices
     unfolded_grid%verts%max_connectivity   = max_vertex_connect
 
