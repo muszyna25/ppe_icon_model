@@ -240,8 +240,8 @@ CONTAINS
               min_value    = MIN(min_value, values(idx, block))
               max_value    = MAX(max_value, values(idx, block))
               sum_value    = sum_value + values(idx, block)
+              number_of_values = number_of_values +  1
             ENDIF
-            number_of_values = number_of_values +  1
           ENDDO
         ENDDO
 !ICON_OMP_END_PARALLEL_DO
