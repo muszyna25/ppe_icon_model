@@ -154,7 +154,7 @@ CONTAINS
     INTEGER :: mtop_min
     REAL(wp):: ztp(nproma), zqp(nproma)
     INTEGER :: mlab(nproma)
-    REAL, PARAMETER :: grav_o_cpd = grav/cpd
+    REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
 
     REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
