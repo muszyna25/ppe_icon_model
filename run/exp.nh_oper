@@ -213,8 +213,8 @@ cat > ${atmo_namelist} << EOF
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
  divdamp_fac    = 0.004
- divdamp_order  = 4
- divdamp_type   = 3
+ divdamp_order  = 24
+ divdamp_type   = 3     !!! optional: 2 for assimilation cycle
  l_open_ubc     = .true.
  l_nest_rcf     = .true.
  l_masscorr_nest= .true.
@@ -244,7 +244,7 @@ cat > ${atmo_namelist} << EOF
  ctracer_list  = '12345'
  ivadv_tracer  = 3,3,3,3,3
  itype_hlimit  = 3,4,4,4,4,0
- ihadv_tracer  = 42,2,2,2,2,0
+ ihadv_tracer  = 52,2,2,2,2,0
 /
 &diffusion_nml
  hdiff_order      = 5
@@ -259,7 +259,7 @@ cat > ${atmo_namelist} << EOF
 /
 &interpol_nml
  nudge_zone_width  = 8
- lsq_high_ord      = 2
+ lsq_high_ord      = 3
  l_intp_c2l        = .true.
  l_mono_c2l        = .true.
 /
