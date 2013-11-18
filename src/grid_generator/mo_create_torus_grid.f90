@@ -282,9 +282,6 @@ CONTAINS
 !    CALL set_grid_creation(torus_grid_id, undefined)
     CALL write_netcdf_grid(torus_grid_id, out_file_name)
 
-    !  print to standard output
-    !CALL print_torus_grid()
-    CALL delete_grid(torus_grid_id)
     !--------------------------------------------------------------
 
     !--------------------------------------------------------------
@@ -301,6 +298,9 @@ CONTAINS
     !   CALL write_grid_ascii(torus_grid_id, ascii_filename)
     ! ENDIF
     !--------------------------------------------------------------
+    !  print to standard output
+    !CALL print_torus_grid()
+    CALL delete_grid(torus_grid_id)
   END SUBROUTINE create_torus_grid
 
 
@@ -1165,6 +1165,8 @@ CONTAINS
         unfolded_grid%verts%idx(unfolded_index_no) = index_no
         unfolded_grid%verts%vertex(unfolded_index_no)%lon = torus_grid%verts%vertex(index_no)%lon
         unfolded_grid%verts%vertex(unfolded_index_no)%lat = torus_grid%verts%vertex(index_no)%lat
+       ! write(0,*) x, y, unfolded_index_no, index_no, torus_grid%verts%vertex(index_no)%lon, &
+       !   & torus_grid%verts%vertex(index_no)%lat
         ! edges
         index_no=edge_index_left_diagonal(x,y)
         unfolded_index_no = unfoldleftright_diag_edgeindex(x,y)
@@ -1200,6 +1202,8 @@ CONTAINS
         index_no=cell_index_top(x,y)
         unfolded_index_no=unfolded_cell_index_top(x,y)
         unfolded_grid%cells%idx(unfolded_index_no) = index_no
+        unfolded_grid%cells%center(unfolded_index_no)%lon = torus_grid%edges%center(index_no)%lon
+        unfolded_grid%cells%center(unfolded_index_no)%lat = torus_grid%edges%center(index_no)%lat
         unfolded_grid%cells%no_of_vertices(unfolded_index_no) = 3
         unfolded_grid%cells%get_vertex_index(unfolded_index_no,1) = unfolded_vertex_index(x,y)
         unfolded_grid%cells%get_vertex_index(unfolded_index_no,2) = unfolded_vertex_index(x,y+1)
