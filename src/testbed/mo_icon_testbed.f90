@@ -79,10 +79,11 @@ CONTAINS
       ! do nothing
       RETURN
 
+#ifndef __NO_ICON_OCEAN__
     CASE(testbed_ocean_model)
       ! do nothing
       CALL test_ocean_performance(testbed_namelist_filename,shr_namelist_filename)
-
+#endif
 
 #ifndef __NO_ICON_ATMO__
     CASE(test_coupler_model)
