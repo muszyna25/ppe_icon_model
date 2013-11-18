@@ -33,8 +33,8 @@ cd $WRKDIR
 #
 cat > $parameterFile << EOF
 &torus_grid_parameters
-    x_no_of_columns = 64       ! even and >=4 (2 does not work for 2nd order diffusion op.)
-    y_no_of_rows    = 64       ! even and >=4 (2 does not work for 2nd order diffusion op.)
+    x_no_of_columns = 4       ! even and >=4 (2 does not work for 2nd order diffusion op.)
+    y_no_of_rows    = 4       ! even and >=4 (2 does not work for 2nd order diffusion op.)
     edge_length     = 120000.0 ! [m] 
     x_center        = 0.0
     y_center        = 0.0
