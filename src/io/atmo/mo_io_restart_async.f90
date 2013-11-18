@@ -71,7 +71,7 @@ MODULE mo_io_restart_async
   USE mo_grid_config,             ONLY: n_dom
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
+!!$  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi_constants
 
 #ifndef NOMPI
@@ -2274,18 +2274,16 @@ CONTAINS
     TYPE(t_restart_args),  POINTER :: p_ra
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
-      &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               nlena, nlenb, nlenc, nlend
+      &                               nlev_snow, nlev_ocean, nice_class, ierrstat!!$, &
+!!$      &                               nlena, nlenb, nlenc, nlend
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-    CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
-    CHARACTER(LEN=  8) :: date_string
-    CHARACTER(LEN= 10) :: time_string
-    INTEGER            :: i
-    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+!!$    CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
+!!$    CHARACTER(LEN=  8) :: date_string
+!!$    CHARACTER(LEN= 10) :: time_string
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
@@ -2294,35 +2292,35 @@ CONTAINS
     ! delete old attributes
     CALL delete_attributes()
 
-    ! get environment attributes
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
+!!$    ! get environment attributes
+!!$    CALL get_command_argument(0, executable, nlend)
+!!$    CALL date_and_time(date_string, time_string)
+!!$
+!!$    tmp_string = ''
+!!$    CALL util_os_system (tmp_string, nlena)
+!!$    os_name = tmp_string(1:nlena)
+!!$
+!!$    tmp_string = ''
+!!$    CALL util_user_name (tmp_string, nlenb)
+!!$    user_name = tmp_string(1:nlenb)
+!!$
+!!$    tmp_string = ''
+!!$    CALL util_node_name (tmp_string, nlenc)
+!!$    host_name = tmp_string(1:nlenc)
 
     ! set CD-Convention required restart attributes
     CALL set_restart_attribute('title',       &
          MODEL_TITLE)
     CALL set_restart_attribute('institution', &
          MODEL_INSTITUTION)
-    CALL set_restart_attribute('source',      &
-         TRIM(out_expname)//'-'//MODEL_VERSION)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         MODEL_REFERENCES)
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+!!$    CALL set_restart_attribute('source',      &
+!!$         TRIM(out_expname)//'-'//MODEL_VERSION)
+!!$    CALL set_restart_attribute('history',     &
+!!$         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+!!$    CALL set_restart_attribute('references',  &
+!!$         MODEL_REFERENCES)
+!!$    CALL set_restart_attribute('comment',     &
+!!$         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
 
     ! set restart time
     p_ra => restart_args
