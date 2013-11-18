@@ -1149,10 +1149,10 @@ CONTAINS
   !! but also used for the Cray compiler because the original code (above) generates a segfault.
   !!
   SUBROUTINE spherical_intersection2_v (p0, p1, v0, v1, p, nlen)
+    INTEGER, INTENT(in)                       :: nlen
     TYPE(t_cartesian_coordinates), INTENT(in) :: p0(0:nlen-1), p1(0:nlen-1)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v0(0:nlen-1), v1(0:nlen-1)
     TYPE(t_cartesian_coordinates), INTENT(out):: p(0:nlen-1)
-    INTEGER, INTENT(in)                       :: nlen
 
     TYPE(t_geographical_coordinates) :: g1,g2
     TYPE(t_cartesian_coordinates) :: en, cn
