@@ -1777,17 +1777,17 @@ CONTAINS
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
 
-    REAL(wp) ::  &                    !< coordinates of departure region vertices. The origin
+    REAL(vp) ::  &                    !< coordinates of departure region vertices. The origin
       &  z_coords_dreg_v(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
                                       !< of the coordinate system is at the circumcenter of
                                       !< the upwind cell. Unit vectors point to local East
                                       !< and North. (geographical coordinates)
                                       !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< gauss quadrature vector
+    REAL(vp), ALLOCATABLE, SAVE ::  & !< gauss quadrature vector
       &  z_quad_vector_sum(:,:,:,:)   !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< area of departure region [m**2]
+    REAL(vp), ALLOCATABLE, SAVE ::  & !< area of departure region [m**2]
       &  z_dreg_area(:,:,:)           !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, ALLOCATABLE, SAVE, TARGET ::  & !< line indices of upwind cell
@@ -2285,18 +2285,18 @@ CONTAINS
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
 
-    REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
+    REAL(vp) ::  &                    !< patch 0,1,2 of subdivided departure region
       &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &  !< coordinates
       &  dreg_patch1(nproma,4,2,p_patch%nlev,p_patch%nblks_e), &
       &  dreg_patch2(nproma,4,2,p_patch%nlev,p_patch%nblks_e)
 
 
-    REAL(wp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
+    REAL(vp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
       &  z_quad_vector_sum0(:,:,:,:),& !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
       &  z_quad_vector_sum1(:,:,:,:),&
       &  z_quad_vector_sum2(:,:,:,:)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< area of each departure region patch
+    REAL(vp), ALLOCATABLE, SAVE ::  & !< area of each departure region patch
       &  z_dreg_area0(:,:,:),       & !< dim: (nproma,nlev,nblks_e)
       &  z_dreg_area1(:,:,:),       &
       &  z_dreg_area2(:,:,:)
@@ -2848,20 +2848,20 @@ CONTAINS
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
 
-    REAL(wp) ::  &                    !< patch 0,1,2 of subdivided departure region
+    REAL(vp) ::  &                    !< patch 0,1,2 of subdivided departure region
       &  dreg_patch0(nproma,4,2,p_patch%nlev,p_patch%nblks_e)  !< coordinates
 
-    REAL(wp), ALLOCATABLE ::   & !< dim: (npoints,4,2,nblks_e)
+    REAL(vp), ALLOCATABLE ::   & !< dim: (npoints,4,2,nblks_e)
       &  dreg_patch1(:,:,:,:), &
       &  dreg_patch2(:,:,:,:)
 
 
-    REAL(wp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
+    REAL(vp), ALLOCATABLE, SAVE ::   & !< gauss quadrature vector for each patch
       &  z_quad_vector_sum0(:,:,:,:),& !< dim: (nproma,lsq_dim_unk+1,nlev,nblks_e)
       &  z_quad_vector_sum1(:,:,:),  & !< dim: (npoints,lsq_dim_unk+1,nblks_e)
       &  z_quad_vector_sum2(:,:,:)
 
-    REAL(wp), ALLOCATABLE, SAVE ::  & !< sum of area of departure region patches
+    REAL(vp), ALLOCATABLE, SAVE ::  & !< sum of area of departure region patches
       &  z_dreg_area(:,:,:)
 
     INTEGER, ALLOCATABLE, SAVE  ::  & !< line and block indices of underlying cell
@@ -3028,7 +3028,6 @@ CONTAINS
         &                   patch2_cell_idx, patch2_cell_blk,          &! out
         &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,  &! in
         &                   opt_slev=slev_ti, opt_elev=elev_ti         )! in
-
 
       ! maps quadrilateral onto the standard rectangle of edge length 2.
       ! provides quadrature points and the corresponding determinant of the
@@ -3418,5 +3417,4 @@ CONTAINS
   END SUBROUTINE upwind_hflux_hex
 
 END MODULE mo_advection_hflux
-
 

@@ -61,7 +61,7 @@
 !----------------------------
 MODULE mo_advection_quadrature
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_advection_config,    ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta, &
     &                               shape_func_l, zeta_l, eta_l, wgt_zeta_l,  &
     &                               wgt_eta_l
@@ -70,7 +70,7 @@ MODULE mo_advection_quadrature
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int
   USE mo_math_constants,      ONLY: dbl_eps
-
+  USE mo_parallel_config,     ONLY: nproma
 
   IMPLICIT NONE
 
@@ -118,14 +118,14 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                             !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:,:) !< in 2D cartesian coordinates
                                     !< dim: (nproma,4,2,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,3,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+    REAL(vp), INTENT(OUT) :: &      !< area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -146,6 +146,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
       &  wgt_t_detjac               !< gaussian quadrature point.
+
+    REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
     INTEGER  :: nlev                !< number of full levels
@@ -190,7 +192,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac &
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,z_x,z_y &
 !$OMP ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -201,18 +203,20 @@ CONTAINS
 
         DO je = i_startidx, i_endidx
 
+          z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
+          z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
+
           ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1) = DOT_PRODUCT(shape_func_l(1:4),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(2) = DOT_PRODUCT(shape_func_l(1:4),p_coords_dreg_v(je,1:4,2,jk,jb))
+          z_gauss_pts(1) = DOT_PRODUCT(shape_func_l(1:4),z_x(je,1:4))
+          z_gauss_pts(2) = DOT_PRODUCT(shape_func_l(1:4),z_y(je,1:4))
 
 
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                  p_coords_dreg_v(je,1:4,2,jk,jb),zeta_l,eta_l) &
-            &                      * wgt_zeta_l * wgt_eta_l ) + dbl_eps
+          wgt_t_detjac = ( jac(z_x(je,1:4),z_y(je,1:4),zeta_l,eta_l) &
+            &                    * wgt_zeta_l * wgt_eta_l ) + dbl_eps
 
 
           ! Get quadrature vector for each integration point and multiply by
@@ -265,7 +269,7 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                             !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:)   !< in 2D cartesian coordinates
                                     !< dim: (npoints,4,2,nblks_e)
 
@@ -273,10 +277,10 @@ CONTAINS
       &  falist                     !< Miura-type treatment of flux areas is 
                                     !< insufficient
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:)   !< dim: (npoints,3,nblks_e)
 
-    REAL(wp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
+    REAL(vp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -297,6 +301,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
       &  wgt_t_detjac               !< gaussian quadrature point.
+
+    REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
     INTEGER  :: ie                  !< index list loop counter
@@ -342,7 +348,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,ie,z_gauss_pts,wgt_t_detjac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(je,jk,jb,ie,z_gauss_pts,wgt_t_detjac,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -351,18 +357,20 @@ CONTAINS
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
+        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
+        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
+
         ! get coordinates of the quadrature points in physical space (mapping)
-        z_gauss_pts(1) = DOT_PRODUCT(shape_func_l(1:4),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(2) = DOT_PRODUCT(shape_func_l(1:4),p_coords_dreg_v(ie,1:4,2,jb))
+        z_gauss_pts(1) = DOT_PRODUCT(shape_func_l(1:4),z_x(ie,1:4))
+        z_gauss_pts(2) = DOT_PRODUCT(shape_func_l(1:4),z_y(ie,1:4))
 
 
         ! get Jacobian determinant for each quadrature point and multiply with
         ! corresponding weights
         ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
         ! (better: area-average) even when the integration-area tends to zero.
-        wgt_t_detjac = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                  p_coords_dreg_v(ie,1:4,2,jb),zeta_l,eta_l) &
-          &                      * wgt_zeta_l * wgt_eta_l ) + dbl_eps
+        wgt_t_detjac = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta_l,eta_l) &
+          &                     * wgt_zeta_l * wgt_eta_l ) + dbl_eps
 
 
         ! Get quadrature vector for each integration point and multiply by
@@ -411,14 +419,14 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                           !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:,:) !< in 2D cartesian coordinates
                                     !< dim: (nproma,4,2,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,6,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+    REAL(vp), INTENT(OUT) :: &      !< area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -442,6 +450,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
       &  z_quad_vector(4,6)
+
+    REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -488,7 +498,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -498,32 +508,31 @@ CONTAINS
 
         DO je = i_startidx, i_endidx
 
+          z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
+          z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
+
           ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,2,jk,jb))
+          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
 
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(1),eta(1)) &
+          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
             &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(2),eta(2)) &
+          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
             &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(3),eta(3)) &
+          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
             &                      * wgt_zeta(3) *  wgt_eta(3) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(4),eta(4)) &
+          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
             &                      * wgt_zeta(4) *  wgt_eta(4) ) + dbl_eps
 
 
@@ -592,7 +601,7 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                           !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:)   !< in 2D cartesian coordinates
                                     !< dim: (npoints,4,2,nblks_e)
 
@@ -600,10 +609,10 @@ CONTAINS
       &  falist                     !< Miura-type treatment of flux areas is
                                     !< insufficient
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:)   !< dim: (npoints,6,nblks_e)
 
-    REAL(wp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
+    REAL(vp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -627,6 +636,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
       &  z_quad_vector(4,6)
+
+    REAL(wp) :: z_x(falist%npoints,4), z_y(falist%npoints,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -674,7 +685,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac, &
-!$OMP z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -683,32 +694,31 @@ CONTAINS
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
+        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
+        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
+
         ! get coordinates of the quadrature points in physical space (mapping)
-        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(ie,1:4,2,jb))
+        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
+        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
+        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
+        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
+        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
+        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
+        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
+        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
 
 
         ! get Jacobian determinant for each quadrature point and multiply with
         ! corresponding weights
         ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
         ! (better: area-average) even when the integration-area tends to zero.
-        wgt_t_detjac(1) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(1),eta(1)) &
+        wgt_t_detjac(1) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(1),eta(1)) &
           &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(2) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(2),eta(2)) &
+        wgt_t_detjac(2) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(2),eta(2)) &
           &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-        wgt_t_detjac(3) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(3),eta(3)) &
+        wgt_t_detjac(3) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(3),eta(3)) &
           &                      * wgt_zeta(3) *  wgt_eta(3) ) + dbl_eps
-        wgt_t_detjac(4) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(4),eta(4)) &
+        wgt_t_detjac(4) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(4),eta(4)) &
           &                      * wgt_zeta(4) *  wgt_eta(4) ) + dbl_eps
 
 
@@ -774,14 +784,14 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< patch on which computation is
       &  p_patch                           !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:,:) !< in 2D cartesian coordinates
                                     !< dim: (nproma,4,2,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,8,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+    REAL(vp), INTENT(OUT) :: &      !< area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -805,6 +815,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
       &  z_quad_vector(4,8)
+
+    REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -851,7 +863,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -861,32 +873,31 @@ CONTAINS
 
         DO je = i_startidx, i_endidx
 
+          z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
+          z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
+
           ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,2,jk,jb))
+          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
 
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(1),eta(1)) &
+          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
             &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(2),eta(2)) &
+          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
             &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(3),eta(3)) &
+          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
             &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(4),eta(4)) &
+          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
             &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
 
 
@@ -957,14 +968,14 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                           !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:,:) !< in 2D cartesian coordinates
                                     !< dim: (nproma,4,2,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
-      &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,8,nlev,nblks_e)
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
+      &  p_quad_vector_sum(:,:,:,:) !< dim: (nproma,10,nlev,nblks_e)
 
-    REAL(wp), INTENT(OUT) :: &      !< area of departure region  [m**2]
+    REAL(vp), INTENT(OUT) :: &      !< area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -988,6 +999,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
       &  z_quad_vector(4,10)
+
+    REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -1034,7 +1047,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1042,38 +1055,34 @@ CONTAINS
 
       DO jk = slev, elev
 
-
         DO je = i_startidx, i_endidx
+
+          z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
+          z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
+
           ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(je,1:4,2,jk,jb))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,1,jk,jb))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(je,1:4,2,jk,jb))
-
-
+          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
 
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(1),eta(1)) &
+          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
             &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(2),eta(2)) &
+          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
             &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(3),eta(3)) &
+          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
             &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(p_coords_dreg_v(je,1:4,1,jk,jb),              &
-            &                   p_coords_dreg_v(je,1:4,2,jk,jb),zeta(4),eta(4)) &
+          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
             &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-
 
 
 
@@ -1157,7 +1166,7 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is
       &  p_patch                           !< performed
 
-    REAL(wp), INTENT(IN)  ::   &    !< vertices of departure regions
+    REAL(vp), INTENT(IN)  ::   &    !< vertices of departure regions
       &  p_coords_dreg_v(:,:,:,:)   !< in 2D cartesian coordinates
                                     !< dim: (npoints,4,2,nblks_e)
 
@@ -1165,10 +1174,10 @@ CONTAINS
       &  falist                     !< Miura-type treatment of flux areas is 
                                     !< insufficient
 
-    REAL(wp), INTENT(OUT) :: &      !< quadrature vector
+    REAL(vp), INTENT(OUT) :: &      !< quadrature vector
       &  p_quad_vector_sum(:,:,:)   !< dim: (npoints,10,nblks_e)
 
-    REAL(wp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
+    REAL(vp), INTENT(INOUT) :: &    !< total area of departure region  [m**2]
       &  p_dreg_area(:,:,:)         !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -1192,6 +1201,8 @@ CONTAINS
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
       &  z_quad_vector(4,10)
+
+    REAL(wp) :: z_x(falist%npoints,4), z_y(falist%npoints,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -1239,7 +1250,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1248,17 +1259,19 @@ CONTAINS
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
+        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
+        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
+
 
         ! get coordinates of the quadrature points in physical space (mapping)
-        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),p_coords_dreg_v(ie,1:4,2,jb))
-        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(ie,1:4,1,jb))
-        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),p_coords_dreg_v(ie,1:4,2,jb))
-
+        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
+        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
+        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
+        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
+        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
+        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
+        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
+        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
 
 
 
@@ -1266,17 +1279,13 @@ CONTAINS
         ! corresponding weights
         ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
         ! (better: area-average) even when the integration-area tends to zero.
-        wgt_t_detjac(1) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(1),eta(1)) &
+        wgt_t_detjac(1) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(1),eta(1)) &
           &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(2) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(2),eta(2)) &
+        wgt_t_detjac(2) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(2),eta(2)) &
           &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-        wgt_t_detjac(3) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(3),eta(3)) &
+        wgt_t_detjac(3) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(3),eta(3)) &
           &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(4) = ( jac(p_coords_dreg_v(ie,1:4,1,jb),              &
-          &                   p_coords_dreg_v(ie,1:4,2,jb),zeta(4),eta(4)) &
+        wgt_t_detjac(4) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(4),eta(4)) &
           &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
 
 
@@ -1371,4 +1380,3 @@ CONTAINS
 
 
 END MODULE mo_advection_quadrature
-

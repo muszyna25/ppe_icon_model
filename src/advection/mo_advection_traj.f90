@@ -332,7 +332,7 @@ CONTAINS
          &  lcounterclock            !< counterclockwise. If FALSE, some are ordered
                                      !< counterclockwise, some clockwise
 
-    REAL(wp), INTENT(OUT) ::    &  !< coordinates of departure region vertices. The origin
+    REAL(vp), INTENT(OUT) ::    &  !< coordinates of departure region vertices. The origin
          &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
                                       !< the upwind cell. Unit vectors point to local East
                                       !< and North. (geographical coordinates)
@@ -977,4 +977,3 @@ CONTAINS
       END SUBROUTINE btraj_o2
 
 END MODULE mo_advection_traj
-

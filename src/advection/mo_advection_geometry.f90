@@ -45,7 +45,7 @@
 !----------------------------
 MODULE mo_advection_geometry
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
@@ -98,10 +98,10 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
       &  p_vt(:,:,:)               !< edge midpoints
 
-    REAL(wp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
+    REAL(vp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
       & dreg_patch0(:,:,:,:,:)       !< coordinates
 
-    REAL(wp), INTENT(OUT) ::    &  !< patch 0,1,2 of subdivided departure region
+    REAL(vp), INTENT(OUT) ::    &  !< patch 0,1,2 of subdivided departure region
       & dreg_patch1(:,:,:,:,:), &  !< coordinates
       & dreg_patch2(:,:,:,:,:)     !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
@@ -912,10 +912,10 @@ CONTAINS
       &  falist                     !< Miura-type treatment of flux areas is 
                                     !< insufficient
 
-    REAL(wp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
+    REAL(vp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
       & dreg_patch0(:,:,:,:,:)       !< coordinates
 
-    REAL(wp), INTENT(OUT) ::  &  !< patch 0,1,2 of subdivided departure region
+    REAL(vp), INTENT(OUT) ::  &  !< patch 0,1,2 of subdivided departure region
       & dreg_patch1(:,:,:,:), &  !< coordinates
       & dreg_patch2(:,:,:,:)     !< dim: (npoints,4,2,ptr_p%nblks_e)
 
