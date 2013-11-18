@@ -742,7 +742,6 @@ MODULE mo_nh_stepping
     REAL(wp):: rdt_loc,  rdtadv_loc, rdtmflx_loc ! inverse time step for local grid level
 
     LOGICAL, PARAMETER :: l_straka=.FALSE.
-    LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
     INTEGER :: idyn_timestep
     LOGICAL :: l_recompute, lsave_mflx, lprep_adv, lfull_comp
@@ -1627,7 +1626,6 @@ MODULE mo_nh_stepping
     INTEGER :: jg, jgc, jn ! loop indices
 
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
-    REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
