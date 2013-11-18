@@ -91,7 +91,7 @@ MODULE mo_geometry
 
   USE mo_math_utilities, ONLY: t_cartesian_coordinates, vector_product, &
     & circum_center, cc2gc, arc_length,      &
-    & spherical_intersection2, t_geographical_coordinates
+    & spherical_intersection2, spherical_intersection2_v, t_geographical_coordinates
 
   USE mo_physical_constants, ONLY: earth_radius
 
@@ -1050,9 +1050,9 @@ CONTAINS
 
       TYPE(t_spheres), POINTER :: ptr_tl
 
-#ifdef __SX__
+#if (defined (_CRAYFTN) || defined(__SX__))
       TYPE(t_cartesian_coordinates), DIMENSION (0:spheres_on_levels(klev)%no_triangles-1) :: &
-        &  tc, n0, n1, n2, v0, v1, v2, e0, e1, e2
+        &  tc, n0, n1, n2, v0, v1, v2, e_out
 #endif
 
       !-------------------------------------------------------------------------
@@ -1076,7 +1076,6 @@ CONTAINS
       noeds= ptr_tl%no_edges
       novs = ptr_tl%no_vertices
 
-
       IF ((itype_optimize <=1 .or. itype_optimize ==4).and. &
         & (.not. (l_c_grid .and. klev==number_of_levels))) THEN
 
@@ -1085,19 +1084,20 @@ CONTAINS
         ! were done.
         !
 
-        ! triangle_center
+        ! triangle_center, edge_primal_arc
         !----------------
+!$OMP PARALLEL
+
+!$OMP DO
         DO j = 0, nots-1
           ptr_tl%ts(j)%triangle_center =  circum_center( &
             & ptr_tl%ts(j)%vertex0%vertex, &
             & ptr_tl%ts(j)%vertex1%vertex, &
             & ptr_tl%ts(j)%vertex2%vertex)
         ENDDO
+!$OMP END DO
 
-        ! edge_primal_arc, edge_center
-        !--------------------------------------------
-
-#ifdef __SX__
+!$OMP DO
         DO j = 0, nots-1
 
           ptr_tl%ts(j)%edge0%edge_primal_arc = arc_length ( &
@@ -1113,7 +1113,15 @@ CONTAINS
             & ptr_tl%ts(j)%vertex0%vertex)
 
         ENDDO
+!$OMP END DO
 
+
+        ! edge_center
+        !--------------------------------------------
+
+#if (defined (_CRAYFTN) || defined(__SX__))
+! Remark (GZ): the unvectorized version causes a segfault with the Cray compiler
+!$OMP DO
         DO j = 0, nots-1
           tc(j) = ptr_tl%ts(j)%triangle_center
           n0(j) = ptr_tl%ts(j)%neighbor0%triangle_center
@@ -1123,32 +1131,31 @@ CONTAINS
           v1(j) = ptr_tl%ts(j)%vertex1%vertex
           v2(j) = ptr_tl%ts(j)%vertex2%vertex
         ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
-        CALL spherical_intersection2 (tc,n0,v0,v1,e0,nots)
-        CALL spherical_intersection2 (tc,n1,v1,v2,e1,nots)
-        CALL spherical_intersection2 (tc,n2,v2,v0,e2,nots)
-               
+        CALL spherical_intersection2_v (tc,n0,v0,v1,e_out,nots)
         DO j = 0, nots-1
-          ptr_tl%ts(j)%edge0%edge_center = e0(j)
-          ptr_tl%ts(j)%edge1%edge_center = e1(j)
-          ptr_tl%ts(j)%edge2%edge_center = e2(j)
+          ptr_tl%ts(j)%edge0%edge_center = e_out(j)
+        ENDDO
+
+        CALL spherical_intersection2_v (tc,n1,v1,v2,e_out,nots)
+        DO j = 0, nots-1
+          ptr_tl%ts(j)%edge1%edge_center = e_out(j)
+        ENDDO
+
+        CALL spherical_intersection2_v (tc,n2,v2,v0,e_out,nots)
+        DO j = 0, nots-1
+          ptr_tl%ts(j)%edge2%edge_center = e_out(j)
         ENDDO
 
 #else
+
+!$OMP END PARALLEL
+
+!GZ: Due to the indirectly addressed target field, OpenMP parallelization of this loop would cause
+!    a race condition. Perhaps we should use the vectorized version above for all platfoms?
         DO j = 0, nots-1
-
-          ptr_tl%ts(j)%edge0%edge_primal_arc = arc_length ( &
-            & ptr_tl%ts(j)%vertex0%vertex, &
-            & ptr_tl%ts(j)%vertex1%vertex)
-
-          ptr_tl%ts(j)%edge1%edge_primal_arc = arc_length ( &
-            & ptr_tl%ts(j)%vertex1%vertex, &
-            & ptr_tl%ts(j)%vertex2%vertex)
-
-          ptr_tl%ts(j)%edge2%edge_primal_arc = arc_length ( &
-            & ptr_tl%ts(j)%vertex2%vertex, &
-            & ptr_tl%ts(j)%vertex0%vertex)
-
 
           ptr_tl%ts(j)%edge0%edge_center     = spherical_intersection2 ( &
             & ptr_tl%ts(j)%triangle_center, &
@@ -1175,6 +1182,8 @@ CONTAINS
       !
       ! The dual arc lengths are unknown so far for all itype_optimize
       !
+!$OMP PARALLEL               
+!$OMP DO
       DO j = 0, nots-1
 
         ptr_tl%ts(j)%edge0%edge_dual_arc   = arc_length ( &
@@ -1190,10 +1199,12 @@ CONTAINS
           & ptr_tl%ts(j)%neighbor2%triangle_center)
 
       ENDDO
+!$OMP END DO
 
       !
       ! distances to edge midpoints
       !
+!$OMP DO
       DO j = 0, noeds-1
 
         ptr_tl%es(j)%edge_vert0_arc = 0.5_wp*ptr_tl%es(j)%edge_primal_arc
@@ -1207,6 +1218,7 @@ CONTAINS
           & ptr_tl%es(j)%triangle1%triangle_center)
 
       ENDDO
+!$OMP END DO
 
       ! This part  copies exactly what had been done in the previous grid generator.
       ! The normal vectors to primal and dual cell edges are oriented in a way
@@ -1224,6 +1236,7 @@ CONTAINS
       ! changed by Th.Heinze, now normal vector is tangential to the sphere in the
       ! midpoint of the edges, was not in previous version.
 
+!$OMP DO PRIVATE(j1,j2,ctmp,z_tmp,c_vd,c_ec,c_nv,geog,xt,yt,c_vp)
       DO j = 0, noeds-1
 
         ! determine vector between mass points (needed for orientation)
@@ -1288,11 +1301,13 @@ CONTAINS
         ptr_tl%es(j)%system_orientation = INT(SIGN(1._wp,DOT_PRODUCT(c_vp%x,c_ec%x)))
 
       ENDDO
+!$OMP END DO
 
       ! Compute triangle_area and area_dual_cell. These are local
       ! computations using the edge lengths and thus no longer spherical
       ! approximations.
 
+!$OMP DO PRIVATE(j1)
       DO j=0, nots-1
 
         ptr_tl%ts(j)%triangle_area=0.0_wp
@@ -1329,7 +1344,9 @@ CONTAINS
         ENDIF
 
       ENDDO
+!$OMP END DO
 
+!$OMP DO
       DO j=0, novs-1
 
         ptr_tl%vs(j)%area_dual_cell = 0.25_wp*(&
@@ -1347,6 +1364,7 @@ CONTAINS
         ENDIF
 
       ENDDO
+!$OMP END DO
 
       !ALMUT: moved from mo_grid (2009-01-13)
       !   compute primal cell edge orientations:
@@ -1361,6 +1379,7 @@ CONTAINS
       !  (it was so in the old generator)
       ! ALMUT: this explanation seems to mix up the direction, but the code is ok
 
+!$OMP DO PRIVATE(ie)
       DO j=0,nots-1
         ie= ptr_tl%ts(j)%edge0%info%idx
         ptr_tl%ts(j)%edge0_orientation=&
@@ -1375,15 +1394,21 @@ CONTAINS
           & (ptr_tl%es(ie)%triangle1%info%idx+ptr_tl%es(ie)%triangle0%info%idx-2*j) &
           & /(ptr_tl%es(ie)%triangle1%info%idx-ptr_tl%es(ie)%triangle0%info%idx)
       ENDDO
+!$OMP END DO
 
       ! Almut (2009-01-13): moved from input_grid in mo_io_grid at this position
       !   rescale geometric quantities by radius of the Earth
+!$OMP DO
       DO j=0, novs-1
         ptr_tl%vs(j)%area_dual_cell   = earth_radius*earth_radius*ptr_tl%vs(j)%area_dual_cell
       ENDDO
+!$OMP END DO
+!$OMP DO
       DO j=0,nots-1
         ptr_tl%ts(j)%triangle_area    = earth_radius*earth_radius*ptr_tl%ts(j)%triangle_area
       ENDDO
+!$OMP END DO
+!$OMP DO
       DO j=0, noeds-1
         ptr_tl%es(j)%edge_dual_arc    = earth_radius*   ptr_tl%es(j)%edge_dual_arc
         ptr_tl%es(j)%edge_primal_arc  = earth_radius*   ptr_tl%es(j)%edge_primal_arc
@@ -1392,6 +1417,9 @@ CONTAINS
         ptr_tl%es(j)%edge_cell0_arc   = earth_radius*   ptr_tl%es(j)%edge_cell0_arc
         ptr_tl%es(j)%edge_cell1_arc   = earth_radius*   ptr_tl%es(j)%edge_cell1_arc
       ENDDO
+!$OMP END DO
+
+!$OMP END PARALLEL
 
     END SUBROUTINE compute_geometry
 

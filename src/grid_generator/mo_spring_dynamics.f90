@@ -90,14 +90,14 @@ CONTAINS
     REAL(wp) :: beta_spring
 
     INTEGER :: i, i_e, i_h, maxit
-    REAL (wp) :: len0, lambda, friction, dt, hori, ekin, test, &
-      & maxekin, maxtest
+    REAL (wp) :: len0, lambda, friction, dt, hori, maxekin, maxtest, ekin, test
 #ifdef __SX__
     REAL (wp) :: z1, z2, z3
     TYPE(t_cartesian_coordinates), DIMENSION(0:sph%no_vertices-1) :: &
       & ej0, ej1, ej2, ej3, ej4, ej5, feder, rhs
 #else
-    TYPE(t_cartesian_coordinates) :: ej0, ej1, ej2, ej3, ej4, ej5, feder, rhs
+    TYPE(t_cartesian_coordinates) :: ej0, ej1, ej2, ej3, ej4, ej5, rhs
+    TYPE(t_cartesian_coordinates), DIMENSION(0:sph%no_vertices-1) :: feder
 #endif
     !-----------------------------------------------------------------------
 
@@ -125,8 +125,13 @@ CONTAINS
 
     DO i=1, maxit
 
-      DO i_e = 0, sph%no_edges-1
+      ekin = 0._wp
+      test = 0._wp
+
+!$OMP PARALLEL
 #ifdef __SX__
+!$OMP DO PRIVATE(z1, z2, z3)
+      DO i_e = 0, sph%no_edges-1
         ! code inlined from arc_length in order to obtain vectorization on the NEC
         z1 = SQRT(DOT_PRODUCT(sph%es(i_e)%vertex0%vertex%x(1:3),&
           &                   sph%es(i_e)%vertex0%vertex%x(1:3)))
@@ -138,17 +143,20 @@ CONTAINS
         IF (z3 < -1._wp ) z3 = -1._wp
 
         sph%es(i_e)%edge_primal_arc = ACOS(z3)
+      ENDDO
+!$OMP END DO
 #else
+!$OMP DO
+      DO i_e = 0, sph%no_edges-1
         sph%es(i_e)%edge_primal_arc=arc_length(sph%es(i_e)%vertex0%vertex,&
           & sph%es(i_e)%vertex1%vertex)
-#endif
       ENDDO
-
-      test = 0.0_wp
-      ekin = 0.0_wp
+!$OMP END DO
+#endif
 
 #ifdef __SX__
       ! Vectorized code
+!$OMP DO
       DO i_h = 0, sph%no_vertices-1
 
         ! Unit vectors P0 --> PJ
@@ -171,7 +179,9 @@ CONTAINS
         ENDIF
 
       ENDDO
+!$OMP END DO
 
+!$OMP DO
       DO i_h = 0, sph%no_vertices-1
         ! add all components for the spring force
         IF (sph%vs(i_h)%edge5%info%idx /= -1 ) THEN
@@ -189,7 +199,9 @@ CONTAINS
             &            (sph%vs(i_h)%edge4%edge_primal_arc - len0)*ej4(i_h)%x
         ENDIF
       ENDDO
+!$OMP END DO
 
+!$OMP DO PRIVATE(hori) REDUCTION(+:ekin,test)
       DO i_h = 0, sph%no_vertices-1
         ! RHS of spring equation
         rhs(i_h)%x = feder(i_h)%x-friction*sph%vs(i_h)%vert_vel%x
@@ -208,14 +220,16 @@ CONTAINS
                                  hori * sph%vs(i_h)%vertex%x
 
         ! kinetic energy for testing
-        ekin = 0.5_wp*DOT_PRODUCT(sph%vs(i_h)%vert_vel%x,&
-                                  sph%vs(i_h)%vert_vel%x) + ekin
+        ekin = ekin + 0.5_wp*DOT_PRODUCT(sph%vs(i_h)%vert_vel%x,&
+                                  sph%vs(i_h)%vert_vel%x)
 
         ! test criterion
-        test = DOT_PRODUCT(feder(i_h)%x,feder(i_h)%x) + test
+        test = test + DOT_PRODUCT(feder(i_h)%x,feder(i_h)%x)
       ENDDO
+!$OMP END DO
 #else
-     DO i_h = 0, sph%no_vertices-1
+!$OMP DO PRIVATE(ej0, ej1, ej2, ej3, ej4, ej5)
+      DO i_h = 0, sph%no_vertices-1
 
         ! Unit vectors P0 --> PJ
         ej0%x = sph%vs(i_h)%neighbor0%vertex%x-sph%vs(i_h)%vertex%x
@@ -228,46 +242,61 @@ CONTAINS
         ej3%x = ej3%x/SQRT(DOT_PRODUCT(ej3%x,ej3%x))
         ej4%x = sph%vs(i_h)%neighbor4%vertex%x-sph%vs(i_h)%vertex%x
         ej4%x = ej4%x/SQRT(DOT_PRODUCT(ej4%x,ej4%x))
+
         IF (sph%vs(i_h)%edge5%info%idx /= -1 ) THEN
           ej5%x = sph%vs(i_h)%neighbor5%vertex%x-sph%vs(i_h)%vertex%x
           ej5%x = ej5%x/SQRT(DOT_PRODUCT(ej5%x,ej5%x))
+          feder(i_h)%x = (sph%vs(i_h)%edge0%edge_primal_arc - len0)*ej0%x +&
+            &            (sph%vs(i_h)%edge1%edge_primal_arc - len0)*ej1%x +&
+            &            (sph%vs(i_h)%edge2%edge_primal_arc - len0)*ej2%x +&
+            &            (sph%vs(i_h)%edge3%edge_primal_arc - len0)*ej3%x +&
+            &            (sph%vs(i_h)%edge4%edge_primal_arc - len0)*ej4%x +&
+            &            (sph%vs(i_h)%edge5%edge_primal_arc - len0)*ej5%x
+        ELSE
+          ej5%x = 0._wp
+          feder(i_h)%x = (sph%vs(i_h)%edge0%edge_primal_arc - len0)*ej0%x +&
+            &            (sph%vs(i_h)%edge1%edge_primal_arc - len0)*ej1%x +&
+            &            (sph%vs(i_h)%edge2%edge_primal_arc - len0)*ej2%x +&
+            &            (sph%vs(i_h)%edge3%edge_primal_arc - len0)*ej3%x +&
+            &            (sph%vs(i_h)%edge4%edge_primal_arc - len0)*ej4%x
         ENDIF
 
-        ! add all components for the spring force
-        feder%x = (sph%vs(i_h)%edge0%edge_primal_arc - len0)*ej0%x +&
-          & (sph%vs(i_h)%edge1%edge_primal_arc - len0)*ej1%x +&
-          & (sph%vs(i_h)%edge2%edge_primal_arc - len0)*ej2%x +&
-          & (sph%vs(i_h)%edge3%edge_primal_arc - len0)*ej3%x +&
-          & (sph%vs(i_h)%edge4%edge_primal_arc - len0)*ej4%x
-        IF (sph%vs(i_h)%edge5%info%idx /= -1 ) THEN
-          feder%x = feder%x + &
-            & (sph%vs(i_h)%edge5%edge_primal_arc - len0)*ej5%x
-        ENDIF
+      ENDDO
+!$OMP END DO
 
+! GZ: Splitting the loop here fixes a bug that used to be in the non-SX branch until November 2013.
+!     Without the loop splitting, a feedback of the vertex motion on the neighbor vertices addressed
+!     above occurs, leading to different results when the order of the grid points is changed.
+!     The error became apparent because it caused an OpenMP race condition.
+
+!$OMP DO PRIVATE(hori, rhs) REDUCTION(+:ekin,test)
+      DO i_h = 0, sph%no_vertices-1
         ! RHS of spring equation
-        rhs%x = feder%x-friction*sph%vs(i_h)%vert_vel%x
+        rhs%x = feder(i_h)%x-friction*sph%vs(i_h)%vert_vel%x
 
         ! solve the position equation
         sph%vs(i_h)%vertex%x = sph%vs(i_h)%vertex%x+dt*sph%vs(i_h)%vert_vel%x
         ! - > Normalize
         sph%vs(i_h)%vertex%x = sph%vs(i_h)%vertex%x/&
-          & SQRT(DOT_PRODUCT(sph%vs(i_h)%vertex%x,sph%vs(i_h)%vertex%x))
+           SQRT(DOT_PRODUCT(sph%vs(i_h)%vertex%x,sph%vs(i_h)%vertex%x))
 
         ! solve for spring equation
         sph%vs(i_h)%vert_vel%x = sph%vs(i_h)%vert_vel%x + dt*rhs%x
         hori = DOT_PRODUCT(sph%vs(i_h)%vert_vel%x,sph%vs(i_h)%vertex%x)
         ! - > Horizontalize
         sph%vs(i_h)%vert_vel%x = sph%vs(i_h)%vert_vel%x - &
-          & hori * sph%vs(i_h)%vertex%x
+                                 hori * sph%vs(i_h)%vertex%x
 
         ! kinetic energy for testing
-        ekin = 0.5_wp*dot_product(sph%vs(i_h)%vert_vel%x,&
-          & sph%vs(i_h)%vert_vel%x) + ekin
+        ekin = ekin + 0.5_wp*DOT_PRODUCT(sph%vs(i_h)%vert_vel%x,&
+                                  sph%vs(i_h)%vert_vel%x)
 
         ! test criterion
-        test = DOT_PRODUCT(feder%x,feder%x) + test
-     ENDDO
+        test = test + DOT_PRODUCT(feder(i_h)%x,feder(i_h)%x)
+      ENDDO
+!$OMP END DO
 #endif
+!$OMP END PARALLEL
 
       maxekin = MAX(ekin,maxekin)
       maxtest = MAX(test,maxtest)

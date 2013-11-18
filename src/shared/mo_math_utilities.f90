@@ -134,7 +134,7 @@ MODULE mo_math_utilities
   PUBLIC :: middle
   PUBLIC :: sphere_tangent_coordinates
   PUBLIC :: normal_vector
-  PUBLIC :: spherical_intersection, spherical_intersection2
+  PUBLIC :: spherical_intersection, spherical_intersection2, spherical_intersection2_v
   PUBLIC :: rotate_z,rotate_x,rotate_y
   PUBLIC :: norma_of_vector_product
   PUBLIC :: project_point_to_plane
@@ -1089,48 +1089,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Luis Kornblueh  (2004).
   !!
-#ifdef __SX__
-  SUBROUTINE spherical_intersection2 (p0, p1, v0, v1, p, nlen)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p0(0:nlen-1), p1(0:nlen-1)
-    TYPE(t_cartesian_coordinates), INTENT(in) :: v0(0:nlen-1), v1(0:nlen-1)
-    TYPE(t_cartesian_coordinates), INTENT(out):: p(0:nlen-1)
-    INTEGER, INTENT(in)                       :: nlen
-
-    TYPE(t_geographical_coordinates) :: g1,g2
-    TYPE(t_cartesian_coordinates) :: en, cn
-
-    REAL(wp) :: z_pn
-    INTEGER  :: ji
-
-    DO ji = 0, nlen-1
-      g1=cc2gc(v0(ji))
-      g2=cc2gc(v1(ji))
-
-      en = vecpro (g1, g2)
-
-      g1=cc2gc(p0(ji))
-      g2=cc2gc(p1(ji))
-
-      cn = vecpro (g1, g2)
-
-      g1=cc2gc(en)
-      g2=cc2gc(cn)
-
-      !  p = vector_product (en, cn)
-      p(ji) = vecpro (g1, g2)
-
-      ! rescale on sphere surface
-      z_pn = d_norma_3d(p(ji))
-
-      p(ji)%x = p(ji)%x/z_pn
-
-      IF (DOT_PRODUCT(p0(ji)%x, p(ji)%x) < 0.0_wp) THEN
-        p(ji)%x = -p(ji)%x
-      END IF
-    ENDDO
-
-  END SUBROUTINE spherical_intersection2
-#else
   ELEMENTAL FUNCTION spherical_intersection2 (p0, p1, v0, v1) result(p)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p0, p1
     TYPE(t_cartesian_coordinates), INTENT(in) :: v0, v1
@@ -1185,7 +1143,54 @@ CONTAINS
     END IF
 
   END FUNCTION spherical_intersection2
-#endif
+
+  !>
+  !! Vectorized version of spherical_intersection2. Originally developed for the NEC,
+  !! but also used for the Cray compiler because the original code (above) generates a segfault.
+  !!
+  SUBROUTINE spherical_intersection2_v (p0, p1, v0, v1, p, nlen)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p0(0:nlen-1), p1(0:nlen-1)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: v0(0:nlen-1), v1(0:nlen-1)
+    TYPE(t_cartesian_coordinates), INTENT(out):: p(0:nlen-1)
+    INTEGER, INTENT(in)                       :: nlen
+
+    TYPE(t_geographical_coordinates) :: g1,g2
+    TYPE(t_cartesian_coordinates) :: en, cn
+
+    REAL(wp) :: z_pn
+    INTEGER  :: ji
+
+!$OMP PARALLEL DO PRIVATE(g1,g2,en,cn,z_pn)
+    DO ji = 0, nlen-1
+      g1=cc2gc(v0(ji))
+      g2=cc2gc(v1(ji))
+
+      en = vecpro (g1, g2)
+
+      g1=cc2gc(p0(ji))
+      g2=cc2gc(p1(ji))
+
+      cn = vecpro (g1, g2)
+
+      g1=cc2gc(en)
+      g2=cc2gc(cn)
+
+      !  p = vector_product (en, cn)
+      p(ji) = vecpro (g1, g2)
+
+      ! rescale on sphere surface
+      z_pn = d_norma_3d(p(ji))
+
+      p(ji)%x = p(ji)%x/z_pn
+
+      IF (DOT_PRODUCT(p0(ji)%x, p(ji)%x) < 0.0_wp) THEN
+        p(ji)%x = -p(ji)%x
+      END IF
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE spherical_intersection2_v
+
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
