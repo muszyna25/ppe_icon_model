@@ -107,7 +107,7 @@ cat > ${atmo_namelist} << EOF
  nh_test_name      = 'CBL'  !test case identifier
  u_cbl             = 0.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
  v_cbl             = 0.0, 0.0  !v_cbl(1)=constant, v_cbl(2)=gradient, default=0
- th_cbl            = 300.0, 0.003  !th_cbl(1)=constant, th_cbl(2)=gradient
+ th_cbl            = 290.0, 0.006  !th_cbl(1)=constant, th_cbl(2)=gradient
 /
 &les_nml
  is_dry_cbl        = .TRUE. 
@@ -115,7 +115,7 @@ cat > ${atmo_namelist} << EOF
  lhflx             =  0.0  ! knematic latent heat flux 
  smag_constant     = 0.12
  isrfc_type        = 2     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
- ufric             = 0.45
+ ufric             = 0.2
 /
 &diffusion_nml
  lhdiff_temp  = .FALSE.
@@ -156,31 +156,33 @@ const_z0  = 0.0003
 /
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lflux_avg        = .true.
  lkeep_in_sync    = .true.
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,10800.,1800.   !start, end, increment
- steps_per_file   = 1
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
+ file_interval    = "PT30M"
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
- output_filename  = '${EXPNAME}_tri'
+ output_filename  = '${EXPNAME}_insta'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho','gz0','qv','qc'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho' 
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,10800.,60.   !start, end, increment
- steps_per_file   = 2000
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10S"
+ file_interval    = "P2D"
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tseries'
  output_grid      = .TRUE.
- ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','clct_avg','avg_qv','avg_qc',
-                    'ashfl_s','alhfl_s','aumfl_s','avmfl_s'
+ ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','z_pbl'
 /
 EOF
 #-----------------------------------------------------------------------------

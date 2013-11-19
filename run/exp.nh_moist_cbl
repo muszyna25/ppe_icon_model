@@ -37,14 +37,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-02T06:00:00Z"
+end_date="2008-09-02T01:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.15
-dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
+dtime=0.1
+dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,12 +54,12 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=131           # nlev = number of full levels
+nlev=64           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r100s72.nc'
+atmo_dyn_grids='torus_grid_r70s136.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ cat > ${atmo_namelist} << EOF
  smag_constant     = 0.12
  isrfc_type        = 3      !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  bflux             = 0.0007 !Buoyancy flux in m2/s3
- tran_coeff        = 0.029  !m/s
+ tran_coeff        = 0.02   !m/s
  ufric             = 0.2   
 /
 &diffusion_nml
@@ -147,23 +147,24 @@ const_z0  = 0.0003
  rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.4      ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
- damp_height     = 3500      ! damping height, keep top 5-10 levels for damping
+ damp_height     = 2700      ! damping height, keep top 5-10 levels for damping
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
- min_lay_thckn   = 5.0       ! lowest level thickness (between half-levels), set 0 to do equal spacing
- top_height      = 4750
+ min_lay_thckn   = 0.0       ! lowest level thickness (between half-levels), set 0 to do equal spacing
+ top_height      = 3200
  stretch_fac     = 0.9       ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
 /
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lflux_avg        = .true.
  lkeep_in_sync    = .true.
 /
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,108000.,1800.   !start, end, increment
- steps_per_file   = 1
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
+ file_interval    = "PT30M"
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_insta'
@@ -173,14 +174,16 @@ const_z0  = 0.0003
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,108000.,60.   !start, end, increment
- steps_per_file   = 2000
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10S"
+ file_interval    = "P2D"
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tseries'
  output_grid      = .TRUE.
  ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','clct_avg','avg_qv','avg_qc',
-                     'ashfl_s','alhfl_s','aumfl_s','avmfl_s'
+                    'ashfl_s','alhfl_s','aumfl_s','avmfl_s','clct','z_pbl'
 /
 EOF
 #-----------------------------------------------------------------------------

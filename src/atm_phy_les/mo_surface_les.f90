@@ -72,6 +72,7 @@ MODULE mo_surface_les
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_nh_testcases_nml,    ONLY: th_cbl  
 
   IMPLICIT NONE
 
@@ -133,7 +134,7 @@ MODULE mo_surface_les
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
-    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2
+    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, t_sfc, psfc 
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
@@ -465,7 +466,7 @@ MODULE mo_surface_les
     !It uses fixed transfer coefficient and assumes that q_s is saturated 
     CASE(3)
 
-      !Get mean theta and qv at first model level
+      !Get mean theta and qv at first model level and mean surface pressure
 
 !$OMP PARALLEL WORKSHARE
       var(:,:) = theta(:,jk,:)
@@ -479,36 +480,39 @@ MODULE mo_surface_les
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
+!$OMP PARALLEL WORKSHARE
+      var(:,:) = pres_sfc(:,:)
+!$OMP END PARALLEL WORKSHARE
+      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
+      psfc =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
+
+      !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
+      !Note that t_g(:,:) is uniform so the first index is used below
+      theta_sfc = p_prog_lnd_now%t_g(i_startidx,i_startblk)
+      t_sfc     = theta_sfc * EXP( rd_o_cpd*LOG(psfc/p0ref) )
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,theta_sfc,itr, &
-!$OMP  bflx1,bflx2,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP DO PRIVATE(itr,bflx1,bflx2),ICON_OMP_RUNTIME_SCHEDULE 
+      DO itr = 1 , 10
+         bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
+                 theta_sfc*(spec_humi(sat_pres_water(t_sfc),psfc)- &
+                 qv_nlev) )*grav/th_cbl(1)
+            
+         theta_sfc = theta_sfc + 0.1_wp 
+
+         bflx2 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
+                 theta_sfc*(spec_humi(sat_pres_water(t_sfc),psfc)- &
+                 qv_nlev) )*grav/th_cbl(1)
+
+         theta_sfc = theta_sfc + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
+      END DO               
+!$OMP END DO
+
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
-
-            !Surface exner
-            exner = EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
-
-            !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
-           
-            !First guess: at t=0 t_g takes value assigned in nwp_phy_init
-            !While sat_pres_water needs abs temp assumption is made to 
-            !treat theta at surface == abs temp
-            theta_sfc = p_prog_lnd_now%t_g(jc,jb) / exner
-            DO itr = 1 , 30
-              bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                       theta_nlev*(spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))- &
-                       qv_nlev) )*grav/theta_nlev
-             
-              theta_sfc = theta_sfc + 0.1_wp 
-
-              bflx2 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                       theta_nlev*(spec_humi(sat_pres_water(theta_sfc),pres_sfc(jc,jb))- &
-                       qv_nlev) )*grav/theta_nlev
-
-              theta_sfc = theta_sfc + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
-            END DO               
 
             !Mean wind at nlev
             mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
@@ -527,7 +531,7 @@ MODULE mo_surface_les
             END IF
 
             !Surface temperature
-            p_prog_lnd_new%t_g(jc,jb) = theta_sfc * exner
+            p_prog_lnd_new%t_g(jc,jb) = theta_sfc * EXP( rd_o_cpd*LOG(p0ref/pres_sfc(jc,jb)) )
 
             !Get surface qv 
             p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),pres_sfc(jc,jb))

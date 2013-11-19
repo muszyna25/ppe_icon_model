@@ -118,7 +118,7 @@ MODULE mo_nwp_phy_init
 
   USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case
+  USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl
   USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
@@ -259,7 +259,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
                                      &     p_prog_now%tracer(jc,nlev,jb,iqv)) 
         END DO
+
+      ELSE IF (ltestcase .AND. nh_test_name == 'CBL' ) THEN !
  
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
+          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
+         p_diag_lnd%qv_s     (jc,jb) = &
+        & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+        END DO
+
       ELSE IF (ltestcase) THEN ! any other testcase
 
         ! t_g  =  t(nlev)
