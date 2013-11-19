@@ -78,6 +78,7 @@ USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_valid_local_index
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
 USE mo_gridref_config
+USE mo_dist_dir,            ONLY: dist_dir_get_owners
 
 
 
@@ -442,6 +443,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   INTEGER, INTENT(IN) :: jcd
 
   INTEGER, ALLOCATABLE :: owner(:)
+  LOGICAL, ALLOCATABLE :: mask(:)
   INTEGER :: j, k, l, m, n, i_nchdom, jc, je, jb, icid
   INTEGER :: isb_e, ieb_e, isb_le, ieb_le, is_e, ie_e
   INTEGER :: isb_c, ieb_c, isb_lc, ieb_lc, is_c, ie_c
@@ -481,37 +483,43 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   ! stored locally and deleted at the end of the routine
 
 
-  ALLOCATE(owner(MAX(p_p%n_patch_edges, p_p%n_patch_cells))
-  owner(:) = -1
+  ALLOCATE(owner(MAX(p_p%n_patch_edges, p_p%n_patch_cells)), &
+    &      mask(MAX(p_p%n_patch_edges, p_p%n_patch_cells)))
+
+  mask(1:p_p%n_patch_edges) = .FALSE.
   DO j = is_e, ie_e
     jb = blk_no(j)
     je = idx_no(j)
-    IF (p_p%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
-      & p_p%edges%child_id(je,jb) == icid) THEN
-      owner(j) = &
-        p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
-    ENDIF
+    mask(j) = p_p%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
+      &       p_p%edges%child_id(je,jb) == icid
   ENDDO
+  owner(1:p_p%n_patch_edges) = &
+    UNPACK(dist_dir_get_owners(p_lp%edges%decomp_info%owner_dist_dir, &
+      &                        PACK(p_p%edges%decomp_info%glb_index(:), &
+      &                             mask(1:p_p%n_patch_edges))), &
+      &    mask(1:p_p%n_patch_edges), -1)
   CALL setup_comm_pattern(p_p%n_patch_edges, owner(1:p_p%n_patch_edges), &
     &                     p_p%edges%decomp_info%glb_index, &
     &                     p_lp%edges%decomp_info%glb2loc_index, &
     &                     comm_pat_loc_to_glb_e)
 
-  owner(:) = -1
+  mask(1:p_p%n_patch_cells) = .FALSE.
   DO j = is_c, ie_c
     jb = blk_no(j)
     jc = idx_no(j)
-    IF (p_p%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
-      & p_p%cells%child_id(jc,jb) == icid) THEN
-      owner(j) = &
-        p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
-    ENDIF
+    mask(j) = p_p%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
+      &       p_p%cells%child_id(jc,jb) == icid
   ENDDO
+  owner(1:p_p%n_patch_cells) = &
+    UNPACK(dist_dir_get_owners(p_lp%cells%decomp_info%owner_dist_dir, &
+      &                        PACK(p_p%cells%decomp_info%glb_index(:), &
+      &                             mask(1:p_p%n_patch_cells))), &
+      &    mask(1:p_p%n_patch_cells), -1)
   CALL setup_comm_pattern(p_p%n_patch_cells, owner(1:p_p%n_patch_cells), &
     &                     p_p%cells%decomp_info%glb_index, &
     &                     p_lp%cells%decomp_info%glb2loc_index, &
     &                     comm_pat_loc_to_glb_c)
-  DEALLOCATE(owner)
+  DEALLOCATE(owner, mask)
 
   ALLOCATE(z_tmp_s(nproma,4,p_lp%nblks_e))
   ALLOCATE(z_tmp_r(nproma,4,p_p%nblks_e))
@@ -709,19 +717,17 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   ! Now create communication patterns for the complete patch
 
   ALLOCATE(owner(MAX(p_p%n_patch_edges, p_p%n_patch_cells)))
-  DO j = 1, p_p%n_patch_edges
-    owner(j) = &
-      p_lp%edges%decomp_info%owner_g(p_p%edges%decomp_info%glb_index(j))
-  ENDDO
+  owner(1:p_p%n_patch_edges) = &
+    dist_dir_get_owners(p_lp%edges%decomp_info%owner_dist_dir, &
+      &                 p_p%edges%decomp_info%glb_index(:))
   CALL setup_comm_pattern(p_p%n_patch_edges, owner(1:p_p%n_patch_edges), &
     &                     p_p%edges%decomp_info%glb_index, &
     &                     p_lp%edges%decomp_info%glb2loc_index, &
     &                     comm_pat_loc_to_glb_e)
 
-  DO j = 1, p_p%n_patch_cells
-    owner(j) = &
-      p_lp%cells%decomp_info%owner_g(p_p%cells%decomp_info%glb_index(j))
-  ENDDO
+  owner(1:p_p%n_patch_cells) = &
+    dist_dir_get_owners(p_lp%cells%decomp_info%owner_dist_dir, &
+      &                 p_p%cells%decomp_info%glb_index(:))
   CALL setup_comm_pattern(p_p%n_patch_cells, owner(1:p_p%n_patch_cells), &
     &                     p_p%cells%decomp_info%glb_index, &
     &                     p_lp%cells%decomp_info%glb2loc_index, &
