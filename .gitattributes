@@ -1513,6 +1513,7 @@ src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
 src/parallel_infrastructure/mo_decomposition_tools.f90 -text
+src/parallel_infrastructure/mo_dist_dir.f90 -text
 src/parallel_infrastructure/mo_gather_scatter.f90 svneol=native#text/plain
 src/parallel_infrastructure/mo_icon_comm_interface.f90 -text
 src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
