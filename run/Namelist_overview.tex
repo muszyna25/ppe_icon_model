@@ -3918,6 +3918,18 @@ C&None& &
 \tabularnewline
 
 \hline
+ reg\_def\_mode &
+I&0& &
+Specify if the "delta" value prescribes an interval size or
+the total *number* of intervals:
+0: switch automatically between increment and no. of grid points,
+1: \texttt{reg\_lon/lat\_def(2)} specifies increment,
+2: \texttt{reg\_lon/lat\_def(2)} specifies no. of grid points.
+&
+remap=1
+\tabularnewline
+
+\hline
  reg\_lat\_def(3) &
 R&None& &
  start, increment, end latitude in degrees.
@@ -3980,8 +3992,14 @@ the mesh is defined by the parameters
 The regular grid points in \texttt{reg\_lon\_def}, \texttt{reg\_lat\_def} are each specified by three values, given in degrees:
 \emph{start}, \emph{increment}, \emph{end}.
 The mesh then contains all grid points $start + k * increment <= end$, where $k$ is an integer.
-\textbf{Instead of defining an increment it is also possible to prescribe the number of grid points, where it is 
-expected that this value is larger than 5.0.}
+Instead of defining an increment it is also possible to prescribe the number of grid points.
+\begin{itemize}
+  \item Setting the namelist parameter \texttt{reg\_def\_mode=0}: 
+        Switch automatically from increment specification to no. of grid points,
+        when the  \texttt{reg\_lon/lat\_def(2)} value is larger than 5.0.
+  \item 1: \texttt{reg\_lon/lat\_def(2)} specifies increment
+  \item 2: \texttt{reg\_lon/lat\_def(2)} specifies no. of grid points
+\end{itemize}
 For longitude values the last grid point is omitted if the end point matches the start point, e.g. for 0 and 360 degrees.
 
 \begin{tabbing}

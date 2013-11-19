@@ -73,8 +73,12 @@ MODULE mo_lonlat_grid
   TYPE t_lon_lat_grid
 
     ! description of regular grid (in degrees) as in namelist
-    REAL(wp) :: reg_lon_def(3)            ! start, increment, end longitude in degrees
-    REAL(wp) :: reg_lat_def(3)            ! start, increment, end latitude in degrees
+    INTEGER  :: reg_def_mode              ! 0: switch automatically between increment and no. of grid points
+                                          ! 1: reg_lon/lat_def(2) specifies increment
+                                          ! 2: reg_lon/lat_def(2) specifies no. of grid points
+
+    REAL(wp) :: reg_lon_def(3)            ! start, increment OR grid points, end longitude in degrees
+    REAL(wp) :: reg_lat_def(3)            ! start, increment OR grid points, end latitude in degrees
     REAL(wp) :: north_pole (2)            ! position of north pole (lon,lat) in degrees
                                            
     INTEGER  :: lon_dim                   ! Number of points in lon direction
@@ -132,8 +136,20 @@ CONTAINS
     lskip_last_lon = (ABS(lon_s - lon_e) < ZERO_TOL)
     ! 2. --- check if the "delta" value prescribes an interval size or
     !        the total *number* of intervals:
-    lnpts_given(1) = (lonlat_grid%reg_lon_def(2) > threshold_delta_or_intvls)
-    lnpts_given(2) = (lonlat_grid%reg_lat_def(2) > threshold_delta_or_intvls)
+    SELECT CASE(lonlat_grid%reg_def_mode)
+    CASE(0)
+      ! 0: switch automatically between increment and no. of grid points
+      lnpts_given(1) = (lonlat_grid%reg_lon_def(2) > threshold_delta_or_intvls)
+      lnpts_given(2) = (lonlat_grid%reg_lat_def(2) > threshold_delta_or_intvls)
+    CASE(1)
+      ! 1: reg_lon/lat_def(2) specifies increment
+      lnpts_given(1) = .FALSE.
+      lnpts_given(2) = .FALSE.
+    CASE(2)
+      ! 2: reg_lon/lat_def(2) specifies no. of grid points
+      lnpts_given(1) = .TRUE.
+      lnpts_given(2) = .TRUE.
+    END SELECT
 
     ! set longitude dimension
     IF (lnpts_given(1)) THEN

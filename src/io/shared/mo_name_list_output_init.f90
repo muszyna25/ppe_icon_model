@@ -250,6 +250,7 @@ CONTAINS
     INTEGER                               :: remap
     REAL(wp)                              :: reg_lon_def(3)
     REAL(wp)                              :: reg_lat_def(3)
+    INTEGER                               :: reg_def_mode
     REAL(wp)                              :: north_pole(2)
 
     REAL(wp)                              :: output_bounds(3)
@@ -273,7 +274,7 @@ CONTAINS
       p_levels, h_levels, i_levels,                          &
       output_start, output_end, output_interval,             &
       output_bounds, output_time_unit,                       &
-      ready_file, file_interval
+      ready_file, file_interval, reg_def_mode
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -324,6 +325,7 @@ CONTAINS
       remap              = REMAP_NONE
       reg_lon_def(:)     = 0._wp
       reg_lat_def(:)     = 0._wp
+      reg_def_mode       = 0
       north_pole(:)      = (/ 0._wp, 90._wp /)
       output_start       = ""
       output_end         = ""
@@ -487,13 +489,21 @@ CONTAINS
         lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
         lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
         lonlat%grid%north_pole(:)  = north_pole(:)
+        lonlat%grid%reg_def_mode   = reg_def_mode
         ! compute some additional entries of lon-lat grid specification:
         CALL compute_lonlat_specs(lonlat%grid)
         CALL compute_lonlat_blocking(lonlat%grid, nproma)
 
-        IF(reg_lon_def(2)<=0._wp) CALL finish(routine,'Illegal LON increment')
-        IF(reg_lat_def(2)==0._wp) CALL finish(routine,'Illegal LAT increment')
-        IF(reg_lon_def(3)<=reg_lon_def(1)) CALL finish(routine,'end lon <= start lon')
+        ! consistency checks:
+        IF ((reg_lon_def(3) >  reg_lon_def(1)) .AND. &
+          & (reg_lon_def(2) <= 0._wp)) THEN
+          CALL finish(routine,'Illegal LON increment')
+        END IF
+        IF ((reg_lat_def(3) /= reg_lat_def(1)) .AND. &
+          & (reg_lat_def(2) == 0._wp)) THEN
+          CALL finish(routine,'Illegal LAT increment')
+        END IF
+        IF(reg_lon_def(3)<reg_lon_def(1)) CALL finish(routine,'end lon < start lon')
 
         ! Flag those domains, which are used for this lon-lat grid:
         !     If dom(:) was not specified in namelist input, it is set
