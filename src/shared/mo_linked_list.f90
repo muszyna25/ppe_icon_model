@@ -81,6 +81,10 @@ MODULE mo_linked_list
     INTEGER                       :: cdiDepthFullZaxisID
     INTEGER                       :: cdiH2mZaxisID
     INTEGER                       :: cdiH10mZaxisID
+    INTEGER                       :: cdiLakeBottomZaxisID
+    INTEGER                       :: cdiLakeHalfBottomZaxisID
+    INTEGER                       :: cdiLakeMixLayerZaxisID
+    INTEGER                       :: cdiLakeHalfSedBottomTwZaxisID
     INTEGER                       :: cdiSnowGenericZaxisID
     INTEGER                       :: cdiSnowHalfGenericZaxisID
     INTEGER                       :: cdiIceGenericZaxisID

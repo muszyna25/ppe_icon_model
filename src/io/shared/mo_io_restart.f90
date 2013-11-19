@@ -74,7 +74,7 @@ MODULE mo_io_restart
     CHARACTER(len=64) :: linkname
   END type t_restart_files
   INTEGER, PARAMETER :: max_restart_files = 257
-  INTEGER, PARAMETER :: max_vertical_axes = 18
+  INTEGER, PARAMETER :: max_vertical_axes = 20
   INTEGER, SAVE :: nrestart_files = 0
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
   !
@@ -390,6 +390,10 @@ CONTAINS
     CALL set_vertical_grid(ZA_SNOW_HALF           , nlev_snow+1)
     CALL set_vertical_grid(ZA_HEIGHT_2M           , 1          )
     CALL set_vertical_grid(ZA_HEIGHT_10M          , 1          )
+    CALL set_vertical_grid(ZA_LAKE_BOTTOM         , 1          )
+    CALL set_vertical_grid(ZA_LAKE_BOTTOM_HALF    , 1          )
+    CALL set_vertical_grid(ZA_MIX_LAYER           , 1          )
+    CALL set_vertical_grid(ZA_SEDIMENT_BOTTOM_TW_HALF, 1       )
     CALL set_vertical_grid(ZA_TOA                 , 1          )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA     , ndepth     )
     CALL set_vertical_grid(ZA_DEPTH_BELOW_SEA_HALF, ndepth+1   )
@@ -436,7 +440,7 @@ CONTAINS
     !
     CHARACTER(len=1024) :: restart_filename
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
-    REAL(wp), ALLOCATABLE :: levels(:)
+    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
     CHARACTER(len=64) :: attribute_name, text_attribute
     REAL(wp) :: real_attribute
@@ -725,7 +729,46 @@ CONTAINS
             CALL zaxisDefLevels(var_lists(i)%p%cdiH10mZaxisID, levels)
             DEALLOCATE(levels)
 
+          CASE (ZA_LAKE_BOTTOM)
+            var_lists(i)%p%cdiLakeBottomZaxisID = zaxisCreate(ZAXIS_LAKE_BOTTOM, vgrid_def(ivg)%nlevels)
+            ALLOCATE(lbounds(1), ubounds(1), levels(1))
+            lbounds(1)= 1._wp
+            ubounds(1)= 0._wp
+            levels(1) = 1._wp
+            CALL zaxisDefLbounds(var_lists(i)%p%cdiLakeBottomZaxisID, lbounds) !necessary for GRIB2
+            CALL zaxisDefUbounds(var_lists(i)%p%cdiLakeBottomZaxisID, ubounds) !necessary for GRIB2
+            CALL zaxisDefLevels (var_lists(i)%p%cdiLakeBottomZaxisID, levels)
+            CALL zaxisDefUnits  (var_lists(i)%p%cdiLakeBottomZaxisID, "m")
+            DEALLOCATE(lbounds, ubounds, levels)
 
+          CASE (ZA_LAKE_BOTTOM_HALF)
+            var_lists(i)%p%cdiLakeHalfBottomZaxisID = zaxisCreate(ZAXIS_LAKE_BOTTOM, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 1._wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiLakeHalfBottomZaxisID, levels)
+            CALL zaxisDefUnits(var_lists(i)%p%cdiLakeHalfBottomZaxisID, "m")
+            DEALLOCATE(levels)
+
+          CASE (ZA_MIX_LAYER)
+            var_lists(i)%p%cdiLakeMixLayerZaxisID = zaxisCreate(ZAXIS_MIX_LAYER, vgrid_def(ivg)%nlevels)
+            ALLOCATE(lbounds(1), ubounds(1), levels(1))
+            lbounds(1)= 1._wp
+            ubounds(1)= 0._wp
+            levels(1) = 1._wp
+            CALL zaxisDefLbounds(var_lists(i)%p%cdiLakeMixLayerZaxisID, lbounds) !necessary for GRIB2
+            CALL zaxisDefUbounds(var_lists(i)%p%cdiLakeMixLayerZaxisID, ubounds) !necessary for GRIB2
+            CALL zaxisDefLevels (var_lists(i)%p%cdiLakeMixLayerZaxisID, levels)
+            CALL zaxisDefUnits  (var_lists(i)%p%cdiLakeMixLayerZaxisID, "m")
+            DEALLOCATE(lbounds, ubounds, levels)
+
+          CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
+            var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID = zaxisCreate(ZAXIS_SEDIMENT_BOTTOM_TW, &
+              &                                            vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 0._wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID, levels)
+            CALL zaxisDefUnits(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID, "m")
+            DEALLOCATE(levels)
 
           !
           ! Ocean
@@ -818,6 +861,10 @@ CONTAINS
           var_lists(j)%p%cdiToaZaxisID           = var_lists(i)%p%cdiToaZaxisID
           var_lists(j)%p%cdiH2mZaxisID           = var_lists(i)%p%cdiH2mZaxisID
           var_lists(j)%p%cdiH10mZaxisID          = var_lists(i)%p%cdiH10mZaxisID
+          var_lists(j)%p%cdiLakeBottomZaxisID    = var_lists(i)%p%cdiLakeBottomZaxisID
+          var_lists(j)%p%cdiLakeHalfBottomZaxisID= var_lists(i)%p%cdiLakeHalfBottomZaxisID
+          var_lists(j)%p%cdiLakeMixLayerZaxisID  = var_lists(i)%p%cdiLakeMixLayerZaxisID
+          var_lists(j)%p%cdiLakeHalfSedBottomTwZaxisID  = var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID
           var_lists(j)%p%cdiTaxisID              = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
@@ -952,6 +999,14 @@ CONTAINS
         info%cdiZaxisID =  this_list%p%cdiH2mZaxisID
       CASE (ZA_HEIGHT_10M)
         info%cdiZaxisID =  this_list%p%cdiH10mZaxisID
+      CASE (ZA_LAKE_BOTTOM)
+        info%cdiZaxisID =  this_list%p%cdiLakeBottomZaxisID
+      CASE (ZA_LAKE_BOTTOM_HALF)
+        info%cdiZaxisID =  this_list%p%cdiLakeHalfBottomZaxisID
+      CASE (ZA_MIX_LAYER)
+        info%cdiZaxisID =  this_list%p%cdiLakeMixLayerZaxisID
+      CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
+        info%cdiZaxisID =  this_list%p%cdiLakeHalfSedBottomTwZaxisID
       !
       ! ocean
       !
@@ -1602,6 +1657,14 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiH2mZaxisID)
         IF (var_lists(i)%p%cdiH10mZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiH10mZaxisID)
+        IF (var_lists(i)%p%cdiLakeBottomZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiLakeBottomZaxisID)
+        IF (var_lists(i)%p%cdiLakeHalfBottomZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiLakeHalfBottomZaxisID)
+        IF (var_lists(i)%p%cdiLakeMixLayerZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiLakeMixLayerZaxisID)
+        IF (var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID)
         IF (var_lists(i)%p%cdiSnowGenericZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiSnowGenericZaxisID)
         IF (var_lists(i)%p%cdiSnowHalfGenericZaxisID /= CDI_UNDEFID) &
@@ -1624,6 +1687,10 @@ CONTAINS
         var_lists(i)%p%cdiIceGenericZaxisID    = CDI_UNDEFID
         var_lists(i)%p%cdiH2mZaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiH10mZaxisID          = CDI_UNDEFID
+        var_lists(i)%p%cdiLakeBottomZaxisID    = CDI_UNDEFID
+        var_lists(i)%p%cdiLakeHalfBottomZaxisID= CDI_UNDEFID
+        var_lists(i)%p%cdiLakeMixLayerZaxisID  = CDI_UNDEFID
+        var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiToaZaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiTaxisID              = CDI_UNDEFID
         var_lists(i)%p%cdiTimeIndex            = CDI_UNDEFID

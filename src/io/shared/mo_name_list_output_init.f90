@@ -2234,8 +2234,6 @@ CONTAINS
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference), levels ) !necessary for NetCDF
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-!DR outdated CDI 1.6.2_alpha1
-!DR     CALL zaxisDefReference(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
       CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
       !
       ! Define number of half levels for z-axis 
@@ -2256,8 +2254,6 @@ CONTAINS
       CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference_half), levels)
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-!DR outdated CDI 1.6.2_alpha1
-!DR      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
       CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
       !
       ! Define number of half levels for z-axis 
@@ -2282,8 +2278,6 @@ CONTAINS
       CALL zaxisDefLevels(of%cdiZaxisID(ZA_reference_half_hhl), levels)  !necessary for NetCDF
       ! set numberOfVGridUsed
       ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-!DR outdated CDI 1.6.2_alpha1
-!DR      CALL zaxisDefReference(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
       CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
       !
       ! Define number of half levels for z-axis 
@@ -2525,9 +2519,9 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_lake_bottom)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 1._dp ! hPa
-      ubounds(1)= 0._dp   ! hPa
-      levels(1) = 1._dp   ! hPa
+      lbounds(1)= 1._dp
+      ubounds(1)= 0._dp
+      levels(1) = 1._dp
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_lake_bottom), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_lake_bottom), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_lake_bottom), levels)
@@ -2548,9 +2542,9 @@ CONTAINS
       !
       of%cdiZaxisID(ZA_mix_layer)  = zaxisCreate(ZAXIS_MIX_LAYER, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 1._dp ! hPa
-      ubounds(1)= 0._dp   ! hPa
-      levels(1) = 1._dp   ! hPa
+      lbounds(1)= 1._dp
+      ubounds(1)= 0._dp
+      levels(1) = 1._dp
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_mix_layer), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_mix_layer), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_mix_layer), levels)
