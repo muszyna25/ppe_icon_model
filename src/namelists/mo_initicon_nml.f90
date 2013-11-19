@@ -40,7 +40,7 @@ MODULE mo_initicon_nml
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,  &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA, &
     &                              MODE_COMBINED, MODE_COSMODE
@@ -179,26 +179,9 @@ CONTAINS
   END SELECT
   CALL close_nml
 
-  !------------------------------------------------------------
-  ! 4.0 Fill the configuration state
-  !------------------------------------------------------------
-
-  config_init_mode          = init_mode
-  config_nlevsoil_in        = nlevsoil_in
-  config_zpbl1              = zpbl1
-  config_zpbl2              = zpbl2
-  config_l_sst_in           = l_sst_in
-  config_lread_ana          = lread_ana
-  config_ifs2icon_filename  = ifs2icon_filename
-  config_dwdfg_filename     = dwdfg_filename
-  config_dwdana_filename    = dwdana_filename
-  config_l_coarse2fine_mode = l_coarse2fine_mode
-  config_filetype           = filetype
-  config_ana_varlist        = ana_varlist
-  config_ana_varnames_map_file = ana_varnames_map_file
 
   !------------------------------------------------------------
-  ! 5.0 check the consistency of the parameters
+  ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
   z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/)
@@ -224,6 +207,35 @@ CONTAINS
       &  'dwdana_filename required, but missing.')
     ENDIF
   ENDIF
+
+  ! Check whether init_mode and lread_ana are consistent
+  IF (ANY((/MODE_COMBINED,MODE_COSMODE/)==init_mode) .AND. lread_ana) THEN
+    lread_ana = .FALSE.
+    WRITE(message_text,'(a,i2,a)') 'init_mode=', init_mode, &
+      '. no analysis required => lread_ana re-set to .FALSE.'
+    CALL message(TRIM(routine),message_text)
+  ENDIF
+  
+
+
+  !------------------------------------------------------------
+  ! 5.0 Fill the configuration state
+  !------------------------------------------------------------
+
+  config_init_mode          = init_mode
+  config_nlevsoil_in        = nlevsoil_in
+  config_zpbl1              = zpbl1
+  config_zpbl2              = zpbl2
+  config_l_sst_in           = l_sst_in
+  config_lread_ana          = lread_ana
+  config_ifs2icon_filename  = ifs2icon_filename
+  config_dwdfg_filename     = dwdfg_filename
+  config_dwdana_filename    = dwdana_filename
+  config_l_coarse2fine_mode = l_coarse2fine_mode
+  config_filetype           = filetype
+  config_ana_varlist        = ana_varlist
+  config_ana_varnames_map_file = ana_varnames_map_file
+
 
   ! write the contents of the namelist to an ASCII file
 
