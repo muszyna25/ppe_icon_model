@@ -655,14 +655,14 @@ CONTAINS
     ! that boundary edges/verts (with flag2_e/flag2_v = 1) can be excluded from
     ! prognostic computations if they are followed by a synchronization call.
 
-    owner_c(:) = p%cells%decomp_info%owner_g(p%cells%decomp_info%glb_index(:))
-    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
+    owner_c(:) = MERGE(p%cells%decomp_info%owner_local(:), -1, &
+      &                p%cells%decomp_info%owner_local(:) /= p_pe_work)
 
-    owner_e(:) = p%edges%decomp_info%owner_g(p%edges%decomp_info%glb_index(:))
-    WHERE(owner_e(:) == p_pe_work) owner_e(:) = -1
+    owner_e(:) = MERGE(p%edges%decomp_info%owner_local(:), -1, &
+      &                p%edges%decomp_info%owner_local(:) /= p_pe_work)
 
-    owner_v(:) = p%verts%decomp_info%owner_g(p%verts%decomp_info%glb_index(:))
-    WHERE(owner_v(:) == p_pe_work) owner_v(:) = -1
+    owner_v(:) = MERGE(p%verts%decomp_info%owner_local(:), -1, &
+      &                p%verts%decomp_info%owner_local(:) /= p_pe_work)
 
     ! Set communication patterns for boundary exchange
     CALL setup_comm_pattern(p%n_patch_cells, owner_c, p%cells%decomp_info%glb_index, &
@@ -674,16 +674,12 @@ CONTAINS
     CALL setup_comm_pattern(p%n_patch_verts, owner_v, p%verts%decomp_info%glb_index, &
       & p%verts%decomp_info%glb2loc_index, p%comm_pat_v)
 
-    DEALLOCATE(owner_c, owner_e, owner_v)
+    DEALLOCATE(owner_e, owner_v)
 
     ! Set reduced communication pattern containing only level-1 halo cells (immediate neighbors)
     jc = idx_1d(p%cells%end_idx(min_rlcell_int-1,1), &
                 p%cells%end_blk(min_rlcell_int-1,1))
-    ALLOCATE(owner_c(jc))
-    owner_c(1:jc) = p%cells%decomp_info%owner_g(p%cells%decomp_info%glb_index(1:jc))
-    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
-
-    CALL setup_comm_pattern(jc, owner_c, p%cells%decomp_info%glb_index, &
+    CALL setup_comm_pattern(jc, owner_c(1:jc), p%cells%decomp_info%glb_index, &
       & p%cells%decomp_info%glb2loc_index, p%comm_pat_c1)
 
     DEALLOCATE(owner_c)
