@@ -47,6 +47,7 @@ MODULE mo_decomposition_tools
   USE mo_math_utilities
   USE mo_util_sort,          ONLY: quicksort
   USE mo_impl_constants,     ONLY: success
+  USE mo_dist_dir,           ONLY: t_dist_dir
 
   IMPLICIT NONE
 
@@ -130,6 +131,7 @@ MODULE mo_decomposition_tools
 
     ! Global array of owners
     INTEGER, ALLOCATABLE :: owner_g(:)
+    TYPE(t_dist_dir) :: owner_dist_dir
 
     ! Domain decomposition flag:
     ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined

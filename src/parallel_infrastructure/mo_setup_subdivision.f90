@@ -89,6 +89,7 @@ MODULE mo_setup_subdivision
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
+  USE mo_dist_dir,            ONLY: dist_dir_setup, dist_dir_get_owners
 
   IMPLICIT NONE
 
@@ -853,6 +854,16 @@ CONTAINS
          p_int, mpi_max, p_comm_work, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
+    CALL dist_dir_setup(wrk_p_patch%cells%decomp_info%owner_dist_dir, &
+      &                 flag2_c_list(0)%idx(1:n2_ilev_c(0)), &
+      &                 wrk_p_patch%n_patch_cells_g, p_comm_work, &
+      &                 p_pe_work, p_n_work)
+    CALL dist_dir_setup(wrk_p_patch%verts%decomp_info%owner_dist_dir, &
+      &                 owned_verts, wrk_p_patch%n_patch_verts_g, &
+      &                 p_comm_work, p_pe_work, p_n_work)
+    CALL dist_dir_setup(wrk_p_patch%edges%decomp_info%owner_dist_dir, &
+      &                 owned_edges, wrk_p_patch%n_patch_edges_g, &
+      &                 p_comm_work, p_pe_work, p_n_work)
 
     !-----------------------------------------------------------------------------------------------
     ! Get the indices of local cells/edges/verts within global patch and vice versa.
