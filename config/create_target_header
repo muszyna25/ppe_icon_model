@@ -189,11 +189,6 @@ ulimit -s unlimited
 calldir=\$(pwd)
 thisdir=\$(pwd)
 basedir=\${thisdir%/*}                   # determine base directory
-if [[  "${use_target}" = "dole"  ]] ; then
-    basedir=/scratch/${USER}/trunk/icon-dev
-    calldir=\$basedir
-    thisdir=\$basedir
-fi
 # cd \$(dirname \$0)
 bindir="\${basedir}/$use_builddir/bin"   # binaries
 BUILDDIR=$use_builddir
@@ -747,7 +742,13 @@ set_run_target_dole()
   if [[ "x$use_cpu_time" != "x" ]] ; then
      s_cpu_time="-l s_cpu=$use_cpu_time"
   fi
+
   cat >> $output_script << EOF
+# ===========================
+# dole specific setup 
+ basedir=/scratch/${USER}/trunk/icon-dev
+ calldir=\$basedir
+ thisdir=\$basedir
 # ===========================
 # dole.cscs.ch batch job parameters
 # ---------------------------
