@@ -61,6 +61,7 @@ MODULE mo_rrtm_data_interface
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
     & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
     & print_grid_comm_stats
+  USE mo_dist_dir,            ONLY: dist_dir_get_owners
  
 
 
@@ -303,10 +304,9 @@ CONTAINS
     !-------------------------------
     ! get the dymamics owners of my radiation cells
     ALLOCATE(rrtm_model_data%dynamics_owner(my_radiation_cells), STAT=return_status)
-    DO j=1, my_radiation_cells
-      rrtm_model_data%dynamics_owner(j) = &
-      & patch%cells%decomp_info%owner_g(rrtm_model_data%global_index(j))
-    ENDDO
+    rrtm_model_data%dynamics_owner(:) = &
+      dist_dir_get_owners(patch%cells%decomp_info%owner_dist_dir, &
+        &                 rrtm_model_data%dynamics_owner(1:my_radiation_cells))
 
     ! create the receive communicator from the dynamics
     rrtm_model_data%radiation_recv_comm_pattern =                   &
