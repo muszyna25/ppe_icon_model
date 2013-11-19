@@ -153,8 +153,8 @@ MODULE mo_decomposition_tools
   END INTERFACE
 
   INTERFACE get_valid_local_index
-    MODULE PROCEDURE get_valid_local_index
-    MODULE PROCEDURE get_valid_local_index_
+    MODULE PROCEDURE get_valid_local_index_prev
+    MODULE PROCEDURE get_valid_local_index_next
   END INTERFACE
 
   !------------------------------
@@ -1449,70 +1449,70 @@ CONTAINS
   ! available, the index of the next smaller index is return, in
   ! case there is no smaller index or the global index is
   ! invalid 0 is returned
-  ELEMENTAL FUNCTION get_valid_local_index(glb2loc_index, glb_index)
+  ELEMENTAL FUNCTION get_valid_local_index_prev(glb2loc_index, glb_index)
 
     TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
     INTEGER, INTENT(in) :: glb_index
-    INTEGER :: get_valid_local_index
+    INTEGER :: get_valid_local_index_prev
 
     INTEGER :: temp
 
     IF (glb_index > glb2loc_index%global_size .OR. glb_index < 1) THEN
 
-      get_valid_local_index = 0
+      get_valid_local_index_prev = 0
     ELSE
 
       ! find in outer indices
       temp = binary_search(glb2loc_index%outer_glb_index(:), glb_index)
       IF (temp > 0) THEN
-        get_valid_local_index = glb2loc_index%outer_glb_index_to_loc(temp)
+        get_valid_local_index_prev = glb2loc_index%outer_glb_index_to_loc(temp)
       ELSE
         ! find in inner indices
         temp = binary_search(glb2loc_index%inner_glb_index(:), glb_index)
         IF (temp > 0) THEN
-          get_valid_local_index = glb2loc_index%inner_glb_index_to_loc(temp)
+          get_valid_local_index_prev = glb2loc_index%inner_glb_index_to_loc(temp)
         ELSE
-          get_valid_local_index = -temp
+          get_valid_local_index_prev = -temp
         END IF
       END IF
     END IF
-  END FUNCTION get_valid_local_index
+  END FUNCTION get_valid_local_index_prev
 
   ! returns the local index for a given global index
   ! in case the global index is in the valid range but locally not
   ! available, the index of the next greater index is return, in
   ! case there is no greater index the maximum local index + 1, in
   ! case the global index is invalid 0 is returned
-  ELEMENTAL FUNCTION get_valid_local_index_(decomp_info, glb_index, use_next)
+  ELEMENTAL FUNCTION get_valid_local_index_next(glb2loc_index, glb_index, use_next)
 
-    TYPE(t_glb2loc_index_lookup), INTENT(in) :: decomp_info
+    TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
     INTEGER, INTENT(in) :: glb_index
-    INTEGER :: get_valid_local_index_
+    INTEGER :: get_valid_local_index_next
     LOGICAL, INTENT(in) :: use_next
 
     INTEGER :: temp
 
-    IF (glb_index > decomp_info%global_size .OR. &
+    IF (glb_index > glb2loc_index%global_size .OR. &
       & glb_index < 1) THEN
 
-      get_valid_local_index_ = 0
+      get_valid_local_index_next = 0
     ELSE
 
       ! find in outer indices
-      temp = binary_search(decomp_info%outer_glb_index(:), glb_index)
+      temp = binary_search(glb2loc_index%outer_glb_index(:), glb_index)
       IF (temp > 0) THEN
-        get_valid_local_index_ = decomp_info%outer_glb_index_to_loc(temp)
+        get_valid_local_index_next = glb2loc_index%outer_glb_index_to_loc(temp)
       ELSE
         ! find in inner indices
-        temp = binary_search(decomp_info%inner_glb_index(:), glb_index)
+        temp = binary_search(glb2loc_index%inner_glb_index(:), glb_index)
         IF (temp > 0) THEN
-          get_valid_local_index_ = decomp_info%inner_glb_index_to_loc(temp)
+          get_valid_local_index_next = glb2loc_index%inner_glb_index_to_loc(temp)
         ELSE
-          get_valid_local_index_ = - temp + 1
+          get_valid_local_index_next = - temp + 1
         END IF
       END IF
     END IF
-  END FUNCTION get_valid_local_index_
+  END FUNCTION get_valid_local_index_next
 
   !-------------------------------------------------------------------------
 
