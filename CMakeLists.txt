@@ -58,6 +58,14 @@ configure_file(${PROJECT_SOURCE_DIR}/config/config.h.in ${PROJECT_SOURCE_DIR}/in
 find_package (MPI)
 include_directories (${MPI_Fortran_INCLUDE_PATH})
 
+message (STATUS "MPI C include path                   : ${MPI_C_INCLUDE_PATH}")
+message (STATUS "MPI C libraries                      : ${MPI_C_LIBRARIES}") 
+message (STATUS "MPI Fortran include path             : ${MPI_Fortran_INCLUDE_PATH}")
+message (STATUS "MPI Fortran libraries                : ${MPI_Fortran_LIBRARIES}") 
+
+message (STATUS "MPI mpiexec                          : ${MPIEXEC}") 
+message (STATUS "MPI flag for MPI task count          : ${MPIEXEC_NUMPROC_FLAG}") 
+
 find_package (NETCDF)
 include_directories (${NETCDF_INCLUDE_DIR})
 
