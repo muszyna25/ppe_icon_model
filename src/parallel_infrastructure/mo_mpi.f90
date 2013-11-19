@@ -204,6 +204,7 @@ MODULE mo_mpi
   PUBLIC :: p_allreduce_max
   PUBLIC :: p_commit_type_struct
   PUBLIC :: p_alltoall
+  PUBLIC :: p_alltoallv
   PUBLIC :: p_clear_request
   PUBLIC :: p_mpi_wtime
 
@@ -582,6 +583,10 @@ MODULE mo_mpi
 
   INTERFACE p_alltoall
     MODULE PROCEDURE p_alltoall_int
+  END INTERFACE
+
+  INTERFACE p_alltoallv
+    MODULE PROCEDURE p_alltoallv_int
   END INTERFACE
 
 CONTAINS
@@ -7049,9 +7054,30 @@ CONTAINS
      CALL MPI_ALLTOALL(sendbuf, 1, p_int, recvbuf, 1, p_int, p_comm, p_error)
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_ALLTOALL operation!')
 #else
-     recvbuf(:) = sendbuf
+     recvbuf(:) = sendbuf(:)
 #endif
    END SUBROUTINE p_alltoall_int
+
+
+   SUBROUTINE p_alltoallv_int (sendbuf, sendcounts, sdispls, &
+     &                         recvbuf, recvcounts, rdispls, comm)
+     INTEGER,           INTENT(in) :: sendbuf(:), sendcounts(:), sdispls(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts, sdispls, p_int, &
+       &                recvbuf, recvcounts, rdispls, p_int, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     recvbuf(:) = sendbuf(1:sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_int
 
 
   SUBROUTINE p_clear_request(request)
