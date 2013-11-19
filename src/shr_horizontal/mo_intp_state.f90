@@ -193,6 +193,7 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 ! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
+USE mo_dist_dir,            ONLY: dist_dir_get_owners
 
 
 
@@ -1840,28 +1841,33 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   ! Since these communication patterns are not used elsewhere, they are
   ! stored locally and deleted at the end of the routine
 
-  ALLOCATE(owner(p_lp%n_patch_cells))
-  DO j = 1, p_lp%n_patch_cells
-    owner(j) = p_p%cells%decomp_info%owner_g(p_lp%cells%decomp_info%glb_index(j))
-  ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%decomp_info%glb_index,  &
-    p_p%cells%decomp_info%glb2loc_index, comm_pat_glb_to_loc_c)
-  DEALLOCATE(owner)
+  ALLOCATE(owner(MAX(p_lp%n_patch_cells, p_lp%n_patch_verts, &
+    &                p_lp%n_patch_edges)))
 
-  ALLOCATE(owner(p_lp%n_patch_edges))
-  DO j = 1, p_lp%n_patch_edges
-    owner(j) = p_p%edges%decomp_info%owner_g(p_lp%edges%decomp_info%glb_index(j))
-  ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_edges, owner, p_lp%edges%decomp_info%glb_index,  &
-    p_p%edges%decomp_info%glb2loc_index, comm_pat_glb_to_loc_e)
-  DEALLOCATE(owner)
+  owner(1:p_lp%n_patch_cells) = &
+    dist_dir_get_owners(p_p%cells%decomp_info%owner_dist_dir, &
+      &                 p_lp%cells%decomp_info%glb_index(1:p_lp%n_patch_cells))
+  CALL setup_comm_pattern(p_lp%n_patch_cells, owner(1:p_lp%n_patch_cells), &
+    &                     p_lp%cells%decomp_info%glb_index,  &
+    &                     p_p%cells%decomp_info%glb2loc_index, &
+    &                     comm_pat_glb_to_loc_c)
 
-  ALLOCATE(owner(p_lp%n_patch_verts))
-  DO j = 1, p_lp%n_patch_verts
-    owner(j) = p_p%verts%decomp_info%owner_g(p_lp%verts%decomp_info%glb_index(j))
-  ENDDO
-  CALL setup_comm_pattern(p_lp%n_patch_verts, owner, p_lp%verts%decomp_info%glb_index,  &
-    p_p%verts%decomp_info%glb2loc_index, comm_pat_glb_to_loc_v)
+  owner(1:p_lp%n_patch_edges) = &
+    dist_dir_get_owners(p_p%edges%decomp_info%owner_dist_dir, &
+      &                 p_lp%edges%decomp_info%glb_index(1:p_lp%n_patch_edges))
+  CALL setup_comm_pattern(p_lp%n_patch_edges, owner(1:p_lp%n_patch_edges), &
+    &                     p_lp%edges%decomp_info%glb_index,  &
+    &                     p_p%edges%decomp_info%glb2loc_index, &
+    &                     comm_pat_glb_to_loc_e)
+
+  owner(1:p_lp%n_patch_verts) = &
+    dist_dir_get_owners(p_p%verts%decomp_info%owner_dist_dir, &
+      &                 p_lp%verts%decomp_info%glb_index(1:p_lp%n_patch_verts))
+  CALL setup_comm_pattern(p_lp%n_patch_verts, owner(1:p_lp%n_patch_verts), &
+    &                     p_lp%verts%decomp_info%glb_index,  &
+    &                     p_p%verts%decomp_info%glb2loc_index, &
+    &                     comm_pat_glb_to_loc_v)
+
   DEALLOCATE(owner)
 
   ! Some edge related values of the patch are only set in
