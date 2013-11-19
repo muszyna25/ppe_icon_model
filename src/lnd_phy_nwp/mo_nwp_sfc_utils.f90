@@ -2705,23 +2705,28 @@ CONTAINS
            i_count = ext_data(jg)%atm%lp_count_t(jb,jt)
 !CDIR NODEP,VOVERTAKE,VOB
            DO ic = 1, i_count
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-              IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
-                 ! fix for non-dominant land points: reset soil type to sandy loam ...
-                 !ext_data(jg)%atm%soiltyp(jc,jb) = 4
-                 ! ... and reset ndviratio to 0.5
+             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+ 
+             ! fix for non-dominant land points
+             !!! only active for 'old' extpar datasets (20131009 and earlier) !!!
+             IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
+               IF (ext_data(jg)%atm%ndviratio(jc,jb) <= 0.0_wp) THEN  ! here: 0=extpar_missval
+                 ! ... reset ndviratio to 0.5
                  ext_data(jg)%atm%ndviratio(jc,jb) = 0.5_wp
                ENDIF
-               lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
-                 IF (lu_subs < 0) CYCLE
-                 ! plant cover
-                 ext_data(jg)%atm%plcov_t  (jc,jb,jt)  = ext_data(jg)%atm%ndviratio(jc,jb)   &
-                   & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
-                 ! total area index
-                 ext_data(jg)%atm%tai_t    (jc,jb,jt)  = ext_data(jg)%atm%plcov_t(jc,jb,jt)  &
-                   & * ext_data(jg)%atm%laimax_lcc(lu_subs)
-                 ! surface area index
-                 ext_data(jg)%atm%sai_t    (jc,jb,jt)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,jt)     
+             ENDIF
+
+             lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
+             IF (lu_subs < 0) CYCLE
+
+             ! plant cover
+             ext_data(jg)%atm%plcov_t  (jc,jb,jt)  = ext_data(jg)%atm%ndviratio(jc,jb)   &
+               & * MIN(ext_data(jg)%atm%ndvi_max(jc,jb),ext_data(jg)%atm%plcovmax_lcc(lu_subs))
+             ! total area index
+             ext_data(jg)%atm%tai_t    (jc,jb,jt)  = ext_data(jg)%atm%plcov_t(jc,jb,jt)  &
+               & * ext_data(jg)%atm%laimax_lcc(lu_subs)
+             ! surface area index
+             ext_data(jg)%atm%sai_t    (jc,jb,jt)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,jt)     
 
            END DO !ic
           END DO !jt
