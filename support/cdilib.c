@@ -81,7 +81,9 @@
 #ifndef _TAXIS_H
 #define _TAXIS_H
 
+#if 0
 #include "resource_handle.h"
+#endif
 
 typedef struct {
   /* Date format  YYYYMMDD */
@@ -115,7 +117,9 @@ double  cdiEncodeTimeval(int date, int time, taxis_t *taxis);
 void    timeval2vtime(double timevalue, taxis_t *taxis, int *vdate, int *vtime);
 double  vtime2timeval(int vdate, int vtime, taxis_t *taxis);
 
+#if 0
 extern resOps taxisOps;
+#endif
 
 int
 taxisUnpack(char * unpackBuffer, int unpackBufferSize, int * unpackBufferPos,
@@ -59799,24 +59803,24 @@ static int activeNamespace = 0;
 #define CDI_NETCDF_SWITCHES
 #endif
 
-#define defaultSwitches {                                   \
-    { .func = (void (*)()) cdiAbortC_serial },              \
-    { .func = (void (*)()) serializeGetSizeInCore },        \
-    { .func = (void (*)()) serializePackInCore },           \
-    { .func = (void (*)()) serializeUnpackInCore },         \
-    { .func = (void (*)()) fileOpen_serial },               \
-    { .func = (void (*)()) fileWrite },                     \
-    { .func = (void (*)()) fileClose_serial },              \
-    { .func = (void (*)()) cdiStreamOpenDefaultDelegate },  \
-    { .func = (void (*)()) cdiStreamDefVlist_ },            \
-    { .func = (void (*)()) cdiStreamWriteVar_ },            \
-    { .func = (void (*)()) cdiStreamwriteVarChunk_ },       \
-    { .data = NULL },                                       \
-    { .func = (void (*)()) cdiStreamCloseDefaultDelegate }, \
-    { .func = (void (*)()) cdiStreamDefTimestep_ }, \
-    { .func = (void (*)()) cdiStreamSync_ },                \
-    CDI_NETCDF_SWITCHES                        \
-    }
+static const union namespaceSwitchValue defaultSwitches[NUM_NAMESPACE_SWITCH] = {
+  { .func = (void (*)()) cdiAbortC_serial },
+  { .func = (void (*)()) serializeGetSizeInCore },
+  { .func = (void (*)()) serializePackInCore },
+  { .func = (void (*)()) serializeUnpackInCore },
+  { .func = (void (*)()) fileOpen_serial },
+  { .func = (void (*)()) fileWrite },
+  { .func = (void (*)()) fileClose_serial },
+  { .func = (void (*)()) cdiStreamOpenDefaultDelegate },
+  { .func = (void (*)()) cdiStreamDefVlist_ },
+  { .func = (void (*)()) cdiStreamWriteVar_ },
+  { .func = (void (*)()) cdiStreamwriteVarChunk_ },
+  { .data = NULL },
+  { .func = (void (*)()) cdiStreamCloseDefaultDelegate },
+  { .func = (void (*)()) cdiStreamDefTimestep_ },
+  { .func = (void (*)()) cdiStreamSync_ },
+  CDI_NETCDF_SWITCHES
+};
 
 struct namespace
 {
@@ -59824,7 +59828,24 @@ struct namespace
   union namespaceSwitchValue switches[NUM_NAMESPACE_SWITCH];
 } initialNamespace = {
   .resStage = STAGE_DEFINITION,
-  .switches = defaultSwitches
+  .switches = {
+    { .func = (void (*)()) cdiAbortC_serial },
+    { .func = (void (*)()) serializeGetSizeInCore },
+    { .func = (void (*)()) serializePackInCore },
+    { .func = (void (*)()) serializeUnpackInCore },
+    { .func = (void (*)()) fileOpen_serial },
+    { .func = (void (*)()) fileWrite },
+    { .func = (void (*)()) fileClose_serial },
+    { .func = (void (*)()) cdiStreamOpenDefaultDelegate },
+    { .func = (void (*)()) cdiStreamDefVlist_ },
+    { .func = (void (*)()) cdiStreamWriteVar_ },
+    { .func = (void (*)()) cdiStreamwriteVarChunk_ },
+    { .data = NULL },
+    { .func = (void (*)()) cdiStreamCloseDefaultDelegate },
+    { .func = (void (*)()) cdiStreamDefTimestep_ },
+    { .func = (void (*)()) cdiStreamSync_ },
+    CDI_NETCDF_SWITCHES
+  }
 };
 
 struct namespace *namespaces = &initialNamespace;
@@ -59945,9 +59966,8 @@ namespaceNew()
   ++nNamespaces;
   namespaces[newNamespaceID].resStage = STAGE_DEFINITION;
 /* Here, the SX C-compiler crashes (FATAL COMPILER ERROR; Unknown constant kind) */
-/*  memcpy(namespaces[newNamespaceID].switches,
-         (union namespaceSwitchValue[NUM_NAMESPACE_SWITCH])defaultSwitches,
-	 sizeof (namespaces[newNamespaceID].switches));*/
+ memcpy(namespaces[newNamespaceID].switches, defaultSwitches,
+        sizeof (union namespaceSwitchValue) * NUM_NAMESPACE_SWITCH);
   reshListCreate(newNamespaceID);
   NAMESPACE_UNLOCK();
   return newNamespaceID;
