@@ -157,7 +157,8 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  'group:oce_default','group:ice_default'
+  ml_varlist       =  'group:oce_default','hi','hs','conc','ice_u','ice_v'
+! ml_varlist       =  'group:oce_default','group:ice_default'
 !/
 ! no complete sea ice
 !&output_nml
