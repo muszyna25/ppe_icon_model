@@ -587,7 +587,7 @@ CONTAINS
     REAL(wp) :: z_gradh_e(nproma, patch_3d%p_patch_2d(n_dom)%nblks_e)
     REAL(wp) :: z_e(nproma,n_zlev,patch_3d%p_patch_2d(n_dom)%nblks_e)
     !REAL(wp) :: z_h_old_rho(nproma, patch_3d%p_patch_2d(n_dom)%nblks_c)
-    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, owned_edges
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, owned_edges, owned_cells
     INTEGER :: edge_start_idx, edge_end_idx, dolic_e
     TYPE(t_patch), POINTER :: patch_horz
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -599,6 +599,7 @@ CONTAINS
     edges_in_domain => patch_3d%p_patch_2d(n_dom)%edges%in_domain
     all_edges       => patch_3d%p_patch_2d(n_dom)%edges%ALL
     owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
+    owned_cells     => patch_3d%p_patch_2d(n_dom)%cells%owned
     
     gdt             = grav * dtime    
     !---------------------------------------------------------------------
@@ -669,9 +670,11 @@ CONTAINS
     idt_src = 3  ! output print level (1-5, fix)
     CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src)
     CALL dbg_print('density'                   ,ocean_state%p_diag%rho           ,str_module,idt_src, &
-      & in_subset=patch_3d%p_patch_2d(n_dom)%cells%owned)
-    CALL dbg_print('internal pressure'         ,ocean_state%p_diag%press_hyd     ,str_module,idt_src)
-    CALL dbg_print('internal press grad'       ,ocean_state%p_diag%press_grad    ,str_module,idt_src)
+      & in_subset = owned_cells)
+    CALL dbg_print('internal pressure'         ,ocean_state%p_diag%press_hyd     ,str_module,idt_src, &
+      in_subset = owned_cells)
+    CALL dbg_print('internal press grad'       ,ocean_state%p_diag%press_grad    ,str_module,idt_src, &
+      in_subset = owned_cells)
     idt_src = 4  ! output print level (1-5, fix)
     CALL dbg_print('kinetic energy'            ,ocean_state%p_diag%kin           ,str_module,idt_src)
     CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src)

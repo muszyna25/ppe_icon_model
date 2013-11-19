@@ -165,12 +165,13 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER        :: p_patch 
     !-----------------------------------------------------------------------
     p_patch   => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_edges => p_patch%edges%all
+    owned_edges => p_patch%edges%owned
     !-------------------------------------------------------------------------
     points_in_munk_layer = REAL(N_POINTS_IN_MUNK_LAYER,wp)
     !Init from namelist
@@ -220,7 +221,7 @@ CONTAINS
           END DO
         END DO
       END SELECT
-      CALL dbg_print('horzVelocDiff:',p_phys_param%K_veloc_h ,str_module,0,in_subset=p_patch%cells%owned)
+      CALL dbg_print('horzVelocDiff:',p_phys_param%K_veloc_h ,str_module,0,in_subset=owned_edges)
     !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
 

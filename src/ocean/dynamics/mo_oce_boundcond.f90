@@ -186,10 +186,13 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('top bound.cond. u_c'         ,top_bc_u_c               ,str_module,idt_src)
-    CALL dbg_print('top bound.cond. v_c'         ,top_bc_v_c               ,str_module,idt_src)
+    CALL dbg_print('top bound.cond. u_c'         ,top_bc_u_c               ,str_module,idt_src, &
+      in_subset=p_patch%cells%owned)
+    CALL dbg_print('top bound.cond. v_c'         ,top_bc_v_c               ,str_module,idt_src, &
+      in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('top bound.cond. vn'          ,p_os%p_aux%bc_top_vn     ,str_module,idt_src)
+    CALL dbg_print('top bound.cond. vn'          ,p_os%p_aux%bc_top_vn     ,str_module,idt_src, &
+      in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_horz_veloc

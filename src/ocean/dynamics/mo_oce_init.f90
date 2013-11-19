@@ -881,7 +881,7 @@ CONTAINS
   &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
   !-------------------------------------------------------------------------
-  TYPE(t_subset_range), POINTER :: all_cells, all_edges
+  TYPE(t_subset_range), POINTER :: all_cells, owned_cells, all_edges
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
 
@@ -889,6 +889,7 @@ CONTAINS
   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
   
   all_cells => patch_2D%cells%all
+  owned_cells => patch_2D%cells%owned
   all_edges => patch_2D%edges%all
 
   ! initialize salinity with reference value rather than with zero
@@ -1938,13 +1939,16 @@ CONTAINS
   idt_src=0  ! output print level - 0: print in any case
   IF (no_tracer >=1) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-    CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src)
+    CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src, &
+      in_subset=owned_cells)
   END IF
   IF (no_tracer >= 2) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-    CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src)
+    CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src, &
+      in_subset=owned_cells)
   END IF
-  CALL dbg_print('init testcases  - H'       ,p_os%p_prog(nold(1))%h    ,str_module,idt_src)
+  CALL dbg_print('init testcases  - H'       ,p_os%p_prog(nold(1))%h    ,str_module,idt_src, &
+      in_subset=owned_cells)
   !---------------------------------------------------------------------
 
 ! Shallow water testcases:

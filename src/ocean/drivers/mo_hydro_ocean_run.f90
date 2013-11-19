@@ -191,7 +191,7 @@ CONTAINS
   !LOGICAL                         :: l_outputtime
   CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
-  TYPE(t_patch), POINTER          :: p_patch
+  TYPE(t_patch), POINTER          :: patch_2D
   INTEGER                         :: jstep0 ! start counter for time loop
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
@@ -209,7 +209,7 @@ CONTAINS
   END IF
   jg = n_dom
 
-  p_patch => patch_3D%p_patch_2D(jg)
+  patch_2D => patch_3D%p_patch_2D(jg)
 
   CALL datetime_to_string(datestring, datetime)
 
@@ -300,9 +300,11 @@ CONTAINS
         ! activate for calc_scalar_product_veloc_3D
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('on entry: h-old'           ,p_os(jg)%p_prog(nold(1))%h ,str_module,idt_src)
+        CALL dbg_print('on entry: h-old'           ,p_os(jg)%p_prog(nold(1))%h ,str_module,idt_src, &
+          patch_2D%cells%owned )
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('on entry: h-new'           ,p_os(jg)%p_prog(nnew(1))%h ,str_module,idt_src)
+        CALL dbg_print('on entry: h-new'           ,p_os(jg)%p_prog(nnew(1))%h ,str_module,idt_src, &
+          patch_2D%cells%owned )
         idt_src=3  ! output print level (1-5, fix)
         CALL dbg_print('HydOce: ScaProdVel kin'    ,p_os(jg)%p_diag%kin        ,str_module,idt_src)
         CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,p_os(jg)%p_diag%ptp_vn     ,str_module,idt_src)
@@ -396,8 +398,8 @@ CONTAINS
           &                             datetime,      &
           &                             oce_ts)
 
-        CALL calc_moc (p_patch,patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
-        CALL calc_psi (p_patch,patch_3D, p_os(jg)%p_diag%u(:,:,:), &
+        CALL calc_moc (patch_2D,patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
+        CALL calc_psi (patch_2D,patch_3D, p_os(jg)%p_diag%u(:,:,:), &
           &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
           &                        p_os(jg)%p_diag%u_vint, datetime)
 
@@ -432,7 +434,7 @@ CONTAINS
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-      CALL create_restart_file( p_patch, datetime,                             &
+      CALL create_restart_file( patch_2D, datetime,                             &
                               & jstep, opt_depth=n_zlev,                       &
                               & opt_sim_time=time_config%sim_time(1),          &
                               & opt_nice_class=1)
@@ -495,7 +497,7 @@ CONTAINS
     CALL init_oce_config
 
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
-    CALL init_dbg_index(patch_3D%p_patch_2D(jg))!(p_patch(jg))
+    CALL init_dbg_index(patch_3D%p_patch_2D(jg))!(patch_2D(jg))
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
 
@@ -512,7 +514,7 @@ CONTAINS
     ! construct ocean state and physics
     !------------------------------------------------------------------
 
-    ! p_patch and p_os have dimension n_dom
+    ! patch_2D and p_os have dimension n_dom
     CALL construct_hydro_ocean_state(patch_3D%p_patch_2D, p_os)
 
     ! initialize ocean indices for debug output (including 3-dim lsm)
