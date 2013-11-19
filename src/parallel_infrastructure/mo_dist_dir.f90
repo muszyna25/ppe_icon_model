@@ -46,6 +46,7 @@ MODULE mo_dist_dir
 
   PUBLIC :: dist_dir_setup
   PUBLIC :: dist_dir_get_owners
+  PUBLIC :: t_dist_dir
 
 CONTAINS
 
