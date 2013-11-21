@@ -164,18 +164,23 @@ CONTAINS
     ELSE
       ! increment was given:
       lonlat_grid%lon_dim  = INT( (lonlat_grid%reg_lon_def(3)-lonlat_grid%reg_lon_def(1))/lonlat_grid%reg_lon_def(2) ) + 1
-      IF (lskip_last_lon) lonlat_grid%lon_dim = lonlat_grid%lon_dim - 1
+      IF (lskip_last_lon .AND. (lonlat_grid%lon_dim > 0)) THEN
+         lonlat_grid%lon_dim = lonlat_grid%lon_dim - 1
+      END IF
     END IF
     ! set latitude dimension
     IF (lnpts_given(2)) THEN
       ! no. of points was given:
       lonlat_grid%lat_dim  = NINT(lonlat_grid%reg_lat_def(2))
-      lonlat_grid%delta(2) = (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/(lonlat_grid%lat_dim-1) * pi_180
+      IF (lonlat_grid%lat_dim == 1) THEN
+         lonlat_grid%delta(2) = 0.0_wp
+      ELSE
+         lonlat_grid%delta(2) = (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/(lonlat_grid%lat_dim-1) * pi_180
+      END IF
     ELSE
       ! increment was given:
       lonlat_grid%lat_dim  = INT( (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/lonlat_grid%reg_lat_def(2) ) + 1
     END IF
-
   END SUBROUTINE compute_lonlat_specs
 
 

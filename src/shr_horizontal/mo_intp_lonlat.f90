@@ -64,7 +64,7 @@
       &                               init_glb2loc_index_lookup, &
       &                               set_inner_glb_index
     USE mo_run_config,          ONLY: ltimer
-    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius
+    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
     USE mo_timer,               ONLY: timer_start, timer_stop,                              &
       &                               timers_level,                                         &
       &                               timer_lonlat_setup
@@ -1279,6 +1279,7 @@
       LOGICAL  :: is_pt_inside(4)
 
       IF (recursion_depth == max_recursion) RETURN
+      if ((s_lon == e_lon) .or. (s_lat == e_lat)) return
 
       ! determine mid longitude and latitude in current range, thus
       ! dividing the regular grid into 4 subgrids:
@@ -1405,7 +1406,7 @@
       TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
       TYPE(t_cartesian_coordinates)    :: p1, p2
       REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
-        &                                 max_dist
+        &                                 max_dist, start_radius
       REAL                             :: time1
       LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
 
@@ -1510,8 +1511,11 @@
       ! local list of "in_points" actually located on this portion of the
       ! domain.
       IF (dbg_level > 1) CALL message(routine, "proximity query")
-      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),            &
-        &                 nproma, nblks_lonlat, npromz_lonlat, grid_sphere_radius,       &
+      start_radius = grid_sphere_radius
+      ! work-around: increased search radius on torus
+      if (is_plane_torus)  start_radius = 10._wp
+      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),      &
+        &                 nproma, nblks_lonlat, npromz_lonlat, start_radius,       &
         &                 p_test_run, ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
 
 !$    IF (l_measure_time) WRITE (0,*) "elapsed time (query): ",  REAL(omp_get_wtime()) - time1
