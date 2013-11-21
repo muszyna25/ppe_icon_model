@@ -40,7 +40,7 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, &
-    &                              MODE_IFSANA
+    &                              MODE_IFSANA, MODE_COMBINED
 
   IMPLICIT NONE
 
@@ -127,7 +127,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
 
-    IF ( init_mode == MODE_IFSANA ) THEN
+    IF ( ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
       is_coldstart_soil = .TRUE.   ! full coldstart is necessary
     ELSE
       is_coldstart_soil = .FALSE.  ! warmstart is sufficient (typical for standard
