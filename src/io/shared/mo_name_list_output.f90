@@ -731,25 +731,13 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri => patch_info(i_dom)%cells
-        IF(l_output_phys_patch) THEN
-          p_pat => p_phys_patch(i_dom)%comm_pat_gather_c
-        ELSE
-          p_pat => p_patch(i_dom)%comm_pat_gather_c
-        ENDIF
+        p_pat => patch_info(i_dom)%p_pat_c
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri => patch_info(i_dom)%edges
-        IF(l_output_phys_patch) THEN
-          p_pat => p_phys_patch(i_dom)%comm_pat_gather_e
-        ELSE
-          p_pat => p_patch(i_dom)%comm_pat_gather_e
-        ENDIF
+        p_pat => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
         p_ri => patch_info(i_dom)%verts
-        IF(l_output_phys_patch) THEN
-          p_pat => p_phys_patch(i_dom)%comm_pat_gather_v
-        ELSE
-          p_pat => p_patch(i_dom)%comm_pat_gather_v
-        ENDIF
+        p_pat => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
@@ -760,8 +748,6 @@ CONTAINS
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
-
-
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
 
