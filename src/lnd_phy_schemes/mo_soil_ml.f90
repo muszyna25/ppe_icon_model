@@ -810,7 +810,6 @@ END SUBROUTINE message
 !   Timestep parameters
 !
     zdt            , & ! integration time-step [s]
-    zdelt_bound    , & ! for surface temperature problem at lateral boundaries
 !   zdel_t_so      , & ! auxiliary variable
     zdtdrhw        , & ! timestep / density of water
     zrhwddt        , & ! density of water / timestep
@@ -1451,20 +1450,6 @@ END SUBROUTINE message
   END DO
 !<JH  ENDIF
 
-! To ensure t_s = t_so(1) also at gme2lm-modified lateral boundaries by
-! modifying the soil temperature profile:
-  DO kso   = 1,ke_soil+1
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN             ! for land-points only
-        ! Next lines have to be modified/deleted if the soil surface temperature
-        ! t_so(i,0,nx) predicted by the heat conduction equation is used
-          zdelt_bound = t_s_now(i) - t_so_now(i,1)
-          t_so_now(i,kso) = t_so_now(i,kso) + zdelt_bound * (1._ireals - &
-                           (zmls(kso) - zmls(1))/(zmls(ke_soil+1) - zmls(1)))
-          IF(kso.EQ.1) t_so_now(i,0) = t_so_now(i,1)
-!        ENDIF
-      END DO
-  END DO
 
   DO i = istarts, iends
       ztrangs(i)      = 0.0_ireals
@@ -3903,6 +3888,15 @@ ENDIF
 
                 t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
                                      (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
+                ! Fix for numerical instabilites across melting point (G. Zaengl)
+                ! When the latent heat release due to ice formation is so large that the
+                ! temperature rises from below freezing to above freezing, then the 
+                ! temperature is set to the freezing point and the ice amount is reset to zero
+                IF (t_so_new(i,kso) > t0_melt+zepsi .AND. t_so_now(i,kso) < t0_melt-zepsi &
+                  .AND. w_so_ice_new(i,kso) > zepsi) THEN
+                  t_so_new(i,kso) = t0_melt
+                  w_so_ice_new(i,kso) = 0._ireals
+                ENDIF 
           END DO
       ENDDO
 !  END IF ! lmelt
@@ -5499,6 +5493,9 @@ SUBROUTINE terra_multlay_init (                &
                   ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
                 w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
                 w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+              ELSE ! ensure that w_so_ice is zero
+                w_so_ice_now(i,kso) = 0.0_ireals
+                w_so_ice_new(i,kso) = 0.0_ireals
               END IF
 !            END IF   ! land-points
           END DO
