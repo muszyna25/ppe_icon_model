@@ -152,12 +152,7 @@ cat > ${atmo_namelist} << EOF
  msg_level      = 7            ! detailed report during integration
  ltimer         = .false.
  timers_level   = 0
- ldump_states   = .false.
- lrestore_states= .false.
- ldump_dd       = .false.
- lread_dd       = .false.
  output         = "nml"
- l_one_file_per_patch = .false.
 /
 &nwp_phy_nml
  inwp_gscp       = 1
@@ -181,15 +176,16 @@ cat > ${atmo_namelist} << EOF
  rat_sea = 9.0
 /
 &lnd_nml
- ntiles      = 3      !!! 1 for assimilation cycle
- nlev_snow   = 2      !!! 1 for assimilation cycle
- lmulti_snow = .true. !!! .false. for assimilation cycle
+ ntiles      = 3      !!! 1 for assimilation cycle and forecast
+ nlev_snow   = 2      !!! 1 for assimilation cycle and forecast
+ lmulti_snow = .true. !!! .false. for assimilation cycle and forecast
  itype_heatcond = 1
  idiag_snowfrac = 4
  lsnowtile = .false.
  lseaice   = .true.
  llake     = .false.  !!! optional: .true. for assimilation cycle
- itype_lndtbl = 3
+ itype_lndtbl = 2
+ itype_root = 2
 /
 &radiation_nml
  irad_o3 = 7
@@ -223,7 +219,7 @@ cat > ${atmo_namelist} << EOF
  thslp_zdiffu   = 0.02
  thhgtd_zdiffu  = 125.
  htop_moist_proc= 22500.
- hbot_qvsubstep = 22501.
+ hbot_qvsubstep = 22500.
 /
 &sleve_nml
  min_lay_thckn   = 20.
