@@ -115,19 +115,15 @@ CONTAINS
   !>
   !!  Divide patches and interpolation states.
   !!
-  !!  If the parameter @p opt_n_procs is given, a domain decomposition
-  !!  for @p opt_n_procsprocessors is done (called from a single
-  !!  processor run).
   !!
   !!  @note Despite its name, this subroutine is also called in
   !!        sequential runs where it simply copies (and initializes)
   !!        the patch data structure.
   !!
-  SUBROUTINE decompose_domain( p_patch, p_patch_global, opt_n_procs )
+  SUBROUTINE decompose_domain( p_patch, p_patch_global )
 
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch(n_dom_start:)
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
-    INTEGER, INTENT(IN), OPTIONAL :: opt_n_procs
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
 
@@ -145,30 +141,18 @@ CONTAINS
 
     CALL message(routine, 'start of domain decomposition')
 
-    ! This subroutine has 3 different operating modes:
+    ! This subroutine has 2 different operating modes:
     !
-    ! - If opt_n_procs is set, this routine should be called from a
-    !   single processor run and it splits the domain into opt_n_procs
-    !   parts.
     !
-    ! - Otherwise, if the subroutine is called from a parallel run
+    ! - If the subroutine is called from a parallel run,
     !   then the domain is split according to the number of processors
     !
-    ! - Third, when called from a single processor run, the domain is
+    ! - When called from a single processor run, the domain is
     !   not split but simply copied (and the p_patch_local_parent is
     !   initialized properly).
     !
     n_procs_decomp = p_n_work
-    IF (PRESENT(opt_n_procs)) THEN
-      n_procs_decomp = opt_n_procs
-      IF (my_process_is_mpi_parallel()) &
-        CALL finish(routine, 'Call with opt_n_procs in parallel mode')
 
-      ! Allocate p_patch_out, p_patch_lp_out so that they can keep
-      ! all domain decompositions for one patch
-      ALLOCATE(p_patch_out(opt_n_procs))
-      ALLOCATE(p_patch_lp_out(opt_n_procs))
-    ENDIF
 
     ! -----------------------------------------------------------------------------
     ! Check for processor splitting
@@ -329,94 +313,28 @@ CONTAINS
       ! Have still to check if int state/grf state is needed at all for jg==0,
       ! if this is not the case, the ghost rows can be dropped again.
 
-      IF(PRESENT(opt_n_procs)) THEN
 
-        ! ----------------------------------------------
-        ! operation mode 1: "opt_n_proc" present
-        ! ----------------------------------------------
+      ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
+      !                       1 order root grid  (l_compute_grid = true)
+      !                       2 all halos go to the end, for ocean
+      my_process_type = get_my_process_type()
+      SELECT CASE (my_process_type)
+        CASE (ocean_process, testbed_process)
+           order_type_of_halos = 2
+        CASE default
+        order_type_of_halos = 1
+      END SELECT
 
+      ! CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
+      CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
 
-        ! Calculate all basic patches and output them at once.
-        ! This is done in this way (calculating all before output) since
-        ! we need the biggest dimension of all patches before real NetCDF output starts.
-        ! All arrays in the patch which are not scaling (i.e. having global dimensions)
-        ! are discarded so that the stored patches shouldn't need much more space
-        ! than the global patch descriptions.
+      IF(jg > n_dom_start) THEN
+        order_type_of_halos = 0
+        ! CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
+        CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, &
+          & order_type_of_halos,  p_pe_work)
+      ENDIF
 
-        ! If the storage for the patches should get a problem nontheless, there has to be found
-        ! a way to output them before all are calculated.
-
-        ! Do all domain decompositions
-
-#ifndef __xlC__
-!$OMP PARALLEL DO PRIVATE(n)
-#endif
-        DO n = 1, opt_n_procs
-
-          WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
-          p_patch_out(n)%n_proc = p_patch(jg)%n_proc
-          p_patch_out(n)%proc0  = p_patch(jg)%proc0
-          order_type_of_halos = 1
-          ! CALL divide_patch(p_patch_out(n), p_patch_global(jg), cell_owner, n_ghost_rows, .TRUE., n-1)
-          CALL divide_patch(p_patch_out(n), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, n-1)
-          CALL discard_large_arrays(p_patch_out(n), n)
-
-        ENDDO
-#ifndef __xlC__
-!$OMP END PARALLEL DO
-#endif
-
-        IF(jg > n_dom_start) THEN
-#ifndef __xlC__
-!$OMP PARALLEL DO PRIVATE(n)
-#endif
-          DO n = 1, opt_n_procs
-
-            ! Divide local parent
-            order_type_of_halos = 0
-            ! CALL divide_patch(p_patch_lp_out(n), p_patch_global(jgp), cell_owner_p, 1, .FALSE., n-1)
-            CALL divide_patch(p_patch_lp_out(n), p_patch_global(jgp), cell_owner_p, 1, order_type_of_halos, n-1)
-            CALL discard_large_arrays(p_patch_lp_out(n), n)
-
-          ENDDO
-#ifndef __xlC__
-!$OMP END PARALLEL DO
-#endif
-        ENDIF
-
-        ! Deallocate patch arrays
-        DO n = 1, opt_n_procs
-          CALL deallocate_patch(p_patch_out(n),lddmode=.TRUE.)
-          IF(jg > n_dom_start) CALL deallocate_patch(p_patch_lp_out(n),lddmode=.TRUE.)
-        ENDDO
-
-      ELSE
-
-        ! ----------------------------------------------
-        ! operation modes 2,3: "opt_n_procs" not present
-        ! ----------------------------------------------
-        ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
-        !                       1 order root grid  (l_compute_grid = true)
-        !                       2 all halos go to the end, for ocean
-        my_process_type = get_my_process_type()
-        SELECT CASE (my_process_type)
-          CASE (ocean_process, testbed_process)
-             order_type_of_halos = 2
-          CASE default
-          order_type_of_halos = 1
-        END SELECT
-
-        ! CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
-        CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
-
-        IF(jg > n_dom_start) THEN
-          order_type_of_halos = 0
-          ! CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
-          CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, &
-            & order_type_of_halos,  p_pe_work)
-        ENDIF
-
-      ENDIF ! IF (PRESENT(opt_n_procs))
 
       DEALLOCATE(cell_owner)
       IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
