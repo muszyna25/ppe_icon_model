@@ -330,6 +330,9 @@ MODULE mo_cuparameters
   !     RTAUMEL   REAL     TIME CONSTANT FOR MELTING
   !     RHEBC     REAL     REL. HUMIDITY BELOW CLOUD FOR WHICH EVAPORATION STARTS
   !     RTAU      REAL     ADJUSTMENT TIME SCALE IN CAPE CLOSURE
+  !     ICAPDCYCL INTEGER  DIURNAL CYCLE MODULATION FOR CAPE
+  !                        0:NO  1:SURFACE SENS HEAT FLUX 2: SUBCLOUD CAPE
+  !     RTAU0     REAL     PRORTIONALITY FACTOR USED FOR RCAPDCYCL TIME SCALE
   !     RMFCFL    REAL     MULTIPLE OF CFL STABILITY CRITERIUM
   !     RMFLIC    REAL     USE CFL (1) OR ABSOLUT MASS FLUX LIMIT (0)
   !     RMFLIA    REAL     VALUE OF ABSOLUT MASS FLUX LIMIT
@@ -347,7 +350,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: entrorg
   REAL(KIND=jprb) :: entrdd
   REAL(KIND=jprb) :: detrpen
-  ! REAL(KIND=jprb) :: rmfcfl
+  ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
   REAL(KIND=jprb) :: rmfsoluv
@@ -359,7 +362,9 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rdepths
   REAL(KIND=jprb) :: rhcdd
   REAL(KIND=jprb) :: rprcon
-  ! REAL(KIND=jprb) :: rtau
+  ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
+  ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
+  INTEGER         :: icapdcycl
   REAL(KIND=jprb) :: rcpecons
   REAL(KIND=jprb) :: rcucov
   REAL(KIND=jprb) :: rtaumel
@@ -452,7 +457,7 @@ MODULE mo_cuparameters
           & entrdd   ,& ! njkt1                    ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
           & rcucov   ,rcpecons ,rtaumel  ,rhebc    ,&
-          & rmfdeps
+          & rmfdeps, icapdcycl
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
   !yoephy
@@ -1168,6 +1173,14 @@ CONTAINS
     phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
     phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
+    ! ** CAPE correction to improve diurnal cycle of convection **
+    icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
+                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option9
+                   ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
+
+    phy_params%tau0 = 1.0_jprb
+    IF (icapdcycl == 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
+ 
     !     LOGICAL SWITCHES
     !     ----------------
 

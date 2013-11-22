@@ -109,7 +109,7 @@ MODULE mo_cumaster
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
-    & lhook,   dr_hook
+    & lhook,   dr_hook, icapdcycl
   
   
   USE mo_adjust,      ONLY: satur
@@ -419,7 +419,7 @@ CONTAINS
       & zkineu(klon,klev),      zkined(klon,klev), &
       & zvbuo(klon)      
     REAL(KIND=jprb) :: zentr(klon),        &!    zhcbase(klon),&
-      & zmfub(klon),            zmfub1(klon),&
+      & zmfub(klon),            zmfub1(klon),  zkhvfl(klon),&
       & zdqcv(klon)
     REAL(KIND=jprb) :: zdpmel(klon,klev),zlglac(klon,klev)
     REAL(KIND=jprb) :: zdhpbl(klon),     zwubase(klon)
@@ -429,11 +429,11 @@ CONTAINS
     INTEGER(KIND=jpim) ::  ilab(klon,klev), idtop(klon),&
       & ictop0(klon),    ilwmin(klon)
     INTEGER(KIND=jpim) ::  idpl(klon) ! departure level for convection
-    REAL(KIND=jprb) ::     zcape(klon), zheat(klon)
+    REAL(KIND=jprb) ::     zcape(klon), zheat(klon), zcappbl(klon), zcapdcycl(klon)
     LOGICAL ::             llddraf(klon), llddraf3(klon), lldcum(klon)
     LOGICAL ::             llo1, llo2(klon)
     
-    INTEGER(KIND=jpim) :: ikb, itopm2, jk, ik, jl
+    INTEGER(KIND=jpim) :: ikb, itopm2, jk, ik, jl, ikd
     
     REAL(KIND=jprb) ::   zcons2, zcons, zdh,&
       & zdqmin, zdz, zeps, zfac, &
@@ -441,7 +441,7 @@ CONTAINS
       & ZDUTEN, ZDVTEN, ZTDIS,&
       & zalv, zsfl(klon)
     
-    REAL(KIND=jprb) :: ztau(klon)  ! adjustment time
+    REAL(KIND=jprb) :: ztau(klon), ztaupbl(klon)  ! adjustment time
     
     ! scaling factor for momentum and tracer massflux
     REAL(KIND=jprb) :: zmfs(klon),  zmfuus(klon,klev), zmfdus(klon,klev) ,&
@@ -613,13 +613,16 @@ CONTAINS
       zdqcv(jl) =0.0_JPRB
       zdhpbl(jl)=0.0_JPRB
       idtop(jl)=0
+      zcappbl(jl)=0.
+      zkhvfl(jl)= -pahfs(jl,klev+1) * zorcpd - retv * pten(jl,klev) * pqhfl(jl,klev+1)
     ENDDO
     DO jk=MAX(ktdia,phy_params%kcon2),klev
       DO jl=kidia,kfdia
-        zdqcv(jl)=zdqcv(jl)+MAX(0.0_JPRB,ptenq(jl,jk))*(paph(jl,jk+1)-paph(jl,jk))
+        zdz = paph(jl,jk+1)-paph(jl,jk)
+        zdqcv(jl)=zdqcv(jl)+MAX(0.0_JPRB,ptenq(jl,jk))*zdz
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
-          zdhpbl(jl)=zdhpbl(jl)+(rlvtt*ptenq(jl,jk)+rcpd*ptent(jl,jk))&
-            & *(paph(jl,jk+1)-paph(jl,jk))
+          zdhpbl(jl)=zdhpbl(jl)+(rlvtt*ptenq(jl,jk)+rcpd*ptent(jl,jk))*zdz
+          zcappbl(jl)=zcappbl(jl)+(ptent(jl,jk)+retv*ptenq(jl,jk))*zdz
         ENDIF
       ENDDO
     ENDDO
@@ -673,8 +676,7 @@ CONTAINS
           ikb=kcbot(jl)
           zdz=MAX(0.0_JPRB,MIN(1.5E3_JPRB,(pgeoh(jl,ikb)-pgeoh(jl,klev+1))/rg))
           zmf_shal(jl)=0.07_JPRB*(rg/pten(jl,klev)*zdz*&
-            & MAX(0.0_JPRB,-pahfs(jl,klev+1)*zorcpd-retv&
-            & *pten(jl,klev)*pqhfl(jl,klev+1)))**.3333_jprb
+            & MAX(0.0_JPRB,zkhvfl(jl)))**.3333_jprb
           !>KF
            ZMFMAX=(PAPH(JL,IKB)-PAPH(JL,IKB-1))*ZCONS2*RMFLIC+RMFLIA
           !zmfmax= zdph(jl,ikb-1)*zcons2*rmflic+rmflia
@@ -865,16 +867,12 @@ CONTAINS
       DO jl=kidia,kfdia
         llo1=ldcum(jl).AND.ktype(jl) == 1
         IF(llo1.AND.jk <= kcbot(jl).AND.jk > kctop(jl)) THEN
-          ikb=kcbot(jl)
-          zro=paph(jl,jk)/(rd*ztenh(jl,jk)*(1.0_JPRB+retv*zqenh(jl,jk)))
-          !>KF
-           ZDZ=(PGEOH(JL,JK-1)-PGEOH(JL,JK))
-          !zdz = zdgeoh(jl,jk)
-          !<KF
+          ZDZ=(PGEOH(JL,JK-1)-PGEOH(JL,JK))
           zheat(jl)=zheat(jl) +&
             & (  (pten(jl,jk-1)-pten(jl,jk) + zdz*zorcpd)/ztenh(jl,jk)&
             & +  retv*(pqen(jl,jk-1)-pqen(jl,jk))  ) *&
-            & (rg*(pmfu(jl,jk)+pmfd(jl,jk)))/zro
+            & (rg*(pmfu(jl,jk)+pmfd(jl,jk)))
+          zdz = paph(JL,JK)-paph(JL,JK-1)
           zcape(jl)=zcape(jl) +&
             & ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)&
             & +retv*(pqu(jl,jk)-zqenh(jl,jk))&
@@ -884,23 +882,43 @@ CONTAINS
       ENDDO
     ENDDO
 
-    DO jl=kidia,kfdia
-      IF(ldcum(jl).AND.ktype(jl) == 1) THEN
-        ikb=kcbot(jl)
-        ik=kctop(jl)
-        zcape(jl)=MAX(0.0_JPRB,MIN(zcape(jl),5000.0_JPRB))
-        zheat(jl)=MAX(1.e-4_JPRB,zheat(jl))
-        ztau(jl)=(pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_JPRB+MIN(15.0_JPRB,pwmean(jl)))*rg) &
-                *phy_params%tau
-        ztau(jl)=MAX(720.0_JPRB,MIN(10800._jprb,ztau(jl)))
-        zmfub1(jl)=(zcape(jl)*zmfub(jl))/(zheat(jl)*ztau(jl))
-        zmfub1(jl)=MAX(zmfub1(jl),0.001_JPRB)
-        !>KF
-        ZMFMAX=(PAPH(JL,IKB)-PAPH(JL,IKB-1))*ZCONS2*RMFLIC+RMFLIA
-        !zmfmax= zdph(jl,ikb-1)*zcons2*rmflic+rmflia
-        !<KF
+    ! time scale and subcloud contribution to CAPE to be subtracted for better diurnal cycle over land
+    DO jl = kidia, kfdia
+      zcapdcycl(jl) = 0.0_jprb
+      IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
+        ikd = idpl(jl)
+        ikb = kcbot(jl)
+        ik  = kctop(jl)
+        ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
+        llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
+        IF (llo1 .AND. ldland(jl) .AND. icapdcycl==1) THEN
+           zdz = MIN(1.e4_jprb,pgeoh(jl,ikb)-pgeoh(jl,klev+1))/rg
+           zcapdcycl(jl) = ztau(jl)*MAX(0.0_jprb,zkhvfl(jl))*rcpd/zdz
+        ENDIF
+        IF (llo1 .AND. icapdcycl==2) THEN
+          IF (ldland(jl)) THEN
+            zcapdcycl(jl) = zcappbl(jl)*ztau(jl)*phy_params%tau0
+          ELSE
+            zduten = 2.0_jprb + SQRT(0.5*(puen(jl,ikb)**2 + pven(jl,ikb)**2 + &
+              puen(jl,phy_params%kcon3)**2 + pven(jl,phy_params%kcon3)**2))
+            ztaupbl(jl) = MIN(1.e4_jprb, pgeoh(jl,ikb)-pgeoh(jl,klev+1))/(rg*zduten)
+            zcapdcycl(jl) = zcappbl(jl)*ztaupbl(jl)
+          ENDIF
+        ENDIF
+      ENDIF
+    ENDDO
 
-        zmfub1(jl)=MIN(zmfub1(jl),zmfmax)
+    do jl = kidia, kfdia
+      IF(ldcum(jl) .AND. ktype(jl) == 1) THEN
+        ikb = kcbot(jl)
+        zcape(jl) = zcape(jl)-zcapdcycl(jl)
+        zcape(jl) = MAX(0.0_jprb,MIN(zcape(jl),5000.0_jprb))
+        zheat(jl) = MAX(1.e-4_jprb,zheat(jl))
+        ztau(jl)  = MAX(720._jprb,ztau(jl))
+        zmfub1(jl)= (zcape(jl)*zmfub(jl))/(zheat(jl)*ztau(jl))
+        zmfub1(jl)= MAX(zmfub1(jl),0.001_jprb)
+        zmfmax    = (paph(jl,ikb)-paph(jl,ikb-1))*zcons2*rmflic+rmflia
+        zmfub1(jl)= MIN(zmfub1(jl),zmfmax)
       ENDIF
     ENDDO
 

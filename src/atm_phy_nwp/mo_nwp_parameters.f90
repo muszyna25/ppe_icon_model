@@ -48,7 +48,7 @@ MODULE mo_nwp_parameters
     ! Level parameters for convection scheme
     INTEGER  :: kcon1, kcon2, kcon3, kcon4, kcon5
     ! resolution-dependent parameters for convection scheme
-    REAL(wp) :: tau, mfcfl
+    REAL(wp) :: tau, mfcfl, tau0
     ! characteristic horizontal length scale (grid-scale) for 
     ! turbulence scheme and convection scheme
     REAL(wp) :: mean_charlen
