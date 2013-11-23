@@ -209,16 +209,16 @@ CONTAINS
     REAL(wp) :: z_vort_flx_rbf (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     LOGICAL, PARAMETER :: l_debug = .FALSE.
     TYPE(t_subset_range), POINTER :: edges_in_domain!, all_cells
-    TYPE(t_patch), POINTER         :: p_patch 
+    TYPE(t_patch), POINTER         :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    edges_in_domain => p_patch%edges%in_domain
-    !all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
 
-    z_e             (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
-    z_vort_flx      (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
-    veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
+    z_e             (1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+    z_vort_flx      (1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+    veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
 
     slev = 1
     elev = n_zlev
@@ -240,7 +240,7 @@ CONTAINS
     !   write(*,*)'max/min vort flux: ',MAXVAL(z_vort_flx(:,jk,:)),&
     !                                         &MINVAL(z_vort_flx(:,jk,:))
     !   END DO
-    ! z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx)
+    ! z_vort_flx=laplacian4vortex_flux(patch_2D,z_vort_flx)
     ! ENDIF
     !-------------------------------------------------------------------------------
 
@@ -252,11 +252,12 @@ CONTAINS
     ! the result is on edges_in_domain
 
     ! This is not needed at this point
-    ! CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))
+    ! CALL sync_patch_array(sync_e, patch_2D, p_diag%grad(:,:,:))
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
+          patch_2D%cells%owned )
     CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src)
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('HorzMimRot: vorticity flux'    ,z_vort_flx              ,str_module,idt_src)
@@ -266,12 +267,12 @@ CONTAINS
     !---------------------------------------------------------------------
 
     ! IF(L_INVERSE_FLIP_FLOP)THEN
-    !   CALL map_edges2edges( p_patch,    &
+    !   CALL map_edges2edges( patch_2D,    &
     !                       & p_diag%grad,&
     !                       & z_e,        &
     !                       & p_diag%thick_e)
     !   p_diag%grad = z_e
-    !   CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,jk,:))
+    !   CALL sync_patch_array(sync_e, patch_2D, p_diag%grad(:,jk,:))
     ! ENDIF
 
 
@@ -326,16 +327,16 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: z_div_vec_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER         :: p_patch 
+    TYPE(t_patch), POINTER         :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
+    patch_2D   => p_patch_3D%p_patch_2D(1)
 
     ! #slo# set local variable to zero due to nag -nan compiler-option
-    all_edges => p_patch%edges%all
-    all_cells => p_patch%cells%all
+    all_edges => patch_2D%edges%all
+    all_cells => patch_2D%cells%all
 
-    z_e             (1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
-    veloc_adv_horz_e(1:nproma,1:n_zlev,1:p_patch%nblks_e) = 0.0_wp
+    z_e             (1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+    veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
 
     slev = 1
     elev = n_zlev
@@ -347,10 +348,10 @@ CONTAINS
           !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
           IF(p_patch_3D%lsm_e(je,jk,jb)<= boundary)THEN
             !Neighbouring cells
-            il_c1 = p_patch%edges%vertex_idx(je,jb,1)
-            ib_c1 = p_patch%edges%vertex_blk(je,jb,1)
-            il_c2 = p_patch%edges%vertex_idx(je,jb,2)
-            ib_c2 = p_patch%edges%vertex_blk(je,jb,2)
+            il_c1 = patch_2D%edges%vertex_idx(je,jb,1)
+            ib_c1 = patch_2D%edges%vertex_blk(je,jb,1)
+            il_c2 = patch_2D%edges%vertex_idx(je,jb,2)
+            ib_c2 = patch_2D%edges%vertex_blk(je,jb,2)
 
             !velocity vector at edges
             u_v_cc_e(je,jk,jb)%x = 0.5_wp * (p_diag%p_vn_dual(il_c1,jk,ib_c1)%x + &
@@ -368,21 +369,21 @@ CONTAINS
       DO jk = slev, elev
         DO jc = i_startidx_c, i_endidx_c
 
-!           cc_c = gc2cc(p_patch%cells%center(jc,jb))p_op_coeff%cell_position_cc
+!           cc_c = gc2cc(patch_2D%cells%center(jc,jb))p_op_coeff%cell_position_cc
           !cc_c = p_op_coeff%cell_position_cc(jc,jk,jb)
 !          u_v_cc_c(jc,jk,jb)= vector_product(p_op_coeff%cell_position_cc(jc,jk,jb),&
-          u_v_cc_c(jc,jk,jb)= vector_product(p_patch%cells%cartesian_center(jc,jb),&
+          u_v_cc_c(jc,jk,jb)= vector_product(patch_2D%cells%cartesian_center(jc,jb),&
                                 &p_diag%p_vn(jc,jk,jb))
-          u_v_cc_c(jc,jk,jb)%x = p_patch%cells%f_c(jc,jb)*u_v_cc_c(jc,jk,jb)%x
+          u_v_cc_c(jc,jk,jb)%x = patch_2D%cells%f_c(jc,jb)*u_v_cc_c(jc,jk,jb)%x
 
-         il_e1 = p_patch%cells%edge_idx(jc,jb,1)
-         ib_e1 = p_patch%cells%edge_blk(jc,jb,1)
+         il_e1 = patch_2D%cells%edge_idx(jc,jb,1)
+         ib_e1 = patch_2D%cells%edge_blk(jc,jb,1)
 
-         il_e2 = p_patch%cells%edge_idx(jc,jb,2)
-         ib_e2 = p_patch%cells%edge_blk(jc,jb,2)
+         il_e2 = patch_2D%cells%edge_idx(jc,jb,2)
+         ib_e2 = patch_2D%cells%edge_blk(jc,jb,2)
 
-         il_e3 = p_patch%cells%edge_idx(jc,jb,3)
-         ib_e3 = p_patch%cells%edge_blk(jc,jb,3)
+         il_e3 = patch_2D%cells%edge_idx(jc,jb,3)
+         ib_e3 = patch_2D%cells%edge_blk(jc,jb,3)
 
          z_div_vec_c(jc,jk,jb)%x =  &
               & u_v_cc_e(il_e1,jk,ib_e1)%x * p_op_coeff%div_coeff(jc,jk,jb,1) + &
@@ -394,7 +395,7 @@ CONTAINS
       END DO
    END DO
 
-!     CALL map_cell2edges( p_patch, z_div_vec_c, veloc_adv_horz_e, &
+!     CALL map_cell2edges( patch_2D, z_div_vec_c, veloc_adv_horz_e, &
 !       & opt_slev=slev, opt_elev=elev )
     CALL map_cell2edges_3D( p_patch_3D, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
 
@@ -406,7 +407,7 @@ CONTAINS
                               & p_diag%p_vn_dual,    &
                               & p_op_coeff,          &
                               & p_diag%vort)
-    CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
+    CALL sync_patch_array(SYNC_V, patch_2D, p_diag%vort)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
@@ -419,8 +420,8 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  ! ! FUNCTION laplacian4vortex_flux(p_patch, vort_flux_in) RESULT(vort_flux_out)
-  ! ! TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+  ! ! FUNCTION laplacian4vortex_flux(patch_2D, vort_flux_in) RESULT(vort_flux_out)
+  ! ! TYPE(t_patch),TARGET, INTENT(in) :: patch_2D
   ! ! REAL(wp), INTENT(inout) :: vort_flux_in(:,:,:)
   ! ! REAL(wp) ::vort_flux_out(SIZE(vort_flux_in,1), SIZE(vort_flux_in,2), SIZE(vort_flux_in,3))
   ! !
@@ -432,32 +433,32 @@ CONTAINS
   ! ! INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   ! ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   ! ! INTEGER :: rl_start_e, rl_end_e,rl_start_c, rl_end_c
-  ! ! REAL(wp) :: z_tmp(nproma,n_zlev,p_patch%nblks_e)
-  ! ! TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%alloc_cell_blocks)
+  ! ! REAL(wp) :: z_tmp(nproma,n_zlev,patch_2D%nblks_e)
+  ! ! TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,patch_2D%alloc_cell_blocks)
   ! ! INTEGER :: il_c1, ib_c1, il_c2, ib_c2
   ! ! INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-  ! ! TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
-  ! ! TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%alloc_cell_blocks)
+  ! ! TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,patch_2D%nblks_e)
+  ! ! TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,patch_2D%alloc_cell_blocks)
   ! ! !-----------------------------------------------------------------------
   ! ! rl_start_e = 1
   ! ! rl_end_e   = min_rledge
   ! ! rl_start_c = 1
   ! ! rl_end_c   = min_rlcell
   ! !
-  ! ! i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-  ! ! i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-  ! ! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-  ! ! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+  ! ! i_startblk_c = patch_2D%cells%start_blk(rl_start_c,1)
+  ! ! i_endblk_c   = patch_2D%cells%end_blk(rl_end_c,1)
+  ! ! i_startblk_e = patch_2D%edges%start_blk(rl_start_e,1)
+  ! ! i_endblk_e   = patch_2D%edges%end_blk(rl_end_e,1)
   ! !
   ! ! slev = 1
   ! ! elev = n_zlev
   ! !
   ! ! z_tmp = vort_flux_in
   ! !
-  ! ! CALL map_edges2cell( p_patch, z_tmp, z_pv_cc)
+  ! ! CALL map_edges2cell( patch_2D, z_tmp, z_pv_cc)
   ! ! DO jb = i_startblk_c, i_endblk_c
   ! !
-  ! !   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+  ! !   CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
   ! !                      i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
   ! !     DO jk = slev, elev
   ! !       DO jc = i_startidx_c, i_endidx_c
@@ -467,7 +468,7 @@ CONTAINS
   ! !   END DO
   ! ! DO jb = i_startblk_e, i_endblk_e
   ! !
-  ! !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+  ! !   CALL get_indices_e( patch_2D, jb, i_startblk_e, i_endblk_e,&
   ! !                    &  i_startidx_e, i_endidx_e,&
   ! !                    &  rl_start_e, rl_end_e)
   ! !   DO jk = slev, elev
@@ -482,23 +483,23 @@ CONTAINS
   ! ! !Step 2: Multiply each component of gradient vector with mixing coefficients
   ! ! DO jb = i_startblk_e, i_endblk_e
   ! !
-  ! !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+  ! !   CALL get_indices_e( patch_2D, jb, i_startblk_e, i_endblk_e,&
   ! !                    &  i_startidx_e, i_endidx_e,&
   ! !                    &  rl_start_e, rl_end_e)
   ! !   DO jk = slev, elev
   ! !     DO je = i_startidx_e, i_endidx_e
   ! !
   ! !       !Get indices of two adjacent triangles
-  ! !       il_c1 = p_patch%edges%cell_idx(je,jb,1)
-  ! !       ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-  ! !       il_c2 = p_patch%edges%cell_idx(je,jb,2)
-  ! !       ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+  ! !       il_c1 = patch_2D%edges%cell_idx(je,jb,1)
+  ! !       ib_c1 = patch_2D%edges%cell_blk(je,jb,1)
+  ! !       il_c2 = patch_2D%edges%cell_idx(je,jb,2)
+  ! !       ib_c2 = patch_2D%edges%cell_blk(je,jb,2)
   ! !
   ! !     IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
   ! !       z_grad_u(je,jk,jb)%x = &
   ! !         &                  (z_pv_cc(il_c2,jk,ib_c2)%x &
   ! !         &                  - z_pv_cc(il_c1,jk,ib_c1)%x)              &
-  ! !         &                  / p_patch%edges%dual_edge_length(je,jb)
+  ! !         &                  / patch_2D%edges%dual_edge_length(je,jb)
   ! !     ELSE
   ! !       z_grad_u(je,jk,jb)%x = 0.0_wp
   ! !     ENDIF
@@ -507,12 +508,12 @@ CONTAINS
   ! ! END DO
   ! !
   ! ! !Step 2: Apply divergence to each component of mixing times gradient vector
-  ! ! iidx => p_patch%cells%edge_idx
-  ! ! iblk => p_patch%cells%edge_blk
+  ! ! iidx => patch_2D%cells%edge_idx
+  ! ! iblk => patch_2D%cells%edge_blk
   ! !
   ! ! DO jb = i_startblk_c, i_endblk_c
   ! !
-  ! !   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+  ! !   CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
   ! !                      i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
   ! !     DO jk = slev, elev
   ! !       DO jc = i_startidx_c, i_endidx_c
@@ -530,7 +531,7 @@ CONTAINS
   ! !   END DO
   ! !
   ! ! !Step 3: Map divergence back to edges
-  ! ! CALL map_cell2edges( p_patch, z_div_grad_u, z_tmp)
+  ! ! CALL map_cell2edges( patch_2D, z_div_grad_u, z_tmp)
   ! ! vort_flux_out = vort_flux_in + 1000000.0_wp*z_tmp
   ! !
   ! !
@@ -573,19 +574,19 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER         :: p_patch 
+    TYPE(t_patch), POINTER         :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
    !-----------------------------------------------------------------------
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
     slev = 1
     elev = n_zlev
@@ -642,7 +643,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges_3D( p_patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
 
-    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
+    CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -696,25 +697,25 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,  p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER        :: p_patch 
+    TYPE(t_patch), POINTER        :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
 
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_ave (1:nproma,1:n_zlev,  1:p_patch%alloc_cell_blocks) = 0.0_wp
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
+    z_w_ave (1:nproma,1:n_zlev,  1:patch_2D%alloc_cell_blocks) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:patch_2D%alloc_cell_blocks) = 0.0_wp
 
 
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
@@ -795,7 +796,7 @@ CONTAINS
     CALL map_cell2edges_3D( p_patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
 
 
-    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
+    CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -847,19 +848,19 @@ CONTAINS
     REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER        :: p_patch 
+    TYPE(t_patch), POINTER        :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:patch_2D%alloc_cell_blocks) = 0.0_wp
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -894,7 +895,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges_3D( p_patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
 
-    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
+    CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
@@ -946,19 +947,19 @@ CONTAINS
     REAL(wp)                      :: z_w_diff (nproma,n_zlev-1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER        :: p_patch 
+    TYPE(t_patch), POINTER        :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all
+    patch_2D   => p_patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
     slev = 1
     elev = n_zlev
 
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 
-    z_w_diff(1:nproma,1:n_zlev-1,1:p_patch%alloc_cell_blocks) = 0.0_wp
+    z_w_diff(1:nproma,1:n_zlev-1,1:patch_2D%alloc_cell_blocks) = 0.0_wp
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -991,7 +992,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges_3D( p_patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
 
-    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
+    CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -1022,34 +1023,34 @@ CONTAINS
 !   !! Developed  by  Peter Korn, MPI-M (2010).
 !   !!  mpi parallelized LL
 !   !!
-!   SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,p_op_coeff, veloc_adv_vert_e)
+!   SUBROUTINE veloc_adv_vert_mimetic_div( patch_2D, p_diag,p_op_coeff, veloc_adv_vert_e)
 ! 
-!     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+!     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 !     TYPE(t_hydro_ocean_diag)          :: p_diag
 !     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
-!     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,p_patch%nblks_e)
+!     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,patch_2D%nblks_e)
 ! 
 !     !local variables
 !     INTEGER :: slev, elev     ! vertical start and end level
 !     INTEGER :: jc, jk, jb
 !     INTEGER :: i_startidx, i_endidx
 !     INTEGER :: z_dolic
-!     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks)
-!     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,p_patch%alloc_cell_blocks)
+!     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,patch_2D%alloc_cell_blocks)
+!     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,patch_2D%alloc_cell_blocks)
 !     TYPE(t_subset_range), POINTER :: all_cells
 !     !-----------------------------------------------------------------------
-!     all_cells => p_patch%cells%all
+!     all_cells => patch_2D%cells%all
 !     !-----------------------------------------------------------------------
 !     slev = 1
 !     elev = n_zlev
 ! 
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-!     z_adv_u_i(1:nproma,1:n_zlev+1,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+!     z_adv_u_i(1:nproma,1:n_zlev+1,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 ! 
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(1) = 0.0_wp
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(2) = 0.0_wp
-!     z_adv_u_m(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks)%x(3) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+!     z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
 ! 
 ! 
 !     DO jb = all_cells%start_block, all_cells%end_block
@@ -1086,9 +1087,9 @@ CONTAINS
 !     END DO
 ! 
 !     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-!     CALL map_cell2edges_3D( p_patch, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+!     CALL map_cell2edges_3D( patch_2D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
 ! 
-!     CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
+!     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 ! 
 !     !---------Debug Diagnostics-------------------------------------------
 !     idt_src=3  ! output print level (1-5, fix)
@@ -1118,12 +1119,12 @@ CONTAINS
 !   !! Developed  by  Peter Korn, MPI-M (2010).
 !   !!  mpi parallelized LL
 !   !!
-!   SUBROUTINE veloc_adv_horz_rbf( p_patch, vn, p_diag, grad_coeff, veloc_adv_horz_e, p_int)
+!   SUBROUTINE veloc_adv_horz_rbf( patch_2D, vn, p_diag, grad_coeff, veloc_adv_horz_e, p_int)
 !     !
 !     !
 !     !  patch on which computation is performed
 !     !
-!     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+!     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 ! 
 !     !
 !     ! normal and tangential velocity  of which advection is computed
@@ -1150,20 +1151,20 @@ CONTAINS
 !     INTEGER :: i_startidx_c, i_endidx_c
 !     INTEGER :: i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
 !     INTEGER :: jev, ile,ibe, i_v1_ctr, i_v2_ctr
-!     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
-!     REAL(wp) :: z_vort_glb(nproma,n_zlev,p_patch%nblks_v)
-!     REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,p_patch%nblks_e)
-!     REAL(wp) :: z_kin_rbf_e(nproma,n_zlev,p_patch%nblks_e)
+!     REAL(wp) :: z_e  (nproma,n_zlev,patch_2D%nblks_e)
+!     REAL(wp) :: z_vort_glb(nproma,n_zlev,patch_2D%nblks_v)
+!     REAL(wp) :: z_grad_ekin_rbf(nproma,n_zlev,patch_2D%nblks_e)
+!     REAL(wp) :: z_kin_rbf_e(nproma,n_zlev,patch_2D%nblks_e)
 !     INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-!     REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
-!     REAL(wp) :: z_vort_flx_rbf(nproma,n_zlev,p_patch%nblks_e)
-!     REAL(wp) :: z_kin_e_rbf(nproma,n_zlev,p_patch%nblks_e)
+!     REAL(wp) :: z_vort_e(nproma,n_zlev,patch_2D%nblks_e)
+!     REAL(wp) :: z_vort_flx_rbf(nproma,n_zlev,patch_2D%nblks_e)
+!     REAL(wp) :: z_kin_e_rbf(nproma,n_zlev,patch_2D%nblks_e)
 !     REAL(wp) :: z_weight_e1,z_weight_e2, z_weight_e3!, z_weight
 !     TYPE(t_subset_range), POINTER :: all_edges, owned_edges, all_cells
 !     !-----------------------------------------------------------------------
-!     all_edges   => p_patch%edges%all
-!     owned_edges => p_patch%edges%owned
-!     all_cells   => p_patch%cells%all
+!     all_edges   => patch_2D%edges%all
+!     owned_edges => patch_2D%edges%owned
+!     all_cells   => patch_2D%cells%all
 ! 
 !     ! #slo# set local variable to zero due to nag -nan compiler-option
 !     z_e             (:,:,:) = 0.0_wp
@@ -1179,12 +1180,12 @@ CONTAINS
 !     elev = n_zlev
 ! 
 !     CALL rbf_vec_interpol_edge( vn,       &
-!       & p_patch,  &
+!       & patch_2D,  &
 !       & p_int,    &
 !       & p_diag%vt,&
 !       & opt_slev=slev,opt_elev=elev)
 ! 
-!     CALL sync_patch_array(SYNC_E, p_patch, p_diag%v)
+!     CALL sync_patch_array(SYNC_E, patch_2D, p_diag%v)
 ! 
 ! 
 !     DO jb = all_edges%start_block, all_edges%end_block
@@ -1199,59 +1200,59 @@ CONTAINS
 !       END DO
 !     END DO
 ! 
-!     CALL rot_vertex_ocean_rbf(p_patch,vn, p_diag%vt, p_diag%vort)
-!     ! CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
+!     CALL rot_vertex_ocean_rbf(patch_2D,vn, p_diag%vt, p_diag%vort)
+!     ! CALL verts2edges_scalar( p_diag%vort, patch_2D, p_int%v_1o2_e, &
 !     !                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
-!     CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
+!     CALL sync_patch_array(SYNC_V, patch_2D, p_diag%vort)
 ! 
 ! 
 !     DO jb = owned_edges%start_block, owned_edges%end_block
 !       CALL get_index_range(owned_edges, jb, i_startidx_e, i_endidx_e)
 !       DO jk = slev, slev
 !         DO je=i_startidx_e, i_endidx_e
-!           i_v1_idx = p_patch%edges%vertex_idx(je,jb,1)
-!           i_v1_blk = p_patch%edges%vertex_blk(je,jb,1)
-!           i_v2_idx = p_patch%edges%vertex_idx(je,jb,2)
-!           i_v2_blk = p_patch%edges%vertex_blk(je,jb,2)
+!           i_v1_idx = patch_2D%edges%vertex_idx(je,jb,1)
+!           i_v1_blk = patch_2D%edges%vertex_blk(je,jb,1)
+!           i_v2_idx = patch_2D%edges%vertex_idx(je,jb,2)
+!           i_v2_blk = patch_2D%edges%vertex_blk(je,jb,2)
 !           !count wet edges in vertex 1
 !           i_v1_ctr = 0
-!           DO jev = 1, p_patch%verts%num_edges(i_v1_idx,i_v1_blk)
-!             ile = p_patch%verts%edge_idx(i_v1_idx,i_v1_blk,jev)
-!             ibe = p_patch%verts%edge_blk(i_v1_idx,i_v1_blk,jev)
+!           DO jev = 1, patch_2D%verts%num_edges(i_v1_idx,i_v1_blk)
+!             ile = patch_2D%verts%edge_idx(i_v1_idx,i_v1_blk,jev)
+!             ibe = patch_2D%verts%edge_blk(i_v1_idx,i_v1_blk,jev)
 !             IF ( v_base%lsm_e(ile,jk,ibe) == sea ) THEN
 !               i_v1_ctr = i_v1_ctr +1
 !             ENDIF
 !           END DO
 !           !count wet edges in vertex 2
 !           i_v2_ctr = 0
-!           DO jev = 1, p_patch%verts%num_edges(i_v2_idx,i_v2_blk)
-!             ile = p_patch%verts%edge_idx(i_v2_idx,i_v2_blk,jev)
-!             ibe = p_patch%verts%edge_blk(i_v2_idx,i_v2_blk,jev)
+!           DO jev = 1, patch_2D%verts%num_edges(i_v2_idx,i_v2_blk)
+!             ile = patch_2D%verts%edge_idx(i_v2_idx,i_v2_blk,jev)
+!             ibe = patch_2D%verts%edge_blk(i_v2_idx,i_v2_blk,jev)
 !             IF ( v_base%lsm_e(ile,jk,ibe) == sea ) THEN
 !               i_v2_ctr = i_v2_ctr +1
 !             ENDIF
 !           END DO
-!           IF(   i_v1_ctr==p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!             & .AND.i_v2_ctr==p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+!           IF(   i_v1_ctr==patch_2D%verts%num_edges(i_v1_idx,i_v1_blk)&
+!             & .AND.i_v2_ctr==patch_2D%verts%num_edges(i_v2_idx,i_v2_blk))THEN
 ! 
 !             z_vort_e(je,jk,jb) =&
 !               & 0.5_wp*(p_diag%vort(i_v1_idx,jk,i_v1_blk)&
 !               & +        p_diag%vort(i_v2_idx,jk,i_v2_blk))
 ! 
-!           ELSEIF(   i_v1_ctr==p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!             & .AND.i_v2_ctr <p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+!           ELSEIF(   i_v1_ctr==patch_2D%verts%num_edges(i_v1_idx,i_v1_blk)&
+!             & .AND.i_v2_ctr <patch_2D%verts%num_edges(i_v2_idx,i_v2_blk))THEN
 ! 
 !             z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
 !               & + REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
 ! 
-!           ELSEIF(   i_v1_ctr<p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!             & .AND.i_v2_ctr==p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+!           ELSEIF(   i_v1_ctr<patch_2D%verts%num_edges(i_v1_idx,i_v1_blk)&
+!             & .AND.i_v2_ctr==patch_2D%verts%num_edges(i_v2_idx,i_v2_blk))THEN
 ! 
 !             z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
 !               & + REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
 ! 
-!           ELSEIF(   i_v1_ctr<p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!             & .AND.i_v2_ctr<p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+!           ELSEIF(   i_v1_ctr<patch_2D%verts%num_edges(i_v1_idx,i_v1_blk)&
+!             & .AND.i_v2_ctr<patch_2D%verts%num_edges(i_v2_idx,i_v2_blk))THEN
 ! 
 !             z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
 !               & + REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
@@ -1271,7 +1272,7 @@ CONTAINS
 !         END DO
 !       END DO
 !     ENDDO
-!     CALL sync_patch_array(SYNC_E, p_patch, z_vort_e)
+!     CALL sync_patch_array(SYNC_E, patch_2D, z_vort_e)
 ! 
 ! 
 !     DO jb = all_edges%start_block, all_edges%end_block
@@ -1280,8 +1281,8 @@ CONTAINS
 !         DO je=i_startidx_e, i_endidx_e
 !           IF ( v_base%lsm_e(je,jk,jb) == sea ) THEN
 !             z_vort_flx_rbf(je,jk,jb) =&
-!               & p_diag%vt(je,jk,jb)*(p_patch%edges%f_e(je,jb)+z_vort_e(je,jk,jb))
-!             !          & p_diag%vt(je,jk,jb)*p_patch%edges%f_e(je,jb)
+!               & p_diag%vt(je,jk,jb)*(patch_2D%edges%f_e(je,jb)+z_vort_e(je,jk,jb))
+!             !          & p_diag%vt(je,jk,jb)*patch_2D%edges%f_e(je,jb)
 !           ELSE
 !             z_vort_flx_rbf(je,jk,jb) = 0.0_wp
 !           ENDIF
@@ -1289,9 +1290,9 @@ CONTAINS
 !       END DO
 !     ENDDO
 ! 
-!     CALL rbf_vec_interpol_cell( vn, p_patch, p_int, p_diag%u,  &
+!     CALL rbf_vec_interpol_cell( vn, patch_2D, p_int, p_diag%u,  &
 !       & p_diag%v, opt_slev=slev, opt_elev=elev)
-!     CALL sync_patch_array(SYNC_C, p_patch, p_diag%v)
+!     CALL sync_patch_array(SYNC_C, patch_2D, p_diag%v)
 ! 
 !     !write(*,*)'max/min vort flux:', MAXVAL(z_vort_flx_RBF(:,1,:)),MINVAL(z_vort_flx_RBF(:,1,:))
 !     DO jb = all_edges%start_block, all_edges%end_block
@@ -1309,7 +1310,7 @@ CONTAINS
 !     !!$OMP END PARALLEL
 !     ! Bilinear interpolation of kinetic energy from the edges to the cells
 !     !    CALL edges2cells_scalar( z_kin_RBF_e,     &
-!     !                           & p_patch,         &
+!     !                           & patch_2D,         &
 !     !                           & p_int%e_bln_c_s, &
 !     !                           & p_diag%kin,      &
 !     !                           & opt_slev=slev,opt_elev=elev)
@@ -1321,23 +1322,23 @@ CONTAINS
 !             p_diag%kin(jc,jk,jb) = 0.0_wp
 !           ELSE
 ! 
-!             ile1 = p_patch%cells%edge_idx(jc,jb,1)
-!             ibe1 = p_patch%cells%edge_blk(jc,jb,1)
-!             ile2 = p_patch%cells%edge_idx(jc,jb,2)
-!             ibe2 = p_patch%cells%edge_blk(jc,jb,2)
-!             ile3 = p_patch%cells%edge_idx(jc,jb,3)
-!             ibe3 = p_patch%cells%edge_blk(jc,jb,3)
+!             ile1 = patch_2D%cells%edge_idx(jc,jb,1)
+!             ibe1 = patch_2D%cells%edge_blk(jc,jb,1)
+!             ile2 = patch_2D%cells%edge_idx(jc,jb,2)
+!             ibe2 = patch_2D%cells%edge_blk(jc,jb,2)
+!             ile3 = patch_2D%cells%edge_idx(jc,jb,3)
+!             ibe3 = patch_2D%cells%edge_blk(jc,jb,3)
 !             z_weight_e1 = 0.0_wp
 !             z_weight_e2 = 0.0_wp
 !             z_weight_e3 = 0.0_wp
 !             IF(v_base%lsm_e(ile1,jk,ibe1)<= boundary)THEN
-!               z_weight_e1 = p_patch%edges%area_edge(ile1,ibe1)
+!               z_weight_e1 = patch_2D%edges%area_edge(ile1,ibe1)
 !             ENDIF
 !             IF(v_base%lsm_e(ile2,jk,ibe2)<= boundary)THEN
-!               z_weight_e2 = p_patch%edges%area_edge(ile2,ibe2)
+!               z_weight_e2 = patch_2D%edges%area_edge(ile2,ibe2)
 !             ENDIF
 !             IF(v_base%lsm_e(ile3,jk,ibe3)<= boundary)THEN
-!               z_weight_e3 = p_patch%edges%area_edge(ile3,ibe3)
+!               z_weight_e3 = patch_2D%edges%area_edge(ile3,ibe3)
 !             ENDIF
 ! 
 !             !write(*,*)'weights',jc,jk,jb,z_weight_e1,z_weight_e2,z_weight_e3
@@ -1353,14 +1354,14 @@ CONTAINS
 !     END DO
 ! 
 !    CALL grad_fd_norm_oce_3d( p_diag%kin, &
-!       & p_patch,    &
+!       & patch_2D,    &
 !       & grad_coeff, &
 !       & z_grad_ekin_rbf)
 ! 
 ! !     CALL grad_fd_norm_oce( p_diag%kin, &
-! !       & p_patch,    &
+! !       & patch_2D,    &
 ! !       & z_grad_ekin_rbf, opt_slev=slev,opt_elev=elev)
-! !     CALL sync_patch_array(SYNC_C, p_patch, z_grad_ekin_rbf)
+! !     CALL sync_patch_array(SYNC_C, patch_2D, z_grad_ekin_rbf)
 ! 
 ! 
 !     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
@@ -1412,7 +1413,7 @@ CONTAINS
 !   !! Developed  by  Peter Korn, MPI-M (2010).
 !   !!  mpi parallelized LL
 !    !!
-!   SUBROUTINE veloc_adv_vert_rbf( p_patch, u_c, v_c, w_c, &
+!   SUBROUTINE veloc_adv_vert_rbf( patch_2D, u_c, v_c, w_c, &
 !     & top_bc_u_c, top_bc_v_c, &
 !     & bot_bc_u_c,  bot_bc_v_c,&
 !     & top_bc_w_c,  bot_bc_w_c,&
@@ -1420,7 +1421,7 @@ CONTAINS
 !     !
 !     !  patch on which computation is performed
 !     !
-!     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+!     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 ! 
 !     !
 !     ! Components of cell based variable which is vertically advected
@@ -1448,12 +1449,12 @@ CONTAINS
 ! 
 !     TYPE(t_subset_range), POINTER :: all_cells
 ! 
-!     REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks),  &
-!       & z_adv_v_i(nproma,n_zlev+1,p_patch%alloc_cell_blocks),  &
-!       & z_adv_u_m(nproma,n_zlev,p_patch%alloc_cell_blocks),  &
-!       & z_adv_v_m(nproma,n_zlev,p_patch%alloc_cell_blocks)
+!     REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,patch_2D%alloc_cell_blocks),  &
+!       & z_adv_v_i(nproma,n_zlev+1,patch_2D%alloc_cell_blocks),  &
+!       & z_adv_u_m(nproma,n_zlev,patch_2D%alloc_cell_blocks),  &
+!       & z_adv_v_m(nproma,n_zlev,patch_2D%alloc_cell_blocks)
 !     !-----------------------------------------------------------------------
-!     all_cells => p_patch%cells%all
+!     all_cells => patch_2D%cells%all
 ! 
 !     ! #slo# set local variable to zero due to nag -nan compiler-option
 !     z_adv_u_i(:,:,:) = 0.0_wp
@@ -1555,7 +1556,7 @@ CONTAINS
 !     END DO
 ! 
 !     ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-! !     CALL primal_map_c2e( p_patch,&
+! !     CALL primal_map_c2e( patch_2D,&
 ! !       & z_adv_u_m, z_adv_v_m,&
 ! !       & veloc_adv_vert_e )
 !     ! result is synced in the called funtion

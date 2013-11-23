@@ -241,6 +241,7 @@ CONTAINS
               max_value    = MAX(max_value, values(idx, block))
               sum_value    = sum_value + values(idx, block)
               number_of_values = number_of_values +  1
+              ! write(*,*) "number of values=", number_of_values, " value=", values(idx, block), " sum=", sum_value
             ENDIF
           ENDDO
         ENDDO

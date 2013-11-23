@@ -1391,7 +1391,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
       ENDIF ! z_dolic > 0
     END DO
   END DO
-  CALL dbg_print('VertTracDiffImpl:residual' ,residual ,str_module,5)
+  CALL dbg_print('VertTracDiffImpl:residual' ,residual ,str_module,5, in_subset=p_patch%cells%owned)
 
   ! CALL sync_patch_array(SYNC_C, p_patch, diff_column)
 

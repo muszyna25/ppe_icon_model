@@ -674,9 +674,10 @@ CONTAINS
     CALL dbg_print('internal pressure'         ,ocean_state%p_diag%press_hyd     ,str_module,idt_src, &
       in_subset = owned_cells)
     CALL dbg_print('internal press grad'       ,ocean_state%p_diag%press_grad    ,str_module,idt_src, &
-      in_subset = owned_cells)
+      in_subset = owned_edges)
     idt_src = 4  ! output print level (1-5, fix)
-    CALL dbg_print('kinetic energy'            ,ocean_state%p_diag%kin           ,str_module,idt_src)
+    CALL dbg_print('kinetic energy'            ,ocean_state%p_diag%kin           ,str_module,idt_src, &
+      in_subset = owned_cells)
     CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src)
     !---------------------------------------------------------------------
     
@@ -1210,9 +1211,13 @@ CONTAINS
     CALL dbg_print('RHS thick_e'               ,ocean_state%p_diag%thick_e      ,str_module,idt_src)
     CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src)
     CALL dbg_print('RHS z_e'                   ,z_e                      ,str_module,idt_src)
-    CALL dbg_print('RHS div_z_depth_int_c'     ,div_z_depth_int_c        ,str_module,idt_src)
+    CALL dbg_print('RHS div_z_depth_int_c'     ,div_z_depth_int_c        ,str_module,idt_src, &
+      in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('RHS div_z_c'     ,div_z_c        ,str_module,idt_src, &
+      in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('RHS final'                 ,ocean_state%p_aux%p_rhs_sfc_eq  ,str_module,idt_src)
+    CALL dbg_print('RHS final'                 ,ocean_state%p_aux%p_rhs_sfc_eq  ,str_module,idt_src, &
+      in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE fill_rhs4surface_eq_ab
@@ -1498,7 +1503,8 @@ CONTAINS
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('NorVel: Staggered, kin'    ,ocean_state%p_diag%kin        ,str_module,idt_src)
+      CALL dbg_print('NorVel: Staggered, kin'    ,ocean_state%p_diag%kin        ,str_module,idt_src, &
+        in_subset = owned_cells)
       CALL dbg_print('NorVel: Staggered, ptp_vn' ,ocean_state%p_diag%ptp_vn     ,str_module,idt_src)
       !---------------------------------------------------------------------
     ENDIF
@@ -1677,7 +1683,7 @@ CONTAINS
       & str_module,idt_src, in_subset=cells_in_domain)
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('CalcVertVelMimBU: mass flx',ocean_state%p_diag%mass_flx_e,   &
-      &  str_module,idt_src, in_subset=cells_in_domain)
+      &  str_module,idt_src, in_subset=p_patch%edges%owned)
     CALL dbg_print('CalcVertVelMimBU: div mass',ocean_state%p_diag%div_mass_flx_c,&
       & str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
