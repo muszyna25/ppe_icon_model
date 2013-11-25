@@ -1053,22 +1053,26 @@ CONTAINS
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
 
-  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels)
+  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels,force_level)
     REAL(wp),INTENT(INOUT)          :: f_a(:,:,:)
     REAL(wp),INTENT(IN)             :: f_b(:,:,:)
     TYPE(t_subset_range),INTENT(IN) :: subset
     INTEGER,INTENT(IN),OPTIONAL     :: levels
+    LOGICAL,INTENT(IN),OPTIONAL     :: force_level
 
     INTEGER :: idx,block,level,startidx,endidx
 
     INTEGER :: mylevels
+    LOGICAL :: my_force_level
 
-    mylevels = 0
+    mylevels       = 0
+    my_force_level = .FALSE.
 
     CALL assign_if_present(mylevels, levels)
+    CALL assign_if_present(my_force_level, force_level)
 
 
-    IF (ASSOCIATED(subset%vertical_levels)) THEN
+    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. my_force_level) THEN
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, startidx, endidx)
         DO idx = startidx, endidx

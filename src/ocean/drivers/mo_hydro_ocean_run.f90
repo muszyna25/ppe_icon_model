@@ -91,7 +91,8 @@ USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
-  &                                  construct_sea_ice, destruct_sea_ice, ice_init
+  &                                  construct_sea_ice, destruct_sea_ice, ice_init, &
+  &                                  update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
 USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
   &                                  t_sea_ice
 USE mo_oce_forcing,            ONLY: init_sfcflx
@@ -392,6 +393,7 @@ CONTAINS
       &                          patch_3D%p_patch_2D(1)%edges%owned,   &
       &                          patch_3D%p_patch_2D(1)%verts%owned,   &
       &                          n_zlev)
+    CALL update_ice_statistic(p_ice%acc,p_ice,patch_3D%p_patch_2D(1)%cells%owned)
 
 
     IF (istime4name_list_output(jstep)) THEN
@@ -417,6 +419,7 @@ CONTAINS
       !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
 
       CALL compute_mean_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+      CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
 
       ! set the output variable pointer to the correct timelevel
       CALL set_output_pointers(nnew(1), p_os(jg)%p_diag, p_os(jg)%p_prog(nnew(1)))
@@ -430,6 +433,7 @@ CONTAINS
 
       ! reset accumulation vars
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
+      CALL reset_ice_statistics(p_ice%acc)
 
     END IF
 
@@ -635,7 +639,6 @@ CONTAINS
     CALL add_fields(p_os%p_acc%u_vint        , p_os%p_diag%u_vint        , cells)
     CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , cells    , max_zlev+1)
     CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, cells)
-    CALL add_fields(p_os%p_acc%rhopot        , p_os%p_diag%rhopot        , cells)
     CALL add_fields(p_os%p_acc%rho           , p_os%p_diag%rho           , cells)
     CALL add_fields(p_os%p_acc%vt            , p_os%p_diag%vt            , edges)
     CALL add_fields(p_os%p_acc%mass_flx_e    , p_os%p_diag%mass_flx_e    , edges)

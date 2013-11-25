@@ -117,6 +117,7 @@ MODULE mo_sea_ice
 !  PUBLIC :: upper_ocean_TS
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
+  PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -2518,17 +2519,14 @@ CONTAINS
 
   END SUBROUTINE calc_bulk_flux_oce
 
-  SUBROUTINE update_ice_statistic(p_acc, p_ice, subset,i_no_ice_thick_class)
+  SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
     TYPE(t_sea_ice),      INTENT(INOUT) :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
-    INTEGER, INTENT(IN)                 :: i_no_ice_thick_class
 
-    INTEGER :: jtrc,i
-
-    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , i_no_ice_thick_class)
-    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , i_no_ice_thick_class)
-    CALL add_fields(p_acc%conc, p_ice%conc, subset)
+    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , p_ice%kice,force_level=.TRUE.)
+    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , p_ice%kice,force_level=.TRUE.)
+    CALL add_fields(p_acc%conc, p_ice%conc, subset , p_ice%kice,force_level=.TRUE.)
     CALL add_fields(p_acc%u   , p_ice%u   , subset)
     CALL add_fields(p_acc%v   , p_ice%v   , subset)
   END SUBROUTINE update_ice_statistic
@@ -2536,10 +2534,18 @@ CONTAINS
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     INTEGER,INTENT(IN)                 :: nsteps_since_last_output
 
-    p_acc%hi                        = p_acc%hi                       /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs                       /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc                     /REAL(nsteps_since_last_output,wp)
+    p_acc%hi                        = p_acc%hi  /REAL(nsteps_since_last_output,wp)
+    p_acc%hs                        = p_acc%hs  /REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u   /REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v   /REAL(nsteps_since_last_output,wp)
+    p_acc%conc                      = p_acc%conc/REAL(nsteps_since_last_output,wp)
   END SUBROUTINE compute_mean_ice_statistics
+  SUBROUTINE reset_ice_statistics(p_acc)
+    TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
+    p_acc%hi                        = 0.0_wp
+    p_acc%hs                        = 0.0_wp
+    p_acc%u                         = 0.0_wp
+    p_acc%v                         = 0.0_wp
+    p_acc%conc                      = 0.0_wp
+  END SUBROUTINE reset_ice_statistics
 END MODULE mo_sea_ice

@@ -217,9 +217,15 @@ MODULE mo_mpi
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
+#ifdef  __SUNPRO_F95
+  INTEGER,PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
+            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
+            MPI_UNDEFINED, mpi_max, mpi_in_place
+#else
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
             MPI_UNDEFINED, mpi_max, mpi_in_place
+#endif
 #endif
 
   PUBLIC :: MPI_ANY_SOURCE
