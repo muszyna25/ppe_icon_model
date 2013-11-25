@@ -1591,7 +1591,7 @@ END SUBROUTINE calculate_limiter
     
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
-    CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
+    CALL sync_patch_array_mult(SYNC_C1, patch_2d, 2, z_tracer_max, z_tracer_min)
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, &
