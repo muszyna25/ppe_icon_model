@@ -913,6 +913,7 @@ CONTAINS
       zhsd = 8434.0_wp/3000.0_wp      !
 
     INTEGER :: jc,jk
+    REAL(wp) :: log_eta
 
     !- End of header
     !==============================================================================
@@ -937,10 +938,11 @@ CONTAINS
 
     DO jk=2,klevp1
       DO jc=jcs,jce
-        pvdaes(jc,jk) = petah(jc,jk)**zhss
-        pvdael(jc,jk) = petah(jc,jk)**zhsl
-        pvdaeu(jc,jk) = petah(jc,jk)**zhsu
-        pvdaed(jc,jk) = petah(jc,jk)**zhsd
+        log_eta       = LOG(petah(jc,jk))
+        pvdaes(jc,jk) = EXP(zhss*log_eta) ! petah(jc,jk)**zhss
+        pvdael(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsl; zhsl is the same as zhss
+        pvdaeu(jc,jk) = pvdaes(jc,jk)     ! petah(jc,jk)**zhsu; zhsu is the same as zhss
+        pvdaed(jc,jk) = EXP(zhsd*log_eta) ! petah(jc,jk)**zhsd
       ENDDO
     ENDDO
 

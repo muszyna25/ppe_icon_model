@@ -1153,6 +1153,7 @@ SUBROUTINE hydci_pp (             &
     
      ENDDO
 
+!DIR$ IVDEP
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qs_prepare: DO i1d = 1, ic1
       iv = ivdx1(i1d)
@@ -1208,6 +1209,7 @@ SUBROUTINE hydci_pp (             &
     ENDDO loop_over_qs_prepare
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
     loop_over_qr_sedi: DO i1d = 1, ic2
       iv = ivdx2(i1d)
 
@@ -1219,6 +1221,7 @@ SUBROUTINE hydci_pp (             &
     ENDDO loop_over_qr_sedi
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
     loop_over_qi_sedi: DO i1d = 1, ic3
       iv = ivdx3(i1d)
       
@@ -1386,6 +1389,7 @@ SUBROUTINE hydci_pp (             &
 
 ! ic2
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
     loop_over_qs_coeffs: DO i1d =1, ic2
       iv = ivdx2(i1d)
 

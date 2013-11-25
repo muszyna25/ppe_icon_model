@@ -1569,6 +1569,7 @@ CONTAINS
       ELSEIF (kmodts == 2) THEN
 !IBM* ASSERT(NODEPS)
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
         DO jc = 1,ict
           ic = idxt(jc)
 
@@ -1663,6 +1664,7 @@ CONTAINS
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
         DO jc = 1,icc
           ic = idxc(jc)
 
@@ -1697,6 +1699,7 @@ CONTAINS
       ELSE
 !IBM* ASSERT(NODEPS)
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
         DO jc = 1,icn
           ic = idxn(jc)
           zzz = zgamma1(ic)**2 - zgamma2(ic)**2
@@ -1759,6 +1762,7 @@ CONTAINS
       ELSE
 !IBM* ASSERT(NODEPS)
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
         DO jc = 1,icn
           ic = idxn(jc)
           zw  =pw(ic,jk)

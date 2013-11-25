@@ -413,6 +413,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
       DO jk = 1, nlev
         jk1 = jk + nshift
 #else
@@ -486,12 +487,30 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-!CDIR EXPAND=3
-        p_tot_cld(jc,jk1,jb,1:3) =                                        &
-          tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
-          tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1:3)*p_fbkwgt(jc,jb,2) + &
-          tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:3)*p_fbkwgt(jc,jb,3) + &
-          tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:3)*p_fbkwgt(jc,jb,4)
+        p_tot_cld(jc,jk1,jb,1) =                                        &
+          tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1)*p_fbkwgt(jc,jb,1) + &
+          tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1)*p_fbkwgt(jc,jb,2) + &
+          tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1)*p_fbkwgt(jc,jb,3) + &
+          tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1)*p_fbkwgt(jc,jb,4)
+
+      ENDDO
+    ENDDO
+
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
+        jk1 = jk + nshift
+#else
+    DO jk = 1, nlev
+      jk1 = jk + nshift
+      DO jc = i_startidx, i_endidx
+#endif
+!CDIR EXPAND=2
+        p_tot_cld(jc,jk1,jb,2:3) =                                        &
+          tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),2:3)*p_fbkwgt(jc,jb,1) + &
+          tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),2:3)*p_fbkwgt(jc,jb,2) + &
+          tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),2:3)*p_fbkwgt(jc,jb,3) + &
+          tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),2:3)*p_fbkwgt(jc,jb,4)
 
         IF (p_clc(jc,jk1,jb) < 0.95_wp) THEN ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
 !CDIR EXPAND=2
@@ -530,7 +549,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
   IF (jgp == 0) THEN
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+12, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,             &
@@ -540,15 +558,13 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
                             RECV5=zrg_aux3d,   SEND5=z_aux3d,                &
                             RECV6=rg_q_o3,     SEND6=z_q_o3                  )
 
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 6*nlev_rg, &
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 9, 9*nlev_rg, &
                             RECV1=rg_aeq1,     SEND1=z_aeq1,              &
                             RECV2=rg_aeq2,     SEND2=z_aeq2,              &
                             RECV3=rg_aeq3,     SEND3=z_aeq3,              &
                             RECV4=rg_aeq4,     SEND4=z_aeq4,              &
                             RECV5=rg_aeq5,     SEND5=z_aeq5,              &
-                            RECV6=rg_clc,      SEND6=z_clc                )
-    
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_rg, &
+                            RECV6=rg_clc,      SEND6=z_clc,               &
                             RECV4D=rg_tot_cld, SEND4D=z_tot_cld           )
 
 
@@ -843,7 +859,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
   tsfc_backintp(:,:) = z_aux3d(:,2,:)
   alb_backintp(:,:)  = z_aux3d(:,3,:)
 
-
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
   ! Reconstruct solar transmissivities from interpolated transmissivity differences
@@ -913,12 +928,14 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
       swfac1(jc) = (MAX(1.e-3_wp,p_trsolall(jc,nlevp1_rg,jb))/           &
                     MAX(1.e-3_wp,p_trsolclr(jc,nlevp1_rg,jb)) )**0.36_wp
       swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.1_wp
+      lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
+    ENDDO
+    DO jc = i_startidx, i_endidx
       IF (tqv(jc) > 15._wp) then
         lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
       ELSE
         lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
       ENDIF
-      lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
     ENDDO
 
     DO jk = 1,nlevp1
