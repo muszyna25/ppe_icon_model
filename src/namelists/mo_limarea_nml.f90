@@ -116,7 +116,7 @@ CONTAINS
     latbc_config% dtime_latbc     = dtime_latbc
     latbc_config% nlev_in         = nlev_latbc
     latbc_config% latbc_filename  = latbc_filename
-    latbc_config% latbc_path      = latbc_path//'//'
+    latbc_config% latbc_path      = TRIM(latbc_path)//'/'
 
     !-----------------------------------------------------
     ! Store the namelist for restart
