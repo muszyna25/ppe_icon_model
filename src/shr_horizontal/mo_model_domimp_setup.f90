@@ -112,6 +112,7 @@ MODULE mo_model_domimp_setup
   USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity, use_dummy_cell_closure, grid_sphere_radius
   USE mo_sync,               ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,t_subset_range, get_index_range, read_subset, write_subset
+  USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq, global_mpi_barrier, &
     & get_my_global_mpi_id
 
@@ -1272,7 +1273,7 @@ CONTAINS
 !        write(0,*) "=============================="
 !       ENDIF
         CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
-      ELSE
+      ELSE IF (msg_level >= 20) THEN ! for nested atmospheric grids, this is normal
         CALL warning(method_name, "patch%cells%in_domain no_of_holes > 0")
       ENDIF
     ENDIF
@@ -1290,7 +1291,9 @@ CONTAINS
 !        write(0,*) "=============================="
 !        CALL finish(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
 !      ELSE
-        CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
+         IF (msg_level >= 20) THEN ! for nested atmospheric grids, this is normal
+           CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
+         ENDIF
 !      ENDIF
     ENDIF
     
@@ -1316,10 +1319,10 @@ CONTAINS
       & mask=patch%edges%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_in_domain%is_in_domain   = .false.
     
-    IF (patch%edges%owned%no_of_holes > 0)  THEN
+    IF (patch%edges%owned%no_of_holes > 0 .AND. msg_level >= 20)  THEN
         CALL warning(method_name, "patch%edges%owned no_of_holes > 0")
     ENDIF
-    IF (patch%edges%in_domain%no_of_holes > 0)  THEN
+    IF (patch%edges%in_domain%no_of_holes > 0 .AND. msg_level >= 20)  THEN
         CALL warning(method_name, "patch%edges%in_domain no_of_holes > 0")
     ENDIF
 !    IF (get_my_mpi_work_id() == 0) THEN

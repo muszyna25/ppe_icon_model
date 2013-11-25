@@ -134,7 +134,7 @@ MODULE mo_model_domimp_patches
     & get_gridfile_cell_type
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
-    &                              number_of_grid_used
+    &                              number_of_grid_used, msg_level
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -2157,7 +2157,11 @@ CONTAINS
     INTEGER :: ip
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:calculate_cartesian_positions'
     !-----------------------------------------------------------------------
-    CALL warning(method_name, " is called")
+    ! GZ: This routine is always called with grids from the global grid generator, so this warning
+    ! is more confusing than useful
+    IF (msg_level >= 15 .OR. patch%geometry_info%geometry_type /= sphere_geometry) THEN
+      CALL warning(method_name, " is called")
+    ENDIF
     IF (patch%geometry_info%geometry_type /= sphere_geometry) &
       CALL finish(method_name, "geometry_type /= sphere_geometry")
 
