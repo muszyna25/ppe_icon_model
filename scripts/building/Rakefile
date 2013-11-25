@@ -75,6 +75,7 @@ $hosts = {
 # * remote builds start with 'remote'
 $builds = {
   :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
+  :localCmake        => {:host => :thingol , :subdir => 'cmake'}     ,
   :localGccHi        => {:host => :thingol , :subdir => 'gcc-hiopt', :CC => 'gcc'      , :FLAGS => 'hiopt'},
   :localGprof        => {:host => :thingol , :subdir => 'gprof'}   ,
   :localOpenMP       => {:host => :thingol , :subdir => 'openmp'   ,                     :FLAGS => 'hiopt' , :openmp => true}  ,
@@ -161,6 +162,9 @@ $remoteConnection = lambda {|build|
 # configure for a given build call wrt. to given options
 $configureCall = lambda {|build|
   configureCall = ''
+  if /cmake/i.match(build.to_s) then
+  configureCall << './cmake.configure'
+  else
   configureCall << "#{$builds[build][:preConf]};" unless $builds[build][:preConf].nil?
   configureCall << "COMPILER=#{$builds[build][:CC].nil? ? 'gcc' : $builds[build][:CC]} "
   configureCall << './configure'
@@ -169,14 +173,20 @@ $configureCall = lambda {|build|
   configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
   configureCall << " " << $builds[build][:confOpts] if $builds[build].has_key?(:confOpts)
   configureCall << " ;"
+  end
   configureCall
 }
 
 # build call
 $buildCall = lambda {|build|
   buildCall = ''
+  if /cmake/i.match(build.to_s) then
+  buildCall << 'make ;'
+  else
   buildCall << $builds[build][:preBuild]  << ';' unless $builds[build][:preBuild].nil?
   buildCall << './build_command;'
+  end
+  buildCall
 }
 
 # ============================================================================
@@ -309,7 +319,7 @@ def doCheckExp(build,exp)
           echo '#===========================================================================';
           echo " $file";echo
           cdo showname  $file
-          cdo sinfov $file
+          cdo infov $file
           #cdo -infov -seltimestep,2 $file
           #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
           #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
