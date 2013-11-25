@@ -146,7 +146,7 @@ MODULE mo_model_domain
     TYPE(t_patch_3D), POINTER :: patch_3D
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
-    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
+    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of vertical levels array
 
     LOGICAL :: is_in_domain
 
@@ -288,19 +288,23 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:)
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:)
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
 
     ! list of start block for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:)
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
 
     ! list of end block for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:)
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
 
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
@@ -505,19 +509,23 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:)
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:)
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
 
     ! list of start block for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:)
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
 
     ! list of end block for each refin_ctrl level
     ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:)
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
 
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info
@@ -593,19 +601,23 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:)
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:)
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
 
     ! list of start block for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:)
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
 
     ! list of end block for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:)
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
 
     ! information on domain decomposition
     TYPE(t_grid_domain_decomp_info) :: decomp_info

@@ -60,7 +60,8 @@ MODULE mo_impl_constants
 !
 !
 !
-  USE mo_kind,            ONLY: wp
+  USE mo_kind,               ONLY: wp
+  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
 
@@ -244,6 +245,44 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)  ! -13
   INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell              ! 10
 
+  ! Aliases for loop control
+  !
+  ! start index level for prognostic cells (excluding a possible nest boundary interpolation zone)
+  INTEGER, PARAMETER :: start_prog_cells = grf_bdywidth_c+1
+  ! start index level for prognostic edges (excluding a possible nest boundary interpolation zone)
+  INTEGER, PARAMETER :: start_prog_edges = grf_bdywidth_e+1
+  ! remark: the corresponding parameter for vertices would be unused
+  !
+  ! end index level for computations excluding all halo cells
+  INTEGER, PARAMETER :: end_prog_cells = min_rlcell_int
+  ! end index level for computations including halo level 1 cells (direct neighbors, i.e. halo cells 
+  ! sharing an edge with a prognostic cell)
+  INTEGER, PARAMETER :: end_halo_lev1_cells = min_rlcell_int - 1
+  ! end index for computations including all halo cells (this adds indirect neighbors, i.e.
+  ! halo cells sharing only a vertex with a prognostic cell)
+  ! remark: n_ghost_rows=2, i.e. using a full second row of halo cells, is currently not foreseen in the code,
+  ! so an end index level of min_rlcell_int - 2 is equivalent to min_rlcell
+  INTEGER, PARAMETER :: end_all_cells = min_rlcell
+  !
+  ! end index level for computations excluding all halo edges
+  INTEGER, PARAMETER :: end_prog_edges = min_rledge_int
+  ! end index level for edges of prognostic cells (including those not owned by the current PE)
+  INTEGER, PARAMETER :: end_edges_of_prog_cells = min_rledge_int - 1
+  ! end index level for computations including all edges of halo level 1 cells
+  INTEGER, PARAMETER :: end_halo_lev1_edges = min_rledge_int - 2
+  ! end index for computations including all halo edges (remark: consistent with what has been said above,
+  ! min_rledge is equivalent to min_rledge_int - 3)
+  INTEGER, PARAMETER :: end_all_edges = min_rledge
+  !
+  ! end index level for computations excluding all halo verices
+  INTEGER, PARAMETER :: end_prog_verts = min_rlvert_int
+  ! end index level for vertices of prognostic cells (including those not owned by the current PE)
+  INTEGER, PARAMETER :: end_verts_of_prog_cells = min_rlvert_int - 1
+  ! end index for computations including all halo vertices (remark: consistent with what has been said above,
+  ! min_rledge is equivalent to min_rlvert_int - 2)
+  INTEGER, PARAMETER :: end_all_verts = min_rlvert
+
+
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
 
@@ -266,13 +305,6 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: LEAPFROG_SI   = 14 ! semi-implicit leapfrog
   INTEGER,PARAMETER :: RK4           = 15 ! standard 4th-order Runge-Kutta method
   INTEGER,PARAMETER :: SSPRK54       = 16 ! SSP RK(5,4)
-
-  ! the non-hydrostatic model
-  INTEGER,PARAMETER :: MATSUNO_DEF  = 4 !31 future enumeration to make the belonging clear,  Matsuno scheme
-  INTEGER,PARAMETER :: MATSUNO_COR  = 3 !32 Matsuno, comp of velocity tendencies on corretor step only
-  INTEGER,PARAMETER :: MATSUNO_UNK  = 5 !34 Matsuno, variation unknown
-  INTEGER,PARAMETER :: MATSUNO_AVE  = 6 !33 Matsuno with velocitiy tendendcies averaged over 2 time steps
-
 
   ! Scheme for the "slow" component in the TWO_TL_SI time stepping
   INTEGER,PARAMETER :: EULER_FORWARD = 1
