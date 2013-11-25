@@ -5,6 +5,7 @@ cmake_minimum_required (VERSION 2.8 FATAL_ERROR)
 #
 project (icon C Fortran)
 add_definitions (-D__ICON__)
+add_definitions (-D__JSBACH__)
 #_________________________________________________________________________________________________
 #
 message (STATUS "Selected system                      : ${CMAKE_SYSTEM_NAME}")

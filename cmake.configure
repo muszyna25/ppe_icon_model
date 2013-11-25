@@ -6,7 +6,7 @@
 #________________________________________________________________________________________________
 #
 #
-set -eux
+set -eu
 #
 #________________________________________________________________________________________________
 #
@@ -16,15 +16,9 @@ set -eux
 #
 # cleanup old stuff
 #
-if [[ -f CMakeCache.txt ]]
-then
-    rm -f CMakeCache.txt
-fi
+find . -name CMakeCache.txt -print -exec rm -f {} \; || ret=$?
 #
-if [[ -d CMakeFiles ]]
-then
-    rm -rf CMakeFiles
-fi
+find . -name CMakeFiles -print -exec rm -rf {} \; || ret=$?
 #________________________________________________________________________________________________
 #
 # select machine specifics
