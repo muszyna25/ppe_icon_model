@@ -25,6 +25,9 @@ find . -name CMakeFiles -print -exec rm -rf {} \; || ret=$?
 #
 case $(hostname) in
     thunder*)
+	set +u
+	. /sw/share/Modules/init/bash
+	set -u
 	# test for FindNETCDF.cmake with netcdf-3.6.3
 	#
 	#CC=gcc \
@@ -42,10 +45,13 @@ case $(hostname) in
 	#
 	# test for FindNETCDF.cmake with netcdf-4.2.1.1
 	# 
+	module load mvapich2/1.9b-static-gcc47 
+        
 	CC=gcc CFLAGS=-DpgiFortran \
 	FC=gfortran \
 	NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static \
 	NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 \
+        HDF5ROOT=/sw/squeeze-x64/hdf5-1.8.8-static \
 	cmake $(pwd)
         ;;
     wanglung*)

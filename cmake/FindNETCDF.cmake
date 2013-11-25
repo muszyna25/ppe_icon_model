@@ -87,7 +87,7 @@ message ("   netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
 message ("   netCDF C library directory       : ${NETCDF_C_LIBRARY_DIR}")
 message ("   netCDF C libraries               : ${NETCDF_C_LIBRARY}")
 
-if (_netcdf_nc4_support)
+if (${_netcdf_nc4_support} STREQUAL "yes")
 
   message ("   netCDF installation supports nc4 format (hdf5 based)")
 
@@ -210,7 +210,7 @@ message ("   netCDF Fortran module directory  : ${NETCDF_Fortran_MODULE_DIR}")
 message ("   netCDF Fortran library directory : ${NETCDF_Fortran_LIBRARY_DIR}")
 message ("   netCDF Fortran libraries         : ${NETCDF_Fortran_LIBRARY}")
 
-set (NETCDF_INCLUDE_DIRS ${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_DIR} ${NETCDF_INCLUDE_DIR})
+set (NETCDF_INCLUDE_DIRS ${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_DIR} ${NETCDF_C_INCLUDE_DIR})
 set (NETCDF_LIBRARY_DIRS ${NETCDF_Fortran_LIBRARY_DIR} ${NETCDF_C_LIBRARY_DIR})
 set (NETCDF_LIBRARIES    ${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY})
 
