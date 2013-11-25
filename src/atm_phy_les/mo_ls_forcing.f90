@@ -261,9 +261,15 @@ MODULE mo_ls_forcing
       CALL global_hor_mean(p_patch, qv, qv_gb_fl, inv_no_gb_cells, i_nchdom)
       CALL global_hor_mean(p_patch, ql, ql_gb_fl, inv_no_gb_cells, i_nchdom)
 
-      ddt_qv_ls   = ddt_qv_ls   + ddt_qt_hadv_ls * (qv_gb_fl)/(qv_gb_fl+ql_gb_fl)
-      ddt_ql_ls   = ddt_ql_ls   + ddt_qt_hadv_ls * (ql_gb_fl)/(qv_gb_fl+ql_gb_fl)
-
+      DO jk=1,nlev
+        IF ( (qv_gb_fl(jk)+ql_gb_fl(jk)) .eq. 0.0_wp ) THEN    ! safety for qt=0
+          ddt_qv_ls(jk)   = ddt_qv_ls(jk) + ddt_qt_hadv_ls(jk)
+          ddt_ql_ls(jk)   = ddt_ql_ls(jk)      
+        ELSE
+          ddt_qv_ls(jk)   = ddt_qv_ls(jk) + ddt_qt_hadv_ls(jk) * (qv_gb_fl(jk))/(qv_gb_fl(jk)+ql_gb_fl(jk))
+          ddt_ql_ls(jk)   = ddt_ql_ls(jk) + ddt_qt_hadv_ls(jk) * (ql_gb_fl(jk))/(qv_gb_fl(jk)+ql_gb_fl(jk))
+        ENDIF
+      ENDDO
       IF(is_theta)THEN
         ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
       ELSE
