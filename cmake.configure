@@ -61,6 +61,13 @@ case $(hostname) in
 	NETCDFFROOT=/opt/local \
 	cmake $(pwd)
 	;;
+    thingol*)
+	CC=gcc CFLAGS=-DpgiFortran \
+	FC=gfortran \
+	NETCDFROOT=/usr \
+	NETCDFFROOT=/usr \
+	cmake $(pwd)
+	;;
 esac
 
 #________________________________________________________________________________________________
