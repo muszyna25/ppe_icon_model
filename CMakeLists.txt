@@ -70,7 +70,7 @@ message (STATUS "MPI flag for MPI task count          : ${MPIEXEC_NUMPROC_FLAG}"
 find_package (NETCDF)
 include_directories (${NETCDF_INCLUDE_DIRS})
 
-if (${NETCDF_REQUIRES_HDF5} STREQUAL "yes")
+if ("${NETCDF_REQUIRES_HDF5}" STREQUAL "yes")
   find_package(HDF5)
 endif()
 

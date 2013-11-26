@@ -67,7 +67,10 @@ endif()
 # do we have hdf5 based netcdf support build in
 
 set (_netcdf_nc4_support "no") 
-if (_netcdf_version VERSION_GREATER 3)
+message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
+
+if (NOT (_netcdf_version VERSION_LESS 4))
+  message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
   execute_process (COMMAND ${_netcdf_config_executable} --has-nc4 
     OUTPUT_VARIABLE _netcdf_nc4_support 
     OUTPUT_STRIP_TRAILING_WHITESPACE) 
@@ -87,7 +90,9 @@ message ("   netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
 message ("   netCDF C library directory       : ${NETCDF_C_LIBRARY_DIR}")
 message ("   netCDF C libraries               : ${NETCDF_C_LIBRARY}")
 
-if (${_netcdf_nc4_support} STREQUAL "yes")
+message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
+
+if ("${_netcdf_nc4_support}" STREQUAL "yes")
 
   message ("   netCDF installation supports nc4 format (hdf5 based)")
 
