@@ -1611,51 +1611,54 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c5, lrestart=.FALSE., loutput=.FALSE.,         &
                   & lcontainer=.TRUE.)
 
-      ! Q1 vertical integral, tracer_vi(nproma,nblks_c)
+
       ALLOCATE(p_diag%tracer_vi_ptr(5))
-      jt         = 1
-      grib2_desc = t_grib2_var( 0, 1, 221, ibits, GRID_REFERENCE, GRID_CELL)
-      WRITE(ctrc,'(I2.2)')jt
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+
+      ! Q1 vertical integral: tqv(nproma,nblks_c)
+      cf_desc    = t_cf_var('tqv', 'kg m-2', 'total_column_integrated_water_vapour', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 1, 64, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tqv',                             &
+                  & p_diag%tracer_vi_ptr(iqv)%p_2d,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q2 vertical integral, tracer_vi(nproma,nblks_c)
-      jt         = 2
-      WRITE(ctrc,'(I2.2)')jt
-      grib2_desc = t_grib2_var( 0, 1, 222, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+      ! Q2 vertical integral: tqc(nproma,nblks_c)
+      cf_desc    = t_cf_var('tqc', 'kg m-2', 'total_column_integrated_cloud_water', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 1, 69, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tqc',                             &
+                  & p_diag%tracer_vi_ptr(iqc)%p_2d,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q3 vertical integral, tracer_vi(nproma,nblks_c)
-      jt         = 3
-      grib2_desc = t_grib2_var( 0, 1, 223, ibits, GRID_REFERENCE, GRID_CELL)
-      WRITE(ctrc,'(I2.2)')jt
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+      ! Q3 vertical integral: tqi(nproma,nblks_c)
+      cf_desc    = t_cf_var('tqi', 'kg m-2', 'total_column_integrated_cloud_ice', &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tqi',                             &
+                  & p_diag%tracer_vi_ptr(iqi)%p_2d,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q4 vertical integral, tracer_vi(nproma,nblks_c)
-      jt         = 4
-      grib2_desc = t_grib2_var( 0, 1, 224, ibits, GRID_REFERENCE, GRID_CELL)
-      WRITE(ctrc,'(I2.2)')jt
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+      ! Q4 vertical integral: tqr(nproma,nblks_c)
+      cf_desc    = t_cf_var('tqr', 'kg m-2', 'total_column_integrated_rain',     &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 1, 45, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tqr',                             &
+                  & p_diag%tracer_vi_ptr(iqr)%p_2d,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q5 vertical integral, tracer_vi(nproma,nblks_c)
-      jt         = 5
-      grib2_desc = t_grib2_var( 0, 1, 225, ibits, GRID_REFERENCE, GRID_CELL)
-      WRITE(ctrc,'(I2.2)')jt
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,                 &
-                  & p_diag%tracer_vi_ptr(jt)%p_2d,                               &
+      ! Q5 vertical integral: tqs(nproma,nblks_c)
+      cf_desc    = t_cf_var('tqs', 'kg m-2', 'total_column_integrated_snow',     &
+        &          DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 1, 46, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
+                  & p_diag%tracer_vi_ptr(iqs)%p_2d,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+
 
 
       ! tracer_vi_avg(nproma,nblks_c,5), only Q1, Q2, Q3

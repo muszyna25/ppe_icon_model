@@ -117,15 +117,14 @@ CONTAINS
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
 
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
-    TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
-                                                          !< red. calling frequency for tracers!
+    TYPE(t_patch),   TARGET, INTENT(in)   :: pt_patch    !<grid/patch info.
+    TYPE(t_nh_diag), TARGET, INTENT(inout):: pt_diag     !<the diagnostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout):: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout):: pt_prog_rcf !<the prognostic variables (with
+                                                         !< red. calling frequency for tracers!
+    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
 
-    TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
-
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
+    TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     ! Local
 
@@ -182,7 +181,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
     
 ! if cloud cover is called, vertical integration of cloud content
-! (for iqv, iqc, iqi, iqr, iqs)
+! (for iqv, iqc, iqi)
 
 !$OMP PARALLEL PRIVATE(l_s6avg,p_sim_time_s6)
 
@@ -194,7 +193,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-        prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:5) = 0.0_wp
+        prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
 
         DO jk = kstart_moist, nlev
 !DIR$ IVDEP
@@ -209,16 +208,6 @@ CONTAINS
                                              z_help * prm_diag%tot_cld(jc,jk,jb,iqc)
            prm_diag%tot_cld_vi(jc, jb,iqi) = prm_diag%tot_cld_vi(jc, jb,iqi)    + &
                                              z_help * prm_diag%tot_cld(jc,jk,jb,iqi)
-
-           !TQR : vertical integral of prognostic rain field
-           ! identical to grid scale tracer pt_diag%tracer_vi(:,:,iqr)
-           prm_diag%tot_cld_vi(jc, jb,iqr) = prm_diag%tot_cld_vi(jc, jb,iqr)    + &
-                                           z_help * pt_prog_rcf%tracer(jc,jk,jb,iqr)
-
-           !TQS : vertical integral of prognostic snow field
-           ! identical to grid scale tracer pt_diag%tracer_vi(:,:,iqs)
-           prm_diag%tot_cld_vi(jc, jb,iqs) = prm_diag%tot_cld_vi(jc, jb,iqs)    + &
-                                           z_help * pt_prog_rcf%tracer(jc,jk,jb,iqs)
           ENDDO
         ENDDO
       ENDDO ! nblks  

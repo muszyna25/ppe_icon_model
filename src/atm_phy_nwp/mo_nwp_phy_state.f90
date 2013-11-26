@@ -640,7 +640,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
 
-   ! &      diag%tot_cld(nproma,nlev,nblks_c,3)
+    !      diag%tot_cld(nproma,nlev,nblks_c,3)
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                           &
@@ -655,11 +655,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QV
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qv', diag%tot_ptr(iqv)%p_3d,                &
+                    & TRIM(vname_prefix)//'qv_dia', diag%tot_ptr(iqv)%p_3d,            &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
-                    & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity', &
-                    &          DATATYPE_FLT32),                                        &
-                    & t_grib2_var(192, 201, 28, ibits, GRID_REFERENCE, GRID_CELL),     &
+                    & t_cf_var(TRIM(vname_prefix)//'qv_dia', 'kg kg-1',                &
+                    &          'total_specific_humidity_(diagnostic)', DATATYPE_FLT32),&
+                    & t_grib2_var(0, 1, 211, ibits, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=vintp_types("P", "Z", "I"),           &
@@ -670,11 +670,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QC
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qc', diag%tot_ptr(iqc)%p_3d,                &
+                    & TRIM(vname_prefix)//'qc_dia', diag%tot_ptr(iqc)%p_3d,            &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
-                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                           &
-                    & 'total_specific_cloud_water_content', DATATYPE_FLT32),           &
-                    & t_grib2_var(192, 201, 31, ibits, GRID_REFERENCE, GRID_CELL),     &
+                    & t_cf_var(TRIM(vname_prefix)//'qc_dia', 'kg kg-1',                &
+                    & 'total_specific_cloud_water_content_(diagnostic)', DATATYPE_FLT32),&
+                    & t_grib2_var(0, 1, 212, ibits, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=vintp_types("P","Z","I"),             &
@@ -686,11 +686,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
            !QI
         CALL add_ref( diag_list, 'tot_cld',                                            &
-                    & TRIM(vname_prefix)//'qi', diag%tot_ptr(iqi)%p_3d,                &
+                    & TRIM(vname_prefix)//'qi_dia', diag%tot_ptr(iqi)%p_3d,            &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
-                    & t_cf_var(TRIM(vname_prefix)//'qi', '',                           &
-                    & 'total_specific_cloud_ice_content', DATATYPE_FLT32),             &
-                    & t_grib2_var(192, 201, 33, ibits, GRID_REFERENCE, GRID_CELL),     &
+                    & t_cf_var(TRIM(vname_prefix)//'qi_dia', 'kg kg-1',                &
+                    & 'total_specific_cloud_ice_content_(diagnostic)', DATATYPE_FLT32),&
+                    & t_grib2_var(0, 1, 213, ibits, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d,                                                   &
                     & vert_interp=create_vert_interp_metadata(                         &
                     &             vert_intp_type=vintp_types("P","Z","I"),             &
@@ -705,65 +705,47 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
 
 
-   ! &      diag%tot_cld_vi(nproma,nblks_c,5)
-    cf_desc     = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables', DATATYPE_FLT32)
+    !      diag%tot_cld_vi(nproma,nblks_c,3)
+    cf_desc     = t_cf_var('tot_cld_vi', 'kg m-2','vertical integr total cloud variables', DATATYPE_FLT32)
     grib2_desc   = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                &                                 ldims=(/nproma,kblks,5/),   &
+                &                                 ldims=(/nproma,kblks,3/),   &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.        )
 
     ! fill the seperate variables belonging to the container tot_cld_vi
-    ALLOCATE( diag%tci_ptr(5))
+    ALLOCATE( diag%tci_ptr(3))
        
-    !TQV
+    !TQV_DIA
     CALL add_ref( diag_list, 'tot_cld_vi',                        &
-      & 'tqv', diag%tci_ptr(iqv)%p_2d,                            &
+      & 'tqv_dia', diag%tci_ptr(iqv)%p_2d,                        &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                       &
-      & t_cf_var('tqv', 'kg m**-2','column_integrated_water_vapour', &
-      &          DATATYPE_FLT32),&
-      & t_grib2_var( 0, 1, 64, ibits, GRID_REFERENCE, GRID_CELL), &
+      & t_cf_var('tqv_dia', 'kg m**-2',                           &
+      & 'total column integrated water vapour (diagnostic)', DATATYPE_FLT32),   &
+      & t_grib2_var( 0, 1, 214, ibits, GRID_REFERENCE, GRID_CELL), &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
-    !TQC
+    !TQC_DIA
     CALL add_ref( diag_list, 'tot_cld_vi',                         &
-      & 'tqc', diag%tci_ptr(iqc)%p_2d,                             &
+      & 'tqc_dia', diag%tci_ptr(iqc)%p_2d,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-      & t_cf_var('tqc', 'kg m**-2',                                &
-      & 'total_column-integrated_cloud_water', DATATYPE_FLT32),    &
-      & t_grib2_var( 0, 1, 69, ibits, GRID_REFERENCE, GRID_CELL),  &
+      & t_cf_var('tqc_dia', 'kg m**-2',                            &
+      & 'total column integrated cloud water (diagnostic)', DATATYPE_FLT32),    &
+      & t_grib2_var( 0, 1, 215, ibits, GRID_REFERENCE, GRID_CELL), &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
-    !TQI
+    !TQI_DIA
     CALL add_ref( diag_list, 'tot_cld_vi',                         &
-      & 'tqi', diag%tci_ptr(iqi)%p_2d,                             &
+      & 'tqi_dia', diag%tci_ptr(iqi)%p_2d,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-      & t_cf_var('tqi', 'kg m**-2',                                &
-      & 'total_column-integrated_cloud_ice', DATATYPE_FLT32),      &
-      & t_grib2_var(0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL),   &
+      & t_cf_var('tqi_dia', 'kg m**-2',                            &
+      & 'total column integrated cloud ice (diagnostic)', DATATYPE_FLT32),      &
+      & t_grib2_var(0, 1, 216, ibits, GRID_REFERENCE, GRID_CELL),  &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
-    !TQR ; identical to tracer_vi4
-    CALL add_ref( diag_list, 'tot_cld_vi',                         &
-      & 'tqr', diag%tci_ptr(iqr)%p_2d,                             &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-      & t_cf_var('tqr', 'kg m**-2',                                &
-      & 'total_column-integrated_rain', DATATYPE_FLT32),           &
-      & t_grib2_var(0, 1, 45, ibits, GRID_REFERENCE, GRID_CELL),   &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
-    
-    !TQS  ; identical to tracer_vi5
-    CALL add_ref( diag_list, 'tot_cld_vi',                         &
-      & 'tqs', diag%tci_ptr(iqs)%p_2d,                             &
-      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-      & t_cf_var('tqs', 'kg m**-2',                                &
-      & 'total_column-integrated_snow', DATATYPE_FLT32),           &
-      & t_grib2_var(0, 1, 46, ibits, GRID_REFERENCE, GRID_CELL),   &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
-    
 
 
-   ! &      diag%tot_cld_vi_avg(nproma,nblks_c,3)
+    !      diag%tot_cld_vi_avg(nproma,nblks_c,3)
     cf_desc    = t_cf_var('tot_cld_vi_avg', 'unit ','vertical integr total cloud variables', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -773,38 +755,41 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,       &
                 & isteptype=TSTEP_AVG )
 
-  ! fill the seperate variables belonging to the container tot_cld_vi_avg
+    ! fill the seperate variables belonging to the container tot_cld_vi_avg
     ALLOCATE( diag%tav_ptr(3))
     vname_prefix='avg_'
 
 
-       !QV
+    ! TQV_DIA_AVG
     CALL add_ref( diag_list, 'tot_cld_vi_avg',               &
-                & TRIM(vname_prefix)//'qv', diag%tav_ptr(1)%p_2d,              &
+                & TRIM(vname_prefix)//'qv', diag%tav_ptr(iqv)%p_2d,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                & t_cf_var(TRIM(vname_prefix)//'qv', '','tci_specific_humidity_avg', &
-                &          DATATYPE_FLT32),                                    &
-                & t_grib2_var( 0, 1, 64, ibits, GRID_REFERENCE, GRID_CELL),    &
+                & t_cf_var(TRIM(vname_prefix)//'qv', 'kg m-2',                 &
+                & 'column integrated water vapour (diagnostic)_avg',           &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var( 0, 1, 214, ibits, GRID_REFERENCE, GRID_CELL),   &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG )
 
-       !QC
+    ! TQC_DIA_AVG
     CALL add_ref( diag_list, 'tot_cld_vi_avg',      &
-                & TRIM(vname_prefix)//'qc', diag%tav_ptr(2)%p_2d,              &
+                & TRIM(vname_prefix)//'qc', diag%tav_ptr(iqc)%p_2d,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qc', '',                       &
-                & 'tci_specific_cloud_water_content_avg', DATATYPE_FLT32),     &
-                & t_grib2_var(0, 1, 69, ibits, GRID_REFERENCE, GRID_CELL),     &
+                & 'tci_specific_cloud_water_content (diagnostic)_avg',         &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var(0, 1, 215, ibits, GRID_REFERENCE, GRID_CELL),    &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG )
 
-       !QI
+    ! TQI_DIA_AVG
     CALL add_ref( diag_list, 'tot_cld_vi_avg',          &
-                & TRIM(vname_prefix)//'qi', diag%tav_ptr(3)%p_2d,              & 
+                & TRIM(vname_prefix)//'qi', diag%tav_ptr(iqi)%p_2d,            & 
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
-                & 'tci_specific_cloud_ice_content_avg', DATATYPE_FLT32),       &
-                & t_grib2_var(0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL),     &
+                & 'tci_specific_cloud_ice_content (diagnostic)_avg',           &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var(0, 1, 216, ibits, GRID_REFERENCE, GRID_CELL),    &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG )
 
