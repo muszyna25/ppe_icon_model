@@ -2014,7 +2014,8 @@ CONTAINS
       p_sfc_flx%forc_fw_bc_ice (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
-        &       - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)! New-ice formation
+        &       - (1._wp-sice/sss(:,:))*(1._wp-ice%concSum(:,:))             & ! New-ice formation
+        &         *ice%newice(:,:)*rhoi/(rho_ref*dtime)                       
     ENDWHERE
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
