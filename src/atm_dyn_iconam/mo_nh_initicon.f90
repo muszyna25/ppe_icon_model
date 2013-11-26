@@ -65,7 +65,7 @@ MODULE mo_nh_initicon
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,           &
     &                               min_rlcell, min_rledge, min_rledge_int,             &
-    &                               min_rlcell_int
+    &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
   USE mo_exception,           ONLY: message, finish, message_text
@@ -82,7 +82,8 @@ MODULE mo_nh_initicon
     &                               llake, isub_lake, ntiles_water
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
+  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml, &
+    &                               cporv
   USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -2823,6 +2824,8 @@ MODULE mo_nh_initicon
   !!
   !! @par Revision History
   !! Initial version by P. Ripodas, DWD(2013-05)
+  !! Modification by Daniel Reinert, DWD (2013-11-20)
+  !! - add consistency checks for rho_snow and w_so
   !!
   !!
   !-------------------------------------------------------------------------
@@ -2832,7 +2835,7 @@ MODULE mo_nh_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jb             ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt             ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c   
   !-------------------------------------------------------------------------
@@ -2843,24 +2846,66 @@ MODULE mo_nh_initicon
 
     nblks_c   = p_patch(jg)%nblks_c
     ntlr      = nnow_rcf(jg)
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(jc,ic,jb) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, nblks_c
 
-        !get SST from first soil level t_so (for sea and lake points)
+
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jc,ic,jb,jt) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, nblks_c
+
+      !get SST from first soil level t_so (for sea and lake points)
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                  & ! nproma.nlev_soil+1,nblks,ntiles_total
-                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-        END DO
+      DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+         jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+         p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                  & ! nproma.nlev_soil+1,nblks,ntiles_total
+                                  & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+      END DO
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
-                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-        END DO
-       END DO
+      DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+        jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+        p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
+                                  & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+      END DO
+
+
+
+      !***********************************!
+      ! Consistency checks                !
+      !***********************************!
+
+      DO jt = 1, ntiles_total
+
+        ! Check consistency between w_snow and rho_snow
+        !
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+           jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+           IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
+             &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
+
+             ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
+             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
+           ENDIF
+        ENDDO  ! ic
+
+
+        ! Catch problematic coast cases: ICON-land but GME ocean for moisture
+        !
+        DO jk = 1, nlev_soil
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+             jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
+                ! set dummy value (50% of pore volume)
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
+                  &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+             ENDIF
+          ENDDO  ! ic
+        ENDDO  ! jk
+
+      ENDDO  ! jt
+
+    END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
