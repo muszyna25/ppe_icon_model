@@ -1614,12 +1614,14 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%tracer_vi_ptr(5))
 
+      ! iqv, iqc, iqi, iqr, iqs potentially unknown. Thus, explicit indexing is used.
+      !
       ! Q1 vertical integral: tqv(nproma,nblks_c)
       cf_desc    = t_cf_var('tqv', 'kg m-2', 'total_column_integrated_water_vapour', &
         &          DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 64, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqv',                             &
-                  & p_diag%tracer_vi_ptr(iqv)%p_2d,                              &
+                  & p_diag%tracer_vi_ptr(1)%p_2d,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
@@ -1628,7 +1630,7 @@ MODULE mo_nonhydro_state
         &          DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 69, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqc',                             &
-                  & p_diag%tracer_vi_ptr(iqc)%p_2d,                              &
+                  & p_diag%tracer_vi_ptr(2)%p_2d,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
@@ -1637,7 +1639,7 @@ MODULE mo_nonhydro_state
         &          DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 70, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqi',                             &
-                  & p_diag%tracer_vi_ptr(iqi)%p_2d,                              &
+                  & p_diag%tracer_vi_ptr(3)%p_2d,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
@@ -1646,7 +1648,7 @@ MODULE mo_nonhydro_state
         &          DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 45, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqr',                             &
-                  & p_diag%tracer_vi_ptr(iqr)%p_2d,                              &
+                  & p_diag%tracer_vi_ptr(4)%p_2d,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
@@ -1655,7 +1657,7 @@ MODULE mo_nonhydro_state
         &          DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 1, 46, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
-                  & p_diag%tracer_vi_ptr(iqs)%p_2d,                              &
+                  & p_diag%tracer_vi_ptr(5)%p_2d,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
