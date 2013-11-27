@@ -191,7 +191,7 @@ MODULE mo_model_domimp_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
 
-  INTEGER :: ishift_child_id
+  INTEGER, SAVE :: ishift_child_id
 
   !-------------------------------------------------------------------------
 
@@ -865,7 +865,7 @@ CONTAINS
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
     INTEGER :: jc, je, ilc, ibc
-    INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
+    INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
     INTEGER :: block_size
     !-----------------------------------------------------------------------
 
@@ -1003,7 +1003,7 @@ CONTAINS
       CALL message  (TRIM(method_name), TRIM(message_text))
       WRITE(message_text,'(a)') &
         & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
+      CALL message  (TRIM(method_name), TRIM(message_text))
     END IF
 
 
@@ -1020,6 +1020,15 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     patch%verts%max_connectivity = max_verts_connectivity
+    ! dimension of start/end index list fields (always 1 in new patch files, but this
+    ! provides backward compatibility)
+    CALL nf(nf_inq_dimid(ncid, 'max_chdom', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, dim_idxlist))
+    IF (dim_idxlist>1) THEN
+      WRITE(message_text,'(a)') &
+        & 'WARNING: you are using an old grid file with multiple nesting'
+      CALL message  (TRIM(method_name), TRIM(message_text))
+    ENDIF
     !
     ! calculate and save values for the blocking
     !
@@ -1056,12 +1065,12 @@ CONTAINS
       CALL finish (TRIM(method_name), 'allocation for array_[cev]_real failed')
     ENDIF
     ! integer arrays for index lists
-    ALLOCATE( start_idx_c(min_rlcell:max_rlcell,max_childdom),  &
-      & end_idx_c  (min_rlcell:max_rlcell,max_childdom),  &
-      & start_idx_e(min_rledge:max_rledge,max_childdom),  &
-      & end_idx_e  (min_rledge:max_rledge,max_childdom),  &
-      & start_idx_v(min_rlvert:max_rlvert,max_childdom),  &
-      & end_idx_v  (min_rlvert:max_rlvert,max_childdom),  &
+    ALLOCATE( start_idx_c(min_rlcell:max_rlcell,dim_idxlist),  &
+      & end_idx_c  (min_rlcell:max_rlcell,dim_idxlist),  &
+      & start_idx_e(min_rledge:max_rledge,dim_idxlist),  &
+      & end_idx_e  (min_rledge:max_rledge,dim_idxlist),  &
+      & start_idx_v(min_rlvert:max_rlvert,dim_idxlist),  &
+      & end_idx_v  (min_rlvert:max_rlvert,dim_idxlist),  &
       & stat=ist )
 
     IF (ist /= success) THEN
@@ -1090,10 +1099,16 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
     CALL reshape_idx_list( start_idx_c,                                &
       & patch%cells%start_idx, patch%cells%start_blk )
+    CALL reshape_index_list( start_idx_c(:,1),                         &
+      & patch%cells%start_index, patch%cells%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_c', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
+    ! Needed for backward compatibility of old grids
+    IF (dim_idxlist > 1) end_idx_c(min_rlcell_int,1) = patch%n_patch_cells
     CALL reshape_idx_list( end_idx_c,                                &
         & patch%cells%end_idx, patch%cells%end_blk )
+    CALL reshape_index_list( end_idx_c(:,1),                         &
+        & patch%cells%end_index, patch%cells%end_block )
 
     ! patch%edges%start_idx(:,:)
     ! patch%edges%start_blk(:,:)
@@ -1103,10 +1118,16 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, start_idx_e(:,:)))
     CALL reshape_idx_list( start_idx_e,                                &
       & patch%edges%start_idx, patch%edges%start_blk )
+    CALL reshape_index_list( start_idx_e(:,1),                           &
+      & patch%edges%start_index, patch%edges%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_e', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_e(:,:)))
+    ! Needed for backward compatibility of old grids
+    IF (dim_idxlist > 1) end_idx_e(min_rledge_int,1) = patch%n_patch_edges
     CALL reshape_idx_list( end_idx_e,                                &
       & patch%edges%end_idx, patch%edges%end_blk )
+    CALL reshape_index_list( end_idx_e(:,1),                           &
+      & patch%edges%end_index, patch%edges%end_block )
 
     ! patch%verts%start_idx(:,:)
     ! patch%verts%start_blk(:,:)
@@ -1116,11 +1137,16 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
     CALL reshape_idx_list( start_idx_v,                                &
       & patch%verts%start_idx, patch%verts%start_blk )
+    CALL reshape_index_list( start_idx_v(:,1),                           &
+      & patch%verts%start_index, patch%verts%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_v', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
+    ! Needed for backward compatibility of old grids
+    IF (dim_idxlist > 1) end_idx_v(min_rlvert_int,1) = patch%n_patch_verts
     CALL reshape_idx_list( end_idx_v,                                &
       & patch%verts%end_idx, patch%verts%end_blk )
-
+    CALL reshape_index_list( end_idx_v(:,1),                           &
+      & patch%verts%end_index, patch%verts%end_block )
 
     ! patch%cells%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
@@ -1210,13 +1236,17 @@ CONTAINS
       ! from the grid files need to be shifted
       IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
         ! domain ID of first nested domain should be 2
-        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
+!        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
+        ishift_child_id = MINVAL(array_c_int(:,1),MASK=array_c_int(:,1)>0) - 2
+        WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
+        CALL message ('', TRIM(message_text))
       ENDIF
 
       IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-        DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
-          array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
-        ENDDO
+ !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
+ !         array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
+ !       ENDDO
+        WHERE (array_c_int(:,1) > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
       ENDIF
 
       CALL reshape_int( array_c_int(:,1), patch%nblks_c, patch%npromz_c,  &
@@ -1264,9 +1294,10 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
 
     IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-      DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,patch%n_childdom)
-        array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
-      ENDDO
+ !     DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,patch%n_childdom)
+ !       array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
+ !     ENDDO
+      WHERE (array_e_int(:,1) > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
     ENDIF
 
     CALL reshape_int( array_e_int(:,1), patch%nblks_e, patch%npromz_e,  &
@@ -2406,39 +2437,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !!               reshape an index list array for the blocking.
-  !!
-  !! @par Revision History
-  !! Developed  by Guenther Zaengl, DWD (2008-10-23)
-  !!
-  SUBROUTINE reshape_indlist( indlist_in,                     &
-    & start_idx_out, start_blk_out,   &
-    & end_idx_out,   end_blk_out )
-
-
-
-    ! input index array
-    INTEGER, INTENT(in) :: indlist_in(:,:)
-
-    ! output line index array
-    INTEGER, INTENT(inout) :: start_idx_out(:,:), end_idx_out(:,:)
-    ! output block index array
-    INTEGER, INTENT(inout) :: start_blk_out(:,:), end_blk_out(:,:)
-
-    !-----------------------------------------------------------------------
-
-    start_blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
-    start_idx_out(:,1) =  indlist_in(:,1) - (start_blk_out(:,1) - 1) * nproma
-
-    end_blk_out(:,1) = (indlist_in(:,2) - 1) / nproma + 1
-    end_idx_out(:,1) =  indlist_in(:,2) - (end_blk_out(:,1) - 1) * nproma
-
-
-  END SUBROUTINE reshape_indlist
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
   !!               reshape the start_idx / end_idx fields for blocking.
   !!
   !! @par Revision History
@@ -2456,13 +2454,39 @@ CONTAINS
     ! output block index array
     INTEGER, INTENT(inout) :: blk_out(:,:)
 
+    INTEGER :: jg
+
     !-----------------------------------------------------------------------
 
-    blk_out(:,1:max_childdom) = (indlist_in(:,1:max_childdom) - 1) / nproma + 1
-    idx_out(:,1:max_childdom) =  indlist_in(:,1:max_childdom) - &
-      & (blk_out(:,1:max_childdom) - 1) * nproma
+    blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
+    idx_out(:,1) =  indlist_in(:,1) - (blk_out(:,1) - 1) * nproma
+    IF (max_childdom > 1) THEN
+      DO jg = 2, max_childdom
+        blk_out(:,jg) = blk_out(:,1)
+        idx_out(:,jg) = idx_out(:,1)
+      ENDDO
+    ENDIF
 
   END SUBROUTINE reshape_idx_list
+
+  SUBROUTINE reshape_index_list( indlist_in, idx_out, blk_out )
+
+
+
+    ! input index array
+    INTEGER, INTENT(in) :: indlist_in(:)
+
+    ! output line index array
+    INTEGER, INTENT(inout) :: idx_out(:)
+    ! output block index array
+    INTEGER, INTENT(inout) :: blk_out(:)
+
+    !-----------------------------------------------------------------------
+
+    blk_out(:) = (indlist_in(:) - 1) / nproma + 1
+    idx_out(:) =  indlist_in(:) - (blk_out(:) - 1) * nproma
+
+  END SUBROUTINE reshape_index_list
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

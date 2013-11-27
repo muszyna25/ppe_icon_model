@@ -593,10 +593,10 @@ CONTAINS
     p%cells%indlist(1:max_rlcell,2) = 0
     p%cells%indlist(min_rlcell:0,2) = p%ncells
 
-    p%cells%start_idx(1:max_rlcell,1:max_childdom) = 1
-    p%cells%start_idx(min_rlcell:0,1:max_childdom) = p%ncells+1
-    p%cells%end_idx(1:max_rlcell,1:max_childdom)   = 0
-    p%cells%end_idx(min_rlcell:0,1:max_childdom)   = p%ncells
+    p%cells%start_idx(1:max_rlcell,1) = 1
+    p%cells%start_idx(min_rlcell:0,1) = p%ncells+1
+    p%cells%end_idx(1:max_rlcell,1)   = 0
+    p%cells%end_idx(min_rlcell:0,1)   = p%ncells
 
     ! The following loop used to accomplish the reordering of nest overlap points
     ! (deactivated since Aug. 2013 for restructured nesting flow control)
@@ -608,8 +608,8 @@ CONTAINS
         list(k) = i
         p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),k)
         p%cells%indlist(irv,2) = k
-        p%cells%start_idx(irv,1:max_childdom) = MIN(p%cells%start_idx(irv,1),k)
-        p%cells%end_idx(irv,1:max_childdom) = k
+        p%cells%start_idx(irv,1) = MIN(p%cells%start_idx(irv,1),k)
+        p%cells%end_idx(irv,1) = k
       ENDIF
     ENDDO
 
@@ -625,10 +625,10 @@ CONTAINS
     p%edges%indlist(1:max_rledge,2) = 0
     p%edges%indlist(min_rledge:0,2) = p%nedges
 
-    p%edges%start_idx(1:max_rledge,1:max_childdom) = 1
-    p%edges%start_idx(min_rledge:0,1:max_childdom) = p%nedges+1
-    p%edges%end_idx(1:max_rledge,1:max_childdom) = 0
-    p%edges%end_idx(min_rledge:0,1:max_childdom) = p%nedges
+    p%edges%start_idx(1:max_rledge,1) = 1
+    p%edges%start_idx(min_rledge:0,1) = p%nedges+1
+    p%edges%end_idx(1:max_rledge,1) = 0
+    p%edges%end_idx(min_rledge:0,1) = p%nedges
 
     ! The following loop used to accomplish the reordering of nest overlap points
     ! (deactivated since Aug. 2013 for restructured nesting flow control)
@@ -640,8 +640,8 @@ CONTAINS
         itmpe(k) = i
         p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),k)
         p%edges%indlist(irv,2) = k
-        p%edges%start_idx(irv,1:max_childdom) = MIN(p%edges%start_idx(irv,1),k)
-        p%edges%end_idx(irv,1:max_childdom) = k
+        p%edges%start_idx(irv,1) = MIN(p%edges%start_idx(irv,1),k)
+        p%edges%end_idx(irv,1) = k
       ENDIF
     ENDDO
 
@@ -657,10 +657,10 @@ CONTAINS
     p%verts%indlist(1:max_rlvert,2) = 0
     p%verts%indlist(min_rlvert:0,2) = p%nverts
 
-    p%verts%start_idx(1:max_rlvert,1:max_childdom) = 1
-    p%verts%start_idx(min_rlvert:0,1:max_childdom) = p%nverts+1
-    p%verts%end_idx(1:max_rlvert,1:max_childdom) = 0
-    p%verts%end_idx(min_rlvert:0,1:max_childdom) = p%nverts
+    p%verts%start_idx(1:max_rlvert,1) = 1
+    p%verts%start_idx(min_rlvert:0,1) = p%nverts+1
+    p%verts%end_idx(1:max_rlvert,1) = 0
+    p%verts%end_idx(min_rlvert:0,1) = p%nverts
 
     ! The following loop used to accomplish the reordering of nest overlap points
     ! (deactivated since Aug. 2013 for restructured nesting flow control)
@@ -672,8 +672,8 @@ CONTAINS
         itmpv(k) = i
         p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),k)
         p%verts%indlist(irv,2) = k
-        p%verts%start_idx(irv,1:max_childdom) = MIN(p%verts%start_idx(irv,1),k)
-        p%verts%end_idx(irv,1:max_childdom) = k
+        p%verts%start_idx(irv,1) = MIN(p%verts%start_idx(irv,1),k)
+        p%verts%end_idx(irv,1) = k
       ENDIF
     ENDDO
 
@@ -865,8 +865,8 @@ CONTAINS
     ALLOCATE(p%cells%refin_ctrl(p%ncells))
 
     ALLOCATE(p%cells%indlist(min_rlcell:max_rlcell,2))
-    ALLOCATE(p%cells%start_idx(min_rlcell:max_rlcell,max_childdom))
-    ALLOCATE(p%cells%end_idx(min_rlcell:max_rlcell,max_childdom))
+    ALLOCATE(p%cells%start_idx(min_rlcell:max_rlcell,1))
+    ALLOCATE(p%cells%end_idx(min_rlcell:max_rlcell,1))
 
     ! edges
     !------
@@ -888,8 +888,8 @@ CONTAINS
     ALLOCATE(p%edges%phys_id(p%nedges))
 
     ALLOCATE(p%edges%indlist(min_rledge:max_rledge,2))
-    ALLOCATE(p%edges%start_idx(min_rledge:max_rledge,max_childdom))
-    ALLOCATE(p%edges%end_idx(min_rledge:max_rledge,max_childdom))
+    ALLOCATE(p%edges%start_idx(min_rledge:max_rledge,1))
+    ALLOCATE(p%edges%end_idx(min_rledge:max_rledge,1))
 
     ! vertices
     !---------
@@ -905,8 +905,8 @@ CONTAINS
     ALLOCATE(p%verts%phys_id(p%nverts))
 
     ALLOCATE(p%verts%indlist(min_rlvert:max_rlvert,2))
-    ALLOCATE(p%verts%start_idx(min_rlvert:max_rlvert,max_childdom))
-    ALLOCATE(p%verts%end_idx(min_rlvert:max_rlvert,max_childdom))
+    ALLOCATE(p%verts%start_idx(min_rlvert:max_rlvert,1))
+    ALLOCATE(p%verts%end_idx(min_rlvert:max_rlvert,1))
 
   END SUBROUTINE allocate_patch
 
@@ -1130,10 +1130,10 @@ CONTAINS
     !
     !  allocate temporary global index arrays for edges
     !
-    ALLOCATE( itmpe(p%nedges),itmpe2(p%nedges),                       &
-      & p%edges%indlist(min_rledge:max_rledge,2),               &
-      & p%edges%start_idx(min_rledge:max_rledge,max_childdom),  &
-      & p%edges%end_idx(min_rledge:max_rledge,max_childdom)     )
+    ALLOCATE( itmpe(p%nedges),itmpe2(p%nedges),      &
+      & p%edges%indlist(min_rledge:max_rledge,2),    &
+      & p%edges%start_idx(min_rledge:max_rledge,1),  &
+      & p%edges%end_idx(min_rledge:max_rledge,1)     )
     !
     !
     !  fill global index array for edges
@@ -1177,10 +1177,10 @@ CONTAINS
     p%edges%indlist(1:max_rledge,2) = 0
     p%edges%indlist(min_rledge:0,2) = p%nedges
 
-    p%edges%start_idx(1:max_rledge,1:max_childdom) = p%nedges
-    p%edges%start_idx(min_rledge:0,1:max_childdom) = p%nedges+1
-    p%edges%end_idx(1:max_rledge,1:max_childdom) = 0
-    p%edges%end_idx(min_rledge:0,1:max_childdom) = p%nedges
+    p%edges%start_idx(1:max_rledge,1) = p%nedges
+    p%edges%start_idx(min_rledge:0,1) = p%nedges+1
+    p%edges%end_idx(1:max_rledge,1) = 0
+    p%edges%end_idx(min_rledge:0,1) = p%nedges
 
     ! Reorder edge index list according to their value of refin_ctrl
     ! The indlist field contains the corresponding start and end indices
@@ -1193,8 +1193,8 @@ CONTAINS
           itmpe2(jj1) = jj
           p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),jj1)
           p%edges%indlist(irv,2) = jj1
-          p%edges%start_idx(irv,1:max_childdom) = MIN(p%edges%start_idx(irv,1),jj1)
-          p%edges%end_idx(irv,1:max_childdom) = jj1
+          p%edges%start_idx(irv,1) = MIN(p%edges%start_idx(irv,1),jj1)
+          p%edges%end_idx(irv,1) = jj1
         ENDIF
       ENDDO
     ENDDO
@@ -1209,8 +1209,8 @@ CONTAINS
         itmpe2(jj1) = jj
         p%edges%indlist(irv,1) = MIN(p%edges%indlist(irv,1),jj1)
         p%edges%indlist(irv,2) = jj1
-        p%edges%start_idx(irv,1:max_childdom) = MIN(p%edges%start_idx(irv,1),jj1)
-        p%edges%end_idx(irv,1:max_childdom) = jj1
+        p%edges%start_idx(irv,1) = MIN(p%edges%start_idx(irv,1),jj1)
+        p%edges%end_idx(irv,1) = jj1
       ENDIF
     ENDDO
 
@@ -1248,10 +1248,10 @@ CONTAINS
     !
     !  allocate global index arrays for vertices
     !
-    ALLOCATE(itmpv(p%nverts), itmpv2(p%nverts),                      &
-      & p%verts%indlist(min_rlvert:max_rlvert,2),               &
-      & p%verts%start_idx(min_rlvert:max_rlvert,max_childdom),  &
-      & p%verts%end_idx(min_rlvert:max_rlvert,max_childdom)     )
+    ALLOCATE(itmpv(p%nverts), itmpv2(p%nverts),      &
+      & p%verts%indlist(min_rlvert:max_rlvert,2),    &
+      & p%verts%start_idx(min_rlvert:max_rlvert,1),  &
+      & p%verts%end_idx(min_rlvert:max_rlvert,1)     )
     !
     !  fill global index array for vertices
     !
@@ -1283,10 +1283,10 @@ CONTAINS
     p%verts%indlist(1:max_rlvert,2) = 0
     p%verts%indlist(min_rlvert:0,2) = p%nverts
 
-    p%verts%start_idx(1:max_rlvert,1:max_childdom) = p%nverts
-    p%verts%start_idx(min_rlvert:0,1:max_childdom) = p%nverts+1
-    p%verts%end_idx(1:max_rlvert,1:max_childdom) = 0
-    p%verts%end_idx(min_rlvert:0,1:max_childdom) = p%nverts
+    p%verts%start_idx(1:max_rlvert,1) = p%nverts
+    p%verts%start_idx(min_rlvert:0,1) = p%nverts+1
+    p%verts%end_idx(1:max_rlvert,1) = 0
+    p%verts%end_idx(min_rlvert:0,1) = p%nverts
 
     ! Reorder vertex index list according to their value of refin_ctrl
     ! The indlist field contains the corresponding start and end indices
@@ -1299,8 +1299,8 @@ CONTAINS
           itmpv2(jj1) = jj
           p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),jj1)
           p%verts%indlist(irv,2) = jj1
-          p%verts%start_idx(irv,1:max_childdom) = MIN(p%verts%start_idx(irv,1),jj1)
-          p%verts%end_idx(irv,1:max_childdom) = jj1
+          p%verts%start_idx(irv,1) = MIN(p%verts%start_idx(irv,1),jj1)
+          p%verts%end_idx(irv,1) = jj1
         ENDIF
       ENDDO
     ENDDO
@@ -1315,8 +1315,8 @@ CONTAINS
         itmpv2(jj1) = jj
         p%verts%indlist(irv,1) = MIN(p%verts%indlist(irv,1),jj1)
         p%verts%indlist(irv,2) = jj1
-        p%verts%start_idx(irv,1:max_childdom) = MIN(p%verts%start_idx(irv,1),jj1)
-        p%verts%end_idx(irv,1:max_childdom) = jj1
+        p%verts%start_idx(irv,1) = MIN(p%verts%start_idx(irv,1),jj1)
+        p%verts%end_idx(irv,1) = jj1
       ENDIF
     ENDDO
 
@@ -1332,18 +1332,18 @@ CONTAINS
 
     ! Add list of start and end indices for cells
     ALLOCATE(p%cells%indlist(min_rlcell:max_rlcell,2),itmpc(p%ncells), &
-      & p%cells%start_idx(min_rlcell:max_rlcell,max_childdom),    &
-      & p%cells%end_idx(min_rlcell:max_rlcell,max_childdom)       )
+      & p%cells%start_idx(min_rlcell:max_rlcell,1),    &
+      & p%cells%end_idx(min_rlcell:max_rlcell,1)       )
 
     p%cells%indlist(1:max_rlcell,1) = p%ncells
     p%cells%indlist(min_rlcell:0,1) = p%ncells+1
     p%cells%indlist(1:max_rlcell,2) = 0
     p%cells%indlist(min_rlcell:0,2) = p%ncells
 
-    p%cells%start_idx(1:max_rlcell,1:max_childdom) = p%ncells
-    p%cells%start_idx(min_rlcell:0,1:max_childdom) = p%ncells+1
-    p%cells%end_idx(1:max_rlcell,1:max_childdom) = 0
-    p%cells%end_idx(min_rlcell:0,1:max_childdom) = p%ncells
+    p%cells%start_idx(1:max_rlcell,1) = p%ncells
+    p%cells%start_idx(min_rlcell:0,1) = p%ncells+1
+    p%cells%end_idx(1:max_rlcell,1) = 0
+    p%cells%end_idx(min_rlcell:0,1) = p%ncells
 
     jj1 = 0
     DO irv = 1, max_rlcell
@@ -1354,8 +1354,8 @@ CONTAINS
           itmpc(jj1) = jj
           p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),jj1)
           p%cells%indlist(irv,2) = jj1
-          p%cells%start_idx(irv,1:max_childdom) = MIN(p%cells%start_idx(irv,1),jj1)
-          p%cells%end_idx(irv,1:max_childdom) = jj1
+          p%cells%start_idx(irv,1) = MIN(p%cells%start_idx(irv,1),jj1)
+          p%cells%end_idx(irv,1) = jj1
         ENDIF
       ENDDO
     ENDDO
@@ -1370,8 +1370,8 @@ CONTAINS
         itmpc(jj1) = jj
         p%cells%indlist(irv,1) = MIN(p%cells%indlist(irv,1),jj1)
         p%cells%indlist(irv,2) = jj1
-        p%cells%start_idx(irv,1:max_childdom) = MIN(p%cells%start_idx(irv,1),jj1)
-        p%cells%end_idx(irv,1:max_childdom) = jj1
+        p%cells%start_idx(irv,1) = MIN(p%cells%start_idx(irv,1),jj1)
+        p%cells%end_idx(irv,1) = jj1
       ENDIF
     ENDDO
 
@@ -1936,10 +1936,10 @@ CONTAINS
 
     pp%cells%indlist(:,:) = 0 ! not needed
 
-    pp%cells%start_idx(:,1:max_childdom) = 1
-    pp%cells%end_idx(:,1:max_childdom)   = 0
-    pp%cells%start_idx(min_rlcell:min_rlcell_int-1,1:max_childdom) = pp%ncells+1
-    pp%cells%end_idx(min_rlcell:min_rlcell_int,1:max_childdom) = pp%ncells
+    pp%cells%start_idx(:,1) = 1
+    pp%cells%end_idx(:,1)   = 0
+    pp%cells%start_idx(min_rlcell:min_rlcell_int-1,1) = pp%ncells+1
+    pp%cells%end_idx(min_rlcell:min_rlcell_int,1) = pp%ncells
 
     DO j = 1, pp%ncells
       pp%cells%idx(j) = j
@@ -1965,10 +1965,10 @@ CONTAINS
 
     pp%edges%indlist(:,:) = 0 ! not needed
 
-    pp%edges%start_idx(:,1:max_childdom) = 1
-    pp%edges%end_idx(:,1:max_childdom)   = 0
-    pp%edges%start_idx(min_rledge:min_rledge_int-1,1:max_childdom) = pp%nedges+1
-    pp%edges%end_idx(min_rledge:min_rledge_int,1:max_childdom) = pp%nedges
+    pp%edges%start_idx(:,1) = 1
+    pp%edges%end_idx(:,1)   = 0
+    pp%edges%start_idx(min_rledge:min_rledge_int-1,1) = pp%nedges+1
+    pp%edges%end_idx(min_rledge:min_rledge_int,1) = pp%nedges
 
     DO j = 1, pp%nedges
       pp%edges%idx(j) = j
@@ -2001,10 +2001,10 @@ CONTAINS
 
     pp%verts%indlist(:,:) = 0 ! not needed
 
-    pp%verts%start_idx(:,1:max_childdom) = 1
-    pp%verts%end_idx(:,1:max_childdom)   = 0
-    pp%verts%start_idx(min_rlvert:min_rlvert_int-1,1:max_childdom) = pp%nverts+1
-    pp%verts%end_idx(min_rlvert:min_rlvert_int,1:max_childdom) = pp%nverts
+    pp%verts%start_idx(:,1) = 1
+    pp%verts%end_idx(:,1)   = 0
+    pp%verts%start_idx(min_rlvert:min_rlvert_int-1,1) = pp%nverts+1
+    pp%verts%end_idx(min_rlvert:min_rlvert_int,1) = pp%nverts
 
     DO j = 1, pp%nverts
       pp%verts%idx(j) = j
@@ -2327,8 +2327,8 @@ CONTAINS
 
     ! Dimensions for refinement
     CALL nf(nf_def_dim(ncid, 'two_grf',        2, dim_two))
-    CALL nf(nf_def_dim(ncid, 'max_chdom', max_childdom, dim_nchdom))
-    dim_list = max_rlcell-min_rlcell+1
+    CALL nf(nf_def_dim(ncid, 'max_chdom', 1, dim_nchdom)) ! was originally max_childdom; kept for backward 
+    dim_list = max_rlcell-min_rlcell+1                    ! compatibility of old grid files
     CALL nf(nf_def_dim(ncid, 'cell_grf',dim_list, dim_cell_refine))
     dim_list = max_rledge-min_rledge+1
     CALL nf(nf_def_dim(ncid, 'edge_grf',dim_list, dim_edge_refine))

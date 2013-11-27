@@ -510,6 +510,10 @@ CONTAINS
     ALLOCATE( p_patch%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch%cells%end_blk(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch%cells%start_index(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch%cells%end_index(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch%cells%start_block(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch%cells%end_block(min_rlcell:max_rlcell) )
 
     !
     ! !grid edges
@@ -529,6 +533,10 @@ CONTAINS
     ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
     ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
     ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%start_index(min_rledge:max_rledge) )
+    ALLOCATE( p_patch%edges%end_index(min_rledge:max_rledge) )
+    ALLOCATE( p_patch%edges%start_block(min_rledge:max_rledge) )
+    ALLOCATE( p_patch%edges%end_block(min_rledge:max_rledge) )
 
     !
     ! !grid verts
@@ -542,7 +550,10 @@ CONTAINS
     ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,6) )
     ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,6) )
     ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
-
+    ALLOCATE( p_patch%verts%start_index(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch%verts%end_index(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch%verts%start_block(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch%verts%end_block(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
     p_patch%cells%num_edges = 0
@@ -566,6 +577,10 @@ CONTAINS
     p_patch%cells%end_idx = 0
     p_patch%cells%start_blk = 0
     p_patch%cells%end_blk = 0
+    p_patch%cells%start_index = 0
+    p_patch%cells%end_index = 0
+    p_patch%cells%start_block = 0
+    p_patch%cells%end_block = 0
 
     p_patch%edges%parent_idx = 0
     p_patch%edges%parent_blk = 0
@@ -578,6 +593,10 @@ CONTAINS
     p_patch%edges%end_idx = 0
     p_patch%edges%start_blk = 0
     p_patch%edges%end_blk = 0
+    p_patch%edges%start_index = 0
+    p_patch%edges%end_index = 0
+    p_patch%edges%start_block = 0
+    p_patch%edges%end_block = 0
 
     p_patch%verts%vertex(:,:)%lon = 0._wp
     p_patch%verts%vertex(:,:)%lat = 0._wp
@@ -589,6 +608,10 @@ CONTAINS
     p_patch%verts%cell_idx = 0
     p_patch%verts%cell_blk = 0
     p_patch%verts%num_edges = 0
+    p_patch%verts%start_index = 0
+    p_patch%verts%end_index = 0
+    p_patch%verts%start_block = 0
+    p_patch%verts%end_block = 0
 
   END SUBROUTINE allocate_basic_patch
   !-------------------------------------------------------------------------
@@ -624,6 +647,10 @@ CONTAINS
     DEALLOCATE( p_patch%cells%end_idx )
     DEALLOCATE( p_patch%cells%start_blk )
     DEALLOCATE( p_patch%cells%end_blk )
+    DEALLOCATE( p_patch%cells%start_index )
+    DEALLOCATE( p_patch%cells%end_index )
+    DEALLOCATE( p_patch%cells%start_block )
+    DEALLOCATE( p_patch%cells%end_block )
     !
     ! !grid edges
     !
@@ -638,6 +665,10 @@ CONTAINS
     DEALLOCATE( p_patch%edges%end_idx )
     DEALLOCATE( p_patch%edges%start_blk )
     DEALLOCATE( p_patch%edges%end_blk )
+    DEALLOCATE( p_patch%edges%start_index )
+    DEALLOCATE( p_patch%edges%end_index )
+    DEALLOCATE( p_patch%edges%start_block )
+    DEALLOCATE( p_patch%edges%end_block )
     ! DEALLOCATE( p_patch%edges%cell_idx )
     ! DEALLOCATE( p_patch%edges%cell_blk )
     ! DEALLOCATE( p_patch%edges%vertex_idx )
@@ -651,6 +682,10 @@ CONTAINS
     DEALLOCATE( p_patch%verts%end_idx )
     DEALLOCATE( p_patch%verts%start_blk )
     DEALLOCATE( p_patch%verts%end_blk )
+    DEALLOCATE( p_patch%verts%start_index )
+    DEALLOCATE( p_patch%verts%end_index )
+    DEALLOCATE( p_patch%verts%start_block )
+    DEALLOCATE( p_patch%verts%end_block )
     ! DEALLOCATE( p_patch%verts%cell_idx )
     ! DEALLOCATE( p_patch%verts%cell_blk )
     ! DEALLOCATE( p_patch%verts%num_edges )
