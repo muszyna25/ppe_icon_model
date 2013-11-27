@@ -709,7 +709,6 @@ CONTAINS
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
     p_acc%vt                        = p_acc%vt                       /REAL(nsteps_since_last_output,wp)
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
-    p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_wind_u_acc       = p_sfc_flx%forc_wind_u_acc      /REAL(nsteps_since_last_output,wp)
