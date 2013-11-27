@@ -89,7 +89,7 @@ rm -f ${icon_dev_to}/config/icon_components
 cat > ${icon_dev_to}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=NO_ICON_ATMO
+icon_components=NO_ICON_ATMO NO_JSBACH
 EOF
 
 
