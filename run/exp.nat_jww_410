@@ -116,8 +116,6 @@ cat > ${atmo_namelist} << EOF
  iforcing        = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
  msg_level       = 12           ! detailed report during integration 
  ltimer          = .FALSE.
- ldump_states    = .FALSE.
- lrestore_states = .FALSE.
 /
 &nwp_phy_nml
 inwp_gscp       = 0

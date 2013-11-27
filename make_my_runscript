@@ -52,11 +52,11 @@ input_folder=run
 #   exp_name="nh_dcmip_tc_52_r2b4"
 #   exp_name="nh_dcmip_bi_410_R3B4L31_defnew"
 #   exp_name="hat_icoham_ape_jsbach"
-   exp_name="nat_rce_120km"
+   exp_name="nat_rce_20km_nwp_384_f15"
 
 #   Define how many nodes to use on blizzard, should be 1 for all other machines
 #   at DKRZ and MPI-M
-no_of_nodes=1
+no_of_nodes=16
 
 #   Define how many mpi procs to use per node.
 #   On thunder this should be 16.
@@ -67,7 +67,7 @@ mpi_procs_pernode=32
 openmp_threads=2
 
 #   The wall clock time in "hh:mm:ss"
-cpu_time="00:58:00"
+cpu_time="07:58:00"
 #==============================================================================
 nproma=24
 memory_model="large"

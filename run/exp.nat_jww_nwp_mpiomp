@@ -153,8 +153,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  ltimer         = .true.
- ldump_states   = .false.
- lrestore_states= .false. 
 /
 &nwp_phy_nml
 inwp_gscp       = 10

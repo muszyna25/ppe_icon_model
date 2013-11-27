@@ -143,8 +143,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level = 4
  ltimer         = .true.
- ldump_states   = .false.
- lrestore_states= .false.
  ldump_dd     = .false.
  lread_dd     = .false.
 /
