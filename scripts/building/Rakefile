@@ -354,7 +354,7 @@ def doCheckExp(build,exp)
       vars2check.each {|var2check|
         ofiles.each {|ofile|
           result = Cdo.diffv(input: " -selname," + var2check + " " + ofile +
-                              " -selname," + var2check + '_acc' + " " + ofile)
+                              " -selname," + var2check + "_acc" + " " + ofile)
           unless result.empty? then
             puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
             pp result

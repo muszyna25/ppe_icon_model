@@ -390,9 +390,12 @@ CONTAINS
     time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
     ! perform accumulation for special variables
-    CALL calc_potential_density( patch_3D,                     &
+    CALL calc_potential_density( patch_3D,                       &
       &                          p_os(jg)%p_prog(nold(1))%tracer,&
       &                          p_os(jg)%p_diag%rhopot )
+    CALL calc_psi (patch_2D,patch_3D, p_os(jg)%p_diag%u(:,:,:), &
+      &            p_os(jg)%p_prog(nold(1))%h(:,:),             &
+      &            p_os(jg)%p_diag%u_vint, datetime)
 
     ! update accumulated vars
     CALL update_ocean_statistics(p_os(1),                              &
@@ -416,9 +419,6 @@ CONTAINS
           &                             oce_ts)
 
         CALL calc_moc (patch_2D,patch_3D, p_os(jg)%p_diag%w(:,:,:), datetime)
-        CALL calc_psi (patch_2D,patch_3D, p_os(jg)%p_diag%u(:,:,:), &
-          &                        p_os(jg)%p_prog(nold(1))%h(:,:), &
-          &                        p_os(jg)%p_diag%u_vint, datetime)
 
       ENDIF
       ! compute mean values for output interval
@@ -645,7 +645,7 @@ CONTAINS
       &             cells)
     END DO
     CALL add_fields(p_os%p_acc%u_vint        , p_os%p_diag%u_vint        , cells)
-    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , cells    , max_zlev+1)
+    CALL add_fields(p_os%p_acc%w             , p_os%p_diag%w             , cells,max_zlev+1)
     CALL add_fields(p_os%p_acc%div_mass_flx_c, p_os%p_diag%div_mass_flx_c, cells)
     CALL add_fields(p_os%p_acc%rho           , p_os%p_diag%rho           , cells)
     CALL add_fields(p_os%p_acc%vt            , p_os%p_diag%vt            , edges)
