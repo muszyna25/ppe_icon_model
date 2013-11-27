@@ -312,6 +312,7 @@ def doCmpExps(build,expA,expB)
               ),true)
 end
 def doCheckExp(build,exp)
+  var = ENV.has_key?('VAR') ? ENV['VAR'] : 't'
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       for file in $(ls -rc #{exp}*.nc*); do
@@ -338,6 +339,29 @@ def doCheckExp(build,exp)
       fi
    EOS
   )) unless ENV['SHOW'].nil?
+
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      var=#{var} ruby -rcdo <<-EOR
+      ofiles = Dir.glob("#{exp}*.nc")
+      names = Cdo.showname(input: ofiles[0])[0].split
+      acc_names = names.grep(/_acc/)
+      non_acc_names = acc_names.map {|n| n[0..-5]}
+      # collect variable with have acc and spot values in the output file
+      vars2check = non_acc_names.select {|name| names.include?(name) }
+      var2check = ENV["var"].nil? ? "t" : ENV["var"]
+      ofiles.each {|ofile|
+        if vars2check.include?(var2check) 
+          puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
+          pp Cdo.diffv(input: " -selname," + var2check + " " + ofile + 
+                              " -selname," + var2check + '_acc' + " " + ofile) 
+        else
+          puts "cannot check var:" + var2check
+        end
+      }
+EOR
+   EOS
+  ))
 #ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
 #varName='matrix_vert_diff_c_1'
 #image = @plotter.plot(ifile,'test_'+exp,'matrix_vert_diff_c_1','scalar',:maskName => 'wet_c',:timeStep => 3)
