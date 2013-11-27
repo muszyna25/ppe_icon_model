@@ -668,7 +668,8 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src = 3  ! output print level (1-5, fix)
-    CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src)
+    CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src, &
+      & in_subset=owned_edges)
     CALL dbg_print('density'                   ,ocean_state%p_diag%rho           ,str_module,idt_src, &
       & in_subset = owned_cells)
     CALL dbg_print('internal pressure'         ,ocean_state%p_diag%press_hyd     ,str_module,idt_src, &
@@ -678,7 +679,8 @@ CONTAINS
     idt_src = 4  ! output print level (1-5, fix)
     CALL dbg_print('kinetic energy'            ,ocean_state%p_diag%kin           ,str_module,idt_src, &
       in_subset = owned_cells)
-    CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src)
+    CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src, &
+      & in_subset=owned_edges)
     !---------------------------------------------------------------------
     
     !---------------------------------------------------------------------
@@ -830,8 +832,10 @@ CONTAINS
           
           !---------DEBUG DIAGNOSTICS-------------------------------------------
           idt_src = 5  ! output print level (1-5, fix)
-          CALL dbg_print('Bef fin term: vn_pred'      ,ocean_state%p_diag%vn_pred       ,str_module,idt_src)
-          CALL dbg_print('Bef fin term: g_nimd'       ,ocean_state%p_aux%g_nimd         ,str_module,idt_src)
+          CALL dbg_print('Bef fin term: vn_pred'      ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, &
+             & in_subset=owned_edges)
+          CALL dbg_print('Bef fin term: g_nimd'       ,ocean_state%p_aux%g_nimd         ,str_module,idt_src, &
+             & in_subset=owned_edges)
           !---------------------------------------------------------------------
           
           DO jb = all_edges%start_block, all_edges%end_block
@@ -956,8 +960,9 @@ CONTAINS
         END DO
       ENDIF
     ENDIF
-    
-    CALL dbg_print('Bef veloc_diff_vert: vn_pred'      ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
+
+    CALL dbg_print('Bef veloc_diff_vert: vn_pred', ocean_state%p_diag%vn_pred, str_module,idt_src, &
+      & in_subset=owned_edges)
     !In 3D case and if implicit vertical velocity diffusion is chosen
     IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
       
@@ -977,23 +982,33 @@ CONTAINS
     ENDIF
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('vn(nold)'                  ,ocean_state%p_prog(nold(1))%vn       ,str_module,idt_src)
-    CALL dbg_print('VelocAdvHorizontal'        ,ocean_state%p_diag%veloc_adv_horz    ,str_module,idt_src)
-    CALL dbg_print('VelocLaPlac horizontal'    ,ocean_state%p_diag%laplacian_horz    ,str_module,idt_src)
+    CALL dbg_print('vn(nold)'                  ,ocean_state%p_prog(nold(1))%vn       ,str_module,idt_src, &
+      & in_subset=owned_edges)
+    CALL dbg_print('VelocAdvHorizontal'        ,ocean_state%p_diag%veloc_adv_horz    ,str_module,idt_src, &
+      & in_subset=owned_edges)
+    CALL dbg_print('VelocLaPlac horizontal'    ,ocean_state%p_diag%laplacian_horz    ,str_module,idt_src, &
+      & in_subset=owned_edges)
     
     IF (expl_vertical_velocity_diff == 1 .AND. iswm_oce /= 1) THEN
-      CALL dbg_print('ImplVelocDiff vertical'    ,ocean_state%p_diag%vn_impl_vert_diff ,str_module,idt_src)
+      CALL dbg_print('ImplVelocDiff vertical'    ,ocean_state%p_diag%vn_impl_vert_diff ,str_module,idt_src, &
+        & in_subset=owned_edges )
     ELSE
-      CALL dbg_print('VelocLaPlac vertical'      ,ocean_state%p_diag%laplacian_vert    ,str_module,idt_src)
+      CALL dbg_print('VelocLaPlac vertical'      ,ocean_state%p_diag%laplacian_vert    ,str_module,idt_src, &
+        & in_subset=owned_edges )
     ENDIF
     IF (l_inverse_flip_flop) &
-      & CALL dbg_print('dual-flip-flop Adv. horz'  ,z_e                           ,str_module,idt_src)
+      & CALL dbg_print('dual-flip-flop Adv. horz'  ,z_e                           ,str_module,idt_src, &
+        & in_subset=owned_edges )
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('G_n+1/2 - g_nimd'          ,ocean_state%p_aux%g_nimd             ,str_module,idt_src)
-    CALL dbg_print('G_n'                       ,ocean_state%p_aux%g_n                ,str_module,idt_src)
-    CALL dbg_print('G_n-1'                     ,ocean_state%p_aux%g_nm1              ,str_module,idt_src)
+    CALL dbg_print('G_n+1/2 - g_nimd'          ,ocean_state%p_aux%g_nimd             ,str_module,idt_src, &
+        & in_subset=owned_edges )
+    CALL dbg_print('G_n'                       ,ocean_state%p_aux%g_n                ,str_module,idt_src, &
+        & in_subset=owned_edges )
+    CALL dbg_print('G_n-1'                     ,ocean_state%p_aux%g_nm1              ,str_module,idt_src, &
+        & in_subset=owned_edges )
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src)
+    CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src, &
+        & in_subset=owned_edges )
     !---------------------------------------------------------------------
     
     !-------------------------------------------
@@ -1035,7 +1050,7 @@ CONTAINS
     REAL(wp) :: z_vn_ab(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     
     !TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,patch%alloc_cell_blocks)
-    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_horz
     !REAL(wp) :: thick
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1047,6 +1062,7 @@ CONTAINS
     all_cells       => patch_3d%p_patch_2d(1)%cells%ALL
     cells_in_domain => patch_3d%p_patch_2d(1)%cells%in_domain
     all_edges       => patch_3d%p_patch_2d(1)%edges%ALL
+    owned_edges    => patch_3d%p_patch_2d(1)%edges%owned
     
     gdt2 = grav*dtime*dtime
     
@@ -1208,9 +1224,12 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('RHS thick_e'               ,ocean_state%p_diag%thick_e      ,str_module,idt_src)
-    CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src)
-    CALL dbg_print('RHS z_e'                   ,z_e                      ,str_module,idt_src)
+    CALL dbg_print('RHS thick_e'               ,ocean_state%p_diag%thick_e, str_module,idt_src, &
+        & in_subset=owned_edges )
+    CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src, &
+        & in_subset=owned_edges )
+    CALL dbg_print('RHS z_e'                   ,z_e                      ,str_module,idt_src, &
+        & in_subset=owned_edges )
     CALL dbg_print('RHS div_z_depth_int_c'     ,div_z_depth_int_c        ,str_module,idt_src, &
       in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     CALL dbg_print('RHS div_z_c'     ,div_z_c        ,str_module,idt_src, &
@@ -1482,7 +1501,7 @@ CONTAINS
     CALL dbg_print('NormVel: vn_old'            ,ocean_state%p_prog(nold(1))%vn     ,str_module,idt_src, in_subset=owned_edges )
     CALL dbg_print('NormVel: vn_pred'           ,ocean_state%p_diag%vn_pred         ,str_module,idt_src, in_subset=owned_edges)
     IF (.NOT.l_rigid_lid) THEN
-      CALL dbg_print('NormVel: grad h-new'      ,z_grad_h                    ,str_module,idt_src, in_subset=owned_cells)
+      CALL dbg_print('NormVel: grad h-new'      ,z_grad_h                    ,str_module,idt_src, in_subset=owned_edges)
     END IF
     CALL dbg_print('NormVel: vn_time_weighted'  ,ocean_state%p_diag%vn_time_weighted,str_module,idt_src, in_subset=owned_edges)
     CALL dbg_print('NormVel: vn_change'         ,ocean_state%p_prog(nnew(1))%vn - &

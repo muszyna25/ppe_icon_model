@@ -309,7 +309,8 @@ CONTAINS
         idt_src=3  ! output print level (1-5, fix)
         CALL dbg_print('HydOce: ScaProdVel kin'    ,p_os(jg)%p_diag%kin        ,str_module,idt_src, &
           patch_2D%cells%owned )
-        CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,p_os(jg)%p_diag%ptp_vn     ,str_module,idt_src)
+        CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,p_os(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
+          patch_2D%edges%owned )
         !---------------------------------------------------------------------
 
       ENDIF
