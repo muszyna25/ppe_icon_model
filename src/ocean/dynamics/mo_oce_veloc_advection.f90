@@ -258,12 +258,15 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
           patch_2D%cells%owned )
-    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
+          patch_2D%verts%owned )
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimRot: vorticity flux'    ,z_vort_flx              ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: vorticity flux'    ,z_vort_flx              ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !CALL dbg_print('HorzMimRot: p_vn%x(1)'         ,p_diag%p_vn%x(1)        ,str_module,idt_src)
     !CALL dbg_print('HorzMimRot: p_vn_dual%x(1)'    ,p_diag%p_vn%x(1)        ,str_module,idt_src)
-    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
     ! IF(L_INVERSE_FLIP_FLOP)THEN
@@ -291,7 +294,8 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimRot: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
+    CALL dbg_print('HorzMimRot: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_mimetic_rot
@@ -411,9 +415,11 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimDiv: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src)
+    CALL dbg_print('HorzMimDiv: final Vel.Adv.'    ,veloc_adv_horz_e        ,str_module,idt_src, &
+          patch_2D%edges%owned )
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimDiv: vorticity'         ,p_diag%vort             ,str_module,idt_src)
+    CALL dbg_print('HorzMimDiv: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
+          patch_2D%verts%owned )
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_mimetic_div
@@ -647,7 +653,8 @@ CONTAINS
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src)
+    CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot
@@ -801,7 +808,8 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     !CALL dbg_print('VertMimRot2: z_adv_u_m%x(1)' ,z_adv_u_m%x(1)           ,str_module,idt_src)
-    CALL dbg_print('VertMimRot2: VelAdv Final'   ,veloc_adv_vert_e         ,str_module,idt_src)
+    CALL dbg_print('VertMimRot2: VelAdv Final'   ,veloc_adv_vert_e         ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mim_rot_flux2
@@ -900,7 +908,8 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
     !CALL dbg_print('VertMimRot2: z_adv_u_m%x(1)' ,z_adv_u_m%x(1)           ,str_module,idt_src)
-    CALL dbg_print('VertMimRot: VelAdv Final'   ,veloc_adv_vert_e(:,2,:)         ,str_module,idt_src)
+    CALL dbg_print('VertMimRot: VelAdv Final'   ,veloc_adv_vert_e(:,:,:)         ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
   END SUBROUTINE veloc_adv_vert_mimetic_rot_flux
   !-------------------------------------------------------------------------
@@ -997,7 +1006,8 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     !CALL dbg_print('VertMimRot2: z_adv_u_m%x(1)' ,z_adv_u_m%x(1)           ,str_module,idt_src)
-    CALL dbg_print('VertMimDiv: VelAdv Final'   ,veloc_adv_vert_e         ,str_module,idt_src)
+    CALL dbg_print('VertMimDiv: VelAdv Final'   ,veloc_adv_vert_e         ,str_module,idt_src, &
+          patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_div

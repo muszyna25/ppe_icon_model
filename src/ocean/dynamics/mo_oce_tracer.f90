@@ -633,7 +633,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('aft. AdvDiffHorz:flux horz',flux_horz,str_module,idt_src)
+  CALL dbg_print('aft. AdvDiffHorz:flux horz',flux_horz,str_module,idt_src, in_subset=cells_in_domain)
   CALL dbg_print('bef. AdvVert: w_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src, in_subset=cells_in_domain)
   !---------------------------------------------------------------------
 
