@@ -312,7 +312,7 @@ def doCmpExps(build,expA,expB)
               ),true)
 end
 def doCheckExp(build,exp)
-  var = ENV.has_key?('VAR') ? ENV['VAR'] : 't'
+  var = ENV.has_key?('VAR') ? ENV['VAR'] : '__ALL'
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       for file in $(ls -rc #{exp}*.nc*); do
@@ -340,25 +340,26 @@ def doCheckExp(build,exp)
    EOS
   )) unless ENV['SHOW'].nil?
 
+  # special accumulation check
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       var=#{var} ruby -rcdo <<-EOR
-      ofiles = Dir.glob("#{exp}*.nc")
-      names = Cdo.showname(input: ofiles[0])[0].split
-      acc_names = names.grep(/_acc/)
+      ofiles        = Dir.glob("#{exp}*.nc")
+      names         = Cdo.showname(input: ofiles[0])[0].split
+      acc_names     = names.grep(/_acc/)
       non_acc_names = acc_names.map {|n| n[0..-5]}
       # collect variable with have acc and spot values in the output file
-      vars2check = non_acc_names.select {|name| names.include?(name) }
-      var2check = ENV["var"].nil? ? "t" : ENV["var"]
-      ofiles.each {|ofile|
-        if vars2check.include?(var2check)
-          puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
-          pp Cdo.diffv(input: " -selname," + var2check + " " + ofile +
+      vars2check    = non_acc_names.select {|name| names.include?(name) }
+      vars2check    = vars2check.grep(/\#{ENV["var"]}/) if ENV["var"] != "__ALL"
+      vars2check.each {|var2check|
+        ofiles.each {|ofile|
+          result = Cdo.diffv(input: " -selname," + var2check + " " + ofile +
                               " -selname," + var2check + '_acc' + " " + ofile)
-        else
-          puts "cannot check var:" + var2check
-        end
-      }
+          unless result.empty? then
+            puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
+            pp result
+          end
+      }}
 EOR
    EOS
   ))
