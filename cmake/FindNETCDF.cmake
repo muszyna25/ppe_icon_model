@@ -67,10 +67,8 @@ endif()
 # do we have hdf5 based netcdf support build in
 
 set (_netcdf_nc4_support "no") 
-message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
 
 if (NOT (_netcdf_version VERSION_LESS 4))
-  message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
   execute_process (COMMAND ${_netcdf_config_executable} --has-nc4 
     OUTPUT_VARIABLE _netcdf_nc4_support 
     OUTPUT_STRIP_TRAILING_WHITESPACE) 
@@ -82,15 +80,14 @@ find_path(NETCDF_C_INCLUDE_DIR netcdf.h
 find_library(
   NETCDF_C_LIBRARY 
   NAMES netcdf
-  HINTS ${_netcdf_root}/lib)
+  HINTS ${_netcdf_root}/lib
+  NO_DEFAULT_PATH)
 
 mark_as_advanced(NETCDF_C_LIBRARY NETCDF_C_INCLUDE_DIR)
 
 message ("   netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
 message ("   netCDF C library directory       : ${NETCDF_C_LIBRARY_DIR}")
 message ("   netCDF C libraries               : ${NETCDF_C_LIBRARY}")
-
-message (STATUS "LK _netcdf_nc4_support: ${_netcdf_nc4_support}")
 
 if ("${_netcdf_nc4_support}" STREQUAL "yes")
 
@@ -147,7 +144,8 @@ if (_netcdf_version VERSION_LESS 4.0)
   find_library(
     NETCDF_Fortran_LIBRARY 
     NAMES netcdf
-    HINTS ${_netcdf_root}/lib)
+    HINTS ${_netcdf_root}/lib
+    NO_DEFAULT_PATH)
 
 elseif (_netcdf_version VERSION_LESS 4.2)
 
@@ -160,7 +158,8 @@ elseif (_netcdf_version VERSION_LESS 4.2)
   find_library(
     NETCDF_Fortran_LIBRARY 
     NAMES netcdff
-    HINTS ${_netcdf_root}/lib)
+    HINTS ${_netcdf_root}/lib
+    NO_DEFAULT_PATH)
 
 else()
 
@@ -206,7 +205,8 @@ else()
   find_library(
     NETCDF_Fortran_LIBRARY 
     NAMES netcdff
-    HINTS ${_netcdff_root}/lib)
+    HINTS ${_netcdff_root}/lib
+    NO_DEFAULT_PATH)
 
 endif()
 
@@ -219,8 +219,6 @@ set (NETCDF_INCLUDE_DIRS ${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_D
 set (NETCDF_LIBRARY_DIRS ${NETCDF_Fortran_LIBRARY_DIR} ${NETCDF_C_LIBRARY_DIR})
 set (NETCDF_LIBRARIES    ${NETCDF_Fortran_LIBRARY} ${NETCDF_C_LIBRARY})
 
-# handle the QUIETLY and REQUIRED arguments and set NETCDF_FOUND to TRUE if 
-# all listed variables are TRUE
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(NETCDF DEFAULT_MSG _netcdf_root)
 

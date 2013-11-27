@@ -16,18 +16,21 @@ add_executable (control_model ${control_model_source} ${Fortran_sourcefiles} ${C
 target_link_libraries (control_model 
   ${MPI_Fortran_LIBRARIES} 
   ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
   mtime support lapack blas)
 
 add_executable (grid_command ${grid_command_source} ${Fortran_sourcefiles} ${C_sourcefiles})
 target_link_libraries (grid_command
   ${MPI_Fortran_LIBRARIES} 
   ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
   mtime support lapack blas)
 
 add_executable (partitioner ${partitioner_source} ${Fortran_sourcefiles} ${C_sourcefiles})
 target_link_libraries (partitioner
   ${MPI_Fortran_LIBRARIES} 
   ${NETCDF_LIBRARIES} 
+  ${HDF5_LIBRARIES} 
   mtime support lapack blas)
 
 

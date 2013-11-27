@@ -67,11 +67,11 @@ message (STATUS "MPI Fortran libraries                : ${MPI_Fortran_LIBRARIES}
 message (STATUS "MPI mpiexec                          : ${MPIEXEC}") 
 message (STATUS "MPI flag for MPI task count          : ${MPIEXEC_NUMPROC_FLAG}") 
 
-find_package (NETCDF)
+find_package (NETCDF REQUIRED)
 include_directories (${NETCDF_INCLUDE_DIRS})
 
 if ("${NETCDF_REQUIRES_HDF5}" STREQUAL "yes")
-  find_package(HDF5)
+  find_package(HDF5 REQUIRED)
 endif()
 
 add_definitions (-DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE)
