@@ -643,7 +643,7 @@ CONTAINS
     CALL add_fields(p_os%p_acc%rho           , p_os%p_diag%rho           , cells)
     CALL add_fields(p_os%p_acc%vt            , p_os%p_diag%vt            , edges)
     CALL add_fields(p_os%p_acc%mass_flx_e    , p_os%p_diag%mass_flx_e    , edges)
-    CALL add_fields(p_os%p_acc%vort          , p_os%p_diag%vort          , verts)
+    CALL add_fields(p_os%p_acc%vort          , p_os%p_diag%vort          , verts,max_zlev)
     CALL add_fields(p_os%p_acc%kin           , p_os%p_diag%kin           , cells)
 
     ! update forcing accumulated values
@@ -669,8 +669,6 @@ CONTAINS
       CALL add_fields(p_sfc_flx%forc_tracer_relax_acc(:,:,jtrc), p_sfc_flx%forc_tracer_relax(:,:,jtrc), cells)
     END DO
 
-!   CALL dbg_print('VORT (acc)', p_os%p_acc%vort , str_module, 0, in_subset=verts)
-!   CALL dbg_print('VORT (   )', p_os%p_diag%vort, str_module, 0, in_subset=verts)
   END SUBROUTINE update_ocean_statistics
 
   SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)

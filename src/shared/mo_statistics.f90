@@ -1071,7 +1071,6 @@ CONTAINS
     CALL assign_if_present(mylevels, levels)
     CALL assign_if_present(my_force_level, force_level)
 
-
     IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. my_force_level) THEN
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, startidx, endidx)
