@@ -226,7 +226,7 @@ CONTAINS
 
     ! Time levels
     INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp
-    INTEGER :: n_now_rcf, n_new_rcf, n_upt_rcf  ! accounts for reduced calling frequencies (rcf)
+    INTEGER :: n_now_rcf, n_new_rcf ! accounts for reduced calling frequencies (rcf)
 
     INTEGER :: jstep, jgp, jgc, jn
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain

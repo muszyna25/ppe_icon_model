@@ -733,7 +733,7 @@ MODULE mo_nh_stepping
 
     ! Time levels
     INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp
-    INTEGER :: n_now_rcf, n_new_rcf, n_upt_rcf  ! accounts for reduced calling frequencies (rcf)
+    INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
 
     INTEGER :: jstep, jgp, jgc, jn
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
@@ -874,15 +874,6 @@ MODULE mo_nh_stepping
       ! Set local variable for rcf-time levels
       n_now_rcf = nnow_rcf(jg)
       n_new_rcf = nnew_rcf(jg)
-      ! the next time level is essential for physics packages, which are not
-      ! synchronized with transport (i.e. which are not called for each advection
-      ! step or for each ith advection step). Those unsynchronized physics-routines
-      ! need to read from and update to timelevel n_upt_rcf and NOT n_new_rcf !!
-      IF (lstep_adv(jg) ) THEN
-        n_upt_rcf = nnew_rcf(jg)
-      ELSE
-        n_upt_rcf = nnow_rcf(jg)
-      ENDIF
 
       !
       ! counter for simulation time in seconds
