@@ -77,7 +77,6 @@ MODULE mo_oce_state
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length,set_del_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
-  USE mo_physical_constants,  ONLY: rho_ref
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx
   USE mo_loopindices,         ONLY: get_indices_e  !, get_indices_c, get_indices_v
 
@@ -1160,7 +1159,6 @@ CONTAINS
 
     ! initialize density with reference value rather than with zero
     !  - mainly for plotting purpose
-    p_os_diag%rho(:,:,:) = rho_ref
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), STAT=ist)
