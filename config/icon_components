@@ -4,5 +4,3 @@
 # icon_components=NO_JSBACH
 # icon_components=NO_ICON_ATMO
 # icon_components=NO_ICON_OCEAN NO_JSBACH
-# JSBACH for the moment needs to be defined:
-icon_components=JSBACH
