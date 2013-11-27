@@ -21,8 +21,8 @@ find . -name CMakeFiles -print -exec rm -rf {} \; 2> /dev/null || ret=$?
 #________________________________________________________________________________________________
 # select netcdf version
 #use_netcdf=3.6
-use_netcdf=4.1
-#use_netcdf=4.2
+#use_netcdf=4.1
+use_netcdf=4.2
 #
 #________________________________________________________________________________________________
 # select machine specifics

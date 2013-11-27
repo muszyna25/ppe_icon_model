@@ -62,11 +62,11 @@ list (APPEND HDF5_INCLUDE_DIRS ${HDF5_C_INCLUDE_DIR})
 set (_hdf5_libraries hdf5_hl hdf5)
 foreach (_lib ${_hdf5_libraries})
   find_library(
-  _hdf5_c_library 
+  _hdf5_c_library_${_lib} 
   NAMES ${_lib}
   HINTS ${_hdf5_root}/lib
   NO_DEFAULT_PATH)
-  list (APPEND HDF5_C_LIBRARIES "${_hdf5_c_library}")
+  list (APPEND HDF5_C_LIBRARIES "${_hdf5_c_library_${_lib}}")
 endforeach ()
 
 foreach (_lib ${libraries})
