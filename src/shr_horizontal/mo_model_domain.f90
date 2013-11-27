@@ -170,6 +170,7 @@ MODULE mo_model_domain
     TYPE(t_patch), POINTER :: patch
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
+    INTEGER :: max_vertical_levels
     INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
 
     INTEGER :: no_of_holes ! the number of holes in the subset

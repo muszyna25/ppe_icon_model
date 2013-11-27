@@ -88,6 +88,7 @@ CONTAINS
     subset%size        = 0
     subset%entity_location  = 0
     subset%patch       => patch
+    subset%max_vertical_levels = 0
     NULLIFY(subset%vertical_levels)
 
     IF (PRESENT(located)) subset%entity_location = located
