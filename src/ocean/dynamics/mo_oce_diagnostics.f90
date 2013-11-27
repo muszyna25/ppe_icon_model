@@ -988,7 +988,7 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
   REAL(wp), INTENT(IN)               :: u(:,:,:)     ! zonal velocity at cell centers
   REAL(wp), INTENT(IN)               :: h(:,:)       ! elevation on cell centers
                                                      ! dims: (nproma,nlev,alloc_cell_blocks)
-  REAL(wp), INTENT(inout)              :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
+  REAL(wp), INTENT(INOUT)            :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
   TYPE(t_datetime), INTENT(IN)       :: datetime
   !
   ! local variables
