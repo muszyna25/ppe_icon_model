@@ -351,10 +351,10 @@ def doCheckExp(build,exp)
       vars2check = non_acc_names.select {|name| names.include?(name) }
       var2check = ENV["var"].nil? ? "t" : ENV["var"]
       ofiles.each {|ofile|
-        if vars2check.include?(var2check) 
+        if vars2check.include?(var2check)
           puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
-          pp Cdo.diffv(input: " -selname," + var2check + " " + ofile + 
-                              " -selname," + var2check + '_acc' + " " + ofile) 
+          pp Cdo.diffv(input: " -selname," + var2check + " " + ofile +
+                              " -selname," + var2check + '_acc' + " " + ofile)
         else
           puts "cannot check var:" + var2check
         end
