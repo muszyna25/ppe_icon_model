@@ -358,6 +358,8 @@ def doCheckExp(build,exp)
           unless result.empty? then
             puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
             pp result
+          else
+            puts "ZERO diff for " + var2check + " (file:" + ofile + ")"
           end
       }}
 EOR
