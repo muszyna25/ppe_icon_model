@@ -227,11 +227,14 @@ CONTAINS
     maxiterex = .FALSE.
     
     v(:,:,:)  = 0.0_wp
-    r(:,:)    = 0.0_wp
+    ! r(:,:)    = 0.0_wp
     
-    x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    !    sum_x(0) = SUM(x(:,:))
-    
+    IF (pad_nproma <= nproma) THEN
+      w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+      b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+      x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    ENDIF
+
     ! 1) compute the preconditioned residual
     IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
     IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
@@ -239,24 +242,17 @@ CONTAINS
     
     w(:, :) = lhs(x(:,:),old_h, p_patch_3d,coeff, h_e, thickness_c, p_op_coeff)
     
-    w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    
     !    write(0,*) "-----------------------------------"
     !    sum_x(1) = SUM(x(:,:))
     !    sum_w    = SUM(w(:,:))
     !    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
     
-#ifndef __SX__
     IF (ltimer) CALL timer_start(timer_gmres)
-#endif
     
     mythreadno = 0
 !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
     !$ myThreadNo = OMP_GET_THREAD_NUM()
-    
-    
+
 !ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       r(1:nproma,jb) = b(1:nproma,jb) - w(1:nproma,jb)
@@ -301,11 +297,10 @@ CONTAINS
       !    print*,' gmres: rn2(1)=0.0 '
       ! #slo# 2010-06-15 trying to exit with niter=1 and residual=0.0
       niter = 0
-      !     niter = 1
       res(1) = ABS(rn2(1))
-#ifndef __SX__
+
       IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
+
       RETURN
     ENDIF
     
@@ -323,8 +318,8 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, coeff, h_e, thickness_c, p_op_coeff )
-      w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
-      v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
+      ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
+      ! v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
       
       !      sum_v = SUM(v(:,:,i))
       !      sum_w = SUM(w(:,:))
@@ -359,7 +354,7 @@ CONTAINS
         ENDIF
 !ICON_OMP BARRIER
         
-!ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           w(1:nproma, jb) = w(1:nproma, jb) - h_aux * v(1:nproma, jb, k)
         ENDDO
