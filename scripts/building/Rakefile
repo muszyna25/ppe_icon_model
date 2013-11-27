@@ -314,7 +314,7 @@ end
 def doCheckExp(build,exp)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
-      for file in #{exp}*.nc* #{exp}*001_TEST.nc; do
+      for file in $(ls -rc #{exp}*.nc*); do
         if [ -f $file ]; then
           echo '#===========================================================================';
           echo " $file";echo
