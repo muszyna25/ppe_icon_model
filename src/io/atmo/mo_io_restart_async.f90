@@ -132,7 +132,7 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 21
 
   ! maximumm number of verticale axes
-  INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 15
+  INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 19
 
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
@@ -2419,11 +2419,15 @@ CONTAINS
     CALL set_vertical_grid_def(p_pd%v_grid_defs(8),  ZA_HEIGHT_2M           , 1            )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(9),  ZA_HEIGHT_10M          , 1            )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(10), ZA_TOA                 , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(11), ZA_DEPTH_BELOW_SEA     , nlev_ocean   )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(12), ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1 )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(13), ZA_GENERIC_ICE         , nice_class   )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(14), ZA_DEPTH_RUNOFF_S      , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(15), ZA_DEPTH_RUNOFF_G      , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(11), ZA_LAKE_BOTTOM         , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(12), ZA_MIX_LAYER           , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(13), ZA_LAKE_BOTTOM_HALF    , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(14), ZA_SEDIMENT_BOTTOM_TW_HALF, 1         )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(15), ZA_DEPTH_BELOW_SEA     , nlev_ocean   )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(16), ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1 )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(17), ZA_GENERIC_ICE         , nice_class   )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(18), ZA_DEPTH_RUNOFF_S      , 1            )
+    CALL set_vertical_grid_def(p_pd%v_grid_defs(19), ZA_DEPTH_RUNOFF_G      , 1            )
 
   END SUBROUTINE set_restart_attributes
 
@@ -3152,6 +3156,18 @@ CONTAINS
         CASE (ZA_TOA)
           CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_TOA), ZAXIS_TOA, &
             &                   p_vgd%nlevels, 1, 1.0_wp)
+        CASE (ZA_LAKE_BOTTOM)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM), ZAXIS_LAKE_BOTTOM, &
+            &                   p_vgd%nlevels, 1, 1.0_wp)
+        CASE (ZA_MIX_LAYER)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_MIX_LAYER), ZAXIS_MIX_LAYER, &
+            &                   p_vgd%nlevels, 1, 1.0_wp)
+        CASE (ZA_LAKE_BOTTOM_HALF)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM_HALF), ZAXIS_LAKE_BOTTOM, &
+            &                   p_vgd%nlevels, 1, 1.0_wp)
+        CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
+          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SEDIMENT_BOTTOM_TW_HALF), ZAXIS_SEDIMENT_BOTTOM_TW, &
+            &                   p_vgd%nlevels, 1, 0.0_wp)
         CASE (ZA_HEIGHT_2M)
           CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_HEIGHT_2M), ZAXIS_HEIGHT, &
             &                   p_vgd%nlevels, 1, 2.0_wp)
