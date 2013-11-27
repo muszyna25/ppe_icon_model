@@ -125,7 +125,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), dynamics_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, dynamics_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, dynamics_nml)                                      ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), dynamics_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml

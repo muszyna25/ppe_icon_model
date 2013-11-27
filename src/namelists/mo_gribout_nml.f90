@@ -245,7 +245,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), gribout_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, gribout_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, gribout_nml)                                      ! overwrite default settings
       ! Preset values, when main switch is provided.
       CALL preset_namelist()
       IF (my_process_is_stdio()) WRITE(temp_settings(), gribout_nml)  ! write settings to temporary text file

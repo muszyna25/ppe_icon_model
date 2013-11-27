@@ -311,7 +311,7 @@ MODULE mo_parallel_nml
     IF (my_process_is_stdio()) WRITE(temp_defaults(), parallel_nml)     ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, parallel_nml, iostat=istat)                             ! overwrite default settings
+      READ (nnml, parallel_nml)                                         ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), parallel_nml)     ! write settings to temporary text file
     END SELECT
     CALL close_nml

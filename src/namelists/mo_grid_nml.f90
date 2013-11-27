@@ -105,7 +105,7 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i, istat
+    INTEGER  :: i_status, i
 
     INTEGER    :: cell_type                ! cell type:
 
@@ -204,7 +204,7 @@ MODULE mo_grid_nml
     CALL position_nml ('grid_nml', status=i_status)
     IF (my_process_is_stdio()) WRITE(temp_defaults(), grid_nml)  ! write defaults to temporary text file
     IF (i_status == POSITIONED) THEN
-      READ (nnml, grid_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, grid_nml)                                      ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), grid_nml)  ! write settings to temporary text file
     ENDIF
     CALL close_nml

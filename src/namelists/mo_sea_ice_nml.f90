@@ -128,7 +128,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), sea_ice_nml)    ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (positioned)
-      READ (nnml, sea_ice_nml, iostat=istat)                            ! overwrite default settings
+      READ (nnml, sea_ice_nml)                                        ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), sea_ice_nml)    ! write settings to temporary text file
     END SELECT
     CALL close_nml

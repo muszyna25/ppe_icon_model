@@ -90,7 +90,7 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: &
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
 
-    INTEGER  :: ist, funit, istat
+    INTEGER  :: ist, funit
 
     !------------------------------------------------------------
     ! Set default values
@@ -129,7 +129,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_conv_nml)    ! write defaults to temporary text file
     SELECT CASE (ist)
     CASE (POSITIONED)
-      READ (nnml, echam_conv_nml, iostat=istat)                            ! overwrite default settings
+      READ (nnml, echam_conv_nml)                                        ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), echam_conv_nml)    ! write settings to temporary text file
     END SELECT
     CALL close_nml

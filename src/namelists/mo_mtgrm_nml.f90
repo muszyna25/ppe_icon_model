@@ -136,7 +136,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), meteogram_output_nml)   ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, meteogram_output_nml, iostat=istat)                           ! overwrite default settings
+      READ (nnml, meteogram_output_nml)                                       ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), meteogram_output_nml)   ! write settings to temporary text file
     END SELECT
     CALL close_nml

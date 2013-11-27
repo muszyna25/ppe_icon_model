@@ -131,7 +131,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_phy_nml)      ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (positioned)
-      READ (nnml, echam_phy_nml, iostat=istat)                              ! overwrite default settings
+      READ (nnml, echam_phy_nml)                                          ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), echam_phy_nml)      ! write settings to temporary text file
     END SELECT
     CALL close_nml

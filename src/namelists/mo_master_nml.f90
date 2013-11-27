@@ -163,7 +163,7 @@ CONTAINS
       model_inc_rank=1
       
       IF (my_process_is_stdio()) WRITE(temp_defaults(), master_model_nml)  ! write defaults to temporary text file
-      READ (nnml, master_model_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, master_model_nml)                                        ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), master_model_nml)  ! write settings to temporary text file
 
       no_of_models=no_of_models+1

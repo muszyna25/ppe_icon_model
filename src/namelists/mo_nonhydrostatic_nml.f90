@@ -275,7 +275,7 @@ CONTAINS
     IF (my_process_is_stdio()) WRITE(temp_defaults(), nonhydrostatic_nml)  ! write defaults to temporary text file
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nonhydrostatic_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, nonhydrostatic_nml)                                      ! overwrite default settings
       IF (my_process_is_stdio()) WRITE(temp_settings(), nonhydrostatic_nml)  ! write settings to temporary text file
     END SELECT
     CALL close_nml
