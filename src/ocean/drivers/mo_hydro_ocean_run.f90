@@ -100,7 +100,8 @@ USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
-  &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density
+  &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density, &
+  &                                  calc_density
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
@@ -242,11 +243,15 @@ CONTAINS
       CALL calc_potential_density( patch_3D,                     &
         &                          p_os(jg)%p_prog(nold(1))%tracer,&
         &                          p_os(jg)%p_diag%rhopot )
+      CALL calc_density( patch_3D,                        &
+        &                p_os(jg)%p_prog(nold(1))%tracer, &
+        &                p_os(jg)%p_diag%rho )
 
       p_os(jg)%p_acc%tracer(:,:,:,1)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
       p_os(jg)%p_acc%tracer(:,:,:,2)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(jg)%p_acc%h                = p_os(jg)%p_prog(nold(1))%h
       p_os(jg)%p_acc%rhopot           = p_os(jg)%p_diag%rhopot
+      p_os(jg)%p_acc%rho              = p_os(jg)%p_diag%rho
     ENDIF
     CALL write_name_list_output(jstep=0)
     IF (.NOT. is_restart_run()) THEN
@@ -254,6 +259,8 @@ CONTAINS
       p_os(jg)%p_acc%tracer(:,:,:,1)  = 0.0_wp
       p_os(jg)%p_acc%tracer(:,:,:,2)  = 0.0_wp
       p_os(jg)%p_acc%h                = 0.0_wp
+      p_os(jg)%p_acc%rhopot          = 0.0_wp
+      p_os(jg)%p_acc%rho             = 0.0_wp
     ENDIF
   ENDIF
   !------------------------------------------------------------------
@@ -749,7 +756,6 @@ CONTAINS
     p_acc%rho                       = 0.0_wp
     p_acc%vt                        = 0.0_wp
     p_acc%mass_flx_e                = 0.0_wp
-    p_acc%u_vint                    = 0.0_wp
     p_acc%vort                      = 0.0_wp
     p_acc%kin                       = 0.0_wp
     p_sfc_flx%forc_wind_u_acc       = 0.0_wp
