@@ -1077,9 +1077,9 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
     CALL add_var(ocean_default_list, 'w_time_weighted', p_os_diag%w_time_weighted, &
-    &            GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA_HALF, &
+    &            GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA_HALF, &
     &            t_cf_var('w_prev','m/s','vertical velocity at cells', DATATYPE_FLT32),&
-    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     ! vorticity

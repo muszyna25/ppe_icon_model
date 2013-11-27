@@ -607,6 +607,7 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
+!dbg      write(0,*)'>>>>>>>>>>>>>>>>>>>>>>>>> VARNAME: ',info%name
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
