@@ -1492,7 +1492,7 @@ src/ocean/drivers/mo_ocean_model.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping_mimetic.f90 -text
 src/ocean/dynamics/mo_oce_boundcond.f90 -text
-src/ocean/dynamics/mo_oce_check_consistency.f90 -text
+src/ocean/dynamics/mo_oce_check_tools.f90 -text
 src/ocean/dynamics/mo_oce_diagnostics.f90 -text
 src/ocean/dynamics/mo_oce_diffusion.f90 -text
 src/ocean/dynamics/mo_oce_init.f90 -text

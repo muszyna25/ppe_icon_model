@@ -38,7 +38,7 @@
 !! software.
 !!
 !!
-MODULE mo_oce_check_consistency
+MODULE mo_oce_check_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
@@ -73,7 +73,7 @@ CONTAINS
     INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     TYPE(t_patch), POINTER        :: patch_2d
-    CHARACTER(len=*), PARAMETER :: method_name='mo_oce_check_consistency:ocean_check_level_sea_land_mask'
+    CHARACTER(len=*), PARAMETER :: method_name='mo_oce_check_tools:ocean_check_level_sea_land_mask'
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2D(1)
     all_cells => patch_2d%cells%all
@@ -158,4 +158,5 @@ CONTAINS
   END SUBROUTINE ocean_check_level_sea_land_mask
   !-------------------------------------------------------------------------
     
-END MODULE mo_oce_check_consistency
+
+END MODULE mo_oce_check_tools

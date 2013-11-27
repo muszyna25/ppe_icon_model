@@ -94,7 +94,7 @@ MODULE mo_oce_state
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   USE mo_ocean_config,        ONLY: ignore_land_points
 
-  USE mo_oce_check_consistency, ONLY: ocean_check_level_sea_land_mask
+  USE mo_oce_check_tools, ONLY: ocean_check_level_sea_land_mask
   IMPLICIT NONE
   PRIVATE
 
@@ -2084,7 +2084,8 @@ CONTAINS
 !          ENDIF
 
           ! when a cell is missing then the edge is considered boundary (=0)
-          ! in case of open boundaries we have to create a bteer process through
+          ! if the other cell is sea
+          ! in case of open boundaries we have to create a better process through
           ! the grid tools
           IF (iic1 == 0 ) THEN
             IF (v_base%lsm_c(iic2,jk,ibc2) <= SEA_BOUNDARY) THEN
@@ -3462,6 +3463,19 @@ CONTAINS
     edges%in_domain%vertical_levels     => edges_vertical_levels
     edges%not_owned%vertical_levels     => edges_vertical_levels
     edges%not_in_domain%vertical_levels => edges_vertical_levels
+
+    cells%ALL%max_vertical_levels                = n_zlev
+    cells%owned%max_vertical_levels              = n_zlev
+    cells%in_domain%max_vertical_levels          = n_zlev
+    cells%not_owned%max_vertical_levels          = n_zlev
+    cells%not_in_domain%max_vertical_levels      = n_zlev
+    cells%one_edge_in_domain%max_vertical_levels = n_zlev
+
+    edges%ALL%max_vertical_levels           = n_zlev
+    edges%owned%max_vertical_levels         = n_zlev
+    edges%in_domain%max_vertical_levels     = n_zlev
+    edges%not_owned%max_vertical_levels     = n_zlev
+    edges%not_in_domain%max_vertical_levels = n_zlev
 
   END SUBROUTINE set_subset_ocean_vertical_layers
   !------------------------------------------------------------------------------------
