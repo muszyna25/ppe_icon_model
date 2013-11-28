@@ -1162,10 +1162,6 @@ CONTAINS
     !     RTAU IS 1 HOUR FOR ANY OTHER RESOLUTION
     !     --------------------------------------------------------
 
-    phy_params%tau=3600.0_JPRB
-    IF (ksmax > 319) phy_params%tau=1200.0_JPRB
-    IF (ksmax > 511) phy_params%tau=600.0_JPRB
-
     !     after Cy32r1:
     !     CONVECTIVE ADJUSTMENT TIME TAU=Z_cld/W_cld*rtau
     !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
