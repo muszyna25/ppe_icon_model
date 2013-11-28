@@ -235,6 +235,7 @@ CONTAINS
     INTEGER                               :: taxis_tunit
     INTEGER                               :: dom(max_phys_dom)
     INTEGER                               :: steps_per_file
+    LOGICAL                               :: steps_per_file_inclfirst         !< Flag. Do not count first step in files count
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval                    !< length of a file (ISO8601 duration)
     LOGICAL                               :: include_last
     LOGICAL                               :: output_grid
@@ -268,7 +269,8 @@ CONTAINS
     NAMELIST /output_nml/ &
       mode, taxis_tunit, dom,                                &
       filetype, filename_format, output_filename,            &
-      steps_per_file, include_last, output_grid,             &
+      steps_per_file, steps_per_file_inclfirst,              &
+      include_last, output_grid,                             &
       remap, reg_lon_def, reg_lat_def, north_pole,           &
       ml_varlist, pl_varlist, hl_varlist, il_varlist,        &
       p_levels, h_levels, i_levels,                          &
@@ -305,34 +307,35 @@ CONTAINS
 
       ! Set all variables in output_nml to their default values
 
-      filetype           = FILETYPE_NC2 ! NetCDF
-      mode               = 2
-      taxis_tunit        = TUNIT_HOUR
-      dom(:)             = -1
-      steps_per_file     = -1
-      file_interval      = ""
-      include_last       = .TRUE.
-      output_grid        = .FALSE.
-      output_filename    = ' '
-      filename_format    = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
-      ml_varlist(:)      = ' '
-      pl_varlist(:)      = ' '
-      hl_varlist(:)      = ' '
-      il_varlist(:)      = ' '
-      p_levels(:)        = 0._wp
-      h_levels(:)        = 0._wp
-      i_levels(:)        = 0._wp
-      remap              = REMAP_NONE
-      reg_lon_def(:)     = 0._wp
-      reg_lat_def(:)     = 0._wp
-      reg_def_mode       = 0
-      north_pole(:)      = (/ 0._wp, 90._wp /)
-      output_start       = ""
-      output_end         = ""
-      output_interval    = ""
-      output_bounds(:)   = -1._wp
-      output_time_unit   = 1
-      ready_file         = DEFAULT_EVENT_NAME
+      filetype                 = FILETYPE_NC2 ! NetCDF
+      mode                     = 2
+      taxis_tunit              = TUNIT_HOUR
+      dom(:)                   = -1
+      steps_per_file           = -1
+      steps_per_file_inclfirst = .TRUE.
+      file_interval            = ""
+      include_last             = .TRUE.
+      output_grid              = .FALSE.
+      output_filename          = ' '
+      filename_format          = "<output_filename>_DOM<physdom>_<levtype>_<jfile>"
+      ml_varlist(:)            = ' '
+      pl_varlist(:)            = ' '
+      hl_varlist(:)            = ' '
+      il_varlist(:)            = ' '
+      p_levels(:)              = 0._wp
+      h_levels(:)              = 0._wp
+      i_levels(:)              = 0._wp
+      remap                    = REMAP_NONE
+      reg_lon_def(:)           = 0._wp
+      reg_lat_def(:)           = 0._wp
+      reg_def_mode             = 0
+      north_pole(:)            = (/ 0._wp, 90._wp /)
+      output_start             = ""
+      output_end               = ""
+      output_interval          = ""
+      output_bounds(:)         = -1._wp
+      output_time_unit         = 1
+      ready_file               = DEFAULT_EVENT_NAME
 
       !------------------------------------------------------------------
       !  If this is a resumed integration, overwrite the defaults above
@@ -397,31 +400,33 @@ CONTAINS
 
       ! Set next output_name_list from values read
 
-      p_onl%filetype         = filetype
-      p_onl%mode             = mode
-      p_onl%taxis_tunit      = taxis_tunit
-      p_onl%dom(:)           = dom(:)
-      p_onl%steps_per_file   = steps_per_file
-      p_onl%file_interval    = file_interval
-      p_onl%include_last     = include_last
-      p_onl%output_grid      = output_grid
-      p_onl%output_filename  = output_filename
-      p_onl%filename_format  = filename_format
-      p_onl%ml_varlist(:)    = ml_varlist(:)
-      p_onl%pl_varlist(:)    = pl_varlist(:)
-      p_onl%hl_varlist(:)    = hl_varlist(:)
-      p_onl%il_varlist(:)    = il_varlist(:)
-      p_onl%p_levels         = p_levels
-      p_onl%h_levels         = h_levels
-      p_onl%i_levels         = i_levels
-      p_onl%remap            = remap
-      p_onl%lonlat_id        = -1
-      p_onl%output_start     = output_start
-      p_onl%output_end       = output_end
-      p_onl%output_interval  = output_interval
-      p_onl%additional_days  = 0
-      p_onl%output_bounds(:) = output_bounds(:)
-      p_onl%ready_file       = ready_file
+      p_onl%filetype                 = filetype
+      p_onl%mode                     = mode
+      p_onl%taxis_tunit              = taxis_tunit
+      p_onl%dom(:)                   = dom(:)
+      p_onl%steps_per_file           = steps_per_file
+      ! conditional default: steps_per_file_inclfirst=.FALSE. for GRIB output
+      p_onl%steps_per_file_inclfirst = steps_per_file_inclfirst .AND. (filetype /= FILETYPE_GRB2)
+      p_onl%file_interval            = file_interval
+      p_onl%include_last             = include_last
+      p_onl%output_grid              = output_grid
+      p_onl%output_filename          = output_filename
+      p_onl%filename_format          = filename_format
+      p_onl%ml_varlist(:)            = ml_varlist(:)
+      p_onl%pl_varlist(:)            = pl_varlist(:)
+      p_onl%hl_varlist(:)            = hl_varlist(:)
+      p_onl%il_varlist(:)            = il_varlist(:)
+      p_onl%p_levels                 = p_levels
+      p_onl%h_levels                 = h_levels
+      p_onl%i_levels                 = i_levels
+      p_onl%remap                    = remap
+      p_onl%lonlat_id                = -1
+      p_onl%output_start             = output_start
+      p_onl%output_end               = output_end
+      p_onl%output_interval          = output_interval
+      p_onl%additional_days          = 0
+      p_onl%output_bounds(:)         = output_bounds(:)
+      p_onl%ready_file               = ready_file
 
       ! consistency checks:
       IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
@@ -1098,13 +1103,14 @@ CONTAINS
       p_onl => p_of%name_list
       ! pack file-name meta-data into a derived type to pass them
       ! to "new_parallel_output_event":
-      fname_metadata%steps_per_file   = p_onl%steps_per_file
-      fname_metadata%file_interval    = p_onl%file_interval
-      fname_metadata%phys_patch_id    = p_of%phys_patch_id
-      fname_metadata%ilev_type        = p_of%ilev_type
-      fname_metadata%filename_format  = TRIM(p_onl%filename_format)
-      fname_metadata%filename_pref    = TRIM(p_of%filename_pref)
-      fname_metadata%extn             = TRIM(get_file_extension(p_onl%filetype))
+      fname_metadata%steps_per_file             = p_onl%steps_per_file
+      fname_metadata%steps_per_file_inclfirst   = p_onl%steps_per_file_inclfirst
+      fname_metadata%file_interval              = p_onl%file_interval
+      fname_metadata%phys_patch_id              = p_of%phys_patch_id
+      fname_metadata%ilev_type                  = p_of%ilev_type
+      fname_metadata%filename_format            = TRIM(p_onl%filename_format)
+      fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
+      fname_metadata%extn                       = TRIM(get_file_extension(p_onl%filetype))
 
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info

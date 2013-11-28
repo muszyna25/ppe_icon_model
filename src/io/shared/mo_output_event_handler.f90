@@ -1870,6 +1870,7 @@ CONTAINS
     CALL p_pack_string(sim_step_info%dom_end_time,           buffer, MAX_BUF_SIZE, position, icomm)
     ! encode fname_metadata data
     CALL p_pack_int(fname_metadata%steps_per_file,           buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_bool(fname_metadata%steps_per_file_inclfirst,buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(fname_metadata%file_interval),   buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(fname_metadata%phys_patch_id,            buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(fname_metadata%ilev_type,                buffer, MAX_BUF_SIZE, position, icomm)
@@ -1900,33 +1901,34 @@ CONTAINS
     INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
 
     ! decode event name string
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, name,                           icomm)
-    ! decode event begin and end string
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, begin_str,                      icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, end_str,                        icomm)
-    ! decode event interval string
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, intvl_str,                      icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, additional_days,                icomm)
-    ! decode flag "l_output_last":
-    CALL p_unpack_bool(  buffer, MAX_BUF_SIZE, position, l_output_last,                  icomm)
-    ! decode t_sim_step_info data
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_start,        icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,          icomm)
-    CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,            icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,         icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,           icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_start_time,   icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,     icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, name,                                     icomm)
+    ! decode event begin and end string                                                            
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, begin_str,                                icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, end_str,                                  icomm)
+    ! decode event interval string                                                                 
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, intvl_str,                                icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, additional_days,                          icomm)
+    ! decode flag "l_output_last":                                                                 
+    CALL p_unpack_bool(  buffer, MAX_BUF_SIZE, position, l_output_last,                            icomm)
+    ! decode t_sim_step_info data                                                                  
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_start,                  icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,                    icomm)
+    CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,                      icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,                   icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,                     icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_start_time,             icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,               icomm)
     ! decode fname_metadata data
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%steps_per_file,  icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%file_interval,   icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%phys_patch_id,   icomm)
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%ilev_type,       icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_format, icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_pref,   icomm)
-    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%extn,            icomm)
-    ! decode this event's MPI tag
-    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, i_tag,                          icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%steps_per_file,            icomm)
+    CALL p_unpack_bool(  buffer, MAX_BUF_SIZE, position, fname_metadata%steps_per_file_inclfirst,  icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%file_interval,             icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%phys_patch_id,             icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%ilev_type,                 icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_format,           icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_pref,             icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%extn,                      icomm)
+    ! decode this event's MPI tag                                                                 
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, i_tag,                                    icomm)
   END SUBROUTINE unpack_metadata
 
 

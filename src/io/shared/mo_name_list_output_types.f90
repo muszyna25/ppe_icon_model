@@ -192,6 +192,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: mode              ! 1 = forecast mode, 2 = climate mode
     INTEGER                               :: dom(max_phys_dom) ! domains for which this namelist is used, ending with -1
     INTEGER                               :: steps_per_file    ! Max number of output steps in one output file
+    LOGICAL                               :: steps_per_file_inclfirst !< Flag. Do not count first step in files count
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval     ! length of a file (ISO8601 duration)
     LOGICAL                               :: include_last      ! Flag whether to include the last timestep in output
     LOGICAL                               :: output_grid       ! Flag whether grid information is output (in NetCDF output)
@@ -280,6 +281,7 @@ MODULE mo_name_list_output_types
   !
   TYPE t_fname_metadata
     INTEGER                               :: steps_per_file                   !< (optional:) no. of output steps per file
+    LOGICAL                               :: steps_per_file_inclfirst         !< Flag. Do not count first step in files count
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval                    !< (optional:) length of a file (ISO8601 duration)
     INTEGER                               :: phys_patch_id                    !< ID of physical output patch
     INTEGER                               :: ilev_type                        !< level_type_ml/_pl/_hl/_il
