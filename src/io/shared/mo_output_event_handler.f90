@@ -1006,6 +1006,7 @@ CONTAINS
             IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
             write (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; bcast comm has size ", nbcast_ranks, &
                  &      ", root is ", opt_broadcast_root
+            lbroadcast = (nbcast_ranks > 1)
          end if
       END IF
     END IF
