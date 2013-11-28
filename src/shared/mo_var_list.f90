@@ -4011,7 +4011,7 @@ CONTAINS
   !  corresponding to the group @p grp_name
   !
   SUBROUTINE collect_group(grp_name, var_name, nvars, &
-    &                      loutputvars_only, lremap_lonlat)
+    &                      loutputvars_only, lremap_lonlat, opt_vlevel_type)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
@@ -4021,6 +4021,9 @@ CONTAINS
     ! lremap_lonlat: If set to .TRUE. only variables in the group
     ! which can be interpolated onto lon-lat grids are considered.
     LOGICAL,                    INTENT(IN)    :: lremap_lonlat
+
+    ! 1: model levels, 2: pressure levels, 3: height level
+    INTEGER, OPTIONAL,          INTENT(IN)    :: opt_vlevel_type
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
@@ -4035,6 +4038,11 @@ CONTAINS
     ! loop over all variable lists and variables
     DO i = 1,nvar_lists
       element => NULL()
+
+      IF (PRESENT(opt_vlevel_type)) THEN
+        IF (var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE
+      ENDIF
+
       LOOPVAR : DO
         IF(.NOT.ASSOCIATED(element)) THEN
           element => var_lists(i)%p%first_list_element

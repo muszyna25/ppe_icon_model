@@ -601,7 +601,8 @@ CONTAINS
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
             CALL collect_group(grp_name, grp_vars, ngrp_vars, &
               &               loutputvars_only=.TRUE.,        &
-              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON))
+              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
+              &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
               grp_vars(i) = tolower(grp_vars(i))
             END DO
