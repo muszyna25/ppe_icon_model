@@ -111,7 +111,6 @@ MODULE mo_test_nh_communication
                                     SYNC_C, SYNC_E, sync_patch_array
   USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
   USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
-  USE mo_vertical_grid,       ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_vertical_coord_table,ONLY: vct
