@@ -529,10 +529,10 @@ CONTAINS
     INTEGER              :: n, irefin, ic, ntot, ninterior
 
     ! -- reorder cells
-    ntot      = idx_1d( patch%cells%end_idx(min_rlcell,1), &
-      &                 patch%cells%end_blk(min_rlcell,1) )
-    ninterior = idx_1d( patch%cells%start_idx(min_rlcell_int-1,1), &
-      &                 patch%cells%start_blk(min_rlcell_int-1,1) ) - 1
+    ntot      = idx_1d( patch%cells%end_index(min_rlcell), &
+      &                 patch%cells%end_block(min_rlcell) )
+    ninterior = idx_1d( patch%cells%start_index(min_rlcell_int-1), &
+      &                 patch%cells%start_block(min_rlcell_int-1) ) - 1
     ALLOCATE(old2new(ntot))
     DO ic = 1,ntot
       old2new(ic) = ic
@@ -546,19 +546,19 @@ CONTAINS
         END IF
       END DO
       ! update start_idx/blk and end_idx_blk
-      patch%cells%end_idx(irefin,:)     = idx_no(n)
-      patch%cells%end_blk(irefin,:)     = blk_no(n)
-      patch%cells%start_idx(irefin-1,:) = idx_no(n+1)
-      patch%cells%start_blk(irefin-1,:) = blk_no(n+1)
+      patch%cells%end_index(irefin)     = idx_no(n)
+      patch%cells%end_block(irefin)     = blk_no(n)
+      patch%cells%start_index(irefin-1) = idx_no(n+1)
+      patch%cells%start_block(irefin-1) = blk_no(n+1)
     END DO
     CALL reorder_cells(patch, old2new, opt_child_pp=child_patch)
     DEALLOCATE(old2new)
 
     ! -- reorder edges
-    ntot      = idx_1d( patch%edges%end_idx(min_rledge,1), &
-      &                 patch%edges%end_blk(min_rledge,1) )
-    ninterior = idx_1d( patch%edges%start_idx(min_rledge_int-1,1), &
-      &                 patch%edges%start_blk(min_rledge_int-1,1) ) - 1
+    ntot      = idx_1d( patch%edges%end_index(min_rledge), &
+      &                 patch%edges%end_block(min_rledge) )
+    ninterior = idx_1d( patch%edges%start_index(min_rledge_int-1), &
+      &                 patch%edges%start_block(min_rledge_int-1) ) - 1
     ALLOCATE(old2new(ntot))
     DO ic = 1,ntot
       old2new(ic) = ic
@@ -572,19 +572,19 @@ CONTAINS
         END IF
       END DO
       ! update start_idx/blk and end_idx_blk
-      patch%edges%end_idx(irefin,:)     = idx_no(n)
-      patch%edges%end_blk(irefin,:)     = blk_no(n)
-      patch%edges%start_idx(irefin-1,:) = idx_no(n+1)
-      patch%edges%start_blk(irefin-1,:) = blk_no(n+1)
+      patch%edges%end_index(irefin)     = idx_no(n)
+      patch%edges%end_block(irefin)     = blk_no(n)
+      patch%edges%start_index(irefin-1) = idx_no(n+1)
+      patch%edges%start_block(irefin-1) = blk_no(n+1)
     END DO
     CALL reorder_edges(patch, old2new, opt_child_pp=child_patch)
     DEALLOCATE(old2new)
 
     ! -- reorder verts
-    ntot      = idx_1d( patch%verts%end_idx(min_rlvert,1), &
-      &                 patch%verts%end_blk(min_rlvert,1) )
-    ninterior = idx_1d( patch%verts%start_idx(min_rlvert_int-1,1), &
-      &                 patch%verts%start_blk(min_rlvert_int-1,1) ) - 1
+    ntot      = idx_1d( patch%verts%end_index(min_rlvert), &
+      &                 patch%verts%end_block(min_rlvert) )
+    ninterior = idx_1d( patch%verts%start_index(min_rlvert_int-1), &
+      &                 patch%verts%start_block(min_rlvert_int-1) ) - 1
     ALLOCATE(old2new(ntot))
     DO ic = 1,ntot
       old2new(ic) = ic
@@ -598,13 +598,29 @@ CONTAINS
         END IF
       END DO
       ! update start_idx/blk and end_idx_blk
-      patch%verts%end_idx(irefin,:)     = idx_no(n)
-      patch%verts%end_blk(irefin,:)     = blk_no(n)
-      patch%verts%start_idx(irefin-1,:) = idx_no(n+1)
-      patch%verts%start_blk(irefin-1,:) = blk_no(n+1)
+      patch%verts%end_index(irefin)     = idx_no(n)
+      patch%verts%end_block(irefin)     = blk_no(n)
+      patch%verts%start_index(irefin-1) = idx_no(n+1)
+      patch%verts%start_block(irefin-1) = blk_no(n+1)
     END DO
     CALL reorder_verts(patch, old2new)
     DEALLOCATE(old2new)
+
+    ! Copy index bounds to the old 2D fields until the restructuring is completed
+    DO n = 1, patch%max_childdom
+      patch%cells%end_idx(:,n)   = patch%cells%end_index(:)
+      patch%cells%end_blk(:,n)   = patch%cells%end_block(:)
+      patch%cells%start_idx(:,n) = patch%cells%start_index(:)
+      patch%cells%start_blk(:,n) = patch%cells%start_block(:)
+      patch%edges%end_idx(:,n)   = patch%edges%end_index(:)
+      patch%edges%end_blk(:,n)   = patch%edges%end_block(:)
+      patch%edges%start_idx(:,n) = patch%edges%start_index(:)
+      patch%edges%start_blk(:,n) = patch%edges%start_block(:)
+      patch%verts%end_idx(:,n)   = patch%verts%end_index(:)
+      patch%verts%end_blk(:,n)   = patch%verts%end_block(:)
+      patch%verts%start_idx(:,n) = patch%verts%start_index(:)
+      patch%verts%start_blk(:,n) = patch%verts%start_block(:)
+    ENDDO
 
   END SUBROUTINE reorder_patch_refin_ctrl
   !-------------------------------------------------------------------------
