@@ -1101,9 +1101,9 @@ CONTAINS
     ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
     IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
        my_color = 1
-    ELSE IF ((num_io_procs > 0) .AND. ((p_pe >= p_work_pe0) .AND. (p_pe < p_restart_pe0))) THEN
+    ELSE IF ((num_io_procs > 0) .AND. (p_pe >= p_work_pe0) .AND. (p_pe < p_restart_pe0)) THEN
        my_color = 2
-    ELSE IF (num_io_procs == 0) THEN
+    ELSE IF ((num_io_procs == 0) .AND. (p_pe < p_restart_pe0)) THEN
        my_color = 3
     ELSE
        my_color = MPI_UNDEFINED
