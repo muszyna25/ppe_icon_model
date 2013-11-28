@@ -711,8 +711,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-          p_diag%temp      (jc,jk,jb)     =                  p_diag%temp(jc,jk,jb) &
-                        & + tcall_turb_jg *   prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          p_diag%temp      (jc,jk,jb)     =           p_diag%temp(jc,jk,jb) &
+                 & + tcall_turb_jg   * prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
 
           p_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqv) &
                  & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv), 0._wp)
@@ -721,19 +721,18 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
           p_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(p_prog_rcf%tracer(jc,jk,jb,iqi) &
                  & + tcall_turb_jg * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi), 0._wp)
 
-          prm_diag%tot_cld (jc,jk,jb,iqv) =        p_prog_rcf%tracer(jc,jk,jb,iqv)
-          prm_diag%tot_cld (jc,jk,jb,iqc) =        p_prog_rcf%tracer(jc,jk,jb,iqc)
-          prm_diag%tot_cld (jc,jk,jb,iqi) =        p_prog_rcf%tracer(jc,jk,jb,iqi)
-          prm_diag%clc (jc,jk,jb) = MIN(MAX(prm_diag%clc(jc,jk,jb) &
+          prm_diag%tot_cld (jc,jk,jb,iqv) =     p_prog_rcf%tracer(jc,jk,jb,iqv)
+          prm_diag%tot_cld (jc,jk,jb,iqc) =     p_prog_rcf%tracer(jc,jk,jb,iqc)
+          prm_diag%tot_cld (jc,jk,jb,iqi) =     p_prog_rcf%tracer(jc,jk,jb,iqi)
+          prm_diag%clc (jc,jk,jb)         =  MIN(MAX(prm_diag%clc(jc,jk,jb) &
                  & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
 
-! Update wind speed with turbulence tendencies:
-! Note: the update of wind speed is done here in order to pass u and v at the correct time level
-! to the convection scheme. However, the update of the prognostic variable vn
-! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
-! velocity points (in order to minimize interpolation errors) and then adding the tendencies
-! to vn.
-! VN is updated in nwp_nh_interface (for efficiency reasons)
+! * Update wind speed with turbulence tendencies:
+! Note: the update of wind speed is done here in order to pass u and v at the correct 
+! time level to the convection scheme. However, the update of the prognostic variable vn
+! is done at the end of the NWP interface nwp_nh_interface for efficiency reasons by 
+! first interpolating the u/v tendencies to the velocity points (in order to minimize 
+! interpolation errors) and then adding the tendencies to vn.
 
           p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
           p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)

@@ -138,8 +138,8 @@ SUBROUTINE VDFPARCEL (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
 !     *PEPS*         UPDRAFT ENTRAINMENT RATE                        1/M
 !     *PZPLCL*       HEIGHT OF LIFTING CONDENSATION LEVEL OF UPDRAFT          M
 !     *PZPTOP*       HEIGHT OF LEVEL OF ZERO KINETIC ENERGY (W=0) OF UPDRAFT  M
-!     *PUPGENL*      UPDRAFT RAIN GENERATION                         KG/KG /S
-!     *PUPGENN*      UPDRAFT SNOW GENERATION                         KG/KG /S
+!     *PUPGENL*      UPDRAFT RAIN FLUX                               KG/M2/S
+!     *PUPGENN*      UPDRAFT SNOW FLUX                               KG/M2/S
 !
 !     OUTPUT PARAMETERS (INTEGER):
 

@@ -1432,7 +1432,7 @@ CONTAINS
                        &              +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
                        &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
                        &              +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) &
-                                        +  prm_nwp_tend%ddt_temp_ls(jk)
+                                      +  prm_nwp_tend%ddt_temp_ls(jk)
           END DO 
         END DO
 
