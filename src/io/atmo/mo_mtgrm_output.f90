@@ -139,7 +139,7 @@ MODULE mo_meteogram_output
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
     &                                 process_mpi_io_size,                &
-    &                                 p_barrier
+    &                                 p_barrier, p_comm_work_io
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
@@ -704,6 +704,7 @@ CONTAINS
     ! ------------------------------------------------------------
 
     IF (.NOT. l_pure_io_pe) THEN
+
       ! build an array of geographical coordinates from station list:
       ! in_points(...)
       nstations = meteogram_output_config%nstations
@@ -735,9 +736,11 @@ CONTAINS
       CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),             &
         &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
         &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
+
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
         &                                 global_idx(:), ithis_nlocal_pts)
+
       nblks    = (ithis_nlocal_pts-1)/nproma + 1
       npromz   = ithis_nlocal_pts - (nblks-1)*nproma
       meteogram_data%nstations = ithis_nlocal_pts
@@ -748,7 +751,7 @@ CONTAINS
       CALL gnat_destroy(gnat)
     END IF
 
-    CALL p_barrier
+    CALL p_barrier(comm=p_comm_work_io)
 
     ! Allocate a buffer for var list communication
 
