@@ -247,26 +247,18 @@ CONTAINS
         &                p_os(jg)%p_prog(nold(1))%tracer, &
         &                p_os(jg)%p_diag%rho )
 
-      p_os(jg)%p_acc%tracer(:,:,:,1)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,1)
-      p_os(jg)%p_acc%tracer(:,:,:,2)  = p_os(jg)%p_prog(nold(1))%tracer(:,:,:,2)
-      p_os(jg)%p_acc%h                = p_os(jg)%p_prog(nold(1))%h
-      p_os(jg)%p_acc%rhopot           = p_os(jg)%p_diag%rhopot
-      p_os(jg)%p_acc%rho              = p_os(jg)%p_diag%rho
-      IF (i_sea_ice >= 1) THEN
-        CALL update_ice_statistic(p_ice%acc, p_ice,patch_3D%p_patch_2D(1)%cells%owned)
-      ENDIF
+      CALL update_ocean_statistics(p_os(1),                              &
+        &                          p_sfc_flx,                            &
+        &                          patch_3D%p_patch_2D(1)%cells%owned,   &
+        &                          patch_3D%p_patch_2D(1)%edges%owned,   &
+        &                          patch_3D%p_patch_2D(1)%verts%owned,   &
+        &                          n_zlev)
+      IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_3D%p_patch_2D(1)%cells%owned)
     ENDIF
     CALL write_name_list_output(jstep=0)
     IF (.NOT. is_restart_run()) THEN
-      ! reset the accs to zero
-      p_os(jg)%p_acc%tracer(:,:,:,1)  = 0.0_wp
-      p_os(jg)%p_acc%tracer(:,:,:,2)  = 0.0_wp
-      p_os(jg)%p_acc%h                = 0.0_wp
-      p_os(jg)%p_acc%rhopot          = 0.0_wp
-      p_os(jg)%p_acc%rho             = 0.0_wp
-      IF (i_sea_ice >= 1) THEN
-        CALL reset_ice_statistics(p_ice%acc)
-      ENDIF
+      CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx)
+      IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
     ENDIF
   ENDIF
   !------------------------------------------------------------------
@@ -410,7 +402,7 @@ CONTAINS
       &                          patch_3D%p_patch_2D(1)%edges%owned,   &
       &                          patch_3D%p_patch_2D(1)%verts%owned,   &
       &                          n_zlev)
-    CALL update_ice_statistic(p_ice%acc,p_ice,patch_3D%p_patch_2D(1)%cells%owned)
+    IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_3D%p_patch_2D(1)%cells%owned)
 
 
     IF (istime4name_list_output(jstep)) THEN
@@ -447,7 +439,7 @@ CONTAINS
 
       ! reset accumulation vars
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-      CALL reset_ice_statistics(p_ice%acc)
+      IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
 
     END IF
 
@@ -748,9 +740,10 @@ CONTAINS
   SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(INOUT) :: p_acc
     TYPE(t_sfc_flx),         INTENT(INOUT) :: p_sfc_flx
-    INTEGER,                 INTENT(INOUT) :: nsteps_since_last_output
+    INTEGER,OPTIONAL,        INTENT(INOUT) :: nsteps_since_last_output
 
-    nsteps_since_last_output        = 0
+    IF (PRESENT(nsteps_since_last_output)) nsteps_since_last_output        = 0
+
     p_acc%tracer                    = 0.0_wp
     p_acc%h                         = 0.0_wp
     p_acc%u                         = 0.0_wp
