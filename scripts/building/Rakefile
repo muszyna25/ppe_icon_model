@@ -83,6 +83,7 @@ $builds = {
   :localSun          => {:host => :thingol , :subdir => 'sun'      , :CC => 'sun'      ,:preConf => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH', :preBuild => 'PATH=$HOME/local/solarisstudio12.3/bin:$PATH'},
   :localTest         => {:host => :thingol , :subdir => 'test'     , :CC => 'nag'}     ,
   :remoteSerial      => {:host => :thunder4, :subdir => 'serial'   ,                    :confOpts => '--without-mpi'}    ,
+  :remoteCmake       => {:host => :thunder4, :subdir => 'cmake'}   ,
   :remoteGccHi       => {:host => :thunder5, :subdir => 'gcc'      , :CC => 'gcc'      , :FLAGS => 'hiopt'},
   :remoteGccHiOpenMP => {:host => :thunder5, :subdir => 'gcc-opemp', :CC => 'gcc'      , :FLAGS => 'hiopt' , :openmp => true},
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
@@ -179,9 +180,10 @@ $configureCall = lambda {|build|
 
 # build call
 $buildCall = lambda {|build|
+  procs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 1
   buildCall = ''
   if /cmake/i.match(build.to_s) then
-  buildCall << 'make ;'
+  buildCall << "make -j #{procs};"
   else
   buildCall << $builds[build][:preBuild]  << ';' unless $builds[build][:preBuild].nil?
   buildCall << './build_command;'
