@@ -813,7 +813,7 @@ SUBROUTINE hydci_pp (             &
   REAL    (KIND=ireals   ) ::  &
     zlnqrk,zlnqsk,     & !
     zlnlogmi,               & !
-    qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp
+    qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp,maxevap,temp_c
 
   LOGICAL :: &
     llqr,llqs,llqc,llqi  !   switch for existence of qr, qs, qc, qi
@@ -1650,7 +1650,13 @@ SUBROUTINE hydci_pp (             &
 
       zlnqrk      = LOG (zqrk(iv))
       zx1         = 1.0_ireals + zbev * EXP (zbevxp  * zlnqrk)
-      sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
+      ! Limit evaporation rate in order to avoid overshoots towards supersaturation
+      ! the pre-factor approximates (esat(T_wb)-e)/(esat(T)-e) at temperatures between 0 degC and 30 degC
+      temp_c = tg - t0
+      maxevap     = (0.61_ireals-0.0163_ireals*temp_c+1.111e-4_ireals*temp_c**2)*(zqvsw-qvg)/zdt
+      sev(iv)    = MIN(zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk), maxevap)
+!      sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
+
 !      zqvsw    = fqvs( fpvsw(tg), ppg )
 !      zx1      = 1.0_ireals + zbev* zeln3o16qrk(iv)
 !      zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(iv))
