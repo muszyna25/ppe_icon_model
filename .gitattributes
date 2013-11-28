@@ -1153,6 +1153,7 @@ src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text
 src/atm_dyn_iconam/mo_pp_scheduler.f90 -text
 src/atm_dyn_iconam/mo_pp_tasks.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
+src/atm_dyn_iconam/mo_update_dyn.f90 -text
 src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_aero_kinne.f90 -text

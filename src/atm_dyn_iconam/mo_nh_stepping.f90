@@ -108,6 +108,7 @@ MODULE mo_nh_stepping
                                     min_rledge_int, MODE_DWDANA, MODIS, icosmo
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
+  USE mo_update_dyn,          ONLY: add_slowphys
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
@@ -1050,6 +1051,13 @@ MODULE mo_nh_stepping
 #else
             p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
 #endif
+!DR Test
+!DR            CALL add_slowphys(p_nh_state(jg), p_patch(jg), n_now, n_new, dt_loc)
+!DR         An explicit copy (nnow_rcf -> nnew_rcf) for the tracer fields is still missing.
+!DR         Maybe this should be added to add_slowphys. This copy should only be active 
+!DR         for lstep_adv(jg)=.TRUE. 
+!DR End Test
+
           ENDIF   
         ELSE
           CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
