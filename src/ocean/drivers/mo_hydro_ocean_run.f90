@@ -252,6 +252,9 @@ CONTAINS
       p_os(jg)%p_acc%h                = p_os(jg)%p_prog(nold(1))%h
       p_os(jg)%p_acc%rhopot           = p_os(jg)%p_diag%rhopot
       p_os(jg)%p_acc%rho              = p_os(jg)%p_diag%rho
+      IF (i_sea_ice >= 1) THEN
+        CALL update_ice_statistic(p_ice%acc, p_ice,patch_3D%p_patch_2D(1)%cells%owned)
+      ENDIF
     ENDIF
     CALL write_name_list_output(jstep=0)
     IF (.NOT. is_restart_run()) THEN
@@ -261,6 +264,9 @@ CONTAINS
       p_os(jg)%p_acc%h                = 0.0_wp
       p_os(jg)%p_acc%rhopot          = 0.0_wp
       p_os(jg)%p_acc%rho             = 0.0_wp
+      IF (i_sea_ice >= 1) THEN
+        CALL reset_ice_statistics(p_ice%acc)
+      ENDIF
     ENDIF
   ENDIF
   !------------------------------------------------------------------
