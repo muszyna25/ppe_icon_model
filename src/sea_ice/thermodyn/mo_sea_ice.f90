@@ -2522,7 +2522,7 @@ CONTAINS
 
   SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
-    TYPE(t_sea_ice),      INTENT(INOUT) :: p_ice
+    TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
 
     CALL add_fields(p_acc%hi  , p_ice%hi  , subset , p_ice%kice,force_level=.TRUE.)
