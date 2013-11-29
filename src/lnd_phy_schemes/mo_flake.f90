@@ -343,73 +343,6 @@ MODULE mo_flake
 
   ! FLake variables of type REAL
 
-  ! Temperatures at the previous time step ("p"), and the updated temperatures ("n")
-  REAL (KIND = ireals) ::            &
-    &  T_mnw_p_flk,  T_mnw_n_flk   , & !< Mean temperature of the water column [K]
-    &  T_snow_p_flk, T_snow_n_flk  , & !< Temperature at the air-snow interface [K]
-    &  T_ice_p_flk,  T_ice_n_flk   , & !< Temperature at the snow-ice or air-ice interface [K]
-    &  T_wML_p_flk,  T_wML_n_flk   , & !< Mixed-layer temperature [K]
-    &  T_bot_p_flk,  T_bot_n_flk   , & !< Temperature at the water-bottom sediment interface [K]
-    &  T_B1_p_flk,   T_B1_n_flk        !< Temperature at the bottom of the upper layer     
-                                       !< of the sediments [K]
-
-  ! Thickness of various layers at the previous time step ("p") and the updated values ("n")
-  REAL (KIND = ireals) ::            &
-    &  h_snow_p_flk, h_snow_n_flk  , & !< Snow thickness [m]
-    &  h_ice_p_flk,  h_ice_n_flk   , & !< Ice thickness [m]
-    &  h_ML_p_flk,   h_ML_n_flk    , & !< Thickness of the mixed-layer [m]
-    &  H_B1_p_flk,   H_B1_n_flk        !< Thickness of the upper layer of bottom sediments [m]
-
-  ! The shape factor(s) at the previous time step ("p") and the updated value(s) ("n")
-  REAL (KIND = ireals) ::            &
-    &  C_T_p_flk, C_T_n_flk        , & !< Shape factor (thermocline) [-]
-    &  C_TT_flk                    , & !< Dimensionless parameter (thermocline) [-]
-    &  C_Q_flk                     , & !< Shape factor with respect to heat flux (thermocline) [-]
-    &  C_I_flk                     , & !< Shape factor (ice) [-]
-    &  C_S_flk                         !< Shape factor (snow) [-]
-
-  ! Derivatives of the shape functions
-  REAL (KIND = ireals) ::            &
-    &  Phi_T_pr0_flk               , & !< d\Phi_T(0)/d\zeta   (thermocline) [-]
-    &  Phi_I_pr0_flk               , & !< d\Phi_I(0)/d\zeta_I (ice) [-]
-    &  Phi_I_pr1_flk               , & !< d\Phi_I(1)/d\zeta_I (ice) [-]
-    &  Phi_S_pr0_flk                   !< d\Phi_S(0)/d\zeta_S (snow) [-]
-
-  ! Heat and radiation fluxes
-  REAL (KIND = ireals) ::            &
-    &  Q_snow_flk                  , & !< Heat flux through the air-snow interface [W m^{-2}]
-    &  Q_ice_flk                   , & !< Heat flux through the snow-ice or air-ice 
-                                       !< interface [W m^{-2}]
-    &  Q_w_flk                     , & !< Heat flux through the ice-water or air-water 
-                                       !< interface [W m^{-2}]
-    &  Q_bot_flk                   , & !< Heat flux through the water-bottom sediment 
-                                       !< interface [W m^{-2}]
-    &  I_atm_flk                   , & !< Radiation flux at the lower boundary of 
-                                       !< the atmosphere [W m^{-2}], i.e. the incident radiation flux 
-                                       !< with no regard for the surface albedo 
-    &  I_snow_flk                  , & !< Radiation flux through the air-snow interface [W m^{-2}]
-    &  I_ice_flk                   , & !< Radiation flux through the snow-ice or air-ice 
-                                       !< interface [W m^{-2}]
-    &  I_w_flk                     , & !< Radiation flux through the ice-water or air-water 
-                                       !< interface [W m^{-2}]
-    &  I_h_flk                     , & !< Radiation flux through the mixed-layer-thermocline 
-                                       !< interface [W m^{-2}]
-    &  I_bot_flk                   , & !< Radiation flux through the water-bottom sediment 
-                                       !< interface [W m^{-2}]
-    &  I_intm_0_h_flk              , & !< Mean radiation flux over the mixed layer [W m^{-2}]
-    &  I_intm_h_D_flk              , & !< Mean radiation flux over the thermocline [W m^{-2}]
-    &  Q_star_flk                      !< A generalized heat flux scale [W m^{-2}]
-
-  ! Velocity scales
-  REAL (KIND = ireals) ::            &
-    &  u_star_w_flk                , & !< Friction velocity in the surface layer 
-                                       !< of lake water [m s^{-1}]
-    &  w_star_sfc_flk                  !< Convective velocity scale based on
-                                       !< a generalized heat flux scale [m s^{-1}]
-
-  ! The rate of snow accumulation
-  REAL (KIND = ireals) ::            &
-    &  dMsnowdt_flk                    !< The rate of snow accumulation [kg m^{-2} s^{-1}]
 
   ! Entities that should be accessible from outside the present module 
   PUBLIC ::                       &
@@ -1181,6 +1114,79 @@ CONTAINS
                         &  dtsfclkdt             !< time tendency of 
                                                  !< lake surface temperature [K s^{-1}]
 
+
+  ! ** The following local variables used to be module variables, which had to be shifted here in
+  !    order to allow OpenMP parallelization ** (GZ, 2013-11-29)
+  !
+  ! Temperatures at the previous time step ("p"), and the updated temperatures ("n")
+  REAL (KIND = ireals) ::            &
+    &  T_mnw_p_flk,  T_mnw_n_flk   , & !< Mean temperature of the water column [K]
+    &  T_snow_p_flk, T_snow_n_flk  , & !< Temperature at the air-snow interface [K]
+    &  T_ice_p_flk,  T_ice_n_flk   , & !< Temperature at the snow-ice or air-ice interface [K]
+    &  T_wML_p_flk,  T_wML_n_flk   , & !< Mixed-layer temperature [K]
+    &  T_bot_p_flk,  T_bot_n_flk   , & !< Temperature at the water-bottom sediment interface [K]
+    &  T_B1_p_flk,   T_B1_n_flk        !< Temperature at the bottom of the upper layer     
+                                       !< of the sediments [K]
+
+  ! Thickness of various layers at the previous time step ("p") and the updated values ("n")
+  REAL (KIND = ireals) ::            &
+    &  h_snow_p_flk, h_snow_n_flk  , & !< Snow thickness [m]
+    &  h_ice_p_flk,  h_ice_n_flk   , & !< Ice thickness [m]
+    &  h_ML_p_flk,   h_ML_n_flk    , & !< Thickness of the mixed-layer [m]
+    &  H_B1_p_flk,   H_B1_n_flk        !< Thickness of the upper layer of bottom sediments [m]
+
+  ! The shape factor(s) at the previous time step ("p") and the updated value(s) ("n")
+  REAL (KIND = ireals) ::            &
+    &  C_T_p_flk, C_T_n_flk        , & !< Shape factor (thermocline) [-]
+    &  C_TT_flk                    , & !< Dimensionless parameter (thermocline) [-]
+    &  C_Q_flk                     , & !< Shape factor with respect to heat flux (thermocline) [-]
+    &  C_I_flk                     , & !< Shape factor (ice) [-]
+    &  C_S_flk                         !< Shape factor (snow) [-]
+
+  ! Derivatives of the shape functions
+  REAL (KIND = ireals) ::            &
+    &  Phi_T_pr0_flk               , & !< d\Phi_T(0)/d\zeta   (thermocline) [-]
+    &  Phi_I_pr0_flk               , & !< d\Phi_I(0)/d\zeta_I (ice) [-]
+    &  Phi_I_pr1_flk               , & !< d\Phi_I(1)/d\zeta_I (ice) [-]
+    &  Phi_S_pr0_flk                   !< d\Phi_S(0)/d\zeta_S (snow) [-]
+
+  ! Heat and radiation fluxes
+  REAL (KIND = ireals) ::            &
+    &  Q_snow_flk                  , & !< Heat flux through the air-snow interface [W m^{-2}]
+    &  Q_ice_flk                   , & !< Heat flux through the snow-ice or air-ice 
+                                       !< interface [W m^{-2}]
+    &  Q_w_flk                     , & !< Heat flux through the ice-water or air-water 
+                                       !< interface [W m^{-2}]
+    &  Q_bot_flk                   , & !< Heat flux through the water-bottom sediment 
+                                       !< interface [W m^{-2}]
+    &  I_atm_flk                   , & !< Radiation flux at the lower boundary of 
+                                       !< the atmosphere [W m^{-2}], i.e. the incident radiation flux 
+                                       !< with no regard for the surface albedo 
+    &  I_snow_flk                  , & !< Radiation flux through the air-snow interface [W m^{-2}]
+    &  I_ice_flk                   , & !< Radiation flux through the snow-ice or air-ice 
+                                       !< interface [W m^{-2}]
+    &  I_w_flk                     , & !< Radiation flux through the ice-water or air-water 
+                                       !< interface [W m^{-2}]
+    &  I_h_flk                     , & !< Radiation flux through the mixed-layer-thermocline 
+                                       !< interface [W m^{-2}]
+    &  I_bot_flk                   , & !< Radiation flux through the water-bottom sediment 
+                                       !< interface [W m^{-2}]
+    &  I_intm_0_h_flk              , & !< Mean radiation flux over the mixed layer [W m^{-2}]
+    &  I_intm_h_D_flk              , & !< Mean radiation flux over the thermocline [W m^{-2}]
+    &  Q_star_flk                      !< A generalized heat flux scale [W m^{-2}]
+
+  ! Velocity scales
+  REAL (KIND = ireals) ::            &
+    &  u_star_w_flk                , & !< Friction velocity in the surface layer 
+                                       !< of lake water [m s^{-1}]
+    &  w_star_sfc_flk                  !< Convective velocity scale based on
+                                       !< a generalized heat flux scale [m s^{-1}]
+
+  ! The rate of snow accumulation
+  REAL (KIND = ireals) ::            &
+    &  dMsnowdt_flk                    !< The rate of snow accumulation [kg m^{-2} s^{-1}]
+
+
     !===============================================================================================
     !  Start calculations
     !-----------------------------------------------------------------------------------------------
@@ -1505,13 +1511,7 @@ CONTAINS
     !  End calculations
     !===============================================================================================
 
-  END SUBROUTINE flake_interface
-
-!---------------------------------------------------------------------------------------------------
-!  End of FLake interface
-!===================================================================================================
-
-!234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
+  CONTAINS
 
 !===================================================================================================
 
@@ -2825,6 +2825,14 @@ REAL (KIND = ireals), INTENT(IN) :: &
 !==============================================================================
 
 END FUNCTION flake_snowheatconduct
+
+!234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
+
+END SUBROUTINE flake_interface
+
+!---------------------------------------------------------------------------------------------------
+!  End of FLake interface
+!===================================================================================================
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
