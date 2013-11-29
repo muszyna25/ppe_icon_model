@@ -593,7 +593,7 @@
         end if
       end if
 
-      setCoordinates(ResC,File,var,isIcon)
+      setCoordinates(ResC,File,var)
     end if
   end if
 

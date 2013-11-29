@@ -1342,17 +1342,17 @@ end
 ;---------------------------------------------------------------
 ; set the coordinates for an ICON data field
 undef("setCoordinates")
-procedure setCoordinates(resource,filehandle,variable,isicon)
+procedure setCoordinates(resource,filehandle,variable)
 begin
   lonlat = str_split(variable@coordinates," ")
   lon    = lonlat(0)
   lat    = lonlat(1)
   x      = filehandle->$lon$
   y      = filehandle->$lat$
-  if (isicon) then
-    x      = x * RAD2DEG
-    y      = y * RAD2DEG
-  end if
+
+  if ("radian" .eq. x@units) x = x * RAD2DEG end if
+  if ("radian" .eq. y@units) y = y * RAD2DEG end if
+
   if (dimsizes(dimsizes(x)).ne.1) then
      variable@lon2d = x
      variable@lat2d = y
