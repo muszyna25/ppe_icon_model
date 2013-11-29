@@ -203,6 +203,8 @@ MODULE mo_lnd_nwp_nml
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
     itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 1       ! type of root density distribution
+                             ! 1: constant
+                             ! 2: exponential
     itype_heatcond = 1       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
