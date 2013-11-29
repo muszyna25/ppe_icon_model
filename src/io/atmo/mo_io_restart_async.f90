@@ -1302,20 +1302,11 @@ CONTAINS
       CALL check_mpi_error(subname, 'MPI_Win_fence', mpi_error, .FALSE.)
       CALL MPI_Win_free(mpi_win, mpi_error)
       CALL check_mpi_error(subname, 'MPI_Win_free', mpi_error, .FALSE.)
-
       mpi_win = MPI_WIN_NULL
     ENDIF
 
     ! release RMA memory
-#ifdef USE_CRAY_POINTER
-    CALL MPI_Free_mem(iptr, mpi_error)
-#else
-    ! temporarily disabled for Cray platforms (runtime error "Attempt to free
-    ! invalid pointer"), communicated to E. Tschirschnitz (Cray) : 2013-11-14
-#ifndef _CRAYFTN
-    CALL MPI_Free_mem(c_mem_ptr, mpi_error)
-#endif
-#endif
+    CALL MPI_Free_mem(mem_ptr_dp, mpi_error)
     CALL check_mpi_error(subname, 'MPI_Free_mem', mpi_error, .FALSE.)
 
   END SUBROUTINE release_resources
@@ -2164,6 +2155,13 @@ CONTAINS
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
 
     ! allocate amount of memory needed with MPI_Alloc_mem
+    ! 
+    ! Depending on wether the Fortran 2003 C interoperability features
+    ! are available, one needs to use non-standard language extensions
+    ! for calls from Fortran, namely Cray Pointers, since
+    ! MPI_Alloc_mem wants a C pointer argument.
+    !
+    ! see, for example: http://www.lrz.de/services/software/parallel/mpi/onesided/
 #ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpi_error)
     CALL check_mpi_error(subname, 'MPI_Alloc_mem', mpi_error, .TRUE.)
