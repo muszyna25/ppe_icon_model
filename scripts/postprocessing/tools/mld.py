@@ -24,16 +24,18 @@ cdo          = Cdo()
 
 #=============================================================================
 # plotting setup
-iconplot = '/pool/data/ICON/tools/icon_plot.ncl'
-iconlib  = '/pool/data/ICON/tools'
+iconDir  = '/pool/data/ICON/tools'
+if os.environ.has_key('ICONDIR'):
+  iconDir = os.environ.get('ICONDIR')
+iconPlot = iconDir+'/icon_plot.ncl'
+iconLib  = iconDir
 hostname = os.popen('hostname').read().strip()
-plot     = iconplot + ' ' + iconlib
 
 #=============================================================================
 # CDO setup
 cdo.forceOutput = not 'FORCE' in os.environ
 cdo.debug       = not 'DEBUG' in os.environ
-cdoOptions      = ''
+cdoOptions      = '-r'
 
 #=============================================================================
 # output meta data
@@ -42,14 +44,72 @@ tagString = u"&PARAMETER\n CODE=18\n NAME=mixed_layer_depth\n STANDARD_NAME=mixe
 file.write(tagString)
 file.close()
 
-# select T and S, set code to -1 to be ignored by rhopot/adisit
-# ONLY USE MARCH FOR NORTHERN HEMISPHERE
+# ONLY USE MARCH FOR NORTHERN HEMISPHERE, SEPTEMBER for SOUTHERN, SEPTEMBER for SOUTHERN
 #unless cdo.showmon(:input => ifile)[0].split.include?('3')
 #  warn "Could not find march in input data!"
 # exit(1)
 #end unless ENV['CHECK'].nil?
+
+# check is T and S are present
+names = cdo.showname(input=ifile)[0].split()
+
+
+def checkVars(allVarNames):
+  # basic setup for t and s
+  conf               = {}
+  conf['name_t']     = 't'
+  conf['name_s']     = 's'
+  conf['use_t']      = True
+  conf['use_s']      = True
+  conf['use_tAcc']   = False
+  conf['use_sAcc']   = False
+  conf['maskName']   = 'wet_c'
+  conf['useMask']    = False
+  conf['ignoreTime'] = os.environ.has_key('IGNORE_TIME')
+
+  keys = [x for x in conf.keys() if x[0:4] == 'name']
+  varnames2Check = []
+  for k in keys:
+    varnames2Check.append(k[5:])
+# print(varnames2Check)
+  for name in varnames2Check:
+    if name not in allVarNames:
+      conf['use_'+name] = False
+      # check for accumulatied values
+      if name+'_acc' not in allVarNames:
+        conf['use_'+name+'Acc'] = False
+        print('could not find temperature (t,t_acc)')
+      else:
+        conf['use_'+name+'Acc'] = True
+        conf['name_'+name] = name+'_acc'
+    else:
+      print('variable '+name+' not in file')
+
+  if conf['maskName'] in allVarNames:
+    conf['useMask'] = True
+
+  return conf
+
+check  = checkVars(names)
+tsSelection, maskName, selTime = '','',ifile
+
+
+inputArg = ''
+if check['use_tAcc'] and check['use_sAcc']:
+  tsSelection = '-chname,t_acc,t,s_acc,s -selname,t_acc,s_acc'
+if check['use_t'] and check['use_s']:
+  tsSelection = '-selname,t,s'
+if not check['ignoreTime']:
+  selTime = '-selmon,3,9 '
+if check['useMask']:
+  maskVar  = "-selname,%s -seltimestep,1"%(check['maskName'])
+  inputArg = "-adisit -setcode,-1 -div %s %s %s %s %s"%(tsSelection,selTime,ifile,maskVar,ifile)
+else:
+  inputArg = "-adisit -setcode,-1 %s %s %s "%(tsSelection,selTime,ifile)
+
+# select T and S, set code to -1 to be ignored by rhopot/adisit
 cdo.rhopot(0,
-           input   = "-adisit -setcode,-1 -div -selname,T,S -selmon,3 %s -selname,wet_c %s"%(ifile,ifile),
+           input   = inputArg,
            output  = rhopot,
            options = cdoOptions)
 
@@ -66,7 +126,9 @@ ntime    = int(cdo.ntime(input = mld)[0])
 # select north atlantic
 select   = '-mapLLC=-60,30 -mapURC=30,85'
 colormap = '-colormap=testcmap'
+otype    = '-oType=png'
+otype    = ''
+title    = "-tStrg=%s"%(ifile)
 for t in range(0,ntime):
   t = str(t)
-  #print("nclsh %s -iFile=%s -varName=mixed_layer_depth -oFile=mld_%s -isIcon -timeStep=%s %s %s \n"%(plot,mld,t,t,select,colormap))
-  os.system("nclsh %s -iFile=%s -varName=mixed_layer_depth -oFile=mld_%s -isIcon -timeStep=%s %s %s \n"%(plot,mld,t,t,select,colormap))
+  os.system("nclsh %s -altLibDir=%s -iFile=%s -varName=mixed_layer_depth -oFile=mld_%s -timeStep=%s %s %s %s %s\n"%(iconPlot,iconLib,mld,t,t,select,colormap,otype,title))
