@@ -1046,18 +1046,8 @@ MODULE mo_nh_stepping
               CALL diffusion(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,        &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
           ELSE
-#ifdef __SX__
-            CALL finish(routine, "no dynamics - for ICON SCM - not working on NEC-SX9")
-#else
-            p_nh_state(jg)%prog(n_new) = p_nh_state(jg)%prog(n_now)
-#endif
-!DR Test
-!DR            CALL add_slowphys(p_nh_state(jg), p_patch(jg), n_now, n_new, dt_loc)
-!DR         An explicit copy (nnow_rcf -> nnew_rcf) for the tracer fields is still missing.
-!DR         Maybe this should be added to add_slowphys. This copy should only be active 
-!DR         for lstep_adv(jg)=.TRUE. 
-!DR End Test
-
+            CALL add_slowphys(p_nh_state(jg), p_patch(jg), n_now, n_new, dt_loc, &
+                              lstep_adv(jg), n_now_rcf, n_new_rcf)
           ENDIF   
         ELSE
           CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')

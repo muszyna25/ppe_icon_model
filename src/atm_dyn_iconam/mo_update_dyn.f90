@@ -1,8 +1,6 @@
 !>
-!! Updates dynamical fields with slow physics tendencies in case ldynamics=F
-!!
 !! Updates dynamical fields with slow physics tendencies in the special case
-!! that dynamics are switched off.
+!! that dynamics are switched off (ldynamics=F).
 !!
 !! @author Daniel Reinert, DWD
 !!
@@ -36,7 +34,8 @@
 !! The authors do not make any warranty, express or implied, or assume any
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
-!!
+
+
 MODULE mo_update_dyn
 
   USE mo_kind,               ONLY: wp
@@ -47,7 +46,7 @@ MODULE mo_update_dyn
   USE mo_physical_constants, ONLY: p0ref, rd, cvd_o_rd
   USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int
   USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array
-
+  USE mo_run_config,         ONLY: ntracer
   IMPLICIT NONE
 
   PRIVATE
@@ -59,36 +58,38 @@ MODULE mo_update_dyn
 
 CONTAINS
 
-  !-------------------------------------------------------------------------
-  !
-  !
-  !>
-  !! Updates dynamical fields with slow physics tendencies
-  !!
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2013-11-28)
-  !! 
-  !!
-  SUBROUTINE add_slowphys(p_nh, p_patch, nnow, nnew, dtime)
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Updates dynamical fields with slow physics tendencies
+!!
+!!
+!! @par Revision History
+!! Initial revision by Daniel Reinert, DWD (2013-11-28)
+!! 
+!!
+  SUBROUTINE add_slowphys(p_nh, p_patch, nnow, nnew, dtime, &
+                          lstep_adv, nnow_rcf, nnew_rcf)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
 
     ! Time levels
-    INTEGER,                   INTENT(IN)    :: nnow, nnew
+    INTEGER,                   INTENT(IN)    :: nnow, nnew, nnow_rcf, nnew_rcf
     ! Time step
     REAL(wp),                  INTENT(IN)    :: dtime
+    LOGICAL,                   INTENT(IN)    :: lstep_adv
 
-    INTEGER :: nlev                 ! number of vertical (full) levels
+    INTEGER :: nlev                  ! number of vertical (full) levels
 
-    INTEGER :: jc, je, jk, jb        ! loop indices
+    INTEGER :: jc, je, jk, jb, jt    ! loop indices
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk  ! start and end block
     INTEGER :: i_startidx, i_endidx  ! start and end indices
     INTEGER :: i_nchdom
 
-   !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -102,7 +103,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jt,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -127,6 +128,16 @@ CONTAINS
 
         ENDDO  ! jc
       ENDDO  ! jk
+      IF ( lstep_adv ) THEN
+        DO jt = 1, ntracer
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              ! tracer (simply copy)
+              p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnow_rcf)%tracer(jc,jk,jb,jt)
+            ENDDO  ! jc
+          ENDDO  ! jk
+        ENDDO  ! jt
+      ENDIF
     ENDDO  ! jb
 !$OMP ENDDO NOWAIT
 
@@ -159,6 +170,9 @@ CONTAINS
     ! Synchronize updated prognostic variables
     CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner)
     CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
+    DO jt = 1, ntracer
+      CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew_rcf)%tracer(:,:,:,jt))
+    ENDDO
 
   END SUBROUTINE add_slowphys 
 
