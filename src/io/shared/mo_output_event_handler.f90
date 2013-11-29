@@ -693,13 +693,13 @@ CONTAINS
             &         mtime_date_string(n_event_steps)
         END IF
       END IF
-      if (ldebug)  write (0,*) "adding ", additional_days, " days."
+      IF (ldebug)  WRITE (0,*) "adding ", additional_days, " days."
       DO iadd_days=1,additional_days
         mtime_date = mtime_date + delta_1day
       END DO
-      if (ldebug)  write (0,*) get_my_global_mpi_id(), ": adding time delta."
+      IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
-      l_active = .NOT. (mtime_date > mtime_end)
+      l_active = .NOT. ((mtime_date > mtime_end) .OR. (mtime_date > sim_end))
       IF (.NOT. l_active) EXIT EVENT_LOOP
       ! Optional: Append the last event time step
       IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
