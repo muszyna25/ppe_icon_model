@@ -913,7 +913,7 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx,t_g_s,area_frac)
+!$OMP DO PRIVATE(jb,jc,jk,isubs,i_startidx,i_endidx,t_g_s,area_frac)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

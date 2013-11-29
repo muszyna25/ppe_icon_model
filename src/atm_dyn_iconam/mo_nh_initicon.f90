@@ -2849,7 +2849,7 @@ MODULE mo_nh_initicon
 
 
 !$OMP PARALLEL 
-!$OMP DO PRIVATE(jc,ic,jb,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
 
       !get SST from first soil level t_so (for sea and lake points)
