@@ -2847,6 +2847,7 @@ ELSE   IF (itype_interception == 2) THEN
 ! inner layers 2 <=kso<=ke_soil_hy-1
   DO kso =2,ke_soil_hy-1
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP, PREFERVECTOR
       DO ic = 1, icount_soil
         i=soil_list(ic)
 ! sedimentation and capillary transport in soil
@@ -2908,6 +2909,7 @@ ELSE   IF (itype_interception == 2) THEN
   END DO
 
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
      DO ic = 1, icount_soil
         i=soil_list(ic)
           ! lowest active hydrological layer ke_soil_hy-1
@@ -2938,6 +2940,7 @@ ELSE   IF (itype_interception == 2) THEN
   END DO
 
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
   DO ic = 1, icount_soil
         i=soil_list(ic)
         ! generalized upper boundary condition
@@ -2947,6 +2950,7 @@ ELSE   IF (itype_interception == 2) THEN
 
   DO kso=2,ke_soil_hy-1
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
   DO ic = 1, icount_soil
         i=soil_list(ic)
             zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
@@ -2956,6 +2960,7 @@ ELSE   IF (itype_interception == 2) THEN
   END DO                ! soil layers
 
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
   DO ic = 1, icount_soil
         i=soil_list(ic)
            zage(i,ke_soil_hy) = (zagd(i,ke_soil_hy)-zaga(i,ke_soil_hy)*  &
@@ -2966,6 +2971,7 @@ ELSE   IF (itype_interception == 2) THEN
 
   DO kso = ke_soil_hy-1,1,-1
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
   DO ic = 1, icount_soil
         i=soil_list(ic)
             zage(i,kso)     = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
@@ -2977,6 +2983,7 @@ ELSE   IF (itype_interception == 2) THEN
 
 !lowest active hydrological level
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
   DO ic = 1, icount_soil
         i=soil_list(ic)
           ! boundary values ensure that the calculation below leaves the climate
@@ -3013,6 +3020,7 @@ ELSE   IF (itype_interception == 2) THEN
 ! (for soil water flux investigations only)
   DO kso = 2,ke_soil+1
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
      DO ic = 1, icount_soil
         i=soil_list(ic)
             zice_fr_ksom1 = ziw_fr(i,kso-1)
@@ -3087,6 +3095,7 @@ ELSE   IF (itype_interception == 2) THEN
 
      ! sedimentation and capillary transport in soil
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
       DO ic = 1, icount_soil
          i=soil_list(ic)
             ! first runoff calculation without consideration of
@@ -3127,7 +3136,6 @@ ELSE   IF (itype_interception == 2) THEN
   IF (lmulti_snow) THEN
 
     DO i = istarts, iends
-!      IF (llandmask(i)) THEN          ! land-points only
         ! Estimate thermal surface fluxes:
         ! Estimate thermal surface fluxes over snow covered and snow free
         ! part of surface based on area mean values calculated in radiation
@@ -3152,6 +3160,9 @@ ELSE   IF (itype_interception == 2) THEN
         zqhfl_s(i) = zverbo(i)/ MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
 !DR end
         zsprs  (i) = 0.0_ireals
+    END DO
+
+    DO i = istarts, iends
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
           ! snow fall on soil with T>T0, snow water content increases
@@ -3855,6 +3866,7 @@ ENDIF
 !  IF(lmelt) THEN ! + lmelt_var
       DO kso = 1,ke_soil
 !CDIR NODEP,VOVERTAKE,VOB  
+!DIR$ IVDEP
          DO ic=1,icount_soil
             i=soil_list(ic)
                 ztx      = t0_melt
