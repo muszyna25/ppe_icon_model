@@ -333,7 +333,6 @@ CONTAINS
       ! compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
       CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
-WRITE (0,*) forecast_delta%day, forecast_delta%hour, forecast_delta%minute, forecast_delta%second
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)

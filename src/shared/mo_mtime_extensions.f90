@@ -124,11 +124,7 @@ CONTAINS
     ! local variables
     TYPE(c_ptr) :: ret
 
-    WRITE (0,*) "getTimeDeltaFromDateTime"
-WRITE (0,*) "td_return before: ", td_return
     CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
-WRITE (0,*) "td_return: ", td_return
-!    CALL C_F_POINTER(ret, td_return)
   END SUBROUTINE getTimeDeltaFromDateTime
 
 
