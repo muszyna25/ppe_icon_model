@@ -103,7 +103,11 @@ mark_as_advanced (HDF5_IS_PARALLEL)
 
 message ("   HDF5 C include directory : ${HDF5_C_INCLUDE_DIR}")
 message ("   HDF5 C library directory : ${HDF5_C_LIBRARY_DIR}")
-message ("   HDF5 C libraries         : ${HDF5_C_LIBRARIES}")
+message ("   HDF5 C libraries         :")
+foreach (_lib ${HDF5_C_LIBRARIES})
+  message ("   ${_lib}")
+endforeach () 
+
 message ("   HDF5 parallel support    : ${HDF5_IS_PARALLEL}")
 
 set (HDF5_INCLUDE_DIRS ${HDF5_C_INCLUDE_DIR})

@@ -87,7 +87,10 @@ mark_as_advanced(NETCDF_C_LIBRARY NETCDF_C_INCLUDE_DIR)
 
 message ("   netCDF C include directory       : ${NETCDF_C_INCLUDE_DIR}")
 message ("   netCDF C library directory       : ${NETCDF_C_LIBRARY_DIR}")
-message ("   netCDF C libraries               : ${NETCDF_C_LIBRARY}")
+message ("   netCDF C libraries               :")
+foreach (_lib ${NETCDF_C_LIBRARY})
+  message ("   ${_lib}")
+endforeach ()
 
 if ("${_netcdf_nc4_support}" STREQUAL "yes")
 
@@ -213,7 +216,10 @@ endif()
 message ("   netCDF Fortran include directory : ${NETCDF_Fortran_INCLUDE_DIR}")
 message ("   netCDF Fortran module directory  : ${NETCDF_Fortran_MODULE_DIR}")
 message ("   netCDF Fortran library directory : ${NETCDF_Fortran_LIBRARY_DIR}")
-message ("   netCDF Fortran libraries         : ${NETCDF_Fortran_LIBRARY}")
+message ("   netCDF Fortran libraries         :")
+foreach (_lib ${NETCDF_Fortran_LIBRARY})
+  message ("   ${_lib}")
+endforeach ()
 
 set (NETCDF_INCLUDE_DIRS ${NETCDF_Fortran_MODULE_DIR} ${NETCDF_Fortran_INCLUDE_DIR} ${NETCDF_C_INCLUDE_DIR})
 set (NETCDF_LIBRARY_DIRS ${NETCDF_Fortran_LIBRARY_DIR} ${NETCDF_C_LIBRARY_DIR})

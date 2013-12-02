@@ -5,28 +5,92 @@
 #
 #________________________________________________________________________________________________
 #
-#
+
 set -eu
-#
+
+#__________________________________________________________________________________________________
+# function definitions
+
+red=$(tput setaf 1) 
+green=$(tput setaf 2)
+blue=$(tput setaf 4) 
+
+bgcolor=$(tput sgr0)
+
+# Argument:
+#    $1 = text to write out
+redln() { echo "${red}${1}${bgcolor}"; }
+blueln() { echo "${blue}${1}${bgcolor}"; }
+greenln() { echo "${green}${1}${bgcolor}"; }
+
+os() { echo $(uname -s); }
+
+fqdn() { echo $(perl -l -mNet::Domain -e 'print Net::Domain::hostfqdn()'); }
+
+# Argument:
+#    $1 = ICON base dir 
+system() { echo $(${1}/config/config.guess); }
+
 #________________________________________________________________________________________________
+# get site/machine:
+site=$(fqdn); site=${site#*.};
+target=$(fqdn); target=${target%%.*} 
+config_guess=$(system $(pwd))
+echo
+blueln "** Site   : $site ..."
+echo
+blueln "** Target : $target ..."
+echo
+blueln "** System : $config_guess ..."
+echo
+#
 # cmake $(pwd) is doing in-source build - only to get Find<*>.cmake running.
 #
 # GCC: gcc, gfortran
 #
 # cleanup old stuff
 #
-find . -name CMakeCache.txt -print -exec rm -f {} \; 2> /dev/null || ret=$?
-#
-find . -name CMakeFiles -print -exec rm -rf {} \; 2> /dev/null || ret=$?
+blueln "** Cleaning up CMake caches and CMake files directories:"
+echo
+
+ret=0
+find . -name CMakeCache.txt -print -exec rm -f {} \; > /dev/null 2>&1 || ret=$?
+if [[ $ret ]]
+then
+   greenln "   removed cache files ..."
+else
+   redln   "   find CMakeCache.txt failed ..."
+   exit 1
+fi
+
+ret=0
+find . -name CMakeFiles -print -exec rm -rf {} \; > /dev/null 2>&1 || ret=$?
+if [[ $ret ]]
+then
+   greenln "   removed file directories ..."
+else
+   redln   "ERROR: find CMakeFiles failed ..."
+   exit 1
+fi
+#________________________________________________________________________________________________
+# initialize environment
+
+CC=""; CFLAGS=""; 
+FC=""; FCFLAGS="";
+NETCDFROOT=""; NETCDFFROOT="";
+
 #________________________________________________________________________________________________
 # select netcdf version
+
 #use_netcdf=3.6
-#use_netcdf=4.1
-use_netcdf=4.2
+use_netcdf=4.1
+#use_netcdf=4.2
+
 #
 #________________________________________________________________________________________________
 # select machine specifics
 #
+site_known=1
 case $(hostname) in
     thunder*)
 	# enable loading of modules on thunder
@@ -36,16 +100,14 @@ case $(hostname) in
 	# selected necdf version's path on thunder
 	case $use_netcdf in
 	    3.6)
-		export NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3
+		NETCDFROOT=/scratch/mpi/mh0033/m214089/sandbox/netcdf-3.6.3
 		;;
 	    4.1)
-		export NETCDFROOT=/sw/squeeze-x64/netcdf-4.1.3-static-gcc47
-		export HDF5ROOT=/sw/squeeze-x64/hdf5-1.8.8-static
+		NETCDFROOT=/sw/squeeze-x64/netcdf-4.1.3-static-gcc47
 		;;
 	    4.2)
-		export NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static 
-		export NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 
-		export HDF5ROOT=/sw/squeeze-x64/hdf5-1.8.8-static
+		NETCDFROOT=/sw/squeeze-x64/netcdf-4.2.1.1-static 
+		NETCDFFROOT=/sw/squeeze-x64/netcdf_fortran-4.2-static-gcc47 
 		;;
 	    *)
 		echo Selected netCDF version $use_netcdf not available ... 
@@ -55,24 +117,60 @@ case $(hostname) in
         # make MPI wrapper calls available
 	module load mvapich2/1.9b-static-gcc47 
         # call cmake now        
-	CC=gcc CFLAGS=-DpgiFortran \
-	FC=gfortran \
-	cmake $(pwd)
+	CC=gcc 
+	CFLAGS=-DpgiFortran
+	FC=gfortran
+	site_known=0
         ;;
     wanglung*)
-	CC=gcc CFLAGS=-DpgiFortran \
-	FC=gfortran \
-	NETCDFROOT=/opt/local \
-	NETCDFFROOT=/opt/local \
-	cmake $(pwd)
+	CC=gcc 
+	CFLAGS=-DpgiFortran
+	FC=gfortran
+	NETCDFROOT=/opt/local
+	NETCDFFROOT=/opt/local
+	site_known=0
 	;;
     thingol*)
-	CC=gcc CFLAGS=-DpgiFortran \
-	FC=gfortran \
-	NETCDFROOT=/usr \
-	NETCDFFROOT=/usr \
-	cmake $(pwd)
+        CC=gcc 
+	CFLAGS=-DpgiFortran
+	FC=gfortran
+	NETCDFROOT=/usr
+	NETCDFFROOT=/usr
+	site_known=0
 	;;
 esac
+
+if [[ $site_known ]]
+then
+
+    echo
+    blueln "** Calling cmake ..."
+    echo
+    greenln "Using environment:"
+    echo
+    greenln "   CC         : $CC"
+    greenln "   CFLAGS     : $CFLAGS"
+    greenln "   FC         : $FC"
+    greenln "   FCFLAGS    : $FCFLAGS"
+    greenln "   NETCDFROOT : $NETCDFROOT"
+    greenln "   NETCDFFROOT: $NETCDFFROOT"
+
+    # setup environment:
+    CC=$CC CFLAGS=$CFLAGS \
+    FC=$FC FCFLAGS=$FCFLAGS \
+    NETCDFFROOT=$NETCDFFROOT NETCDFROOT=$NETCDFROOT \
+    cmake $(pwd)
+
+else
+
+    redln  "ERROR: site/host dependend setup not available ..."
+    exit 1
+
+fi
 #________________________________________________________________________________________________
-#
+# select machine specifics
+echo
+blueln "** Now run make to build ICON ..."
+echo
+#________________________________________________________________________________________________
+
