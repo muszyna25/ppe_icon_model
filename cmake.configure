@@ -3,14 +3,16 @@
 #
 # Luis Kornblueh, MPI-M, 2013-06-24
 #
+# cmake $(pwd) is doing in-source build for the time being
 #________________________________________________________________________________________________
+# set code checkings available for bash
 #
-
 set -eu
-
+#
 #__________________________________________________________________________________________________
 # function definitions
 
+# set color constants
 red=$(tput setaf 1) 
 green=$(tput setaf 2)
 blue=$(tput setaf 4) 
@@ -32,24 +34,25 @@ fqdn() { echo $(perl -l -mNet::Domain -e 'print Net::Domain::hostfqdn()'); }
 system() { echo $(${1}/config/config.guess); }
 
 #________________________________________________________________________________________________
+# purpose:
+echo
+blueln "Configuration of ICON:"
+echo
+#________________________________________________________________________________________________
 # get site/machine:
+
 site=$(fqdn); site=${site#*.};
 target=$(fqdn); target=${target%%.*} 
 config_guess=$(system $(pwd))
-echo
-blueln "** Site   : $site ..."
-echo
-blueln "** Target : $target ..."
-echo
-blueln "** System : $config_guess ..."
-echo
-#
-# cmake $(pwd) is doing in-source build - only to get Find<*>.cmake running.
-#
-# GCC: gcc, gfortran
-#
+
+greenln "   Site   : $site"
+greenln "   Target : $target"
+greenln "   System : $config_guess"
+
+#________________________________________________________________________________________________
 # cleanup old stuff
 #
+echo
 blueln "** Cleaning up CMake caches and CMake files directories:"
 echo
 
@@ -76,24 +79,69 @@ fi
 # initialize environment
 
 CC=""; CFLAGS=""; 
+
 FC=""; FCFLAGS="";
+
 NETCDFROOT=""; NETCDFFROOT="";
 
 #________________________________________________________________________________________________
+# get setup from site, target, config_guess
+
+echo
+blueln "Select setup:" 
+echo
+
+case $config_guess in
+    *-ibm-aix*)
+	blueln "   expect IBM power AIX ..."
+	;;
+    *86*-*-linux-*)
+	blueln "   expect INTEL x86_64 Linux ..."
+	;;
+    *-apple-darwin*)
+	blueln "   expect INTEL x86_64 Darwin ..."
+	;;
+    *)
+	redln "This configuration is not supported. Please create a valid entry for ${config_guess}."
+	;;
+esac
+#________________________________________________________________________________________________
+# select machine specifics
+#
+# site_known set to false
+site_known=1
+
+case $site in
+    cscs.ch)
+	blueln "   expect site cscs.ch ..."
+	;;
+    dwd.de)
+	blueln "   expect site dwd.de ..."
+	;;
+    ecmwf.int)
+	blueln "   expect site ecmwf.int ..."
+	;;
+    lrz.de)
+	blueln "   expect site lrz.de ..."
+	;;
+    zmaw.de)
+	blueln "   expect site zmaw.de ..."
+ 	;;
+    *)
+	redln "ERROR: site $site unknown ..."
+	;;
+esac
+
 # select netcdf version
 
 #use_netcdf=3.6
 use_netcdf=4.1
 #use_netcdf=4.2
 
-#
-#________________________________________________________________________________________________
-# select machine specifics
-#
-site_known=1
 case $(hostname) in
     thunder*)
-	# enable loading of modules on thunder
+	# enable loading of modules on thunder, must switch of undefined check because of 
+        # problem in the called switch
 	set +u
 	. /sw/share/Modules/init/bash
 	set -u
