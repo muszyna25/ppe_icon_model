@@ -219,7 +219,7 @@ CONTAINS
     REAL(wp) :: w_so_ice_now_t(nproma, nlev_soil, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil, p_patch%nblks_c, ntiles_total)
 
-    INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(2*nproma), it1(nproma), it2(nproma)
+    INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(nproma), it1(nproma), it2(nproma)
     REAL(wp) :: tmp1, tmp2, tmp3
     REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma)
     REAL(wp) :: rain_gsp_rate(nproma, p_patch%nblks_c, ntiles_total)
@@ -389,15 +389,14 @@ CONTAINS
           qv_s_t(ic,jb,isubs)                =  lnd_diag%qv_s_t(jc,jb,isubs)  
           w_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic,jb,isubs)        =  lnd_prog_now%rho_snow_t(jc,jb,isubs)
-   IF (itype_interception == 1) THEN
           w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
-          w_p_now_t(ic,jb,isubs)             =  0._wp
-          w_s_now_t(ic,jb,isubs)             =  0._wp
-   ELSE IF (itype_interception == 2) THEN
-          w_i_now_t(ic,jb,isubs)             =  lnd_prog_now%w_i_t(jc,jb,isubs)
-          w_p_now_t(ic,jb,isubs)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
-          w_s_now_t(ic,jb,isubs)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
-   END IF
+          IF (itype_interception == 2) THEN
+            w_p_now_t(ic,jb,isubs)             =  lnd_prog_now%w_p_t(jc,jb,isubs)
+            w_s_now_t(ic,jb,isubs)             =  lnd_prog_now%w_s_t(jc,jb,isubs)
+          ELSE
+            w_p_now_t(ic,jb,isubs)             =  0._wp
+            w_s_now_t(ic,jb,isubs)             =  0._wp
+          END IF
           freshsnow_t(ic,jb,isubs)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
           snowfrac_t(ic,jb,isubs)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
@@ -603,14 +602,12 @@ CONTAINS
           lnd_diag%qv_s_t        (jc,jb,isubs) = qv_s_t        (ic,jb,isubs)                
           lnd_prog_new%w_snow_t  (jc,jb,isubs) = w_snow_new_t  (ic,jb,isubs)          
           lnd_prog_new%rho_snow_t(jc,jb,isubs) = rho_snow_new_t(ic,jb,isubs)        
-          lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)              
-   IF (itype_interception == 1) THEN
-          lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
-   ELSE IF (itype_interception == 2) THEN
-          lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)             
-          lnd_prog_new%w_p_t     (jc,jb,isubs) = w_p_new_t     (ic,jb,isubs)             
-          lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic,jb,isubs)     
-   END IF
+          lnd_diag%h_snow_t      (jc,jb,isubs) = h_snow_t      (ic,jb,isubs)
+          lnd_prog_new%w_i_t     (jc,jb,isubs) = w_i_new_t     (ic,jb,isubs)
+          IF (itype_interception == 2) THEN
+            lnd_prog_new%w_p_t     (jc,jb,isubs) = w_p_new_t     (ic,jb,isubs)             
+            lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic,jb,isubs)     
+          END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic,jb,isubs) 
           ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
           lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic,jb,isubs) 
@@ -746,22 +743,24 @@ CONTAINS
              lnd_prog_new%w_snow_t  (jc,jb,is1) = lnd_prog_new%w_snow_t  (jc,jb,is2)     
              lnd_prog_new%rho_snow_t(jc,jb,is1) = lnd_prog_new%rho_snow_t(jc,jb,is2)
              lnd_diag%h_snow_t      (jc,jb,is1) = lnd_diag%h_snow_t      (jc,jb,is2)
-   IF (itype_interception == 1) THEN
              lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
-   ELSE IF (itype_interception == 2) THEN
-             lnd_prog_new%w_i_t     (jc,jb,is1) = lnd_prog_new%w_i_t     (jc,jb,is2)        
-             lnd_prog_new%w_p_t     (jc,jb,is1) = lnd_prog_new%w_p_t     (jc,jb,is2)        
-             lnd_prog_new%w_s_t     (jc,jb,is1) = lnd_prog_new%w_s_t     (jc,jb,is2)        
-   END IF
+
              lnd_diag%freshsnow_t   (jc,jb,is1) = lnd_diag%freshsnow_t   (jc,jb,is2)
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 
              lnd_diag%runoff_s_t    (jc,jb,is1) = lnd_diag%runoff_s_t    (jc,jb,is2)
              lnd_diag%runoff_g_t    (jc,jb,is1) = lnd_diag%runoff_g_t    (jc,jb,is2)
 
+             prm_diag%lhfl_bs_t     (jc,jb,is1) = prm_diag%lhfl_bs_t     (jc,jb,is2)
+             lnd_diag%rstom_t       (jc,jb,is1) = lnd_diag%rstom_t       (jc,jb,is2)
+             prm_diag%shfl_s_t      (jc,jb,is1) = prm_diag%shfl_s_t      (jc,jb,is2)
+             prm_diag%lhfl_s_t      (jc,jb,is1) = prm_diag%lhfl_s_t      (jc,jb,is2)
+             prm_diag%qhfl_s_t      (jc,jb,is1) = prm_diag%qhfl_s_t      (jc,jb,is2)
+
              lnd_prog_new%t_so_t    (jc,:,jb,is1) = lnd_prog_new%t_so_t    (jc,:,jb,is2)          
              lnd_prog_new%w_so_t    (jc,:,jb,is1) = lnd_prog_new%w_so_t    (jc,:,jb,is2)        
              lnd_prog_new%w_so_ice_t(jc,:,jb,is1) = lnd_prog_new%w_so_ice_t(jc,:,jb,is2)
+             prm_diag%lhfl_pl_t     (jc,:,jb,is1) = prm_diag%lhfl_pl_t     (jc,:,jb,is2)     
 
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t  (jc,:,jb,is1) = lnd_prog_new%t_snow_mult_t  (jc,:,jb,is2)
@@ -770,6 +769,12 @@ CONTAINS
                lnd_prog_new%wtot_snow_t    (jc,:,jb,is1) = lnd_prog_new%wtot_snow_t    (jc,:,jb,is2)
                lnd_prog_new%dzh_snow_t     (jc,:,jb,is1) = lnd_prog_new%dzh_snow_t     (jc,:,jb,is2)
              ENDIF
+
+             IF (itype_interception == 2) THEN
+               lnd_prog_new%w_p_t(jc,jb,is1) = lnd_prog_new%w_p_t(jc,jb,is2)        
+               lnd_prog_new%w_s_t(jc,jb,is1) = lnd_prog_new%w_s_t(jc,jb,is2)        
+             END IF
+
            ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
