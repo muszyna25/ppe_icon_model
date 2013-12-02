@@ -742,7 +742,6 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
     REAL(wp):: rdt_loc,  rdtadv_loc, rdtmflx_loc ! inverse time step for local grid level
 
-    LOGICAL, PARAMETER :: l_straka=.FALSE.
     LOGICAL :: l_bdy_nudge
     INTEGER :: idyn_timestep
     LOGICAL :: l_recompute, lsave_mflx, lprep_adv, lfull_comp
@@ -951,11 +950,6 @@ MODULE mo_nh_stepping
 
       ELSE  ! itime_scheme /= 1
 
-        ! artificial forcing (Straka)
-        IF (l_straka) THEN
-          CALL forcing_straka(p_nh_state(jg)%prog(n_now), p_patch(jg), p_int_state(jg), &
-                              p_nh_state(jg)%metrics, p_nh_state(jg)%diag)
-        ENDIF
 
         ! artificial forcing (Held-Suarez test forcing)
         IF ( lforcing .AND. iforcing == 1) THEN
