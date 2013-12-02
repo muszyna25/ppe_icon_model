@@ -53,7 +53,8 @@ MODULE mo_output_event_control
     &                              deallocateTimedelta, OPERATOR(<=), OPERATOR(>),      &
     &                              OPERATOR(<), OPERATOR(==), datetimedividebyseconds,  &
     &                              datetimeaddseconds
-  USE mo_mtime_extensions,   ONLY: isCurrentEventActive, getPTStringFromMS
+  USE mo_mtime_extensions,   ONLY: isCurrentEventActive, getPTStringFromMS,             &
+    &                              getTimeDeltaFromDateTime
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
@@ -227,15 +228,17 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart
-    CHARACTER(len=MAX_STRING_LEN)       :: cfilename
+    CHARACTER(len=MAX_STRING_LEN)       :: cfilename 
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_STRING_LEN)       :: fname(nstrings)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, mtime_first
-    TYPE(timedelta), POINTER            :: delta
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, mtime_first, &
+      &                                    mtime_date
+    TYPE(timedelta), POINTER            :: delta, forecast_delta
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
+    mtime_begin  => newDatetime(TRIM(sim_step_info%sim_start))
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -244,7 +247,6 @@ CONTAINS
     ! b) user has specified "file_interval"
     IF (TRIM(fname_metadata%file_interval) == "") THEN
       ! case a): steps_per_file
-      mtime_begin  => newDatetime(TRIM(sim_step_info%sim_start))
       mtime_first  => newDatetime(TRIM(date_string(1)))
       ! special treatment for the initial time step written at the
       ! begin of the simulation: The first file gets one extra entry
@@ -263,7 +265,6 @@ CONTAINS
           result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
         END DO
       END IF
-      CALL deallocateDatetime(mtime_begin)
       CALL deallocateDatetime(mtime_first)
     ELSE
       ! case b): file_interval
@@ -314,6 +315,7 @@ CONTAINS
     ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
+    forecast_delta => newTimedelta("P01D")
     DO i=1,nstrings
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
@@ -327,7 +329,15 @@ CONTAINS
       CALL associate_keyword("<levtype>",         TRIM(lev_type_str(fname_metadata%ilev_type)),             keywords)
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<jfile>",           TRIM(int2string(result_fnames(i)%jfile, "(i4.4)")),       keywords)
-      CALL associate_keyword("<ddhhmmss>",        TRIM(date_string(i)),                                     keywords)
+      CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
+      ! compute current forecast time (delta):
+      mtime_date => newDatetime(TRIM(date_string(i)))
+      CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+WRITE (0,*) forecast_delta%day, forecast_delta%hour, forecast_delta%minute, forecast_delta%second
+      WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
+        &                                    forecast_delta%minute, forecast_delta%second 
+      CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      CALL deallocateDatetime(mtime_date)
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN
         WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
@@ -347,6 +357,12 @@ CONTAINS
         fname(ifname) = result_fnames(i)%filename_string
       END DO
     END DO
+    ! TODO[FP,LK] : deallocating the "forecast_delta" leads to an application crash. Why's that?
+    !
+    !  CALL deallocateTimedelta(forecast_delta)
+
+    ! clean up
+    CALL deallocateDatetime(mtime_begin)
   END FUNCTION generate_output_filenames
 
 END MODULE mo_output_event_control

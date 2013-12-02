@@ -49,7 +49,8 @@ MODULE mo_mtime_extensions
   PRIVATE
   PUBLIC :: isCurrentEventActive
   PUBLIC :: getPTStringFromMS
-  public :: get_duration_string
+  PUBLIC :: getTimeDeltaFromDateTime
+  PUBLIC :: get_duration_string
   PUBLIC :: get_datetime_string
 
   !> module name
@@ -77,8 +78,17 @@ MODULE mo_mtime_extensions
       INTEGER(c_int64_t), VALUE :: ms
       CHARACTER(c_char), DIMENSION(*) :: ptstr
     END SUBROUTINE my_getptstringfromms
-  END INTERFACE
 
+    SUBROUTINE my_gettimedeltafromdatetime(dt1, dt2, td_return) BIND(c, name='getTimeDeltaFromDateTime')
+#ifdef __SX__
+      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
+#else
+      IMPORT :: c_ptr
+#endif
+      TYPE(c_ptr), value :: dt1, dt2
+      TYPE(c_ptr), value :: td_return
+    END SUBROUTINE my_gettimedeltafromdatetime
+  END INTERFACE
 
   INTERFACE get_datetime_string
     MODULE PROCEDURE get_datetime_string
@@ -107,6 +117,19 @@ CONTAINS
     END DO char_loop
     string(i:LEN(string)) = ' '
   END SUBROUTINE getPTStringFromMS
+
+  SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
+    TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
+    TYPE(timedelta), INTENT(INOUT), TARGET   :: td_return     !< OUT
+    ! local variables
+    TYPE(c_ptr) :: ret
+
+    WRITE (0,*) "getTimeDeltaFromDateTime"
+WRITE (0,*) "td_return before: ", td_return
+    CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
+WRITE (0,*) "td_return: ", td_return
+!    CALL C_F_POINTER(ret, td_return)
+  END SUBROUTINE getTimeDeltaFromDateTime
 
 
   !> compute an ISO 8601 datetime string from a "t_datetime" object

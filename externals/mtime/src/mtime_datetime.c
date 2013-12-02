@@ -224,7 +224,7 @@ getTimeDeltaFromDateTime(struct _datetime* dt1, struct _datetime* dt2, struct _t
 
   /* Convert Julian-delta to TimeDelta. */
   td_return = julianDeltaToTimeDelta(jd, dt1, td_return);
-
+  fprintf(stderr,"A.1 %i %i %i %i\n", td_return->day, td_return->hour, td_return->minute, td_return->second);
   /* Cleanup. */
   deallocateJulianDay(jd1);
   deallocateJulianDay(jd2);

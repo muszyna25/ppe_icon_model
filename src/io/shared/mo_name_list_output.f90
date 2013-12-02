@@ -34,7 +34,7 @@ MODULE mo_name_list_output
     &                                     MAX_CHAR_LENGTH
   USE mo_grid_config,               ONLY: n_dom
   USE mo_cdi_constants              ! We need all
-  USE mo_io_units,                  ONLY: filename_max, nnml, nnml_output, find_next_free_unit
+  USE mo_io_units,                  ONLY: FILENAME_MAX, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_io_util,                   ONLY: get_file_extension
   USE mo_exception,                 ONLY: finish, message, message_text
@@ -501,9 +501,7 @@ CONTAINS
           CYCLE HANDLE_COMPLETE_STEPS
         END IF         
         !--- write ready file
-        IF (check_write_readyfile(ev%output_event)) THEN
-          CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
-        END IF
+        IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
         ! launch a non-blocking request to all participating PEs to
         ! acknowledge the completion of the next output event
         CALL trigger_output_step_irecv(ev)
@@ -527,11 +525,14 @@ CONTAINS
   !  file system creates (and closes) files in the same order as they
   !  are written by the program.
   !
-  SUBROUTINE write_ready_file(rdy_filename)
-    CHARACTER(LEN=*), INTENT(IN) :: rdy_filename
+  SUBROUTINE write_ready_file(ev)
+    TYPE(t_par_output_event), POINTER :: ev
     ! local variables
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
+    CHARACTER(LEN=FILENAME_MAX)   :: rdy_filename
     INTEGER                       :: iunit
+
+    rdy_filename = TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy"
 
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
@@ -1063,9 +1064,7 @@ CONTAINS
         IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
 
         !--- write ready file
-        IF (check_write_readyfile(ev%output_event)) THEN
-          CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
-        END IF
+        IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
         ev => ev%next
       END DO HANDLE_COMPLETE_STEPS
     END IF
@@ -1408,9 +1407,7 @@ CONTAINS
             CYCLE HANDLE_COMPLETE_STEPS
           END IF
           !--- write ready file
-          IF (check_write_readyfile(ev%output_event)) THEN
-            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
-          END IF
+          IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
           ! launch a non-blocking request to all participating PEs to
           ! acknowledge the completion of the next output event
           CALL trigger_output_step_irecv(ev)
@@ -1458,9 +1455,7 @@ CONTAINS
             CYCLE HANDLE_COMPLETE_STEPS
           END IF
           !--- write ready file
-          IF (check_write_readyfile(ev%output_event)) THEN
-            CALL write_ready_file(TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy")
-          END IF
+          IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
           ! launch a non-blocking request to all participating PEs to
           ! acknowledge the completion of the next output event
           CALL trigger_output_step_irecv(ev)
