@@ -3764,7 +3764,7 @@ This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 \hline
  filename\_format &
 C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, see below.
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, \texttt{datetime} see below.
  Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
@@ -4085,7 +4085,8 @@ sets of common variables can be added to the output:
 \texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
 \texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
 \texttt{jfile}             \>  substituted by output file counter                       \\
-\texttt{ddhhmmss}          \>  substituted by day-hour-minute-second string
+\texttt{datetime}          \>  substituted by ISO 8601 (absolute) date                  \\
+\texttt{ddhhmmss}          \>  substituted by (relative) day-hour-minute-second string
 \end{tabbing}
 
 
@@ -6127,6 +6128,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
            \item \texttt{l\_one\_file\_per\_patch}
          \end{itemize}
          have been removed together with the corresponding functionality from the ICON model code.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: filename\_format }{ 2013-12-02 }{ 15068 }
+  \begin{itemize}
+   \item The string token \texttt{<ddhhmmss>} is now substuted by the \emph{relative} day-hour-minute-second
+         string, whereas the absolute date-time stamp can be inserted using \texttt{<datetime>}.
   \end{itemize}
 \end{changeitem}
 
