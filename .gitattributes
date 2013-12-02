@@ -60,6 +60,7 @@ blas/xerbla.f -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
+cmake/FindMPI.cmake -text
 cmake/FindNETCDF.cmake -text
 config/config.guess -text
 config/config.h.SX -text
