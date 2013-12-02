@@ -143,8 +143,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level = 4
  ltimer         = .true.
- ldump_dd     = .false.
- lread_dd     = .false.
 /
 &nwp_phy_nml
 inwp_gscp       = 1
