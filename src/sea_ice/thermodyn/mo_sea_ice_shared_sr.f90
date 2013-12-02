@@ -56,6 +56,7 @@ MODULE mo_sea_ice_shared_sr
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_nml,         ONLY: i_Qio_type
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
 
   IMPLICIT NONE
@@ -65,6 +66,8 @@ MODULE mo_sea_ice_shared_sr
   PUBLIC :: oce_ice_heatflx
   PUBLIC :: print_maxmin_si
   PUBLIC :: print_cells
+
+  CHARACTER(len=12)           :: str_module    = 'SeaIceShared'  ! Output of module for 1 line debug
 
 CONTAINS
 
@@ -120,6 +123,7 @@ CONTAINS
         ENDDO
       ENDDO
     END DO
+    CALL dbg_print('o-i-heat: zHeatOceI' ,zHeatOceI,str_module,3, in_subset=p_patch%cells%owned)
   END SUBROUTINE oce_ice_heatflx
 
 

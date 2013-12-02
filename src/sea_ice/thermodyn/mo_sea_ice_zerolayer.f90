@@ -295,6 +295,7 @@ CONTAINS
       CALL oce_ice_heatflx (p_patch, p_os,ice,Tfw,zHeatOceI)
 !!$    ELSE IF ( i_ice_therm == 3) THEN
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
+      ! #slo:# in case sea-ice dynamics included, then ice_therm is reset to 1 -> no oce_ice_heatflx is calculated!
     END IF
     
     DO jb = 1,p_patch%nblks_c
@@ -377,14 +378,14 @@ CONTAINS
 !!$    CALL print_cells(ice%hi(:,1,:)-ice%hiold(:,1,:),'new ice')
 !!$    CALL print_cells(zHeatOceI(:,1,:),'zHeatOceI')
 
-!!$!#slo# !---------DEBUG DIAGNOSTICS-------------------------------------------
-!!$    idt_src=1 !3  ! output print level (1-5, fix)
-!!$    CALL dbg_print('GrowZero: Q_surplus'       ,Q_surplus                ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%hi'          ,ice%hi                   ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Qtop'        ,ice%Qtop                 ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Qbot'        ,ice%Qbot                 ,str_module,idt_src)
-!!$    CALL dbg_print('GrowZero: ice%Tsurf'       ,ice%Tsurf                ,str_module,idt_src)
-!!$!#slo# !---------------------------------------------------------------------
+!---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('GrowZero: Q_surplus'  ,Q_surplus  ,str_module,idt_src)
+    CALL dbg_print('GrowZero: ice%hi'     ,ice%hi     ,str_module,idt_src)
+    CALL dbg_print('GrowZero: ice%Qtop'   ,ice%Qtop   ,str_module,idt_src)
+    CALL dbg_print('GrowZero: ice%Qbot'   ,ice%Qbot   ,str_module,idt_src)
+    CALL dbg_print('GrowZero: ice%Tsurf'  ,ice%Tsurf  ,str_module,idt_src)
+!---------------------------------------------------------------------
  
   END SUBROUTINE ice_growth_zerolayer
   
