@@ -3918,9 +3918,11 @@ C&None& &
  C & \''default\'' & &
  A \emph{ready file} is a technique for handling dependencies between the NWP processes.
  The completion of the write process is signalled by creating a small file 
- with name \texttt{ready\_file} and the output date appended.
+ with name \texttt{ready\_file}.
  Different \texttt{output\_nml}'s may be joined together to form a single ready file event.
  The setting of \texttt{ready\_file = "default"} does not create a ready file.
+ The ready file name may contain string tokens \texttt{<path>}, \texttt{<datetime>}, \texttt{<ddhhmmss>}
+ which are substituted as described for the namelist parameter \texttt{filename\_format}.
 &
 \tabularnewline
 
@@ -6135,6 +6137,15 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item The string token \texttt{<ddhhmmss>} is now substuted by the \emph{relative} day-hour-minute-second
          string, whereas the absolute date-time stamp can be inserted using \texttt{<datetime>}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: ready\_file }{ 2013-12-03 }{ 15081 }
+  \begin{itemize}
+   \item The ready file name has been changed and may now contain
+     string tokens \texttt{<path>}, \texttt{<datetime>},
+     \texttt{<ddhhmmss>} which are substituted as described for the
+     namelist parameter \texttt{filename\_format}.
   \end{itemize}
 \end{changeitem}
 
