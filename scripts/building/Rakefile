@@ -241,6 +241,56 @@ def connect(build,command,targetDir=$targetDir[build,false])
   cmd
 end
 
+# check all possible accumulated variables
+def checkAcc(build,exp,var)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      var=#{var} ruby -rcdo <<-EOR
+      ofiles        = Dir.glob("#{exp}*.nc")
+      names         = Cdo.showname(input: ofiles[0])[0].split
+      acc_names     = names.grep(/_acc/)
+      non_acc_names = acc_names.map {|n| n[0..-5]}
+      # collect variable with have acc and spot values in the output file
+      vars2check    = non_acc_names.select {|name| names.include?(name) }
+      vars2check    = vars2check.grep(/\#{ENV["var"]}/) if ENV["var"] != "__ALL"
+      vars2check.each {|var2check|
+        ofiles.each {|ofile|
+          result = Cdo.diffv(input: " -selname," + var2check + " " + ofile +
+                              " -selname," + var2check + "_acc" + " " + ofile)
+          unless result.empty? then
+            puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
+            pp result
+          else
+            puts "ZERO diff for " + var2check + " (file:" + ofile + ")"
+          end
+      }}
+EOR
+   EOS
+  ))
+end
+
+# plot a plot from output file
+def showPlot(build,exp,var='t',timestep=0,level=0)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      var=#{var} timestep=#{timestep} level=#{level} ruby -rcdo -riconPlot <<-EOR
+      ofiles        = Dir.glob("#{exp}*.nc")
+      names         = Cdo.showname(input: ofiles[0])[0].split
+      var          = ENV["var"]
+      timestep     = ENV["timestep"]
+      level        = ENV["level"]
+      plotter      = IconPlot.new()
+      plotter.display = "eog"
+      plotter.debug = true
+      ofiles.each {|ofile|
+        puts "Check file " +ofile
+        plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho"))
+      }
+EOR
+   EOS
+  ))
+end
+
 # caller for sync, config, build and run
 def doSync(build)
   call(sync(build))
@@ -319,6 +369,20 @@ def doCmpExps(build,expA,expB)
 end
 def doCheckExp(build,exp)
   var = ENV.has_key?('VAR') ? ENV['VAR'] : '__ALL'
+  if ENV.has_key?('CHECK') then
+    checks = ENV['CHECK'].split(',')
+    checks.each {|check|
+      case check
+      when 'acc' then
+        checkAcc(build,exp,var)
+      when 'plot' then
+        var = 't' if '__ALL' == var
+        showPlot(build,exp,var)
+      else
+ #       checkVarnames(build,exp
+      end
+    }
+  else
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       for file in $(ls -rc #{exp}*.nc*); do
@@ -347,33 +411,11 @@ def doCheckExp(build,exp)
   )) unless ENV['SHOW'].nil?
 
   # special accumulation check
-  call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      var=#{var} ruby -rcdo <<-EOR
-      ofiles        = Dir.glob("#{exp}*.nc")
-      names         = Cdo.showname(input: ofiles[0])[0].split
-      acc_names     = names.grep(/_acc/)
-      non_acc_names = acc_names.map {|n| n[0..-5]}
-      # collect variable with have acc and spot values in the output file
-      vars2check    = non_acc_names.select {|name| names.include?(name) }
-      vars2check    = vars2check.grep(/\#{ENV["var"]}/) if ENV["var"] != "__ALL"
-      vars2check.each {|var2check|
-        ofiles.each {|ofile|
-          result = Cdo.diffv(input: " -selname," + var2check + " " + ofile +
-                              " -selname," + var2check + "_acc" + " " + ofile)
-          unless result.empty? then
-            puts "CHECK ACCUMULATION in FILE:" + ofile + " with VAR:" + var2check
-            pp result
-          else
-            puts "ZERO diff for " + var2check + " (file:" + ofile + ")"
-          end
-      }}
-EOR
-   EOS
-  ))
+  checkAcc(build,exp,var)
 #ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
 #varName='matrix_vert_diff_c_1'
 #image = @plotter.plot(ifile,'test_'+exp,'matrix_vert_diff_c_1','scalar',:maskName => 'wet_c',:timeStep => 3)
+  end
 end
 def doCheckPost(build,exp,ext)
   pattern = "*_#{exp}_*.#{ext}"
