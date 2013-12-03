@@ -666,20 +666,21 @@
     draw(plot)
   end if
   if (plotMode.eq."scalar") then
-    if (DEBUG .and. horizonalGridType.eq."unstructured") print("Gridtype is "+getGridType(var)) end if
-    plot = gsn_csm_contour_map(wks,var,ResC)
-
-    if (showGrid) then
-      if ( horizonalGridType .eq. "unstructured") then
-        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
-      end if
-      if ( horizonalGridType .eq. "curvilinear" ) then
+    ;if (DEBUG .and. horizonalGridType.eq."unstructured") print("Gridtype is "+getGridType(var)) end if
+    if (showGrid ) then
+      if ( horizonalGridType .eq. "curvilinear") then
+        ResC@cnLinesOn            = False
         ResC@cnFillMode           = "CellFill"
         ResC@cnCellFillEdgeColor   = "black"          ;-- set edge color (default: -1 transparent)
         ResC@cnCellFillMissingValEdgeColor = "grey"   ;-- set miss val edge color (default: -1 transparent)
-
-
-      else
+      end if
+    end if
+    plot = gsn_csm_contour_map(wks,var,ResC)
+    if (showGrid) then
+      if (horizonalGridType .eq. "unstructured") then
+        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
+      end if
+      if ( horizonalGridType .ne. "curvilinear" .and. horizonalGridType .ne. "unstructured") then
         print("#=====================================================================")
         print("Grid representation is only implemented for the unstructured ICON grid")
         exit
