@@ -507,7 +507,7 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
-        CALL dbg_print('UpdSfc: ice albedo (bef. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: i-alb (bef ifast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -529,7 +529,6 @@ CONTAINS
             &   Qatm%albnirdif(:,:,jb), &
             &   doy=datetime%yeaday)
         ENDDO
-        CALL dbg_print('UpdSfc: ice albedo (aft. fast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
 
         ! Ocean albedo model
         Qatm%albvisdirw = albedoW
@@ -556,7 +555,8 @@ CONTAINS
         CALL dbg_print('UpdSfc: ConcSum. bef slow' ,p_ice%concSum  ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: TSurf before slow'    ,p_ice%tsurf ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: i-alb before slow' ,Qatm%albvisdir ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
@@ -602,11 +602,11 @@ CONTAINS
         END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        CALL dbg_print('UpdSfc: hi aft. limitter'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: Conc. aft. limitter'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: ConcSum aft. limitter',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T1 aft. limitter'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 aft. limitter'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: hi aft. limiter'     ,p_ice%hi       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. aft. limiter'  ,p_ice%conc     ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: ConcSum aft. limiter',p_ice%concSum  ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T1 aft. limiter'     ,p_ice%t1       ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 aft. limiter'     ,p_ice%t2       ,str_module,5, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
       ELSE   !  no sea ice

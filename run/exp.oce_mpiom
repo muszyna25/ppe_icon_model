@@ -228,7 +228,7 @@ cat > ${ocean_namelist} << EOF
 &sea_ice_nml
   i_ice_therm   = 1
   i_ice_dyn     = 1
-  !i_Qio_type    = 2   !  1=MPIOM-type, 2=flux-type ice-ocean heat flux coupling
+  !i_Qio_type    = 2              !  1=MPIOM-type, 2=flux-type ice-ocean heat flux coupling
 
 /
 &ocean_forcing_and_init_nml
