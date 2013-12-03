@@ -604,12 +604,12 @@ CONTAINS
     INTEGER  :: z_dolic
 
     REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
-    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-
     REAL(wp) :: dz_inv, z_lambda_frac
+
+    REAL(wp), POINTER  :: z_vert_density_grad_c(:,:,:)
 
     !Below is a set of variables and parameters for tracer and velocity
     !REAL(wp), PARAMETER :: z_beta            = 0.6_wp
@@ -630,6 +630,7 @@ CONTAINS
     edges_in_domain => p_patch%edges%in_domain
     !cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
+    z_vert_density_grad_c => p_os%p_diag%zgrad_rho
 
     !-------------------------------------------------------------------------
     z_av0 = richardson_veloc

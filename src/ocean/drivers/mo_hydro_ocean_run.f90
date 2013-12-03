@@ -103,7 +103,7 @@ USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_E
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density, &
   &                                  calc_density
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
+USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
@@ -407,7 +407,7 @@ CONTAINS
 
     IF (istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN
-        CALL calculate_oce_diagnostics( patch_3D,    &
+        CALL calc_slow_oce_diagnostics( patch_3D,    &
           &                             p_os(jg),      &
           &                             p_sfc_flx,     &
           &                             p_ice,         &
