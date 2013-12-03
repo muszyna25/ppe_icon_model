@@ -356,9 +356,7 @@ CONTAINS
         fname(ifname) = result_fnames(i)%filename_string
       END DO
     END DO
-    ! TODO[FP,LK] : deallocating the "forecast_delta" leads to an application crash. Why's that?
-    !
-    !  CALL deallocateTimedelta(forecast_delta)
+    CALL deallocateTimedelta(forecast_delta)
 
     ! clean up
     CALL deallocateDatetime(mtime_begin)

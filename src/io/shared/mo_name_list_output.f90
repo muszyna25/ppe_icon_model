@@ -95,7 +95,9 @@ MODULE mo_name_list_output
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar
+    &                                     PROLEPTIC_GREGORIAN, setCalendar, MAX_DATETIME_STR_LEN,   &
+    &                                     timedelta, newTimedelta, deallocateTimedelta
+  USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -528,11 +530,30 @@ CONTAINS
   SUBROUTINE write_ready_file(ev)
     TYPE(t_par_output_event), POINTER :: ev
     ! local variables
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::write_ready_file"
-    CHARACTER(LEN=FILENAME_MAX)   :: rdy_filename
-    INTEGER                       :: iunit
+    CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
+    CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: forecast_delta_str
+    TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
+    TYPE(timedelta), POINTER            :: forecast_delta
+    INTEGER                             :: iunit
+    TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
 
-    rdy_filename = TRIM(ev%output_event%event_data%name)//"_"//TRIM(get_current_date(ev))//".rdy"
+    ! compute current forecast time (delta):
+    mtime_date     => newDatetime(TRIM(get_current_date(ev)))
+    mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
+    forecast_delta => newTimedelta("P01D")
+    CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
+    WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
+      &                                    forecast_delta%minute, forecast_delta%second 
+    CALL deallocateDatetime(mtime_date)
+    CALL deallocateDatetime(mtime_begin)
+    CALL deallocateTimedelta(forecast_delta)
+
+    ! substitute tokens in ready file name
+    CALL associate_keyword("<path>",            TRIM(model_base_dir),            keywords)
+    CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
+    CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
+    rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
 
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN

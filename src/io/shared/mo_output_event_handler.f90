@@ -640,6 +640,7 @@ CONTAINS
     n_event_steps                    = 0
     p_event%i_event_step             = 1
     p_event%event_data%name          = TRIM(name)
+    p_event%event_data%sim_start     = TRIM(sim_step_info%sim_start)
 
     ! initialize event with the "mtime" library:
     CALL setCalendar(PROLEPTIC_GREGORIAN)
@@ -1143,6 +1144,11 @@ CONTAINS
       p_event%event_data%name        = TRIM(event1%event_data%name)
     ELSE
       p_event%event_data%name        = TRIM(event1%event_data%name)//","//TRIM(event2%event_data%name)
+    END IF
+    IF (TRIM(event1%event_data%sim_start) == TRIM(event2%event_data%sim_start)) THEN
+      p_event%event_data%sim_start = event1%event_data%sim_start
+    ELSE
+      CALL finish(routine, "Simulation start dates do not match!")
     END IF
 
     ! loop over the two events, determine the size of the union:

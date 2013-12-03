@@ -93,6 +93,7 @@ MODULE mo_output_event_types
   !
   TYPE t_event_data
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: name                             !< output event name
+    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: sim_start                        !< simulation start
   END TYPE t_event_data
 
 
