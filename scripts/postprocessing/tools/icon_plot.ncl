@@ -579,7 +579,7 @@
 
   if (horizonalGridType .eq. "unstructured" .or. horizonalGridType .eq. "curvilinear") then
     if (plotMode.eq."scalar" .or. plotMode.eq."overlay")
-      if (horizonalGridType .eq. "unstructured" .or. horizonalGridType .eq. "curvilinear") then
+      if (horizonalGridType .eq. "unstructured") then
         if (isvar("gridFile")) then
           x      = getCoordinateFromFile(lonCo,gridFile)
           y      = getCoordinateFromFile(latCo,gridFile)
@@ -670,12 +670,20 @@
     plot = gsn_csm_contour_map(wks,var,ResC)
 
     if (showGrid) then
-      if ( horizonalGridType .ne. "unstructured") then
+      if ( horizonalGridType .eq. "unstructured") then
+        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
+      end if
+      if ( horizonalGridType .eq. "curvilinear" ) then
+        ResC@cnFillMode           = "CellFill"
+        ResC@cnCellFillEdgeColor   = "black"          ;-- set edge color (default: -1 transparent)
+        ResC@cnCellFillMissingValEdgeColor = "grey"   ;-- set miss val edge color (default: -1 transparent)
+
+
+      else
         print("#=====================================================================")
         print("Grid representation is only implemented for the unstructured ICON grid")
         exit
       end if
-      plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
     end if
     if ( markCells ) then
       plotCellMarkers(x,y,wks,plot,True)
