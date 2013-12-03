@@ -277,6 +277,8 @@ MODULE mo_oce_state
                                   ! dimension: (nproma,n_zlev, alloc_cell_blocks)
       &  rhopot(:,:,:)         ,& ! potential density. Unit: [kg/m^3]
                                   ! dimension: (nproma,n_zlev, alloc_cell_blocks)
+      &  zgrad_rho(:,:,:)      ,& ! vertical density gradient. Unit: [kg/m^2]
+                                  ! dimension: (nproma,n_zlev, alloc_cell_blocks)
       &  h_e(:,:)              ,& ! surface height at cell edges. Unit [m].
                                   ! dimension: (nproma, nblks_e)
       &  thick_c(:,:)          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -317,6 +319,8 @@ MODULE mo_oce_state
                                   ! dimension: (nproma, n_zlev, nblks_e)
       &  kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
                                   ! (nproma, n_zlev, alloc_cell_blocks)
+      &  mld(:,:)              ,& ! mixed layer depth [m].
+                                  ! (nproma,  alloc,wamerh sadf 
       &  veloc_adv_horz(:,:,:) ,& ! horizontal velocity advection
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  veloc_adv_vert(:,:,:) ,& ! vertical velocity advection
@@ -333,7 +337,11 @@ MODULE mo_oce_state
                                   ! dimension: (nproma, n_zlev, alloc_cell_blocks)
       &  press_grad(:,:,:)     ,& ! hydrostatic pressure gradient term. Unit [m/s]
                                   ! dimension: (nproma, n_zlev, nblks_e)
-      & temp_insitu(:,:,:)
+      &  temp_insitu(:,:,:)
+
+    INTEGER, POINTER :: &
+      & condep(:,:)               ! convection depth index
+
     TYPE(t_cartesian_coordinates), POINTER :: &
       &  p_vn(:,:,:)              ! reconstructed velocity at cell center in cartesian coordinates
                                   ! dimension: (nproma, n_zlev, alloc_cell_blocks)
@@ -967,6 +975,12 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
+    CALL add_var(ocean_default_list, 'zgrad_rho', p_os_diag%zgrad_rho , GRID_UNSTRUCTURED_CELL,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('zgrad_rho', 'kg/m^3', 'vertical density gradiant', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &            ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
     CALL add_var(ocean_default_list, 'vt', p_os_diag%vt, GRID_UNSTRUCTURED_EDGE, &
     &            ZA_DEPTH_BELOW_SEA, &
     &            t_cf_var('vt','m/s','tangential velocity at edges', DATATYPE_FLT32),&
@@ -1156,9 +1170,16 @@ CONTAINS
     &            t_cf_var('laplacian_vert','','vertical diffusion', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
-
-    ! initialize density with reference value rather than with zero
-    !  - mainly for plotting purpose
+    ! mixed layer depths
+    call add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,&
+    &            ZA_DEPTH_BELOW_SEA, &
+    &            t_cf_var('mld', 'm', 'mixed layer depth', datatype_flt32),&
+    &            t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+    call add_var(ocean_default_list, 'condep', p_os_diag%condep , GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+    &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT16),&
+    &            t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), STAT=ist)
