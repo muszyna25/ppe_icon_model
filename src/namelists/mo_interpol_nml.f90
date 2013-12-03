@@ -162,6 +162,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
+    INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_interpol_nml: read_interpol_namelist'
@@ -220,11 +221,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('interpol_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), interpol_nml) ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, interpol_nml) ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, interpol_nml)                                     ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), interpol_nml) ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, interpol_nml) ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

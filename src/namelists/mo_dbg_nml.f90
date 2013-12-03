@@ -100,6 +100,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
    
     INTEGER :: i_status, i
+    INTEGER :: iunit
    
     CHARACTER(len=max_char_length), PARAMETER :: &
            routine = 'mo_dbg_nml/read_dbg_namelist:'
@@ -121,11 +122,17 @@ CONTAINS
    
     CALL open_nml(TRIM(filename))
     CALL position_nml ('dbg_index_nml', status=i_status)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), dbg_index_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, dbg_index_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (i_status)
     CASE (positioned)
       READ (nnml, dbg_index_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), dbg_index_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, dbg_index_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

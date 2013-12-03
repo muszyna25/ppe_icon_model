@@ -264,6 +264,7 @@ CONTAINS
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
     CHARACTER(len=MAX_STRING_LEN)         :: cfilename
+    INTEGER                               :: iunit
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -351,10 +352,14 @@ CONTAINS
 
       ! Read output_nml
 
-      IF (my_process_is_stdio())  WRITE(temp_defaults(), output_nml) ! write defaults to temporary text file
+      IF (my_process_is_stdio())  THEN
+        iunit = temp_defaults()
+        WRITE(iunit, output_nml)                                     ! write defaults to temporary text file
+      END IF
       READ (nnml, output_nml, iostat=istat)                          ! overwrite default settings
       IF (my_process_is_stdio())  THEN
-        WRITE(temp_settings(), output_nml)                           ! write settings to temporary text file
+        iunit = temp_settings()
+        WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
 
       WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat

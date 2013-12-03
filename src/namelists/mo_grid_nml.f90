@@ -135,6 +135,7 @@ MODULE mo_grid_nml
 !     INTEGER                     :: radiation_grid_distribution
     
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
+    INTEGER                    :: iunit
 
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
@@ -202,10 +203,16 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('grid_nml', status=i_status)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), grid_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, grid_nml)  ! write defaults to temporary text file
+    END IF
     IF (i_status == POSITIONED) THEN
       READ (nnml, grid_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), grid_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, grid_nml)  ! write settings to temporary text file
+      END IF
     ENDIF
     CALL close_nml
 

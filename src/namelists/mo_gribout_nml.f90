@@ -199,6 +199,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
+    INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_gribout_nml: read_gribout_nml'
@@ -242,13 +243,19 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('gribout_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), gribout_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, gribout_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, gribout_nml)                                      ! overwrite default settings
       ! Preset values, when main switch is provided.
       CALL preset_namelist()
-      IF (my_process_is_stdio()) WRITE(temp_settings(), gribout_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, gribout_nml)  ! write settings to temporary text file
+      END IF
     CASE DEFAULT
       CALL preset_namelist()
     END SELECT

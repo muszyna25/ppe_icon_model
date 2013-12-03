@@ -212,6 +212,7 @@ MODULE mo_parallel_nml
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
     INTEGER :: funit
+    INTEGER :: iunit
     !0!CHARACTER(len=*), PARAMETER ::   &
     !0!        &  method_name = 'mo_parallel_nml:read_parallel_namelist'
 
@@ -308,11 +309,17 @@ MODULE mo_parallel_nml
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('parallel_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), parallel_nml)     ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, parallel_nml)     ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, parallel_nml)                                         ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), parallel_nml)     ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, parallel_nml)     ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

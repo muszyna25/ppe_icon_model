@@ -112,6 +112,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
+    INTEGER :: iunit
     CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
 
     !------------------------------------------------------------
@@ -148,11 +149,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('ha_dyn_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), ha_dyn_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ha_dyn_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, ha_dyn_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), ha_dyn_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ha_dyn_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

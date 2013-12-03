@@ -103,6 +103,7 @@ CONTAINS
    INTEGER(i8) :: restart_calday
    REAL(wp)    :: restart_caltime
    REAL(wp)    :: restart_daysec
+   INTEGER     :: iunit
 
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
@@ -153,11 +154,17 @@ CONTAINS
    !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('time_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), time_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, time_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, time_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), time_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, time_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

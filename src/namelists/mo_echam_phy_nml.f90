@@ -92,6 +92,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
+    INTEGER :: iunit
 
     !------------------------------------------------------------------
     ! 1. Set default values
@@ -128,11 +129,17 @@ CONTAINS
     !------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('echam_phy_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_phy_nml)      ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, echam_phy_nml)      ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (positioned)
       READ (nnml, echam_phy_nml)                                          ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), echam_phy_nml)      ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, echam_phy_nml)      ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

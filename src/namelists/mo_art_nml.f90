@@ -141,6 +141,7 @@ CONTAINS
     INTEGER :: jb, jc, nblks, npromz, nvolc, ivolc   
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
+    INTEGER :: iunit
 
     !-----------------------
     ! 1. default settings   
@@ -185,11 +186,17 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('art_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), art_nml)    ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, art_nml)    ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, art_nml)                                        ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), art_nml)    ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, art_nml)    ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

@@ -166,6 +166,7 @@ MODULE mo_lnd_nwp_nml
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg            ! loop index
+    INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
@@ -233,11 +234,17 @@ MODULE mo_lnd_nwp_nml
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('lnd_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), lnd_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, lnd_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, lnd_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), lnd_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, lnd_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

@@ -118,7 +118,7 @@ CONTAINS
   SUBROUTINE read_diffusion_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
-    INTEGER :: istat, funit
+    INTEGER :: istat, funit, iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
@@ -165,11 +165,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('diffusion_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), diffusion_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, diffusion_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, diffusion_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), diffusion_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, diffusion_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

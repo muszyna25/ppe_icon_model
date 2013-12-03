@@ -90,7 +90,7 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: &
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
 
-    INTEGER  :: ist, funit
+    INTEGER  :: ist, funit, iunit
 
     !------------------------------------------------------------
     ! Set default values
@@ -126,11 +126,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('echam_conv_nml',STATUS=ist)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), echam_conv_nml)    ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, echam_conv_nml)    ! write defaults to temporary text file
+    END IF
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, echam_conv_nml)                                        ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), echam_conv_nml)    ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, echam_conv_nml)    ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

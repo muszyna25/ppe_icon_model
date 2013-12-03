@@ -80,6 +80,7 @@ MODULE mo_sea_ice_nml
                                         !  This is only necessary for runs which start off from a
                                         !  still ocean, i.e. not re-start
   REAL(wp),PUBLIC :: hci_layer          !< Thickness of stabilizing constant heat capacity layer
+  INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
     &           i_Qio_type, hci_layer
@@ -125,11 +126,17 @@ CONTAINS
     !------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('sea_ice_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), sea_ice_nml)    ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, sea_ice_nml)    ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (positioned)
       READ (nnml, sea_ice_nml)                                        ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), sea_ice_nml)    ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, sea_ice_nml)    ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

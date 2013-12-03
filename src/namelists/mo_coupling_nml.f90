@@ -109,6 +109,7 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: first
     LOGICAL :: l_redirect_stdout
+    INTEGER :: iunit
 
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
@@ -189,14 +190,20 @@ CONTAINS
        ! 3.b if namelist group is present ...
        !-----------------------------------------------------------------
 
-       IF (my_process_is_stdio()) WRITE(temp_defaults(), coupling_nml)  ! write defaults to temporary text file
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_defaults()
+         WRITE(iunit, coupling_nml)  ! write defaults to temporary text file
+       END IF
 
        SELECT CASE (istat)
 
        CASE (POSITIONED)
 
          READ (nnml, coupling_nml, iostat=istat)                          ! overwrite default settings
-         IF (my_process_is_stdio()) WRITE(temp_settings(), coupling_nml)  ! write settings to temporary text file
+         IF (my_process_is_stdio()) THEN
+           iunit = temp_settings()
+           WRITE(iunit, coupling_nml)  ! write settings to temporary text file
+         END IF
 
           i = i + 1
 

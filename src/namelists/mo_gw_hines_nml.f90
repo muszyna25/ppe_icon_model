@@ -128,6 +128,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg 
+    INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
 
@@ -161,11 +162,17 @@ CONTAINS
     !------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('gw_hines_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), gw_hines_nml)    ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, gw_hines_nml)    ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (positioned)
       READ (nnml, gw_hines_nml)                                        ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), gw_hines_nml)    ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, gw_hines_nml)    ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

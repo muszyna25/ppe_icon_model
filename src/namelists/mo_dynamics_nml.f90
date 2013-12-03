@@ -96,6 +96,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
+    INTEGER :: iunit
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_nml:read_dynamics_namelist'
 
     !------------------------------------------------------------
@@ -122,11 +123,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('dynamics_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), dynamics_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, dynamics_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, dynamics_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), dynamics_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, dynamics_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

@@ -75,6 +75,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
+    INTEGER :: iunit
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_limarea_nml:read_limarea_namelist'
 
     !------------------------------------------------------------
@@ -101,11 +102,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('limarea_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), limarea_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, limarea_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, limarea_nml)
-      IF (my_process_is_stdio()) WRITE(temp_settings(), limarea_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, limarea_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

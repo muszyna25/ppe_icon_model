@@ -106,6 +106,7 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
     INTEGER :: jk          !< vertical loop index
+    INTEGER :: iunit
 
     REAL(wp) :: p_bot      !< bottom level pressure
     REAL(wp) :: p_top      !< top level pressure
@@ -167,11 +168,17 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_pzlev_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), nh_pzlev_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, nh_pzlev_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, nh_pzlev_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), nh_pzlev_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, nh_pzlev_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

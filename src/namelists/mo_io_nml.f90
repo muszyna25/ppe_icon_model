@@ -178,6 +178,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     INTEGER                        :: istat, funit
+    INTEGER                        :: iunit
 
     !-----------------------
     ! 1. default settings
@@ -235,11 +236,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('io_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), io_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, io_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, io_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), io_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, io_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

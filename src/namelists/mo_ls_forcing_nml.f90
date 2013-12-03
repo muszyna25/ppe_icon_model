@@ -86,7 +86,7 @@ CONTAINS
   SUBROUTINE read_ls_forcing_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
-    INTEGER :: istat, funit
+    INTEGER :: istat, funit, iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_ls_forcing_nml: read_ls_forcing_namelist'
@@ -119,11 +119,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('ls_forcing_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), ls_forcing_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ls_forcing_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, ls_forcing_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), ls_forcing_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ls_forcing_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

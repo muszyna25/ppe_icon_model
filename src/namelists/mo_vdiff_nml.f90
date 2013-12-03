@@ -64,6 +64,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: ist, funit
+    INTEGER :: iunit
 
     !----------------------------------------------------------------
     ! Default values
@@ -86,11 +87,17 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('vdiff_nml',STATUS=ist)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), vdiff_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, vdiff_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, vdiff_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), vdiff_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, vdiff_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

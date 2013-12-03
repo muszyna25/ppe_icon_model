@@ -161,6 +161,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit, jg
+    INTEGER :: iunit
     CHARACTER(len=*), PARAMETER ::  &
          &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
 
@@ -220,11 +221,17 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nwp_phy_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), nwp_phy_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, nwp_phy_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, nwp_phy_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), nwp_phy_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

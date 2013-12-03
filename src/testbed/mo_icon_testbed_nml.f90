@@ -64,7 +64,8 @@ MODULE mo_icon_testbed_nml
     INTEGER :: testbed_model
     INTEGER :: testbed_iterations
     INTEGER :: calculate_iterations
-    INTEGER  :: no_of_blocks, no_of_layers
+    INTEGER :: no_of_blocks, no_of_layers
+    INTEGER :: iunit
 
    CHARACTER(LEN=filename_max) :: testfile_3D_time(2), testfile_2D_time(2)
     
@@ -92,11 +93,17 @@ MODULE mo_icon_testbed_nml
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('testbed_nml', STATUS=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), testbed_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, testbed_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, testbed_nml, iostat=istat)                          ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), testbed_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, testbed_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
     

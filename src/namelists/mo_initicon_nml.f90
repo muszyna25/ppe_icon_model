@@ -135,9 +135,10 @@ CONTAINS
   !local variable
   INTEGER :: i_status, istat
   INTEGER :: z_go_init(4)   ! for consistency check
+  INTEGER :: iunit
 
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_initicon_nml: read_initicon_namelist'
+  CHARACTER(len=*), PARAMETER ::  &
+    &  routine = 'mo_initicon_nml: read_initicon_namelist'
 
   !------------------------------------------------------------
   ! 2.0 set up the default values for initicon
@@ -171,11 +172,17 @@ CONTAINS
   !
   CALL open_nml(TRIM(filename))
   CALL position_nml ('initicon_nml', status=i_status)
-  IF (my_process_is_stdio()) WRITE(temp_defaults(), initicon_nml)  ! write defaults to temporary text file
+  IF (my_process_is_stdio()) THEN
+    iunit = temp_defaults()
+    WRITE(iunit, initicon_nml)  ! write defaults to temporary text file
+  END IF
   SELECT CASE (i_status)
   CASE (positioned)
     READ (nnml, initicon_nml)                                      ! overwrite default settings
-    IF (my_process_is_stdio()) WRITE(temp_settings(), initicon_nml)  ! write settings to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_settings()
+      WRITE(iunit, initicon_nml)  ! write settings to temporary text file
+    END IF
   END SELECT
   CALL close_nml
 

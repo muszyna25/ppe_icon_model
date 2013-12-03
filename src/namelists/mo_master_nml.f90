@@ -119,6 +119,7 @@ CONTAINS
       model_base_dir
 
     INTEGER :: istat
+    INTEGER :: iunit
     LOGICAL :: rewnd
     CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
     TYPE (t_keyword_list), POINTER :: keywords         => NULL()
@@ -162,9 +163,15 @@ CONTAINS
       model_max_rank=-1 
       model_inc_rank=1
       
-      IF (my_process_is_stdio()) WRITE(temp_defaults(), master_model_nml)  ! write defaults to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_defaults()
+        WRITE(iunit, master_model_nml)  ! write defaults to temporary text file
+      END IF
       READ (nnml, master_model_nml)                                        ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), master_model_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, master_model_nml)  ! write settings to temporary text file
+      END IF
 
       no_of_models=no_of_models+1
       master_nml_array(no_of_models)%model_name              = model_name

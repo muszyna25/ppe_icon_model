@@ -93,6 +93,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
     INTEGER :: istat, funit, jg
+    INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_les_nml: read_les_namelist'
@@ -130,11 +131,17 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('les_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), les_nml)  ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, les_nml)  ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, les_nml)                                      ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), les_nml)  ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, les_nml)  ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 

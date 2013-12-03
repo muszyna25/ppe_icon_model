@@ -97,6 +97,7 @@ CONTAINS
     ! local variables
     INTEGER                        :: istat, funit, idom, istation, &
       &                               jb, jc, nblks, npromz, nstations
+    INTEGER                        :: iunit
 
     !-----------------------
     ! 1. default settings
@@ -133,11 +134,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('meteogram_output_nml', status=istat)
-    IF (my_process_is_stdio()) WRITE(temp_defaults(), meteogram_output_nml)   ! write defaults to temporary text file
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, meteogram_output_nml)   ! write defaults to temporary text file
+    END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, meteogram_output_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) WRITE(temp_settings(), meteogram_output_nml)   ! write settings to temporary text file
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, meteogram_output_nml)   ! write settings to temporary text file
+      END IF
     END SELECT
     CALL close_nml
 
