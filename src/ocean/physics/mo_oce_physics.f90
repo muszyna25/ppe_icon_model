@@ -605,7 +605,6 @@ CONTAINS
 
     REAL(wp) :: z_rho_up, z_rho_down, z_stabio, z_shear_c, z_av0, z_dv0
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_Ri_c               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_Ri_e               (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: z_c                  (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -656,7 +655,6 @@ CONTAINS
       !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
       !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
       z_vert_density_grad_c(:,:,:) = 0.0_wp
-      z_vert_density_grad_e(:,:,:) = 0.0_wp
       z_Ri_c(:,:,:)                = 0.0_wp
       z_Ri_e(:,:,:)                = 0.0_wp
       z_stabio                     = 0.0_wp
