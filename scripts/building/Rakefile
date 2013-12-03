@@ -75,6 +75,8 @@ $hosts = {
 # * remote builds start with 'remote'
 $builds = {
   :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
+  :localIntel        => {:host => :thingol , :subdir => 'intel',:CC => 'intel'}     ,
+  :localIntelHi      => {:host => :thingol , :subdir => 'intel-hiopt',:CC => 'intel'}     ,
   :localCmake        => {:host => :thingol , :subdir => 'cmake'}     ,
   :localGccHi        => {:host => :thingol , :subdir => 'gcc-hiopt', :CC => 'gcc'      , :FLAGS => 'hiopt'},
   :localGprof        => {:host => :thingol , :subdir => 'gprof'}   ,
@@ -210,8 +212,10 @@ def sync(build)
   # add non-added runscripts
   file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
   # add grids directory for local external data
-  file.write(Dir.glob("grids/*.nc").join("\n"))
+  file.write(Dir.glob("grids/*.nc").join("\n") + "\n")
+  file.write("config/mh-override\n") if isLocal?(build)
   file.close
+  system("cat #{file.path}") if  ENV.has_key?('DEBUG')
 
   if isLocal?(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
