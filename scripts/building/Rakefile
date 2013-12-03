@@ -284,7 +284,7 @@ def showPlot(build,exp,var='t',timestep=0,level=0)
       plotter.debug = true
       ofiles.each {|ofile|
         puts "Check file " +ofile
-        plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho"))
+        plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho",timeStep: timestep,levIndex: level))
       }
 EOR
    EOS
@@ -369,6 +369,8 @@ def doCmpExps(build,expA,expB)
 end
 def doCheckExp(build,exp)
   var = ENV.has_key?('VAR') ? ENV['VAR'] : '__ALL'
+  ts  = ENV.has_key?('TS') ? ENV['TS'].to_i : 0
+  lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
   if ENV.has_key?('CHECK') then
     checks = ENV['CHECK'].split(',')
     checks.each {|check|
@@ -377,7 +379,7 @@ def doCheckExp(build,exp)
         checkAcc(build,exp,var)
       when 'plot' then
         var = 't' if '__ALL' == var
-        showPlot(build,exp,var)
+        showPlot(build,exp,var,ts,lev)
       else
  #       checkVarnames(build,exp
       end
