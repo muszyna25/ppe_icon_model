@@ -402,8 +402,8 @@ def doCmpExps(build,expA,expB)
               ),true)
 end
 def doCheckExp(build,exp)
-  var = ENV.has_key?('VAR') ? ENV['VAR'] : '__ALL'
-  ts  = ENV.has_key?('TS') ? ENV['TS'].to_i : 0
+  var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
+  ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
   lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
   if ENV.has_key?('CHECK') then
     checks = ENV['CHECK'].split(',')
@@ -421,12 +421,9 @@ def doCheckExp(build,exp)
       end
     }
   else
-  checkNames(build,exp)
-  showOnlineDiag(build,exp)
-  checkAcc(build,exp,var)
-#ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
-#varName='matrix_vert_diff_c_1'
-#image = @plotter.plot(ifile,'test_'+exp,'matrix_vert_diff_c_1','scalar',:maskName => 'wet_c',:timeStep => 3)
+    checkNames(build,exp)
+    showOnlineDiag(build,exp)
+    checkAcc(build,exp,var)
   end
 end
 def doCheckPost(build,exp,ext)
