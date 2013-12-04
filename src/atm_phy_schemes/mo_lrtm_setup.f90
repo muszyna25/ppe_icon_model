@@ -24,7 +24,13 @@ module mo_lrtm_setup
 
   private
 
-  public  :: lrtm_setup
+  public  :: lrtm_setup, ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
+
+  INTEGER,  PARAMETER :: ntbl = 10000
+  REAL(wp), DIMENSION(0:ntbl) :: tau_tbl
+  REAL(wp), DIMENSION(0:ntbl) :: exp_tbl
+  REAL(wp), DIMENSION(0:ntbl) :: tfn_tbl
+  REAL(wp)                    :: bpade
 
 contains
 
@@ -42,7 +48,6 @@ contains
     !  spectral band are reduced from 256 g-point intervals to 140.
     ! **************************************************************************
 
-    use mo_lrtm_rtrnmr, only: ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
     use mo_lrtm_netcdf, only: lrtm_read
 
     !> NetCDF file containing longwave absorption coefficients and other data
@@ -59,6 +64,9 @@ contains
 
     real(wp), parameter :: expeps = 1.e-20_wp   ! Smallest value for exponential table
     real(wp), parameter :: pade   = 0.278_wp   ! Smallest value for exponential table
+
+    ! GZ, 2013-12-04: Turn off vectorization and inlining for the Cray compiler. It generates incorrect code otherwise.
+!DIR$ NOINLINE,NOVECTOR
 
     ! ------- Definitions -------
     !     Arrays for 10000-point look-up tables:
