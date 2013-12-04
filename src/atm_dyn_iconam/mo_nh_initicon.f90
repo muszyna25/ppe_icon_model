@@ -1048,6 +1048,8 @@ MODULE mo_nh_initicon
           ! initialize grp_vars_fg with grp_vars_fg_default
           grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
 
+          ngrp_vars_fg = ngrp_vars_fg_default
+
           ! no analysis group
           ! ngrp_vars_ana_[default] = --
           ngrp_vars_ana_default = 0
