@@ -269,6 +269,26 @@ EOR
   ))
 end
 
+# simple varnames check
+def checkNames(build,exp)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      for file in $(ls -rc #{exp}*.nc*); do
+        if [ -f $file ]; then
+          echo '#===========================================================================';
+          echo " $file";echo
+          cdo showname  $file
+          #cdo sinfov $file
+          #cdo -infov -seltimestep,2 $file
+          #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
+          #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
+          #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
+        fi;
+      done
+               EOS
+              ),true)
+end
+
 # plot a plot from output file
 def showPlot(build,exp,var='t',timestep=0,level=0)
   call(connect(build,<<-EOS
@@ -280,13 +300,27 @@ def showPlot(build,exp,var='t',timestep=0,level=0)
       timestep     = ENV["timestep"]
       level        = ENV["level"]
       plotter      = IconPlot.new()
-      plotter.display = "eog"
+      plotter.display = "display"
       plotter.debug = true
       ofiles.each {|ofile|
         puts "Check file " +ofile
         plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho",timeStep: timestep,levIndex: level))
       }
 EOR
+   EOS
+  ))
+end
+
+# display the online diagnostics
+def showOnlineDiag(build,exp)
+  diagFile    = 'oce_diagnostics.txt'
+  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      if test -f #{diagFile}; then
+        LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
+      else echo 'No diagnostics avialable!';
+      fi
    EOS
   ))
 end
@@ -380,39 +414,15 @@ def doCheckExp(build,exp)
       when 'plot' then
         var = 't' if '__ALL' == var
         showPlot(build,exp,var,ts,lev)
+      when 'diag'
+        showOnlineDiag(build,exp)
       else
- #       checkVarnames(build,exp
+        checkNames(build,exp)
       end
     }
   else
-  call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      for file in $(ls -rc #{exp}*.nc*); do
-        if [ -f $file ]; then
-          echo '#===========================================================================';
-          echo " $file";echo
-          cdo showname  $file
-          #cdo sinfov $file
-          #cdo -infov -seltimestep,2 $file
-          #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
-          #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
-          #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
-        fi;
-      done
-               EOS
-              ),true)
-  diagFile    = 'oce_diagnostics.txt'
-  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
-  call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      if test -f #{diagFile}; then
-        LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
-      else echo 'No diagnostics avialable!';
-      fi
-   EOS
-  )) unless ENV['SHOW'].nil?
-
-  # special accumulation check
+  checkNames(build,exp)
+  showOnlineDiag(build,exp)
   checkAcc(build,exp,var)
 #ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
 #varName='matrix_vert_diff_c_1'
