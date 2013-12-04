@@ -63,7 +63,7 @@ MODULE mo_ext_data_state
     &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, &
     &                              MODIS
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
@@ -2686,8 +2686,11 @@ CONTAINS
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
         ! convert from ppmv to g/g only in case of APE ozone
+        ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of 
+        ! the incoming ozone file.  Often, the incoming units are not ppmv.
         IF(irad_o3 == io3_ape) &
-          &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+          &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
+          !&         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
         WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))

@@ -107,6 +107,7 @@ MODULE mo_physical_constants
   ! ppmv2gg converts ozone from volume mixing ratio in ppmv
   ! to mass mixing ratio in g/g
   REAL(wp), PARAMETER :: ppmv2gg=1.e-6_wp*amo3/amd
+  REAL(wp), PARAMETER :: o3mr2gg=amo3/amd
 
   !> Earth and Earth orbit constants
   !! -------------------------------
