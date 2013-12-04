@@ -10,7 +10,7 @@ MODULE mo_io_restart
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: separator
-!!$  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
+  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -326,37 +326,37 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
     !
-!!$    CHARACTER(len=256) :: executable
-!!$    CHARACTER(len=256) :: user_name
-!!$    CHARACTER(len=256) :: os_name
-!!$    CHARACTER(len=256) :: host_name
-!!$    CHARACTER(len=256) :: tmp_string
-!!$    CHARACTER(len=  8) :: date_string
-!!$    CHARACTER(len= 10) :: time_string
-!!$
-!!$    INTEGER :: nlena, nlenb, nlenc, nlend
+    CHARACTER(len=256) :: executable
+    CHARACTER(len=256) :: user_name
+    CHARACTER(len=256) :: os_name
+    CHARACTER(len=256) :: host_name
+    CHARACTER(len=256) :: tmp_string
+    CHARACTER(len=  8) :: date_string
+    CHARACTER(len= 10) :: time_string
+
+    INTEGER :: nlena, nlenb, nlenc, nlend
     !
     IF (lrestart_initialised) RETURN
     !
-!!$    executable = ''
-!!$    user_name  = ''
-!!$    os_name    = ''
-!!$    host_name  = ''
-!!$    !
-!!$    CALL get_command_argument(0, executable, nlend)
-!!$    CALL date_and_time(date_string, time_string)
-!!$    !
-!!$    tmp_string = ''
-!!$    CALL util_os_system (tmp_string, nlena)
-!!$    os_name = tmp_string(1:nlena)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_user_name (tmp_string, nlenb)
-!!$    user_name = tmp_string(1:nlenb)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_node_name (tmp_string, nlenc)
-!!$    host_name = tmp_string(1:nlenc)
+    executable = ''
+    user_name  = ''
+    os_name    = ''
+    host_name  = ''
+    !
+    CALL get_command_argument(0, executable, nlend)
+    CALL date_and_time(date_string, time_string)
+    !
+    tmp_string = ''
+    CALL util_os_system (tmp_string, nlena)
+    os_name = tmp_string(1:nlena)
+
+    tmp_string = ''
+    CALL util_user_name (tmp_string, nlenb)
+    user_name = tmp_string(1:nlenb)
+
+    tmp_string = ''
+    CALL util_node_name (tmp_string, nlenc)
+    host_name = tmp_string(1:nlenc)
     !
     ! set CD-Convention required restart attributes
     !
@@ -364,14 +364,14 @@ CONTAINS
          'ICON simulation')
     CALL set_restart_attribute('institution', &
          'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-!!$    CALL set_restart_attribute('source',      &
-!!$         model_name//'-'//model_version)
-!!$    CALL set_restart_attribute('history',     &
-!!$         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-!!$    CALL set_restart_attribute('references',  &
-!!$         'see MPIM/DWD publications')
-!!$    CALL set_restart_attribute('comment',     &
-!!$         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('source',      &
+         model_name//'-'//model_version)
+    CALL set_restart_attribute('history',     &
+         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+    CALL set_restart_attribute('references',  &
+         'see MPIM/DWD publications')
+    CALL set_restart_attribute('comment',     &
+         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
     !
     ! define horizontal grids
     !
