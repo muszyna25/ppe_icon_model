@@ -977,18 +977,6 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c )
 
 
-
-      ! urban area fraction
-      !
-      ! urban        p_ext_atm%urban(nproma,nblks_c)
-      cf_desc    = t_cf_var('fraction_of_urban_areas', '-',&
-        &                   'urban area fraction', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 0, 30, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'urban', p_ext_atm%urban,       &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c )
-
-
       ! Minimal stomata resistence
       !
       ! rsmin        p_ext_atm%rsmin(nproma,nblks_c)
@@ -2380,10 +2368,6 @@ CONTAINS
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%for_e)
 
-            CALL read_netcdf_data (ncid, 'URBAN', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%urban)
-
             CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
               &                     ext_data(jg)%atm%z0)
@@ -3026,7 +3010,6 @@ CONTAINS
              !
              ! for_d, for_e: only accessed via land point index list 
              !               -> non-dominant land points do not matter when running without tiles
-             ! urban : currently unused
              ! rootdp, rsmin, lai_mx, plcov_mx, ndvi_max : only accessed via land point index list
              ! ndvi_mrat -> ndviratio : only accessed via land point index list
              ! soiltyp :
