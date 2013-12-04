@@ -41,6 +41,7 @@ MODULE mo_oce_diagnostics
     &                              p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     &                              min_rlcell, min_rledge, min_rlcell, &
@@ -74,6 +75,7 @@ IMPLICIT NONE
 
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
 
 INTEGER                        :: diag_unit = -1 ! file handle for the global timeseries output
 INTEGER                        :: moc_unit  = -1 ! file handle for the global timeseries output
@@ -82,7 +84,7 @@ CHARACTER(len=max_char_length) :: diag_fname, moc_fname
 !
 ! PUBLIC INTERFACE
 !
-PUBLIC :: calc_slow_oce_diagnostics
+PUBLIC :: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics
 PUBLIC :: construct_oce_diagnostics
 PUBLIC :: destruct_oce_diagnostics
 PUBLIC :: t_oce_monitor
@@ -469,12 +471,11 @@ END SUBROUTINE destruct_oce_diagnostics
 ! Developed  by  Peter Korn, MPI-M (2010).
 !
 SUBROUTINE calc_slow_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
-    & p_phys_param, timestep, datetime, oce_ts)
+    & timestep, datetime, oce_ts)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state), TARGET       :: p_os
   TYPE(t_sfc_flx),    INTENT(IN)          :: p_sfc_flx
   TYPE (t_sea_ice),   INTENT(IN)          :: p_ice
-  TYPE (t_ho_params)                      :: p_phys_param
   INTEGER                                 :: timestep
   TYPE(t_datetime), INTENT(IN)            :: datetime
   TYPE(t_oce_timeseries),POINTER          :: oce_ts
@@ -680,7 +681,6 @@ SUBROUTINE calc_slow_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   ENDDO
   IF (my_process_is_stdio()) &
     & write(0,*) "---------------  end fluxes ----------------------------"
-  ! } dbg_print
 
 
   IF (my_process_is_stdio()) THEN
@@ -737,6 +737,42 @@ SUBROUTINE calc_slow_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
   END IF
 
 END SUBROUTINE calc_slow_oce_diagnostics
+
+SUBROUTINE calc_fast_oce_diagnostics(p_patch, dolic, prism_thickness,depths, p_diag)
+  TYPE(t_patch ),TARGET             :: p_patch
+  INTEGER,  POINTER                 :: dolic(:,:)
+  REAL(wp), POINTER                 :: prism_thickness(:,:,:)
+  REAL(wp), INTENT(IN)              :: depths(:)
+  TYPE(t_hydro_ocean_diag), TARGET  :: p_diag
+
+  !Local variables
+  INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
+  INTEGER :: jk,jc,jb!,je
+
+  TYPE(t_subset_range), POINTER :: owned_cells
+  !-----------------------------------------------------------------------
+  owned_cells    => p_patch%cells%owned
+
+  !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
+  SELECT CASE (iswm_oce)
+  CASE (1) ! shallow water mode
+
+  CASE DEFAULT !3D model
+    DO jb = owned_cells%start_block, owned_cells%end_block
+    CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+      !We are dealing with the surface layer first
+      DO jc =  i_startidx_c, i_endidx_c
+
+      p_diag%mld(jc,jb) = calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,jb),&
+        &                                        0.125_wp, &
+        &                                        dolic(jc,jb), &
+        &                                        prism_thickness(jc,:,jb), &
+        &                                        depths(1))
+      ENDDO
+    ENDDO
+    CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
+  END SELECT
+END SUBROUTINE calc_fast_oce_diagnostics
 !-------------------------------------------------------------------------
 
 
@@ -1177,12 +1213,12 @@ END SUBROUTINE calc_psi
     REAL(wp), INTENT(IN)  :: thickness(n_zlev)
     REAL(wp), INTENT(IN)  :: depth_of_first_layer
 
-    REAL(wp) :: sigh(n_zlev),zzz
-    REAL(wp) :: mixed_layer_depth(n_zlev)
+    REAL(wp) :: sigh        ,zzz
+    REAL(wp) :: mixed_layer_depth
     INTEGER  :: jk
 
-    sigh(:)              = critical_value
-    mixed_layer_depth(:) = depth_of_first_layer
+    sigh              = critical_value
+    mixed_layer_depth = depth_of_first_layer
 
     ! This diagnostic calculates the mixed layer depth.
     ! It uses the incremental density increase between two
@@ -1195,12 +1231,12 @@ END SUBROUTINE calc_psi
     ! sigh = remaining density difference
 
     DO jk = 2, max_lev
-      IF (sigh(jk) .GT. 1.e-6_wp) THEN
-        zzz                   = MIN(sigh(jk)/(ABS(vertical_density_gradient(jk))),thickness(jk))
-        sigh(jk)              = MAX(0._wp, sigh(jk)-zzz*vertical_density_gradient(jk))
-        mixed_layer_depth(jk) = mixed_layer_depth(jk)+zzz
+      IF (sigh .GT. 1.e-6_wp) THEN
+        zzz                   = MIN(sigh/(ABS(vertical_density_gradient(jk))),thickness(jk))
+        sigh              = MAX(0._wp, sigh-zzz*vertical_density_gradient(jk))
+        mixed_layer_depth     = mixed_layer_depth + zzz
       ELSE
-        sigh(jk) = 0._wp
+        sigh = 0._wp
       ENDIF
     ENDDO
 

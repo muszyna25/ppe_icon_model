@@ -48,7 +48,7 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
-USE mo_model_domain,           ONLY: t_patch, t_patch_3D, t_subset_range
+USE mo_model_domain,           ONLY: t_patch, t_patch_3D, t_subset_range, t_patch_vert
 USE mo_grid_config,            ONLY: n_dom, use_dummy_cell_closure
 USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
@@ -103,7 +103,7 @@ USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_E
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density, &
   &                                  calc_density
 USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics,&
+USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, &
   &                                  calc_moc, calc_psi
@@ -194,6 +194,9 @@ CONTAINS
   CHARACTER(len=32)               :: datestring, plaindatestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_patch), POINTER          :: patch_2D
+  TYPE(t_patch_vert), POINTER     :: patch_1D
+  INTEGER, POINTER                :: dolic(:,:)
+  REAL(wp), POINTER               :: prism_thickness(:,:,:)
   INTEGER                         :: jstep0 ! start counter for time loop
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
@@ -404,15 +407,21 @@ CONTAINS
       &                          n_zlev)
     IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_3D%p_patch_2D(1)%cells%owned)
 
+!   dolic           => patch_3D%p_patch_1D(1)%dolic_c
+!   prism_thickness => patch_3D%p_patch_1d(1)%prism_thick_c
+!   CALL calc_fast_oce_diagnostics( patch_3D%p_patch_2D(1),      &
+!     &                             dolic, &
+!     &                             prism_thickness, &
+!     &                             patch_3D%p_patch_1d(1)%zlev_m, &
+!     &                             p_os(jg)%p_diag)
 
     IF (istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN
-        CALL calc_slow_oce_diagnostics( patch_3D,    &
+        CALL calc_slow_oce_diagnostics( patch_3D,      &
           &                             p_os(jg),      &
           &                             p_sfc_flx,     &
           &                             p_ice,         &
-          &                             p_phys_param,  &
-          &                             jstep-jstep0,         &
+          &                             jstep-jstep0,  &
           &                             datetime,      &
           &                             oce_ts)
 
