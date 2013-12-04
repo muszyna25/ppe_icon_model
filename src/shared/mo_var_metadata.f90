@@ -40,10 +40,10 @@ MODULE mo_var_metadata
     &  "SNOW_VARS             ",  &
     &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
     &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
-    &  "DWD_FG_SFC_IN         ",  &  ! Sfc input fields that are required from the FG input file
-    &  "DWD_FG_ATM_IN         ",  &  ! Atm input fields that are required from the FG input file
-    &  "DWD_ANA_SFC_IN        ",  &  ! Sfc input fields that are required from the ANA input file
-    &  "DWD_ANA_ATM_IN        ",  &  ! Atm input fields that are required from the ANA input file
+    &  "MODE_DWD_FG_IN        ",  &  ! Input first guess fields for MODE_DWD
+    &  "MODE_DWD_ANA_IN       ",  &  ! Input analysis fields for MODE_DWD
+    &  "MODE_COMBINED_IN      ",  &  ! Input fields for MODE_COMBINED
+    &  "MODE_COSMODE_IN       ",  &  ! Input fields for MODE_COSMODE
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &
