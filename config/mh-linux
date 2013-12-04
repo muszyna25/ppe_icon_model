@@ -232,7 +232,21 @@ case "$ac_sitename" in
             xct*)
                 NETCDFROOT  =${NETCDF_DIR}
                 LIBS        = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
-		;;
+
+                CC          = cc
+                FC          = ftn
+                make_command="make" "-j" "8"
+                case "$fortran_compiler" in
+                    intel*)
+                      load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "grib_api" "${load_modules}"
+                      CFLAGS          = -I${GRIB_API}/include -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API ${CFLAGS} -O0
+                      ;;
+                    default|gcc)
+                      load_modules    = "PrgEnv-gnu/5.0.41" "netcdf" "grib_api" "cray-mpich/6.1.1" "${load_modules}"
+                      FFLAGS          = ${FFLAGS}
+                      ;;
+                esac
+                ;;
             oflws*)             # Linux workstations with gfortran
                 NETCDFROOT  = /usr
                 NETCDFLIBPATH = /usr/lib64
