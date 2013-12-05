@@ -937,7 +937,7 @@ CONTAINS
         DO jb = i_startblk, i_endblk
 
          CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-                            i_startidx, i_endidx, rl_start, rl_end, i_chidx)
+                            i_startidx, i_endidx, rl_start, rl_end)
 
          max_albvisdir = MAX(max_albvisdir,MAXVAL(zrg_albvisdir(i_startidx:i_endidx,jb)))
          min_albvisdir = MIN(min_albvisdir,MINVAL(zrg_albvisdir(i_startidx:i_endidx,jb)))
@@ -1028,7 +1028,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
+          &                         i_startidx, i_endidx, rl_start, rl_end)
 
 
         ! It may happen that an MPI patch contains only nest boundary points

@@ -609,19 +609,17 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! Index lists needed to minimize the number of halo communications in solve_nh and feedback
-      ! (Remark: setting i_startblk for i_nchdom is necessary to get an empty index list
-      !  for non-MPI-parallelized setups with multiple nests per nest level)
 
       p_nh(jg)%metrics%mask_prog_halo_c(:,:) = .FALSE.
 
-      i_startblk = p_patch(jg)%cells%start_blk(min_rlcell_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jc = i_startidx, i_endidx
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
@@ -639,7 +637,7 @@ MODULE mo_vertical_grid
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jc = i_startidx, i_endidx
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
@@ -655,14 +653,14 @@ MODULE mo_vertical_grid
 
       ! Index list for which interpolated mass fluxes along the lateral nest boundary need to be updated
       ! part 1: count nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
+      i_endblk   = p_patch(jg)%edges%end_block(grf_bdywidth_e)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e)
 
         DO je = i_startidx, i_endidx
           ic = ic+1
@@ -670,13 +668,13 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! part 2: count halo points of levels 1 and 2 belonging to nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2)
 
         DO je = i_startidx, i_endidx
           IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
@@ -691,14 +689,14 @@ MODULE mo_vertical_grid
                p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
 
       ! part 3: fill index list with nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
+      i_endblk   = p_patch(jg)%edges%end_block(grf_bdywidth_e)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e)
 
         DO je = i_startidx, i_endidx
           ic = ic+1
@@ -708,13 +706,13 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2)
 
         DO je = i_startidx, i_endidx
           IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
@@ -726,14 +724,14 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! Index list for halo points belonging to the nest overlap zone
-      i_startblk = p_patch(jg)%cells%start_blk(min_rlcell_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
       ica(:)     = 0
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -760,7 +758,7 @@ MODULE mo_vertical_grid
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jn = 1, p_patch(jg)%n_childdom
 

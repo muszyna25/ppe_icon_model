@@ -124,13 +124,13 @@ INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 REAL(wp) :: dvn_tang(nproma)
 
 ! Auxiliary fields
-REAL(wp) :: vn_aux(nproma,ptr_pc%nlev,ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx):&
-                   MAX(ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx),               &
-                       ptr_pp%edges%end_blk(min_rledge_int,i_chidx)),4)
+REAL(wp) :: vn_aux(nproma,ptr_pc%nlev,ptr_pp%edges%start_block(grf_nudgintp_start_e):&
+                   MAX(ptr_pp%edges%start_block(grf_nudgintp_start_e),               &
+                       ptr_pp%edges%end_block(min_rledge_int)),4)
 
-REAL(wp), DIMENSION(nproma,ptr_pc%nlev,ptr_pp%verts%start_blk(grf_nudgintp_start_c,i_chidx):&
-                    MAX(ptr_pp%verts%start_blk(grf_nudgintp_start_c,i_chidx),               &
-                        ptr_pp%verts%end_blk(min_rlvert_int,i_chidx))) :: u_vert, v_vert
+REAL(wp), DIMENSION(nproma,ptr_pc%nlev,ptr_pp%verts%start_block(grf_nudgintp_start_c):&
+                    MAX(ptr_pp%verts%start_block(grf_nudgintp_start_c),               &
+                        ptr_pp%verts%end_block(min_rlvert_int))) :: u_vert, v_vert
 
 ! Pointers to index fields
 INTEGER,  DIMENSION(:,:,:), POINTER :: iidx_2a, iblk_2a, iidx_2b, iblk_2b, ividx, ivblk, &
@@ -178,14 +178,14 @@ i_nchdom = MAX(1,ptr_pc%n_childdom)
 
 ! Start and end blocks for which vector reconstruction at vertices is needed
 ! Note: the use of grf_nudgintp_start_c (=-3) is intended
-i_startblk = ptr_pp%verts%start_blk(grf_nudgintp_start_c,i_chidx)
-i_endblk   = ptr_pp%verts%end_blk(min_rlvert_int,i_chidx)
+i_startblk = ptr_pp%verts%start_block(grf_nudgintp_start_c)
+i_endblk   = ptr_pp%verts%end_block(min_rlvert_int)
 
 !$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
-   i_startidx, i_endidx, grf_nudgintp_start_c, min_rlvert_int, i_chidx)
+   i_startidx, i_endidx, grf_nudgintp_start_c, min_rlvert_int)
 
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
@@ -217,14 +217,14 @@ ENDDO
 !$OMP END DO
 
 ! Start and end blocks for which interpolation is needed
-i_startblk = ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx)
-i_endblk   = ptr_pp%edges%end_blk(min_rledge_int,i_chidx)
+i_startblk = ptr_pp%edges%start_block(grf_nudgintp_start_e)
+i_endblk   = ptr_pp%edges%end_block(min_rledge_int)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
-   i_startidx, i_endidx, grf_nudgintp_start_e, min_rledge_int, i_chidx)
+   i_startidx, i_endidx, grf_nudgintp_start_e, min_rledge_int)
 
 ! child edges 1 and 2
 #ifdef __LOOP_EXCHANGE
@@ -307,8 +307,8 @@ ENDDO ! blocks
 ! to the feedback-parent grid level
 
 ! Start and end blocks for which interpolation is needed
-i_startblk = ptr_pc%edges%start_blk(grf_nudge_start_e,1)
-i_endblk   = ptr_pc%edges%end_blk(min_rledge_int,i_nchdom)
+i_startblk = ptr_pc%edges%start_block(grf_nudge_start_e)
+i_endblk   = ptr_pc%edges%end_block(min_rledge_int)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 DO jb =  i_startblk, i_endblk
@@ -408,10 +408,10 @@ REAL(wp):: r_limval(nfields)
 
 ! Auxiliary fields
 REAL(wp), DIMENSION(nproma,MAX(32,ptr_pp%nlevp1)) :: grad_x, grad_y, maxval_neighb, minval_neighb
-REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                             &
-                  ptr_pp%cells%start_blk(grf_nudgintp_start_c,i_chidx):     &
-                  MAX(ptr_pp%cells%start_blk(grf_nudgintp_start_c,i_chidx), &
-                      ptr_pp%cells%end_blk(min_rlcell_int,i_chidx)),4,nfields)
+REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                       &
+                  ptr_pp%cells%start_block(grf_nudgintp_start_c):     &
+                  MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
+                      ptr_pp%cells%end_block(min_rlcell_int)),4,nfields)
 
 REAL(wp) :: limfac1, limfac2, limfac, min_expval, max_expval, epsi, ovsht_fac, r_ovsht_fac, &
             relaxed_minval, relaxed_maxval
@@ -481,8 +481,8 @@ epsi = 1.e-75_wp
 r_ovsht_fac = 1._wp/ovsht_fac
 
 ! Start and end blocks for which scalar interpolation is needed
-i_startblk = ptr_pp%cells%start_blk(grf_nudgintp_start_c,i_chidx)
-i_endblk   = ptr_pp%cells%end_blk(min_rlcell_int,i_chidx)
+i_startblk = ptr_pp%cells%start_block(grf_nudgintp_start_c)
+i_endblk   = ptr_pp%cells%end_block(min_rlcell_int)
 
 ! Pointers to index lists and interpolation coefficients for gradient computation
 iidx => ptr_int%rbf_c2grad_idx
@@ -509,7 +509,7 @@ DO jn = 1, nfields
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-         i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int, i_chidx)
+         i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
@@ -651,7 +651,7 @@ DO jn = 1, nfields
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-         i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int, i_chidx)
+         i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
 
     IF (l_limit_nneg(jn)) THEN
 

@@ -333,7 +333,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
       fbk_tend(:,:,jb) = 0._wp
 
@@ -565,7 +565,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
@@ -639,7 +639,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
         feedback_vn(:,1:nshift,jb) = 0._wp
 
@@ -705,7 +705,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
         feedback_vn(:,1:nshift,jb) = 0._wp
 
@@ -1195,7 +1195,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
@@ -1273,7 +1273,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
       !     feedback_vn(:,1:nshift,jb) = 0._wp
 

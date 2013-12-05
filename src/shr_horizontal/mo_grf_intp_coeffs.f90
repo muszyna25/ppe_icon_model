@@ -165,7 +165,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
 
@@ -293,7 +293,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 
@@ -488,7 +488,7 @@ DO jg = n_dom_start+1, n_dom
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
       IF (p_gcp%child_id(jc,jb) /= jg) ierror = ierror + 1
@@ -509,7 +509,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
@@ -537,7 +537,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
@@ -640,7 +640,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
@@ -668,7 +668,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
@@ -775,7 +775,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, i_chidx)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       DO je = i_startidx, i_endidx
         sum1 = 0._wp
@@ -803,7 +803,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, i_chidx)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       js1 = 0
       js2 = 0
@@ -951,7 +951,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       ! Part 1: child edges aligned with the parent edge
       !
@@ -1370,7 +1370,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx,&
-                         grf_bdyintp_start_e-ishift, min_rledge_int, jcd)
+                         grf_bdyintp_start_e-ishift, min_rledge_int)
 
       !
       ! for each edge, build the vector RBF interpolation matrix
@@ -1536,7 +1536,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 
@@ -1647,7 +1647,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
 ! Note: OMP parallelization is done over je because for reasonable (=efficient)
 ! choices of nproma, the boundary interpolation zone extends over no more
@@ -1913,7 +1913,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 

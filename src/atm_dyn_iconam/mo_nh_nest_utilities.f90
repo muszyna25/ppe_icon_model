@@ -200,7 +200,7 @@ CONTAINS
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+1, min_rlcell_int, ji)
+            grf_nudgintp_start_c+1, min_rlcell_int)
 
           DO jk = 1, nlev_c
             jks = jk + nshift
@@ -676,8 +676,8 @@ CONTAINS
         p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
 
       ! Start and end blocks for which interpolation is needed
-      i_startblk = p_pp%cells%start_blk(grf_nudgintp_start_c+2,i_chidx)
-      i_endblk   = p_pp%cells%end_blk(min_rlcell_int,i_chidx)
+      i_startblk = p_pp%cells%start_block(0)
+      i_endblk   = p_pp%cells%end_block(min_rlcell_int)
 
       ! For back-copying at child level
       i_nchdom   = MAX(1,p_pc%n_childdom)
@@ -689,7 +689,7 @@ CONTAINS
         DO jb =  i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
+            0, min_rlcell_int)
 
           DO jc = i_startidx, i_endidx
             aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
@@ -730,7 +730,7 @@ CONTAINS
         DO jb =  i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
+            0, min_rlcell_int)
 
           DO jc = i_startidx, i_endidx
             aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
@@ -926,7 +926,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+        grf_nudgintp_start_c+1, min_rlcell_int)
 
       ! initialize diff_w at surface with zero
       diff_w(:,nlev_c+1,jb) = 0._wp
@@ -1000,7 +1000,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_e+2, min_rledge_int, i_chidx)
+        grf_nudgintp_start_e+2, min_rledge_int)
 
 
 #ifdef __LOOP_EXCHANGE
@@ -1183,7 +1183,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+        grf_nudgintp_start_c+1, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx

@@ -1090,8 +1090,8 @@ MODULE mo_nh_init_nest_utils
     ! Perform feedback for cell points in the prognostic part of the nest overlap area
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk,                &
-                         i_startidx, i_endidx, i_rlstart, i_rlend, i_chidx)
+      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk,       &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jc = i_startidx, i_endidx
         ptr_topo_cp(jc,jb) =                                                &
