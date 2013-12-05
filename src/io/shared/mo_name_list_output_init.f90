@@ -30,7 +30,7 @@ MODULE mo_name_list_output_init
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
-  USE mo_master_control,                    ONLY: is_restart_run
+  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_grib2,                             ONLY: t_grib2_var
   USE mo_cf_convention,                     ONLY: t_cf_var
@@ -858,7 +858,13 @@ CONTAINS
           &      latv(nproma, p_patch(idom_log)%nblks_v, 9-global_cell_type), &
           &      STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-        CALL cf_1_1_grid_verts(p_patch(idom_log), lonv, latv)
+
+        IF (my_process_is_ocean()) THEN
+          CALL cf_1_1_grid_verts_ocean(p_patch(idom_log), lonv, latv)
+        ELSE
+          CALL cf_1_1_grid_verts(p_patch(idom_log), lonv, latv)
+        ENDIF
+
         CALL collect_grid_info(patch_info(idom)%nblks_glb_v,        &
           &                    p_patch(idom_log)%nblks_v,           &
           &                    p_patch(idom_log)%verts%vertex,      &
@@ -1679,6 +1685,56 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE cf_1_1_grid_edges
+
+  !------------------------------------------------------------------------------------------------
+  !> Reformat vertex lon/lat coordinates "vlonv", "vlatv" into a CF1.1 compatible form for ocean
+  ! This is needed for general connectivity grids, the original routine  cf_1_1_grid_verts will not work
+  !
+  ! This is also sloppy for boundary vertices, as they seem not to be defined
+  !
+  !  based on SUBROUTINE cf_1_1_grid_verts
+  !
+  SUBROUTINE cf_1_1_grid_verts_ocean(patch_2D, lonv, latv)
+    TYPE(t_patch),      INTENT(IN)    :: patch_2D
+    REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
+    ! local variables
+    INTEGER :: jc, jb, j, iidx, iblk,                  &
+      &        rl_start, rl_end, i_startblk, i_endblk, &
+      &        i_startidx, i_endidx, i_nchdom
+    INTEGER :: last_valid_cell
+
+    rl_start   = 2
+    rl_end     = min_rlvert
+    i_nchdom   = MAX(1,patch_2D%n_childdom)
+    i_startblk = patch_2D%verts%start_blk(rl_start,1)
+    i_endblk   = patch_2D%verts%end_blk(rl_end,i_nchdom)
+
+    lonv(:,:,:) = 0.0_wp
+    latv(:,:,:) = 0.0_wp
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_v(patch_2D, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      DO jc = i_startidx, i_endidx
+        last_valid_cell = 0
+        DO j = 1,patch_2D%verts%max_connectivity
+          IF ((patch_2D%verts%cell_idx(jc,jb,j) > 0)) THEN
+            last_valid_cell = j
+            iidx = patch_2D%verts%cell_idx(jc,jb,j)
+            iblk = patch_2D%verts%cell_blk(jc,jb,j)
+            lonv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lon
+            latv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lat
+          ELSE
+            iidx = patch_2D%verts%cell_idx(jc,jb,last_valid_cell)
+            iblk = patch_2D%verts%cell_blk(jc,jb,last_valid_cell)
+            lonv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lon
+            latv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lat
+          ENDIF
+        ENDDO
+      ENDDO
+    END DO
+  END SUBROUTINE cf_1_1_grid_verts_ocean
+  !------------------------------------------------------------------------------------------------
+
 
 
   !------------------------------------------------------------------------------------------------
