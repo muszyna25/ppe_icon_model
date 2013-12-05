@@ -239,7 +239,7 @@ case "$ac_sitename" in
                       load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "cray-mpich/6.1.1" "${load_modules}"
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       FFLAGS          = ${FFLAGS}
-                      LIBS            = ${LIBS} -lc
+                      LIBS            = ${LIBS} -lirng
                       ;;
                     cray)
                       LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
