@@ -3764,7 +3764,8 @@ This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 \hline
  filename\_format &
 C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, \texttt{datetime} see below.
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, 
+ etc. (see below).
  Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
@@ -4081,14 +4082,16 @@ sets of common variables can be added to the output:
 \paragraph{Keyword substitution in output filename (\texttt{filename\_format}):}
 \begin{tabbing}
 \hspace*{0.4\textwidth} \= \kill
-\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\
-\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
-\texttt{physdom}           \>  substituted by physical patch ID                         \\
-\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
-\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
-\texttt{jfile}             \>  substituted by output file counter                       \\
-\texttt{datetime}          \>  substituted by ISO 8601 (absolute) date                  \\
-\texttt{ddhhmmss}          \>  substituted by (relative) day-hour-minute-second string
+\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                    \\
+\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                    \\
+\texttt{physdom}           \>  substituted by physical patch ID                            \\
+\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL''    \\
+\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                    \\
+\texttt{jfile}             \>  substituted by output file counter                          \\
+\texttt{datetime}          \>  substituted by ISO 8601 (absolute) date                     \\
+\texttt{datetime2}         \>  substituted by absolute date: \texttt{YYYYMMDDThhmmssZ}     \\
+\texttt{datetime3}         \>  substituted by absolute date: \texttt{YYYYMMDDThhmmss.sssZ} \\
+\texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string
 \end{tabbing}
 
 

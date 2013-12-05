@@ -323,6 +323,8 @@ CONTAINS
         CYCLE
       END IF
       ! otherwise, generate filename
+      !
+      ! define keywords:
       CALL associate_keyword("<path>",            TRIM(model_base_dir),                                     keywords)
       CALL associate_keyword("<output_filename>", TRIM(fname_metadata%filename_pref),                       keywords)
       CALL associate_keyword("<physdom>",         TRIM(int2string(fname_metadata%phys_patch_id, "(i2.2)")), keywords)
@@ -330,13 +332,30 @@ CONTAINS
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<jfile>",           TRIM(int2string(result_fnames(i)%jfile, "(i4.4)")),       keywords)
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
-      ! compute current forecast time (delta):
+      ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
       CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      ! keywords: compose other variants of the absolute date-time
+      !
+      ! "YYYYMMDDThhmmssZ"     for the basic format of ISO8601 without the
+      !                        separators "-" and ":" of the extended date-time format
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
+        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+      CALL associate_keyword("<datetime2>",       TRIM(dtime_string),                                       keywords)
+
+      ! "YYYYMMDDThhmmss.sssZ" for the basic format of ISO8601 with 3-digit 
+      !                        fractions of seconds
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a,i3.3,a)')                                                 &
+        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',          &
+        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, '.',      &
+        &                      mtime_date%time%ms, 'Z'
+      CALL associate_keyword("<datetime3>",       TRIM(dtime_string),                                       keywords)
       CALL deallocateDatetime(mtime_date)
+
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN
         WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)

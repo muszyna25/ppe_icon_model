@@ -314,7 +314,7 @@ CONTAINS
       dom(:)                   = -1
       steps_per_file           = -1
       steps_per_file_inclfirst = .TRUE.
-      file_interval            = ""
+      file_interval            = ' '
       include_last             = .TRUE.
       output_grid              = .FALSE.
       output_filename          = ' '
@@ -331,9 +331,9 @@ CONTAINS
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
       north_pole(:)            = (/ 0._wp, 90._wp /)
-      output_start             = ""
-      output_end               = ""
-      output_interval          = ""
+      output_start             = ' '
+      output_end               = ' '
+      output_interval          = ' '
       output_bounds(:)         = -1._wp
       output_time_unit         = 1
       ready_file               = DEFAULT_EVENT_NAME
