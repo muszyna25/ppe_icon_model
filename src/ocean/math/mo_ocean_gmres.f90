@@ -227,10 +227,10 @@ CONTAINS
     maxiterex = .FALSE.
     
     v(:,:,:)  = 0.0_wp
-    ! r(:,:)    = 0.0_wp
+ !   r(:,:)    = 0.0_wp
     
     IF (pad_nproma <= nproma) THEN
-      w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+ !     w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
       b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
       x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     ENDIF
@@ -241,6 +241,10 @@ CONTAINS
     
     
     w(:, :) = lhs(x(:,:),old_h, p_patch_3d,coeff, h_e, thickness_c, p_op_coeff)
+
+    w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    ! b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    ! x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     
     !    write(0,*) "-----------------------------------"
     !    sum_x(1) = SUM(x(:,:))
@@ -318,7 +322,7 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, coeff, h_e, thickness_c, p_op_coeff )
-      ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
+      w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
       ! v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
       
       !      sum_v = SUM(v(:,:,i))
