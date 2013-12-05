@@ -68,9 +68,13 @@ MODULE mo_les_nml
   !Some parameters
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
+
+  !Scheme for vertical discretization
+  INTEGER :: vert_scheme_type !1=explicit, 2=implicit
  
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
-                    smag_constant, turb_prandtl, bflux, tran_coeff
+                    smag_constant, turb_prandtl, bflux, tran_coeff,   &
+                    vert_scheme_type
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -116,6 +120,8 @@ CONTAINS
     bflux       = -999._wp
     tran_coeff  = -999._wp
 
+    vert_scheme_type = 2 !implicit
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -160,6 +166,7 @@ CONTAINS
       les_config(jg)% rturb_prandtl     =  1._wp/turb_prandtl
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
+      les_config(jg)% vert_scheme_type  =  vert_scheme_type
      
     END DO
 
