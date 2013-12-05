@@ -317,6 +317,9 @@ end
 
 desc "Compare sections on great circle and straight lines"
 task :test_secmode do
+  # create missing values
+  maskedInput = Cdo.div(input: " -selname,T #{OCELSM_PLOT_TEST_FILE} -selname,wet_c -seltimestep,1 #{OCELSM_PLOT_TEST_FILE}",
+                        output: "test_secmode_maskedInput.nc")
   q = JobQueue.new
 
   {
@@ -334,15 +337,16 @@ task :test_secmode do
       :secRC      => [endLat,endLon].join(','),
       :showSecMap => "True",
       :secPoints  => 201,
-      :maskName   => 'wet_c',
-      :resolution => 'r360x180'
+      :resolution => 'r180x90'
     }
     # enable regular grided data
     @plotter.isIcon = true
     @plotter.debug  = true
     %w[straight circle].each {|secmode|
       q.push {
-        show(scalarPlot(OCELSM_PLOT_TEST_FILE,
+        ofile = [sec,secmode,maskedInput].join('_')
+        FileUtils.cp(maskedInput,ofile)
+        show(scalarPlot(ofile,
                       ['test_secMode',secmode,sec].join("_"),
                       'T',
                       secopts.merge(:secMode => secmode,
@@ -630,9 +634,9 @@ end
 
 desc "check icon_plot_test.ncl"
 task :test_paths ,:loc do |t,args|
-  q    = JobQueue.new
-  lock = Mutex.new
   require './findPath'
+  q                    = JobQueue.new
+  lock                 = Mutex.new
   paths                = IconPathsAlongCells.getEdgesAndVerts(ICON_GRID)
   ofiles, allPathsFile = [], 'test_paths.pdf'
   paths.each {|location,_paths|
