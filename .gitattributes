@@ -175,6 +175,8 @@ doc/technical/async_restart/restart_module_doc.pdf -text
 doc/technical/async_restart/restart_module_doc.tex -text
 doc/technical/dwd_database/GRIB2_output_tables.tex -text
 doc/technical/dwd_database/analysis.tex -text
+doc/technical/dwd_database/cloud_variables.pdf -text
+doc/technical/dwd_database/cloud_variables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
