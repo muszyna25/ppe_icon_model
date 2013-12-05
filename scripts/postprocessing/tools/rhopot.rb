@@ -21,30 +21,29 @@ def myPlotter
 end
 #------------------------------------------------------------------------------
 def initFilename(experiment)
-  "initial_#{experiment}.nc"
+  ENV['INIT'].nil? ? "initial_#{experiment}.nc" : ENV['INIT']
 end
-initFileName = lambda {|exp| "initial_#{exp}.nc"}
 #------------------------------------------------------------------------------
-def secPlot(ofile,experiment,secPlots,lock,plotDir=".")
+def secPlot(ofile,experiment,secPlots,lock,temp='t_acc',sal='s_acc',rho='rhopoto',plotDir=".")
   plotDir << '/' unless '/' == plotDir[-1]
 
   title = (true) ? experiment : '"ICON Ocean, Mimetic-Miura, L40"'
 
   plotter, plotFile = myPlotter
 
-  im = plotter.scalarPlot(ofile,plotDir+'T_'+     File.basename(ofile,'.nc'),'T',
+  im = plotter.scalarPlot(ofile,plotDir+'T_'+     File.basename(ofile,'.nc'),temp,
                           :tStrg => title, :bStrg => '" "',
                           :hov => true,
                           :minVar => -3.0,:maxVar => 3.0,:withLines => false,:lStrg => 'T',
                           :numLevs => 20,:rStrg => 'Temperature', :colormap => "BlWhRe")
   lock.synchronize {(secPlots[experiment] ||= []) << im }
-  im =  plotter.scalarPlot(ofile,plotDir +'S_'+     File.basename(ofile,'.nc'),'S',
+  im =  plotter.scalarPlot(ofile,plotDir +'S_'+     File.basename(ofile,'.nc'),sal,
                            :tStrg => title, :bStrg => '" "',
                            :hov => true,
                            :minVar => -0.2,:maxVar => 0.2,:withLines => false,:lStrg => 'S',
                            :numLevs => 16,:rStrg => 'Salinity', :colormap => "BlWhRe")
   lock.synchronize {(secPlots[experiment] ||= []) << im }
-  im = plotter.scalarPlot(ofile,plotDir+'rhopot_'+File.basename(ofile,'.nc'),'rhopoto',
+  im = plotter.scalarPlot(ofile,plotDir+'rhopot_'+File.basename(ofile,'.nc'),rho,
                           :tStrg => title, :bStrg => '"  "',
                           :hov => true,
                           :minVar => -0.6,:maxVar => 0.6,:withLines => false,:lStrg => 'rhopot',
@@ -52,29 +51,26 @@ def secPlot(ofile,experiment,secPlots,lock,plotDir=".")
   lock.synchronize {(secPlots[experiment] ||= []) << im }
 end
 #------------------------------------------------------------------------------
-def horizPlot(ifile,experiment,plots,lock,plotDir=".")
+# plot the first 3 levels if possbile
+def horizPlot(ifile,timesteps,varnames,experiment,plots,lock,plotDir=".")
   plotter, plotFile = myPlotter
-  year = 2011
-  # compute the index of the last timestep
-#  lastTimestep = Cdo.ntime(:input => "-selname,ELEV #{ifile}")[0].to_i - 1
-#  lastTimestepData = Cdo.seltimestep(lastTimestep, :input => "-selname,T #{ifile}",:output => "lastTimeStep_"+File.basename(ifile),:force => true)
-  lastTimestepData = Cdo.yearmean(:input => "-selyear,#{year} -selname,T #{ifile}",:output => "lastTimeStep_"+File.basename(ifile),:force => true)
-  diffOfLast2Init = Cdo.sub(:input => [lastTimestepData,"-selname,T " +initFilename(experiment)].join(' '),:output => "diffOfLastTimestep_#{experiment}.nc",:force => true)
-    im = plotter.scalarPlot(diffOfLast2Init,'T_10m'+     File.basename(ifile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 0, :tStrg => "#{year} yearmean variation to initial",
-                            :rStrg => 'Temperature')
-    lock.synchronize {(plots[experiment] ||= []) << im }
-    im = plotter.scalarPlot(diffOfLast2Init,'T_30m'+     File.basename(ifile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 1, :tStrg => "#{year} yearmean variation to initial",
-                            :rStrg => 'Temperature')
-    lock.synchronize {(plots[experiment] ||= []) << im }
-    im = plotter.scalarPlot(diffOfLast2Init,'T_50m'+     File.basename(ifile,'.nc'),'T',
-                            :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
-                            :levIndex => 2, :tStrg => "#{year} yearmean variation to initial",
-                            :rStrg => 'Temperature')
-    lock.synchronize {(plots[experiment] ||= []) << im }
+
+  # preselect the timestep
+  timestepData = Cdo.seltimestep(timesteps.join(','), input: ifile,output: [timesteps.join('-'),File.basename(ifile)].join('_'))
+  # precompute levels
+  levelsOfVars = {}
+  varnames.each {|varname| (1..3).each {|levidx| (levelsOfVars[varname] ||= [] ) << Cdo.showlevel(input: " -sellevidx,#{levidx} -selname,#{varname} #{timestepData}").first }}
+
+  timesteps.each {|ts| 
+    levelsOfVars.each {|varname,levels|
+      levels.each_with_index {|level,levidx|
+        im = plotter.scalarPlot(timestepData,"#{varname}_#{level}m_TS#{ts}_#{File.basename(ifile,'.nc')}",varname,
+                          :tStrg => experiment, :bStrg => '" "',:maskName => "wet_c",:maskFile => ifile,
+                          :levIndex => levidx+1, :timeStep => ts-1, :tStrg => "#{varname} ")
+        lock.synchronize {(plots[experiment] ||= []) << im }
+      }
+    }
+  }
 end
 #------------------------------------------------------------------------------
 def cropSecPlots(secPlots,plotDir='.')
@@ -91,7 +87,7 @@ def cropSecPlots(secPlots,plotDir='.')
         cropfiles << cropfile
       }
       images = cropfiles[-3,3]
-      system("convert +append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
+      system("convert -append #{(images.grep(/crop_T/) + images.grep(/crop_S/) + images.grep(/crop_rho/)).join(' ')} #{plotDir}#{exp}.png")
     }
   }
   q.run
@@ -121,15 +117,22 @@ def cropMapPlots(plots,plotDir='.')
   #system("display #{cropfiles.join(' ')}") #if 'thingol' == Socket.gethostname
 end
 #------------------------------------------------------------------------------
-def computeRhopot(ifile,ofile=nil)
+def computeRhopot(ifile,ofile,tempName,salName)
+  changeNames = ''
+  changeNames << '-chname' if 't' != tempName.downcase or 's' != salName.downcase
+  changeNames << ',' << [tempName,'t'].join(',') unless tempName.downcase == 't'
+  changeNames << ',' << [salName,'s'].join(',')  unless salName.downcase  == 's'
+
+  ifileName = ifile
+  ifile     = "#{changeNames} #{ifile}" unless changeNames.empty?
   if Cdo.version < "1.6.0"
     Cdo.rhopot(0,:input => ifile,:output => ofile)
   else
     # remove all codes so that adisit can use names
     #  use ncatted (fast in-place edit) + mv (new filename to mark, that code
     #  attribute is removed)
-    if Cdo.showcode(:input => ifile)[0].split.map(&:to_i).reduce(0,:+) >= 0
-      cmd = "ncatted -O -a code,,d,, #{ifile}"
+    if Cdo.showcode(:input => " -seltimestep,1 #{ifileName}")[0].split.map(&:to_i).reduce(0,:+) >= 0
+      cmd = "ncatted -O -a code,,d,, #{ifileName}"
       dbg(cmd)
       puts IO.popen(cmd).read
     end
@@ -148,17 +151,25 @@ if ARGV[0].nil?
   exit(-1)
 end
 
-files     = ( ARGV.size > 1 ) ? ARGV : Dir.glob(ARGV[0])
-maskFile  = ENV["MASK"].nil? ? "mask.nc" : ENV["MASK"]
-gridFile  = ENV["GRID"].nil? ? "grid.nc" : ENV["GRID"]
-expName   = ENV["EXP"]
+files            = ( ARGV.size > 1 ) ? ARGV : Dir.glob(ARGV[0])
+maskFile         = ENV["MASK"].nil? ? "mask.nc" : ENV["MASK"]
+maskVar          = ENV["MASKVAR"].nil? ? "wet_c" : ENV["MASKVAR"]
+gridFile         = ENV["GRID"].nil? ? "grid.nc" : ENV["GRID"]
+expName          = ENV["EXP"]
+initFile         = ENV['INIT']
+tempName,salName = 't_acc','s_acc'
 # check files
+if files.empty?
+  warn "no files given"
+  exit 1
+end
 files.each {|file|
   warn "Cannot read file '#{file}'" unless File.exist?(file)
 }
 unless File.exist?(maskFile) 
-  warn "Cannot open maskfile '#{maskFile}'"
-  exit -1
+  warn "Cannot open maskfile '#{maskFile}' - try to compute it"
+  Cdo.selname(maskVar,input: " -seltimestep,1 "+files[0], output: maskFile)
+  exit -1 unless File.exist?(maskFile)
 end
 pp files unless ENV['DEBUG'].nil?
 #------------------------------------------------------------------------------
@@ -178,17 +189,24 @@ end
 # compute the experiments from the data directories and link the corresponding
 # files
 experimentFiles, experimentAnalyzedData = Cdp.splitFilesIntoExperiments(files,expName)
+pp experimentFiles if Cdo.debug
+
+#------------------------------------------------------------------------------
+# create a mask file if it is not given via ENV['MASK']
+
 # process the files
 #   start with selectiong the initial values from the first timestep
 experimentFiles.each {|experiment, files|
   pp files unless ENV['DEBUG'].nil?
   q.push {
-    initFile    = initFileName.call(experiment)
-    puts "Computing initial value file: #{initFile}"
+    initFile    = initFilename(experiment)
     # create a separate File with the initial values
     if not File.exist?(initFile) or not Cdo.showname(:input => initFile).flatten.first.split(' ').include?("rhopot")
-      initTS     = Cdo.selname('T,S',:input => "-seltimestep,1 #{files[0]}",:options => '-r -f nc',:output => "initTS_#{experiment}")
-      initRhopot = computeRhopot(initTS,"initRhopot_#{experiment}")
+      initTS     = Cdo.selname([tempName,salName].join(','),
+                               :input => "-seltimestep,1 #{files[0]}",
+                               :options => '-r -f nc',
+                               :output => "initTS_#{experiment}")
+      initRhopot = computeRhopot(initTS,"initRhopot_#{experiment}",tempName,salName)
       Cdo.merge(:input => [initTS,initRhopot].join(' '),:output => initFile)
     end
   }
@@ -211,13 +229,14 @@ experimentFiles.each {|experiment, files|
       diffFile        = "T-S-rhopot_diff2init_#{File.basename(file)}"
       initFile        = initFilename(experiment)
 
-      Cdo.div(:input => " -selname,T,S #{file} #{maskFile}",:output => maskedYMeanFile)
+      Cdo.div(:input  => " -selname,#{[tempName,salName].join(',')} #{file} #{maskFile}",
+              :output => maskedYMeanFile)
       # compute rhopot
-      computeRhopot(maskedYMeanFile,rhopotFile)
+      computeRhopot(maskedYMeanFile,rhopotFile,tempName,salName)
 
       Cdo.merge(:input => [maskedYMeanFile,rhopotFile].join(' '), :output => mergedFile)
-      Cdo.sub(:input => [mergedFile,initFile].join(' '),:output => diffFile)
-      Cdo.fldsum(:input => "-mul #{diffFile} #{maskedAreaWeights}", :output => fldmeanFile,:options => '-r -f nc')
+#      Cdo.sub(:input => [mergedFile,initFile].join(' '),:output => diffFile)
+      Cdo.fldsum(:input => "-mul -sub #{[mergedFile,initFile].join(' ')} #{maskedAreaWeights}", :output => fldmeanFile,:options => '-r -f nc')
       lock.synchronize {experimentAnalyzedData[experiment] << fldmeanFile }
     }
   }
@@ -239,9 +258,9 @@ experimentAnalyzedData.each {|experiment,files|
   Cdo.settunits('years',:input => "-yearmean #{ofile}", :output => ymfile,:force => plot?)
 
   q.push { secPlot(ymfile,experiment,secPlots,lock) if plot? }
-#  q.push { horizPlot(experimentFiles[experiment][-1],experiment,mapPlots,lock) if plot? }
+  q.push { horizPlot(experimentFiles[experiment][0],[1,2,3],['t_acc','s_acc'],experiment,mapPlots,lock) if plot? }
 }
 q.run
 cropSecPlots(secPlots) if plot?
-#cropMapPlots(mapPlots) if plot?
+cropMapPlots(mapPlots) if plot?
 
