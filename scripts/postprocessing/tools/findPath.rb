@@ -55,27 +55,27 @@ module IconPathsAlongCells
 
     puts '#==========================================================================='
     CellPairsLists.each {|location,cellPairs|
-      puts '============================================================================='
-      puts location
-      puts ["cells: ", cellPairs.join(' ')].join
 
       verts, edges = [], []
       cellPairs.each {|cellpair|
-        verts, edges = [], []
+        pair_verts, pair_edges = [], []
         cellpair.each {|cell|
-          edges << cellEdges[cell,0..-1].to_a
-          verts << cellVertices[cell,0..-1].to_a
+          pair_edges << cellEdges[cell,0..-1].to_a
+          pair_verts << cellVertices[cell,0..-1].to_a
         }
-        pp verts
-        puts
+       # pp pair_edges
+       # puts
+        pair_verts.flatten.nonuniq.each {|v| verts << v}
+        pair_edges.flatten.nonuniq.each {|e| edges << e}
       }
-      verts = verts.flatten.nonuniq
-      edges = edges.flatten.nonuniq
 
-      paths[location] = {verts: verts, edges: edges}
+      paths[location] = {verts: verts.uniq, edges: edges.uniq, cells: cellPairs.flatten}
 
-      puts ["common verts: ", verts.join(',')].join
-      puts ["common edges: ", edges.join(',')].join
+      puts '============================================================================='
+      puts location
+      puts ["cells:        ", cellPairs.join(' ')].join
+      puts ["common verts: ", paths[location][:verts].join(',')].join
+      puts ["common edges: ", paths[location][:edges].join(',')].join
     }
     puts '============================================================================='
 
