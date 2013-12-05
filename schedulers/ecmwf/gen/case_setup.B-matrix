@@ -117,10 +117,11 @@ done
 #-----------------------------------------------------------------------------
 # output variables
 
-ml_varlist="'temp','u','v','qv','qc','qi','pres','pres_sfc','geopot'"
+ml_varlist="'temp','u','v','qv','qc','qi','pres','pres_sfc','z_ifc','fr_land'"
+# 'z_ifc','fr_land' only necessary for one date
 
-pl_varlist="'u','v','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v','temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"   
 
 # ---
 
@@ -133,7 +134,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs                 = 1
  itype_comm                   = 1
  iorder_sendrecv              = 1
- use_dp_mpi2io                = .TRUE.    ! output fields gathered and written in single-precision 
+ use_dp_mpi2io                = .TRUE.     ! output fields gathered in DOUBLE PRECISION 
 /
 &grid_nml
  cell_type                    = 3
@@ -154,7 +155,7 @@ cat > ${atmo_namelist} << EOF
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  itype_rh                     = 2
- lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
+ lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
 /
 &run_nml
  num_lev                      = 90
@@ -167,8 +168,6 @@ cat > ${atmo_namelist} << EOF
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
- ldump_states                 = ${ldump_states}
- lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.
  timers_level                 = 4
  activate_sync_timers         = .FALSE.
@@ -183,6 +182,25 @@ cat > ${atmo_namelist} << EOF
                      10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
 /
 ! OUTPUT: Regular grid, model levels, all domains
+!   &output_nml
+!    filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+!    dom                          = -1                        ! write all domains
+!    output_time_unit             =  1                        ! 1: seconds
+!    output_bounds                =  0., 10000000., 86400.    ! start, end, increment
+!    steps_per_file               =  40
+!    mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+!    include_last                 = .TRUE.
+!    output_filename              = '${basename}'             ! file name base
+!    ml_varlist                   = ${ml_varlist}
+!   !pl_varlist                   = ${pl_varlist}
+!   !hl_varlist                   = ${hl_varlist}
+!    output_grid                  = .FALSE.
+!    remap                        = 1                         ! 1: latlon,  0: native grid
+!    reg_lon_def                  =  0., 0.5, 359.5
+!    reg_lat_def                  = -90.,0.5, 90.
+!   !namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf
+!   /
+! OUTPUT: Regular grid, model levels, all domains
  &output_nml
   filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
   dom                          = -1                        ! write all domains
@@ -196,9 +214,7 @@ cat > ${atmo_namelist} << EOF
  !pl_varlist                   = ${pl_varlist}
  !hl_varlist                   = ${hl_varlist}
   output_grid                  = .FALSE.
-  remap                        = 1                         ! 1: latlon,  0: native grid
-  reg_lon_def                  =  0., 1.0, 359.
-  reg_lat_def                  = 90.,-1.0, -90.
+  remap                        = 0                         ! 1: latlon,  0: native grid
  !namespace                    = "DWD"                 ! may give problems with metview - leave default ecmwf
  /
 &gribout_nml
@@ -234,13 +250,13 @@ cat > ${atmo_namelist} << EOF
  ntiles                       = 3
  nlev_snow                    = 2       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
- itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
  idiag_snowfrac               = 4
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
  llake                        = .false.
  itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
 /
 &radiation_nml
  irad_o3                      = 7

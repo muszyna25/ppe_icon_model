@@ -165,7 +165,7 @@ cat > ${atmo_namelist} << EOF
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  itype_rh                     = 2
- lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
+ lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
 /
 &run_nml
  num_lev                      = 90
