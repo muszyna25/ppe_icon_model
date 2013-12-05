@@ -118,9 +118,8 @@ done
 # output variables
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
-'qv','qc','qi','qr','qs','o3','clc','tot_qv','tot_qc','tot_qi', 
-'clct','tqv','tqc','tqi', 
-'tracer_vi01','tracer_vi02','tracer_vi03','tracer_vi04','tracer_vi05',
+'qv','qc','qi','qr','qs','o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia', 
+'clct', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m', 't_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
@@ -132,8 +131,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'qtvar'"
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
 
-pl_varlist="'u','v','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v','temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"      
+hl_varlist="'u','v','temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"   
 
 # ---
 
@@ -180,8 +179,6 @@ cat > ${atmo_namelist} << EOF
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
- ldump_states                 = ${ldump_states}
- lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.
  timers_level                 = 4
  activate_sync_timers         = .FALSE.

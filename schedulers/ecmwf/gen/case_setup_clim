@@ -30,7 +30,7 @@ RADDIR=${basedir}/icon_input/radiation
 SSTICEDIR=${sstice_dir}/icon_input/sstice
 
 # --------------------------------------------------------------------
-#case_setup_clim
+
 
 #set -x
 
@@ -133,19 +133,19 @@ done
 #-----------------------------------------------------------------------------
 # output variables
 
-ml_varlist="'fr_seaice', 't_seasfc','t_ice','h_ice','temp','u','v','w','pres','pres_sfc', 'pres_msl',
-'t_g', 
-'qv','qc','qi','qr','qs','o3','clc','tot_qv','tot_qc','tot_qi', 
-'clct','clch','clcm','clcl','tqv','tqc','tqi', 
+ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
+'qv','qc','qi','qr','qs','o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia', 
+'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m', 't_2m',
-'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 't_so', 'w_so'"
+'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
+'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc'"
 
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
 #,'u_10m_s6avg','v_10m_s6avg', 't_2m_s6avg','pres_sfc_s6avg'
 
-pl_varlist="'u','v','w','temp','geopot','clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"      
-hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv','tot_qc','tot_qi','qv','qc','qi'"   
+pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"      
+hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"   
 
 # ---
 
@@ -158,7 +158,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs                 = 3
  itype_comm                   = 1
  iorder_sendrecv              = 1
- use_dp_mpi2io                = .TRUE.     ! output fields gathered in DOUBLE PRECISION  
+ use_dp_mpi2io                = .TRUE.     ! output fields gathered in DOUBLE PRECISION 
 /
 &grid_nml
  cell_type                    = 3
@@ -172,7 +172,7 @@ cat > ${atmo_namelist} << EOF
 &initicon_nml
  init_mode                    = 2           ! initialization mode (2 for IFS ana, 1 for DWD ana)
  zpbl1                        = 500. 
- zpbl2                        = 1000. 
+ zpbl2                        = 1000.
  ifs2icon_filename            = '${ifs2icon_filename}'
  l_sst_in                     = .TRUE.
 /
@@ -193,8 +193,6 @@ cat > ${atmo_namelist} << EOF
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
- ldump_states                 = ${ldump_states}
- lrestore_states              = ${lrestore_states}
  ltimer                       = .FALSE.
  timers_level                 = 4
  activate_sync_timers         = .FALSE.
@@ -259,8 +257,8 @@ cat > ${atmo_namelist} << EOF
  inwp_gscp                    = 1   ! 1: default, or 10
  inwp_convection              = 1
  inwp_radiation               = 1
- inwp_cldcover                = 1  ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 10 ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
+ inwp_turb                    = 10  ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -283,7 +281,7 @@ cat > ${atmo_namelist} << EOF
 &lnd_nml
  ntiles                       = 3
  nlev_snow                    = 2       ! 2 for multi-level snow
- lmulti_snow                  = .TRUE.  ! true: multi-level snow, false: single-level snow
+ lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
  idiag_snowfrac               = 4
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
@@ -319,11 +317,11 @@ cat > ${atmo_namelist} << EOF
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
  divdamp_order                = 4
+ divdamp_type                 = 3
  l_open_ubc                   = .TRUE.
  l_nest_rcf                   = .TRUE.
  l_masscorr_nest              = .TRUE.
  igradp_method                = 3
- divdamp_type                 = 3
  l_zdiffu_t                   = .TRUE.
  thslp_zdiffu                 = 0.02
  thhgtd_zdiffu                = 125.
