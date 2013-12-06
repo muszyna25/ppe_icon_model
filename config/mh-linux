@@ -238,7 +238,9 @@ case "$ac_sitename" in
                     intel*)
                       load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "cray-mpich/6.1.1" "${load_modules}"
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
+                      STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
+                      F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
                       LIBS            = ${LIBS} -lirng
                       ;;
                     cray)
