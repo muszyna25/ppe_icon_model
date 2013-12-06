@@ -44,7 +44,6 @@ MODULE mo_io_restart_async
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601
-  USE mo_io_config,               ONLY: out_expname
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -2312,7 +2311,7 @@ CONTAINS
     CALL set_restart_attribute('institution', &
          MODEL_INSTITUTION)
     CALL set_restart_attribute('source',      &
-         TRIM(out_expname)//'-'//MODEL_VERSION)
+         'ICON'//'-'//MODEL_VERSION)
     CALL set_restart_attribute('history',     &
          executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
     CALL set_restart_attribute('references',  &

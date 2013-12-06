@@ -52,33 +52,12 @@ MODULE mo_io_nml
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
-  USE mo_io_config,          ONLY: config_out_expname             => out_expname            , &
-                                 & config_out_filetype            => out_filetype           , &
-                                 & config_lkeep_in_sync           => lkeep_in_sync          , &
-                                 & config_dt_data                 => dt_data                , &
+  USE mo_io_config,          ONLY: config_lkeep_in_sync           => lkeep_in_sync          , &
                                  & config_dt_diag                 => dt_diag                , &
-                                 & config_dt_file                 => dt_file                , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
-                                 & config_lwrite_initial          => lwrite_initial         , &
-                                 & config_lwrite_oce_timestepping => lwrite_oce_timestepping, &
-                                 & config_lwrite_vorticity        => lwrite_vorticity       , &
-                                 & config_lwrite_divergence       => lwrite_divergence      , &
-                                 & config_lwrite_omega            => lwrite_omega           , &
-                                 & config_lwrite_pres             => lwrite_pres            , &
-                                 & config_lwrite_z3               => lwrite_z3              , &
-                                 & config_lwrite_tracer           => lwrite_tracer          , &
-                                 & config_lwrite_tend_phy         => lwrite_tend_phy        , &
-                                 & config_lwrite_radiation        => lwrite_radiation       , &
-                                 & config_lwrite_precip           => lwrite_precip          , &
-                                 & config_lwrite_cloud            => lwrite_cloud           , &
-                                 & config_lwrite_tke              => lwrite_tke             , &
-                                 & config_lwrite_surface          => lwrite_surface         , &
-                                 & config_lwrite_extra            => lwrite_extra           , &
                                  & config_inextra_2d              => inextra_2d             , &
                                  & config_inextra_3d              => inextra_3d             , &
                                  & config_lflux_avg               => lflux_avg              , &
-                                 & config_lwrite_dblprec          => lwrite_dblprec         , &
-                                 & config_lwrite_decomposition    => lwrite_decomposition   , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
@@ -96,33 +75,10 @@ MODULE mo_io_nml
   ! Namelist variables
   !-------------------------------------------------------------------------
 
-  CHARACTER(len=max_char_length) :: out_expname
-  INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
-  REAL(wp):: dt_data                    ! output timestep [seconds]
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
-  REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
-  LOGICAL :: lwrite_initial             ! if .true., write out initial state
-  LOGICAL :: lwrite_oce_timestepping    ! if .true., write out intermediate ocean variables
-  LOGICAL :: lwrite_dblprec             ! if .true., write out in double precision
-  LOGICAL :: lwrite_decomposition       ! if .true., write field with MPI_RANK
-  LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
-  LOGICAL :: lwrite_divergence          ! if .true., write out divergence
-  LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
-  LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
-  LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
-  LOGICAL :: lwrite_precip              ! if .true., write out precip
-  LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
-  LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
-  LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
-                                        ! in pressure coordinate
-  LOGICAL :: lwrite_tke                 ! if .true., write out TKE
-  LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
-  LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
-                                        ! tracer on full levels
-  LOGICAL :: lwrite_extra               ! if .true., write out extra fields
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
   LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
@@ -146,16 +102,10 @@ MODULE mo_io_nml
     &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
     &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
-  NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,             &
-    &              dt_data, dt_diag, dt_file, dt_checkpoint,             &
-    &              lwrite_initial, lwrite_dblprec, lwrite_decomposition, &
-    &              lwrite_vorticity, lwrite_divergence, lwrite_omega,    &
-    &              lwrite_pres, lwrite_z3, lwrite_tracer,                &
-    &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,     &
-    &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
-    &              lwrite_extra, inextra_2d, inextra_3d,                 &
-    &              lflux_avg, lwrite_oce_timestepping, itype_pres_msl,   &
-    &              itype_rh, output_nml_dict, netcdf_dict,               &
+  NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
+    &              inextra_2d, inextra_3d,                 &
+    &              lflux_avg, itype_pres_msl, itype_rh,    &
+    &              output_nml_dict, netcdf_dict,           &
     &              lzaxis_reference 
   
 CONTAINS
@@ -183,36 +133,14 @@ CONTAINS
     !-----------------------
     ! 1. default settings
     !-----------------------
-    out_expname             = 'IIIEEEETTTT'
-    out_filetype            = 2
     lkeep_in_sync           = .FALSE.
 
-    dt_data                 = 21600.0_wp   !  6 hours
     dt_diag                 = 86400._wp    !  1 day
-    dt_file                 = 2592000._wp  ! 30 days
     dt_checkpoint           = 2592000._wp  ! 30 days
 
-    lwrite_initial          = .TRUE.
-    lwrite_dblprec          = .FALSE.
-    lwrite_decomposition    = .FALSE.
-    lwrite_vorticity        = .TRUE.
-    lwrite_divergence       = .TRUE.
-    lwrite_omega            = .TRUE.
-    lwrite_pres             = .TRUE.
-    lwrite_z3               = .TRUE.
-    lwrite_tracer(:)        = .TRUE.
-
-    lwrite_tend_phy         = .FALSE.
-    lwrite_radiation        = .FALSE.
-    lwrite_precip           = .FALSE.
-    lwrite_cloud            = .FALSE.
-    lwrite_tke              = .FALSE.
-    lwrite_surface          = .FALSE.
-    lwrite_extra            = .FALSE.
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
-    lwrite_oce_timestepping = .FALSE.
     itype_pres_msl          = PRES_MSL_METHOD_GME
     itype_rh                = RH_METHOD_WMO       ! WMO: water only
     output_nml_dict         = ' '
@@ -254,33 +182,12 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
-    config_out_expname             = out_expname
-    config_out_filetype            = out_filetype
     config_lkeep_in_sync           = lkeep_in_sync
-    config_dt_data                 = dt_data
     config_dt_diag                 = dt_diag
-    config_dt_file                 = dt_file
     config_dt_checkpoint           = dt_checkpoint
-    config_lwrite_initial          = lwrite_initial
-    config_lwrite_vorticity        = lwrite_vorticity
-    config_lwrite_divergence       = lwrite_divergence
-    config_lwrite_omega            = lwrite_omega
-    config_lwrite_pres             = lwrite_pres
-    config_lwrite_z3               = lwrite_z3
-    config_lwrite_tracer           = lwrite_tracer
-    config_lwrite_tend_phy         = lwrite_tend_phy
-    config_lwrite_radiation        = lwrite_radiation
-    config_lwrite_precip           = lwrite_precip
-    config_lwrite_cloud            = lwrite_cloud
-    config_lwrite_tke              = lwrite_tke
-    config_lwrite_surface          = lwrite_surface
-    config_lwrite_extra            = lwrite_extra
     config_inextra_2d              = inextra_2d
     config_inextra_3d              = inextra_3d
     config_lflux_avg               = lflux_avg
-    config_lwrite_dblprec          = lwrite_dblprec
-    config_lwrite_decomposition    = lwrite_decomposition
-    config_lwrite_oce_timestepping = lwrite_oce_timestepping
     config_itype_pres_msl          = itype_pres_msl
     config_itype_rh                = itype_rh
     config_output_nml_dict         = output_nml_dict

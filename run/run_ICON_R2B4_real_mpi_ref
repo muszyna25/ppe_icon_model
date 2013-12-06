@@ -237,17 +237,8 @@ cat > ${atmo_namelist} << EOF
  mount_height   = 7500.
 /
 &io_nml
- out_expname    = '${EXP}'   ! file name base
- dt_data  = 43200.           ! [hr] output interval
- dt_file  = 86400. !  432000.
  dt_diag  = 1728000.
  dt_checkpoint = 4320000.
- lwrite_tend_phy = .false.
- lwrite_radiation = .TRUE.
- lwrite_precip = .TRUE.
- lwrite_cloud = .false.
- lwrite_tke = .TRUE.
- lwrite_surface  = .TRUE.
 /
 &output_nml
  dom                          =  -1                        ! write all domains

@@ -205,9 +205,6 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
 /

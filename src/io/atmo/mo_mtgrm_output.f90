@@ -164,7 +164,7 @@ MODULE mo_meteogram_output
     &                                 gnat_query_containing_triangles,           &
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
-  USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
+  USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
@@ -540,9 +540,11 @@ CONTAINS
     CALL add_sfc_var(VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
       &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
-    IF (lwrite_extra) THEN
+    IF (inextra_2d > 0) THEN
       ! Variable: Extra 2D
       CALL add_sfc_var (VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
+    ENDIF
+    IF (inextra_3d > 0) THEN
       ! Variable: Extra 3D
       CALL add_atmo_var(VAR_GROUP_ATMO_ML, "EXTRA3D","","-", jg, diag%extra_3d(:,:,:,1:inextra_3d))
     END IF

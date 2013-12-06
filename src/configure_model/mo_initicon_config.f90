@@ -129,9 +129,12 @@ CONTAINS
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED/) == init_mode) ) THEN
       is_coldstart_soil = .TRUE.   ! full coldstart is necessary
+                                   ! i.e. w_so_ice and h_snow are re-diagnosed
     ELSE
       is_coldstart_soil = .FALSE.  ! warmstart is sufficient (typical for standard
                                    ! assimilation cycle 
+                                   ! i.e. w_so_ice and h_snow are taken from 
+                                   ! the input file
     ENDIF
 
   END SUBROUTINE configure_initicon

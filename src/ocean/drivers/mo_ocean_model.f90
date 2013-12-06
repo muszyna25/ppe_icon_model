@@ -52,7 +52,6 @@ MODULE mo_ocean_model
   
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_io_config,           ONLY: n_ios
   USE mo_run_config,          ONLY: &
     & dtime,                  & !    :
     & nsteps,                 & !    :

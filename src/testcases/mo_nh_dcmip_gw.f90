@@ -57,7 +57,7 @@ MODULE mo_nh_dcmip_gw
    USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
    USE mo_model_domain,         ONLY: t_patch
    USE mo_intp_data_strc,       ONLY: t_int_state
-   USE mo_io_config,            ONLY: lwrite_extra
+   USE mo_io_config,            ONLY: inextra_3d
    USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
    USE mo_dynamics_config,      ONLY: lcoriolis
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -303,7 +303,7 @@ CONTAINS
 
           ! store theta_v background state for visualization purposes
           !
-          IF (lwrite_extra ) THEN
+          IF (inextra_3d > 0) THEN
             p_nh_diag%extra_3d(jc,jk,jb,1) = p_nh_prog%theta_v(jc,jk,jb)
           ENDIF
 
@@ -639,7 +639,7 @@ CONTAINS
 
           ! store theta_v background state for visualization purposes
           !
-          IF (lwrite_extra ) THEN
+          IF (inextra_3d > 0) THEN
             p_nh_diag%extra_3d(jc,jk,jb,1) = p_nh_prog%theta_v(jc,jk,jb)
           ENDIF
 

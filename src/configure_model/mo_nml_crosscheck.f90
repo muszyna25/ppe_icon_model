@@ -60,10 +60,7 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
-    &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
-    &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
-    &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,&
-    &                              lwrite_tke,lwrite_z3
+    &                              inextra_3d
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
@@ -816,53 +813,15 @@ CONTAINS
     !--------------------------------------------------------------------
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
-    IF (iequations==ISHALLOW_WATER) THEN
-       lwrite_omega     = .FALSE.
-       lwrite_pres      = .FALSE.
-       lwrite_z3        = .FALSE.
-    END IF
-
-    IF (iequations==INH_ATMOSPHERE) THEN
-       lwrite_omega     = .FALSE.
-    END IF
 
     SELECT CASE(iforcing)
-    CASE ( inwp )
-      ! Do nothing. Keep the initial values, if not specified in namelist.
-      ! consider special idealized testcase with turbulence only
-      IF( .NOT. ltransport  )   THEN
-        lwrite_precip    = .FALSE.
-        lwrite_cloud     = .FALSE.
-        lwrite_radiation = .FALSE.
-        lwrite_tke       = .TRUE.
-        lwrite_surface   = .FALSE.
-        CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
-      ENDIF
-
     CASE ( iecham, ildf_echam )
-      lwrite_extra = .FALSE.
       inextra_2d   = 0
       inextra_3d   = 0
 
-    CASE (inoforcing,iheldsuarez,ildf_dry)
-       lwrite_tend_phy  = .FALSE.
-       lwrite_radiation = .FALSE.
-       lwrite_precip    = .FALSE.
-       lwrite_cloud     = .FALSE.
-       lwrite_tke       = .FALSE.
-       lwrite_surface   = .FALSE.
     CASE DEFAULT
     END SELECT
 
-    IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
-      lwrite_extra = .TRUE.
-      WRITE(message_text,'(a,2I4,a,L4)') &
-        &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
-      CALL message('io_namelist', TRIM(message_text))
-    ENDIF
-
-    IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
-      CALL finish('io_namelist','need to specify number of fields for extra output')
 
     IF (activate_sync_timers .AND. .NOT. ltimer) THEN
       activate_sync_timers = .FALSE.

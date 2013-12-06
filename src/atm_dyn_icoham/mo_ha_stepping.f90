@@ -54,8 +54,7 @@ MODULE mo_ha_stepping
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
-  USE mo_io_config,           ONLY: is_output_time, l_diagtime, l_outputtime, &
-                                  & is_checkpoint_time
+  USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
@@ -388,7 +387,7 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
-    ENDIF !is_output_time(jstep)
+    ENDIF !l_outputtime
 
     !--------------------------------------------------------------------------
     ! Diagnose global integrals

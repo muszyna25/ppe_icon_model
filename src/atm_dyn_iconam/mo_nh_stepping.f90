@@ -54,8 +54,7 @@ MODULE mo_nh_stepping
     & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
-  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                istime4output
+  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time
   USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ldynamics, ltransport, ntracer, lforcing, iforcing, &
@@ -548,15 +547,14 @@ MODULE mo_nh_stepping
       &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(jstep))))
-    
-    ! Output criteria:
-    ! - last time step
-    ! - output interval, "new" output_nml
-    l_outputtime = l_nml_output
- 
+    ! "l_outputtime", "l_diagtime": global flags used by other subroutines
+    l_outputtime   = l_nml_output
+    l_diagtime     = (.NOT. output_mode%l_none) .AND. &
+      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
+
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:
-    l_compute_diagnostic_quants = l_outputtime
+    l_compute_diagnostic_quants = l_nml_output
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep,&
@@ -565,11 +563,6 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
     
-    ! another flag defining whether diagnostic quantities are computed.
-    ! TODO[FP] Decide whether this "l_diagtime" flag is obsolete.
-    l_diagtime = (.NOT. output_mode%l_none) .AND. &
-      & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
-
     ! This serves to ensure that postprocessing is executed both immediately after
     ! activating and immediately after terminating a model domain
     ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
@@ -600,7 +593,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels
-    simulation_status = new_simulation_status(l_output_step  = l_outputtime,    &
+    simulation_status = new_simulation_status(l_output_step  = l_nml_output,             &
       &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
       &                                       l_dom_active   = ldom_active,     &
       &                                       i_timelevel    = nnow)

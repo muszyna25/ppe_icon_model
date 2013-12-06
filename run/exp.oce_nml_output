@@ -239,12 +239,8 @@ idbg_elev=5                     ! initialize end level for debug output
 !  drake_passage(1:10)  = 9285,9319,9321,9412,9414,9655
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
-  lwrite_initial = .TRUE.
 /
 EOF
 

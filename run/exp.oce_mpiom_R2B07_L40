@@ -231,9 +231,6 @@ cat > ${ocean_namelist} << EOF
 !  scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
 /

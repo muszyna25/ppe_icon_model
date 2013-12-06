@@ -70,7 +70,7 @@ MODULE mo_nonhydro_state
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
     &                                iqni, iqni_nuc, iqg,                  & 
     &                                nqtendphy, ltestcase 
-  USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
+  USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_linked_list,          ONLY: t_var_list
@@ -1686,50 +1686,48 @@ MODULE mo_nonhydro_state
 
 
 
-    IF( lwrite_extra) THEN
-      WRITE(0,*)'inextra_2d=',inextra_2d
+    WRITE(0,*)'inextra_2d=',inextra_2d
 
-      IF(inextra_2d > 0) THEN
+    IF(inextra_2d > 0) THEN
 
-        ! extra_2d   p_diag%extra_2d(nproma,nblks_c,inextra_2d)
-        !
-        cf_desc    = t_cf_var('extra_field_2D', '-', 'extra field 2D', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                    & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
+      ! extra_2d   p_diag%extra_2d(nproma,nblks_c,inextra_2d)
+      !
+      cf_desc    = t_cf_var('extra_field_2D', '-', 'extra field 2D', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
 
-        ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
-        DO jt =1,inextra_2d
-          WRITE(ctrc,'(I2)')jt
-          CALL add_ref( p_diag_list, 'extra_2d', 'extra_2d'//TRIM(ADJUSTL(ctrc)), &
-            &           p_diag%extra_2d_ptr(jt)%p_2d,                             &
-            &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                       &
-            &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE. )
-        ENDDO
-      ENDIF
+      ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
+      DO jt =1,inextra_2d
+        WRITE(ctrc,'(I2)')jt
+        CALL add_ref( p_diag_list, 'extra_2d', 'extra_2d'//TRIM(ADJUSTL(ctrc)), &
+          &           p_diag%extra_2d_ptr(jt)%p_2d,                             &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                       &
+          &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE. )
+      ENDDO
+    ENDIF
 
 
-      IF(inextra_3d > 0) THEN
+    IF(inextra_3d > 0) THEN
 
-        ! extra_3d   p_diag%extra_3d(nproma,nlev,nblks_c,inextra_3d)
-        !
-        cf_desc    = t_cf_var('extra_fields_3D', '-', 'extra fields 3D', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
-                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                    & ldims=shape3d_extra,                                        &
-                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+      ! extra_3d   p_diag%extra_3d(nproma,nlev,nblks_c,inextra_3d)
+      !
+      cf_desc    = t_cf_var('extra_fields_3D', '-', 'extra fields 3D', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape3d_extra,                                        &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
-        ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))
-        DO jt =1,inextra_3d
-          WRITE(ctrc,'(I2)')jt
-          CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
-            &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                        &
-            &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
-        ENDDO
-      ENDIF
+      ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))
+      DO jt =1,inextra_3d
+        WRITE(ctrc,'(I2)')jt
+        CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
+          &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
+          &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                        &
+          &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
+      ENDDO
     ENDIF
 
   END SUBROUTINE new_nh_state_diag_list

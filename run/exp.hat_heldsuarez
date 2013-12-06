@@ -86,9 +86,6 @@ cat > ${atmo_namelist} << EOF
                            ! (Ensures reproducibility for routine test)
 /
 &io_nml
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = ${dt_data}        ! [s] daily output
- dt_file     = ${dt_file}   ! 10 days per file
  dt_diag     = ${dt_diag}
 /
 &run_nml

@@ -78,7 +78,7 @@ MODULE m_dyn
   USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
+  USE mo_io_config,          ONLY: l_outputtime
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs, output_mode
@@ -748,7 +748,7 @@ MODULE m_dyn
   ! Even if the reference state is involved, the adiabatic heating
   ! is still calculated using the original variables.
 
-   IF (lwrite_omega .AND. l_outputtime) THEN
+   IF (l_outputtime) THEN
      CALL cells2edges_scalar( z_tv_c, pt_patch,  pt_int_state%c_lin_e, &
                               z_tv_e, nplvp1, opt_rlstart=4)
    ENDIF
@@ -800,7 +800,7 @@ MODULE m_dyn
 
   ! pressure gradient force, part 2, for temperature equation
   ! (Only needed for omega output)
-   IF (lwrite_omega .AND. l_outputtime) THEN
+   IF (l_outputtime) THEN
 !$OMP PARALLEL
      i_startblk = pt_patch%edges%start_blk(4,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -856,7 +856,7 @@ MODULE m_dyn
 ! For theta advection, the following computations are needed only
 ! if omega is requested as an output field
 
-IF (lwrite_omega .AND. l_outputtime .AND. .NOT. output_mode%l_none) THEN
+IF (l_outputtime .AND. .NOT. output_mode%l_none) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(4,1)

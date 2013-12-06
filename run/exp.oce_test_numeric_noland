@@ -218,9 +218,6 @@ cat > ${ocean_namelist} << EOF
   idiag_oce         =  0      !  0: no diagnostics; 1: write diagnostics to stderr
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /

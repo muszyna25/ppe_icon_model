@@ -43,7 +43,7 @@ USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_file,dt_diag,dt_checkpoint
+USE mo_io_config,            ONLY: dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
@@ -106,7 +106,7 @@ PUBLIC :: atmo_nonhydrostatic
 PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
 ! module data
-INTEGER :: n_file, n_diag, n_chkpt
+INTEGER :: n_diag, n_chkpt
 
 CONTAINS
 
@@ -318,8 +318,7 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !--------------------------------------------------------- 
  
-    ! writing output is now controlled via 'istime4output'
-    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+    ! !!OUTDATED!! writing output is now controlled via 'istime4output' !!OUTDATED!!
     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 

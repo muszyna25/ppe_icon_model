@@ -284,16 +284,9 @@ cat > $atmo_namelist << EOF
  rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
-  out_expname      = '${EXPNAME}_atm' ! file name base
   dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
   output_nml_dict  = '${dict_file}'
   netcdf_dict      = '${dict_file}'
-  lwrite_initial   = .FALSE.          ! do/don't write out initial data
-  lwrite_radiation = .TRUE.           ! add radiation fields to output
-  lwrite_cloud     = .TRUE.           ! add cloud fraction to output
-  lwrite_precip    = .TRUE.           ! add precipitation to output
-  lwrite_pres      = .FALSE.          ! remove pressure from output
-  lwrite_tend_phy  = .FALSE.          ! write out tendencies 
   lflux_avg        = .FALSE.
 /
 &output_nml

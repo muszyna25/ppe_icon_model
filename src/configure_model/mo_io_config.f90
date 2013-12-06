@@ -44,10 +44,7 @@
 MODULE mo_io_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,&
-    &                          SUCCESS
-  USE mo_exception,      ONLY: message, finish
-  USE mo_run_config,     ONLY: dtime, nsteps
+  USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
 
   IMPLICIT NONE
@@ -60,34 +57,10 @@ MODULE mo_io_config
 
   ! from namelist
   
-  CHARACTER(len=max_char_length) :: out_expname
-  INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
-  REAL(wp):: dt_data                    ! output timestep [seconds]
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
-  REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
-  LOGICAL :: lwrite_initial             ! if .true., write out initial values
-  LOGICAL :: lwrite_dblprec             ! if .true. create double precision output
-  LOGICAL :: lwrite_decomposition       ! if .true. write field with MPI_RANK
-
-  LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
-  LOGICAL :: lwrite_divergence          ! if .true., write out divergence
-  LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
-  LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
-  LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
-  LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
-  ! tracer on full levels
-  LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
-  LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
-  LOGICAL :: lwrite_precip              ! if .true., write out precip
-  LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
-  ! in pressure coordinate
-  LOGICAL :: lwrite_tke                 ! if .true., write out TKE
-  LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
-
-  LOGICAL :: lwrite_extra               ! if .true., write out extra fields
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
   LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
@@ -95,7 +68,6 @@ MODULE mo_io_config
   ! if .TRUE. the output fluxex are average values 
   !  from the beginning of the run, except of 
   !  TOT_PREC that would be accumulated
-  LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
   INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
 
@@ -114,64 +86,11 @@ MODULE mo_io_config
 
 CONTAINS
   !----------------------------------------------------------------------------------
-   FUNCTION istime4output(sim_time) RESULT(retval)
-     REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
-     LOGICAL               :: retval
-     REAL(wp)              :: nearest_output_time ! nearest output time [s]
-
-
-     ! get nearest output time
-     nearest_output_time = REAL(NINT(sim_time/dt_data),wp) * dt_data
-
-     ! write output (true/false)
-     retval =( ( (-dtime/2._wp) < (sim_time - nearest_output_time)) .AND.  &
-       &       ( (sim_time - nearest_output_time) <= (dtime/2._wp)) )
-
-   END FUNCTION istime4output
-  !----------------------------------------------------------------------------------
-
-  !----------------------------------------------------------------------------------
-   FUNCTION istime4newoutputfile(current_timestep) RESULT(retval)
-     LOGICAL :: retval
-     INTEGER, INTENT(IN) :: current_timestep
-
-     INTEGER :: n_file
-
-     n_file  = n_files()        ! trigger new output file
-
-     IF (current_timestep/=1&
-       & .AND.(MOD(current_timestep-1,n_file)==0)&
-       & .AND.current_timestep/=nsteps) THEN
-       retval = .TRUE.
-     ELSE
-       retval = .FALSE.
-     END IF
-   END FUNCTION istime4newoutputfile
-  !----------------------------------------------------------------------------------
-
-  !----------------------------------------------------------------------------------
    FUNCTION n_checkpoints()
 
      INTEGER :: n_checkpoints
 
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
-   END FUNCTION
-  !----------------------------------------------------------------------------------
-   
-  !----------------------------------------------------------------------------------
-   FUNCTION n_files()
-
-     INTEGER :: n_files
-     n_files  = NINT(dt_file/dtime)        ! trigger new output file
-   END FUNCTION
-  !----------------------------------------------------------------------------------
-   
-  !----------------------------------------------------------------------------------
-   FUNCTION n_ios()
-
-     INTEGER :: n_ios
-
-     n_ios    = NINT(dt_data/dtime)        ! number of: write output
    END FUNCTION
   !----------------------------------------------------------------------------------
    
@@ -206,14 +125,6 @@ CONTAINS
      END IF
    END FUNCTION
   !----------------------------------------------------------------------------------
-   
-  !----------------------------------------------------------------------------------
-   LOGICAL FUNCTION is_output_time(current_step)
-     INTEGER, INTENT(IN)            :: current_step
-
-     is_output_time = ( MOD(current_step,n_ios())==0 )
-     
-   END FUNCTION
-  !----------------------------------------------------------------------------------
+  
 
 END MODULE mo_io_config

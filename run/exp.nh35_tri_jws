@@ -130,14 +130,8 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! write output every 96 hours
  dt_diag          = ${dt_diag}
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lwrite_vorticity = .TRUE.
- lwrite_pres      = .TRUE.
- lwrite_z3        = .TRUE.
- lwrite_omega     = .TRUE.
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment

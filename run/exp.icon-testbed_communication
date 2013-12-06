@@ -95,9 +95,6 @@ cat > $namelist_filename << EOF
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
 /
-&io_nml
- out_expname = '${EXPNAME}' ! file name base
-/
 &dynamics_nml
  iequations  = 3     ! non-hydrostatic atmosphere 
 /

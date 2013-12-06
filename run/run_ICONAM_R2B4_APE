@@ -177,19 +177,8 @@ cat > ${atmo_namelist} << EOF_NL
  ape_sst_case      = 'sst1'       ! 1: control; 2: peaked; 3: flat; 4: contrl5N; Qobs: qobs
 /
 &io_nml
- out_expname       = '${EXPNAME}' ! file name base
- dt_data           = ${DT_DATA}   ! daily output
- dt_file           = ${DT_FILE}   ! 30 days per file
  dt_diag           = ${DT_DIAG}
  dt_checkpoint     = ${dt_checkpoint}
- lwrite_surface    = .FALSE.
- lwrite_cloud      = .TRUE.
- lwrite_precip     = .TRUE.
- lwrite_vorticity  = .TRUE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
- lwrite_divergence = .TRUE.
 /
 &run_nml
  num_lev     = ${nlev},     ! number of full levels of vertical grid

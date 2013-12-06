@@ -111,11 +111,8 @@ cat > $atmo_namelist << EOF
  ctest_name      = 'JWw'            ! test case identifier
 /
 &io_nml
- out_expname     = '${EXPNAME}'     ! file name base
- dt_data         = ${dt_data}       ! [s]
  dt_diag         = ${dt_diag}       ! [s]
  dt_checkpoint   = ${dt_checkpoint} ! [s]
- dt_file         = ${dt_file}       ! [s]
 /
 &dynamics_nml
  iequations      = ${atmo_model_equations}

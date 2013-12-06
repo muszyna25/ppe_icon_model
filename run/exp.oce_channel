@@ -196,9 +196,6 @@ cat > ${ocean_namelist} << EOF
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /

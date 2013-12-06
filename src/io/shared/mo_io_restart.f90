@@ -28,7 +28,6 @@ MODULE mo_io_restart
   USE mo_run_config,            ONLY: ltimer, output_mode
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file, timer_write_output
-  USE mo_io_config,             ONLY: out_expname
   USE mo_math_utilities,        ONLY: set_zlev
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
@@ -1232,8 +1231,8 @@ CONTAINS
       nice_class = opt_nice_class
     END IF
 
-    CALL init_restart( TRIM(out_expname), &! exp name
-                     & '1.2.2',           &! model version
+    CALL init_restart( 'ICON',            &! model name
+                     & '1.4.00',          &! model version
                      & kcell, icelltype,  &! total # of cells, # of vertices per cell
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge

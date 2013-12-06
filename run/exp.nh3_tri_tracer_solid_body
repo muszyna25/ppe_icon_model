@@ -130,14 +130,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord     = 3           ! 3
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! write output every 96 hours
- dt_file          = ${dt_file}       ! trigger new output file every 30 day
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lwrite_vorticity = .FALSE.          ! do not write out averaged vorticity at cells
- lwrite_pres      = .FALSE.          ! do not write out full level pressure
- lwrite_z3        = .FALSE.          ! do not write out geopotential on full levels
- lwrite_omega     = .FALSE.          ! do not write out vertical velocity inpressure coordinates
 /
 EOF
 #-----------------------------------------------------------------------------

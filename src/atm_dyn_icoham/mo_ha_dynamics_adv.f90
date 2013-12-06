@@ -46,7 +46,7 @@ MODULE mo_ha_dynamics_adv
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
-  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, l_diagtime
+  USE mo_io_config,          ONLY: l_diagtime
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o

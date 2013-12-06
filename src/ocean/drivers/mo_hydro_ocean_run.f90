@@ -56,7 +56,7 @@ USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
 USE mo_dynamics_config,        ONLY: nold, nnew
-USE mo_io_config,              ONLY: n_files, n_checkpoints, is_output_time!, istime4newoutputfile
+USE mo_io_config,              ONLY: n_checkpoints
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data_types,         ONLY: t_external_data

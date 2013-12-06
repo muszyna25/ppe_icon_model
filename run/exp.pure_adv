@@ -48,15 +48,6 @@ cat > NAMELIST_${EXPNAME} << EOF
  ctest_name  = 'PA'        ! test case identifier
  rotate_axis_deg  = 45.0
 /
-&io_nml
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = ${DT_DATA}       ! write output every 48 hours
- dt_file     = ${DT_FILE}       ! trigger new output file every 30 day
- lwrite_omega  = .FALSE.
- lwrite_z3     = .FALSE.
- lwrite_pres   = .FALSE.
- lwrite_vorticity = .FALSE.
-/
 &grid_nml
  nroot       = ${R}         ! root division of icosahedron edges
  start_lev   = ${B}         ! number of bisections applied for the base grid

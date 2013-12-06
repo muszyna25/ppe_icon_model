@@ -200,14 +200,7 @@ cat > ${atmo_namelist} << EOF
  qv_max         = 1.e-5
 /
 &io_nml
- out_expname = '${EXP}'     ! file name base
- dt_data  = 1800.           ! [hr] output interval
- dt_file  = 10800.
  dt_diag  = 3600.
- lwrite_vorticity = .TRUE.
- lwrite_precip = .TRUE.
- lwrite_cloud = .FALSE.
- lwrite_tke = .TRUE.
 /
 &output_nml
  filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2

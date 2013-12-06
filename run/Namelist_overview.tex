@@ -2216,29 +2216,9 @@ Defined and used in: src/namelists/mo\_interpol\_nml.f90
 \begin{longtab}
 
 \hline
-out\_expname &
-C& 'IIIEEEETTTT'& &
-Outfile basename&
-\tabularnewline
-
-\hline
-out\_filetype&
-I& 2 & &
-Type of output format:\\
-1: GRIB1 (not yet implemented)\\
-2: netCDF&
-\tabularnewline
-
-\hline
 lkeep\_in\_sync&
 L& .FALSE. & &
 Sync output stream with file on disk after each timestep&
-\tabularnewline
-
-\hline
-dt\_data&
-R& 21600.0 & s&
-Output time interval&
 \tabularnewline
 
 \hline
@@ -2247,11 +2227,6 @@ R& 86400. & &
 diagnostic integral output interval &
 \tabularnewline
 
-\hline
-dt\_file&
-R& 2592000 & s&
-Time interval of triggering new output file&
-\tabularnewline
 
 \hline
 dt\_checkpoint&
@@ -2265,123 +2240,19 @@ that at least one restart file is generated during the restart cycle.
 \texttt{output /= "none"} (\texttt{run\_nml})
 \tabularnewline
 
-\hline
-lwrite\_vorticity &
-L& .TRUE.& &
-write out averaged vorticity at vertices &
-\tabularnewline
-
-\hline
-lwrite\_initial &
-L& .TRUE.& &
-write out initial state &
-\tabularnewline
-
-\hline
-lwrite\_dblprec &
-L& .FALSE.& &
-write out double precision &
-\tabularnewline
-
-\hline
-lwrite\_oce\_timestepping &
-L& .FALSE.& &
-write out intermediate ocean vars&
-\tabularnewline
-
-\hline
-lwrite\_divergence &
-L& .TRUE.& &
-write out divergence at cells &
-\tabularnewline
-
-\hline
-lwrite\_omega &
-L& .TRUE.& &
-write out vertical velocity in pressure coords.&
-Always .FALSE. for nonhydrostatic and shallow water models
-\tabularnewline
-
-\hline
-lwrite\_pres &
-L& .TRUE.& &
-write out full level pressure&
-lshallow\_water=.FALSE.\tabularnewline
-
-\hline
-lwrite\_z3 &
-L& .TRUE.& &
-write out geopotential on full levels&
-lshallow\_water=.FALSE.\tabularnewline
-
-\hline
-lwrite\_tracer &
-L(ntracer)& .TRUE.& &
-write out tracer at cells &
-\tabularnewline
-
-\hline
-lwrite\_tend\_phy &
-L& .TRUE. \\ .FALSE. \\ (Scope) & &
-Physics induced tendencies.&
-.TRUE. if iforcing=iecham\\
-.FALSE. else
-\tabularnewline
-
-\hline
-lwrite\_radiation &
-L&  .FALSE. & &
-Radiation related fields.&
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_precip &
-L&  .FALSE. & &
-Precipitation &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_cloud&
-L& .FALSE.  & &
-Cloud variables &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_tke& L& .TRUE. &
-& TKE & .FALSE.  \\
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_surface&
-L& .FALSE. & &
-surface variables &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_extra&
-L& .FALSE. & &
-debug fields &
-.TRUE. if inextra\_2d /\_3d $> 0$ \\
-.FALSE. else
-\tabularnewline
 
 \hline
 inextra\_2d&
 I &
 0&&
-Number of 2D Fields for diagnostic/debugging output. &
+Number of extra 2D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 \hline
 inextra\_3d&
 I &
 0&&
-Number of 3D Fields for diagnostic/debugging output. &
+Number of extra 3D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 
@@ -4758,7 +4629,7 @@ L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
 ihadv\_tracer&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport & \tabularnewline
+& & 5& & 0: no horiz. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, lin. reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -4775,7 +4646,7 @@ I(ntracer)&
 ivadv\_tracer&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport& \tabularnewline
+& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
 & & & & 30: ppm (3rd order)& \tabularnewline
@@ -6169,6 +6040,22 @@ model expects {\bf height based} coordinates. For further information see <icon 
    \item Now, there exists a new integer-valued namelist parameter, \texttt{rbf\_scale\_mode\_ll}
          which specifies the mode, how the RBF shape parameter is
          determined for lon-lat interpolation.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{io\_nml: rbf\_vec\_scale\_ll }{ 2013-12-06 }{ 15161 }
+  \begin{itemize}
+   \item Removed remaining vlist-related namelist parameter. This means that the parameters
+         \begin{itemize}
+            \item out\_filetype
+            \item out\_expname
+            \item dt\_data
+            \item dt\_file
+            \item lwrite\_dblprec, lwrite\_decomposition, lwrite\_vorticity, lwrite\_divergence, lwrite\_pres, 
+                  lwrite\_z3, lwrite\_tracer, lwrite\_tend\_phy, lwrite\_radiation, lwrite\_precip, lwrite\_cloud, 
+                  lwrite\_tke, lwrite\_surface, lwrite\_omega, lwrite\_initial, lwrite\_oce\_timestepping
+         \end{itemize}
+         are no longer available.
   \end{itemize}
 \end{changeitem}
 

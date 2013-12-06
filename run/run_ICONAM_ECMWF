@@ -204,21 +204,8 @@ cat > ${EXPDIR}/${atmo_namelist} << EOF
 &nh_testcase_nml
 /
 &io_nml
- out_expname       = '${EXPNAME}' ! file name base
- dt_data           = ${DT_DATA}   ! daily output
- dt_file           = ${DT_FILE}   ! 30 days per file
  dt_diag           = ${DT_DIAG}
  dt_checkpoint     = ${dt_checkpoint}
- lwrite_radiation  = .TRUE.
- lwrite_surface    = .TRUE.
- lwrite_cloud      = .TRUE.
- lwrite_precip     = .TRUE.
- lwrite_vorticity  = .TRUE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
- lwrite_divergence = .TRUE.
- lwrite_pzlev      = .TRUE.       ! pressure and z-level output
 /
 &lonlat_intp_nml
  llonlat_enabled    = .TRUE.

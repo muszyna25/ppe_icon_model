@@ -130,7 +130,6 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio       = 1.0
 /
 &io_nml
- lwrite_extra    = .TRUE.   ! only for visualization purposes
  inextra_3d      = 1
 /
 &output_nml
