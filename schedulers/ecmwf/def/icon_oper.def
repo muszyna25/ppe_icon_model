@@ -99,7 +99,6 @@ set SMSOUT      "$ICON_HOME/sms"
 # week day of compilation
 set compday     1  # 1=Monday, 7=Sunday, 0=never
 
-# no. of time steps (10x86400s/72s)
 # wait interval between file checks:
 set WAITINTVL    10
 
@@ -241,7 +240,7 @@ suite $USER
             time 06:00                                  # use this for tasks running daily (not catch-up mode)
            #trigger  /ifs_trigger/fct_ifs == complete
            #trigger  ../init:YMD le /${USER}:SMSDATE-1
-            on_ecgate
+            on_ecgate_submit
             event enable_build
             event enable_dumpstate
 
@@ -337,7 +336,7 @@ suite $USER
             #action complete $SMSFILES/cancel_check_progress
 
         task check_progress
-            trigger (model == active)
+            trigger  (model == active)
             complete (model == complete)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 02:00:00
@@ -417,19 +416,10 @@ suite $USER
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
         trigger (post:YMD gt endofmonth:YMD + 1)
 
-        task testday
-            on_ecgate
-            event time_eom
-            event time_domonth
-
         task eom_data2dwd
-            trigger   testday==complete
-            complete (testday==complete) and not (testday:time_eom)
-            on_ecgate_submit
+           on_ecgate_submit
 
         task eom_prepare  
-            trigger   testday==complete
-            complete (testday==complete) and not (testday:time_eom)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 24:00:00
             meter ecget     0 31 31
@@ -442,13 +432,10 @@ suite $USER
             event cpdata
 
         task eom_getmars
-            trigger   testday==complete
-            complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
 
         family eom_metview_all 
             trigger (eom_prepare == complete) and (eom_getmars == complete)
-            complete (testday==complete) and not (testday:time_eom)
             for set 1 5 ; do
                set tsk `printf %3.3i $set`
                family $tsk
@@ -461,7 +448,6 @@ suite $USER
 
         task eom_archive
             trigger eom_metview_all==complete
-            complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
    
     endfamily
