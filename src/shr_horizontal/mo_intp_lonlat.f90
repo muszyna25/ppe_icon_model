@@ -81,7 +81,7 @@
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
     USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,       &
       &                               rbf_vec_scale_ll, rbf_dim_c2l, l_intp_c2l,            &
-      &                               l_mono_c2l
+      &                               l_mono_c2l, rbf_scale_mode_ll
     USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,            &
       &                               gnat_query_containing_triangles,                      &
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,        &
@@ -107,6 +107,7 @@
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
     USE mo_util_sort,           ONLY: quicksort
     USE mo_alloc_patches,       ONLY: deallocate_glb2loc_index_lookup
+    USE mo_rbf_errana,          ONLY: estimate_rbf_parameter
 
     IMPLICIT NONE
 
@@ -121,13 +122,8 @@
     PUBLIC :: destroy_lonlat_grid_list
     PUBLIC :: compute_lonlat_intp_coeffs
     PUBLIC :: compute_lonlat_area_weights
-    PUBLIC :: rbf_vec_compute_coeff_lonlat
-    PUBLIC :: rbf_compute_coeff_c2grad_lonlat
     PUBLIC :: rbf_vec_interpol_lonlat
-    PUBLIC :: rbf_interpol_c2grad_lonlat
     PUBLIC :: rbf_interpol_lonlat
-    PUBLIC :: allocate_int_state_lonlat_grid
-    PUBLIC :: deallocate_int_state_lonlat
 
     INTERFACE rbf_interpol_lonlat
       MODULE PROCEDURE rbf_interpol_lonlat_int
@@ -1399,7 +1395,7 @@
       TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
       TYPE(t_cartesian_coordinates)    :: p1, p2
       REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
-        &                                 max_dist, start_radius
+        &                                 max_dist, start_radius, rbf_shape_param
       REAL                             :: time1
       LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
 
@@ -1612,8 +1608,23 @@
       ! compute interpolation coefficients for RBF interpolation of vector fields
       ! -------------------------------------------------------------------------
 
-      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, npromz_lonlat, &
-        &                                rbf_vec_scale_ll(MAX(ptr_patch%id,1)) )
+      SELECT CASE (rbf_scale_mode_ll)
+      CASE (1) 
+        rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
+      CASE (2)
+        ! if no shape parameter has been set: compute an estimate 
+        CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,      &
+          &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,   &
+          &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
+        rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+      CASE DEFAULT
+        CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
+      END SELECT
+      WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
+      CALL message(routine, message_text)
+
+      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, &
+        &                                npromz_lonlat, rbf_shape_param )
 
       ! -------------------------------------------------------------------------
       ! compute interpolation coefficients for RBF interpolation of scalar values
@@ -1621,10 +1632,6 @@
 
       IF (l_intp_c2l) THEN
         CALL rbf_c2l_index( ptr_patch, ptr_int, ptr_int_lonlat )
-        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
-          &                         nblks_lonlat, npromz_lonlat,          &
-          &                         rbf_vec_scale_ll(MAX(ptr_patch%id,1)) )
-
         ! Compute reordered index lists to avoid nested indirect addressing at runtime
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jb_lonlat,jc_lonlat), SCHEDULE(runtime)
@@ -1645,6 +1652,25 @@
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+        SELECT CASE (rbf_scale_mode_ll)
+        CASE (1) 
+          rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
+        CASE (2)
+          ! if no shape parameter has been set: compute an estimate 
+          CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,            &
+            &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,       &
+            &                         ptr_int_lonlat%rbf_c2l_stencil, rbf_dim_c2l, rbf_shape_param)
+          rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+        CASE DEFAULT
+          CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
+        END SELECT
+        WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
+        CALL message(routine, message_text)
+        ! compute coefficients:
+        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
+          &                         nblks_lonlat, npromz_lonlat, rbf_shape_param )
+
       END IF ! if (l_intp_c2l)
 
       ! ----------------------------
