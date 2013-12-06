@@ -15,6 +15,8 @@
 #   - use new variable names t_acc, s_acc, rhopot_acc of 'nml'-output
 #   - use ncl-script developed by Stephan Lorenz and Karin Meier-Fleischer
 #   - an init file is generated using initial output - currently rhopot is still zero (Oct 2013)
+#   - now also for plotting of final data only - output identifier must be provided, no paths
+#   - latest change - 2013-12-06
 
 
 # ==============================================================================
@@ -26,28 +28,28 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
 
 # ==============================================================================
 # Input argument $1 is path of experiment
-          expPath=${1:=xxx}                                                          # import experiment path
+          expPath=${1:-=xxx}                     # import experiment path
+[[ "$expPath" == "y" ]] && plotOnly="y"          # plot data via $1=y: outputIdent must be set accordingly, see below
 # ==============================================================================
-# these lines must not be changed if standards are matched
 #        expIdent='Data.r13694.hupw.vppm'                                            # experiment identifier (typed)
-#         expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path
-#     outputIdent='r12088.relice'                                                    # output file name appendix
-#        expIdent='oce_mpiom_newInput_r14716'                                        # experiment identifier (typed)
-#         expPath='/scratch/mpi/mh0287/users/m211032/Icon/TSrho-plot/Data.newInput_r14716'
-#     outputIdent='r14716.newInput'                                                  # output file name appendix
-         expIdent=${expPath##*/}    # delete path on left before '/'                 # experiment identifier
-      outputIdent=${expIdent#*.}    # for 'name.revision': delete smallest match on left before '.'
+#         expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path (typed)
+         expIdent=${expPath##*/}    # delete path on left before '/'                 # automatic identifier
+      outputIdent=${expIdent#*.}    # delete smallest match on left before '.'       # automatic suffix
      fileListPath="$expPath/Output"                                                  # output data path
      fileListPath="$expPath"                                                         # output data path
+# these lines must not be used if standards are matched; edit if plotOnly==y or other needs
+if [[ "$plotOnly" == "y" ]]; then 
+      outputIdent='r15085.qio1'                                                      # output file name appendix
+fi
 # fileListPattern="${expIdent}_iconR2B04-ocean_etopo40_planet_000[1-5].nc"           # 'nml' naming convention
   fileListPattern="${expIdent}_R2B04_oce_DOM01_ML_000[1-3].nc"                       # 'vlist' naming convention
+   outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
           Tempvar='T'                                                                # temperature variable name
            Salvar='S'                                                                # salinity variable name
            Rhovar='rhopot'                                                           # density variable name
           Tempvar='t_acc'                                                            # temperature variable name
            Salvar='s_acc'                                                            # salinity variable name
            Rhovar='rhopot_acc'                                                       # density variable name
-   outputDataFile="ano.TSrho.$outputIdent.nc"                                        # output data file name
        PlotScript='none'              #  no plots
        PlotScript='icon'              #  script icon_plot_ncl
        PlotScript='ncl'               #  ncl-script included, see below
@@ -58,6 +60,9 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
           ScrDatN='scr_tsrho'
 # ==============================================================================
 #declare a fileListArray
+if [[ "$plotOnly" == "y" ]]; then 
+  echo " generate plot tsrho - file ano.TSrho.$outputIdent.nc must be available"
+else
 fileList=$(ls $fileListPath/$fileListPattern)
 i=0
 for file in $fileList; do
@@ -133,7 +138,8 @@ $CDO -r cat fldmean_${outputIdent}_* fldmean_$outputIdent.nc
 # ==============================================================================
 # Subtract initial values
 [[ -f $outputDataFile ]] || $CDO yearmean -sub fldmean_$outputIdent.nc $initFile $outputDataFile
-
+  
+fi  #  plotOnly
 # ==============================================================================
 # Plot a hovmoeller type graph using icon_plot.ncl
 #  reports lots of errors, difficult to put on one page (psnup -3 if.ps of.ps)
