@@ -63,7 +63,7 @@ if [[ $lmetview = 1 ]] ; then
   DAYS_MONTH=`echo %YMD% | cut -c 7-8`
  #DAYS_MONTH=30
 
-  if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]] ; then
+  if [[ `echo %YMD% | cut -c 7-8` -le "12" ]] ; then
     DAYS_FC_MANY='1'                                # quickplots
   else
     DAYS_FC_MANY='1 10'
