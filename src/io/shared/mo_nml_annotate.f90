@@ -66,6 +66,7 @@ CONTAINS
   FUNCTION temp_defaults()
     INTEGER :: temp_defaults
     ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::temp_defaults'
     LOGICAL                     :: lopen
     CHARACTER(len=filename_max) :: filename
     INTEGER                     :: flen
@@ -78,6 +79,9 @@ CONTAINS
     IF (.NOT. lopen) THEN
       flen   = util_tmpnam(filename, filename_max)
       tmpnml = find_next_free_unit(10,100)
+      IF (tmpnml < 0) THEN
+        CALL finish(routine, "Failed call to find_next_free_unit.")
+      END IF
       OPEN(UNIT=tmpnml, FILE=filename(1:flen), &
         &  ACCESS='sequential',   action='write', delim='apostrophe')
     END IF
