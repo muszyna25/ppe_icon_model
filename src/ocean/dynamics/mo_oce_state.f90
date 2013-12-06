@@ -56,7 +56,7 @@ MODULE mo_oce_state
 !
 !
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -77,8 +77,8 @@ MODULE mo_oce_state
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length,set_del_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx
-  USE mo_loopindices,         ONLY: get_indices_e  !, get_indices_c, get_indices_v
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V,sync_patch_array, global_sum_array, sync_idx, &
+    & enable_sync_checks, disable_sync_checks
 
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
@@ -1688,10 +1688,11 @@ CONTAINS
     INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
     INTEGER :: dol_e, dol_c1, dol_c2, lsm_e
 
-    LOGICAL :: LIMITED_AREA = .FALSE.
-    LOGICAL :: l_vert_step  = .FALSE.
-    LOGICAL :: is_p_test_run
+    LOGICAL :: LIMITED_AREA
+    LOGICAL :: l_vert_step
 
+    LIMITED_AREA = .FALSE.
+    l_vert_step  = .FALSE.
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
@@ -1699,8 +1700,6 @@ CONTAINS
     all_cells   => p_patch%cells%all
     owned_edges => p_patch%edges%owned
     all_edges   => p_patch%edges%all
-
-    is_p_test_run = p_test_run
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
@@ -1889,9 +1888,7 @@ CONTAINS
     ! Correction loop for cells in all levels, similar to surface done in grid generator
     !  - through all levels each wet cell has at most one dry cell as neighbour
     !  - otherwise it is set to dry grid cell
-
     niter=30
-
     ZLOOP_COR: DO jk=1,n_zlev
 
       ctr_jk = 0
@@ -1901,7 +1898,7 @@ CONTAINS
 
       ! LL: disable checks here, the changes in halos will differ from seq run
       !     as the access patterns differ
-      p_test_run = .false.
+      CALL disable_sync_checks()
 
       DO jiter=1,niter
         !
@@ -1969,21 +1966,19 @@ CONTAINS
 
       END DO   ! jiter
 
+      CALL enable_sync_checks()
+
+      z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      lsm_c(:,:) = INT(z_sync_c(:,:))
+
       ! get back into 3D the slm
       v_base%lsm_c(:,jk,:) = lsm_c(:,:)
-
-      IF (is_p_test_run) THEN
-        ! check if we have the correct slm
-        p_test_run = is_p_test_run
-      ENDIF
-        z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
-        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-        lsm_c(:,:) = INT(z_sync_c(:,:))
 
     END DO ZLOOP_COR ! jk=1,n_zlev
 
     ! restore p_test_run
-    p_test_run = is_p_test_run
+    CALL enable_sync_checks()
 
     !---------------------------------------------------------------------------------------------
     ! Now run through whole zlevel_loop after correction of cells for calculation of boundaries
@@ -2016,8 +2011,6 @@ CONTAINS
       nosea_c(jk)=0
 
 
-      lsm_c(:,:) =  v_base%lsm_c(:,jk,:)
-
       DO jb = owned_cells%start_block, owned_cells%end_block
         CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
@@ -2028,7 +2021,7 @@ CONTAINS
             v_base%dolic_c(jc,jb) = jk
           ELSE
             ! -after correction: all other grid points are set to dry
-            lsm_c(jc,jb) = LAND
+            v_base%lsm_c(jc,jk,jb) = LAND
             nolnd_c(jk)=nolnd_c(jk)+1
           END IF
 
@@ -2042,16 +2035,10 @@ CONTAINS
 
       END DO
 
-      ! synchronize dolic_c
-      z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
+      ! now synchronize lsm_c
+      z_sync_c(:,:) =  REAL(v_base%lsm_c(:,jk,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
-
-      ! now synchronize auxiliary lsm_c and set to lsm_c
-      z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      lsm_c(:,:) = INT(z_sync_c(:,:))
-      v_base%lsm_c(:,jk,:) = lsm_c(:,:)
+      v_base%lsm_c(:,jk,:) = INT(z_sync_c(:,:))
 
       !  percentage of land area per level and global value
       !   - here: nosea/nolnd include boundaries
@@ -2085,22 +2072,13 @@ CONTAINS
         CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
         DO je = i_startidx, i_endidx
 
-!           IF (.NOT.p_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE  ! access inner domain only
+          !  IF (.NOT. p_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE  ! access inner domain only
 
           ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
           iic1 = p_patch%edges%cell_idx(je,jb,1)
           ibc1 = p_patch%edges%cell_blk(je,jb,1)
           iic2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
-          !
-!          IF (iic1 == 0) THEN
-!            iic1 = iic2
-!            ibc1 = ibc2
-!          ENDIF
-!          IF (iic2 == 0) THEN
-!            iic2 = iic1
-!            ibc2 = ibc1
-!          ENDIF
 
           ! when a cell is missing then the edge is considered boundary (=0)
           ! if the other cell is sea
@@ -2121,37 +2099,29 @@ CONTAINS
           ELSE
 
             ! set land/sea for all edges
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
-              &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
-              &   v_base%lsm_e(je,jk,jb) = SEA
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
-              &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
-              &   v_base%lsm_e(je,jk,jb) = LAND
-
-            ! set boundary values at edges
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) < 0)  .and.   &
-              &  (v_base%lsm_c(iic2,jk,ibc2) > 0) )        &
-              &   v_base%lsm_e(je,jk,jb) = BOUNDARY
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) > 0)  .and.   &
-              &  (v_base%lsm_c(iic2,jk,ibc2) < 0) )        &
-              &   v_base%lsm_e(je,jk,jb) = BOUNDARY
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) < BOUNDARY)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) < BOUNDARY) ) THEN
+                v_base%lsm_e(je,jk,jb) = SEA
+            ELSEIF ( (v_base%lsm_c(iic1,jk,ibc1) > BOUNDARY)  .and.   &
+              &  (v_base%lsm_c(iic2,jk,ibc2) > BOUNDARY) ) THEN
+                v_base%lsm_e(je,jk,jb) = LAND
+            ELSE
+               v_base%lsm_e(je,jk,jb) = BOUNDARY
+            ENDIF
 
           ENDIF
 
+          IF ( p_patch%edges%decomp_info%owner_mask(je,jb)) THEN
+            ! count land/sea/boundary values (sum of nosea_e no_lnd_e nobnd_e is global value)
+            IF ( v_base%lsm_e(je,jk,jb) <  BOUNDARY )      &
+              &  nosea_e(jk)=nosea_e(jk)+1
+            IF ( v_base%lsm_e(je,jk,jb) >  BOUNDARY )      &
+              &  nolnd_e(jk)=nolnd_e(jk)+1
+            IF ( v_base%lsm_e(je,jk,jb) == BOUNDARY )      &
+              &  nobnd_e(jk)=nobnd_e(jk)+1
+          ENDIF
 
-          ! count land/sea/boundary values (sum of nosea_e no_lnd_e nobnd_e is global value)
-          IF ( v_base%lsm_e(je,jk,jb) <  BOUNDARY )      &
-            &  nosea_e(jk)=nosea_e(jk)+1
-          IF ( v_base%lsm_e(je,jk,jb) >  BOUNDARY )      &
-            &  nolnd_e(jk)=nolnd_e(jk)+1
-          IF ( v_base%lsm_e(je,jk,jb) == BOUNDARY )      &
-            &  nobnd_e(jk)=nobnd_e(jk)+1
-
-      !    ! set dolic to jk if lsm_e is wet or boundary (maximum depth of 2 neighboring cells)
-      !    IF ( v_base%lsm_e(je,jk,jb) <= BOUNDARY )      &
-      !      &  v_base%dolic_e(je,jb) = jk
-
-          ! correction: set dolic to jk if lsm_e is wet (minimum depth of 2 neighboring cells)
+          ! set dolic to jk if lsm_e is wet (minimum depth of 2 neighboring cells)
           IF ( v_base%lsm_e(je,jk,jb) < BOUNDARY )      &
             &  v_base%dolic_e(je,jb) = jk
 
@@ -2168,11 +2138,6 @@ CONTAINS
       z_sync_e(:,:) =  REAL(v_base%lsm_e(:,jk,:),wp)
       CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
       v_base%lsm_e(:,jk,:) = INT(z_sync_e(:,:))
-
-      ! synchronize dolic_e
-      z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-      v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
 
       !  percentage of land area per level and global value
       ctr         = global_sum_array(nolnd_e(jk))
@@ -2204,7 +2169,7 @@ CONTAINS
         DO jc =  i_startidx, i_endidx
 
           ! sea points
-          IF (v_base%lsm_c(jc,jk,jb) < 0) THEN
+          IF (v_base%lsm_c(jc,jk,jb) < BOUNDARY) THEN
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
@@ -2266,6 +2231,16 @@ CONTAINS
     noct1_e = ctr
 
     !---------------------------------------------------------------------------------------------
+    ! synchronize dolic_c
+    z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
+    ! synchronize dolic_e
+    z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
+    CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
+    v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
+
+    !---------------------------------------------------------------------------------------------
     ! Output the levels
     WRITE(message_text,'(a,a)') &
     &     'LEVEL   zlev_m  Thickness   zlev_i  Distance ', &
@@ -2325,38 +2300,39 @@ CONTAINS
     !  - more tests? lsm(dolic) is no boundary any more
     !  - bugfix: owned_edges for test only
 !TODO: review usage of v_base, owned vs. all_edges
-    DO jb = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
-      DO je = i_startidx, i_endidx
-
-        dol_e = v_base%dolic_e(je,jb)
-
-        IF (dol_e > 1 .AND. dol_e < n_zlev) THEN
-
-          lsm_e = v_base%lsm_e(je,dol_e+1,jb)
-
-          ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
-          iic1 = p_patch%edges%cell_idx(je,jb,1)
-          ibc1 = p_patch%edges%cell_blk(je,jb,1)
-          iic2 = p_patch%edges%cell_idx(je,jb,2)
-          ibc2 = p_patch%edges%cell_blk(je,jb,2)
-
-          IF (iic1 > 0 .AND. iic2 > 0) THEN
-            dol_c1 = v_base%dolic_c(iic1,ibc1)
-            dol_c2 = v_base%dolic_c(iic2,ibc2)
-
-            IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
-              WRITE(message_text,'(a,2i3,a,i3)') &
-                &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
-              CALL message(TRIM(routine), TRIM(message_text))
-            END IF
-
-          END IF ! iic1 > 0 .AND. iic2 > 0
-
-        END IF
-
-      END DO
-    END DO
+! this is done in ocean_check_level_sea_land_mask
+!    DO jb = owned_edges%start_block, owned_edges%end_block
+!      CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
+!      DO je = i_startidx, i_endidx
+!
+!        dol_e = v_base%dolic_e(je,jb)
+!
+!        IF (dol_e > 1 .AND. dol_e < n_zlev) THEN
+!
+!          lsm_e = v_base%lsm_e(je,dol_e+1,jb)
+!
+!          ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
+!          iic1 = p_patch%edges%cell_idx(je,jb,1)
+!          ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!          iic2 = p_patch%edges%cell_idx(je,jb,2)
+!          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!
+!          IF (iic1 > 0 .AND. iic2 > 0) THEN
+!            dol_c1 = v_base%dolic_c(iic1,ibc1)
+!            dol_c2 = v_base%dolic_c(iic2,ibc2)
+!
+!            IF (dol_c1 == dol_c2 .AND. lsm_e == 0) THEN
+!              WRITE(message_text,'(a,2i3,a,i3)') &
+!                &   'WARNING: Found equal dolic_c at edge jb, je=',jb, je, ' below dolic_e=', dol_e
+!              CALL message(TRIM(routine), TRIM(message_text))
+!            END IF
+!
+!          END IF ! iic1 > 0 .AND. iic2 > 0
+!
+!        END IF
+!
+!      END DO
+!    END DO
 !TODO review
     IF(maxval(v_base%dolic_c)>n_zlev.or.minval(v_base%dolic_c)<0)THEN
       CALL message(TRIM(routine), TRIM('something wrong with dolic_c'))
