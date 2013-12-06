@@ -708,13 +708,14 @@
     !      Initial implementation  by  F.Prill, DWD (2011-08)
     !
     SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, lon_lat_points, &
-      &                                      nblks_lonlat, npromz_lonlat )
+      &                                      nblks_lonlat, npromz_lonlat, rbf_shape_param )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
+      REAL(wp),                      INTENT(IN)    :: rbf_shape_param
       ! Local parameters
       CHARACTER(*), PARAMETER :: routine = modname//"rbf_vec_compute_coeff_lonlat"
       REAL(wp)                         :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
@@ -751,7 +752,7 @@
 !$OMP                   grid_point),                                   &
 !$OMP          SHARED  (nproma, rbf_vec_dim_c, nblks_lonlat,           &
 !$OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!$OMP                   rbf_vec_kern_ll, jg, rbf_vec_scale_ll )
+!$OMP                   rbf_vec_kern_ll, jg)
 
       ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
         z_diag(nproma,rbf_vec_dim_c),                  &
@@ -802,9 +803,9 @@
 
               ! set up interpolation matrix
               IF      (rbf_vec_kern_ll == 1) THEN
-                z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+                z_rbfmat(jc,je1,je2) = z_nxprod * gaussi(z_dist,rbf_shape_param)
               ELSE IF (rbf_vec_kern_ll == 3) THEN
-                z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+                z_rbfmat(jc,je1,je2) = z_nxprod * inv_multiq(z_dist,rbf_shape_param)
               ENDIF
 
               IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
@@ -874,9 +875,9 @@
             z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
 
             IF (rbf_vec_kern_ll == 1) THEN
-              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              z_rbfval(jc,je2) = gaussi(z_dist,rbf_shape_param)
             ELSE IF (rbf_vec_kern_ll == 3) THEN
-              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_shape_param)
             ENDIF
 
             ! compute projection on target vector orientation
@@ -1068,13 +1069,14 @@
     !      Initial implementation  by  F.Prill, DWD (2012-06-13)
     !
     SUBROUTINE rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, lon_lat_points, &
-      &                               nblks_lonlat, npromz_lonlat )
+      &                               nblks_lonlat, npromz_lonlat, rbf_shape_param )
 
       ! Input parameters
       TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
       TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
+      REAL(wp),                      INTENT(IN)    :: rbf_shape_param
       ! Local parameters
       CHARACTER(*), PARAMETER :: routine = modname//"rbf_compute_coeff_c2l"
       REAL(wp)                         :: cc_c(nproma,3)             ! coordinates of cell centers
@@ -1103,7 +1105,7 @@
 !OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist, grid_point),    &
 !OMP          SHARED  (nproma, rbf_dim_c2l, nblks_lonlat,             &
 !OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!OMP                   rbf_vec_kern_ll, jg, rbf_vec_scale_ll )
+!OMP                   rbf_vec_kern_ll, jg )
 
       ALLOCATE( z_rbfmat(nproma,rbf_dim_c2l,rbf_dim_c2l),    &
         &       z_diag(nproma,rbf_dim_c2l),                  &
@@ -1148,9 +1150,9 @@
 
               ! set up interpolation matrix
               IF      (rbf_vec_kern_ll == 1) THEN
-                z_rbfmat(jc,je1,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+                z_rbfmat(jc,je1,je2) = gaussi(z_dist,rbf_shape_param)
               ELSE IF (rbf_vec_kern_ll == 3) THEN
-                z_rbfmat(jc,je1,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+                z_rbfmat(jc,je1,je2) = inv_multiq(z_dist,rbf_shape_param)
               ENDIF
 
               IF (je1 > je2) z_rbfmat(jc,je2,je1) = z_rbfmat(jc,je1,je2)
@@ -1199,9 +1201,9 @@
             z_dist = arc_length_v(cc_c(jc,:), cc_1%x(:))
 
             IF (rbf_vec_kern_ll == 1) THEN
-              z_rbfval(jc,je2) = gaussi(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              z_rbfval(jc,je2) = gaussi(z_dist,rbf_shape_param)
             ELSE IF (rbf_vec_kern_ll == 3) THEN
-              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_vec_scale_ll(MAX(jg,1)))
+              z_rbfval(jc,je2) = inv_multiq(z_dist,rbf_shape_param)
             ENDIF
 
           END DO
@@ -1610,8 +1612,8 @@
       ! compute interpolation coefficients for RBF interpolation of vector fields
       ! -------------------------------------------------------------------------
 
-      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat,  &
-        &                                in_points, nblks_lonlat, npromz_lonlat )
+      CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, npromz_lonlat, &
+        &                                rbf_vec_scale_ll(MAX(ptr_patch%id,1)) )
 
       ! -------------------------------------------------------------------------
       ! compute interpolation coefficients for RBF interpolation of scalar values
@@ -1619,8 +1621,9 @@
 
       IF (l_intp_c2l) THEN
         CALL rbf_c2l_index( ptr_patch, ptr_int, ptr_int_lonlat )
-        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat,  &
-          &                         in_points, nblks_lonlat, npromz_lonlat )
+        CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
+          &                         nblks_lonlat, npromz_lonlat,          &
+          &                         rbf_vec_scale_ll(MAX(ptr_patch%id,1)) )
 
         ! Compute reordered index lists to avoid nested indirect addressing at runtime
 !$OMP PARALLEL
