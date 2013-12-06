@@ -2085,9 +2085,18 @@ Defined and used in: src/namelists/mo\_initicon\_nml.f90
 \begin{longtab}
 
 \hline
-llsq\_lin\_consv&
-L& .FALSE.& &
-conservative (T) or non-conservative (F) least-squares reconstruction for 2nd order (linear) transport&
+l\_intp\_c2l&
+L& .TRUE.& &
+If .TRUE. directly interpolate scalar variables from cell centers to
+lon-lat points, otherwise do gradient interpolation and
+reconstruction.&
+\tabularnewline
+
+\hline
+l\_mono\_c2l&
+L& .TRUE.& &
+Monotonicity can be enforced by demanding that the interpolated
+value is not higher or lower than the stencil point values.&
 \tabularnewline
 
 \hline
@@ -2106,6 +2115,50 @@ polynomial order for high order reconstruction& \tabularnewline
 & & & & 3: cubic & \tabularnewline
 
 \hline
+llsq\_lin\_consv&
+L& .FALSE.& &
+conservative (T) or non-conservative (F) least-squares reconstruction for 2nd order (linear) transport&
+\tabularnewline
+
+\hline
+nudge\_efold\_width&
+R& 2.5& &
+e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
+\tabularnewline
+
+\hline
+nudge\_max\_coeff&
+R& 0.02& &
+Maximum relaxation coefficient for lateral boundary nudging&
+\tabularnewline
+
+\hline
+nudge\_zone\_width&
+I& 8& &
+Total width (in units of cell rows) for lateral boundary nudging zone&
+\tabularnewline
+
+\hline
+rbf\_dim\_c2l&
+I& 10& &
+stencil size for direct lon-lat interpolation:
+ 4 = nearest neighbor,
+13 = vertex stencil,
+10 = edge stencil.&
+\tabularnewline
+
+\hline
+rbf\_scale\_mode\_ll&
+I& 1& &
+Specifies, how the RBF shape parameter is
+determined for lon-lat interpolation.
+1 : lookup table based on grid level (default)
+2 : determine automatically.
+So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
+&
+\tabularnewline
+
+\hline
 rbf\_vec\_kern\_c&
 I& 1& &
 Kernel type for reconstruction at cell centres:& \tabularnewline
@@ -2120,16 +2173,16 @@ Kernel type for reconstruction at edges:& \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline
-rbf\_vec\_kern\_v&
+rbf\_vec\_kern\_ll&
 I& 1& &
-Kernel type for reconstruction at vertices:& \tabularnewline
+Kernel type for reconstruction at lon-lat-points:& \tabularnewline
 & & & & 1: Gaussian & \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline
-rbf\_vec\_kern\_ll&
+rbf\_vec\_kern\_v&
 I& 1& &
-Kernel type for reconstruction at lon-lat-points:& \tabularnewline
+Kernel type for reconstruction at vertices:& \tabularnewline
 & & & & 1: Gaussian & \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
@@ -2149,55 +2202,6 @@ Scale factor for RBF reconstruction at edges&
 rbf\_vec\_scale\_v&
 R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at vertices&
-\tabularnewline
-
-\hline
-rbf\_vec\_scale\_ll&
-R(n\_dom)& resolution-dependent& &
-Scale factor for RBF reconstruction at lon-lat-points&
-\tabularnewline
-
-\hline
-nudge\_max\_coeff&
-R& 0.02& &
-Maximum relaxation coefficient for lateral boundary nudging&
-\tabularnewline
-
-\hline
-nudge\_efold\_width&
-R& 2.5& &
-e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
-\tabularnewline
-
-\hline
-nudge\_zone\_width&
-I& 8& &
-Total width (in units of cell rows) for lateral boundary nudging zone&
-\tabularnewline
-
-
-\hline
-l\_intp\_c2l&
-L& .TRUE.& &
-If .TRUE. directly interpolate scalar variables from cell centers to
-lon-lat points, otherwise do gradient interpolation and
-reconstruction.&
-\tabularnewline
-
-\hline
-rbf\_dim\_c2l&
-I& 10& &
-stencil size for direct lon-lat interpolation:
- 4 = nearest neighbor,
-13 = vertex stencil,
-10 = edge stencil.&
-\tabularnewline
-
-\hline
-l\_mono\_c2l&
-L& .TRUE.& &
-Monotonicity can be enforced by demanding that the interpolated
-value is not higher or lower than the stencil point values.&
 \tabularnewline
 
 \end{longtab}
@@ -6145,7 +6149,7 @@ model expects {\bf height based} coordinates. For further information see <icon 
 
 \begin{changeitem}{output\_nml: filename\_format }{ 2013-12-02 }{ 15068 }
   \begin{itemize}
-   \item The string token \texttt{<ddhhmmss>} is now substuted by the \emph{relative} day-hour-minute-second
+   \item The string token \texttt{<ddhhmmss>} is now substituted by the \emph{relative} day-hour-minute-second
          string, whereas the absolute date-time stamp can be inserted using \texttt{<datetime>}.
   \end{itemize}
 \end{changeitem}
@@ -6159,6 +6163,14 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{interpl\_nml: rbf\_vec\_scale\_ll }{ 2013-12-06 }{ 15156 }
+  \begin{itemize}
+   \item The real-valued namelist parameter \texttt{rbf\_vec\_scale\_ll} has been removed.
+   \item Now, there exists a new integer-valued namelist parameter, \texttt{rbf\_scale\_mode\_ll}
+         which specifies the mode, how the RBF shape parameter is
+         determined for lon-lat interpolation.
+  \end{itemize}
+\end{changeitem}
 
 
 % --------------------------------------------------------------------------------------------
