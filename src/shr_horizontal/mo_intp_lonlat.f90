@@ -113,6 +113,8 @@
     !> level of output verbosity (for debugging purposes)
     INTEGER, PARAMETER  :: dbg_level = 0
 
+    CHARACTER(LEN=*), PARAMETER :: modname = TRIM('mo_intp_lonlat')
+
     PRIVATE
 
     PUBLIC :: init_lonlat_grid_list
@@ -149,8 +151,7 @@
     !
     SUBROUTINE init_lonlat_grid_list()
       INTEGER :: i
-      CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:init_lonlat_grid_list")
+      CHARACTER(*), PARAMETER :: routine = modname//"init_lonlat_grid_list"
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
 
@@ -169,8 +170,7 @@
     !
     SUBROUTINE destroy_lonlat_grid_list()
       INTEGER :: i, jg
-      CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:destroy_lonlat_grid_list")
+      CHARACTER(*), PARAMETER :: routine = modname//"destroy_lonlat_grid_list"
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
       DO i=1, n_lonlat_grids
@@ -195,8 +195,7 @@
       INTEGER,                       INTENT(IN)    :: nblks_local, nlocal_pts
 
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:resize_lonlat_state")
+      CHARACTER(*), PARAMETER :: routine = modname//"resize_lonlat_state"
       INTEGER, ALLOCATABLE  :: tmp_tri_idx(:,:,:), tmp_global_idx(:)
       INTEGER               :: errstat
 
@@ -237,8 +236,7 @@
       TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:compute_lonlat_intp_coeffs")
+      CHARACTER(*), PARAMETER :: routine = modname//"compute_lonlat_intp_coeffs"
       INTEGER              :: i, j, jg, n_points,  &
         &                     ist, glb_idx, my_id, nthis_local_pts
       INTEGER, ALLOCATABLE :: glb_owner(:)
@@ -352,8 +350,7 @@
     !
     SUBROUTINE compute_lonlat_area_weights()
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = &
-        &  TRIM("mo_intp_lonlat:compute_lonlat_area_weights")
+      CHARACTER(*), PARAMETER :: routine = modname//"compute_lonlat_area_weights"
       TYPE(t_cf_var)       :: cf_desc
       TYPE(t_grib2_var)    :: grib2_desc
       INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
@@ -433,7 +430,7 @@
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, nblks_c
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
 
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:allocate_int_state_lonlat")
+      CHARACTER(*), PARAMETER :: routine = modname//"allocate_int_state_lonlat"
       INTEGER :: ist
 
       ! ----------------------------------------------------------------------
@@ -502,7 +499,7 @@
     SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
 
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:deallocate_int_state_lonlat")
+      CHARACTER(*), PARAMETER :: routine = modname//"deallocate_int_state_lonlat"
       INTEGER :: ist
 
       !-----------------------------------------------------------------------
@@ -554,7 +551,7 @@
       TYPE (t_int_state),   INTENT(IN)     :: ptr_int
       TYPE(t_lon_lat_intp), INTENT(inout)  :: ptr_int_lonlat
 
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_lonlat:rbf_c2l_index")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_c2l_index"
       INTEGER :: ilc_n(3), ibc_n(3)       ! line and block index for neighbors of
       ! direct neighbors
       INTEGER :: ilv(3), ibv(3)           ! vertex line and block indices
@@ -719,7 +716,7 @@
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
       ! Local parameters
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_lonlat:rbf_vec_compute_coeff_lonlat")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_vec_compute_coeff_lonlat"
       REAL(wp)                         :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
       TYPE(t_cartesian_coordinates)    :: cc_center                  ! cartes. coordinates of lon-lat points
       REAL(wp), DIMENSION (nproma,3)   :: z_nx1, z_nx2, z_nx3        ! 3d  normal velocity vectors at edge midpoints
@@ -1079,7 +1076,7 @@
       REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
       INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
       ! Local parameters
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_lonlat:rbf_compute_coeff_c2l")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_compute_coeff_c2l"
       REAL(wp)                         :: cc_c(nproma,3)             ! coordinates of cell centers
       TYPE(t_cartesian_coordinates)    :: cc_center, cc_1, cc_2      ! temporary variables
       REAL(wp)                         :: z_dist                     ! distance between data points
@@ -1376,7 +1373,7 @@
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
       TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf_coeffs:rbf_setup_interpol_lonlat")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_setup_interpol_lonlat"
       ! Flag: .TRUE., if we want to erase values outside local domains
       LOGICAL,      PARAMETER :: l_cutoff_local_domains = .TRUE.
       ! Flag: .TRUE., if we want raw performance measurements
@@ -2378,7 +2375,7 @@
       INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat_real")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_interpol_lonlat_real"
       INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev
       REAL(wp) :: grad_x(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3)), &
         &         grad_y(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3))
@@ -2480,7 +2477,7 @@
       INTEGER,               INTENT(IN)           :: hintp_type
 
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf:rbf_interpol_lonlat_int")
+      CHARACTER(*), PARAMETER :: routine = modname//"rbf_interpol_lonlat_int"
       INTEGER :: slev, elev
 
       slev = 1
