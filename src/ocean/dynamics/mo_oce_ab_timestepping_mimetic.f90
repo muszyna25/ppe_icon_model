@@ -86,7 +86,7 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
 !  USE mo_parallel_config,           ONLY: p_test_run
-  USE mo_mpi,                       ONLY: my_process_is_stdio ! my_process_is_mpi_parallel
+  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id ! my_process_is_mpi_parallel
   USE mo_statistics,                ONLY: global_minmaxmean
   IMPLICIT NONE
   
@@ -1309,30 +1309,30 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: jc, jb, je
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
-    TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
+    TYPE(t_patch), POINTER :: patch_2D     ! patch_2D on which computation is performed
     !-----------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_lhs)
     !-----------------------------------------------------------------------
-    patch           => patch_3d%p_patch_2d(1)
-    cells_in_domain => patch%cells%in_domain
-    edges_in_domain => patch%edges%in_domain
+    patch_2D           => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
     
     
     gdt2_inv       = 1.0_wp / (grav*(dtime)**2)
     gam_times_beta = ab_gam * ab_beta
     
-    lhs   (1:nproma,patch%alloc_cell_blocks)  = 0.0_wp
+    lhs   (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
-    CALL sync_patch_array(sync_c, patch, p_x )
+    CALL sync_patch_array(sync_c, patch_2D, p_x(1:nproma,1:patch_2D%cells%all%end_block) )
     
     !Step 1) Calculate gradient of iterated height.
     CALL grad_fd_norm_oce_2d_3d( p_x, &
-      & patch,                       &
+      & patch_2D,                       &
       & p_op_coeff%grad_coeff(:,1,:),&
       & lhs_z_grad_h(:,:))
     
     ! the result lhs_z_grad_h is computed on in_domain edges
-    ! CALL sync_patch_array(sync_e, patch, lhs_z_grad_h(:,:) )
+    ! CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
     
     
     !TODO check
@@ -1351,13 +1351,13 @@ CONTAINS
         END DO
       END DO
       ! no need to sync since we will compute only cells in domain
-      !CALL sync_patch_array(SYNC_E, patch, lhs_z_e(:,:) )
+      !CALL sync_patch_array(SYNC_E, patch_2D, lhs_z_e(:,:) )
       
     ELSE  !IF(.NOT.l_edge_based)THEN
       
       ! the map_edges2edges_viacell_3d_const_z should be changes to calculate only
       ! on in_domai_edges. Still, edge valkues need to be synced
-      CALL sync_patch_array(sync_e, patch, lhs_z_grad_h(:,:) )
+      CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
       
       
       IF( iswm_oce /= 1 ) THEN
@@ -1373,7 +1373,7 @@ CONTAINS
     ENDIF ! l_edge_based
     
     !Step 3) Calculate divergence
-    CALL div_oce_3d( lhs_z_e, patch, p_op_coeff%div_coeff, lhs_div_z_c, &
+    CALL div_oce_3d( lhs_z_e, patch_2D, p_op_coeff%div_coeff, lhs_div_z_c, &
       & level=top, subset_range=cells_in_domain  )
     
     !Step 4) Finalize LHS calculations

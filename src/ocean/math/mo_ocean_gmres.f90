@@ -66,6 +66,7 @@ MODULE mo_ocean_gmres
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier, p_sum, &
     & get_my_mpi_work_communicator
+  USE mo_util_dbg_prnt,             ONLY: dbg_print
   
   IMPLICIT NONE
   
@@ -203,7 +204,7 @@ CONTAINS
     REAL(wp) :: rrn2, h_aux, rh
     INTEGER :: jb, jk, nlen
     
-    INTEGER :: no_of_blocks, pad_nproma
+    INTEGER :: no_of_blocks, pad_nproma, end_nproma
     INTEGER :: my_mpi_work_communicator
     
     REAL(wp) :: sum_aux(p_patch_3d%p_patch_2d(1)%cells%in_domain%end_block)
@@ -214,6 +215,8 @@ CONTAINS
     
     INTEGER :: mythreadno
     TYPE(t_patch), POINTER :: patch_2d
+    CHARACTER(len=*), PARAMETER :: method_name='ocean_restart_gmres'
+
     !$ INTEGER OMP_GET_THREAD_NUM
     !-------------------------------------------------------------------------
     !  write(0,*) "--------------- gmres --------------------------"
@@ -222,19 +225,18 @@ CONTAINS
     my_mpi_work_communicator = get_my_mpi_work_communicator()
     ! 0) set module variables and initialize maxiterex
     no_of_blocks    = patch_2d%cells%in_domain%end_block
+    end_nproma      = patch_2d%cells%in_domain%end_index
     pad_nproma      = patch_2d%cells%in_domain%end_index + 1
     
     maxiterex = .FALSE.
     
     v(:,:,:)  = 0.0_wp
- !   r(:,:)    = 0.0_wp
+    r(:,:)    = 0.0_wp
+    b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+ !   w(:, :) = 0.0_wp
+ !   b(:, :) = 0.0_wp
+ !   x(:, :) = 0.0_wp
     
-    IF (pad_nproma <= nproma) THEN
- !     w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-      b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-      x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    ENDIF
-
     ! 1) compute the preconditioned residual
     IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
     IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),p_patch_3d,p_op_coeff,h_e)
@@ -242,9 +244,8 @@ CONTAINS
     
     w(:, :) = lhs(x(:,:),old_h, p_patch_3d,coeff, h_e, thickness_c, p_op_coeff)
 
-    w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    ! b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    ! x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    ! w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     
     !    write(0,*) "-----------------------------------"
     !    sum_x(1) = SUM(x(:,:))
@@ -269,6 +270,7 @@ CONTAINS
     DO jb = 1, no_of_blocks
       sum_aux(jb) = SUM(r(1:nproma,jb) * r(1:nproma,jb))
     ENDDO
+    ! sum_aux(no_of_blocks) = SUM(r(1:end_nproma,no_of_blocks) * r(1:end_nproma,no_of_blocks))
 !ICON_OMP_END_DO
     
     IF (mythreadno == 0) THEN
@@ -293,6 +295,11 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
     ENDIF
 !ICON_OMP_END_PARALLEL
+
+!    CALL dbg_print('1: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
+!    CALL dbg_print('1: r', r, method_name, 3, in_subset=patch_2d%cells%owned)
+!    write(0,*) "h_aux:", h_aux, " rn2(1):", rn2(1)
+
     !      write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'r=', r(pad_nproma+1:nproma, no_of_blocks)
     !      write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'v=', v(pad_nproma+1:nproma, no_of_blocks, 1)
     !      CALL p_barrier
@@ -321,9 +328,10 @@ CONTAINS
       ! 4.1) compute the next (i.e. i+1) Krylov vector
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
+      ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
       w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, coeff, h_e, thickness_c, p_op_coeff )
-      w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
-      ! v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
+      ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
+      v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
       
       !      sum_v = SUM(v(:,:,i))
       !      sum_w = SUM(w(:,:))
@@ -344,9 +352,9 @@ CONTAINS
         ENDDO
 !ICON_OMP_END_DO
         
-        !      write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'w=', w(pad_nproma+1:nproma, no_of_blocks)
-        !      write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, k, 'v=', v(pad_nproma+1:nproma, no_of_blocks, k)
-        !      CALL p_barrier
+        ! write(*,*)  get_my_global_mpi_id(), 'v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
+        ! write(*,*)  get_my_global_mpi_id(), 'w(pad):', pad_nproma, nproma, 'w=', w(pad_nproma:nproma, no_of_blocks)
+        ! CALL p_barrier
         
         IF (mythreadno == 0) THEN
           h_aux = SUM(sum_aux(1:no_of_blocks))
@@ -357,6 +365,9 @@ CONTAINS
 !ICON_OMP FLUSH(h_aux)
         ENDIF
 !ICON_OMP BARRIER
+!        CALL dbg_print('anroldi: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
+!        CALL dbg_print('anroldi: v', v, method_name, 3, in_subset=patch_2d%cells%owned)
+!        write(0,*) "h_aux:", h_aux
         
 !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
@@ -595,6 +606,7 @@ CONTAINS
     
     INTEGER :: mythreadno
     TYPE(t_patch), POINTER :: patch_2d
+    CHARACTER(len=*), PARAMETER :: method_name='gmres_oce_old'
     !$ INTEGER OMP_GET_THREAD_NUM
     !-------------------------------------------------------------------------
     patch_2d =>  p_patch_3d%p_patch_2d(1)
@@ -602,7 +614,7 @@ CONTAINS
     ! 0) set module variables and initialize maxiterex
     !>
     !!
-    no_of_blocks    = patch_2d%cells%in_domain%end_block
+    no_of_blocks = patch_2d%cells%in_domain%end_block
     end_nproma   = patch_2d%cells%in_domain%end_index
     
     maxiterex = .FALSE.
@@ -683,6 +695,9 @@ CONTAINS
     ENDIF
     
 !ICON_OMP_END_PARALLEL
+!    CALL dbg_print('1: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
+!    CALL dbg_print('1: r', r, method_name, 3, in_subset=patch_2d%cells%owned)
+!    write(0,*) " rn2(1):", rn2(1)
     
     IF (rn2(1) == 0.0_wp) THEN ! already done
       !    print*,' gmres: rn2(1)=0.0 '
@@ -743,7 +758,10 @@ CONTAINS
 !ICON_OMP_END_DO
         h_aux = omp_global_sum_array(z)
 #endif
-        
+!        CALL dbg_print('anroldi: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
+!        CALL dbg_print('anroldi: v', v, method_name, 3, in_subset=patch_2d%cells%owned)
+!        write(0,*) "h_aux:", h_aux
+
         IF (mythreadno == 0) h(k,i) = h_aux
         
 !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
