@@ -252,49 +252,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 IF (timers_level > 5) CALL timer_start(timer_grad)
 
 !$OMP PARALLEL
-! The special treatment of 2D fields is essential for efficiency on the NEC
-
-SELECT CASE (ptr_patch%cell_type)
-
-CASE (3) ! (cell_type == 3)
-
-
-#ifdef __SX__
-IF (slev > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, rl_start, rl_end)
-
-#ifdef _URD2
-!CDIR UNROLL=_URD2
-#endif
-#ifdef __LOOP_EXCHANGE
-    DO je = i_startidx, i_endidx
-      DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO je = i_startidx, i_endidx
-#endif
-      !
-      ! compute the normal derivative
-      ! by the finite difference approximation
-      ! (see Bonaventura and Ringler MWR 2005)
-      !
-        grad_norm_psi_e(je,jk,jb) =  &
-          &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) - &
-          &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
-          &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-
-      ENDDO
-
-    END DO
-
-  END DO
-!$OMP END DO
-ELSE
-#endif
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -302,9 +259,6 @@ ELSE
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
 
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
@@ -329,50 +283,7 @@ ELSE
 
   END DO
 !$OMP END DO NOWAIT
-#ifdef __SX__
-ENDIF
-#endif
-CASE (6) ! (cell_type == 6)
 
-  ! no grid refinement in hexagonal model
-  nblks_e   = ptr_patch%nblks_e
-  npromz_e  = ptr_patch%npromz_e
-
-!$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_e
-
-    IF (jb /= nblks_e) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_e
-    ENDIF
-
-#ifdef __LOOP_EXCHANGE
-    DO je = 1, nlen
-      DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO je = 1, nlen
-#endif
-      !
-      ! compute the normal derivative
-      ! by the finite difference approximation
-      ! (see Bonaventura and Ringler MWR 2005)
-      !
-        grad_norm_psi_e(je,jk,jb) =  &
-          &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) - &
-          &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
-          &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
-          &  * ptr_patch%edges%system_orientation(je,jb)
-
-    ENDDO
-
-  END DO
-
-END DO
-
-!$OMP END DO NOWAIT
-END SELECT
 !$OMP END PARALLEL
 
 IF (timers_level > 5) CALL timer_stop(timer_grad)
@@ -704,7 +615,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 !
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
-REAL(wp), INTENT(inout) ::  &
+REAL(vp), INTENT(inout) ::  &
   &  p_grad(:,:,:,:)      ! dim:(nproma,4,nlev,nblks_c)
 
 INTEGER :: slev, elev     ! vertical start and end level
@@ -911,9 +822,7 @@ IF ( PRESENT(opt_p_face) ) THEN
     &                      slev, elev)
 ENDIF
 
-SELECT CASE (ptr_patch%cell_type)
 
-  CASE (3) ! (cell_type == 3)
 !
 ! 2. reconstruction of cell based geographical gradient
 !
@@ -967,57 +876,7 @@ SELECT CASE (ptr_patch%cell_type)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-CASE(6) ! (cell_type == 6)
-!
-! 2. reconstruction of cell based geographical gradient
-!
-  nblks_c = ptr_patch%nblks_c
-  npromz_c = ptr_patch%npromz_c
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_c
-    IF (jb /= nblks_c) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_c
-    ENDIF
 
-#ifdef __LOOP_EXCHANGE
-    DO jc = 1, nlen
-      DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO jc = 1, nlen
-#endif
-
-        ! multiply cell-based input values with precomputed grid geometry factor
-
-        ! zonal(u)-component of Green-Gauss gradient
-        p_grad(jc,jk,jb,1) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
-          ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
-          ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
-          ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) + &
-          ptr_int%geofac_grg(jc,5,jb,1)*p_cc(iidx(jc,jb,4),jk,iblk(jc,jb,4)) + &
-          ptr_int%geofac_grg(jc,6,jb,1)*p_cc(iidx(jc,jb,5),jk,iblk(jc,jb,5)) + &
-          ptr_int%geofac_grg(jc,7,jb,1)*p_cc(iidx(jc,jb,6),jk,iblk(jc,jb,6))
-
-        ! meridional(v)-component of Green-Gauss gradient
-        p_grad(jc,jk,jb,2) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
-          ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
-          ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
-          ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) + &
-          ptr_int%geofac_grg(jc,5,jb,2)*p_cc(iidx(jc,jb,4),jk,iblk(jc,jb,4)) + &
-          ptr_int%geofac_grg(jc,6,jb,2)*p_cc(iidx(jc,jb,5),jk,iblk(jc,jb,5)) + &
-          ptr_int%geofac_grg(jc,7,jb,2)*p_cc(iidx(jc,jb,6),jk,iblk(jc,jb,6))
-
-      END DO ! end loop over cells
-
-    END DO ! end loop over vertical levels
-
-  END DO ! end loop over blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-END SELECT
 END SUBROUTINE grad_green_gauss_cell_adv
 
   SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,       &
