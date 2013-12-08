@@ -613,11 +613,11 @@ cat > ${ocean_namelist} << EOF
                                         ! 3: use initial T read with init_oce=1
 /
 &io_nml
-  out_expname    = '${EXPNAME}_ocn'     ! file name base
-  dt_data        = ${dt_data}           ! [s] write output
-  dt_file        = ${dt_file}           ! [s] interval for generation of new output file (3600*24*365 -> 1y)
+!  out_expname    = '${EXPNAME}_ocn'     ! file name base
+!  dt_data        = ${dt_data}           ! [s] write output
+!  dt_file        = ${dt_file}           ! [s] interval for generation of new output file (3600*24*365 -> 1y)
   dt_checkpoint  = ${dt_checkpoint}
-  lwrite_initial = .FALSE.              ! do/don't write out initial data
+!  lwrite_initial = .FALSE.              ! do/don't write out initial data
   lkeep_in_sync  = .TRUE.               ! sync after each timestep
 /
 EOF
