@@ -1113,6 +1113,7 @@ CONTAINS
       wrk_p_patch%level              = wrk_p_patch_g%level
       wrk_p_patch%id                 = wrk_p_patch_g%id
       wrk_p_patch%cells%max_connectivity = wrk_p_patch_g%cells%max_connectivity
+      wrk_p_patch%verts%max_connectivity = wrk_p_patch_g%verts%max_connectivity
       wrk_p_patch%parent_id          = wrk_p_patch_g%parent_id
       wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
       wrk_p_patch%child_id(:)        = wrk_p_patch_g%child_id(:)
