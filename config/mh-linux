@@ -486,6 +486,7 @@ case "$ac_sitename" in
                 ;;
             gfortran*)
                 COMPILER=GFORTRAN
+                gfortran_version = `gfortran --version | awk 'NR==1 {print $4}'`
                 ;;
             g95*)
                 echo "ERROR: g95 currently not supported."
@@ -534,6 +535,10 @@ case "$ac_sitename" in
                 # CFLAGS   = -std=gnu99 -march=native -O2 -Df2cFortran
                 # CFLAGS   = ${CFLAGS} -Df2cFortran
                 # CFLAGS   = -O -Df2cFortran
+		FFLAGS      = "$FCPP" "$FLANG" "$FWARN" -D__GFORTRAN__
+		# FFLAGS      = "$FCPP" "$FLANG" "$FWARN" -DMESSY -D__GFORTRAN__ -DMESSYTIMER
+		# -fall-intrinsics to use etime in messy_main_qtimer
+		# FFLAGS      = "$FCPP" "$FLANG" "$FWARN" -DMESSY -D__GFORTRAN__ -DMESSYTIMER -fall-intrinsics
                 F77      = mpif90
                 FC      = mpif90
                 ##### F95 EXTENSIONS
@@ -554,12 +559,29 @@ case "$ac_sitename" in
                 ;;
 
             GFORTRAN*)
-                MPIROOT    = /export/opt/PA/prgs/openmpi/1.4.4/gfortran/4.6.2
-                MPI_LIB    = 
-                NETCDFROOT = /export/opt/PA/prgs/netcdf/3.6.3/gfortran/4.6.2
-                HDF5ROOT    = /export/opt/PA/prgs/hdf5/1.8.8
-                SZIPROOT    = 
-                ZLIBROOT    = 
+                case "${gfortran_version}" in
+                    4.6.2*)
+                        MPIROOT    = /export/opt/PA/prgs/openmpi/1.4.4/gfortran/4.6.2
+                        MPI_LIB    = 
+                        NETCDFROOT = /export/opt/PA/prgs/netcdf/3.6.3/gfortran/4.6.2
+                        HDF5ROOT    = /export/opt/PA/prgs/hdf5/1.8.8
+                        SZIPROOT    = 
+                        ZLIBROOT    = 
+                        ;;
+                    4.8.1*)
+                        MPIROOT    = /export/opt/PA/prgs/openmpi/1.6.5/gfortran/4.8.1
+                        MPI_LIB    = 
+                        NETCDFROOT = /export/opt/PA/prgs/netcdf/3.6.3/gfortran/4.8.1
+                        HDF5ROOT    = /export/opt/PA/prgs/hdf5/1.8.8
+                        SZIPROOT    = 
+                        ZLIBROOT    = 
+                        ;;
+                    *)
+                        echo "ERROR: gfortran version not supported"
+                        echo "       (use 4.6.2 or 4.8.1)"
+	                exit
+                        ;;
+                esac
                 ;;
         esac
         ;;

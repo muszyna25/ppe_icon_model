@@ -138,6 +138,7 @@ distclean:
 	-rm -rf doc/html
 	-rm -rf doc/latex
 	-rm -rf html/[a-z]*
+	-rm -f src/messy_interface
 
 doc:
 	doxygen doc/resources/doxyfile_icon_html
