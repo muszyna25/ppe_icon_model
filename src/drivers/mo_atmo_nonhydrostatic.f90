@@ -229,6 +229,9 @@ CONTAINS
 
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
+#ifdef MESSY
+    CALL messy_init_memory
+#endif
 
     ! Due to the required ability to overwrite advection-Namelist settings 
     ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
@@ -243,6 +246,9 @@ CONTAINS
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 
+#ifdef MESSY
+    CALL messy_init_coupling
+#endif
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -396,6 +402,10 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL message(TRIM(routine),'start to clean up')
+
+#ifdef MESSY
+    CALL messy_free_memory
+#endif
 
     ! Destruction of post-processing job queue
     CALL pp_scheduler_finalize()

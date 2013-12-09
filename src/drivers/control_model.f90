@@ -80,6 +80,13 @@ PROGRAM control_model
 !   USE mo_radiation_model,     ONLY: radiation_model
 #endif
 
+#ifdef MESSY
+  USE messy_main_constants_mem, ONLY: modver
+  USE messy_main_compilerinfo_mem, ONLY: compiler_version, compiler_call &
+    &   , compiler_flags                                                 &
+    &   , compiler_cppdefs, compiler_includes
+#endif
+
   IMPLICIT NONE
 
   INTEGER    :: master_control_status

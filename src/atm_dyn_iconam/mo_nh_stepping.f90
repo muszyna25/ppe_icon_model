@@ -157,6 +157,14 @@ MODULE mo_nh_stepping
     &                               close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,    ONLY: prep_adv, jstep_adv
 
+#ifdef MESSY
+  USE messy_main_channel_bi,   ONLY: messy_channel_write_output &
+    &                              , IOMODE_RST
+#ifdef MESSYTIMER
+  USE messy_main_timer_bi,     ONLY: messy_timer_reset_time 
+#endif
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -337,6 +345,11 @@ MODULE mo_nh_stepping
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
+
+#ifdef MESSY
+    ! MESSy initial output
+!    CALL messy_write_output
+#endif
 
   END IF ! not is_restart_run()
 
@@ -599,6 +612,10 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
+#ifdef MESSY
+    CALL messy_write_output
+#endif
+
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_nml_output) THEN
@@ -677,12 +694,19 @@ MODULE mo_nh_stepping
         ! Create the master (meta) file in ASCII format which contains
         ! info about which files should be read in for a restart run.
         CALL write_restart_info_file
+#ifdef MESSY
+        CALL messy_channel_write_output(IOMODE_RST)
+!        CALL messy_ncregrid_write_restart
+#endif
       END IF
 
       lwrite_checkpoint = .FALSE.
     END IF
 
-
+#ifdef MESSYTIMER
+    ! timer sync
+    CALL messy_timer_reset_time
+#endif
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
@@ -868,6 +892,9 @@ MODULE mo_nh_stepping
       n_now_rcf = nnow_rcf(jg)
       n_new_rcf = nnew_rcf(jg)
 
+#ifdef MESSY
+      CALL messy_global_start
+#endif      
       !
       ! counter for simulation time in seconds
       time_config%sim_time(jg) = time_config%sim_time(jg) + dt_loc
@@ -1427,6 +1454,10 @@ MODULE mo_nh_stepping
     ENDDO
     
     IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
+
+#ifdef MESSY
+    CALL messy_global_end
+#endif
 
   END SUBROUTINE integrate_nh
 

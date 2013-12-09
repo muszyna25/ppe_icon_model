@@ -279,6 +279,10 @@ CONTAINS
     !! DR end temporary hack !!
     CALL atm_crosscheck
 
+#ifdef MESSY
+    CALL messy_setup
+#endif
+
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
@@ -514,6 +518,10 @@ CONTAINS
 
 
     CALL init_rrtm_model_repart()
+
+#ifdef MESSY
+    CALL messy_initialize
+#endif
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
