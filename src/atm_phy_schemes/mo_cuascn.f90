@@ -328,7 +328,7 @@ LOGICAL :: llklab(klon)
 
 ! GZ, 2013-09-13: set this parameter to .TRUE. in order to test set of tuning changes
 ! to reduce the tendency of drizzling and to reduce the humidity bias in the tropics
-LOGICAL, PARAMETER :: ltuning_test_detrain = .FALSE.
+LOGICAL, PARAMETER :: ltuning_test_detrain = .true. ! .FALSE.
 LOGICAL, PARAMETER :: ltuning_test_kessler = .TRUE.
 !LOGICAL, PARAMETER :: ltuning_test = .TRUE.
 
@@ -808,8 +808,10 @@ DO jk=klev-1,ktdia+2,-1
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
             zkedke=MAX(1.e-30_JPRB,MIN(1.0_JPRB,zkedke))
-            zmfun=EXP(exp_detr*LOG(zkedke))*pmfu(jl,jk+1)
-            zdmfde(jl)=MAX(zdmfde(jl),pmfu(jl,jk+1)-zmfun)
+            zmfun=EXP(exp_detr*LOG(zkedke))
+            ! ** suggestion by P. Bechtold (2013-11-21) - seems to further increase the moist bias in ICON **
+  !          zmfun = (1.6_JPRB-MIN(1.0_JPRB,pqen(JL,JK)/pqsen(JL,JK)))*zmfun
+            zdmfde(jl)=MAX(zdmfde(jl),pmfu(jl,jk+1)*(1.0_JPRB-zmfun))
             plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
             pmfu(jl,jk)=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
           ENDIF
