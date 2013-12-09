@@ -1,0 +1,19 @@
+&CTRL
+L_FAMILY     = F,
+L_PDEF       = F,
+/
+&CPL
+L_TRACER_INIT = F,
+L_CONV_LG2GP  = F,
+/
+&CTRL_FAMILY
+l_verbose = F,
+i_diag_pe = 0,
+i_diag_jrow = 1,
+/
+&CPL_PDEF
+TPD_TIMER = 1,'steps','first',0
+/
+&CTRL_PDEF
+L_DIAGOUT = F,
+/
