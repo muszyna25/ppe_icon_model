@@ -3003,13 +3003,13 @@ CONTAINS
     ! cells
     CALL add_var(ocean_default_list, 'wet_c', patch_3D%wet_c , GRID_UNSTRUCTURED_CELL,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT64),&
+    &            t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),isteptype=TSTEP_CONSTANT)
     ! edges
     CALL add_var(ocean_default_list, 'wet_e', patch_3D%wet_e , GRID_UNSTRUCTURED_EDGE,&
     &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT64),&
+    &            t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default"),isteptype=TSTEP_CONSTANT)
     ! 3-dim real land-sea-mask with zero on halos
