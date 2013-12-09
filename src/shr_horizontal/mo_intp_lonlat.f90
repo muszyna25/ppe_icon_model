@@ -1620,6 +1620,9 @@
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
       END SELECT
+      ! fallback solution:
+      IF (rbf_shape_param <= 0._wp) &
+        &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
       WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
       CALL message(routine, message_text)
 
@@ -1665,6 +1668,9 @@
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
         END SELECT
+        ! fallback solution:
+        IF (rbf_shape_param <= 0._wp) &
+          &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
         WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
         CALL message(routine, message_text)
         ! compute coefficients:
