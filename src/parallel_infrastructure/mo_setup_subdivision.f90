@@ -335,7 +335,6 @@ CONTAINS
           & order_type_of_halos,  p_pe_work)
       ENDIF
 
-
       DEALLOCATE(cell_owner)
       IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
 
@@ -347,30 +346,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE decompose_domain
-
-
-  !-----------------------------------------------------------------------------
-  !> discard_large_arrays:
-  !! Deallocate large arrays in patch which are not output to NetCDF anyways
-
-  SUBROUTINE discard_large_arrays(p, n)
-
-    TYPE(t_patch), INTENT(INOUT) :: p
-    INTEGER, INTENT(IN) :: n
-
-    ! owner_g is identical everywhere and output only for the first patch
-
-    IF(n>1) THEN
-      DEALLOCATE(p%cells%decomp_info%owner_g)
-      DEALLOCATE(p%edges%decomp_info%owner_g)
-      DEALLOCATE(p%verts%decomp_info%owner_g)
-      ! Allocate it again
-      ALLOCATE(p%cells%decomp_info%owner_g(1))
-      ALLOCATE(p%edges%decomp_info%owner_g(1))
-      ALLOCATE(p%verts%decomp_info%owner_g(1))
-    ENDIF
-
-  END SUBROUTINE discard_large_arrays
 
   !-----------------------------------------------------------------------------
   !>
@@ -752,26 +727,6 @@ CONTAINS
     ! which is participating at this edge/vert if both PE numbers are even or odd, otherwise
     ! the lowest processor number is chosen
     !-----------------------------------------------------------------------------------------------
-    wrk_p_patch%cells%decomp_info%owner_g(:) = -1
-    wrk_p_patch%edges%decomp_info%owner_g(:) = -1
-    wrk_p_patch%verts%decomp_info%owner_g(:) = -1
-    wrk_p_patch%cells%decomp_info%owner_g(flag2_c_list(0)%idx(1:n2_ilev_c(0))) = my_proc
-    wrk_p_patch%edges%decomp_info%owner_g(owned_edges) = my_proc
-    wrk_p_patch%verts%decomp_info%owner_g(owned_verts) = my_proc
-#ifndef NOMPI
-    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%cells%decomp_info%owner_g, &
-         SIZE(wrk_p_patch%cells%decomp_info%owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%edges%decomp_info%owner_g, &
-         SIZE(wrk_p_patch%edges%decomp_info%owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-    CALL mpi_allreduce(mpi_in_place, wrk_p_patch%verts%decomp_info%owner_g, &
-         SIZE(wrk_p_patch%verts%decomp_info%owner_g), &
-         p_int, mpi_max, p_comm_work, ierror)
-    IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-#endif
     CALL dist_dir_setup(wrk_p_patch%cells%decomp_info%owner_dist_dir, &
       &                 flag2_c_list(0)%idx(1:n2_ilev_c(0)), &
       &                 wrk_p_patch%n_patch_cells_g, p_comm_work, &

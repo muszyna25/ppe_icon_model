@@ -129,8 +129,7 @@ MODULE mo_decomposition_tools
     INTEGER, ALLOCATABLE :: glb_index(:)
     TYPE (t_glb2loc_index_lookup) :: glb2loc_index
 
-    ! Global array of owners
-    INTEGER, ALLOCATABLE :: owner_g(:)
+    ! Distributed directory containing owner information
     TYPE(t_dist_dir) :: owner_dist_dir
 
     ! Domain decomposition flag:
