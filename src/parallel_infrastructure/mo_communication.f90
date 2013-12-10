@@ -86,6 +86,7 @@ PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
 PUBLIC :: reorder_comm_pattern_rcv
+PUBLIC :: reorder_comm_gather_pattern
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
@@ -2941,6 +2942,20 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_l2d
+
+
+!> In-situ reordering of communication gather pattern.
+!
+!  @author M. Hanke, DKRZ (2013-11-13)
+!
+SUBROUTINE reorder_comm_gather_pattern(gather_pattern, idx_old2new)
+  TYPE (t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+  INTEGER,                      INTENT(IN)    :: idx_old2new(:) ! permutation array
+
+  gather_pattern%loc_index(:) = idx_old2new(gather_pattern%loc_index(:))
+
+END SUBROUTINE reorder_comm_gather_pattern
+
 
 
 !> In-situ reordering of communication pattern.
