@@ -845,6 +845,9 @@ MODULE mo_model_domain
     TYPE(t_comm_pattern) :: comm_pat_gather_c
     TYPE(t_comm_pattern) :: comm_pat_gather_e
     TYPE(t_comm_pattern) :: comm_pat_gather_v
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_c_
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_e_
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_v_
 
   END TYPE t_phys_patch
 

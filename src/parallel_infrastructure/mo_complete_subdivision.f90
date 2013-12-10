@@ -1497,7 +1497,7 @@ CONTAINS
   SUBROUTINE setup_phys_patches
     INTEGER :: jp, jg, n, i, j, jb, jl
     INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
-    INTEGER, ALLOCATABLE :: owner(:), glbidx(:)
+    INTEGER, ALLOCATABLE :: owner(:), glbidx(:), owner_local(:)
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
 
     p_phys_patch(:)%logical_id = -1
@@ -1607,6 +1607,10 @@ CONTAINS
       n = MAX(p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_edges_g,p_patch(jg)%n_patch_verts_g)
       ALLOCATE(owner (n))
       ALLOCATE(glbidx(n))
+      n = MAX(p_patch(jg)%n_patch_cells, &
+        &     p_patch(jg)%n_patch_edges, &
+        &     p_patch(jg)%n_patch_verts)
+      ALLOCATE(owner_local(n))
 
       DO jp = 1, max_phys_dom ! Loop over physical patches
 
@@ -1693,8 +1697,42 @@ CONTAINS
           ENDIF
         ENDIF
 
+        DO i = 1, p_patch(jg)%n_patch_cells
+          owner_local(i) = &
+            MERGE(p_patch(jg)%cells%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%cells%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_cells_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_cells), &
+          &                            p_patch(jg)%cells%decomp_info%glb_index(:), &
+          &                            p_phys_patch(jp)%comm_pat_gather_c_)
+
+        DO i = 1, p_patch(jg)%n_patch_edges
+          owner_local(i) = &
+            MERGE(p_patch(jg)%edges%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%edges%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_edges_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_edges), &
+          &                            p_patch(jg)%edges%decomp_info%glb_index(:), &
+          &                            p_phys_patch(jp)%comm_pat_gather_e_)
+
+        DO i = 1, p_patch(jg)%n_patch_verts
+          owner_local(i) = &
+            MERGE(p_patch(jg)%verts%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%verts%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_verts_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_verts), &
+          &                            p_patch(jg)%verts%decomp_info%glb_index(:), &
+          &                            p_phys_patch(jp)%comm_pat_gather_v_)
+
       ENDDO
 
+      DEALLOCATE(owner_local)
       DEALLOCATE(owner)
       DEALLOCATE(glbidx)
       DEALLOCATE(glb_phys_id_c)
