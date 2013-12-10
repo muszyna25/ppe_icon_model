@@ -541,6 +541,8 @@ MODULE mo_mpi
     MODULE PROCEDURE p_gatherv_real2D1D
     MODULE PROCEDURE p_gatherv_real3D1D
     MODULE PROCEDURE p_gatherv_int2D1D
+    MODULE PROCEDURE p_gatherv_real2D2D
+    MODULE PROCEDURE p_gatherv_int2D2D
   END INTERFACE
 
   INTERFACE p_max
@@ -6782,6 +6784,62 @@ CONTAINS
      recvbuf((displs(1)+1):(displs(1)+sendcount)) = sendbuf(1:sendcount)
 #endif
    END SUBROUTINE p_gatherv_int
+
+
+   SUBROUTINE p_gatherv_real2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                            displs, p_dest, comm)
+     REAL(WP), INTENT(IN) :: sendbuf(:,:)
+     INTEGER, INTENT(IN)  :: sendcount
+     REAL(WP), INTENT(OUT) :: recvbuf(:,:)
+     INTEGER, INTENT(IN)  :: recvcounts(:)
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_dest
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D2D")
+
+     INTEGER :: dim1_size
+
+     dim1_size = SIZE(sendbuf, 1)
+
+     CALL MPI_GATHERV(sendbuf, sendcount*dim1_size,  p_real_dp, &
+       &              recvbuf, recvcounts(:)*dim1_size, displs*dim1_size, &
+       &              p_real_dp, p_dest, comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_real2D2D
+
+
+   SUBROUTINE p_gatherv_int2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                            displs, p_dest, comm)
+     INTEGER, INTENT(IN)  :: sendbuf(:,:)
+     INTEGER, INTENT(IN)  :: sendcount
+     INTEGER, INTENT(OUT)  :: recvbuf(:,:)
+     INTEGER, INTENT(IN)  :: recvcounts(:)
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_dest
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D2D")
+
+     INTEGER :: dim1_size
+
+     dim1_size = SIZE(sendbuf, 1)
+
+     CALL MPI_GATHERV(sendbuf, sendcount*dim1_size,  p_int, &
+       &              recvbuf, recvcounts(:)*dim1_size, displs*dim1_size, &
+       &              p_int, p_dest, comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_int2D2D
 
 
    SUBROUTINE p_gatherv_real2D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
