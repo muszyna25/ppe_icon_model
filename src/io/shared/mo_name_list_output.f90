@@ -73,7 +73,8 @@ MODULE mo_name_list_output
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword,                        &
     &                                     with_keywords, MAX_STRING_LEN,                            &
     &                                     tolower, int2string
-  USE mo_communication,             ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
+  USE mo_communication,             ONLY: exchange_data, t_comm_pattern, &
+    &                                     t_comm_gather_pattern, idx_no, blk_no
   USE mo_math_constants,            ONLY: pi, pi_180
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
   USE mo_name_list_output_types,    ONLY:  l_output_phys_patch, t_output_name_list,                 &
@@ -599,11 +600,13 @@ CONTAINS
     TYPE(t_reorder_info),  POINTER :: p_ri
     REAL(wp),          ALLOCATABLE :: r_ptr(:,:,:)
     INTEGER,           ALLOCATABLE :: i_ptr(:,:,:)
-    REAL(wp),          ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:)
-    INTEGER,           ALLOCATABLE :: i_tmp(:,:,:)
-    REAL(sp),          ALLOCATABLE :: r_out_sp(:,:)
-    REAL(dp),          ALLOCATABLE :: r_out_dp(:,:)
-    TYPE(t_comm_pattern),  POINTER :: p_pat
+    REAL(wp),          ALLOCATABLE :: r_out_recv(:,:)
+    REAL(wp),              POINTER :: r_out_wp(:,:)
+    INTEGER,           ALLOCATABLE :: r_out_int(:,:)
+    REAL(sp),  ALLOCATABLE, TARGET :: r_out_sp(:,:)
+    REAL(dp),  ALLOCATABLE, TARGET :: r_out_dp(:,:)
+    TYPE(t_comm_gather_pattern), &
+      &                   POINTER  :: p_pat
     LOGICAL                        :: l_error
     LOGICAL                        :: have_GRIB
 
@@ -753,18 +756,18 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri => patch_info(i_dom)%cells
-        p_pat => patch_info(i_dom)%p_pat_c
+        p_pat => patch_info(i_dom)%p_pat_c_
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri => patch_info(i_dom)%edges
-        p_pat => patch_info(i_dom)%p_pat_e
+        p_pat => patch_info(i_dom)%p_pat_e_
       CASE (GRID_UNSTRUCTURED_VERT)
         p_ri => patch_info(i_dom)%verts
-        p_pat => patch_info(i_dom)%p_pat_v
+        p_pat => patch_info(i_dom)%p_pat_v_
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
-        p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
+        p_pat => lonlat_grid_list(lonlat_id)%p_pat_(i_log_dom)
 #endif
 ! #ifndef __NO_ICON_ATMO__
       CASE default
@@ -783,75 +786,38 @@ CONTAINS
         nblks = (n_points-1)/nproma + 1
 
         IF (idata_type == iREAL) THEN
-          IF(my_process_is_mpi_workroot()) THEN
-            ALLOCATE(r_tmp(nproma,nlevs,nblks))
-          ELSE
-            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
-            ! otherwise exchange_data doesn't work!
-            ALLOCATE(r_tmp(nproma,nlevs,1))
-          ENDIF
-          r_tmp(:,:,:) = 0._wp
-          ! Gather data on root
-          IF(my_process_is_mpi_seq()) THEN
-            DO jk = 1, nlevs
-              DO i = 1, p_ri%n_own
-                r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
-              ENDDO
-            ENDDO
-          ELSE
-            CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
-          ENDIF
-        ELSE IF (idata_type == iINTEGER) THEN
-          IF(my_process_is_mpi_workroot()) THEN
-            ALLOCATE(i_tmp(nproma,nlevs,nblks))
-          ELSE
-            ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
-            ! otherwise exchange_data doesn't work!
-            ALLOCATE(i_tmp(nproma,nlevs,1))
-          ENDIF
-          i_tmp(:,:,:) = 0
-          ! Gather data on root
-          IF(my_process_is_mpi_seq()) THEN
-            DO jk = 1, nlevs
-              DO i = 1, p_ri%n_own
-                i_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
-              ENDDO
-            ENDDO
-          ELSE
-            CALL exchange_data(p_pat, RECV=i_tmp, SEND=i_ptr)
-          ENDIF
-        END IF
 
+          ALLOCATE(r_out_dp(MERGE(n_points, 0, &
+            &                      my_process_is_mpi_workroot()), nlevs))
+          r_out_wp => r_out_dp
+          r_out_wp(:,:) = 0
+          CALL exchange_data(r_ptr(:,:,:), r_out_wp(:,:), p_pat)
+
+        ELSE IF (idata_type == iINTEGER) THEN
+
+          ALLOCATE(r_out_int(MERGE(n_points, 0, &
+            &                      my_process_is_mpi_workroot()), nlevs))
+          r_out_int(:,:) = 0
+          CALL exchange_data(i_ptr(:,:,:), r_out_int(:,:), p_pat)
+
+        END IF
 
         have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
         IF(my_process_is_mpi_workroot()) THEN
 
-          ! De-block the array
           IF (use_dp_mpi2io .or. have_GRIB) THEN
-            ALLOCATE(r_out_dp(n_points, nlevs), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            IF (idata_type == iREAL) THEN
-              DO jk = 1, nlevs
-                r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
-              ENDDO
-            ELSE IF (idata_type == iINTEGER) THEN
-              DO jk = 1, nlevs
-                r_out_dp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), dp)
-              ENDDO
-            END IF
+            IF (.NOT. ALLOCATED(r_out_dp)) &
+              ALLOCATE(r_out_dp(n_points, nlevs))
+            IF (idata_type == iINTEGER) &
+              r_out_dp(:,:) = REAL(r_out_int(:,:), dp)
           ELSE
-            ALLOCATE(r_out_sp(n_points, nlevs), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            ALLOCATE(r_out_sp(n_points, nlevs))
             IF (idata_type == iREAL) THEN
-              DO jk = 1, nlevs
-                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
-              ENDDO
+              r_out_sp(:,:) = REAL(r_out_wp(:,:), sp)
             ELSE IF (idata_type == iINTEGER) THEN
-              DO jk = 1, nlevs
-                r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
-              ENDDO
+              r_out_sp(:,:) = REAL(r_out_int(:,:), sp)
             END IF
-          ENDIF
+          END IF
 
           ! ------------------
           ! case of a test run
@@ -905,17 +871,9 @@ CONTAINS
         ENDIF
 
         ! clean up
-        IF (ALLOCATED(r_tmp))  DEALLOCATE(r_tmp)
-        IF (ALLOCATED(i_tmp))  DEALLOCATE(i_tmp)
-
-        IF (my_process_is_mpi_workroot()) THEN
-          IF (use_dp_mpi2io .or. have_GRIB) THEN
-            DEALLOCATE(r_out_dp, STAT=ierrstat)
-          ELSE
-            DEALLOCATE(r_out_sp, STAT=ierrstat)
-          END IF
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-        ENDIF
+        IF (ALLOCATED(r_out_int)) DEALLOCATE(r_out_int)
+        IF (ALLOCATED(r_out_sp)) DEALLOCATE(r_out_sp)
+        IF (ALLOCATED(r_out_dp)) DEALLOCATE(r_out_dp)
 
       ELSE
 

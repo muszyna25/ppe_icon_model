@@ -85,7 +85,8 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
     &                                             tolower, int2string
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
+  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
+    &                                             t_comm_gather_pattern
   USE mo_math_constants,                    ONLY: pi
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
     &                                             set_zlev, set_del_zlev
@@ -839,7 +840,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_c,             &
           &                    global_cell_type,                    &
-          &                    patch_info(idom)%p_pat_c)
+          &                    patch_info(idom)%p_pat_c_)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
@@ -855,7 +856,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_e,             &
           &                    4,                                   &
-          &                    patch_info(idom)%p_pat_e)
+          &                    patch_info(idom)%p_pat_e_)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
@@ -877,7 +878,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_v,             &
           &                    9-global_cell_type,                  &
-          &                    patch_info(idom)%p_pat_v)
+          &                    patch_info(idom)%p_pat_v_)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
@@ -1465,7 +1466,7 @@ CONTAINS
     REAL(wp),                         INTENT(IN)    :: lonv(:,:,:), latv(:,:,:)
     TYPE(t_grid_info),                INTENT(INOUT) :: out_lonlat
     INTEGER,                          INTENT(IN)    :: dim3
-    TYPE(t_comm_pattern),  POINTER                  :: p_pat
+    TYPE(t_comm_gather_pattern),  POINTER           :: p_pat
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine  =  modname//"::collect_grid_info"
     INTEGER               :: ierrstat, jb, jc, idim
@@ -1476,8 +1477,10 @@ CONTAINS
 
     ! allocate destination (on work root)
     IF ( my_process_is_mpi_workroot() ) THEN
-      ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      out_lonlat%lat (nproma*nblks_glb),      &
-        &      out_lonlat%lonv(dim3,nproma*nblks_glb), out_lonlat%latv(dim3,nproma*nblks_glb), &
+      ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      &
+        &      out_lonlat%lat (nproma*nblks_glb),      &
+        &      out_lonlat%lonv(dim3,nproma*nblks_glb), &
+        &      out_lonlat%latv(dim3,nproma*nblks_glb), &
         &      STAT=ierrstat)
     ELSE
       ALLOCATE(out_lonlat%lon(1), out_lonlat%lat (1),            &
@@ -1488,14 +1491,17 @@ CONTAINS
 
     ! allocate temporary fields:
     IF ( my_process_is_mpi_workroot()) THEN
-      ALLOCATE(r_tmp_lon (nproma, nblks_glb), r_tmp_lat (nproma, nblks_glb), STAT=ierrstat)
+      ALLOCATE(r_tmp_lon (nproma, nblks_glb), r_tmp_lat (nproma, nblks_glb), &
+        &      STAT=ierrstat)
     ELSE
-      ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), STAT=ierrstat)
+      ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), &
+        &      STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     !-- part 1: exchange lon/lat coordinates:
     IF (.NOT. my_process_is_mpi_test()) THEN
+
       ! copy coordinates into sender array:
       DO jb=1,nblks_loc
         DO jc=1,nproma
@@ -1504,37 +1510,17 @@ CONTAINS
         END DO
       END DO
 
-      ! gather data on work root
-      IF(.NOT. my_process_is_mpi_seq()) THEN
-        CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-        CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
-      END IF
-      ! on work root: reshape into 1D arrays:
-      IF ( my_process_is_mpi_workroot() ) THEN
-        out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-        out_lonlat%lat(:)  = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
-      END IF
+      CALL exchange_data(r_tmp_lon(:,:), out_lonlat%lon(:), p_pat)
+      CALL exchange_data(r_tmp_lat(:,:), out_lonlat%lat(:), p_pat)
 
       !-- part 2: exchange vertex lon/lat coordinates:
       DO idim=1,dim3
-        ! copy coordinates into sender array:
-        DO jb=1,nblks_loc
-          DO jc=1,nproma
-            r_tmp_lon(jc,jb) = lonv(jc,jb,idim)
-            r_tmp_lat(jc,jb) = latv(jc,jb,idim)
-          END DO
-        END DO
 
-        ! gather data on work root
-        IF(.NOT. my_process_is_mpi_seq()) THEN
-          CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-          CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
-        END IF
-        ! on work root: reshape into 1D arrays:
-        IF ( my_process_is_mpi_workroot() ) THEN
-          out_lonlat%lonv(idim,:) = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-          out_lonlat%latv(idim,:) = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
-        END IF
+        CALL exchange_data(lonv(1:nproma,1:nblks_loc,idim), &
+          &                out_lonlat%lonv(idim,:), p_pat)
+        CALL exchange_data(latv(1:nproma,1:nblks_loc,idim), &
+          &                out_lonlat%latv(idim,:), p_pat)
+
       END DO ! idim
 
     ENDIF !  (.NOT. my_process_is_mpi_test())
