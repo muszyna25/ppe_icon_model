@@ -1485,7 +1485,8 @@ SUBROUTINE hydci_pp (             &
         ! Seifert and Beheng (2001) autoconversion rate
         ! with constant cloud droplet number concentration cloud_num
         IF (qcg > 1e-6) THEN
-          ztau   = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals) 
+          ztau   = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals)
+          ztau   = MAX(ztau,1.E-30_ireals)
           hlp    = EXP(zkphi2*LOG(ztau))
           zphi   = zkphi1 * hlp * (1.0_ireals - hlp)**3
           zscau  = zconst * qcg*qcg*qcg*qcg &
