@@ -785,27 +785,21 @@ CONTAINS
       IF(l_output_phys_patch) THEN
         patch_info(jp)%log_patch_id = p_phys_patch(jp)%logical_id
         IF (.NOT. my_process_is_io()) THEN
-          patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c
-          patch_info(jp)%p_pat_c_   => p_phys_patch(jp)%comm_pat_gather_c_
+          patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c_
           patch_info(jp)%nblks_glb_c = (p_phys_patch(jp)%n_patch_cells-1)/nproma + 1
-          patch_info(jp)%p_pat_e    => p_phys_patch(jp)%comm_pat_gather_e
-          patch_info(jp)%p_pat_e_   => p_phys_patch(jp)%comm_pat_gather_e_
+          patch_info(jp)%p_pat_e    => p_phys_patch(jp)%comm_pat_gather_e_
           patch_info(jp)%nblks_glb_e = (p_phys_patch(jp)%n_patch_edges-1)/nproma + 1
-          patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v
-          patch_info(jp)%p_pat_v_   => p_phys_patch(jp)%comm_pat_gather_v_
+          patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v_
           patch_info(jp)%nblks_glb_v = (p_phys_patch(jp)%n_patch_verts-1)/nproma + 1
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
         IF (.NOT. my_process_is_io()) THEN
-          patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c
-          patch_info(jp)%p_pat_c_   => p_patch(jp)%comm_pat_gather_c_
+          patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c_
           patch_info(jp)%nblks_glb_c = (p_patch(jp)%n_patch_cells_g-1)/nproma + 1
-          patch_info(jp)%p_pat_e    => p_patch(jp)%comm_pat_gather_e
-          patch_info(jp)%p_pat_e_   => p_patch(jp)%comm_pat_gather_e_
+          patch_info(jp)%p_pat_e    => p_patch(jp)%comm_pat_gather_e_
           patch_info(jp)%nblks_glb_e = (p_patch(jp)%n_patch_edges_g-1)/nproma + 1
-          patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v
-          patch_info(jp)%p_pat_v_   => p_patch(jp)%comm_pat_gather_v_
+          patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v_
           patch_info(jp)%nblks_glb_v = (p_patch(jp)%n_patch_verts_g-1)/nproma + 1
         END IF
       ENDIF
@@ -840,7 +834,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_c,             &
           &                    global_cell_type,                    &
-          &                    patch_info(idom)%p_pat_c_)
+          &                    patch_info(idom)%p_pat_c)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
@@ -856,7 +850,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_e,             &
           &                    4,                                   &
-          &                    patch_info(idom)%p_pat_e_)
+          &                    patch_info(idom)%p_pat_e)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
@@ -878,7 +872,7 @@ CONTAINS
           &                    lonv, latv,                          &
           &                    patch_info(idom)%grid_v,             &
           &                    9-global_cell_type,                  &
-          &                    patch_info(idom)%p_pat_v_)
+          &                    patch_info(idom)%p_pat_v)
         DEALLOCATE(lonv, latv, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 

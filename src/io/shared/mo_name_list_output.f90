@@ -756,13 +756,13 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri => patch_info(i_dom)%cells
-        p_pat => patch_info(i_dom)%p_pat_c_
+        p_pat => patch_info(i_dom)%p_pat_c
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri => patch_info(i_dom)%edges
-        p_pat => patch_info(i_dom)%p_pat_e_
+        p_pat => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
         p_ri => patch_info(i_dom)%verts
-        p_pat => patch_info(i_dom)%p_pat_v_
+        p_pat => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
