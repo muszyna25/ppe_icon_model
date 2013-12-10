@@ -57,13 +57,16 @@ USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & my_process_is_mpi_seq,                             &
      & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
      & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
-     & p_gather, p_gatherv, work_mpi_barrier
+     & p_gather, p_gatherv, work_mpi_barrier, p_alltoallv, &
+     & p_alltoall, process_mpi_root_id, p_bcast
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
   & timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
-USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index, &
+  &                               t_grid_domain_decomp_info
+USE mo_util_sort,          ONLY: quicksort
 
 
 IMPLICIT NONE
@@ -77,11 +80,15 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
-          start_async_comm, complete_async_comm, exchange_data_4de3
+          start_async_comm, complete_async_comm,                   &
+          exchange_data_4de3, delete_comm_gather_pattern
 PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
 PUBLIC :: reorder_comm_pattern_rcv
+
+PUBLIC :: t_comm_gather_pattern
+PUBLIC :: setup_comm_gather_pattern
 !
 !variables
 
@@ -154,6 +161,27 @@ TYPE t_comm_pattern
    INTEGER, ALLOCATABLE :: recv_count(:)
 
 END TYPE t_comm_pattern
+
+!
+!------------------------------------------------------------------------------------------------
+!
+
+TYPE t_comm_gather_pattern
+  INTEGER, ALLOCATABLE :: collector_pes(:) ! ranks of collector processes
+  INTEGER, ALLOCATABLE :: collector_size(:) ! total number of points per
+                                            ! collector
+  INTEGER, ALLOCATABLE :: collector_send_size(:) ! local number of points per
+                                                 ! collector
+  INTEGER, ALLOCATABLE :: loc_index(:) ! local indices of all points that
+                                       ! need to be sent to a collector
+  INTEGER, ALLOCATABLE :: recv_buffer_reorder(:) ! once the data is received
+                                                 ! on the collectors, it has
+                                                 ! to be reordered according
+                                                 ! to this array
+
+  INTEGER, ALLOCATABLE :: recv_pes(:) ! ranks from which data is to be received
+  INTEGER, ALLOCATABLE :: recv_size(:) ! number of remote points received
+END TYPE t_comm_gather_pattern
 
 
 !--------------------------------------------------------------------------------------------------
@@ -494,6 +522,136 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, &
 #endif
 
 END SUBROUTINE setup_comm_pattern
+
+!-------------------------------------------------------------------------
+
+SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+  &                                  gather_pattern)
+  INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
+  TYPE(t_comm_gather_pattern), INTENT(OUT) :: gather_pattern
+
+  INTEGER :: num_collectors
+  LOGICAL, ALLOCATABLE :: pack_mask(:)
+  INTEGER :: num_local_points, num_points_per_coll
+  INTEGER, ALLOCATABLE :: packed_glb_index(:), send_target(:)
+  INTEGER :: coll_stride
+  INTEGER :: num_send_per_process(p_n_work), num_recv_per_process(p_n_work)
+  INTEGER :: send_displ(p_n_work+1), recv_displ(p_n_work)
+  INTEGER, ALLOCATABLE :: send_buffer(:), recv_buffer(:)
+  INTEGER :: num_recv, num_recv_points
+  INTEGER :: i, j, n
+
+  ! determine collector ranks and the data associated to each collector
+  num_collectors = NINT(SQRT(REAL(p_n_work)))
+  ALLOCATE(gather_pattern%collector_pes(num_collectors), &
+    &      gather_pattern%collector_size(num_collectors), &
+    &      gather_pattern%collector_send_size(num_collectors))
+  coll_stride = (p_n_work + num_collectors - 1) / &
+    &           num_collectors
+  num_points_per_coll = (global_size + num_collectors - 1) / num_collectors
+  DO i = 1, num_collectors
+    ! set collector ranks
+    gather_pattern%collector_pes(i) = (i-1) * coll_stride
+  END DO
+
+  ! mask for all locally owned points
+  ALLOCATE(pack_mask(SIZE(owner_local)))
+  pack_mask(:) = owner_local(:) == p_pe_work
+  num_local_points = COUNT(pack_mask(:))
+
+  ! determine local indices of all points that need to be sent to a collector
+  ALLOCATE(gather_pattern%loc_index(num_local_points), &
+    &      packed_glb_index(num_local_points))
+  packed_glb_index(:) = PACK(glb_index(:), pack_mask(:))
+  gather_pattern%loc_index(:) = PACK((/(i, i = 1, &
+    &                                SIZE(owner_local))/), pack_mask(:))
+
+  DEALLOCATE(pack_mask)
+
+  ! sort loc_index according to the respective global indices
+  CALL quicksort(packed_glb_index(:), gather_pattern%loc_index(:))
+
+  ! determine number of points that need to be sent to each collector
+  gather_pattern%collector_send_size(:) = 0
+  DO i = 1, num_local_points
+    n = 1 + (packed_glb_index(i) - 1) / num_points_per_coll
+    gather_pattern%collector_send_size(n) = &
+      gather_pattern%collector_send_size(n) + 1
+  END DO
+
+  ! generate send and receive counts for all processes
+  num_send_per_process(:) = 0
+  DO i = 1, num_collectors
+    num_send_per_process(gather_pattern%collector_pes(i)+1) = &
+      gather_pattern%collector_send_size(i)
+  END DO
+  CALL p_alltoall(num_send_per_process(:), num_recv_per_process(:), &
+    &             p_comm_work)
+  num_recv_points = SUM(num_recv_per_process(:))
+
+  ! exchange number of points per collector
+  IF (p_pe_work == gather_pattern%collector_pes(1)) THEN
+    gather_pattern%collector_size(1) = num_recv_points
+    DO i = 2, num_collectors
+      CALL p_recv(gather_pattern%collector_size(i), &
+        &         gather_pattern%collector_pes(i), 0, 1, p_comm_work)
+    END DO
+  ELSE IF (ANY(gather_pattern%collector_pes(:) == p_pe_work)) THEN
+    CALL p_send(num_recv_points, gather_pattern%collector_pes(1), 0, 1, &
+      &         p_comm_work)
+  END IF
+  CALL p_bcast(gather_pattern%collector_size(:), &
+    &          gather_pattern%collector_pes(1), p_comm_work)
+
+  ! number of messages to be received (is 0 on non-collector processes)
+  num_recv = COUNT(num_recv_per_process(:) /= 0)
+  ALLOCATE(gather_pattern%recv_pes(num_recv), &
+    &      gather_pattern%recv_size(num_recv))
+  num_recv = 0
+  DO i = 1, p_n_work
+    IF (num_recv_per_process(i) /= 0) THEN
+      num_recv = num_recv + 1
+      gather_pattern%recv_pes(num_recv) = i - 1
+      gather_pattern%recv_size(num_recv) = num_recv_per_process(i)
+    END IF
+  END DO
+
+  ! generate send and receive displacement and fill send buffer
+  ! remark: at first the content of send_displ is shifted by one element
+  !         to the back, this is done in order to ease the copying of data
+  !         into the send buffer
+  send_displ(1:2) = 0
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    send_displ(i+1) = send_displ(i) + num_send_per_process(i-1)
+    recv_displ(i)   = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+  ALLOCATE(send_buffer(SUM(num_send_per_process(:))), &
+    &      recv_buffer(num_recv_points))
+
+  DO i = 1, num_local_points
+    j = 2 + gather_pattern%collector_pes(1 + (packed_glb_index(i)-1) / &
+      &                                  num_points_per_coll)
+    send_displ(j) = send_displ(j) + 1
+    send_buffer(send_displ(j)) = packed_glb_index(i)
+  END DO
+
+  DEALLOCATE(packed_glb_index)
+
+  ! collect the global indices from all processes
+  CALL p_alltoallv(send_buffer, num_send_per_process, send_displ, &
+    &              recv_buffer, num_recv_per_process, recv_displ, &
+    &              p_comm_work)
+
+  ! compute the final position of received data on the collectors
+  ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
+  gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
+  CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+
+  DEALLOCATE(send_buffer, recv_buffer)
+
+END SUBROUTINE setup_comm_gather_pattern
+
 !-------------------------------------------------------------------------
 !
 !>
@@ -541,6 +699,19 @@ SUBROUTINE delete_comm_pattern(p_pat)
 
 END SUBROUTINE delete_comm_pattern
 
+!-------------------------------------------------------------------------
+
+SUBROUTINE delete_comm_gather_pattern(gather_pattern)
+  TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+
+  DEALLOCATE(gather_pattern%collector_pes, &
+    &        gather_pattern%collector_size, &
+    &        gather_pattern%collector_send_size, &
+    &        gather_pattern%loc_index, &
+    &        gather_pattern%recv_buffer_reorder, &
+    &        gather_pattern%recv_pes, &
+    &        gather_pattern%recv_size)
+END SUBROUTINE delete_comm_gather_pattern
 
 !-------------------------------------------------------------------------
 !> Consistency check of communication pattern.
