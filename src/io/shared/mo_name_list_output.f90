@@ -767,7 +767,7 @@ CONTAINS
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)
-        p_pat => lonlat_grid_list(lonlat_id)%p_pat_(i_log_dom)
+        p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
 #endif
 ! #ifndef __NO_ICON_ATMO__
       CASE default

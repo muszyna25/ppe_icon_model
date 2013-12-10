@@ -60,9 +60,6 @@
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,               &
       &                               HINTP_TYPE_LONLAT_NNB
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, &
-      &                               init_glb2loc_index_lookup, &
-      &                               set_inner_glb_index
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
     USE mo_timer,               ONLY: timer_start, timer_stop,                              &
@@ -232,12 +229,9 @@
       TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
-      CHARACTER(*), PARAMETER :: routine = modname//"compute_lonlat_intp_coeffs"
-      INTEGER              :: i, j, jg, n_points,  &
-        &                     ist, glb_idx, my_id, nthis_local_pts
-      INTEGER, ALLOCATABLE :: glb_owner(:)
-      TYPE(t_glb2loc_index_lookup) :: send_glb2loc_index
-      TYPE(t_lon_lat_grid), POINTER  :: grid
+      CHARACTER(*), PARAMETER :: routine = &
+        &  TRIM("mo_intp_lonlat:compute_lonlat_intp_coeffs")
+      INTEGER              :: i, jg, n_points, my_id, nthis_local_pts
       TYPE(t_gnat_tree)    :: gnat
 
       IF (dbg_level > 5) CALL message(routine, "Enter")
@@ -277,57 +271,16 @@
         DO jg=1,n_dom
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
             ! n_points     : total number of points in the RECEIVER array
-            grid => lonlat_grid_list(i)%grid
-            n_points = grid%lon_dim * grid%lat_dim
-            ALLOCATE( glb_owner(n_points), STAT=ist )
-            IF (ist /= SUCCESS) &
-              CALL finish (routine, 'allocation for working arrays failed')
+            n_points = lonlat_grid_list(i)%grid%lon_dim * &
+              &        lonlat_grid_list(i)%grid%lat_dim
 
             my_id = get_my_mpi_work_id()
             nthis_local_pts = lonlat_grid_list(i)%intp(jg)%nthis_local_pts
 
-            ! send_glb2loc_index: global to local index lookup information for
-            !                      data in SENDER array.
-            CALL init_glb2loc_index_lookup(send_glb2loc_index, n_points)
-            CALL set_inner_glb_index(send_glb2loc_index, &
-              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
-              (/(i, i = 1, nthis_local_pts)/))
-
-            ! glb_owner    : owner PE number of every point in the RECEIVER array
-            glb_owner(:) = -1
-            DO j=1,nthis_local_pts
-              glb_idx = lonlat_grid_list(i)%intp(jg)%global_idx(j)
-              glb_owner  (glb_idx) = my_id
-            END DO
-
-            ! on work root PE we have to gather owner ranks for all points
-            glb_owner = p_max(glb_owner, comm=get_my_mpi_work_communicator(), root=0)
-
-            IF (.NOT. my_process_is_mpi_seq()) THEN
-              IF (my_process_is_mpi_workroot()) THEN
-                CALL setup_comm_pattern(n_points, glb_owner, &
-                  &                     send_glb2loc_index=send_glb2loc_index, &
-                  &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
-              ELSE
-                ! We don't want to receive any data, i.e. the number of
-                ! lon-lat points is 0 and owner/global index are
-                ! dummies!
-                glb_owner(:) = -1
-                CALL setup_comm_pattern(0, glb_owner, &
-                  &                     send_glb2loc_index=send_glb2loc_index, &
-                  &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
-              END IF
-            END IF
-
             CALL setup_comm_gather_pattern(n_points, &
               (/(my_id, i = 1, nthis_local_pts)/), &
               lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
-              lonlat_grid_list(i)%p_pat_(jg))
-
-            DEALLOCATE( glb_owner, STAT=ist )
-            IF (ist /= SUCCESS) &
-              CALL finish (routine, 'deallocation for working arrays failed')
-            CALL deallocate_glb2loc_index_lookup(send_glb2loc_index)
+              lonlat_grid_list(i)%p_pat(jg))
 
             ! resize global data structures, after the setup only
             ! local information is needed:

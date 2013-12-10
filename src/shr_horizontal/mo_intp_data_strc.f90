@@ -158,7 +158,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates,   &
   &                               t_geographical_coordinates
 USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
-USE mo_communication,       ONLY: t_comm_pattern, t_comm_gather_pattern
+USE mo_communication,       ONLY: t_comm_gather_pattern
 
 IMPLICIT NONE
 
@@ -623,8 +623,7 @@ TYPE t_lon_lat_data
   LOGICAL              :: l_dom        (max_dom), &
     &                     l_initialized(max_dom)
   TYPE(t_lon_lat_intp) :: intp         (max_dom)
-  TYPE(t_comm_pattern) :: p_pat        (max_dom)
-  TYPE(t_comm_gather_pattern) :: p_pat_        (max_dom)
+  TYPE(t_comm_gather_pattern) :: p_pat(max_dom)
 END TYPE t_lon_lat_data
 
 
