@@ -195,6 +195,10 @@ INTERFACE exchange_data
    MODULE PROCEDURE exchange_data_r2d
    MODULE PROCEDURE exchange_data_i2d
    MODULE PROCEDURE exchange_data_l2d
+   MODULE PROCEDURE gather_r_2d_deblock
+   MODULE PROCEDURE gather_r_1d_deblock
+   MODULE PROCEDURE gather_i_2d_deblock
+   MODULE PROCEDURE gather_i_1d_deblock
 END INTERFACE
 
 INTERFACE exchange_data_seq
@@ -3023,6 +3027,229 @@ SUBROUTINE reorder_comm_pattern_rcv(comm_pat, idx_old2new)
   END DO
 
 END SUBROUTINE reorder_comm_pattern_rcv
+
+SUBROUTINE gather_r_1d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nblk)
+  REAL(wp), INTENT(IN) :: in_array(:,:)
+  ! dimension (global length); only required on root
+  REAL(wp), INTENT(INOUT) :: out_array(:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: tmp_out_array(:, :)
+
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(tmp_out_array(SIZE(out_array), 1))
+    tmp_out_array(:,1) = out_array(:)
+  ELSE
+    ALLOCATE(tmp_out_array(0, 0))
+  END IF
+
+  CALL gather_r_2d_deblock(RESHAPE(in_array, &
+    &                              (/SIZE(in_array,1),1, &
+    &                                SIZE(in_array,2)/)), &
+    &                      tmp_out_array, gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(:) = tmp_out_array(:,1)
+
+  DEALLOCATE(tmp_out_array)
+
+END SUBROUTINE gather_r_1d_deblock
+
+SUBROUTINE gather_i_1d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nblk)
+  INTEGER, INTENT(IN) :: in_array(:,:)
+  ! dimension (global length); only required on root
+  INTEGER, INTENT(INOUT) :: out_array(:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  INTEGER, ALLOCATABLE :: tmp_out_array(:, :)
+
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(tmp_out_array(SIZE(out_array), 1))
+    tmp_out_array(:,1) = out_array(:)
+  ELSE
+    ALLOCATE(tmp_out_array(0, 0))
+  END IF
+
+  CALL gather_i_2d_deblock(RESHAPE(in_array, &
+    &                              (/SIZE(in_array,1),1, &
+    &                                SIZE(in_array,2)/)), &
+    &                      tmp_out_array, gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(:) = tmp_out_array(:,1)
+
+  DEALLOCATE(tmp_out_array)
+
+END SUBROUTINE gather_i_1d_deblock
+
+SUBROUTINE gather_r_2d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nlev, nblk)
+  REAL(wp), INTENT(IN) :: in_array(:,:,:)
+  ! dimension (global length, nlev); only required on root
+  REAL(wp), INTENT(INOUT) :: out_array(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, nlev, idx, blk
+
+  nlev = SIZE(in_array, 2)
+
+  IF (SIZE(in_array, 1) /= nproma) &
+    CALL finish("gather_r_2d_deblock", &
+      &         "size of first dimension of in_array is not nproma")
+
+  IF (nlev /= SIZE(out_array, 2) .AND. p_pe_work == process_mpi_root_id) &
+    CALL finish("gather_r_2d_deblock", &
+      &         "second size of in_array and out_array are not the same")
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  IF (SIZE(in_array, 1) * SIZE(in_array, 3) < num_send_points) &
+    CALL finish("gather_r_2d_deblock", "in_array is too small")
+
+  ALLOCATE(send_buffer(nlev, num_send_points))
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(nlev, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(:,i) = in_array(idx, :, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(:,:) = TRANSPOSE(recv_buffer(:,:))
+END SUBROUTINE gather_r_2d_deblock
+
+SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nlev, nblk)
+  INTEGER, INTENT(IN) :: in_array(:,:,:)
+  ! dimension (global length, nlev); only required on root
+  INTEGER, INTENT(INOUT) :: out_array(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, nlev, idx, blk
+
+  nlev = SIZE(in_array, 2)
+
+  IF (SIZE(in_array, 1) /= nproma) &
+    CALL finish("gather_i_2d_deblock", &
+      &         "size of first dimension of in_array is not nproma")
+
+  IF (nlev /= SIZE(out_array, 2) .AND. p_pe_work == process_mpi_root_id) &
+    CALL finish("gather_i_2d_deblock", &
+      &         "second size of in_array and out_array are not the same")
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  IF (SIZE(in_array, 1) * SIZE(in_array, 3) < num_send_points) &
+    CALL finish("gather_r_2d_deblock", "in_array is too small")
+
+  ALLOCATE(send_buffer(nlev, num_send_points))
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(nlev, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(:,i) = in_array(idx, :, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(:,:) = TRANSPOSE(recv_buffer(:,:))
+END SUBROUTINE gather_i_2d_deblock
+
+SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
+                            recv_buffer_r, recv_buffer_i, gather_pattern)
+  ! dimension (:, length), prepared according to gather pattern
+  REAL(wp), OPTIONAL, INTENT(IN) :: send_buffer_r(:,:)
+  INTEGER, OPTIONAL, INTENT(IN) :: send_buffer_i(:,:)
+  ! dimension (:, global length); only required on root
+  REAL(wp), OPTIONAL, INTENT(INOUT) :: recv_buffer_r(:,:)
+  INTEGER, OPTIONAL, INTENT(INOUT) :: recv_buffer_i(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: collector_buffer_r(:,:)
+  INTEGER, ALLOCATABLE :: collector_buffer_i(:,:)
+  INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
+  INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
+  INTEGER :: i
+
+  IF ((PRESENT(send_buffer_r) .NEQV. PRESENT(recv_buffer_r)) .OR. &
+      (PRESENT(send_buffer_i) .NEQV. PRESENT(recv_buffer_i))) &
+    CALL finish("two_phase_gather", "invalid arguments")
+
+  IF (PRESENT(send_buffer_r)) &
+    ALLOCATE(collector_buffer_r(SIZE(send_buffer_r, 1), &
+      &                         SUM(gather_pattern%recv_size(:))))
+  IF (PRESENT(send_buffer_i)) &
+    ALLOCATE(collector_buffer_i(SIZE(send_buffer_i, 1), &
+      &                         SUM(gather_pattern%recv_size(:))))
+
+  num_send_per_process(:) = 0
+  num_send_per_process(gather_pattern%collector_pes(:)+1) = &
+      gather_pattern%collector_send_size(:)
+  num_recv_per_process(:) = 0
+  num_recv_per_process(gather_pattern%recv_pes(:)+1) = &
+    gather_pattern%recv_size(:)
+  send_displ(1) = 0
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    send_displ(i) = send_displ(i-1) + num_send_per_process(i-1)
+    recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+
+  IF (PRESENT(send_buffer_r)) &
+    CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
+      &              collector_buffer_r, num_recv_per_process, recv_displ, &
+      &              p_comm_work)
+  IF (PRESENT(send_buffer_i)) &
+    CALL p_alltoallv(send_buffer_i, num_send_per_process, send_displ, &
+      &              collector_buffer_i, num_recv_per_process, recv_displ, &
+      &              p_comm_work)
+
+  ! reorder collector_buffer
+  IF (PRESENT(send_buffer_r)) &
+    collector_buffer_r(:,:) = &
+      collector_buffer_r(:, gather_pattern%recv_buffer_reorder(:))
+  IF (PRESENT(send_buffer_i)) &
+    collector_buffer_i(:,:) = &
+      collector_buffer_i(:, gather_pattern%recv_buffer_reorder(:))
+
+  num_recv_per_process(:) = 0
+  IF (p_pe_work == process_mpi_root_id) &
+    num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
+      gather_pattern%collector_size(:)
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+
+  IF (PRESENT(send_buffer_r)) &
+    CALL p_gatherv(collector_buffer_r, SIZE(collector_buffer_r, 2), &
+      &            recv_buffer_r, num_recv_per_process, recv_displ, &
+      &            process_mpi_root_id, p_comm_work)
+  IF (PRESENT(send_buffer_i)) &
+    CALL p_gatherv(collector_buffer_i, SIZE(collector_buffer_i, 2), &
+      &            recv_buffer_i, num_recv_per_process, recv_displ, &
+      &            process_mpi_root_id, p_comm_work)
+
+  IF (ALLOCATED(collector_buffer_r)) DEALLOCATE(collector_buffer_r)
+  IF (ALLOCATED(collector_buffer_i)) DEALLOCATE(collector_buffer_i)
+END SUBROUTINE two_phase_gather
 
 END MODULE mo_communication
 
