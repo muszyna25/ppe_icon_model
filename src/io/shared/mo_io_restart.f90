@@ -60,7 +60,6 @@ MODULE mo_io_restart
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: create_restart_file
-  PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
   PUBLIC :: finish_restart
@@ -1250,11 +1249,7 @@ CONTAINS
 
     CALL open_writing_restart_files( TRIM(string) )
 
-#ifdef NOMPI
-    CALL write_restart
-#else
     CALL write_restart( patch )
-#endif
 
     CALL close_writing_restart_files
     CALL finish_restart
@@ -1343,11 +1338,8 @@ CONTAINS
   ! loop over all var_lists for restart
   !
   SUBROUTINE write_restart(p_patch)
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch), INTENT(in) :: p_patch
+
     INTEGER :: i,j
     LOGICAL :: write_info
     !
@@ -1442,11 +1434,7 @@ CONTAINS
   !
   SUBROUTINE write_restart_var_list(this_list, p_patch)
     TYPE (t_var_list) ,INTENT(in) :: this_list
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     !
     INTEGER           :: gridtype
     !
@@ -1526,6 +1514,9 @@ CONTAINS
       ELSE
         nindex = 1
       ENDIF
+
+      gridtype = info%hgrid
+
       !
       SELECT CASE (info%ndims)
       CASE (1)
@@ -1541,8 +1532,6 @@ CONTAINS
       CASE DEFAULT
         CALL finish('write_restart_var_list','dimension not set.')
       END SELECT
-      !
-      gridtype = info%hgrid
       !
       ! allocate temporary global array on output processor
       ! and gather field from other processors
@@ -1723,11 +1712,7 @@ CONTAINS
   !
   SUBROUTINE read_restart_files(p_patch)
     !
-#ifndef NOMPI
     TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
     !
     CHARACTER(len=80) :: restart_filename, name
     !
