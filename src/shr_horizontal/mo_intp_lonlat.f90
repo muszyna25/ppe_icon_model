@@ -94,7 +94,7 @@
       &                               p_recv, process_mpi_all_test_id,                      &
       &                               process_mpi_all_workroot_id, p_pe
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
-      &                               setup_comm_pattern
+      &                               setup_comm_pattern, setup_comm_gather_pattern
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var
@@ -318,6 +318,11 @@
                   &                     p_pat=lonlat_grid_list(i)%p_pat(jg))
               END IF
             END IF
+
+            CALL setup_comm_gather_pattern(n_points, &
+              (/(my_id, i = 1, nthis_local_pts)/), &
+              lonlat_grid_list(i)%intp(jg)%global_idx(1:nthis_local_pts), &
+              lonlat_grid_list(i)%p_pat_(jg))
 
             DEALLOCATE( glb_owner, STAT=ist )
             IF (ist /= SUCCESS) &
