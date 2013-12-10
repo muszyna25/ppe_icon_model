@@ -18,8 +18,8 @@ set -eu
 #fortran_compiler=gcc
 #fortran_compiler=intel
 #fortran_compiler=nag
-#fortran_compiler=cray
-fortran_compiler=pgi
+fortran_compiler=cray
+#fortran_compiler=pgi
 #fortran_compiler=ibm
 #__________________________________________________________________________________________________
 # function definitions:
@@ -147,7 +147,7 @@ case $c_compiler in
     cray)
 	CC=cc
 	CFLAGS="-O3 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API"
-	cc_Version=$($CC -V 2>&1 | awk 'NR==1{printf "%s %s %s\n", $[]1, $[]2, $[]5}')
+	cc_Version=$($CC -V 2>&1 | awk 'NR==1{print $1,$2,$5}')
 	;;
     ibm)
 	CC=xlc_r
@@ -175,7 +175,7 @@ case $fortran_compiler in
         FC_DEBUG="-g -fbacktrace -fbounds-check -finit-real=nan -finit-integer=-2147483648 -finit-character=127"
 	if [[ "x$hw" = "x-no-avx" ]]
 	then
-            FC_OPTIMIZE="-march=native $hw -O3 -ffast-math -D__LOOP_EXCHANGE"
+            FC_OPTIMIZE="-march=native -m${hw} -O3 -ffast-math -D__LOOP_EXCHANGE"
 	else
             FC_OPTIMIZE="-march=native -O3 -ffast-math -D__LOOP_EXCHANGE"
 	fi
@@ -213,7 +213,7 @@ case $fortran_compiler in
         DEFOPT="-D"
         MODOPT="-p"
         MODDIR="-J"
-	fc_version=$($FC -V 2>&1 | awk 'NR==1{printf "%s %s %s\n", $[]1, $[]2, $[]5}')
+	fc_version=$($FC -V 2>&1 | awk 'NR==1{print $1,$2,$5}')
 	;;
     intel)
 	CFORTRAN_DEF="-DpgiFortran"
@@ -280,6 +280,36 @@ case $site in
 	;;
     dwd.de)
 	blueln "   Site: dwd.de"
+        case $(hostname) in
+            xct*)
+	        # enable loading of modules on thunder, must switch of undefined check because of 
+                # problem in the called script
+                module use -a /t/rhome/software/packages/modulefiles
+
+                case "$fortran_compiler" in
+                    intel*)
+			module load PrgEnv-intel/5.0.41 netcdf cray-mpich/6.1.1
+			CC=cc
+			CFLAGS="-std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE"
+			cc_version=$($CC --version | awk 'NR==1')
+			FFLAGS=${FFLAGS}
+			F77FLAGS="$FFLAGS"
+			LIBS=-lirng
+			;;
+                    cray)
+			module load PrgEnv-cray netcdf grib_api 
+			;;
+                    default|gcc)
+			module load PrgEnv-gnu netcdf grib_api cray-mpich/6.1.1
+			FFLAGS=${FFLAGS}
+			;;
+                esac
+		NETCDFROOT=$NETCDF_DIR
+		NETCDFFROOT=$NETCDF_DIR
+                PKG_CONFIG_PATH=${PKG_CONFIG_PATH:-GRIB_API/lib/pkgconfig}
+		site_known=0
+                ;;
+	esac
 	;;
     ecmwf.int)
 	blueln "   Site: ecmwf.int"
@@ -303,39 +333,39 @@ case $site in
 		compiler_suffix=$(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
 		;;
 	esac	    
+
+        case $(hostname) in
+	    thunder*)
+		software_tree=/sw/$dist_codename-x64
+	        # enable loading of modules on thunder, must switch of undefined check because of 
+                # problem in the called script
+		set +u
+		. /sw/share/Modules/init/bash
+		set -u
+                # make MPI wrapper calls available
+		module load mvapich2/1.9b-static-$compiler_suffix
+                # set netcdf library to be used
+		NETCDFROOT=$software_tree/netcdf-4.2.1.1-static
+		NETCDFFROOT=$software_tree/netcdf_fortran-4.2-static-$compiler_suffix
+                #
+		site_known=0
+		;;
+	    wanglung*)
+		NETCDFROOT=/opt/local
+		NETCDFFROOT=/opt/local
+                #
+		site_known=0
+		;;
+	    thingol*)
+		NETCDFROOT=/usr
+		NETCDFFROOT=/usr
+                #
+		site_known=0
+		;;
+	esac
 	;;
     *)
 	redln "ERROR: site $site unknown ..."
-	;;
-esac
-
-case $(hostname) in
-    thunder*)
-	software_tree=/sw/$dist_codename-x64
-	# enable loading of modules on thunder, must switch of undefined check because of 
-        # problem in the called script
-	set +u
-	. /sw/share/Modules/init/bash
-	set -u
-        # make MPI wrapper calls available
-	module load mvapich2/1.9b-static-$compiler_suffix
-        # set netcdf library to be used
-        NETCDFROOT=$software_tree/netcdf-4.2.1.1-static
-	NETCDFFROOT=$software_tree/netcdf_fortran-4.2-static-$compiler_suffix
-        #
-	site_known=0
-        ;;
-    wanglung*)
-	NETCDFROOT=/opt/local
-	NETCDFFROOT=/opt/local
-        #
-	site_known=0
-	;;
-    thingol*)
-	NETCDFROOT=/usr
-	NETCDFFROOT=/usr
-        #
-	site_known=0
 	;;
 esac
 #
