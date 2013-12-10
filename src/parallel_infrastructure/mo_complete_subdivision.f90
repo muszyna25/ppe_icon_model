@@ -37,36 +37,29 @@
 !!
 MODULE mo_complete_subdivision
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
-    & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
-    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_phys_dom
-  USE mo_exception,          ONLY: finish, message, message_text,    &
-    &                              get_filename_noext
+  USE mo_impl_constants,     ONLY: min_rlcell, min_rledge, &
+    & min_rlcell_int, min_rledge_int, max_phys_dom
+  USE mo_exception,          ONLY: finish, message, message_text
 
-  USE mo_model_domain,       ONLY: t_patch, t_patch_3D, p_patch,      &
-    &                              p_patch_local_parent,  &
+  USE mo_model_domain,       ONLY: t_patch, p_patch, p_patch_local_parent, &
     &                              p_phys_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
     &                              get_valid_local_index, t_glb2loc_index_lookup
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
+  USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id, my_process_is_mpi_parallel, null_comm_type,    &
-    & set_mpi_work_communicators, set_comm_input_bcast
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method
+  USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
-    & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
-    & grf_bdywidth_c, grf_bdywidth_e
+    & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
+    & grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
-  USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
   IMPLICIT NONE
 
   PRIVATE
@@ -296,7 +289,7 @@ CONTAINS
 
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
 
-    INTEGER :: i, j, jb, jl
+    INTEGER :: j, jb, jl
 
     decomp_info%owner_mask = .false.
 
