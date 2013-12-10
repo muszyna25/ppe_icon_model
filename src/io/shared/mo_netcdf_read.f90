@@ -1886,7 +1886,7 @@ CONTAINS
 
     ALLOCATE(output_array(MERGE(patch%n_patch_cells_g, 0, &
       &                         my_process_is_mpi_workroot())))
-    CALL exchange_data(write_array, output_array, patch%comm_pat_gather_c_)
+    CALL exchange_data(write_array, output_array, patch%comm_pat_gather_c)
 
     !----------------------------------------------------------------------
     ! Write only from mpi_workroot
@@ -1958,7 +1958,7 @@ CONTAINS
     DO timestep = start_timestep, end_timestep
       CALL exchange_data(write_array(:,:,timestep), &
         &                output_array(:,timestep), &
-        &                patch%comm_pat_gather_c_)
+        &                patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------
@@ -2033,7 +2033,7 @@ CONTAINS
     DO timestep = start_timestep, end_timestep
       CALL exchange_data(write_array(:,:,:, timestep), &
         &                output_array(:, :, timestep), &
-        &                patch%comm_pat_gather_c_)
+        &                patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------

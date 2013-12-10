@@ -697,15 +697,15 @@ CONTAINS
     CALL setup_comm_gather_pattern( &
       p%cells%decomp_info%glb2loc_index%global_size, &
       p%cells%decomp_info%owner_local, &
-      p%cells%decomp_info%glb_index, p%comm_pat_gather_c_)
+      p%cells%decomp_info%glb_index, p%comm_pat_gather_c)
     CALL setup_comm_gather_pattern( &
       p%verts%decomp_info%glb2loc_index%global_size, &
       p%verts%decomp_info%owner_local, &
-      p%verts%decomp_info%glb_index, p%comm_pat_gather_v_)
+      p%verts%decomp_info%glb_index, p%comm_pat_gather_v)
     CALL setup_comm_gather_pattern( &
       p%edges%decomp_info%glb2loc_index%global_size, &
       p%edges%decomp_info%owner_local, &
-      p%edges%decomp_info%glb_index, p%comm_pat_gather_e_)
+      p%edges%decomp_info%glb_index, p%comm_pat_gather_e)
 
   END SUBROUTINE set_comm_pat_gather
 
@@ -1586,7 +1586,7 @@ CONTAINS
         CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_cells_g, &
           &                            owner_local(1:p_patch(jg)%n_patch_cells), &
           &                            p_patch(jg)%cells%decomp_info%glb_index(:), &
-          &                            p_phys_patch(jp)%comm_pat_gather_c_)
+          &                            p_phys_patch(jp)%comm_pat_gather_c)
 
         DO i = 1, p_patch(jg)%n_patch_edges
           owner_local(i) = &
@@ -1597,7 +1597,7 @@ CONTAINS
         CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_edges_g, &
           &                            owner_local(1:p_patch(jg)%n_patch_edges), &
           &                            p_patch(jg)%edges%decomp_info%glb_index(:), &
-          &                            p_phys_patch(jp)%comm_pat_gather_e_)
+          &                            p_phys_patch(jp)%comm_pat_gather_e)
 
         DO i = 1, p_patch(jg)%n_patch_verts
           owner_local(i) = &
@@ -1608,7 +1608,7 @@ CONTAINS
         CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_verts_g, &
           &                            owner_local(1:p_patch(jg)%n_patch_verts), &
           &                            p_patch(jg)%verts%decomp_info%glb_index(:), &
-          &                            p_phys_patch(jp)%comm_pat_gather_v_)
+          &                            p_phys_patch(jp)%comm_pat_gather_v)
 
       ENDDO
 

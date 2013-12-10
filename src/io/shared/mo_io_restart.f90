@@ -1507,13 +1507,13 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         private_n = private_nc
-        gather_pattern => p_patch%comm_pat_gather_c_
+        gather_pattern => p_patch%comm_pat_gather_c
       CASE (GRID_UNSTRUCTURED_VERT)
         private_n = private_nv
-        gather_pattern => p_patch%comm_pat_gather_v_
+        gather_pattern => p_patch%comm_pat_gather_v
       CASE (GRID_UNSTRUCTURED_EDGE)
         private_n = private_ne
-        gather_pattern => p_patch%comm_pat_gather_e_
+        gather_pattern => p_patch%comm_pat_gather_e
       CASE default
         CALL finish('out_stream','unknown grid type')
       END SELECT
