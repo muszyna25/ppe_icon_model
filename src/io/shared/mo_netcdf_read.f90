@@ -50,15 +50,15 @@
 MODULE mo_netcdf_read
 
   USE mo_kind
-  USE mo_gather_scatter,     ONLY: scatter_cells_2D, scatter_cells_2D_time, scatter_cells_3D_time, &
-    & gather_cells_2D, gather_cells_2D_time,  gather_cells_3D_time, broadcast_array
+  USE mo_gather_scatter,     ONLY: scatter_cells_2D, scatter_cells_2D_time, &
+    &                              scatter_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
 
-  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_communication,      ONLY: idx_no, blk_no, exchange_data
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work, &
@@ -1872,7 +1872,7 @@ CONTAINS
     REAL(wp),      POINTER       :: write_array(:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    REAL(wp), POINTER            :: output_array(:)
+    REAL(wp), ALLOCATABLE        :: output_array(:)
     INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
     INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
     INTEGER :: output_shape(1), dim_write_shape(1), diff_shape(1)
@@ -1884,7 +1884,10 @@ CONTAINS
 
     netcdf_write_REAL_ONCELLS_2D_fileid = 0
 
-    CALL gather_cells_2D(write_array, output_array, patch)
+    ALLOCATE(output_array(MERGE(patch%n_patch_cells_g, 0, &
+      &                         my_process_is_mpi_workroot())))
+    CALL exchange_data(write_array, output_array, patch%comm_pat_gather_c_)
+
     !----------------------------------------------------------------------
     ! Write only from mpi_workroot
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -1917,11 +1920,9 @@ CONTAINS
       ! WRITE(0,*) " write array..."
       CALL nf(nf_put_var_double(file_id, variable_id, output_array(:)), variable_name)
       ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
-
-      ! Clean-up
-      DEALLOCATE(output_array)
-
     ENDIF
+
+    DEALLOCATE(output_array)
 
   END FUNCTION netcdf_write_REAL_ONCELLS_2D_fileid
   !-------------------------------------------------------------------------
@@ -1936,18 +1937,30 @@ CONTAINS
     REAL(wp),      POINTER       :: write_array(:,:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    REAL(wp), POINTER            :: output_array(:,:)
+    REAL(wp), ALLOCATABLE        :: output_array(:,:)
     INTEGER :: total_number_of_cells, array_time_steps
     INTEGER :: dim_number_of_cells, dim_array_time_steps
     INTEGER :: output_shape(2), dim_write_shape(2), diff_shape(2)
     INTEGER :: variable_id
+    INTEGER :: start_timestep, end_timestep, timestep
 
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
     netcdf_write_REAL_ONCELLS_2D_time_fileid = 0
 
-    CALL gather_cells_2D_time(write_array, output_array, patch)
+    start_timestep = LBOUND(write_array, 3)
+    end_timestep   = UBOUND(write_array, 3)
+
+    ALLOCATE(output_array(MERGE(patch%n_patch_cells_g, 0, &
+      &                         my_process_is_mpi_workroot()), &
+      &                   start_timestep:end_timestep))
+    DO timestep = start_timestep, end_timestep
+      CALL exchange_data(write_array(:,:,timestep), &
+        &                output_array(:,timestep), &
+        &                patch%comm_pat_gather_c_)
+    END DO
+
     !----------------------------------------------------------------------
     ! Write only from mpi_workroot
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -1981,10 +1994,9 @@ CONTAINS
       CALL nf(nf_put_var_double(file_id, variable_id, output_array(:,:)), variable_name)
       ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
 
-      ! Clean-up
-      DEALLOCATE(output_array)
-
     ENDIF
+
+    DEALLOCATE(output_array)
 
   END FUNCTION netcdf_write_REAL_ONCELLS_2D_time_fileid
   !-------------------------------------------------------------------------
@@ -1999,18 +2011,31 @@ CONTAINS
     REAL(wp),      POINTER       :: write_array(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    REAL(wp), POINTER            :: output_array(:,:,:)
+    REAL(wp), ALLOCATABLE        :: output_array(:,:,:)
     INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
     INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
     INTEGER :: output_shape(3), dim_write_shape(3), diff_shape(3)
     INTEGER :: variable_id
+    INTEGER :: start_timestep, end_timestep, timestep, nlev
 
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 
     netcdf_write_REAL_ONCELLS_3D_time_fileid = 0
 
-    CALL gather_cells_3D_time(write_array, output_array, patch)
+    nlev           = SIZE(write_array, 2)
+    start_timestep = LBOUND(write_array, 4)
+    end_timestep   = UBOUND(write_array, 4)
+
+    ALLOCATE(output_array(MERGE(patch%n_patch_cells_g, 0, &
+      &                         my_process_is_mpi_workroot()), &
+      &                   nlev, start_timestep:end_timestep))
+    DO timestep = start_timestep, end_timestep
+      CALL exchange_data(write_array(:,:,:, timestep), &
+        &                output_array(:, :, timestep), &
+        &                patch%comm_pat_gather_c_)
+    END DO
+
     !----------------------------------------------------------------------
     ! Write only from mpi_workroot
     IF( my_process_is_mpi_workroot()  ) THEN
@@ -2054,10 +2079,9 @@ CONTAINS
       CALL nf(nf_put_var_double(file_id, variable_id, output_array(:,:,:)), variable_name)
       ! CALL nf(nf_put_var_real(file_id, variable_id, REAL(output_array(:,:,:))), variable_name)
 
-      ! Clean-up
-      DEALLOCATE(output_array)
-
     ENDIF
+
+    DEALLOCATE(output_array)
 
   END FUNCTION netcdf_write_REAL_ONCELLS_3D_time_fileid
   !-------------------------------------------------------------------------
