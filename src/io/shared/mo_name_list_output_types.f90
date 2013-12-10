@@ -21,7 +21,7 @@ MODULE mo_name_list_output_types
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_communication,         ONLY: t_comm_pattern
+  USE mo_communication,         ONLY: t_comm_pattern, t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
 
@@ -153,6 +153,7 @@ MODULE mo_name_list_output_types
     ! corresponds to physical or logical patch, depending on
     ! "l_output_phys_patch"
     TYPE(t_comm_pattern),  POINTER :: p_pat_c, p_pat_v, p_pat_e
+    TYPE(t_comm_gather_pattern), POINTER ::  p_pat_c_, p_pat_v_, p_pat_e_
 
     ! global number of points, corresponds to physical or logical
     ! patch, depending on "l_output_phys_patch"
