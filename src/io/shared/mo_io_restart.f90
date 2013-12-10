@@ -45,6 +45,7 @@ MODULE mo_io_restart
   USE mo_model_domain,          ONLY: t_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
+  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
 
   !
   IMPLICIT NONE
@@ -1436,20 +1437,17 @@ CONTAINS
     TYPE (t_var_list) ,INTENT(in) :: this_list
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     !
-    INTEGER           :: gridtype
-    !
     ! variables of derived type used in linked list
     !
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
     !
-    REAL(wp), POINTER :: rptr2d(:,:)   ! 2d field distributed over processors
-    REAL(wp), POINTER :: rptr3d(:,:,:) ! 3d field distributed over processors
+    REAL(wp), ALLOCATABLE :: r2d(:,:) ! field gathered on I/O processor
+    REAL(wp), ALLOCATABLE :: r1d(:) ! field gathered on I/O processor
     !
-    REAL(wp), POINTER :: r5d(:,:,:,:,:) ! field gathered on I/O processor
-    !
-    INTEGER :: gdims(5), nindex
+    INTEGER :: nindex, private_n
+    TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
     INTEGER :: tlev_skip
@@ -1464,9 +1462,6 @@ CONTAINS
       !
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
-      !
-      rptr2d => NULL()
-      rptr3d => NULL()
       !
       ! retrieve information from actual linked list element
       !
@@ -1508,23 +1503,34 @@ CONTAINS
      IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 
-      !
-      IF (info%lcontained) THEN
-        nindex = info%ncontained
-      ELSE
-        nindex = 1
-      ENDIF
+      nindex = MERGE(info%ncontained, 1, info%lcontained)
 
-      gridtype = info%hgrid
+      SELECT CASE (info%hgrid)
+      CASE (GRID_UNSTRUCTURED_CELL)
+        private_n = private_nc
+        gather_pattern => p_patch%comm_pat_gather_c_
+      CASE (GRID_UNSTRUCTURED_VERT)
+        private_n = private_nv
+        gather_pattern => p_patch%comm_pat_gather_v_
+      CASE (GRID_UNSTRUCTURED_EDGE)
+        private_n = private_ne
+        gather_pattern => p_patch%comm_pat_gather_e_
+      CASE default
+        CALL finish('out_stream','unknown grid type')
+      END SELECT
 
-      !
       SELECT CASE (info%ndims)
       CASE (1)
         CALL finish('write_restart_var_list','1d arrays not handled yet.')
       CASE (2)
-        rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+        ALLOCATE(r1d(MERGE(private_n, 0, my_process_is_mpi_workroot())))
+        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r1d, &
+          &                gather_pattern)
       CASE (3)
-        rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+        ALLOCATE(r2d(MERGE(private_n, 0, my_process_is_mpi_workroot()), &
+          &          info%used_dimensions(2)))
+        CALL exchange_data(element%field%r_ptr(:,:,:,nindex,1), r2d, &
+          &                gather_pattern)
       CASE (4)
         CALL finish('write_restart_var_list','4d arrays not handled yet.')
       CASE (5)
@@ -1533,80 +1539,28 @@ CONTAINS
         CALL finish('write_restart_var_list','dimension not set.')
       END SELECT
       !
-      ! allocate temporary global array on output processor
-      ! and gather field from other processors
-      !
-      r5d => NULL()
-      !
-      SELECT CASE (gridtype)
-      CASE (GRID_UNSTRUCTURED_CELL)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE (GRID_UNSTRUCTURED_VERT)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE (GRID_UNSTRUCTURED_EDGE)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE default
-        CALL finish('out_stream','unknown grid type')
-      END SELECT
-      !
       ! write data
       !
       IF (my_process_is_mpi_workroot()) THEN
         write (0,*)' ... write ',info%name
-        CALL write_var (this_list, info, r5d)
+
+        IF (info%ndims == 2) THEN
+          CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
+            &                 r1d(:), 0)
+        ELSE IF (info%ndims == 3) THEN
+          CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
+            &                 r2d(:,:), 0)
+        END IF
       END IF
       !
       ! deallocate temporary global arrays
       !
-      IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
+      IF (ALLOCATED(r1d)) DEALLOCATE(r1d)
+      IF (ALLOCATED(r2d)) DEALLOCATE(r2d)
       !
     END DO for_all_list_elements
     !
   END SUBROUTINE write_restart_var_list
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! finally write data ...
-  !
-  SUBROUTINE write_var (this_list, info, array)
-    TYPE (t_var_list),     INTENT(in) :: this_list
-    TYPE (t_var_metadata), INTENT(in) :: info             ! field description
-    REAL(wp),              INTENT(in) :: array(:,:,:,:,:) ! restart field
-    !
-    INTEGER :: fileID                       ! File ID
-    INTEGER :: varID                        ! Variable ID
-    INTEGER :: nmiss = 0
-    !
-    fileID  = this_list%p%cdiFileID_restart
-    varID   = info%cdiVarID
-    !
-    CALL streamWriteVar(fileID, varID, array, nmiss)
-    !
-  END SUBROUTINE write_var
 
   !------------------------------------------------------------------------------------------------
   !
