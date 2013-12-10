@@ -198,7 +198,6 @@ MODULE mo_mpi
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
-  PUBLIC :: p_gather_field
   PUBLIC :: p_gatherv
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
@@ -579,13 +578,6 @@ MODULE mo_mpi
   END INTERFACE
 
   !> generic interface for MPI communication calls
-  INTERFACE p_gather_field
-    MODULE PROCEDURE p_gather_field_3d
-    MODULE PROCEDURE p_gather_field_4d
-    MODULE PROCEDURE p_gather_field_2d_int
-    MODULE PROCEDURE p_gather_field_3d_int
-  END INTERFACE
-
   INTERFACE p_allreduce_max
     MODULE PROCEDURE p_allreduce_max_int_1d
   END INTERFACE
@@ -6985,139 +6977,6 @@ CONTAINS
      ! do nothing
 #endif
    END SUBROUTINE p_allreduce_minloc
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 2D integer array, organized as (nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, array)
-
-     INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector
-     INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch
-     INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process
-     INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,1,UBOUND(array,1),UBOUND(array,2))
-
-     r_array(1,1,:,:) = REAL(array(:,:),wp)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:) = INT(r_array(1,1,:,:))
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_2d_int
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 3D integer array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_3d_int(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim              ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)          ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)               ! for each point: owning process
-     INTEGER,  INTENT(INOUT) :: array(:,:,:)           ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
-
-     r_array(1,:,:,:) = REAL(array(:,:,:),wp)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:,:) = INT(r_array(1,:,:,:))
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_3d_int
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 3D REAL array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_3d(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim               ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)           ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)                ! for each point: owning process
-     REAL(dp), INTENT(INOUT) :: array(:,:,:)            ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
-
-     r_array(1,:,:,:) = array(:,:,:)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:,:) = r_array(1,:,:,:)
-
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_3d
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 4D REAL array, organized as (:,:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_4d(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim                ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)            ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)                 ! for each point: owning process
-     REAL(dp), INTENT(INOUT) :: array(:,:,:,:)           ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: tot_array(UBOUND(array,1),UBOUND(array,2),UBOUND(array,3)*UBOUND(array,4))
-     INTEGER :: n, i, mpierr
-
-     ! Check if result fits into output
-     IF(UBOUND(tot_array,3) < total_dim) &
-       CALL finish('gather_field','Output array too small')
-
-     ! Insert my contribution into tot_array at the final location
-     tot_array(:,:,:) = 0._wp
-     n = 0
-     DO i = 1, total_dim
-       IF(owner(i) == p_pe_work) THEN
-         tot_array(:,:,i) = array(:,:,MOD(n,UBOUND(array,3))+1,n/UBOUND(array,3)+1)
-         n = n+1
-       ENDIF
-    ENDDO
-
-    ! Plausibility check
-    IF(n /= nlocal_pts(p_pe_work+1)) &
-       CALL finish('gather_field','nlocal_pts inconsistent')
-
-    ! Take the global sum over tot_array, the result goes back into array
-
-    CALL MPI_Allreduce(tot_array, array, SIZE(tot_array), p_real_dp, MPI_SUM, p_comm_work, mpierr)
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_4d
-
 
    ! Commits a user-defined MPI type
    !
