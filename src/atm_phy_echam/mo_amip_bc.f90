@@ -16,7 +16,7 @@ MODULE mo_amip_bc
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
-  USE mo_gather_scatter,     ONLY: scatter_cells_2D_time
+  USE mo_scatter,            ONLY: scatter_cells_2D_time
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
   USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen

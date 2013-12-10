@@ -50,7 +50,7 @@
 MODULE mo_netcdf_read
 
   USE mo_kind
-  USE mo_gather_scatter,     ONLY: scatter_cells_2D, scatter_cells_2D_time, &
+  USE mo_scatter,            ONLY: scatter_cells_2D, scatter_cells_2D_time, &
     &                              scatter_cells_3D_time, broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn

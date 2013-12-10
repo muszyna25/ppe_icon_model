@@ -21,8 +21,7 @@ MODULE mo_io_restart
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
-  USE mo_gather_scatter,        ONLY: gather_cells, gather_edges, gather_vertices,  &
-       &                              scatter_cells, scatter_edges, scatter_vertices
+  USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
   USE mo_run_config,            ONLY: ltimer, output_mode
