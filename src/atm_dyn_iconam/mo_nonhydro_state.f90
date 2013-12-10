@@ -1686,9 +1686,8 @@ MODULE mo_nonhydro_state
 
 
 
-    WRITE(0,*)'inextra_2d=',inextra_2d
-
     IF(inextra_2d > 0) THEN
+
 
       ! extra_2d   p_diag%extra_2d(nproma,nblks_c,inextra_2d)
       !
