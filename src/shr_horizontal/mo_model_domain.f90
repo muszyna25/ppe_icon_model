@@ -102,7 +102,7 @@ MODULE mo_model_domain
   USE mo_kind
   USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants, ONLY: max_dom, max_phys_dom
-  USE mo_communication,  ONLY: t_comm_pattern
+  USE mo_communication,  ONLY: t_comm_pattern, t_comm_gather_pattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
@@ -777,6 +777,9 @@ MODULE mo_model_domain
     TYPE(t_comm_pattern) :: comm_pat_gather_c
     TYPE(t_comm_pattern) :: comm_pat_gather_e
     TYPE(t_comm_pattern) :: comm_pat_gather_v
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_c_
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_e_
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_v_
 
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.

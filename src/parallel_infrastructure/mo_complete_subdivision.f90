@@ -60,7 +60,8 @@ MODULE mo_complete_subdivision
     & set_mpi_work_communicators, set_comm_input_bcast
 
   USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method
-  USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
+  USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
+    &                              setup_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e
@@ -695,6 +696,19 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: tmp(:)
     INTEGER :: j
+
+    CALL setup_comm_gather_pattern( &
+      p%cells%decomp_info%glb2loc_index%global_size, &
+      p%cells%decomp_info%owner_local, &
+      p%cells%decomp_info%glb_index, p%comm_pat_gather_c_)
+    CALL setup_comm_gather_pattern( &
+      p%verts%decomp_info%glb2loc_index%global_size, &
+      p%verts%decomp_info%owner_local, &
+      p%verts%decomp_info%glb_index, p%comm_pat_gather_v_)
+    CALL setup_comm_gather_pattern( &
+      p%edges%decomp_info%glb2loc_index%global_size, &
+      p%edges%decomp_info%owner_local, &
+      p%edges%decomp_info%glb_index, p%comm_pat_gather_e_)
 
     ! For gathering the global fields on p_pe_work==0
     ALLOCATE(tmp(MAX(p%n_patch_cells_g, p%n_patch_edges_g, p%n_patch_verts_g)))

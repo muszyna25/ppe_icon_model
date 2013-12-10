@@ -39,7 +39,7 @@ MODULE mo_reorder_patches
   USE mo_parallel_config, ONLY: nproma
   USE mo_communication,   ONLY: reorder_comm_pattern,                                &
     &                           reorder_comm_pattern_snd, reorder_comm_pattern_rcv,  &
-    &                           idx_no, blk_no, idx_1d
+    &                           idx_no, blk_no, idx_1d, reorder_comm_gather_pattern
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
@@ -173,6 +173,7 @@ CONTAINS
     CALL reorder_comm_pattern_snd(pp%comm_pat_gather_c           , idx_old2new)
     CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_c       , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_c_fbk   , idx_old2new)
+    CALL reorder_comm_gather_pattern(pp%comm_pat_gather_c_       , idx_old2new)
 
   END SUBROUTINE reorder_cells
 
@@ -271,6 +272,7 @@ CONTAINS
     CALL reorder_comm_pattern_snd(pp%comm_pat_gather_e               , idx_old2new)
     CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_e           , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_e_fbk       , idx_old2new)
+    CALL reorder_comm_gather_pattern(pp%comm_pat_gather_e_           , idx_old2new)
 
   END SUBROUTINE reorder_edges
 
@@ -323,6 +325,7 @@ CONTAINS
 
     CALL reorder_comm_pattern(pp%comm_pat_v                          , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_gather_v               , idx_old2new)
+    CALL reorder_comm_gather_pattern(pp%comm_pat_gather_v_           , idx_old2new)
 
   END SUBROUTINE reorder_verts
 
