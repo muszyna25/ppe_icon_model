@@ -593,6 +593,8 @@ MODULE mo_mpi
 
   INTERFACE p_alltoallv
     MODULE PROCEDURE p_alltoallv_int
+    MODULE PROCEDURE p_alltoallv_real_2d
+    MODULE PROCEDURE p_alltoallv_int_2d
   END INTERFACE
 
 CONTAINS
@@ -7063,6 +7065,56 @@ CONTAINS
      recvbuf(:) = sendbuf(:)
 #endif
    END SUBROUTINE p_alltoall_int
+
+
+   SUBROUTINE p_alltoallv_real_2d (sendbuf, sendcounts, sdispls, &
+     &                             recvbuf, recvcounts, rdispls, comm)
+     REAL(wp),          INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     REAL(wp),          INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_real_2d")
+     INTEGER :: p_comm, p_error, dim1_size
+
+     p_comm = comm
+     dim1_size = SIZE(sendbuf, 1)
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+       &                sdispls(:)*dim1_size, p_real_dp, recvbuf, &
+       &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
+       &                p_real_dp, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_real_2d
+
+
+   SUBROUTINE p_alltoallv_int_2d (sendbuf, sendcounts, sdispls, &
+     &                            recvbuf, recvcounts, rdispls, comm)
+     INTEGER,           INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int_2d")
+     INTEGER :: p_comm, p_error, dim1_size
+
+     p_comm = comm
+     dim1_size = SIZE(sendbuf, 1)
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+       &                sdispls(:)*dim1_size, p_int, recvbuf, &
+       &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
+       &                p_int, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_int_2d
 
 
    SUBROUTINE p_alltoallv_int (sendbuf, sendcounts, sdispls, &
