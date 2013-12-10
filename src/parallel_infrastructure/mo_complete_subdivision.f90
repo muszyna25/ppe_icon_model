@@ -55,7 +55,8 @@ MODULE mo_complete_subdivision
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
-    &                              setup_comm_gather_pattern, t_comm_gather_pattern
+    &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
+    &                              delete_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
@@ -1447,8 +1448,12 @@ CONTAINS
   !! Revised version by Moritz Hanke, Nov 2013
 
   SUBROUTINE setup_phys_patches
-    INTEGER :: jp, jg
+    INTEGER :: jp, jg, n, i, j, jb, jl
+    INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
+    INTEGER, ALLOCATABLE :: owner_local(:)
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
+
+    TYPE(t_comm_gather_pattern) :: test_pattern
 
     p_phys_patch(:)%logical_id = -1
 
@@ -1473,6 +1478,156 @@ CONTAINS
         &                         .FALSE., p_phys_patch(:)%n_patch_edges, &
         &                         p_phys_patch(:)%comm_pat_gather_e)
 
+      ! Get global arrays for phys_id
+
+      ! Allocate and set to 0
+      ALLOCATE(glb_phys_id_c(p_patch(jg)%n_patch_cells_g))
+      ALLOCATE(glb_phys_id_e(p_patch(jg)%n_patch_edges_g))
+      ALLOCATE(glb_phys_id_v(p_patch(jg)%n_patch_verts_g))
+      glb_phys_id_c(:) = 0
+      glb_phys_id_e(:) = 0
+      glb_phys_id_v(:) = 0
+
+      ! Fill with own values of phys_id
+
+      DO j = 1, p_patch(jg)%n_patch_cells
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_c(p_patch(jg)%cells%decomp_info%glb_index(j)) = p_patch(jg)%cells%phys_id(jl,jb)
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_edges
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%edges%decomp_info%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_e(p_patch(jg)%edges%decomp_info%glb_index(j)) = p_patch(jg)%edges%phys_id(jl,jb)
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_verts
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%verts%decomp_info%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_v(p_patch(jg)%verts%decomp_info%glb_index(j)) = p_patch(jg)%verts%phys_id(jl,jb)
+      ENDDO
+
+      ! Get global arrays by obtaining the global maximum
+      ! Since p_max works on real valued arrays only, we have to convert to real and back
+
+      glb_phys_id_c = p_max(glb_phys_id_c, comm=p_comm_work)
+      glb_phys_id_e = p_max(glb_phys_id_e, comm=p_comm_work)
+      glb_phys_id_v = p_max(glb_phys_id_v, comm=p_comm_work)
+
+      ! Get the physical patches contained within current patch
+
+      ! Set logical id of p_phys_patch from cells
+
+      DO j = 1, p_patch(jg)%n_patch_cells_g
+        jp = glb_phys_id_c(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for cells phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        IF (p_phys_patch(jp)%logical_id /= jg) &
+          CALL finish(routine, "p_phys_patch(jp)%logical_id mismatch")
+      ENDDO
+
+      ! Make a check for egdes and verts
+
+      DO j = 1, p_patch(jg)%n_patch_edges_g
+        jp = glb_phys_id_e(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for edges phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        ! Check if no other patch uses the same phys_id
+        IF(p_phys_patch(jp)%logical_id /= jg) &
+          CALL finish(routine, "p_phys_patch(jp)%logical_id mismatch")
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_verts_g
+        jp = glb_phys_id_v(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for verts phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        ! Check if no other patch uses the same phys_id
+        IF(p_phys_patch(jp)%logical_id /= jg) &
+          CALL finish(routine, "p_phys_patch(jp)%logical_id mismatch")
+      ENDDO
+
+      ! Set up communication patterns in physical patches
+      n = MAX(p_patch(jg)%n_patch_cells, &
+        &     p_patch(jg)%n_patch_edges, &
+        &     p_patch(jg)%n_patch_verts)
+      ALLOCATE(owner_local(n))
+
+      DO jp = 1, max_phys_dom ! Loop over physical patches
+
+        IF(p_phys_patch(jp)%logical_id /= jg) CYCLE ! do only for physical patches belonging to jg
+
+        IF (p_phys_patch(jp)%n_patch_cells /= &
+          & COUNT(glb_phys_id_c(1:p_patch(jg)%n_patch_cells_g) == jp)) &
+          CALL finish(routine, "p_phys_patch(jp)%n_patch_cells mismatch")
+        IF (p_phys_patch(jp)%n_patch_edges /= &
+          & COUNT(glb_phys_id_e(1:p_patch(jg)%n_patch_edges_g) == jp)) &
+          CALL finish(routine, "p_phys_patch(jp)%n_patch_edges mismatch")
+        IF (p_phys_patch(jp)%n_patch_verts /= &
+          & COUNT(glb_phys_id_v(1:p_patch(jg)%n_patch_verts_g) == jp)) &
+          CALL finish(routine, "p_phys_patch(jp)%n_patch_verts mismatch")
+
+        DO i = 1, p_patch(jg)%n_patch_cells
+          owner_local(i) = &
+            MERGE(p_patch(jg)%cells%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%cells%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_cells_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_cells), &
+          &                            p_patch(jg)%cells%decomp_info%glb_index(:), &
+          &                            test_pattern)
+
+        CALL compare_gather_pattern(p_phys_patch(jp)%comm_pat_gather_c, test_pattern)
+        CALL delete_comm_gather_pattern(test_pattern)
+
+        DO i = 1, p_patch(jg)%n_patch_edges
+          owner_local(i) = &
+            MERGE(p_patch(jg)%edges%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%edges%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_edges_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_edges), &
+          &                            p_patch(jg)%edges%decomp_info%glb_index(:), &
+          &                            test_pattern)
+
+        CALL compare_gather_pattern(p_phys_patch(jp)%comm_pat_gather_e, test_pattern)
+        CALL delete_comm_gather_pattern(test_pattern)
+
+        DO i = 1, p_patch(jg)%n_patch_verts
+          owner_local(i) = &
+            MERGE(p_patch(jg)%verts%decomp_info%owner_local(i), -1, &
+              &   p_patch(jg)%verts%phys_id(idx_no(i),blk_no(i)) == jp)
+        END DO
+
+        CALL setup_comm_gather_pattern(p_patch(jg)%n_patch_verts_g, &
+          &                            owner_local(1:p_patch(jg)%n_patch_verts), &
+          &                            p_patch(jg)%verts%decomp_info%glb_index(:), &
+          &                            test_pattern)
+
+        CALL compare_gather_pattern(p_phys_patch(jp)%comm_pat_gather_v, test_pattern)
+        CALL delete_comm_gather_pattern(test_pattern)
+
+      ENDDO
+
+      DEALLOCATE(owner_local)
+      DEALLOCATE(glb_phys_id_c)
+      DEALLOCATE(glb_phys_id_e)
+      DEALLOCATE(glb_phys_id_v)
+
     ENDDO
 
     ! Get total number of physical patches
@@ -1496,6 +1651,25 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE setup_phys_patches
+
+  SUBROUTINE compare_gather_pattern(a, b)
+    TYPE(t_comm_gather_pattern), INTENT(IN) :: a, b
+
+    IF (ANY(a%collector_pes(:) /= b%collector_pes(:))) &
+      CALL finish("compare_gather_pattern", "collector_pes mismatch")
+    IF (ANY(a%collector_size(:) /= b%collector_size(:))) &
+      CALL finish("compare_gather_pattern", "collector_size mismatch")
+    IF (ANY(a%collector_send_size(:) /= b%collector_send_size(:))) &
+      CALL finish("compare_gather_pattern", "collector_send_size mismatch")
+    IF (ANY(a%loc_index(:) /= b%loc_index(:))) &
+      CALL finish("compare_gather_pattern", "loc_index mismatch")
+    IF (ANY(a%recv_buffer_reorder(:) /= b%recv_buffer_reorder(:))) &
+      CALL finish("compare_gather_pattern", "recv_buffer_reorder mismatch")
+    IF (ANY(a%recv_pes(:) /= b%recv_pes(:))) &
+      CALL finish("compare_gather_pattern", "recv_pes mismatch")
+    IF (ANY(a%recv_size(:) /= b%recv_size(:))) &
+      CALL finish("compare_gather_pattern", "recv_size mismatch")
+  END SUBROUTINE compare_gather_pattern
 
   SUBROUTINE setup_phys_patches_cve(n_g, n, decomp_info, phys_id, &
     &                               curr_patch_idx, set_logical_id, &
