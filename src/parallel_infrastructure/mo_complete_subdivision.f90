@@ -61,6 +61,7 @@ MODULE mo_complete_subdivision
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
+  USE mo_dist_dir,            ONLY: dist_dir_get_owners
   IMPLICIT NONE
 
   PRIVATE
@@ -733,12 +734,13 @@ CONTAINS
 
     ! ... cells
 
-    ALLOCATE(owner(p_ploc%n_patch_cells))
+    ALLOCATE(owner(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
+      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)))
 
     je = idx_1d(p_ploc%cells%end_idx(min_rlcell_int,i_chidx), &
       &         p_ploc%cells%end_blk(min_rlcell_int,i_chidx))
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    owner(1:p_ploc%n_patch_cells) = -1 ! By default don't include into comm pattern
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -748,20 +750,16 @@ CONTAINS
       ENDIF
     ENDDO
 
-    CALL setup_comm_pattern(p_ploc%n_patch_cells, owner, &
+    CALL setup_comm_pattern(p_ploc%n_patch_cells, owner(1:p_ploc%n_patch_cells), &
       p_ploc%cells%decomp_info%glb_index, &
       p_pglb%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_c)
 
-    DEALLOCATE(owner)
-
     ! ... edges
-
-    ALLOCATE(owner(p_ploc%n_patch_edges))
 
     je = idx_1d(p_ploc%edges%end_idx(min_rledge_int,i_chidx), &
       &         p_ploc%edges%end_blk(min_rledge_int,i_chidx))
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    owner(1:p_ploc%n_patch_edges) = -1 ! By default don't include into comm pattern
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -771,11 +769,9 @@ CONTAINS
       ENDIF
     ENDDO
 
-    CALL setup_comm_pattern(p_ploc%n_patch_edges, owner, &
+    CALL setup_comm_pattern(p_ploc%n_patch_edges, owner(1:p_ploc%n_patch_edges), &
       p_ploc%edges%decomp_info%glb_index,  &
       p_pglb%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_e)
-
-    DEALLOCATE(owner)
 
     !-----------------------------------------------------------------------------------------------
 
@@ -786,8 +782,6 @@ CONTAINS
 
     ! ... cells
 
-    ALLOCATE(owner(p_pglb%n_patch_cells))
-
     IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
       je = idx_1d(p_pglb%cells%end_idx(min_rlcell,p_pglb%n_childdom), &
         &         p_pglb%cells%end_blk(min_rlcell,p_pglb%n_childdom))
@@ -796,7 +790,7 @@ CONTAINS
         &         p_pglb%cells%end_blk(min_rlcell_int,p_pglb%n_childdom))
     ENDIF
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    owner(1:p_pglb%n_patch_cells) = -1 ! By default don't include into comm pattern
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -807,15 +801,11 @@ CONTAINS
       ENDIF
     ENDDO
 
-    CALL setup_comm_pattern(p_pglb%n_patch_cells, owner, &
+    CALL setup_comm_pattern(p_pglb%n_patch_cells, owner(1:p_pglb%n_patch_cells), &
       p_pglb%cells%decomp_info%glb_index, &
       p_ploc%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
 
-    DEALLOCATE(owner)
-
     ! ... edges
-
-    ALLOCATE(owner(p_pglb%n_patch_edges))
 
     IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
       je = idx_1d(p_pglb%edges%end_idx(min_rledge,i_chidx), &
@@ -825,7 +815,7 @@ CONTAINS
         &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
     ENDIF
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    owner(1:p_pglb%n_patch_edges) = -1 ! By default don't include into comm pattern
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
@@ -837,7 +827,8 @@ CONTAINS
     ENDDO
 
 
-    CALL setup_comm_pattern(p_pglb%n_patch_edges, owner, &
+    CALL setup_comm_pattern(p_pglb%n_patch_edges, &
+      owner(1:p_pglb%n_patch_edges), &
       p_pglb%edges%decomp_info%glb_index, &
       p_ploc%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
 
