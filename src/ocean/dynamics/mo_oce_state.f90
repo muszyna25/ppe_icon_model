@@ -1172,13 +1172,13 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     ! mixed layer depths
     call add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,&
-    &            ZA_DEPTH_BELOW_SEA, &
-    &            t_cf_var('mld', 'm', 'mixed layer depth', datatype_flt32),&
-    &            t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+    &            ZA_SURFACE, &
+    &            t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
     call add_var(ocean_default_list, 'condep', p_os_diag%condep , GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
     &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT16),&
-    &            t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+    &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     !reconstrcuted velocity in cartesian coordinates

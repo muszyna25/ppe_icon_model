@@ -407,13 +407,13 @@ CONTAINS
       &                          n_zlev)
     IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_3D%p_patch_2D(1)%cells%owned)
 
-!   dolic           => patch_3D%p_patch_1D(1)%dolic_c
-!   prism_thickness => patch_3D%p_patch_1d(1)%prism_thick_c
-!   CALL calc_fast_oce_diagnostics( patch_3D%p_patch_2D(1),      &
-!     &                             dolic, &
-!     &                             prism_thickness, &
-!     &                             patch_3D%p_patch_1d(1)%zlev_m, &
-!     &                             p_os(jg)%p_diag)
+    dolic           => patch_3D%p_patch_1D(1)%dolic_c
+    prism_thickness => patch_3D%p_patch_1d(1)%prism_thick_c
+    CALL calc_fast_oce_diagnostics( patch_3D%p_patch_2D(1),      &
+      &                             dolic, &
+      &                             prism_thickness, &
+      &                             patch_3D%p_patch_1d(1)%zlev_m, &
+      &                             p_os(jg)%p_diag)
 
     IF (istime4name_list_output(jstep)) THEN
       IF (idiag_oce == 1 ) THEN

@@ -1215,10 +1215,12 @@ END SUBROUTINE calc_psi
 
     REAL(wp) :: sigh        ,zzz
     REAL(wp) :: mixed_layer_depth
+    REAL(wp) :: masked_vertical_density_gradient(n_zlev)
     INTEGER  :: jk
 
     sigh              = critical_value
     mixed_layer_depth = depth_of_first_layer
+    masked_vertical_density_gradient = MAX(vertical_density_gradient,0.0_wp)
 
     ! This diagnostic calculates the mixed layer depth.
     ! It uses the incremental density increase between two
@@ -1232,9 +1234,9 @@ END SUBROUTINE calc_psi
 
     DO jk = 2, max_lev
       IF (sigh .GT. 1.e-6_wp) THEN
-        zzz                   = MIN(sigh/(ABS(vertical_density_gradient(jk))),thickness(jk))
-        sigh              = MAX(0._wp, sigh-zzz*vertical_density_gradient(jk))
-        mixed_layer_depth     = mixed_layer_depth + zzz
+        zzz               = MIN(sigh/(ABS(masked_vertical_density_gradient(jk))+1.0E-19_wp),thickness(jk))
+        sigh              = MAX(0._wp, sigh-zzz*masked_vertical_density_gradient(jk))
+        mixed_layer_depth = mixed_layer_depth + zzz
       ELSE
         sigh = 0._wp
       ENDIF
