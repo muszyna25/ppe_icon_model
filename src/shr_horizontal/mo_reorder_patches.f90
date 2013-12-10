@@ -170,7 +170,6 @@ CONTAINS
     CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_grf(4)   , idx_old2new)
     CALL reorder_comm_pattern(pp%comm_pat_interpol_vec_ubc(4)    , idx_old2new)
     CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_ubc(4)   , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_gather_c           , idx_old2new)
     CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_c       , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_c_fbk   , idx_old2new)
     CALL reorder_comm_gather_pattern(pp%comm_pat_gather_c_       , idx_old2new)
@@ -269,7 +268,6 @@ CONTAINS
     ! -------------------------------------------------------------------------
 
     CALL reorder_comm_pattern(pp%comm_pat_e                          , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_gather_e               , idx_old2new)
     CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_e           , idx_old2new)
     CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_e_fbk       , idx_old2new)
     CALL reorder_comm_gather_pattern(pp%comm_pat_gather_e_           , idx_old2new)
@@ -324,7 +322,6 @@ CONTAINS
     ! -------------------------------------------------------------------------
 
     CALL reorder_comm_pattern(pp%comm_pat_v                          , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_gather_v               , idx_old2new)
     CALL reorder_comm_gather_pattern(pp%comm_pat_gather_v_           , idx_old2new)
 
   END SUBROUTINE reorder_verts

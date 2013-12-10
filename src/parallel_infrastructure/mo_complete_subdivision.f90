@@ -694,9 +694,6 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT):: p
 
-    INTEGER, ALLOCATABLE :: tmp(:)
-    INTEGER :: j
-
     CALL setup_comm_gather_pattern( &
       p%cells%decomp_info%glb2loc_index%global_size, &
       p%cells%decomp_info%owner_local, &
@@ -709,45 +706,6 @@ CONTAINS
       p%edges%decomp_info%glb2loc_index%global_size, &
       p%edges%decomp_info%owner_local, &
       p%edges%decomp_info%glb_index, p%comm_pat_gather_e_)
-
-    ! For gathering the global fields on p_pe_work==0
-    ALLOCATE(tmp(MAX(p%n_patch_cells_g, p%n_patch_edges_g, p%n_patch_verts_g)))
-
-    DO j = 1, SIZE(tmp)
-      tmp(j) = j ! Global/local index in global array, i.e. identity!
-    ENDDO
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_cells_g, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%glb2loc_index, p%comm_pat_gather_c)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of cells is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%glb2loc_index, p%comm_pat_gather_c)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_edges_g, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%glb2loc_index, p%comm_pat_gather_e)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%glb2loc_index, p%comm_pat_gather_e)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_verts_g, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%glb2loc_index, p%comm_pat_gather_v)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%glb2loc_index, p%comm_pat_gather_v)
-    ENDIF
-
-    DEALLOCATE(tmp)
 
   END SUBROUTINE set_comm_pat_gather
 
@@ -1497,7 +1455,7 @@ CONTAINS
   SUBROUTINE setup_phys_patches
     INTEGER :: jp, jg, n, i, j, jb, jl
     INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
-    INTEGER, ALLOCATABLE :: owner(:), glbidx(:), owner_local(:)
+    INTEGER, ALLOCATABLE :: owner_local(:)
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
 
     p_phys_patch(:)%logical_id = -1
@@ -1603,10 +1561,6 @@ CONTAINS
       ENDDO
 
       ! Set up communication patterns in physical patches
-
-      n = MAX(p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_edges_g,p_patch(jg)%n_patch_verts_g)
-      ALLOCATE(owner (n))
-      ALLOCATE(glbidx(n))
       n = MAX(p_patch(jg)%n_patch_cells, &
         &     p_patch(jg)%n_patch_edges, &
         &     p_patch(jg)%n_patch_verts)
@@ -1616,86 +1570,12 @@ CONTAINS
 
         IF(p_phys_patch(jp)%logical_id /= jg) CYCLE ! do only for physical patches belonging to jg
 
-        ! cells
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_cells_g
-          IF(glb_phys_id_c(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%cells%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_cells = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_c)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of cells is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_c)
-          ENDIF
-        ENDIF
-
-        ! edges
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_edges_g
-          IF(glb_phys_id_e(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%edges%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_edges = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_e)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of edges is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_e)
-          ENDIF
-        ENDIF
-
-        ! verts
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_verts_g
-          IF(glb_phys_id_v(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%verts%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_verts = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_v)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of verts is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_v)
-          ENDIF
-        ENDIF
+        p_phys_patch(jp)%n_patch_cells = &
+          COUNT(glb_phys_id_c(1:p_patch(jg)%n_patch_cells_g) == jp)
+        p_phys_patch(jp)%n_patch_edges = &
+          COUNT(glb_phys_id_e(1:p_patch(jg)%n_patch_edges_g) == jp)
+        p_phys_patch(jp)%n_patch_verts = &
+          COUNT(glb_phys_id_v(1:p_patch(jg)%n_patch_verts_g) == jp)
 
         DO i = 1, p_patch(jg)%n_patch_cells
           owner_local(i) = &
@@ -1733,8 +1613,6 @@ CONTAINS
       ENDDO
 
       DEALLOCATE(owner_local)
-      DEALLOCATE(owner)
-      DEALLOCATE(glbidx)
       DEALLOCATE(glb_phys_id_c)
       DEALLOCATE(glb_phys_id_e)
       DEALLOCATE(glb_phys_id_v)

@@ -774,9 +774,6 @@ MODULE mo_model_domain
 
     ! Gather complete patch to proc 0
     ! Useful only for regular patches (defined but unused on local parents)
-    TYPE(t_comm_pattern) :: comm_pat_gather_c
-    TYPE(t_comm_pattern) :: comm_pat_gather_e
-    TYPE(t_comm_pattern) :: comm_pat_gather_v
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_c_
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_e_
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_v_
@@ -842,9 +839,6 @@ MODULE mo_model_domain
     INTEGER :: n_patch_verts
 
     ! Gather the physical patch to proc 0
-    TYPE(t_comm_pattern) :: comm_pat_gather_c
-    TYPE(t_comm_pattern) :: comm_pat_gather_e
-    TYPE(t_comm_pattern) :: comm_pat_gather_v
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_c_
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_e_
     TYPE(t_comm_gather_pattern) :: comm_pat_gather_v_
