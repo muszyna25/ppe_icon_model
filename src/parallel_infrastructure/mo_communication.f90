@@ -53,19 +53,15 @@ MODULE mo_communication
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_real_dp, p_int, p_bool, p_comm_work,             &
-     & my_process_is_mpi_seq,                             &
-     & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
-     & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
-     & p_gather, p_gatherv, work_mpi_barrier, p_alltoallv, &
-     & p_alltoall, process_mpi_root_id, p_bcast
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
+     & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
+     & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
+     & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
-  & timer_exch_data_wait
+  & timer_exch_data, timer_exch_data_async, timer_barrier, timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
-USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index, &
-  &                               t_grid_domain_decomp_info
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,          ONLY: quicksort
 
 
@@ -538,7 +534,7 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   INTEGER :: num_collectors
   LOGICAL, ALLOCATABLE :: pack_mask(:)
   INTEGER :: num_local_points, num_points_per_coll
-  INTEGER, ALLOCATABLE :: packed_glb_index(:), send_target(:)
+  INTEGER, ALLOCATABLE :: packed_glb_index(:)
   INTEGER :: coll_stride
   INTEGER :: num_send_per_process(p_n_work), num_recv_per_process(p_n_work)
   INTEGER :: send_displ(p_n_work+1), recv_displ(p_n_work)
@@ -902,11 +898,6 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    REAL(wp), POINTER :: send_ptr(:,:,:)
 
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
-
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv, jb
 
    !-----------------------------------------------------------------------
 
@@ -1576,11 +1567,6 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount, nf4d
    LOGICAL :: lsend, ladd
 
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv
-
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
@@ -1903,11 +1889,6 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend
-
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
 
@@ -2728,8 +2709,6 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_r2d"
    REAL(wp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   REAL(wp) :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
@@ -2856,8 +2835,6 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
    INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   INTEGER :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
@@ -2916,8 +2893,6 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_l2d"
    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   LOGICAL :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
