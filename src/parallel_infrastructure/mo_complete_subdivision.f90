@@ -714,6 +714,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     INTEGER, ALLOCATABLE :: owner(:)
+    LOGICAL, ALLOCATABLE :: mask(:)
     INTEGER :: j, je, icid, jb, jl
 
     ! Please note:
@@ -735,20 +736,26 @@ CONTAINS
     ! ... cells
 
     ALLOCATE(owner(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
+      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)), &
+      &      mask(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
       &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)))
 
     je = idx_1d(p_ploc%cells%end_idx(min_rlcell_int,i_chidx), &
       &         p_ploc%cells%end_blk(min_rlcell_int,i_chidx))
 
-    owner(1:p_ploc%n_patch_cells) = -1 ! By default don't include into comm pattern
+    mask(1:p_ploc%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_ploc%cells%child_id(jl,jb)   == icid            .AND.      &
-          p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c )   THEN
-        owner(j) = p_pglb%cells%decomp_info%owner_g(p_ploc%cells%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_ploc%cells%child_id(jl,jb)   == icid .AND. &
+        &       p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c
     ENDDO
+
+    owner(1:p_ploc%n_patch_cells) = &
+      UNPACK(dist_dir_get_owners(p_pglb%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(p_ploc%cells%decomp_info%glb_index(:), &
+        &                             mask(1:p_ploc%n_patch_cells))), &
+        &    mask(1:p_ploc%n_patch_cells), -1)
 
     CALL setup_comm_pattern(p_ploc%n_patch_cells, owner(1:p_ploc%n_patch_cells), &
       p_ploc%cells%decomp_info%glb_index, &
@@ -759,15 +766,19 @@ CONTAINS
     je = idx_1d(p_ploc%edges%end_idx(min_rledge_int,i_chidx), &
       &         p_ploc%edges%end_blk(min_rledge_int,i_chidx))
 
-    owner(1:p_ploc%n_patch_edges) = -1 ! By default don't include into comm pattern
+    mask(1:p_ploc%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_ploc%edges%child_id(jl,jb)   == icid            .AND.      &
-          p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e )   THEN
-        owner(j) = p_pglb%edges%decomp_info%owner_g(p_ploc%edges%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_ploc%edges%child_id(jl,jb) == icid .AND. &
+        &       p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e
     ENDDO
+
+    owner(1:p_ploc%n_patch_edges) = &
+      UNPACK(dist_dir_get_owners(p_pglb%edges%decomp_info%owner_dist_dir, &
+        &                        PACK(p_ploc%edges%decomp_info%glb_index(:), &
+        &                             mask(1:p_ploc%n_patch_edges))), &
+        &    mask(1:p_ploc%n_patch_edges), -1)
 
     CALL setup_comm_pattern(p_ploc%n_patch_edges, owner(1:p_ploc%n_patch_edges), &
       p_ploc%edges%decomp_info%glb_index,  &
@@ -790,16 +801,20 @@ CONTAINS
         &         p_pglb%cells%end_blk(min_rlcell_int,p_pglb%n_childdom))
     ENDIF
 
-    owner(1:p_pglb%n_patch_cells) = -1 ! By default don't include into comm pattern
+    mask(1:p_pglb%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_pglb%cells%child_id(jl,jb)   == icid            .AND. &
-          p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
-          p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int )   THEN
-        owner(j) = p_ploc%cells%decomp_info%owner_g(p_pglb%cells%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_pglb%cells%child_id(jl,jb) == icid .AND. &
+        &       p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
+        &       p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int
     ENDDO
+
+    owner(1:p_pglb%n_patch_cells) = &
+      UNPACK(dist_dir_get_owners(p_ploc%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(p_pglb%cells%decomp_info%glb_index(:), &
+        &                             mask(1:p_pglb%n_patch_cells))), &
+        &    mask(1:p_pglb%n_patch_cells), -1)
 
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner(1:p_pglb%n_patch_cells), &
       p_pglb%cells%decomp_info%glb_index, &
@@ -815,24 +830,27 @@ CONTAINS
         &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
     ENDIF
 
-    owner(1:p_pglb%n_patch_edges) = -1 ! By default don't include into comm pattern
+    mask(1:p_pglb%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_pglb%edges%child_id(jl,jb)   == icid            .AND. &
-          p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
-          p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int )   THEN
-        owner(j) = p_ploc%edges%decomp_info%owner_g(p_pglb%edges%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_pglb%edges%child_id(jl,jb) == icid .AND. &
+        &       p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
+        &       p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int
     ENDDO
 
+    owner(1:p_pglb%n_patch_edges) = &
+      UNPACK(dist_dir_get_owners(p_ploc%edges%decomp_info%owner_dist_dir, &
+        &                        PACK(p_pglb%edges%decomp_info%glb_index(:), &
+        &                             mask(1:p_pglb%n_patch_edges))), &
+        &    mask(1:p_pglb%n_patch_edges), -1)
 
     CALL setup_comm_pattern(p_pglb%n_patch_edges, &
       owner(1:p_pglb%n_patch_edges), &
       p_pglb%edges%decomp_info%glb_index, &
       p_ploc%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
 
-    DEALLOCATE(owner)
+    DEALLOCATE(owner, mask)
 
    END SUBROUTINE set_glb_loc_comm
 
@@ -876,11 +894,10 @@ CONTAINS
 
     ! For our local child patch, gather which cells receive values from which parent cell
 
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
+    ALLOCATE(glb_index(p_patch%n_patch_cells), &
+      &      owner(p_patch%n_patch_cells))
 
     glb_index(:) = -1
-    owner(:)     = -1
 
     DO j = 1, p_patch%n_patch_cells
       jc = idx_no(j)
@@ -888,8 +905,12 @@ CONTAINS
       jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
       IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
       glb_index(j) = jp
-      owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
     ENDDO
+
+    owner(:) = &
+      UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+        &    glb_index(:) /= -1, -1)
 
     ! Set up communication pattern
 
@@ -928,7 +949,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_cells
@@ -938,9 +958,13 @@ CONTAINS
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
           jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1053,7 +1077,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_edges
@@ -1063,9 +1086,13 @@ CONTAINS
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
           jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%edges%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1193,7 +1220,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       DO j = 1,p_patch%n_patch_cells
         jc = idx_no(j)
@@ -1202,9 +1228,13 @@ CONTAINS
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
           jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1317,7 +1347,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       DO j = 1,p_patch%n_patch_edges
         je = idx_no(j)
@@ -1326,9 +1355,13 @@ CONTAINS
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
           jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%edges%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
