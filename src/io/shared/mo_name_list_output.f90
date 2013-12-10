@@ -78,8 +78,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
   USE mo_name_list_output_types,    ONLY:  l_output_phys_patch, t_output_name_list,                 &
   &                                        t_output_file, t_var_desc,                               &
-  &                                        t_patch_info, t_reorder_info,                            &
-  &                                        t_grid_info,                                             &
+  &                                        t_reorder_info, t_grid_info,                             &
   &                                        REMAP_NONE, REMAP_REGULAR_LATLON,                        &
   &                                        msg_io_start, msg_io_done, msg_io_shutdown,              &
   &                                        IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,              &
@@ -802,8 +801,7 @@ CONTAINS
           ELSE
             CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
           ENDIF
-        END IF
-        IF (idata_type == iINTEGER) THEN
+        ELSE IF (idata_type == iINTEGER) THEN
           IF(my_process_is_mpi_workroot()) THEN
             ALLOCATE(i_tmp(nproma,nlevs,nblks))
           ELSE
@@ -836,8 +834,7 @@ CONTAINS
               DO jk = 1, nlevs
                 r_out_dp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
               ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
+            ELSE IF (idata_type == iINTEGER) THEN
               DO jk = 1, nlevs
                 r_out_dp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), dp)
               ENDDO
@@ -849,8 +846,7 @@ CONTAINS
               DO jk = 1, nlevs
                 r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), sp)
               ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
+            ELSE IF (idata_type == iINTEGER) THEN
               DO jk = 1, nlevs
                 r_out_sp(:,jk) = REAL(RESHAPE(i_tmp(:,jk,:), (/ n_points /)), sp)
               ENDDO
