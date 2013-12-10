@@ -389,11 +389,7 @@ CONTAINS
   SUBROUTINE gather_cells_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     !
 #ifndef NOMPI
@@ -426,11 +422,7 @@ CONTAINS
   SUBROUTINE gather_cells_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), TARGET                       :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     !
 #ifndef NOMPI
@@ -463,11 +455,7 @@ CONTAINS
   SUBROUTINE gather_edges_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     !
 #ifndef NOMPI
@@ -495,11 +483,7 @@ CONTAINS
   SUBROUTINE gather_edges_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     !
 #ifndef NOMPI
@@ -528,11 +512,7 @@ CONTAINS
   SUBROUTINE gather_vertices_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     !
 #ifndef NOMPI
@@ -560,11 +540,7 @@ CONTAINS
   SUBROUTINE gather_vertices_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     !
 #ifndef NOMPI
@@ -598,11 +574,7 @@ CONTAINS
   SUBROUTINE gather_cells_i2d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     !
 #ifndef NOMPI
@@ -630,11 +602,7 @@ CONTAINS
   SUBROUTINE gather_cells_i3d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     !
 #ifndef NOMPI
@@ -663,11 +631,7 @@ CONTAINS
   SUBROUTINE gather_edges_i2d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     !
 #ifndef NOMPI
@@ -696,11 +660,7 @@ CONTAINS
   SUBROUTINE gather_edges_i3d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     !
 #ifndef NOMPI
@@ -729,11 +689,7 @@ CONTAINS
   SUBROUTINE gather_vertices_i2d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     !
 #ifndef NOMPI
@@ -761,11 +717,7 @@ CONTAINS
   SUBROUTINE gather_vertices_i3d(in_array, out_array, p_patch)
     INTEGER,                   INTENT(in) :: in_array(:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     !
 #ifndef NOMPI
@@ -797,11 +749,7 @@ CONTAINS
   SUBROUTINE gather_cells_l2d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     !
 #ifndef NOMPI
@@ -829,11 +777,7 @@ CONTAINS
   SUBROUTINE gather_cells_l3d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     !
 #ifndef NOMPI
@@ -862,11 +806,7 @@ CONTAINS
   SUBROUTINE gather_edges_l2d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     !
 #ifndef NOMPI
@@ -894,11 +834,7 @@ CONTAINS
   SUBROUTINE gather_edges_l3d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     !
 #ifndef NOMPI
@@ -927,11 +863,7 @@ CONTAINS
   SUBROUTINE gather_vertices_l2d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     !
 #ifndef NOMPI
@@ -959,11 +891,7 @@ CONTAINS
   SUBROUTINE gather_vertices_l3d(in_array, out_array, p_patch)
     LOGICAL,                   INTENT(in) :: in_array(:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     !
 #ifndef NOMPI
@@ -1210,11 +1138,7 @@ CONTAINS
   SUBROUTINE scatter_cells_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     r1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1227,11 +1151,7 @@ CONTAINS
   SUBROUTINE scatter_cells_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     r2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1244,11 +1164,7 @@ CONTAINS
   SUBROUTINE scatter_edges_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     r1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1261,11 +1177,7 @@ CONTAINS
   SUBROUTINE scatter_edges_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     r2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1278,11 +1190,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r1d(:)
     r1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1295,11 +1203,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),              INTENT(in) :: p_patch
     REAL(wp), POINTER :: r2d(:,:)
     r2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1315,11 +1219,7 @@ CONTAINS
   SUBROUTINE scatter_cells_i2d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     i1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1332,11 +1232,7 @@ CONTAINS
   SUBROUTINE scatter_cells_i3d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     i2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1349,11 +1245,7 @@ CONTAINS
   SUBROUTINE scatter_edges_i2d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     i1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1366,11 +1258,7 @@ CONTAINS
   SUBROUTINE scatter_edges_i3d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     i2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1383,11 +1271,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_i2d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i1d(:)
     i1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1400,11 +1284,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_i3d(in_array, out_array, p_patch)
     INTEGER, POINTER                      :: in_array(:,:,:,:,:)
     INTEGER, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     INTEGER, POINTER :: i2d(:,:)
     i2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1420,11 +1300,7 @@ CONTAINS
   SUBROUTINE scatter_cells_l2d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     l1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1437,11 +1313,7 @@ CONTAINS
   SUBROUTINE scatter_cells_l3d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     l2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1454,11 +1326,7 @@ CONTAINS
   SUBROUTINE scatter_edges_l2d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     l1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1471,11 +1339,7 @@ CONTAINS
   SUBROUTINE scatter_edges_l3d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     l2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
@@ -1488,11 +1352,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_l2d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l1d(:)
     l1d => in_array(:,1,1,1,1)
 #ifdef NOMPI
@@ -1505,11 +1365,7 @@ CONTAINS
   SUBROUTINE scatter_vertices_l3d(in_array, out_array, p_patch)
     LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
     LOGICAL, POINTER                      :: out_array(:,:,:)
-#ifndef NOMPI
-    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch),             INTENT(in) :: p_patch
     LOGICAL, POINTER :: l2d(:,:)
     l2d => in_array(:,:,1,1,1)
 #ifdef NOMPI
