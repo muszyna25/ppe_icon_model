@@ -274,19 +274,30 @@ def checkNames(build,exp)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       for file in $(ls -rc #{exp}*.nc*); do
-        if [ -f $file ]; then
-          echo '#===========================================================================';
-          echo " $file";echo
-          cdo showname  $file
-          #cdo sinfov $file
-          #cdo -infov -seltimestep,2 $file
-          #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
-          #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
-          #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
-        fi;
+        echo '#===========================================================================';
+        echo " $file";echo
+        cdo showname  $file
       done
-               EOS
-              ),true)
+      EOS
+      ),true)
+end
+
+# check a single variable with infov
+def checkVar(build,exp,varname,timestep,level)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      for file in $(ls -rc #{exp}*.nc*); do
+         selectOP='';
+         if [ #{timestep} -ne 0 ]; then
+           selectOP="$selectOP -seltimestep,#{timestep}";
+         fi
+         if [ #{level} -ne 0 ]; then
+           selectOP="$selectOP -sellevidx,#{level}";
+         fi
+         cdo infov -selname,#{varname} $selectOP $file
+      done
+      EOS
+  ))
 end
 
 # plot a plot from output file
@@ -321,6 +332,17 @@ def showOnlineDiag(build,exp)
         LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
       else echo 'No diagnostics avialable!';
       fi
+   EOS
+  ))
+end
+
+# show diff between two files
+def doDiffThis(build,fA,fB,tool='meld')
+  dbg("tool=#{tool}")
+  dbg("fA=#{fA}")
+  dbg("fB=#{fB}")
+  call(connect(build,<<-EOS
+     #{[tool,fA,fB].join(' ')}
    EOS
   ))
 end
@@ -416,13 +438,15 @@ def doCheckExp(build,exp)
         showPlot(build,exp,var,ts,lev)
       when 'diag'
         showOnlineDiag(build,exp)
+      when 'var'
+	checkVar(build,exp,var,ts,lev)
       else
         checkNames(build,exp)
       end
     }
   else
     checkNames(build,exp)
-    showOnlineDiag(build,exp)
+    showOnlineDiag(build,exp) if ENV.has_key?('SHOW')
     checkAcc(build,exp,var)
   end
 end
@@ -500,6 +524,13 @@ $builds.each_key {|build|
                 args.exp || DEFAULT_EXP,
                 args.ext || 'eps')
   end
+  # diff two text files with (option) tool
+  desc "diff two text files with (option) tool"
+  task "#{build.to_s}_diff".to_sym, :fA, :fB, :tool  do |t, args|
+    tool =  'meld' if args.tool.nil?
+    doDiffThis(build,args.fA, args.fB, tool)
+  end
+
   # }
   # TASKS FOR ONLY DO ONE SINGLE THING {
   desc "Configure for build #{build.to_s}"
