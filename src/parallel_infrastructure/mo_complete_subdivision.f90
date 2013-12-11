@@ -1479,6 +1479,9 @@ CONTAINS
 
     TYPE(t_comm_gather_pattern) :: test_pattern
 
+    INTEGER :: n_patch_cve(max_phys_dom)
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_cve(max_phys_dom)
+
     p_phys_patch(:)%logical_id = -1
 
     DO jg = 1, n_dom
@@ -1487,20 +1490,28 @@ CONTAINS
         &                         p_patch(jg)%n_patch_cells, &
         &                         p_patch(jg)%cells%decomp_info, &
         &                         p_patch(jg)%cells%phys_id, jg, &
-        &                         .TRUE., p_phys_patch(:)%n_patch_cells, &
-        &                         p_phys_patch(:)%comm_pat_gather_c)
+        &                         .TRUE., n_patch_cve(:), &
+        &                         comm_pat_gather_cve(:))
+      p_phys_patch(:)%n_patch_cells = n_patch_cve(:)
+      p_phys_patch(:)%comm_pat_gather_c = comm_pat_gather_cve(:)
+
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
         &                         p_patch(jg)%n_patch_verts, &
         &                         p_patch(jg)%verts%decomp_info, &
         &                         p_patch(jg)%verts%phys_id, jg, &
-        &                         .FALSE., p_phys_patch(:)%n_patch_verts, &
-        &                         p_phys_patch(:)%comm_pat_gather_v)
+        &                         .FALSE., n_patch_cve(:), &
+        &                         comm_pat_gather_cve(:))
+      p_phys_patch(:)%n_patch_verts = n_patch_cve(:)
+      p_phys_patch(:)%comm_pat_gather_v = comm_pat_gather_cve(:)
+
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
         &                         p_patch(jg)%n_patch_edges, &
         &                         p_patch(jg)%edges%decomp_info, &
         &                         p_patch(jg)%edges%phys_id, jg, &
-        &                         .FALSE., p_phys_patch(:)%n_patch_edges, &
-        &                         p_phys_patch(:)%comm_pat_gather_e)
+        &                         .FALSE., n_patch_cve(:), &
+        &                         comm_pat_gather_cve(:))
+      p_phys_patch(:)%n_patch_edges = n_patch_cve(:)
+      p_phys_patch(:)%comm_pat_gather_e = comm_pat_gather_cve(:)
 
       ! Get global arrays for phys_id
 
