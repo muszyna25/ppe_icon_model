@@ -197,33 +197,6 @@ $buildCall = lambda {|build|
 # global tempfile array: little hack because the call generator does not really
 # call the system command
 $_temps = []
-# synchronization call for given build
-def sync(build)
-  dir      = $targetDir[build]
-  rsyncOpts = "--delete-excluded --delete"
-  rsyncOpts = ""
-
-  file = Tempfile.new("rsyncIconTempfiles2Transfer")
-  $_temps << file
-  myFile = file.path
-  file.write(`git ls-files | grep -v -E '^(data|doc)'`)
-  file.write("\n")
-  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
-  # add non-added runscripts
-  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
-  # add grids directory for local external data
-  file.write(Dir.glob("grids/*.nc").join("\n") + "\n")
-  file.write("config/mh-override\n") if isLocal?(build)
-  file.close
-  system("cat #{file.path}") if  ENV.has_key?('DEBUG')
-
-  if isLocal?(build)
-    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
-  else
-    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
-  end
-  syncCmd
-end
 
 # optional connection command
 def connect(build,command,targetDir=$targetDir[build,false])
@@ -347,9 +320,48 @@ def doDiffThis(build,fA,fB,tool='meld')
   ))
 end
 
-# caller for sync, config, build and run
+# show diff between two files
+def doDiffThis(build,fA,fB,tool='meld')
+  dbg("tool=#{tool}")
+  dbg("fA=#{fA}")
+  dbg("fB=#{fB}")
+  call(connect(build,<<-EOS
+     #{[tool,fA,fB].join(' ')}
+   EOS
+  ))
+end
+
+# synchronization call for given build
 def doSync(build)
-  call(sync(build))
+  dir      = $targetDir[build]
+  rsyncOpts = "--delete-excluded --delete"
+  rsyncOpts = "-L"
+
+  file = Tempfile.new("rsyncIconTempfiles2Transfer")
+  $_temps << file
+  myFile = file.path
+  if File.exists?('.svn') then
+    file.write(`find $(svn list) -type f | grep -v -F '.svn'`)
+  else
+    file.write(`git ls-files | grep -v -E '^(data|doc)'`)
+  end
+  file.write("\n")
+  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
+  # add non-added runscripts
+  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
+  file.write("\n")
+  # add grids directory for local external data
+  file.write(Dir.glob("grids/*.nc").join("\n") + "\n")
+  file.write("config/mh-override\n") if isLocal?(build)
+  file.close
+  system("cat #{file.path}") if  ENV.has_key?('DEBUG')
+
+  if isLocal?(build)
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
+  else
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
+  end
+  call(syncCmd)
 end
 def doCheckoutRev(build,rev,url)
   dir  = $targetDir[build]+'/'+rev.to_s
@@ -379,6 +391,7 @@ def doCleanSync(build)
   call(connect(build,"rm -rf src support build"))
 end
 def doRunExp(build,exp,post=false)
+  nprocs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 4
   runScript = (post) ? 'post' : 'exp'
   runScript << '.' + exp +'.run'
   call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc* | cut -d ' ' -f 1) && rm #{exp}*.nc*"))
@@ -391,6 +404,7 @@ def doRunExp(build,exp,post=false)
       ./make_runscripts #{exp};
       cd run;
       perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
+      perl -pi.bak -e 's/mpi_total_procs=.*/mpi_total_procs=#{nprocs}/' #{runScript} ;
       ./exp.#{exp}.run;
                            EOS
                           ),true)
@@ -553,6 +567,13 @@ $builds.each_key {|build|
   task "#{build.to_s}_cmpOnly".to_sym, [:expA,:expB] => ["#{build.to_s}_sync".to_sym] do |t, args|
     doCmpExps(build,args.expA,args.expB)
   end
+  # diff two text files with (option) tool
+  desc "diff two text files with (option) tool"
+  task "#{build.to_s}_diff".to_sym, :fA, :fB, :tool  do |t, args|
+    tool =  'meld' if args.tool.nil?
+    doDiffThis(build,args.fA, args.fB, tool)
+  end
+
   # }
 
   desc "remove old source trees and sync"
