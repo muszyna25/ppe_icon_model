@@ -982,16 +982,16 @@ for imon = 1 to 1 do
                   ecfsdir&"ssmi/wentz_v6/grib/ssmi_v6_", ".grb", 3, "SSMI Wentz V6",
                   lclim, freado, lcol, tcrit, sig_cont, larticle, "tclw", 1)
        end if
-
-	   if lwinds = 1 then
-          outfile(dir,lclim,'10wind_ssmi_'&rgstr&
-                  'nens'&string(nens)&'_'&
-                  datestr&'_nmon'&string(mm_len[imon]),
-                  filestr&expid,output,lcol)
-          winds(expid,yy_start[imon],mm_start[imon],mm_len[imon],
-                source_file_sfc,nens,res,display_port,lplot_curve,ecfsdir,
-                lclim,freado,lcol,tcrit,sig_cont,larticle,ssmi_wind_rms)
-       end if
+ # We do not have 10si in ICON
+	#   if lwinds = 1 then
+        #  outfile(dir,lclim,'10wind_ssmi_'&rgstr&
+        #          'nens'&string(nens)&'_'&
+        #          datestr&'_nmon'&string(mm_len[imon]),
+        #          filestr&expid,output,lcol)
+        #  winds(expid,yy_start[imon],mm_start[imon],mm_len[imon],
+        #        source_file_sfc,nens,res,display_port,lplot_curve,ecfsdir,
+        #        lclim,freado,lcol,tcrit,sig_cont,larticle,ssmi_wind_rms)
+      # end if
 end if
 
 #
@@ -1696,6 +1696,7 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
 
       'sshf': 
          param   = 'sshf'
+         param_m = param
          datamin = -200              # data limits to define missing values
          datamax = 100
          cmin    = -50
@@ -1718,6 +1719,7 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
 
       'slhf': 
          param   = 'slhf' 
+         param_m = param
          datamin = -300              # data limits to define missing values
          datamax = 100
          cmin    = -200
@@ -1739,6 +1741,7 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
 
       'tcwv': 
          param   = 'tcwv' 
+         param_m = 'tqv'   #'64'   #tciwv  64.1.0
          datamin = 0                 # data limits to define missing values
          datamax = 500
          cmin    = 10
@@ -1755,6 +1758,7 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
 
       'tclw': 
          param   = 'tclw' 
+         param_m = 69   # param69.1.0
          datamin = 0                 # data limits to define missing values
          datamax = 500
          cmin    = 25
@@ -1773,6 +1777,7 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
 
       'tciw': 
          param   = 'tciw' 
+         param_m = '70'   # param70.1.0
          datamin = 0                 # data limits to define missing values
          datamax = 500
          cmin    = 10
@@ -1843,13 +1848,13 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
             mm=1
         end if
     end for
-
+    print(param_m)
     mod_all = read(
         #type	:	"fc",
         #expver	:	expid,
         levtype	:	"sfc",
         grid	:	my_grid,
-        param	:	param,
+        param	:	param_m,
         source  : 	source_file_sfc
         )
 
@@ -3043,8 +3048,8 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
 	end for
 
 	modu = read(
-					type	:	"fc",
-					expver	:	expid,
+				#	type	:	"fc",
+				#	expver	:	expid,
 					levtype	:	"sfc",
 					area	:	my_area,
 					grid	:	my_grid,
@@ -3053,8 +3058,8 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
 					)
 
 	modv = read(
-					type	:	"fc",
-					expver	:	expid,
+				#	type	:	"fc",
+				#	expver	:	expid,
 					levtype	:	"sfc",
 					area	:	my_area,
 					grid	:	my_grid,

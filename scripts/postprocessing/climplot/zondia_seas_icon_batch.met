@@ -101,11 +101,11 @@
       #cmin_param = cint_param
       #cmax_param = [10  ,30 ,10 ,2  ,0.05 ,2   ]
       #scale      = [1   ,1  ,1  ,1  ,1    ,1000]
-      param      = ["T" ,"U","V","Q" ]
-      cint_param = [0.5 ,1  ,0.2,0.2 ]
+      param      = ["T" ,"U","V" ]  #,"Q" ]
+      cint_param = [0.5 ,1  ,0.2 ]  #,0.2 ]
       cmin_param = cint_param
-      cmax_param = [10  ,10 ,2  ,2   ]
-      scale      = [1   ,1  ,1  ,1000]
+      cmax_param = [10  ,10 ,2 ]  # ,2   ]
+      scale      = [1   ,1  ,1  ]  #,1000]
     else
       #param      = ["T" ,"R","U","V","W"  ,"Q" ,"CC","CLWC","CIWC"]
       #cint_param = [2   ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]

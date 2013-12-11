@@ -133,24 +133,25 @@ dayl=24
 # small planet scaling
 rplradi=1.0
 rcorioi=1.0
-if [[ -f $SMSINCLUDE/config.fc.h && $FSFAMILY = /gfc ]] ; then
-   pfr=$(grep PPFRQ= $SMSINCLUDE/config.fc.h | sed 's/PPFRQ=//')
-   if [[ $pfr > 0 ]]; then
-      ppfrq=$pfr
-   fi
-fi
-if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
-   rsp=$(grep RPLRADI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RPLRADI=//' |sed 's/.$//')
-   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
-   if [[ $rsp > 0 ]]; then
-      rplradi=$rsp
-   fi
-   if [[ $rco > 0 ]]; then
-      rcorioi=$rco
-   fi
-fi
-steps=$((steps * rcorioi))
-dayl=$((dayl * rcorioi))
+#if [[ -f $SMSINCLUDE/config.fc.h && $FSFAMILY = /gfc ]] ; then
+#   pfr=$(grep PPFRQ= $SMSINCLUDE/config.fc.h | sed 's/PPFRQ=//')
+#   if [[ $pfr > 0 ]]; then
+#      ppfrq=$pfr
+#   fi
+#fi
+#if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
+#   rsp=$(grep RPLRADI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RPLRADI=//' |sed 's/.$//')
+#   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
+#   if [[ $rsp > 0 ]]; then
+#      rplradi=$rsp
+#   fi
+#   if [[ $rco > 0 ]]; then
+#      rcorioi=$rco
+#   fi
+#fi
+#steps=$((steps * rcorioi))
+#dayl=$((dayl * rcorioi))
+
 if [[ $steps -lt $ppfrq ]]; then
       steps=$ppfrq
 fi
