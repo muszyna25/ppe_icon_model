@@ -66,7 +66,7 @@ outdir=%SCTEMP%/%SUITE%/%EXPNUM%/output/%YMD%%INIHOUR%
 #gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
 gatedir=%ECTEMP%/%SUITE%/%EXPNUM%/seasonal
 ssh ecgb mkdir -p ${gatedir}
-ssh ecgb rm  -rf ${gatedir}
+#ssh ecgb rm  -rf ${gatedir}
 cd ${outdir}
 ecfsdir="ec:icon/experiments/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%"
 ecfseas="ec:icon/experiments/%SUITE%/%EXPNUM%/seasonal"

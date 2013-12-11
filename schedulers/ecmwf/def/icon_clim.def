@@ -176,8 +176,8 @@ suite $USER
     set ENABLE_INIT               1 #to avoid running again
     set     ENABLE_GET_DATA       1
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          0
-    set         ENABLE_INIT_SVN   0
+    set     ENABLE_BUILD          1
+    set         ENABLE_INIT_SVN   1
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
@@ -193,8 +193,13 @@ suite $USER
     set     ENABLE_CLIMPLOT       1
     set     ENABLE_PLOT_OBS_1     1
     set     ENABLE_PLOT_OBS_2     1
+    set     ENABLE_PLOT_OBS_3     1
+    set     ENABLE_PLOT_OBS_4     1
+    set     ENABLE_PLOT_OBS_5     1
     set     ENABLE_PLOT_OBS_6     1
+    set     ENABLE_PLOT_OBS_7     1
     set     ENABLE_PLOT_OBS_8     1
+    set     ENABLE_CLIMPLOT_SAVE  1
     # enable this flag, if we do not perform a complete "svn export"
     # but simply an "svn update" and "gmake distclean":
     set  SVN_UPDATE           1
@@ -421,7 +426,7 @@ suite $USER
     family post_seasonal
         trigger forecast==complete
         complete ( $ENABLE_POST_SEAS == 0)
-        set PLOTPERIODS  5
+        set PLOTPERIODS   5
         repeat string YMD ${DATE_LIST} 
         edit INIHOUR "" #This is a work around, YMD contains the hour
 
@@ -488,13 +493,21 @@ suite $USER
 #               task plot_obs_2
 #                on_ecgate_submit
 #                complete ($ENABLE_PLOT_OBS_2 == 0)
-##               task plot_obs_3
-##               task plot_obs_4
-##               task plot_obs_5
+              # task plot_obs_3
+              #  on_ecgate_submit
+              #  complete ($ENABLE_PLOT_OBS_3 == 0)
+              # task plot_obs_4
+              #  on_ecgate_submit
+              #  complete ($ENABLE_PLOT_OBS_4 == 0)
+              # task plot_obs_5
+              #  on_ecgate_submit
+              #  complete ($ENABLE_PLOT_OBS_5 == 0)
                task plot_obs_6
                 on_ecgate_submit
                 complete ($ENABLE_PLOT_OBS_6 == 0)
-##               task plot_obs_7
+               task plot_obs_7
+                on_ecgate_submit
+                complete ($ENABLE_PLOT_OBS_7 == 0)
                task plot_obs_8
                 on_ecgate_submit
                 complete ($ENABLE_PLOT_OBS_8 == 0)
@@ -510,6 +523,7 @@ suite $USER
 
         task climplot_save
            trigger climplot == complete
+           complete ($ENABLE_CLIMPLOT_SAVE == 0)
            on_ecgate_submit
              
 

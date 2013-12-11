@@ -889,6 +889,7 @@ schedulers/ecmwf/sms/eom_metview.sms -text
 schedulers/ecmwf/sms/eom_prepare.sms -text
 schedulers/ecmwf/sms/fct_ifs.sms -text
 schedulers/ecmwf/sms/get_data.sms -text
+schedulers/ecmwf/sms/getmeans.sms -text
 schedulers/ecmwf/sms/init_build.sms -text
 schedulers/ecmwf/sms/init_cp_binary.sms -text
 schedulers/ecmwf/sms/init_data.sms -text
@@ -901,6 +902,14 @@ schedulers/ecmwf/sms/mmeans_pl.sms -text
 schedulers/ecmwf/sms/mmeans_sfc.sms -text
 schedulers/ecmwf/sms/model.sms -text
 schedulers/ecmwf/sms/once.sms -text
+schedulers/ecmwf/sms/plot_2d.sms -text
+schedulers/ecmwf/sms/plot_obs_1.sms -text
+schedulers/ecmwf/sms/plot_obs_2.sms -text
+schedulers/ecmwf/sms/plot_obs_3.sms -text
+schedulers/ecmwf/sms/plot_obs_6.sms -text
+schedulers/ecmwf/sms/plot_obs_7.sms -text
+schedulers/ecmwf/sms/plot_obs_8.sms -text
+schedulers/ecmwf/sms/plot_zon.sms -text
 schedulers/ecmwf/sms/post_archive.sms -text
 schedulers/ecmwf/sms/post_prepare.sms -text
 schedulers/ecmwf/sms/pre_clean.sms -text

@@ -117,7 +117,7 @@ if (( $saveplots == 1 )) ; then
    convert -rotate 90 -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
 %end
   done
-  for obsd in gpcp hoap ssmi xiearkin ciwc ; do
+  for obsd in gpcp hoap ssmi xiearkin ciwc quikscat isccp modis ; do
    for metfile in `ls clim_*${obsd}*.ps` ; do
 %nopp
     convert -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 

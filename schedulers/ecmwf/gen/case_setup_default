@@ -162,7 +162,7 @@ cat > ${atmo_namelist} << EOF
  ifs2icon_filename            = '${ifs2icon_filename}'
 /
 &io_nml
- lflux_avg                    = .FALSE.     ! false: accumulated fluxes
+ lflux_avg                   = .FALSE.     ! false: accumulated fluxes
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  itype_rh                     = 2
  lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
