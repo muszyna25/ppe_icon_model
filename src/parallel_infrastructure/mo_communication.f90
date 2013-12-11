@@ -3100,7 +3100,8 @@ SUBROUTINE gather_r_2d_deblock(in_array, out_array, gather_pattern)
     &                   gather_pattern=gather_pattern)
 
   IF (p_pe_work == process_mpi_root_id) &
-    out_array(:,:) = TRANSPOSE(recv_buffer(:,:))
+    out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
+      TRANSPOSE(recv_buffer(:,:))
 END SUBROUTINE gather_r_2d_deblock
 
 SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
@@ -3144,7 +3145,8 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
     &                   gather_pattern=gather_pattern)
 
   IF (p_pe_work == process_mpi_root_id) &
-    out_array(:,:) = TRANSPOSE(recv_buffer(:,:))
+    out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
+      TRANSPOSE(recv_buffer(:,:))
 END SUBROUTINE gather_i_2d_deblock
 
 SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
