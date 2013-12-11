@@ -575,13 +575,6 @@ SUBROUTINE calc_slow_oce_diagnostics(p_patch_3D, p_os, p_sfc_flx, p_ice, &
           monitor%ice_extent_sh  = monitor%ice_extent_sh + p_ice%concSum(jc,jb)*prism_area
         END IF
 
- 
- !      CALL calc_mixed_layer_depth(p_os%p_diag%zgrad_rho(jc,:,jb),&
- !        &                         0.125_wp, &
- !        &                         p_patch_3D%p_patch_1d%dolic_c(jc,jb), &
- !        &                         p_patch_3D%p_patch_1d%prism_thick_c(jc,:,jb), &
- !        &                         p_patch_3D%p_patch_1d%zlev_m)
-
         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
           !local volume
@@ -768,6 +761,7 @@ SUBROUTINE calc_fast_oce_diagnostics(p_patch, dolic, prism_thickness,depths, p_d
         &                                        dolic(jc,jb), &
         &                                        prism_thickness(jc,:,jb), &
         &                                        depths(1))
+      p_diag%condep(jc,jb) = calc_condep(p_diag%zgrad_rho(jc,:,jb), dolic(jc,jb))
       ENDDO
     ENDDO
     CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
@@ -1176,35 +1170,30 @@ SUBROUTINE calc_psi (p_patch,p_patch_3D, u, h, u_vint, datetime)
 
 END SUBROUTINE calc_psi
 !-------------------------------------------------------------------------
- !!take from MPIOM
- !SUBROUTINE calc_condep(condep, vertical_density_gradient,max_lev)
- !  REAL(wp),INTENT(OUT) :: condep(n_zlev)
- !  REAL(wp),INTENT(in) :: vertical_density_gradient(n_zlev)
- !  INTEGER, INTENT(IN) :: max_lev
+ !!taken from MPIOM
+  FUNCTION calc_condep(vertical_density_gradient,max_lev) RESULT(condep)
+   REAL(wp),INTENT(IN)  :: vertical_density_gradient(n_zlev)
+   INTEGER, INTENT(IN)  :: max_lev
+   INTEGER              :: condep
 
- !  INTEGER :: jk
- !  REAL(wp) :: maxcondep     !< maximum convective penetration level
+   INTEGER :: jk
+   INTEGER :: maxcondep     !< maximum convective penetration level
 
- !  !! diagnose maximum convection level
- !  !! condep = maximum model level penetrated by vertically continous
- !  !! convection from the surface downward
- !  !! calculated over integration period ; it should be written out
- !  !! as snapshot at the end of the run
- !      maxcondep=1.0_wp
- !      DO k=2,max_lev
- !        IF (stabio(i,j,k) .NE. 0.0_wp .OR.     &
- !             weto(i,j,k) .LT. 0.5_wp ) THEN
- !          maxcondep = REAL(k, wp)
- !          EXIT
- !        ENDIF
- !      ENDDO
+   !! diagnose maximum convection level
+   !! condep = maximum model level penetrated by vertically continous
+   !! convection from the surface downward
+   !! calculated over integration period ; it should be written out
+   !! as snapshot at the end of the run
+   maxcondep=1.0_wp
+   DO jk=2,max_lev
+     IF (vertical_density_gradient(jk) .NE. 0.0_wp) THEN
+       maxcondep = jk
+       EXIT
+     ENDIF
+   ENDDO
 
- !      condep(i,j) = MAX(maxcondep,condep(i,j))
-
- !    ENDDO
- !  ENDDO
- !
- ! END SUBROUTINE calc_condep
+   condep = MAX0(maxcondep,condep)
+ END FUNCTION calc_condep
  FUNCTION calc_mixed_layer_depth(vertical_density_gradient,critical_value,max_lev,thickness, depth_of_first_layer) &
      &  RESULT(mixed_layer_depth)
     REAL(wp), TARGET      :: vertical_density_gradient(n_zlev)

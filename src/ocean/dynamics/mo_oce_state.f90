@@ -320,7 +320,7 @@ MODULE mo_oce_state
       &  kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
                                   ! (nproma, n_zlev, alloc_cell_blocks)
       &  mld(:,:)              ,& ! mixed layer depth [m].
-                                  ! (nproma,  alloc,wamerh sadf 
+                                  ! (nproma,  alloc_cell_blocks)
       &  veloc_adv_horz(:,:,:) ,& ! horizontal velocity advection
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  veloc_adv_vert(:,:,:) ,& ! vertical velocity advection
@@ -341,6 +341,7 @@ MODULE mo_oce_state
 
     INTEGER, POINTER :: &
       & condep(:,:)               ! convection depth index
+                                  ! (nproma,  alloc_cell_blocks)
 
     TYPE(t_cartesian_coordinates), POINTER :: &
       &  p_vn(:,:,:)              ! reconstructed velocity at cell center in cartesian coordinates
@@ -1171,8 +1172,7 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     ! mixed layer depths
-    call add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,&
-    &            ZA_SURFACE, &
+    call add_var(ocean_default_list, 'mld', p_os_diag%mld , GRID_UNSTRUCTURED_CELL,ZA_SURFACE, &
     &            t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
