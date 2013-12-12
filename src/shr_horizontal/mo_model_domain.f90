@@ -664,7 +664,11 @@ MODULE mo_model_domain
 
     TYPE(t_grid_geometry_info) :: geometry_info
     !-------------------------------------
-
+    INTEGER :: boundary_depth_index  ! when is limited area grid, this is the  number of boundary levels based
+                                     ! on the edge-connected cells (the fisrt level are cells that have
+                                     ! at least one boundary edge, the next level are cells shering an edge with
+                                     ! level 1 cells, etc
+    
     !
     ! domain ID of parent domain
     INTEGER :: parent_id
