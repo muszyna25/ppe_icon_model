@@ -24,16 +24,20 @@
    external_interpolation_type=${external_interpolation_type:=conservative}
    case "${external_interpolation_type}" in
      conservative)
-       omip_prefix=omip4icon-
-       omip_postfix=''
-       init_prefix=ts_phc_
-       init_grid_desc="-icon${ocean_grid_desc}-"
+           omip_prefix=omip4icon-
+          omip_postfix=''
+           init_prefix=ts_phc_
+        init_grid_desc="-icon${ocean_grid_desc}-"
+          relax_prefix=ts_surf_
+       relax_grid_desc=$init_grid_desc
        ;;
      mpiom)
-       omip_prefix=omip_icon_
-       omip_postfix='_forcing'
-       init_prefix=ts_phc3.0_
-       init_grid_desc="_icon_${ocean_grid_desc}_"
+           omip_prefix=omip_icon_
+          omip_postfix='_forcing'
+           init_prefix=ts_phc3.0_
+        init_grid_desc="_icon_${ocean_grid_desc}_"
+          relax_prefix=$init_prefix
+       relax_grid_desc=$init_grid_desc
        ;;
      *)
        echo "please choose an allowed values fro external_interpolation_type: conservative, mpiom"
@@ -104,15 +108,7 @@
    if [[ "x$init_relax" = "x1" ]] ; then
 
      ocean_relax_filename=iconR${R}B0${B}-relax.nc
-     ocean_orel_filename=ts_surf_annual-iconR${R}B0${B}-${init_rel_suff}
-
-#      ocean_relax_file=${ocean_init_folder}/$ocean_relax_filename
-#      ls -l $ocean_relax_file
-#      if [ $? -eq 0 ]; then
-#        add_required_file ${ocean_relax_file} ./
-#      else
-#        echo "WARNING: Cannot find relax file: ${ocean_relax_file}"     
-#      fi
+     ocean_orel_filename=${relax_prefix}annual${relax_grid_desc}${init_rel_suff}
 
      ocean_orel_file=${ocean_init_folder}/$ocean_orel_filename
      ls -l $ocean_orel_file
