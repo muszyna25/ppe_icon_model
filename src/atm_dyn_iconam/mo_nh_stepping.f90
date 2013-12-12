@@ -644,7 +644,7 @@ MODULE mo_nh_stepping
       &                           (MOD(jstep,n_diag) == 0)                 .OR. &
       &                           (jstep==(nsteps+jstep0)))                .AND.&
       &                           (output_mode%l_totint)
-    kstep = jstep
+    kstep = jstep-jstep0
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
     IF (l_supervise_total_integrals) THEN

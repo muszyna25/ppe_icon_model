@@ -394,9 +394,8 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     IF (l_diagtime) &
-    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
+    CALL supervise_total_integrals( jstep-jstep0, p_patch, p_hydro_state, &
                                     ext_data(1:n_dom), nnow(1:n_dom), jstep == (nsteps+jstep0) )
-
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
