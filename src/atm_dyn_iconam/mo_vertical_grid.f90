@@ -1910,7 +1910,7 @@ MODULE mo_vertical_grid
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
     REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter, &
-                 z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), dz_max
+                 z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
@@ -1931,14 +1931,10 @@ MODULE mo_vertical_grid
     CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
-    !Use max vertical resolution and the quadrilateral area (the factor 2 below) to calculate 
-    !les_filter size. Ideally the maximum vertical resolution in the PBL is required which 
-    !doesn't exceed 100m. Therefore, this factor of 100 is used below.
-    dz_max     = MAXVAL(p_nh%metrics%ddqz_z_full_e(:,:,:))
-    dz_max     = global_max(dz_max) 
-
-    les_filter = les_config(1)%smag_constant * ( 2._wp * p_patch%geometry_info%mean_cell_area * &
-                                    MIN(100._wp,dz_max) )**(1._wp/3._wp) 
+    !Use the quadrilateral area to decide the les filter. Vertical resolution is not included
+    !because horizontal resolution is always going to be larger than the vertical resolution in
+    !PBL 
+    les_filter = les_config(1)%smag_constant*(2._wp*p_patch%geometry_info%mean_cell_area)**(1._wp/2._wp) 
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,E10.3)') 'LES grid-scale filter: ',les_filter
