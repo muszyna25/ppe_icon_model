@@ -86,6 +86,8 @@ PUBLIC :: reorder_comm_gather_pattern
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
+
+PUBLIC :: ASSIGNMENT(=)
 !
 !variables
 
@@ -180,6 +182,9 @@ TYPE t_comm_gather_pattern
   INTEGER, ALLOCATABLE :: recv_size(:) ! number of remote points received
 END TYPE t_comm_gather_pattern
 
+INTERFACE ASSIGNMENT(=)
+  MODULE PROCEDURE copy_t_comm_gather_pattern
+END INTERFACE
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -529,7 +534,7 @@ END SUBROUTINE setup_comm_pattern
 SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   &                                  gather_pattern)
   INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
-  TYPE(t_comm_gather_pattern), INTENT(OUT) :: gather_pattern
+  TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
 
   INTEGER :: num_collectors
   LOGICAL, ALLOCATABLE :: pack_mask(:)
@@ -544,6 +549,12 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
 
   ! determine collector ranks and the data associated to each collector
   num_collectors = NINT(SQRT(REAL(p_n_work)))
+  IF (ALLOCATED(gather_pattern%collector_pes)) &
+    DEALLOCATE(gather_pattern%collector_pes)
+  IF (ALLOCATED(gather_pattern%collector_size)) &
+    DEALLOCATE(gather_pattern%collector_size)
+  IF (ALLOCATED(gather_pattern%collector_send_size)) &
+    DEALLOCATE(gather_pattern%collector_send_size)
   ALLOCATE(gather_pattern%collector_pes(num_collectors), &
     &      gather_pattern%collector_size(num_collectors), &
     &      gather_pattern%collector_send_size(num_collectors))
@@ -561,6 +572,8 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
   num_local_points = COUNT(pack_mask(:))
 
   ! determine local indices of all points that need to be sent to a collector
+  IF (ALLOCATED(gather_pattern%loc_index)) &
+    DEALLOCATE(gather_pattern%loc_index)
   ALLOCATE(gather_pattern%loc_index(num_local_points), &
     &      packed_glb_index(num_local_points))
   packed_glb_index(:) = PACK(glb_index(:), pack_mask(:))
@@ -606,6 +619,10 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
 
   ! number of messages to be received (is 0 on non-collector processes)
   num_recv = COUNT(num_recv_per_process(:) /= 0)
+  IF (ALLOCATED(gather_pattern%recv_pes)) &
+    DEALLOCATE(gather_pattern%recv_pes)
+  IF (ALLOCATED(gather_pattern%recv_size)) &
+    DEALLOCATE(gather_pattern%recv_size)
   ALLOCATE(gather_pattern%recv_pes(num_recv), &
     &      gather_pattern%recv_size(num_recv))
   num_recv = 0
@@ -645,6 +662,8 @@ SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
     &              p_comm_work)
 
   ! compute the final position of received data on the collectors
+  IF (ALLOCATED(gather_pattern%recv_buffer_reorder)) &
+    DEALLOCATE(gather_pattern%recv_buffer_reorder)
   ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
   gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
   CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
@@ -705,14 +724,57 @@ END SUBROUTINE delete_comm_pattern
 SUBROUTINE delete_comm_gather_pattern(gather_pattern)
   TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
 
-  DEALLOCATE(gather_pattern%collector_pes, &
-    &        gather_pattern%collector_size, &
-    &        gather_pattern%collector_send_size, &
-    &        gather_pattern%loc_index, &
-    &        gather_pattern%recv_buffer_reorder, &
-    &        gather_pattern%recv_pes, &
-    &        gather_pattern%recv_size)
+  IF (ALLOCATED(gather_pattern%collector_pes)) &
+    DEALLOCATE(gather_pattern%collector_pes)
+  IF (ALLOCATED(gather_pattern%collector_size)) &
+    DEALLOCATE(gather_pattern%collector_size)
+  IF (ALLOCATED(gather_pattern%collector_send_size)) &
+    DEALLOCATE(gather_pattern%collector_send_size)
+  IF (ALLOCATED(gather_pattern%loc_index)) &
+    DEALLOCATE(gather_pattern%loc_index)
+  IF (ALLOCATED(gather_pattern%recv_buffer_reorder)) &
+    DEALLOCATE(gather_pattern%recv_buffer_reorder)
+  IF (ALLOCATED(gather_pattern%recv_pes)) &
+    DEALLOCATE(gather_pattern%recv_pes)
+  IF (ALLOCATED(gather_pattern%recv_size)) &
+    DEALLOCATE(gather_pattern%recv_size)
 END SUBROUTINE delete_comm_gather_pattern
+
+ELEMENTAL SUBROUTINE copy_t_comm_gather_pattern(out_arg, in_arg)
+
+  TYPE(t_comm_gather_pattern), INTENT(OUT) :: out_arg
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: in_arg
+
+  IF (ALLOCATED(in_arg%collector_pes)) THEN
+    ALLOCATE(out_arg%collector_pes(SIZE(in_arg%collector_pes)))
+    out_arg%collector_pes(:) = in_arg%collector_pes(:)
+  END IF
+  IF (ALLOCATED(in_arg%collector_size)) THEN
+    ALLOCATE(out_arg%collector_size(SIZE(in_arg%collector_size)))
+    out_arg%collector_size(:) = in_arg%collector_size(:)
+  END IF
+  IF (ALLOCATED(in_arg%collector_send_size)) THEN
+    ALLOCATE(out_arg%collector_send_size(SIZE(in_arg%collector_send_size)))
+    out_arg%collector_send_size(:) = in_arg%collector_send_size(:)
+  END IF
+  IF (ALLOCATED(in_arg%loc_index)) THEN
+    ALLOCATE(out_arg%loc_index(SIZE(in_arg%loc_index)))
+    out_arg%loc_index(:) = in_arg%loc_index(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_buffer_reorder)) THEN
+    ALLOCATE(out_arg%recv_buffer_reorder(SIZE(in_arg%recv_buffer_reorder)))
+    out_arg%recv_buffer_reorder(:) = in_arg%recv_buffer_reorder(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_pes)) THEN
+    ALLOCATE(out_arg%recv_pes(SIZE(in_arg%recv_pes)))
+    out_arg%recv_pes(:) = in_arg%recv_pes(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_size)) THEN
+    ALLOCATE(out_arg%recv_size(SIZE(in_arg%recv_size)))
+    out_arg%recv_size(:) = in_arg%recv_size(:)
+  END IF
+
+END SUBROUTINE copy_t_comm_gather_pattern
 
 !-------------------------------------------------------------------------
 !> Consistency check of communication pattern.

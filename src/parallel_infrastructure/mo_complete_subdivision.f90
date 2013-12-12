@@ -55,7 +55,8 @@ MODULE mo_complete_subdivision
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
-    &                              setup_comm_gather_pattern, t_comm_gather_pattern
+    &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
+    &                              ASSIGNMENT(=), delete_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
@@ -1490,6 +1491,7 @@ CONTAINS
       DO i = 1, max_phys_dom
         p_phys_patch(i)%n_patch_cells = n_patch_cve(i)
         p_phys_patch(i)%comm_pat_gather_c = comm_pat_gather_cve(i)
+        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
       ENDDO
 
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
@@ -1501,6 +1503,7 @@ CONTAINS
       DO i = 1, max_phys_dom
         p_phys_patch(i)%n_patch_verts = n_patch_cve(i)
         p_phys_patch(i)%comm_pat_gather_v = comm_pat_gather_cve(i)
+        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
       ENDDO
 
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
@@ -1512,6 +1515,7 @@ CONTAINS
       DO i = 1, max_phys_dom
         p_phys_patch(i)%n_patch_edges = n_patch_cve(i)
         p_phys_patch(i)%comm_pat_gather_e = comm_pat_gather_cve(i)
+        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
       ENDDO
 
     ENDDO
@@ -1547,7 +1551,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: curr_patch_idx
     LOGICAL, INTENT(IN) :: set_logical_id
     INTEGER, INTENT(OUT) :: n_patch_cve(:)
-    TYPE(t_comm_gather_pattern), INTENT(OUT) :: comm_pat_gather(:)
+    TYPE(t_comm_gather_pattern), INTENT(INOUT) :: comm_pat_gather(:)
 
     INTEGER, ALLOCATABLE :: owner_local(:)
     INTEGER :: temp_n_patch_cve(max_phys_dom)
