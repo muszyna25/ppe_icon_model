@@ -26,10 +26,14 @@
      conservative)
        omip_prefix=omip4icon-
        omip_postfix=''
+       init_prefix=ts_phc_
+       init_grid_desc="-icon${ocean_grid_desc}-"
        ;;
      mpiom)
        omip_prefix=omip_icon_
        omip_postfix='_forcing'
+       init_prefix=ts_phc3.0_
+       init_grid_desc="_icon_${ocean_grid_desc}_"
        ;;
      *)
        echo "please choose an allowed values fro external_interpolation_type: conservative, mpiom"
@@ -82,7 +86,7 @@
    if [[ "x$init_oce" = "x1" ]] ; then
 
      ocean_prog_filename=iconR${R}B0${B}-prog.nc
-     ocean_oini_filename=ts_phc_annual-icon${ocean_grid_desc}-${init_oce_suff}
+     ocean_oini_filename=${init_prefix}annual${init_grid_desc}${init_oce_suff}
 
      ocean_init_filename=${ocean_init_folder}/$ocean_oini_filename
      ls -l $ocean_init_filename
