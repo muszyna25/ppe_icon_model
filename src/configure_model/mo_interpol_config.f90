@@ -123,7 +123,7 @@ MODULE mo_interpol_config
   
     REAL(wp) :: nudge_max_coeff, nudge_efold_width
     INTEGER  :: nudge_zone_width    ! total width of nudging zone in units of cell rows
-                                    ! if =0 the patch boundary_depth_index 
+                                    ! if < 0 the patch boundary_depth_index is used 
                                                                                  
     LOGICAL :: l_corner_vort        ! yields for i_cori_method>=3
                                     ! Decision wheter the hexagon vector reconstruction is

@@ -1574,7 +1574,7 @@ CONTAINS
     return_status = nf_inq_attid(ncid, nf_global, 'boundary_depth_index', varid)
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'boundary_depth_index', p_p%boundary_depth_index))
-       IF (nudge_zone_width <= 0) THEN
+       IF (nudge_zone_width < 0) THEN
          nudge_zone_width = p_p%boundary_depth_index
        ENDIF
        IF ( nudge_zone_width > p_p%boundary_depth_index) THEN
