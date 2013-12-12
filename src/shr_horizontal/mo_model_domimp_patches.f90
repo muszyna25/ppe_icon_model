@@ -162,8 +162,9 @@ MODULE mo_model_domimp_patches
   ! mo_read_netcdf_parallel where only 1 processor is reading
   ! and broadcasting the results
 
-  USE mo_read_netcdf_parallel, ONLY:                &
+  USE mo_read_netcdf_parallel, ONLY:                 &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
+    & nf_inq_attid,                                  &
     & nf_open            => p_nf_open,               &
     & nf_close           => p_nf_close,              &
     & nf_inq_dimid       => p_nf_inq_dimid,          &

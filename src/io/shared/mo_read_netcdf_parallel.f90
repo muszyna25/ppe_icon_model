@@ -82,7 +82,7 @@ PUBLIC :: p_nf_get_vara_double
 PUBLIC :: nf_read
 
 ! make some names from netcdf.inc also global
-PUBLIC :: nf_nowrite, nf_global, nf_noerr, nf_strerror
+PUBLIC :: nf_nowrite, nf_global, nf_noerr, nf_strerror, nf_inq_attid
 
 INTERFACE p_nf_get_att_int
    MODULE PROCEDURE p_nf_get_att_int_0
