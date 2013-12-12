@@ -1471,7 +1471,7 @@ CONTAINS
   !! Revised version by Moritz Hanke, Nov 2013
 
   SUBROUTINE setup_phys_patches
-    INTEGER :: jp, jg
+    INTEGER :: jp, jg, i
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
 
     INTEGER :: n_patch_cve(max_phys_dom)
@@ -1487,8 +1487,10 @@ CONTAINS
         &                         p_patch(jg)%cells%phys_id, jg, &
         &                         .TRUE., n_patch_cve(:), &
         &                         comm_pat_gather_cve(:))
-      p_phys_patch(:)%n_patch_cells = n_patch_cve(:)
-      p_phys_patch(:)%comm_pat_gather_c = comm_pat_gather_cve(:)
+      DO i = 1, max_phys_dom
+        p_phys_patch(i)%n_patch_cells = n_patch_cve(i)
+        p_phys_patch(i)%comm_pat_gather_c = comm_pat_gather_cve(i)
+      ENDDO
 
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
         &                         p_patch(jg)%n_patch_verts, &
@@ -1496,8 +1498,10 @@ CONTAINS
         &                         p_patch(jg)%verts%phys_id, jg, &
         &                         .FALSE., n_patch_cve(:), &
         &                         comm_pat_gather_cve(:))
-      p_phys_patch(:)%n_patch_verts = n_patch_cve(:)
-      p_phys_patch(:)%comm_pat_gather_v = comm_pat_gather_cve(:)
+      DO i = 1, max_phys_dom
+        p_phys_patch(i)%n_patch_verts = n_patch_cve(i)
+        p_phys_patch(i)%comm_pat_gather_v = comm_pat_gather_cve(i)
+      ENDDO
 
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
         &                         p_patch(jg)%n_patch_edges, &
@@ -1505,8 +1509,10 @@ CONTAINS
         &                         p_patch(jg)%edges%phys_id, jg, &
         &                         .FALSE., n_patch_cve(:), &
         &                         comm_pat_gather_cve(:))
-      p_phys_patch(:)%n_patch_edges = n_patch_cve(:)
-      p_phys_patch(:)%comm_pat_gather_e = comm_pat_gather_cve(:)
+      DO i = 1, max_phys_dom
+        p_phys_patch(i)%n_patch_edges = n_patch_cve(i)
+        p_phys_patch(i)%comm_pat_gather_e = comm_pat_gather_cve(i)
+      ENDDO
 
     ENDDO
 
