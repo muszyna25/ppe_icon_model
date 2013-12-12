@@ -38,12 +38,12 @@ B=4   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
 external_interpolation_type="mpiom"
-use_gridfile_for_grabbing_externale_data='true'
+#use_gridfile_for_grabbing_externale_data='true'
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
 init_oce=1     # 1: use ocean initialization file; 0: init analytically
@@ -122,8 +122,8 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 # provide an ocean horizontal grid file
-  grid_ext="etopo40_planet_newgeom_noinland"
-# grid_ext="etopo40_planet"
+# grid_ext="etopo40_planet_newgeom_noinland"
+  grid_ext="etopo40_planet"
 #
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
