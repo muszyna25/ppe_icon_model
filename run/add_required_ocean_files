@@ -61,7 +61,6 @@
 
      ocean_prog_filename=iconR${R}B0${B}-prog.nc
      ocean_oini_filename=ts_phc_annual-icon${ocean_grid_desc}-${init_oce_suff}
-     ocean_restart_filename=restart_500y_dailyOmip_noIce_icon${ocean_grid_desc}-${init_oce_suff}
 
      ocean_init_filename=${ocean_init_folder}/$ocean_oini_filename
      ls -l $ocean_init_filename
@@ -72,13 +71,6 @@
      fi
 
      # link to fixed restart file for buildbot:
-     if [ -f ${ocean_init_folder}/${ocean_restart_filename} ]; then
-       add_link_file ${ocean_init_folder}/${ocean_restart_filename} ./restart_oce.nc
-     else
-       echo "WARNING: Cannot find restart file: ${ocean_restart_filename}"
-     fi
-   fi
-   
    # =======================================================
    # provide netcdf file for initialization of temperature/salinity relaxation
    # -------------------------------------------------------------------------
