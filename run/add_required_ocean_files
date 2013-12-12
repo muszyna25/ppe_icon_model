@@ -18,30 +18,52 @@
      ocean_forcing_folder=${local_grid_folder}
      ocean_init_folder=${local_grid_folder}
    fi
-   ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
-   ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
-   ocean_grid_desc=R${R}B0${B}
+          ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
+             ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
+               ocean_grid_desc=R${R}B0${B}
+   external_interpolation_type=${external_interpolation_type:=conservative}
+   case "${external_interpolation_type}" in
+     conservative)
+       omip_prefix=omip4icon-
+       omip_postfix=''
+       ;;
+     mpiom)
+       omip_prefix=omip_icon_
+       omip_postfix='_forcing'
+       ;;
+     *)
+       echo "please choose an allowed values fro external_interpolation_type: conservative, mpiom"
+       exit 1
+       ;;
+     esac
    # =======================================================
    #
    # provide netcdf file for reading ocean forcing fluxes
    # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
+     if [[ "x${external_interpolation_type}" = "xconservative" ]]; then
+       omip_prefix=omip4icon-
+       omip_postfix=''
+     else
+       omip_prefix=omip_icon_
+       omip_postfix='_forcing'
+     fi
      # filename on EXPDIR read by ocean model
      ocean_flux_filename=iconR${R}B0${B}-flux.nc
 
      # general filename: OMIP annual file
      if [[ "x$iforc_len" = "x1" ]] ; then
-       ocean_force_filename=omip4icon-${ocean_grid_desc}-annual.nc
+       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-annual.nc
      # filename for OMIP 12 sets of monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
-       ocean_force_filename=omip4icon-${ocean_grid_desc}-monmean.nc
+       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-monmean.nc
        # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
        if [[ "x$iforc_type" = "x5" ]] ; then
          ocean_force_filename=ncep4icon_${ocean_grid_desc}.nc
        fi
      # filename for OMIP 365 sets of daily data
      elif [[ "x$iforc_len" = "x365" ]] ; then
-       ocean_force_filename=omip4icon-${ocean_grid_desc}-daily.nc
+       ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-daily.nc
      fi
 
      # copy file from pool to grids directory $HGRIDDIR
@@ -69,6 +91,7 @@
      else
        echo "WARNING: $ocean_init_filename does not exist - proceed from local disk"
      fi
+   fi
 
      # link to fixed restart file for buildbot:
    # =======================================================
