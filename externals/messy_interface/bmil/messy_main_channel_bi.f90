@@ -1783,12 +1783,14 @@ CONTAINS
 #if defined(__ICON__)
     USE mo_kind,                 ONLY: wp, sp
     USE mo_mpi,                  ONLY: my_process_is_mpi_workroot, my_process_is_mpi_seq
-    USE mo_gather_scatter,       ONLY: gather_cells, scatter_cells
+    ! op_bk_20131210+
+!     USE mo_gather_scatter,       ONLY: gather_cells, scatter_cells
+    ! op_bk_20131210-
     USE messy_main_mpi_bi,       ONLY: p_parallel_io, p_io, p_bcast
     USE mo_model_domain,         ONLY: p_patch, p_phys_patch, t_phys_patch
     USE mo_grid_config,          ONLY: n_phys_dom
     USE mo_parallel_config,      ONLY: nproma
-    USE mo_communication,        ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
+    USE mo_communication,        ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
     USE mo_name_list_output_types,    ONLY:  l_output_phys_patch, t_reorder_info
     USE mo_name_list_output_init,     ONLY:  patch_info
 #endif
@@ -1816,10 +1818,13 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:)
     INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:), own_dst_idx(:), own_dst_blk(:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:)
+    ! op_bk_20131212+
+!     REAL(wp), ALLOCATABLE :: r_tmp(:,:,:)
+    REAL(wp), ALLOCATABLE :: r_tmp(:,:)
+    ! op_bk_20131212-
     REAL(wp), ALLOCATABLE :: r_ptr(:,:,:)
     TYPE(t_phys_patch), POINTER   :: p_phys
-    TYPE(t_comm_pattern), POINTER :: p_pat
+    TYPE(t_comm_gather_pattern), POINTER :: p_pat
     TYPE(t_reorder_info),  POINTER :: p_ri
 
     LOGICAL :: lflipranks
@@ -1930,33 +1935,36 @@ CONTAINS
              IF (repr%dim(1)%ptr%id == DIMID_NCELLS_DOM(i_dom)) THEN
                 WRITE(*,*) "MESSY: bi_decompose ICON CELLS"
                 p_ri => patch_info(i_dom)%cells
-                IF(l_output_phys_patch) THEN
-                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_c
-!                   n_points = p_phys_patch(i_dom)%n_patch_cells
-                ELSE
-                   p_pat => p_patch(i_dom)%comm_pat_gather_c
-!                   n_points = p_patch(i_dom)%n_patch_cells_g
-                ENDIF
+                p_pat => patch_info(i_dom)%p_pat_c
+!!$                IF(l_output_phys_patch) THEN
+!!$                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_c
+!!$!                   n_points = p_phys_patch(i_dom)%n_patch_cells
+!!$                ELSE
+!!$                   p_pat => p_patch(i_dom)%comm_pat_gather_c
+!!$!                   n_points = p_patch(i_dom)%n_patch_cells_g
+!!$                ENDIF
              ELSE IF (repr%dim(1)%ptr%id == DIMID_NEDGES_DOM(i_dom)) THEN
                 WRITE(*,*) "MESSY: bi_decompose ICON EDGES"
                 p_ri => patch_info(i_dom)%edges
-                IF(l_output_phys_patch) THEN
-                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_e
-!                   n_points = p_phys_patch(i_dom)%n_patch_edges
-                ELSE
-                   p_pat => p_patch(i_dom)%comm_pat_gather_e
-!                   n_points = p_patch(i_dom)%n_patch_edges_g
-                ENDIF
+                p_pat => patch_info(i_dom)%p_pat_e
+!!$                IF(l_output_phys_patch) THEN
+!!$                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_e
+!!$!                   n_points = p_phys_patch(i_dom)%n_patch_edges
+!!$                ELSE
+!!$                   p_pat => p_patch(i_dom)%comm_pat_gather_e
+!!$!                   n_points = p_patch(i_dom)%n_patch_edges_g
+!!$                ENDIF
              ELSE IF (repr%dim(1)%ptr%id == DIMID_NVERTS_DOM(i_dom)) THEN
                 WRITE(*,*) "MESSY: bi_decompose ICON VERTS"
                 p_ri => patch_info(i_dom)%verts
-                IF(l_output_phys_patch) THEN
-                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_v
-!                   n_points = p_phys_patch(i_dom)%n_patch_verts
-                ELSE
-                   p_pat => p_patch(i_dom)%comm_pat_gather_v
-!                   n_points = p_patch(i_dom)%n_patch_verts_g
-                ENDIF
+                p_pat => patch_info(i_dom)%p_pat_v
+!!$                IF(l_output_phys_patch) THEN
+!!$                   p_pat => p_phys_patch(i_dom)%comm_pat_gather_v
+!!$!                   n_points = p_phys_patch(i_dom)%n_patch_verts
+!!$                ELSE
+!!$                   p_pat => p_patch(i_dom)%comm_pat_gather_v
+!!$!                   n_points = p_patch(i_dom)%n_patch_verts_g
+!!$                ENDIF
              ELSE
                 status = 1
                 RETURN
@@ -1993,13 +2001,15 @@ CONTAINS
                 ! op_bk_20131129-
              END IF
 
-             IF(my_process_is_mpi_workroot()) THEN
-                ALLOCATE(r_tmp(nproma,nlevs,nblks))
-             ELSE
-                ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
-                ! otherwise exchange_data doesn't work!
-                ALLOCATE(r_tmp(nproma,nlevs,1))
-             ENDIF
+             ! op_bk_20131212+
+!              IF(my_process_is_mpi_workroot()) THEN
+!                 ALLOCATE(r_tmp(nproma,nlevs,nblks))
+!              ELSE
+!                 ! Dimensions 1 and 2 of r_tmp must always be nproma and nlevs,
+!                 ! otherwise exchange_data doesn't work!
+!                 ALLOCATE(r_tmp(nproma,nlevs,1))
+!              ENDIF
+             ! op_bk_20131212-
              ! op_bk_20131118+
              IF (nlevs == 1) THEN
              ! op_bk_20131118-
@@ -2025,32 +2035,45 @@ CONTAINS
                 END IF
                 ! op_bk_20131120-
              ENDIF
-             r_tmp(:,:,:) = 0._wp
+             ! op_bk_20131212+
+              ALLOCATE(r_tmp(MERGE(n_points, 0, &
+                   &                      my_process_is_mpi_workroot()), nlevs))
+             ! r_tmp(:,:,:) = 0._wp
+             r_tmp(:,:) = 0._wp
+             ! op_bk_20131212-
              ! Gather data on root
              IF (p_parallel_io) THEN
                 gptr(:,:,:,:) = 0._wp
              END IF
              ! op_bk_20130909+
-             IF(my_process_is_mpi_seq()) THEN
-                DO jk = 1, nlevs
-                   DO i = 1, p_ri%n_own
-                      r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
-                   ENDDO
-                ENDDO
-             ELSE
+             ! op_bk_20131212+
+!              IF(my_process_is_mpi_seq()) THEN
+!                 DO jk = 1, nlevs
+!                    DO i = 1, p_ri%n_own
+!                       r_tmp(p_ri%own_dst_idx(i),jk,p_ri%own_dst_blk(i)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+!                    ENDDO
+!                 ENDDO
+!              ELSE
+             ! op_bk_20131212-
                 ! op_bk_20130909-
-                CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
+                CALL exchange_data(r_ptr(:,:,:), r_tmp(:,:), p_pat)
+!                CALL exchange_data(p_pat, RECV=r_tmp, SEND=r_ptr)
                 ! op_bk_20130909+
-             ENDIF
+                ! op_bk_20131212+
+!              ENDIF
+                ! op_bk_20131212-
                 ! op_bk_20130909-
                 ! op_bk_20130909+
              IF(my_process_is_mpi_workroot()) THEN
                 ! op_bk_20130909-
 !                IF (p_parallel_io) THEN
-                DO jk = 1, nlevs
-                   !                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
-                   gptr(:,jk,1,1) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
-                ENDDO
+                ! op_bk_20131212+
+!                 DO jk = 1, nlevs
+!                    !                r_out_sp(:,jk) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
+!                    gptr(:,jk,1,1) = REAL(RESHAPE(r_tmp(:,jk,:), (/ n_points /)), dp)
+!                 ENDDO
+                gptr(:,:,1,1) = r_tmp(:,:)
+                ! op_bk_20131212-
              END IF
           ELSE
              status = 1
