@@ -21,6 +21,9 @@
           ocean_forcing_folder=${ocean_forcing_folder:=${pool_icon_folder}/ocean_data/ocean_forcing}
              ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
                ocean_grid_desc=R${R}B0${B}
+   if [[ "x${use_gridfile_for_grabbing_externale_data}" = 'xtrue' ]] ; then
+     ocean_grid_desc=$(basename ${ocean_grids} .nc)
+   fi
    external_interpolation_type=${external_interpolation_type:=conservative}
    case "${external_interpolation_type}" in
      conservative)
@@ -49,13 +52,6 @@
    # provide netcdf file for reading ocean forcing fluxes
    # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
-     if [[ "x${external_interpolation_type}" = "xconservative" ]]; then
-       omip_prefix=omip4icon-
-       omip_postfix=''
-     else
-       omip_prefix=omip_icon_
-       omip_postfix='_forcing'
-     fi
      # filename on EXPDIR read by ocean model
      ocean_flux_filename=iconR${R}B0${B}-flux.nc
 
