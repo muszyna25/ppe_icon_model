@@ -351,7 +351,7 @@ def doSync(build)
   file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
   file.write("\n")
   # add grids directory for local external data
-  file.write(Dir.glob("grids/*.nc").join("\n") + "\n")
+  file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
   file.write("config/mh-override\n") if isLocal?(build)
   file.close
   system("cat #{file.path}") if  ENV.has_key?('DEBUG')
