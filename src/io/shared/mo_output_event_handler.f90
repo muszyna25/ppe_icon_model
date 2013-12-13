@@ -155,7 +155,8 @@ MODULE mo_output_event_handler
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
     &                                  OPERATOR(>), OPERATOR(+), deallocateTimedelta
-  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS
+  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS,             &
+    &                                  get_duration_string
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
@@ -624,10 +625,12 @@ CONTAINS
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
 
-    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
-      &                         mtime_dom_start
-    TYPE(timedelta), POINTER :: delta, delta_1day
-    INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
+    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
+      &                         sim_end, mtime_dom_start
+    TYPE(timedelta), POINTER :: delta, delta_1day, delta_restart
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: delta_restart_str
+    INTEGER                  :: ierrstat, i, n_event_steps, iadd_days, &
+      &                         restart_add_days
     LOGICAL                  :: l_active
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
@@ -656,11 +659,22 @@ CONTAINS
     sim_end     => newDatetime(TRIM(sim_step_info%sim_end))
     mtime_begin => newDatetime(TRIM(begin_str))
     mtime_end   => newDatetime(TRIM(end_str))
+    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
     ! Domains (and their output) can be activated and deactivated
     ! during the simulation. This is determined by the parameters
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
+
+    ! Compute the end time wrt. "dt_restart": It might be that the
+    ! simulation end is limited by this parameter
+    mtime_restart   => newDatetime(TRIM(sim_step_info%sim_start))
+    CALL get_duration_string(INT(sim_step_info%dt_restart), delta_restart_str, restart_add_days)
+    delta_restart => newTimedelta(delta_restart_str)          ! create a time delta for 1 day
+    mtime_restart = mtime_restart + delta_restart
+    DO iadd_days=1,restart_add_days
+      mtime_restart = mtime_restart + delta_1day
+    END DO
 
     ! loop over the event occurrences
 
@@ -669,7 +683,6 @@ CONTAINS
 
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
-    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
     n_event_steps = 0
     EVENT_LOOP: DO
       IF ((mtime_date >= mtime_begin) .AND. &
@@ -700,7 +713,9 @@ CONTAINS
       END DO
       IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
-      l_active = .NOT. ((mtime_date > mtime_end) .OR. (mtime_date > sim_end))
+      l_active = .NOT. (mtime_date > mtime_end) .AND.   &
+        &        .NOT. (mtime_date > sim_end)   .AND.   &
+        &        .NOT. (mtime_date > mtime_restart)
       IF (.NOT. l_active) EXIT EVENT_LOOP
       ! Optional: Append the last event time step
       IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
@@ -775,9 +790,11 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateDatetime(mtime_dom_start)
+    CALL deallocateDatetime(mtime_restart)
     CALL deallocateDatetime(sim_end)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
+    CALL deallocateTimedelta(delta_restart)
     CALL resetCalendar()
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
@@ -1872,6 +1889,7 @@ CONTAINS
     CALL p_pack_string(TRIM(sim_step_info%sim_end),          buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_real(sim_step_info%dtime,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%iadv_rcf,                  buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_real(sim_step_info%dt_restart,               buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%jstep0,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_start_time,         buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_end_time,           buffer, MAX_BUF_SIZE, position, icomm)
@@ -1922,6 +1940,7 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,                    icomm)
     CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,                      icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,                   icomm)
+    CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dt_restart,                 icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,                     icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_start_time,             icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,               icomm)

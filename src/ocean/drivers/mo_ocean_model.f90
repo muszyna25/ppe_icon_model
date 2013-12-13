@@ -204,8 +204,9 @@ CONTAINS
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-      sim_step_info%dtime     = dtime
-      sim_step_info%iadv_rcf  = 1
+      sim_step_info%dtime      = dtime
+      sim_step_info%iadv_rcf   = 1
+      sim_step_info%dt_restart = time_config%dt_restart
       jstep0 = 0
       IF (is_restart_run()) THEN
         ! get start counter for time loop from restart file:
