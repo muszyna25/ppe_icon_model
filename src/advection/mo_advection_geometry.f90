@@ -401,7 +401,7 @@ CONTAINS
           idxlist_c3m(icnt_c3m,jb) = je
           levlist_c3m(icnt_c3m,jb) = jk
 
-        ELSE IF ( ABS(p_vn(je,jk,jb)) < 1E-11_wp ) THEN
+        ELSE IF ( ABS(p_vn(je,jk,jb)) < 0.1_wp ) THEN
 
           ! CASE IV
           ! special case of very small normal velocity
@@ -1244,7 +1244,7 @@ CONTAINS
           idxlist_c3m(icnt_c3m) = je
           levlist_c3m(icnt_c3m) = jk
 
-        ELSE IF ( ABS(p_vn(je,jk,jb)) < 1E-11_wp ) THEN
+        ELSE IF ( ABS(p_vn(je,jk,jb)) < 0.1_wp ) THEN
 
           ! CASE IV
           ! special case of very small normal velocity
@@ -1265,25 +1265,18 @@ CONTAINS
       ENDDO  !jl
 
 
+       IF ( icnt_err>0 ) THEN 
+        ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
+        DO jl = 1, icnt_err
 
-      IF (msg_level >= 13 .AND. ( icnt_err>0 .OR. icnt_vn0>0) ) THEN 
+          je = idxlist_err(jl)
+          jk = levlist_err(jl)
 
-        IF ( icnt_err>0 ) THEN 
-          ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
-          DO jl = 1, icnt_err
-
-            je = idxlist_err(jl)
-            jk = levlist_err(jl)
-
-            ! Note: direct write to standard error output is used here by intention
-            ! because warnings are otherwise suppressed for all PEs but PE0
-            WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
-                                       p_vn(je,jk,jb),p_vt(je,jk,jb)
-          ENDDO
-        ENDIF
-
-        WRITE(0,'(a,i5)') 'divide_flux_area: number of points with ABS(vn) < 1E-11 m/s: ', &
-          &                icnt_vn0
+          ! Note: direct write to standard error output is used here by intention
+          ! because warnings are otherwise suppressed for all PEs but PE0
+          WRITE(0,'(a,3i5,2f10.2)') 'horizontal CFL number exceeded at grid point',je,jk,jb,&
+                                    p_vn(je,jk,jb),p_vt(je,jk,jb)
+        ENDDO
       ENDIF
 
 
