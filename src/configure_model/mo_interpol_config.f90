@@ -252,27 +252,22 @@ CONTAINS
     ! (need to be smaller for inv. multiquadric)
 
     rbf_vec_scale_ll(:) = -1.0_wp
-    IF (rbf_scale_mode_ll == 1) THEN
-      DO jg = 1,n_dom
+    DO jg = 1,n_dom
+       
+      jlev = grid_level(jg)
         
-        ! Check if scale factor is set in the namelist
-        IF (rbf_vec_scale_ll(jg) < 0.0_wp) CYCLE
-        
-        jlev = grid_level(jg)
-        
-        IF      (jlev <= 6 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
-        ELSE IF (jlev == 7 ) THEN ; rbf_vec_scale_ll(jg) = 0.35_wp
-        ELSE IF (jlev == 8 ) THEN ; rbf_vec_scale_ll(jg) = 0.20_wp
-        ELSE IF (jlev == 9 ) THEN ; rbf_vec_scale_ll(jg) = 0.05_wp
-        ELSE IF (jlev == 10) THEN ; rbf_vec_scale_ll(jg) = 0.02_wp
-        ELSE IF (jlev == 11) THEN ; rbf_vec_scale_ll(jg) = 0.0075_wp
-        ELSE IF (jlev == 12) THEN ; rbf_vec_scale_ll(jg) = 0.0025_wp
-        ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.001_wp
-        ELSE                      ; rbf_vec_scale_ll(jg) = 0.0005_wp
-        ENDIF
+      IF      (jlev <= 6 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
+      ELSE IF (jlev == 7 ) THEN ; rbf_vec_scale_ll(jg) = 0.35_wp
+      ELSE IF (jlev == 8 ) THEN ; rbf_vec_scale_ll(jg) = 0.20_wp
+      ELSE IF (jlev == 9 ) THEN ; rbf_vec_scale_ll(jg) = 0.05_wp
+      ELSE IF (jlev == 10) THEN ; rbf_vec_scale_ll(jg) = 0.02_wp
+      ELSE IF (jlev == 11) THEN ; rbf_vec_scale_ll(jg) = 0.0075_wp
+      ELSE IF (jlev == 12) THEN ; rbf_vec_scale_ll(jg) = 0.0025_wp
+      ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.001_wp
+      ELSE                      ; rbf_vec_scale_ll(jg) = 0.0005_wp
+      ENDIF
 
-      ENDDO
-    END IF
+    ENDDO
 
     !AD (20 Sept 2913) Modification required for planar torus grid: the scale factor
     !is based on the width of the Gaussian but very soon it will adapted in more

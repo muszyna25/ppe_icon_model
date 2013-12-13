@@ -413,19 +413,21 @@
         ALLOCATE ( ptr_int_lonlat%rbf_c2l_coeff(rbf_dim_c2l, nproma, nblks_lonlat),         &
           &  ptr_int_lonlat%rbf_c2l_idx(rbf_dim_c2l, nproma, nblks_c),                      &
           &  ptr_int_lonlat%rbf_c2l_blk(rbf_dim_c2l, nproma, nblks_c),                      &
-          &  ptr_int_lonlat%rbf_c2lr_idx(rbf_dim_c2l, nproma, nblks_lonlat),                      &
-          &  ptr_int_lonlat%rbf_c2lr_blk(rbf_dim_c2l, nproma, nblks_lonlat),                      &
+          &  ptr_int_lonlat%rbf_c2lr_idx(rbf_dim_c2l, nproma, nblks_lonlat),                &
+          &  ptr_int_lonlat%rbf_c2lr_blk(rbf_dim_c2l, nproma, nblks_lonlat),                &
           &  ptr_int_lonlat%rbf_c2l_stencil(nproma, nblks_c),                               &
+          &  ptr_int_lonlat%rbf_c2lr_stencil(nproma, nblks_lonlat),                         &
           STAT=ist )
         IF (ist /= SUCCESS) &
           CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
 
-        ptr_int_lonlat%rbf_c2l_coeff   = 0._wp
-        ptr_int_lonlat%rbf_c2l_idx     = 0
-        ptr_int_lonlat%rbf_c2l_blk     = 0
-        ptr_int_lonlat%rbf_c2lr_idx    = 0
-        ptr_int_lonlat%rbf_c2lr_blk    = 0
-        ptr_int_lonlat%rbf_c2l_stencil = 0
+        ptr_int_lonlat%rbf_c2l_coeff    = 0._wp
+        ptr_int_lonlat%rbf_c2l_idx      = 0
+        ptr_int_lonlat%rbf_c2l_blk      = 0
+        ptr_int_lonlat%rbf_c2lr_idx     = 0
+        ptr_int_lonlat%rbf_c2lr_blk     = 0
+        ptr_int_lonlat%rbf_c2l_stencil  = 0
+        ptr_int_lonlat%rbf_c2lr_stencil = 0
       ELSE
         ALLOCATE ( &
           &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
@@ -471,12 +473,13 @@
       ENDIF
 
       IF (l_intp_c2l) THEN
-        DEALLOCATE ( ptr_int_lonlat%rbf_c2l_coeff,   &
-          &          ptr_int_lonlat%rbf_c2l_idx,     &
-          &          ptr_int_lonlat%rbf_c2l_blk,     &
-          &          ptr_int_lonlat%rbf_c2lr_idx,    &
-          &          ptr_int_lonlat%rbf_c2lr_blk,    &
-          &          ptr_int_lonlat%rbf_c2l_stencil, &
+        DEALLOCATE ( ptr_int_lonlat%rbf_c2l_coeff,    &
+          &          ptr_int_lonlat%rbf_c2l_idx,      &
+          &          ptr_int_lonlat%rbf_c2l_blk,      &
+          &          ptr_int_lonlat%rbf_c2lr_idx,     &
+          &          ptr_int_lonlat%rbf_c2lr_blk,     &
+          &          ptr_int_lonlat%rbf_c2l_stencil,  &
+          &          ptr_int_lonlat%rbf_c2lr_stencil, &
           &          STAT=ist )
         IF (ist /= SUCCESS) &
           CALL finish (routine, 'deallocation for rbf lon-lat coeffs failed')
@@ -1575,13 +1578,15 @@
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,   &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
         rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+        WRITE(message_text,*) routine, ": algorithm estimated for rbf_shape_param = ", rbf_shape_param
+        CALL message(routine, message_text)
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
       END SELECT
       ! fallback solution:
       IF (rbf_shape_param <= 0._wp) &
         &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-      WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
+      WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
       CALL message(routine, message_text)
 
       CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, &
@@ -1606,8 +1611,9 @@
             jc = ptr_int_lonlat%tri_idx(1,jc_lonlat, jb_lonlat)
             jb = ptr_int_lonlat%tri_idx(2,jc_lonlat, jb_lonlat)
 
-            ptr_int_lonlat%rbf_c2lr_idx(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_idx(:,jc,jb)
-            ptr_int_lonlat%rbf_c2lr_blk(:,jc_lonlat,jb_lonlat) = ptr_int_lonlat%rbf_c2l_blk(:,jc,jb)
+            ptr_int_lonlat%rbf_c2lr_idx(:,jc_lonlat,jb_lonlat)     = ptr_int_lonlat%rbf_c2l_idx(:,jc,jb)
+            ptr_int_lonlat%rbf_c2lr_blk(:,jc_lonlat,jb_lonlat)     = ptr_int_lonlat%rbf_c2l_blk(:,jc,jb)
+            ptr_int_lonlat%rbf_c2lr_stencil(jc_lonlat,jb_lonlat)   = ptr_int_lonlat%rbf_c2l_stencil(jc,jb)
           ENDDO
 
         ENDDO
@@ -1621,15 +1627,18 @@
           ! if no shape parameter has been set: compute an estimate 
           CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,            &
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,       &
-            &                         ptr_int_lonlat%rbf_c2l_stencil, rbf_dim_c2l, rbf_shape_param)
+            &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l, rbf_shape_param)
           rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+
+          WRITE(message_text,*) routine, ": algorithm estimated for rbf_shape_param = ", rbf_shape_param
+          CALL message(routine, message_text)
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
         END SELECT
         ! fallback solution:
         IF (rbf_shape_param <= 0._wp) &
           &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-        WRITE(message_text,*) routine, ": estimate for rbf_shape_param = ", rbf_shape_param
+        WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
         CALL message(routine, message_text)
         ! compute coefficients:
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
