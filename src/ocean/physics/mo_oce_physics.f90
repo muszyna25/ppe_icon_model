@@ -701,7 +701,8 @@ CONTAINS
              ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
              ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
 
-          z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
+             ! TODO [ram] why using dbl_eps here? its only part the nominator
+             z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
 
              ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
              ! Richardson number is positive for stable stratification (rho_down > rho_up)

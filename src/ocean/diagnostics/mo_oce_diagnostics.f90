@@ -42,7 +42,7 @@ MODULE mo_oce_diagnostics
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_math_constants,     ONLY: rad2deg
+  USE mo_math_constants,     ONLY: rad2deg, dbl_eps
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     &                              min_rlcell, min_rledge, min_rlcell, &
     &                              max_char_length, MIN_DOLIC
@@ -1178,6 +1178,10 @@ END SUBROUTINE calc_psi
 
    INTEGER :: jk
    INTEGER :: maxcondep     !< maximum convective penetration level
+   REAL(wp) :: masked_vertical_density_gradient(n_zlev)
+
+   ! remove dbl_eps, which  is added in the vertical gradient computation
+   masked_vertical_density_gradient = MAX(vertical_density_gradient - dbl_eps,0.0_wp)
 
    !! diagnose maximum convection level
    !! condep = maximum model level penetrated by vertically continous
@@ -1186,7 +1190,7 @@ END SUBROUTINE calc_psi
    !! as snapshot at the end of the run
    maxcondep=1.0_wp
    DO jk=2,max_lev
-     IF (vertical_density_gradient(jk) .NE. 0.0_wp) THEN
+     IF (masked_vertical_density_gradient(jk) .NE. 0.0_wp) THEN
        maxcondep = jk
        EXIT
      ENDIF
