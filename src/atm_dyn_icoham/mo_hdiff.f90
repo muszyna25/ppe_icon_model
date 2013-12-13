@@ -178,8 +178,8 @@ MODULE mo_hdiff
 
     IF (ltimer) CALL timer_start(timer_hdiff_expl)
     sphere_radius_squared = grid_sphere_radius * grid_sphere_radius
-!--------------------------------------------------------------------
-!
+
+    !--------------------------------------------------------------------
     i_nchdom   = MAX(1,pt_patch%n_childdom)
     ltheta_dyn = ha_dyn_config%ltheta_dyn
     nlev       = pt_patch%nlev
@@ -231,7 +231,10 @@ MODULE mo_hdiff
        i_endblk   = pt_patch%edges%end_blk(min_rledge,i_nchdom)
 
        jlev = pt_patch%level
-       diff_multfac = MIN(4._wp,0.01375_wp*REAL(nroot*2**jlev,wp))*dtime ! empirically determined scaling factor
+!       diff_multfac = MIN(4._wp,0.01375_wp*REAL(nroot*2**jlev,wp))*dtime ! empirically determined scaling factor
+!       write(0,*) "old diff_multfac=", diff_multfac
+       diff_multfac = MIN(4._wp, 69441 / pt_patch%geometry_info%mean_characteristic_length )*dtime ! empirically determined scaling factor
+!       write(0,*) "new diff_multfac=", diff_multfac
        min_diffu  = diffusion_config(k_jg)%k2/SQRT(3._wp)
 
 !$OMP PARALLEL
