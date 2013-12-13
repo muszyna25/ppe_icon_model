@@ -3232,7 +3232,7 @@ convection
 \hline
 inwp\_cldcover&
 I (max\_dom)&
-3&
+1&
 &
 cloud cover scheme for radiation
 &run\_nml/iforcing = inwp
@@ -3248,14 +3248,14 @@ cloud cover scheme for radiation
 &
 &
 &
-1: grid-scale clouds and QV
+1: diagnostic cloud cover (by Martin Koehler)
 &
 \tabularnewline
 &
 &
 &
 &
-2: clouds from COSMO turbulence scheme
+2: prognostic total water variance (not yet started)
 &
 \tabularnewline
 &
@@ -3263,6 +3263,20 @@ cloud cover scheme for radiation
 &
 &
 3: clouds from COSMO SGS cloud scheme
+&
+\tabularnewline
+&
+&
+&
+&
+4: clouds as in turbulence (turbdiff)
+&
+\tabularnewline
+&
+&
+&
+&
+5: grid scale clouds
 &
 \tabularnewline
 
