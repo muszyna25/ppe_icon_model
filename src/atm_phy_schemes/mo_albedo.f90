@@ -484,9 +484,9 @@ CONTAINS
       ! as in Ritter-Geleyn's fesft. So far we do not distinguish between  
       ! visible and NIR spectral bands.
       DO jc = i_startidx, i_endidx
-        prm_diag%albvisdir(jc,jb) = ( 1.0_wp                                                    &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
+        prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
 
         ! no need to do the computation twice, since albvisdif=albnirdif=albdif
         ! Thus: just copy
@@ -896,13 +896,13 @@ CONTAINS
       ! compute black sky albedo from white sky albedo and solar zenith angle formula 
       ! as in Ritter-Geleyn's fesft.
       DO jc = i_startidx, i_endidx
-        prm_diag%albvisdir(jc,jb) = ( 1.0_wp                                                    &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
+        prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
 
-        prm_diag%albnirdir(jc,jb) = ( 1.0_wp                                                    &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))**2
+        prm_diag%albnirdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))   &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))**2)
       ENDDO
 
 
