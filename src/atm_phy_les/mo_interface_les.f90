@@ -92,6 +92,7 @@ MODULE mo_interface_les
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
+  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
