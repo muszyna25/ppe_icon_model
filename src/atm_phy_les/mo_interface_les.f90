@@ -522,6 +522,8 @@ CONTAINS
 
     IF (art_config(jg)%lart) THEN
 
+      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
+
       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
                  &          pt_patch,                           & !>in
                  &          p_prog_list,                        & !>in
@@ -531,9 +533,10 @@ CONTAINS
     ENDIF !lart
 
 
-    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
+
+      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
       
 
       ! Remark: in the (unusual) case that satad is used without any other physics,
@@ -625,6 +628,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
     ENDIF ! end of fast physics part
 
     IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
@@ -685,8 +689,6 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
-
-    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
     !!-------------------------------------------------------------------------
     !!  slow physics part
@@ -751,6 +753,7 @@ CONTAINS
       IF (msg_level >= 15) &
         &  CALL message(TRIM(routine), 'cloud cover')
 
+      IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 
       !-------------------------------------------------------------------------
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
@@ -769,8 +772,6 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
-
-        IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -800,12 +801,12 @@ CONTAINS
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
 
-        IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
-
       ENDDO
   
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
 
@@ -898,7 +899,7 @@ CONTAINS
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in    specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in    specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -911,9 +912,11 @@ CONTAINS
           & lp_count=ext_data%atm%lp_count(jb)     ,&! in     number of land points
           & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
           & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
+          & fp_count  =ext_data%atm%fp_count(jb)   ,&! in     number of (f)lake points
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
           & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
+          & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
@@ -947,7 +950,7 @@ CONTAINS
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tracer(:,:,jb,iqv)        ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
