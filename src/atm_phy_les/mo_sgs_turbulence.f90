@@ -160,10 +160,14 @@ MODULE mo_sgs_turbulence
              )
 
     !Initialize
+    
+    !Important to initialize the visc_sfc_c in the lateral boundary
+    !zone if it exists- isrc_type=1
+    visc_sfc_c(:,:,:) = km_min
+
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
-      visc_sfc_c(:,:,:) = 0._wp
 !ICON_OMP_END_WORKSHARE
     END IF
 
@@ -310,9 +314,7 @@ MODULE mo_sgs_turbulence
 
     !Initialize
     IF(p_test_run)THEN
-!ICON_OMP_WORKSHARE
       visc_smag_e(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
     END IF 
 
     diff_smag_ic => prm_diag%tkvh
@@ -820,13 +822,11 @@ MODULE mo_sgs_turbulence
  
     !Some initializations
 
-!ICON_OMP_WORKSHARE
     !total tendency
     tot_tend(:,:,:) = 0._wp
 
     !new vn
     vn_new(:,:,:) = p_nh_prog%vn(:,:,:)
-!ICON_OMP_END_WORKSHARE
 
 
     !Inverse of density (global rho_e in this module)
@@ -1259,10 +1259,8 @@ MODULE mo_sgs_turbulence
     !Some initializations
  
     IF(p_test_run)THEN
-!ICON_OMP_WORKSHARE
       tot_tend(:,:,:) = 0._wp
       hor_tend(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
     END IF
 
     CALL rbf_vec_interpol_edge(p_nh_prog%vn, p_patch, p_int, vt_e, opt_rlend=min_rledge_int-1)
@@ -1630,10 +1628,8 @@ MODULE mo_sgs_turbulence
 
     !1) First set exner local vars to 1 for other scalars
     !   Soon get different routines for different scalars  
-!ICON_OMP_WORKSHARE
     exner_me(:,:,:) = 1._wp
     exner_ic(:,:,:) = 1._wp
-!ICON_OMP_END_WORKSHARE
 
     !2) Calculate exner at edge for horizontal diffusion
      IF(TRIM(scalar_name)=='theta') &

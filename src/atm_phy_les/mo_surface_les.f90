@@ -143,7 +143,7 @@ MODULE mo_surface_les
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, isidx, ieidx, isblk, ieblk, rl
+    INTEGER :: jk, jb, jc, isidx, isblk, rl
     INTEGER :: nlev, jg, itr
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
@@ -161,8 +161,8 @@ MODULE mo_surface_les
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
    
-    !exclude halo but include lateral boundary zone for visc_sfc_c
-    rl_start   = 2
+    !exclude halo 
+    rl_start   = grf_bdywidth_c+1 
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)         
@@ -414,9 +414,6 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           !This assumes that prm_diag%tch is known at lateral boundary zone which
-           !I think is not true for this case. Either calculate tch in this zone
-           !or set some relevant value of visc_sfc_c in boundary zone for this case
            
            !Mean wind at nlev
            mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
@@ -513,15 +510,11 @@ MODULE mo_surface_les
 
       !Get mean theta and qv at first model level and mean surface pressure
 
-!$OMP PARALLEL WORKSHARE
       var(:,:) = theta(:,jk,:)
-!$OMP END PARALLEL WORKSHARE
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       theta_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
-!$OMP PARALLEL WORKSHARE
       var(:,:) = qv(:,jk,:)
-!$OMP END PARALLEL WORKSHARE
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
@@ -531,10 +524,7 @@ MODULE mo_surface_les
       !Note that t_g(:,:) is uniform so the first index is used below
       rl    = grf_bdywidth_c+1
       isblk = p_patch%cells%start_blk(rl,1)
-      ieblk = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
-      CALL get_indices_c(p_patch, isblk, isblk, ieblk, isidx, &
-                         ieidx, rl, min_rlcell_int)   
-
+      isidx = p_patch%cells%start_idx(rl,1)
       theta_sfc = p_prog_lnd_now%t_g(isidx,isblk)
 
       DO itr = 1 , 10
