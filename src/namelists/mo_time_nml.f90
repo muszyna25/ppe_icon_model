@@ -63,10 +63,16 @@ MODULE mo_time_nml
 
   CHARACTER(len=32)  ::  ini_datetime_string, end_datetime_string
 
+  !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
+  !> step 0 regardless whether we are in a standard run or in a
+  !> restarted run (which means re-initialized run):
+  LOGICAL            ::  is_relative_time
+
   NAMELIST /time_nml/ calendar,            &
     &                 ini_datetime_string, &
     &                 end_datetime_string, &
-    &                 dt_restart
+    &                 dt_restart,          &
+    &                 is_relative_time
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -129,6 +135,8 @@ CONTAINS
    !
    ! length of restart cycle
     dt_restart     = 86400._wp*30._wp   ! = 30 days
+
+    is_relative_time = .FALSE.
 
   IF (is_restart_run()) THEN
  
@@ -213,7 +221,8 @@ CONTAINS
     time_config%end_datetime%calendar = time_config%calendar
     CALL date_to_time( time_config%end_datetime )
 
-    time_config%dt_restart = dt_restart
+    time_config%dt_restart       = dt_restart
+    time_config%is_relative_time = is_relative_time
 
     !-----------------------------------------------------
     ! Store the namelist for restart

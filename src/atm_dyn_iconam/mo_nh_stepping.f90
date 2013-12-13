@@ -458,7 +458,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   jstep0 = 0
-  IF (is_restart_run()) THEN
+  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF

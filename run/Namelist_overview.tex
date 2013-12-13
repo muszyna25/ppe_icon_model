@@ -4563,6 +4563,15 @@ Defined and used in: src/namelists/mo\_sleve\_nml.f90
 \begin{longtab}
 
 \hline
+calendar&
+I& 1& &
+Calendar type: \\
+0=Julian/Gregorian \\
+1=proleptic Gregorian\\
+2=30day/month,360day/year &
+\tabularnewline
+
+\hline
 dt\_restart &
 R & 86400.*30.& s &
 Length of restart cycle in seconds.
@@ -4577,12 +4586,9 @@ restart file will NOT be generated at the end of the restart cycle.
 \tabularnewline
 
 \hline
-calendar&
-I& 1& &
-Calendar type: \\
-0=Julian/Gregorian \\
-1=proleptic Gregorian\\
-2=30day/month,360day/year &
+end\_datetime\_string &
+C & 2008-09-01T01:40:00Z' &&
+End date and time of the simulation&
 \tabularnewline
 
 \hline
@@ -4592,26 +4598,24 @@ Initial date and time of the simulation&
 \tabularnewline
 
 \hline
-end\_datetime\_string &
-C & 2008-09-01T01:40:00Z' &&
-End date and time of the simulation&
-\tabularnewline
-
-\hline
-&&&& Length of the run&
-\tabularnewline
-&&&& If "nsteps" in run\_nml (see below) is positive, then nsteps*dtime
-is used to compute the end date and time of the run.&
-\tabularnewline
-&&&& Else the initial date and time, the end date and time, dt\_restart,
-as well as the time step are used to compute "nsteps".&
+is\_relative\_time &
+L & .FALSE. &&
+.TRUE., if time loop shall start with
+step 0 regardless whether we are in a standard run or in a
+restarted run (which means re-initialized run).
 \tabularnewline
 
 \end{longtab}
 
+% -------------------------------------------------------------
+\paragraph{Length of the run}
+% -------------------------------------------------------------
 
+If "nsteps" in run\_nml is positive, then nsteps*dtime
+is used to compute the end date and time of the run.
 
-
+Else the initial date and time, the end date and time, dt\_restart,
+as well as the time step are used to compute "nsteps".
 
 
 %------------------------------------------------------------------------------

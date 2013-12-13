@@ -364,7 +364,7 @@ CONTAINS
       sim_step_info%iadv_rcf   = iadv_rcf
       sim_step_info%dt_restart = time_config%dt_restart
       jstep0 = 0
-      IF (is_restart_run()) THEN
+      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF

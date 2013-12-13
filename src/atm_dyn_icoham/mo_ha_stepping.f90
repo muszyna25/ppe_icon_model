@@ -85,6 +85,7 @@ MODULE mo_ha_stepping
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
       &                             close_async_restart, set_data_async_restart
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
+  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
 
@@ -262,7 +263,7 @@ CONTAINS
   ENDIF
 
   jstep0 = 0
-  IF (is_restart_run()) THEN
+  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
