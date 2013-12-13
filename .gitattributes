@@ -105,6 +105,7 @@ doc/figures/Huis_thesis/Fig2.3_CellAndEdge_2.tex -text
 doc/figures/Huis_thesis/Fig2.4_TriangleUpDown.tex -text
 doc/figures/Huis_thesis/Fig2.5_Triangle.tex -text
 doc/figures/Huis_thesis/Fig2.6_Hexagon.tex -text
+doc/icon-authors.txt -text
 doc/resources/doxyfile_icon_html -text
 doc/resources/doxyfile_icon_pdf -text
 doc/resources/doxygen_html_footer.html -text
