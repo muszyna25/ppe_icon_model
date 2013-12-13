@@ -181,6 +181,7 @@ CONTAINS
     ! the desired date "mtime_date1"
     intvlsec    = REAL(dtime)
     step        = FLOOR(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+
     IF (step >= 0) THEN
       mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
 
@@ -238,7 +239,7 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
-    mtime_begin  => newDatetime(TRIM(sim_step_info%sim_start))
+    mtime_begin  => newDatetime(TRIM(sim_step_info%run_start))
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -272,6 +273,7 @@ CONTAINS
       ipart      =  0
       delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
       file_end  =>  newDatetime(date_string(1))
+
       file_end   =  file_end + delta
       OUTSTEP_LOOP : DO i=1,nstrings
         step_date => newDatetime(date_string(i))

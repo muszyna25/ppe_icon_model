@@ -247,7 +247,7 @@ MODULE mo_output_event_handler
 
   !> maximum buffer size for sending event meta-data (MPI_PACK)
   INTEGER, PARAMETER :: MAX_BUF_SIZE =    (    MAX_EVENT_NAME_STR_LEN &
-    &                                      + 7*MAX_DATETIME_STR_LEN   &
+    &                                      + 9*MAX_DATETIME_STR_LEN   &
     &                                      + MAX_TIMEDELTA_STR_LEN    &
     &                                      + 3*FILENAME_MAX           &
     &                                      + 1024 )
@@ -626,11 +626,9 @@ CONTAINS
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
-      &                         sim_end, mtime_dom_start
-    TYPE(timedelta), POINTER :: delta, delta_1day, delta_restart
-    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: delta_restart_str
-    INTEGER                  :: ierrstat, i, n_event_steps, iadd_days, &
-      &                         restart_add_days
+      &                         sim_end, mtime_dom_start, run_start
+    TYPE(timedelta), POINTER :: delta, delta_1day
+    INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
     LOGICAL                  :: l_active
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
@@ -653,10 +651,12 @@ CONTAINS
       WRITE (0,*) "PE ",get_my_global_mpi_id(), ":"
       WRITE (0,*) 'Defining output event "'//TRIM(begin_str)//'", "'//TRIM(end_str)//'", "'//TRIM(intvl_str)//'"'
       WRITE (0,*) 'Simulation bounds:    "'//TRIM(sim_step_info%sim_start)//'", "'//TRIM(sim_step_info%sim_end)//'"'
+      WRITE (0,*) 'restart bound: "'//TRIM(sim_step_info%restart_time)
     END IF
 
     ! set some dates used later:
     sim_end     => newDatetime(TRIM(sim_step_info%sim_end))
+    run_start   => newDatetime(TRIM(sim_step_info%run_start))
     mtime_begin => newDatetime(TRIM(begin_str))
     mtime_end   => newDatetime(TRIM(end_str))
     delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
@@ -668,13 +668,7 @@ CONTAINS
 
     ! Compute the end time wrt. "dt_restart": It might be that the
     ! simulation end is limited by this parameter
-    mtime_restart   => newDatetime(TRIM(sim_step_info%sim_start))
-    CALL get_duration_string(INT(sim_step_info%dt_restart), delta_restart_str, restart_add_days)
-    delta_restart => newTimedelta(delta_restart_str)          ! create a time delta for 1 day
-    mtime_restart = mtime_restart + delta_restart
-    DO iadd_days=1,restart_add_days
-      mtime_restart = mtime_restart + delta_1day
-    END DO
+    mtime_restart   => newDatetime(TRIM(sim_step_info%restart_time))
 
     ! loop over the event occurrences
 
@@ -685,7 +679,7 @@ CONTAINS
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
     n_event_steps = 0
     EVENT_LOOP: DO
-      IF ((mtime_date >= mtime_begin) .AND. &
+      IF ((mtime_date >= run_start) .AND. &
         & (mtime_date >= mtime_dom_start)) THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
@@ -752,13 +746,15 @@ CONTAINS
 
     ! remove all those event steps which have no corresponding simulation
     ! step (mtime_sim_steps(i) < 0):
-    do i=1,n_event_steps
-       if (mtime_sim_steps(i) < 0)  EXIT
-    end do
+    DO i=1,n_event_steps
+      IF (mtime_sim_steps(i) < 0)  EXIT
+    END DO
     n_event_steps = (i-1)
 
-    filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
-      &                   mtime_sim_steps, sim_step_info, fname_metadata)
+    IF (n_event_steps > 0) THEN
+      filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
+        &                   mtime_sim_steps, sim_step_info, fname_metadata)
+    END IF
 
     ! from this list of time stamp strings: generate the event steps
     ! for this event
@@ -792,9 +788,9 @@ CONTAINS
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_restart)
     CALL deallocateDatetime(sim_end)
+    CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
-    CALL deallocateTimedelta(delta_restart)
     CALL resetCalendar()
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
@@ -1528,7 +1524,8 @@ CONTAINS
     TYPE(t_output_event), POINTER :: event
 
     IF (ASSOCIATED(event)) THEN
-      check_write_readyfile = (TRIM(event%event_data%name) /= DEFAULT_EVENT_NAME)
+      check_write_readyfile = (TRIM(event%event_data%name) /= DEFAULT_EVENT_NAME) .AND.  &
+        &                     (event%n_event_steps > 0)
     ELSE
       check_write_readyfile = .FALSE.
     END IF
@@ -1757,9 +1754,9 @@ CONTAINS
         &                  l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
     END IF
 
-    if (ldebug) then
-       write (0,*) "received event data: ", trim(begin_str), trim(end_str), trim(intvl_str)
-    end if
+    IF (ldebug) THEN
+      WRITE (0,*) "received event data: ", TRIM(begin_str), TRIM(end_str), TRIM(intvl_str)
+    END IF
 
     ! clean up
     DEALLOCATE(buffer, STAT=ierrstat)
@@ -1889,7 +1886,8 @@ CONTAINS
     CALL p_pack_string(TRIM(sim_step_info%sim_end),          buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_real(sim_step_info%dtime,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%iadv_rcf,                  buffer, MAX_BUF_SIZE, position, icomm)
-    CALL p_pack_real(sim_step_info%dt_restart,               buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_string(TRIM(sim_step_info%run_start),        buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_string(TRIM(sim_step_info%restart_time),     buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%jstep0,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_start_time,         buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_end_time,           buffer, MAX_BUF_SIZE, position, icomm)
@@ -1940,7 +1938,8 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,                    icomm)
     CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,                      icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,                   icomm)
-    CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dt_restart,                 icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%run_start,                  icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%restart_time,               icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,                     icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_start_time,             icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,               icomm)

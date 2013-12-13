@@ -532,11 +532,13 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: forecast_delta_str
+    CHARACTER(LEN=FILENAME_MAX)         :: forecast_delta_str
     TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
+
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
