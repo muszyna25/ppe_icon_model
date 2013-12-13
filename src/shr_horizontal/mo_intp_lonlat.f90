@@ -1578,7 +1578,7 @@
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,   &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
         rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
-        WRITE(message_text,*) routine, ": algorithm estimated for rbf_shape_param = ", rbf_shape_param
+        WRITE(message_text,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
         CALL message(routine, message_text)
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
@@ -1630,7 +1630,7 @@
             &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l, rbf_shape_param)
           rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
 
-          WRITE(message_text,*) routine, ": algorithm estimated for rbf_shape_param = ", rbf_shape_param
+          WRITE(message_text,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
           CALL message(routine, message_text)
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
