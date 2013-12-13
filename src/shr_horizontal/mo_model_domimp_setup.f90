@@ -121,7 +121,7 @@ MODULE mo_model_domimp_setup
   USE mo_math_types
   USE mo_math_utilities
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
-  USE mo_master_control,     ONLY: get_my_process_type, ocean_process
+  USE mo_master_control,     ONLY: my_process_is_ocean
   
   IMPLICIT NONE
   
@@ -1259,43 +1259,6 @@ CONTAINS
 !    IF (get_my_mpi_work_id() == 0) THEN
 !      write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
 !    ENDIF
-    IF (patch%cells%in_domain%no_of_holes > 0) THEN
-      IF (get_my_process_type() == ocean_process) THEN
-!      IF (get_my_mpi_work_id() == 0) THEN
-!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
-!        write(0,*) "=============================="
-!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
-!        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
-!        write(0,*) "=============================="
-!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
-!        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!        write(0,*) "=============================="
-!       ENDIF
-        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
-      ELSE IF (msg_level >= 20) THEN ! for nested atmospheric grids, this is normal
-        CALL warning(method_name, "patch%cells%in_domain no_of_holes > 0")
-      ENDIF
-    ENDIF
-
-    IF (patch%cells%one_edge_in_domain%no_of_holes > 0)  THEN
-!      IF (get_my_mpi_work_id() == 0) THEN
-!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
-!        write(0,*) "=============================="
-!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
-!        write(0,*) "=============================="
-!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
-!        write(0,*) "=============================="
-!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
-!        write(0,*) "subset blocks:", patch%cells%one_edge_in_domain%start_block, patch%cells%in_domain%end_block
-!        write(0,*) "=============================="
-!        CALL finish(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
-!      ELSE
-         IF (msg_level >= 20) THEN ! for nested atmospheric grids, this is normal
-           CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
-         ENDIF
-!      ENDIF
-    ENDIF
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
@@ -1353,6 +1316,48 @@ CONTAINS
       & mask=patch%verts%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_in_domain%is_in_domain   = .false.
           
+    IF (my_process_is_ocean()) THEN
+      IF (patch%cells%in_domain%no_of_holes > 0) THEN
+!      IF (get_my_mpi_work_id() == 0) THEN
+!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
+!        write(0,*) "subset blocks:", patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!        write(0,*) "=============================="
+!       ENDIF
+        CALL finish(method_name, "patch%cells%in_domain no_of_holes > 0")
+      ENDIF
+
+      IF (msg_level >= 5) THEN ! for nested atmospheric grids, this is normal
+        IF (patch%cells%one_edge_in_domain%no_of_holes > 0)  THEN
+!      IF (get_my_mpi_work_id() == 0) THEN
+!        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%decomp_info%owner_mask:",patch%cells%decomp_info%owner_mask(:,:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch%cells%owner:",patch%cells%decomp_info%owner_local(:)
+!        write(0,*) "=============================="
+!        write(0,*) "patch blocks:", patch%nblks_c, patch%alloc_cell_blocks
+!        write(0,*) "subset blocks:", patch%cells%one_edge_in_domain%start_block, patch%cells%in_domain%end_block
+!        write(0,*) "=============================="
+!        CALL finish(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
+!      ELSE
+          CALL warning(method_name, "patch%cells%one_edge_in_domain no_of_holes > 0")
+        ENDIF
+
+        IF (patch%edges%owned%no_of_holes > 0)  THEN
+           CALL warning(method_name, "patch%edges%owned%no_of_holes > 0 no_of_holes > 0")
+        ENDIF
+        IF (patch%edges%in_domain%no_of_holes > 0)  THEN
+           CALL warning(method_name, "patch%edges%in_domain%no_of_holes > 0 no_of_holes > 0")
+        ENDIF
+
+      ENDIF ! msg_level >= 5
+    ENDIF ! my_process_is_ocean
     ! write some info:
     !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
     !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", patch%edges%decomp_info%glb_index

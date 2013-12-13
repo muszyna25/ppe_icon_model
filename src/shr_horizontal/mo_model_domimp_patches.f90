@@ -153,7 +153,9 @@ MODULE mo_model_domimp_patches
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
+#ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
+#endif
 
 !  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
 
@@ -1571,6 +1573,8 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     !--------------------------------------------------
+    patch%boundary_depth_index = 0
+#ifndef __NO_ICON_ATMO__
     patch%boundary_depth_index = nudge_zone_width
     return_status = nf_inq_attid(ncid, nf_global, 'boundary_depth_index', varid)
     IF (return_status == nf_noerr) THEN
@@ -1583,7 +1587,7 @@ CONTAINS
            & 'nudge_zone_width > patch%boundary_depth_index')
        ENDIF
     ENDIF
-
+#endif
 
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))

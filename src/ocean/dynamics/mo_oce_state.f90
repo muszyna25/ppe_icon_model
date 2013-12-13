@@ -551,19 +551,19 @@ CONTAINS
 !-------------------------------------------------------------------------
 !
 !
-  SUBROUTINE setup_ocean_namelists(p_patch)
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  SUBROUTINE setup_ocean_namelists(patch_2D)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 
     CHARACTER(len=max_char_length) :: listname
 
     WRITE(listname,'(a)')  'ocean_restart_list'
-    CALL new_var_list(ocean_restart_list, listname, patch_id=p_patch%id)
+    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2D%id)
     CALL default_var_list_settings( ocean_restart_list,             &
       &                             lrestart=.TRUE.,loutput=.TRUE.,&
       &                             restart_type=FILETYPE_NC2, &
       &                             model_type='oce' )
     WRITE(listname,'(a)')  'ocean_default_list'
-    CALL new_var_list(ocean_default_list, listname, patch_id=p_patch%id)
+    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2D%id)
     CALL default_var_list_settings( ocean_default_list,            &
       &                             lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
   END SUBROUTINE setup_ocean_namelists
@@ -582,9 +582,9 @@ CONTAINS
 !!  Modification by Stephan Lorenz, MPI-M, (2010-06-01) - no temporary memory array
 !
 !
-  SUBROUTINE construct_hydro_ocean_state( p_patch, p_os )
+  SUBROUTINE construct_hydro_ocean_state( patch_2D, p_os )
 
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D(n_dom)
     TYPE(t_hydro_ocean_state), TARGET :: p_os(n_dom)
 
     ! local variables
@@ -607,12 +607,12 @@ CONTAINS
          CALL finish(TRIM(routine), 'allocation of progn. state array failed')
       END IF
       DO jp = 1, prlength
-         CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp),jp)
+         CALL construct_hydro_ocean_prog(patch_2D(jg), p_os(jg)%p_prog(jp),jp)
       END DO
 
-      CALL construct_hydro_ocean_diag(p_patch(jg), p_os(jg)%p_diag)
-      CALL construct_hydro_ocean_aux(p_patch(jg),  p_os(jg)%p_aux)
-      CALL construct_hydro_ocean_acc(p_patch(jg),  p_os(jg)%p_acc)
+      CALL construct_hydro_ocean_diag(patch_2D(jg), p_os(jg)%p_diag)
+      CALL construct_hydro_ocean_aux(patch_2D(jg),  p_os(jg)%p_aux)
+      CALL construct_hydro_ocean_acc(patch_2D(jg),  p_os(jg)%p_acc)
 
       CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
@@ -676,9 +676,9 @@ CONTAINS
 !! Developed  by  Stephan Lorenz, MPI-M (2011/06).
 !!
 
-  SUBROUTINE construct_hydro_ocean_base(p_patch, v_base)
+  SUBROUTINE construct_hydro_ocean_base(patch_2D, v_base)
 
-    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN)          :: patch_2D
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
     ! local variables
@@ -693,9 +693,9 @@ CONTAINS
     !CALL message(TRIM(routine), 'start to construct basic hydro ocean state')
 
     ! determine size of arrays
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
+    nblks_v = patch_2D%nblks_v
     n_zlvp = n_zlev + 1
     n_zlvm = n_zlev - 1
 
@@ -813,9 +813,9 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2006).
 !!
-  SUBROUTINE construct_hydro_ocean_prog(p_patch, p_os_prog, timelevel)
+  SUBROUTINE construct_hydro_ocean_prog(patch_2D, p_os_prog, timelevel)
 
-    TYPE(t_patch), INTENT(in), TARGET         :: p_patch
+    TYPE(t_patch), INTENT(in), TARGET         :: patch_2D
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
     INTEGER, INTENT(IN)                       :: timelevel
 
@@ -841,8 +841,8 @@ CONTAINS
     WRITE(var_suffix,'(a,i2.2)') '_TL',timelevel
 
     !-------------------------------------------------------------------------
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
 
     ! height
     CALL add_var(ocean_restart_list, 'h'//TRIM(var_suffix), p_os_prog%h , &
@@ -924,9 +924,9 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
 
-  SUBROUTINE construct_hydro_ocean_diag(p_patch,p_os_diag)
+  SUBROUTINE construct_hydro_ocean_diag(patch_2D,p_os_diag)
 
-    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN)          :: patch_2D
     TYPE(t_hydro_ocean_diag), INTENT(INOUT)    :: p_os_diag
 
     ! local variables
@@ -949,12 +949,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
 
-    all_cells => p_patch%cells%all
-    all_edges => p_patch%edges%all
+    all_cells => patch_2D%cells%all
+    all_edges => patch_2D%edges%all
     ! determine size of arrays
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
+    nblks_v = patch_2D%nblks_v
 
      
 !    CALL add_var(ocean_default_list, 'test', x , GRID_1x1,&
@@ -1299,9 +1299,9 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-  SUBROUTINE construct_hydro_ocean_aux(p_patch, p_os_aux)
+  SUBROUTINE construct_hydro_ocean_aux(patch_2D, p_os_aux)
 
-    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
+    TYPE(t_patch),TARGET, INTENT(IN)                :: patch_2D
     TYPE(t_hydro_ocean_aux), TARGET,INTENT(INOUT)   :: p_os_aux
 
     ! local variables
@@ -1315,9 +1315,9 @@ CONTAINS
     CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
 
     ! determine size of arrays
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
+    nblks_v = patch_2D%nblks_v
 
     ! allocation for Adam-Bashford time stepping
     CALL add_var(ocean_restart_list,'g_n',p_os_aux%g_n, GRID_UNSTRUCTURED_EDGE,&
@@ -1426,9 +1426,9 @@ CONTAINS
 
   END SUBROUTINE construct_hydro_ocean_aux
 
-  SUBROUTINE construct_hydro_ocean_acc(p_patch, p_os_acc)
+  SUBROUTINE construct_hydro_ocean_acc(patch_2D, p_os_acc)
 
-    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
+    TYPE(t_patch),TARGET, INTENT(IN)                :: patch_2D
     TYPE(t_hydro_ocean_acc), TARGET,INTENT(INOUT)   :: p_os_acc
 
     ! local variables
@@ -1445,9 +1445,9 @@ CONTAINS
 
 
     ! determine size of arrays
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
+    nblks_v = patch_2D%nblks_v
 
     CALL add_var(ocean_default_list, 'h_acc', p_os_acc%h , &
     &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -1612,10 +1612,10 @@ CONTAINS
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: slev,elev
     TYPE(t_subset_range), POINTER :: all_edges
-    TYPE(t_patch), POINTER        :: p_patch
+    TYPE(t_patch), POINTER        :: patch_2D
     !---------------------------------------------------------------
-    p_patch   => patch_3D%p_patch_2D(1)
-    all_edges => p_patch%edges%all
+    patch_2D   => patch_3D%p_patch_2D(1)
+    all_edges => patch_2D%edges%all
 
     ! blocking
     slev         = 1
@@ -1655,9 +1655,9 @@ CONTAINS
   !! - all 3-dim structures moved from patch_oce to type  t_hydro_ocean_base
   !!
   !!  mpi parallelized
-  SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
+  SUBROUTINE init_ho_base( patch_2D, p_ext_data, v_base )
 
-    TYPE(t_patch),  TARGET,   INTENT(INOUT)    :: p_patch
+    TYPE(t_patch),  TARGET,   INTENT(INOUT)    :: patch_2D
     TYPE(t_external_data),    INTENT(INOUT)    :: p_ext_data
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
@@ -1674,17 +1674,17 @@ CONTAINS
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible, idxn, ibln
     INTEGER :: n_zlvp, n_zlvm
     INTEGER :: jiter, niter, ctr, ctr_jk, ctr_glb
-    INTEGER :: lsm_c   (nproma,p_patch%alloc_cell_blocks)
+    INTEGER :: lsm_c   (nproma,patch_2D%alloc_cell_blocks)
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
     REAL(wp):: z_stepvalue
 
-    REAL(wp):: z_sync_c(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
+    REAL(wp):: z_sync_c(nproma,patch_2D%alloc_cell_blocks)
+    REAL(wp):: z_sync_e(nproma,patch_2D%nblks_e)
     REAL(wp):: z_lat, z_lat_deg, z_north, z_south
 
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells
-    TYPE(t_subset_range), POINTER :: owned_edges, all_edges
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
     INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
     INTEGER :: dol_e, dol_c1, dol_c2, lsm_e
 
@@ -1696,10 +1696,10 @@ CONTAINS
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
-    owned_cells => p_patch%cells%owned
-    all_cells   => p_patch%cells%all
-    owned_edges => p_patch%edges%owned
-    all_edges   => p_patch%edges%all
+    owned_cells => patch_2D%cells%owned
+    all_cells   => patch_2D%cells%all
+    edges_in_domain => patch_2D%edges%in_domain
+    all_edges   => patch_2D%edges%all
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
@@ -1723,11 +1723,11 @@ CONTAINS
     !-----------------------------
 
     ! values for the blocking
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
-    !nblks_v = p_patch%nblks_v
-    npromz_c = p_patch%npromz_c
-    npromz_e = p_patch%npromz_e
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
+    !nblks_v = patch_2D%nblks_v
+    npromz_c = patch_2D%npromz_c
+    npromz_e = patch_2D%npromz_e
 
     ! number of vertical levels from the namelist in mo_global_variables
     n_zlvp = n_zlev + 1
@@ -1859,7 +1859,7 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
               !get latitude of actual cell
-              z_lat = p_patch%cells%center(jc,jb)%lat
+              z_lat = patch_2D%cells%center(jc,jb)%lat
               z_lat_deg = z_lat*rad2deg
 
               !If latitude of cell is above 80 N or below 80 S set triangle to land
@@ -1871,8 +1871,8 @@ CONTAINS
                 !Set also all 3 edges to land
                 DO ji = 1, 3
                   ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                  idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
-                  ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
+                  idxe                                   = patch_2D%cells%edge_idx(jc,jb,ji)
+                  ible                                   = patch_2D%cells%edge_blk(jc,jb,ji)
                   v_base%lsm_e(idxe,:,ible)          = LAND
                   p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
                   v_base%dolic_e(idxe,ible)              = 0
@@ -1918,8 +1918,8 @@ CONTAINS
               IF (lsm_c(jc,jb) <= SEA_BOUNDARY) THEN
                 DO ji = 1, 3
                   ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
-                  idxn = p_patch%cells%neighbor_idx(jc,jb,ji)
-                  ibln = p_patch%cells%neighbor_blk(jc,jb,ji)
+                  idxn = patch_2D%cells%neighbor_idx(jc,jb,ji)
+                  ibln = patch_2D%cells%neighbor_blk(jc,jb,ji)
                   ! counts number of land-cells for all three neighbors
                   !  - only one land-point neighbor is allowed
                   IF (idxn <= 0) THEN
@@ -1961,7 +1961,7 @@ CONTAINS
 
         ! we need to sync the halos here
         z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
-        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+        CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))
 
       END DO   ! jiter
@@ -1969,7 +1969,7 @@ CONTAINS
       CALL enable_sync_checks()
 
       z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       lsm_c(:,:) = INT(z_sync_c(:,:))
 
       ! get back into 3D the slm
@@ -2015,7 +2015,7 @@ CONTAINS
         CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
 
-        ! IF (.NOT.p_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE  ! access inner domain only
+        ! IF (.NOT.patch_2D%cells%decomp_info%owner_mask(jc,jb)) CYCLE  ! access inner domain only
           IF (v_base%lsm_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
             nosea_c(jk)=nosea_c(jk)+1
             v_base%dolic_c(jc,jb) = jk
@@ -2037,7 +2037,7 @@ CONTAINS
 
       ! now synchronize lsm_c
       z_sync_c(:,:) =  REAL(v_base%lsm_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       v_base%lsm_c(:,jk,:) = INT(z_sync_c(:,:))
 
       !  percentage of land area per level and global value
@@ -2068,17 +2068,17 @@ CONTAINS
       nobnd_e(jk)=0
 
       ! loop through owned patch edges
-      DO jb = owned_edges%start_block, owned_edges%end_block
-        CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
         DO je = i_startidx, i_endidx
 
-          !  IF (.NOT. p_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE  ! access inner domain only
+          ! IF (.NOT. patch_2D%edges%decomp_info%owner_mask(je,jb)) CYCLE  ! access inner domain only
 
           ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
-          iic1 = p_patch%edges%cell_idx(je,jb,1)
-          ibc1 = p_patch%edges%cell_blk(je,jb,1)
-          iic2 = p_patch%edges%cell_idx(je,jb,2)
-          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+          iic1 = patch_2D%edges%cell_idx(je,jb,1)
+          ibc1 = patch_2D%edges%cell_blk(je,jb,1)
+          iic2 = patch_2D%edges%cell_idx(je,jb,2)
+          ibc2 = patch_2D%edges%cell_blk(je,jb,2)
 
           ! when a cell is missing then the edge is considered boundary (=0)
           ! if the other cell is sea
@@ -2111,7 +2111,7 @@ CONTAINS
 
           ENDIF
 
-          IF ( p_patch%edges%decomp_info%owner_mask(je,jb)) THEN
+          IF ( patch_2D%edges%decomp_info%owner_mask(je,jb)) THEN
             ! count land/sea/boundary values (sum of nosea_e no_lnd_e nobnd_e is global value)
             IF ( v_base%lsm_e(je,jk,jb) <  BOUNDARY )      &
               &  nosea_e(jk)=nosea_e(jk)+1
@@ -2136,7 +2136,7 @@ CONTAINS
 
       ! synchronize lsm on edges
       z_sync_e(:,:) =  REAL(v_base%lsm_e(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
+      CALL sync_patch_array(SYNC_E, patch_2D, z_sync_e(:,:))
       v_base%lsm_e(:,jk,:) = INT(z_sync_e(:,:))
 
       !  percentage of land area per level and global value
@@ -2173,8 +2173,8 @@ CONTAINS
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              idxe = patch_2D%cells%edge_idx(jc,jb,ji)
+              ible = patch_2D%cells%edge_blk(jc,jb,ji)
               ! if one of lsm_e is boundary then lsm_c is sea_boundary
               IF ( v_base%lsm_e(idxe,jk,ible) == BOUNDARY ) &
                 &  v_base%lsm_c(jc,jk,jb) = SEA_BOUNDARY
@@ -2190,8 +2190,8 @@ CONTAINS
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              idxe = patch_2D%cells%edge_idx(jc,jb,ji)
+              ible = patch_2D%cells%edge_blk(jc,jb,ji)
               ! if one of lsm_e is boundary then lsm_c is land_boundary
               IF ( v_base%lsm_e(idxe,jk,ible) == BOUNDARY ) &
                 &  v_base%lsm_c(jc,jk,jb) = LAND_BOUNDARY
@@ -2220,7 +2220,7 @@ CONTAINS
 
       ! synchronize lsm on cells
       z_sync_c(:,:) =  REAL(v_base%lsm_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       v_base%lsm_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO ZLEVEL_LOOP
@@ -2233,11 +2233,11 @@ CONTAINS
     !---------------------------------------------------------------------------------------------
     ! synchronize dolic_c
     z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
     ! synchronize dolic_e
     z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
-    CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
+    CALL sync_patch_array(SYNC_E, patch_2D, z_sync_e(:,:))
     v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
 
     !---------------------------------------------------------------------------------------------
@@ -2298,11 +2298,11 @@ CONTAINS
     ! Test loop for dolic_e:
     !  - if lsm_e(dolic_e+1) is boundary, then dolic_c1 or c2 > dolic_e
     !  - more tests? lsm(dolic) is no boundary any more
-    !  - bugfix: owned_edges for test only
+    !  - bugfix: edges_in_domain for test only
 !TODO: review usage of v_base, owned vs. all_edges
 ! this is done in ocean_check_level_sea_land_mask
-!    DO jb = owned_edges%start_block, owned_edges%end_block
-!      CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
+!    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+!      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 !      DO je = i_startidx, i_endidx
 !
 !        dol_e = v_base%dolic_e(je,jb)
@@ -2312,10 +2312,10 @@ CONTAINS
 !          lsm_e = v_base%lsm_e(je,dol_e+1,jb)
 !
 !          ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
-!          iic1 = p_patch%edges%cell_idx(je,jb,1)
-!          ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!          iic2 = p_patch%edges%cell_idx(je,jb,2)
-!          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!          iic1 = patch_2D%edges%cell_idx(je,jb,1)
+!          ibc1 = patch_2D%edges%cell_blk(je,jb,1)
+!          iic2 = patch_2D%edges%cell_idx(je,jb,2)
+!          ibc2 = patch_2D%edges%cell_blk(je,jb,2)
 !
 !          IF (iic1 > 0 .AND. iic2 > 0) THEN
 !            dol_c1 = v_base%dolic_c(iic1,ibc1)
@@ -2382,15 +2382,15 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2012-02)
   !!
   !!  no-mpi parallelized
-  SUBROUTINE init_ho_basins( p_patch, v_base )
+  SUBROUTINE init_ho_basins( patch_2D, v_base )
 
-    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN)          :: patch_2D
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
-    REAL(wp) :: z_sync_c(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
-    INTEGER  :: ibase   (nproma,p_patch%alloc_cell_blocks)
-    INTEGER  :: iarea   (nproma,p_patch%alloc_cell_blocks)
+    REAL(wp) :: z_sync_c(nproma,patch_2D%alloc_cell_blocks)
+    REAL(wp) :: z_sync_e(nproma,patch_2D%nblks_e)
+    INTEGER  :: ibase   (nproma,patch_2D%alloc_cell_blocks)
+    INTEGER  :: iarea   (nproma,patch_2D%alloc_cell_blocks)
 
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jb, jc, jk, alloc_cell_blocks, npromz_c, i
@@ -2410,19 +2410,19 @@ CONTAINS
     &        routine = 'mo_oce_state:init_ho_basins'
 
     !-----------------------------------------------------------------------------
-    all_cells => p_patch%cells%all
-    cells_in_domain => p_patch%cells%in_domain
+    all_cells => patch_2D%cells%all
+    cells_in_domain => patch_2D%cells%in_domain
     CALL message (TRIM(routine), 'start')
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
 
     ! values for the blocking
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    !nblks_e = p_patch%nblks_e
-    !nblks_v = p_patch%nblks_v
-    npromz_c = p_patch%npromz_c
-    !npromz_e = p_patch%npromz_e
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    !nblks_e = patch_2D%nblks_e
+    !nblks_v = patch_2D%nblks_v
+    npromz_c = patch_2D%npromz_c
+    !npromz_e = patch_2D%npromz_e
 
 
 
@@ -2462,8 +2462,8 @@ CONTAINS
          IF (v_base%lsm_c(jc,1,jb) >= boundary) cycle
 
          ! get lat/lon of actual cell
-         z_lat_deg = rad2deg * p_patch%cells%center(jc,jb)%lat
-         z_lon_deg = rad2deg * p_patch%cells%center(jc,jb)%lon
+         z_lat_deg = rad2deg * patch_2D%cells%center(jc,jb)%lat
+         z_lon_deg = rad2deg * patch_2D%cells%center(jc,jb)%lon
          IF (z_lon_deg >  180.0_wp) z_lon_deg = z_lon_deg-360.0_wp
          IF (z_lon_deg < -180.0_wp) z_lon_deg = z_lon_deg+360.0_wp
 
@@ -2520,7 +2520,7 @@ CONTAINS
     END DO
     !chekc if iarea is the same
     z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     iarea(:,:) = INT(z_sync_c(:,:))
 
     !-----------------------------
@@ -2550,8 +2550,8 @@ CONTAINS
            IF (iarea(jc,jb) == ocean_regions%caribbean) then
              DO i = 1, 3  !  no_of_edges
                ! coordinates of neighbouring cells
-               n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
-               n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
+               n_blk(i) = patch_2D%cells%neighbor_blk(jc,jb,i)
+               n_idx(i) = patch_2D%cells%neighbor_idx(jc,jb,i)
 
                IF (n_idx(i) > 0) THEN
                  IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_atlantic) then       ! NEIGHBOR IS tROPaTL
@@ -2584,7 +2584,7 @@ CONTAINS
       ! do sync
 
       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       iarea(:,:) = INT(z_sync_c(:,:))
 
     END DO
@@ -2596,7 +2596,7 @@ CONTAINS
     p_test_run = p_test_run_bac
     !chekc if iarea is the same
     z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     iarea(:,:) = INT(z_sync_c(:,:))
     !-----------------------------
 
@@ -2613,8 +2613,8 @@ CONTAINS
            IF (iarea(jc,jb) == ocean_regions%caribbean) then
              DO i = 1, 3  !  no_of_edges
                ! coordinates of neighbouring cells
-               n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
-               n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
+               n_blk(i) = patch_2D%cells%neighbor_blk(jc,jb,i)
+               n_idx(i) = patch_2D%cells%neighbor_idx(jc,jb,i)
 
                IF (n_idx(i) > 0) THEN
                  IF (iarea(n_idx(i),n_blk(i)) == ocean_regions%tropical_pacific) then  ! NEIGHBOR IS tROPpAC
@@ -2648,7 +2648,7 @@ CONTAINS
       ! do sync
 
       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       iarea(:,:) = INT(z_sync_c(:,:))
 
     END DO
@@ -2660,7 +2660,7 @@ CONTAINS
     p_test_run = p_test_run_bac
     !chekc if iarea is the same
     z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     iarea(:,:) = INT(z_sync_c(:,:))
     !-----------------------------
 
@@ -2708,20 +2708,20 @@ CONTAINS
 
     ! synchronize all elements of v_base - not necessary
     z_sync_c(:,:) =  REAL(v_base%basin_c(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     v_base%basin_c(:,:) = INT(z_sync_c(:,:))
     z_sync_c(:,:) =  REAL(v_base%regio_c(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
     v_base%regio_c(:,:) = INT(z_sync_c(:,:))
 
     DO jk = 1, n_zlev
 
       z_sync_c(:,:) =  v_base%wet_c(:,jk,:)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      CALL sync_patch_array(SYNC_C, patch_2D, z_sync_c(:,:))
       v_base%wet_c(:,jk,:) = z_sync_c(:,:)
 
       z_sync_e(:,:) =  v_base%wet_e(:,jk,:)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+      CALL sync_patch_array(SYNC_e, patch_2D, z_sync_e(:,:))
       v_base%wet_e(:,jk,:) = z_sync_e(:,:)
 
     END DO
@@ -3121,7 +3121,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_subset_range), POINTER :: owned_cells
-    TYPE(t_subset_range), POINTER :: owned_edges
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_subset_range), POINTER :: owned_verts
 
     INTEGER :: vertex_block, vertex_index, start_index, end_index
@@ -3141,7 +3141,7 @@ CONTAINS
     all_cells   => patch_2D%cells%all
     all_edges   => patch_2D%edges%all
     owned_cells => patch_2D%cells%owned
-    owned_edges => patch_2D%edges%owned
+    edges_in_domain => patch_2D%edges%in_domain
     owned_verts => patch_2D%verts%owned
    !-------------------------------------------------------------------------
 
@@ -3386,8 +3386,8 @@ CONTAINS
          patch_3D%wet_halo_zero_e(je,:,jb) = 0.0_wp
       END DO
     END DO
-    DO jb = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, jb, i_startidx_e, i_endidx_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
          patch_3D%wet_halo_zero_e(je,:,jb) = patch_3D%wet_e(je,:,jb)
       END DO
@@ -3454,7 +3454,7 @@ CONTAINS
     cells%one_edge_in_domain%vertical_levels => cells_vertical_levels
 
     edges%ALL%vertical_levels           => edges_vertical_levels
-    edges%owned%vertical_levels         => edges_vertical_levels
+    edges%in_domain%vertical_levels         => edges_vertical_levels
     edges%in_domain%vertical_levels     => edges_vertical_levels
     edges%not_owned%vertical_levels     => edges_vertical_levels
     edges%not_in_domain%vertical_levels => edges_vertical_levels
@@ -3467,7 +3467,7 @@ CONTAINS
     cells%one_edge_in_domain%max_vertical_levels = n_zlev
 
     edges%ALL%max_vertical_levels           = n_zlev
-    edges%owned%max_vertical_levels         = n_zlev
+    edges%in_domain%max_vertical_levels         = n_zlev
     edges%in_domain%max_vertical_levels     = n_zlev
     edges%not_owned%max_vertical_levels     = n_zlev
     edges%not_in_domain%max_vertical_levels = n_zlev
@@ -3525,7 +3525,7 @@ CONTAINS
       ! recalculate edges subsets
       CALL fill_subset(patch_2D%edges%all, patch_2D, patch_2D%edges%decomp_info%halo_level, &
         & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2D%edges%owned, patch_2D, patch_2D%edges%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(patch_2D%edges%in_domain, patch_2D, patch_2D%edges%decomp_info%halo_level, 0, 0)
       CALL fill_subset(patch_2D%edges%in_domain, patch_2D, patch_2D%edges%decomp_info%halo_level, 0, 1)
 
       ! verts
