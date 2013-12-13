@@ -59,9 +59,8 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int,  LAND,                 &
-    &                              VINTP_METHOD_LIN, HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, &
-    &                              MODIS
+    &                              max_char_length, min_rlcell_int, VINTP_METHOD_LIN, &
+    &                              HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, MODIS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -1218,10 +1217,10 @@ CONTAINS
       !
       ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c,nclass_lu)
       cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 2, 0, 34, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape3d_sfc, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_sfc, loutput=.TRUE. )
 
 
       !--------------------------------
@@ -1244,7 +1243,7 @@ CONTAINS
         ! albuv_dif    p_ext_atm%albuv_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
           &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albuv_dif', p_ext_atm%albuv_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape2d_c, loutput=.TRUE.                             )
@@ -1254,7 +1253,7 @@ CONTAINS
         ! albni_dif    p_ext_atm%albni_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
           &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_ext_atm_list, 'albni_dif', p_ext_atm%albni_dif,           &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape2d_c, loutput=.TRUE.                             )
@@ -1433,10 +1432,11 @@ CONTAINS
     cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
       &                   'atmosphere_absorption_optical_thickness_due_to_' //&
       &                   'black_carbon_ambient_aerosol', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 13, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 20, 102, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-      &            grib2_desc, ldims=shape3d_c, loutput=.FALSE. )
+      &           grib2_desc, ldims=shape3d_c, loutput=.FALSE.,     &
+      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
 
 
     ! Dust aerosol
@@ -1445,10 +1445,11 @@ CONTAINS
     cf_desc    = t_cf_var('aot_dust', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to dust ambient aerosol', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 13, 193, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 20, 102, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-      &           ldims=shape3d_c, loutput=.FALSE. )
+      &           ldims=shape3d_c, loutput=.FALSE.,                        &
+      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
 
 
     ! Organic aerosol
@@ -1457,10 +1458,11 @@ CONTAINS
     cf_desc    = t_cf_var('aot_org', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to particulate organic matter ambient aerosol', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 13, 194, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 20, 102, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org,     &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, loutput=.FALSE. )
+      &           ldims=shape3d_c, loutput=.FALSE.,                       &
+      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
 
 
     ! Sulfate aerosol
@@ -1469,10 +1471,11 @@ CONTAINS
     cf_desc    = t_cf_var('aot_so4', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to sulfate_ambient_aerosol', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 13, 192, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 20, 102, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, loutput=.FALSE. )
+      &           ldims=shape3d_c, loutput=.FALSE.,                       &
+      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
 
 
     ! Seasalt aerosol
@@ -1481,10 +1484,11 @@ CONTAINS
     cf_desc    = t_cf_var('aot_ss', '-', &
       &                   'atmosphere absorption optical thickness due '//  &
       &                   'to seasalt_ambient_aerosol', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 13, 196, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 20, 102, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, loutput=.FALSE. )
+      &           ldims=shape3d_c, loutput=.FALSE.,                       &
+      &           isteptype=TSTEP_AVG )  ! Meta info constituentType missing
 
 
     !--------------------------------
@@ -1526,7 +1530,7 @@ CONTAINS
       ! albuv_dif    p_ext_atm_td%albuv_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
         &                   'UV visible albedo for diffuse radiation', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'albuv_dif', p_ext_atm_td%albuv_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
@@ -1537,7 +1541,7 @@ CONTAINS
       ! albni_dif    p_ext_atm_td%albni_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
         &                   'Near IR albedo for diffuse radiation', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'albni_dif', p_ext_atm_td%albni_dif,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
