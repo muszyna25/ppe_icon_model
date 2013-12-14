@@ -381,7 +381,7 @@ create_restart()
 {
   # set -x
   name=$1
-  check_accept_script $name
+  check_accept_script exp.$name
   if [[ $accepted_script != "true" ]] ; then
     return 1
   fi
