@@ -99,14 +99,16 @@ dtime=$dtime_atmo
 (( dt_rad  = 2 * hour ))
 #
 # atm_dyn output - ACTIVATE WHEN USING NML OUTPUT - now for production
-(( dt_data_atm_dyn = 24 * hour ))  # [s] data output interval, write output every 6 hours
-#nout_interv_dyn="PT6H"            # atm_dyn model output interval in hours
-nout_interv_dyn="P1D"            # atm_dyn model output interval in hours
+#(( dt_data_atm_dyn =  6 * hour ))  # [s] data output interval, write output every 6 hours
+(( dt_data_atm_dyn = 24 * hour ))  # [s] data output interval, write output daily
+#nout_interv_dyn="PT06H"            # atm_dyn model output interval in hours
+nout_interv_dyn="P01D"            # atm_dyn model output interval in hours
 #
 # atm_phy output
-(( dt_data_atm_phy = 24 * hour ))  # [s] data output interval, write output every 1 hour
-#nout_interv_phy="PT6H"            # atm_dyn model output interval in hours
-nout_interv_phy="P1D"            # atm_dyn model output interval in hours
+#(( dt_data_atm_phy =  1 * hour ))  # [s] data output interval, write output every 1 hour
+(( dt_data_atm_phy = 24 * hour ))  # [s] data output interval, write output daily
+#nout_interv_phy="PT01H"            # atm_dyn model output interval in hours
+nout_interv_phy="P01D"            # atm_dyn model output interval in hours
 #
 dt_file=$dt_restart
 #
