@@ -3633,11 +3633,6 @@ l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
 %------------------------------------------------------------------------------
 \subsection{output\_nml}
 
-\color{red}NOTE: as the mtime library underlaying the output driver
-  currently does support two digits number in the duration strings
-  only those have to be used! This is going to be fixed soon
-  (2013-12-16).\color{black}
-
 Please note: There may be several instances of
 output\_nml in the namelist file, every one defining a list of variables with
 separate attributes for output.
@@ -3658,8 +3653,7 @@ I&-1& &
 \hline
  file\_interval &
 C&\'' \''& &
-Defines the length of a file in terms of an ISO-8601 duration string (see below).
-This namelist parameter can be set instead of \texttt{steps\_per\_file}.
+Defines the length of a file in terms of an ISO-8601 duration string. An example for this time stamp format is given below. This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 &
 \tabularnewline
 
@@ -3948,6 +3942,17 @@ where \texttt{Y}: year, \texttt{M}: month, \texttt{D}: day for dates,
 and   \texttt{hh}: hour, \texttt{mm}: minute, \texttt{ss}: second for time strings.  
 The general format for durations is \texttt{PnYnMnDTnHnMnS}.
 See, for example, \texttt{http://en.wikipedia.org/wiki/ISO\_8601} for details and further specifications.
+
+\color{red}NOTE: as the mtime library underlaying the output driver
+  currently has some restrictions concerning the specification of durations:\begin{enumerate}
+\item Any number \texttt{n} in \texttt{PnYnMnDTnHnMnS} must have two digits. For instance use \texttt{"PT06H"} instead of \texttt{"PT6H"}
+\item In a duration string \texttt{PnyearYnmonMndayDTnhrHnminMnsecS} the numbers \texttt{nxyz} must not pass the carry over number to the next larger time unit: 0<=nmon<=12, 0<=nhr<=23, 0<=nmin<=59, 0<=nsec<=59.999. For instance use \texttt{"P01D"} instead of \texttt{"PT24H"}, or \texttt{"PT01M"} instead of \texttt{"PT60S"}.
+\end{enumerate}
+
+Soon the formatting problem will be resolved and the valid number ranges will be enlarged.
+(2013-12-16).\color{black}
+
+
 
 \begin{tabbing}
   \parbox{0.7\textwidth}{\textbf{Examples}} \= \\
