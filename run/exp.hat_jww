@@ -8,6 +8,7 @@
 # Marco Giorgetta, MPI-M, 2011-01-29
 # Hui Wan,         MPI-M, 2010-08-17
 # Leonidas Linardakis, MPI-M, 2011-07-20
+# Monika Esch,     MPI-M, 2013-12-16
 #
 #-----------------------------------------------------------------------------
 #
@@ -74,7 +75,7 @@ atmo_model_equations=1   # equation system
 #-----------------------------------------------------------------------------
 # define variable names
 #
-dict_file='dict.r2b4_amip__cmor'
+dict_file='dict.cmor'
 #
 #-----------------------------------------------------------------------------
 # horizontal grid
@@ -124,8 +125,9 @@ cat > $atmo_namelist << EOF
 /
 &io_nml
  dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
-! output_nml_dict  = '${dict_file}'
-! netcdf_dict      = '${dict_file}'
+ output_nml_dict  = '${dict_file}'
+ netcdf_dict      = '${dict_file}'
+ lzaxis_reference = .false.
 ! dt_diag         = ${dt_diag}       ! [s]
 /
 &output_nml
@@ -134,12 +136,10 @@ cat > $atmo_namelist << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}"
-!!! ml_varlist       = 'ps'      , 'ta'      ,
-!                    'hus'     , 'clw'     , 'cli'     ,
-!                    'ua'      , 'va'      , 'wap'     ,
-!                    'pfull'   , 'gpfull'
-! ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
- ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div','ha_diag_geo_mc','ha_diag_wpres_mc'
+ ml_varlist       = 'ps'      , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'pfull'   , 'geosp'  ,
+                    'sd'     , 'svo'
 /
 &dynamics_nml
  iequations      = ${atmo_model_equations}
@@ -150,4 +150,6 @@ EOF
 #-----------------------------------------------------------------------------
 # add standard atmo_hydrostatic_files
 . ${thisdir}/add_required_atmo_hydrostatic_files
+# copy dictionary file for variable names
+add_required_file ${basedir}/run/${dict_file}                                ./
 #-----------------------------------------------------------------------------

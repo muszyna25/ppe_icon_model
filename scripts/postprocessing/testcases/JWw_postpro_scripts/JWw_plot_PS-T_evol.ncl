@@ -159,9 +159,9 @@
      if (Model.eq."ICOHDC") then
 
         if (VarName.eq."T") then
-            var = File->ha_prog_TL01_temp(tid(it),0,:)
+            var = File->ta(tid(it),0,:)
         else
-            var = File->ha_prog_TL01_pres_sfc(tid(it),:)
+            var = File->ps(tid(it),:)
             var = var*0.01
         end if
 
@@ -169,7 +169,7 @@
         if (VarName.eq."T") then
             var = File->st(tid(it),0,:,:)
         else
-            var = File->aps(tid(it),:,:)
+            var = File->ps(tid(it),:,:)
             var = var*0.01
         end if
      end if
@@ -253,9 +253,9 @@
   if (Model.eq."ICOHDC") then
 
      if (VarName.eq."T") then
-         var = File->ha_prog_TL01_temp(tid(it),0,:)
+         var = File->ta(tid(it),0,:)
      else
-         var = File->ha_prog_TL01_pres_sfc(tid(it),:)
+         var = File->ps(tid(it),:)
          var = var*0.01
      end if
 
@@ -263,7 +263,7 @@
      if (VarName.eq."T") then
          var = File->st(tid(it),0,:,:)
      else
-         var = File->aps(tid(it),:,:)
+         var = File->ps(tid(it),:,:)
          var = var*0.01
      end if
   end if

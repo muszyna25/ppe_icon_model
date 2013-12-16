@@ -102,11 +102,11 @@
      varInt     = (/  3./)
      clevels    = (/-3,0,3/)
 
-     if (Model.eq."ECHAM5") then
+;     if (Model.eq."ECHAM5") then
         vname = "svo"  ; var name given by afterburner 
-     else
-        vname = "ha_diag_rel_vort_c"
-     end if
+;     else
+;        vname = "ha_diag_rel_vort_c"
+;     end if
 
   else 
   if (VarName.eq."DIV") then ;divergence
@@ -123,11 +123,11 @@
      varInt     = (/  1.5/)
      clevels    = (/-1.5,1.5/)
 
-     if (Model.eq."ECHAM5") then
+;     if (Model.eq."ECHAM5") then
         vname = "sd"  ; var name given by afterburner
-     else
-        vname = "ha_diag_div"
-     end if
+;     else
+;        vname = "ha_diag_div"
+;     end if
 
   else ; omega
 
@@ -146,7 +146,7 @@
      if (Model.eq."ECHAM5") then
         vname = "var135"  ; var name given by afterburner
      else
-        vname = "ha_diag_wpres_mc"
+        vname = "wap"
      end if
   end if
   end if
