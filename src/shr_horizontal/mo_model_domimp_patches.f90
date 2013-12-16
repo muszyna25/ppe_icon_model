@@ -138,7 +138,7 @@ MODULE mo_model_domimp_patches
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work, get_my_global_mpi_id
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
@@ -166,7 +166,7 @@ MODULE mo_model_domimp_patches
 
   USE mo_read_netcdf_parallel, ONLY:                 &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
-    & nf_inq_attid,                                  &
+    & nf_inq_attid       => p_nf_inq_attid,          &
     & nf_open            => p_nf_open,               &
     & nf_close           => p_nf_close,              &
     & nf_inq_dimid       => p_nf_inq_dimid,          &
@@ -1577,15 +1577,16 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     patch%boundary_depth_index = nudge_zone_width
     return_status = nf_inq_attid(ncid, nf_global, 'boundary_depth_index', varid)
+    ! write(0,*) get_my_global_mpi_id(), " nf_inq_attid return_status=", return_status
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'boundary_depth_index', patch%boundary_depth_index))
        IF (nudge_zone_width < 0) THEN
          nudge_zone_width = patch%boundary_depth_index - 4
        ENDIF
-       IF ( nudge_zone_width > patch%boundary_depth_index - 4) THEN
-         CALL finish ('mo_model_domain_import:read_patch',  &
-           & 'nudge_zone_width > patch%boundary_depth_index - 4')
-       ENDIF
+!       IF ( nudge_zone_width > patch%boundary_depth_index - 4) THEN
+!         CALL finish ('mo_model_domain_import:read_patch',  &
+!           & 'nudge_zone_width > patch%boundary_depth_index - 4')
+!       ENDIF
     ENDIF
 #endif
 

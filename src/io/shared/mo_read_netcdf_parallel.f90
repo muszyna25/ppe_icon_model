@@ -77,12 +77,13 @@ PUBLIC :: p_nf_get_att_double
 PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
+PUBLIC :: p_nf_inq_attid
 
 ! constants
 PUBLIC :: nf_read
 
 ! make some names from netcdf.inc also global
-PUBLIC :: nf_nowrite, nf_global, nf_noerr, nf_strerror, nf_inq_attid
+PUBLIC :: nf_nowrite, nf_global, nf_noerr, nf_strerror
 
 INTERFACE p_nf_get_att_int
    MODULE PROCEDURE p_nf_get_att_int_0
@@ -339,6 +340,35 @@ END FUNCTION p_nf_get_att_double_array
 !! Initial version by Rainer Johanni, Nov 2009
 !! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
 !!
+INTEGER FUNCTION p_nf_inq_attid(ncid, varid, name, ivals)
+
+   INTEGER, INTENT(in) :: ncid, varid
+   CHARACTER(len=*), INTENT(in) :: name
+   INTEGER, INTENT(inout) :: ivals
+
+   INTEGER :: res
+
+
+!-----------------------------------------------------------------------
+
+   IF (p_pe == p_io) THEN
+      res = nf_inq_attid(ncid, varid, name, ivals)
+   ENDIF
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_inq_attid = res
+
+END FUNCTION p_nf_inq_attid
+
+!-----------------------------------------------------------------------
+!>
+!!               Wrapper for nf_get_att_int.
+!!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
+!!
 INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
 
    INTEGER, INTENT(in) :: ncid, varid
@@ -360,6 +390,7 @@ INTEGER FUNCTION p_nf_get_att_int_0(ncid, varid, name, ivals)
    CALL p_bcast(ivals, p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_att_int_0
+
 
 !-------------------------------------------------------------------------
 !>
