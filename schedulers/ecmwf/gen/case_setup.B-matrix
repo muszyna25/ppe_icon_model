@@ -127,7 +127,7 @@ hl_varlist="'u','v','temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma                       = 10
+ nproma                       = 16
  p_test_run                   = .FALSE.
  l_test_openmp                = .FALSE.
  l_log_checks                 = .TRUE.

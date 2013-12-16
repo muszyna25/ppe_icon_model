@@ -151,7 +151,7 @@ hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma                       = 10
+ nproma                       = 16
  p_test_run                   = .FALSE.
  l_test_openmp                = .FALSE.
  l_log_checks                 = .TRUE.
@@ -180,7 +180,7 @@ cat > ${atmo_namelist} << EOF
  lflux_avg                    = .FALSE.     ! false: accumulated fluxes
  itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
  itype_rh                     = 2
- lzaxis_reference             = .FALSE.     ! necessary till the postprocesing handles grib_api 1.11.0
+ lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
 /
 &run_nml
  num_lev                      = 90
