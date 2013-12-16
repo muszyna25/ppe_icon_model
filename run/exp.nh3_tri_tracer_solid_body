@@ -132,6 +132,18 @@ cat > ${atmo_namelist} << EOF
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
+&output_nml
+ filetype         = 4
+ dom              = -1
+ output_time_unit = 1
+ output_bounds    = 0., 1036800., ${dt_data}   !start, end, increment
+ steps_per_file   = 40
+ include_last     = .TRUE.
+ remap            = 0   ! triangular grid
+ output_filename  = '${EXPNAME}'             ! file name base
+ output_grid      = .TRUE.
+ ml_varlist       = 'u','v','Q4'
+/
 EOF
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
