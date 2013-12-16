@@ -159,7 +159,7 @@ link_required_files()
   i=0
   while [ \$i -lt \$number_of_linked_files ]
   do
-    ln -s \${input_linked_file[\${i}]} \${input_linked_file[\${i}]}
+    ln -s \${input_linked_file[\${i}]} \${output_linked_file[\${i}]}
    (( i=i+1 ))
   done    
 }
