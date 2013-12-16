@@ -1256,7 +1256,7 @@ CONTAINS
 
       CALL newcld_optics(                                                       &
         & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
-        & zglac        ,zland        ,ktype        ,icldlyr                    ,&
+        & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
         & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
         & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
 

@@ -1171,7 +1171,7 @@ CONTAINS
 
     ! ** CAPE correction to improve diurnal cycle of convection **
     icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
-                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option9
+                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
                    ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
 
     phy_params%tau0 = 1.0_jprb
