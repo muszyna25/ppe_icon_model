@@ -1580,11 +1580,11 @@ CONTAINS
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'boundary_depth_index', patch%boundary_depth_index))
        IF (nudge_zone_width < 0) THEN
-         nudge_zone_width = patch%boundary_depth_index
+         nudge_zone_width = patch%boundary_depth_index - 4
        ENDIF
-       IF ( nudge_zone_width > patch%boundary_depth_index) THEN
+       IF ( nudge_zone_width > patch%boundary_depth_index - 4) THEN
          CALL finish ('mo_model_domain_import:read_patch',  &
-           & 'nudge_zone_width > patch%boundary_depth_index')
+           & 'nudge_zone_width > patch%boundary_depth_index - 4')
        ENDIF
     ENDIF
 #endif
