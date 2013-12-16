@@ -1,0 +1,290 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+#
+# Daniel Klocke, DWD, November 2013
+# Limited area ICON simulation over Germany, nudged with COSMO-DE data
+#
+#-----------------------------------------------------------------------------
+
+set -x
+#-----------------------------------------------------------------------------
+
+# absolute path to the external lateral boundary data
+LATBC_PATH=/work/bm0834/ICON-DE/NUDG_germany/1250/
+
+#
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2013-04-09T00:00:00Z"
+end_date="2013-04-09T01:00:00Z"
+ndays_restart=6
+dt_restart=864000 #`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+ndays=30
+#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm.,
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#-----------------------------------------------------------------------------
+# the grid parameters
+#grids_folder='/pool/data/ICON/grids/private/leonidas/hdcp2_nudgingZone20km/'
+#atmo_dyn_grids='hdcp2_germany_776km-diam_0010km.nc'
+grids_folder='/pool/data/ICON/ICON-DE/icon-grid_generator/grids'
+atmo_dyn_grids='hdcp2_germany_776km-diam_1250m.nc'
+#-----------------------------------------------------------------------------
+# initial conditions
+extreme_data_path=/pool/data/ICON/ICON-DE/EXTPAR/
+add_link_file $extreme_data_path/extpar_hdcp2_germany_776km-diam_1250m.nc extpar_hdcp2_germany_776km-diam_1250m.nc 
+
+nudge_data_path=/pool/data/ICON/ICON-DE/NUDG_germany/1250
+add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc ifs2icon_R2B12_DOM01.nc
+add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdana_R2B12_DOM01.nc
+add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdFG_R2B12_DOM01.nc
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&initicon_nml
+ init_mode       = 4
+ ana_varnames_map_file = '/e/uhome/sbrdar/icon-dev/run/ana_varnames_map_file.txt'
+ nlevsoil_in     = 8
+ lread_ana       = .false.
+/
+&parallel_nml
+ nproma         = 2048
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+ num_io_procs   = 1
+ itype_comm     = 1
+ iorder_sendrecv = 1
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ !radiation_grid_filename = ${radiation_grid_filename}
+ radiation_grid_filename = ' '
+ dynamics_parent_grid_id = 0,1
+ lredgrid_phys           = .true.,.true.
+ lfeedback               = .true.
+ ifeedback_type          = 2
+ l_limited_area          = .true.
+/
+&limarea_nml
+ itype_latbc     = 1
+ dtime_latbc     = 10800.
+ nlev_latbc      = 50
+ latbc_path      = '${LATBC_PATH}'
+ latbc_filename  = '<path>prep1250miconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
+/
+&prepicon_nml
+  i_oper_mode = 3           ! operation mode
+  nlev_in     = 50          ! number of levels of input data
+  zpbl1       = 500. 
+  zpbl2       = 1000. 
+  l_w_in      = .true.
+  l_sfc_in    = .true.
+/
+&nh_testcase_nml
+ nh_test_name   = 'jabw_m'     ! test case identifier
+ rh_at_1000hpa  = 0.99
+ qv_max         = 35.e-3
+ mount_height   = 7500.
+/
+&output_nml
+ dom                          =  -1                       ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000000.,3600.      ! start, end, increment
+ steps_per_file               =  1
+ include_last                 =  .TRUE.
+ output_filename              = 'germany'                 ! file name base
+ ml_varlist= 'clct','tot_prec','u','v','w','qv','qc','qi'
+/
+&nh_pzlev_nml
+ nplev       = 20     ! number of p level output (attention: levels in [Pa] and top-down)
+ nzlev       = 20     ! number of z level output (attention: levels in [m] and top-down)
+ plevels     = 1000,2000,3000,5000,7000,10000,15000,20000,25000,30000,40000,50000,60000,70000,77500,85000,90000,92500,95000,100000
+ zlevels     = 25000,20000,18000,16000,14000,12000,10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,0
+/
+&output_nml
+ dom                          =   -1
+ output_time_unit             =   1                        ! 1: seconds
+ output_bounds                =  0., 10000000., 10800.  ! start, end, increment
+ steps_per_file               =  1
+ include_last                 =  .TRUE.
+ output_filename              =  'NWPvn'                ! file name base
+ pl_varlist                   =  'u', 'v', 'temp', 'gh'
+! hl_varlist                   = 'pres', 'temp'
+ output_grid                  =  .TRUE.
+/
+&run_nml
+ num_lev  = 50,
+ lvert_nest = .true.
+ !nsteps         = 1            ! 50 ! 1200 ! 7200 !
+ dtime          =  2.0         ! timestep in seconds
+ ldynamics      = .TRUE.       ! dynamics
+ ltransport     = .true.
+ ntracer        = 5            ! default: 0
+ iforcing       = 3            ! NWP forcing
+ ltestcase      = .false.      ! false: run with real data
+ msg_level      = 18           ! detailed report during integration
+ ltimer         = .false.
+ timers_level   = 10
+ output         = "nml","totint" ! , "vlist","totint"
+/
+&nwp_phy_nml
+ inwp_gscp       = 1
+ inwp_convection = 0
+ inwp_radiation  = 1
+ inwp_cldcover   = 1
+ inwp_turb       = 1
+ inwp_satad      = 1
+ inwp_sso        = 1
+ inwp_gwd        = 1
+ inwp_surface    = 1
+ latm_above_top  = .true.,.true.
+ efdt_min_raylfric = 7200.
+ itype_z0         = 2
+ dt_rad           = 600.
+ dt_conv          = 60.
+/
+&turbdiff_nml
+ pat_len =  100.
+ c_diff  =  0.2
+ rat_sea = 7.5
+/
+&lnd_nml
+ ntiles   = 1
+ nlev_snow = 2
+ lmulti_snow = .true.
+ idiag_snowfrac = 1
+ lsnowtile = .false.
+ frlnd_thrhld = 0.5
+ frlake_thrhld = 0.5
+ frsea_thrhld = 0.5
+ lseaice   = .false. ! .true.
+ llake     = .false.
+ itype_lndtbl = 2
+/
+&radiation_nml
+ irad_o3 = 7
+ irad_aero = 6
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ ivctype       = 2
+ itime_scheme   = 4
+ exner_expol = 0.333
+ vwind_offctr = 0.25
+ damp_height = 15000.
+ rayleigh_coeff = 0.25
+ iadv_rcf = 5
+ lhdiff_rcf = .true.
+ divdamp_fac = 0.004
+ divdamp_order = 4
+ l_open_ubc    = .true. ! .true.
+ l_nest_rcf   = .true.
+ igradp_method = 3
+ l_zdiffu_t    = .true.
+ thslp_zdiffu   = 0.02
+ thhgtd_zdiffu  = 125.
+ htop_moist_proc = 22500.
+ hbot_qvsubstep  = 24000.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 21000. ! 75000.
+ stretch_fac     = 0.9
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
+/
+&dynamics_nml
+ iequations     = 3
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+ lcoriolis      = .TRUE.
+/
+&transport_nml
+ ctracer_list  = '12345'
+ ivadv_tracer  = 3,3,3,3,3
+ itype_hlimit = 3,4,4,4,4,0
+ ihadv_tracer  = 32,2,2,2,2,0
+/
+&diffusion_nml
+ hdiff_order      = 5
+ itype_vn_diffu   = 1
+ itype_t_diffu    = 2
+ hdiff_efdt_ratio = 25.
+ hdiff_smag_fac   = 0.015
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_nml
+ nudge_zone_width  = -1
+ lsq_high_ord      = 2
+/
+&gridref_nml
+ grf_intmethod_e  = 6
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+ l_mass_consvcorr = .true. 
+ l_density_nudging = .true.
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 0
+ heightdiff_threshold = 3000.
+/
+EOF
+#
+
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------
