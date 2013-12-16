@@ -1275,7 +1275,7 @@ MODULE mo_nwp_lnd_state
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",       &
-         &                 "mode_combined_in","mode_cosmode_in"),                &
+         &                 "mode_combined_in"),                &
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ),&
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
