@@ -202,6 +202,19 @@ inwp_surface    = 0
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
+&output_nml
+ filetype                     =  4                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                        ! write all domains
+ output_time_unit             =  1                        ! 1: seconds
+ output_bounds                =  0., 10000., ${dt_data}  ! start, end, increment
+ steps_per_file               =  10
+ mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .TRUE.
+ output_filename              = '${EXPNAME}'                  ! file name base
+ ml_varlist                   = 'pres_sfc'
+ output_grid                  = .TRUE.                    ! not yet supported for ICON native???
+ remap                        = 0
+/
 &interpol_nml
 nudge_zone_width  = 4
 /
