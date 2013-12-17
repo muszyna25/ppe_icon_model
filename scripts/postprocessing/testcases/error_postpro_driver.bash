@@ -107,8 +107,8 @@ export GridFileN="${DIRI}/${grid_name}.nc"
 # 2. Decide what to do
 #--------------------------------------------------------------------------
 
-#plot variable 'VarN' with dimension 'VarD' (momentarily only VarN="PS" and VarD=2 possible)
-VarN=${VarN:-PS}
+#plot variable 'VarN' with dimension 'VarD' (momentarily only VarN="pres_sfc" and VarD=2 possible)
+VarN=${VarN:-pres_sfc}
 export VarN
 export VarD=2
 
