@@ -2553,10 +2553,10 @@ CONTAINS
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
     INTEGER                         :: iv, nval, nlev_max, ierrstat, nlevs, nv_off, &
-      &                                np, mpi_error, jk, i, idate, itime, status
+      &                                np, mpi_error, i, idate, itime, status, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
     INTEGER                         :: voff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:), var3_dp(:,:)
+    REAL(dp), ALLOCATABLE           :: var1_dp(:), var3_dp(:)
 
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
 
@@ -2586,21 +2586,14 @@ CONTAINS
     ! get maximum number of data points in a slice and allocate tmp. variables
     nval = MAX(p_pd%cells%n_glb, p_pd%edges%n_glb, p_pd%verts%n_glb)
 
-    ! get max. level
-    nlev_max = 1
-    DO iv = 1, SIZE(p_vars)
-      p_info => p_vars(iv)%info
-      IF(p_info%ndims == 3) nlev_max = MAX(nlev_max, p_info%used_dimensions(2))
-    ENDDO
-
     ! allocate RMA memory
-    ALLOCATE(var1_dp(nval*nlev_max), var2_dp(-1:nval), STAT=ierrstat)
+    ALLOCATE(var1_dp(nval), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
     ioff(:) = p_rf%mem_win_off(:)
 
     ! go over the all restart variables in the associated array
-    DO iv = 1, SIZE(p_vars)
+    VAR_LOOP : DO iv = 1, SIZE(p_vars)
 
       ! get pointer to metadata
       p_info => p_vars(iv)%info
@@ -2621,75 +2614,57 @@ CONTAINS
 
       ! get pointer to reorder data
       p_ri => get_reorder_ptr (p_pd, p_info, subname)
-
-      ! retrieve part of variable from every worker PE using MPI_Get
-      nv_off = 0
-      DO np = 0, num_work_procs-1
-
-        IF(p_ri%pe_own(np) == 0) CYCLE
-
-        ! number of words to transfer
-        nval = p_ri%pe_own(np)*nlevs
-
-        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
-
-        CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-          &          nval, p_real_dp, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
-
-        CALL MPI_Win_unlock(np, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
-
-        ! update the offset in var1
-        nv_off = nv_off + nval
-
-        ! update the offset in the RMA window on compute PEs
-        ioff(np) = ioff(np) + INT(nval,i8)
-
-      ENDDO
-
-      ! compute the total offset for each PE
-      nv_off = 0
-      DO np = 0, num_work_procs-1
-        voff(np) = nv_off
-        nval     = p_ri%pe_own(np)*nlevs
-        nv_off   = nv_off + nval
-      END DO
-
+      
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
-      ALLOCATE(var3_dp(p_ri%n_glb, nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
-      ! go over all levels
-      DO jk = 1, nlevs
+      ! loop over all levels
+      LEVELS : DO ilev=1,nlevs
+
+        ! retrieve part of variable from every worker PE using MPI_Get
         nv_off = 0
         DO np = 0, num_work_procs-1
-          var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
-          var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-          nv_off = nv_off+p_ri%pe_own(np)
-          voff(np) = voff(np)+p_ri%pe_own(np)
-        ENDDO
+          IF(p_ri%pe_own(np) == 0) CYCLE
+          
+          ! number of words to transfer
+          nval = p_ri%pe_own(np)
+          
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
+          CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
+          
+          CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+            &          nval, p_real_dp, mpi_win, mpi_error)
+          CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
+          
+          CALL MPI_Win_unlock(np, mpi_win, mpi_error)
+          CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
+          
+          ! update the offset in the RMA window on compute PEs
+          ioff(np) = ioff(np) + INT(nval,i8)
+          ! update the offset in var1
+          nv_off   = nv_off + nval
+        END DO
         DO i = 1, p_ri%n_glb
-          var3_dp(i,jk) = var2_dp(p_ri%reorder_index(i))
+          var3_dp(i) = var1_dp(p_ri%reorder_index(i))
         ENDDO
-      ENDDO
+
+        ! write field content into a file
+        CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp, 0)
+      ENDDO LEVELS
 
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7I)subname,' p_pe=',p_pe,' restart pe writes field=', &
         &                               TRIM(p_info%name),' data=',p_ri%n_glb*nlevs
 #endif
 
-      ! write field content into a file
-      CALL streamWriteVar(p_rf%cdiFileID, p_info%cdiVarID, var3_dp, 0)
-
       DEALLOCATE(var3_dp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
 
-    ENDDO
+    ENDDO VAR_LOOP
 
-    DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
+    DEALLOCATE(var1_dp, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
 
   END SUBROUTINE restart_write_var_list
@@ -3379,4 +3354,5 @@ CONTAINS
 #endif
 
 END MODULE mo_io_restart_async
+
 
