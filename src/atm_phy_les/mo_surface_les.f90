@@ -430,6 +430,11 @@ MODULE mo_surface_les
 !$OMP END DO 
 !$OMP END PARALLEL
 
+      !change sign of surface fluxes
+      prm_diag%shfl_s  = - prm_diag%shfl_s
+      prm_diag%lhfl_s  = - prm_diag%lhfl_s
+      prm_diag%umfl_s  = - prm_diag%umfl_s
+      prm_diag%vmfl_s  = - prm_diag%vmfl_s
  
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     CASE(2)
