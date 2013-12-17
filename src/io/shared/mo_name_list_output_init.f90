@@ -435,6 +435,10 @@ CONTAINS
       p_onl%ready_file               = ready_file
 
       ! consistency checks:
+      IF ((steps_per_file == -1) .AND. (TRIM(file_interval) == "")) THEN
+        CALL finish(routine, "Please specify either <steps_per_file> or <file_interval>!")
+      END IF
+
       IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
         CALL finish(routine, "User has specified conflicting parameters <steps_per_file>, <file_interval>!")
       END IF
