@@ -808,7 +808,7 @@ set_run_target_hpc()
   set_default use_mpi_procs_pernode 1
   set_default use_openmp_threads 1
 
-  cdo="/e/uhome/extrmuel/local/bin/cdo"
+  cdo="/e/uhome/hanlauf/X86_64/bin/cdo"
   cdo_diff="diff"
 
     
