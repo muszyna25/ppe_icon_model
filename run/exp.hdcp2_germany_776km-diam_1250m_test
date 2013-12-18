@@ -10,7 +10,7 @@ set -x
 #-----------------------------------------------------------------------------
 
 # absolute path to the external lateral boundary data
-LATBC_PATH=/work/bm0834/ICON-DE/NUDG_germany/1250/
+LATBC_PATH=/pool/data/ICON/ICON-DE/NUDG_germany/1250/
 
 #
 #-----------------------------------------------------------------------------

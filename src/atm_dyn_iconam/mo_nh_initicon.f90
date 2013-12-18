@@ -2857,6 +2857,12 @@ MODULE mo_nh_initicon
                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
                   &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
              ENDIF
+             ! And temperature for ICON-land but COSMODE ocean
+             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
+                ! set to first layer value
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = &
+                  & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
+             ENDIF
           ENDDO  ! ic
         ENDDO  ! jk
 

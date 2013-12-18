@@ -412,9 +412,8 @@ USE mo_lnd_nwp_config,     ONLY: lmelt, lmelt_var, lmulti_snow,  &
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-USE mo_impl_constants,     ONLY: iedmf, MODE_COSMODE
+USE mo_impl_constants,     ONLY: iedmf
 USE mo_data_turbdiff,      ONLY: itype_tran
-USE mo_initicon_config,    ONLY: init_mode
 #endif
 
 
@@ -5500,10 +5499,6 @@ SUBROUTINE terra_multlay_init (                &
           DO i = istarts, iends
 !            IF (llandmask(i)) THEN             ! for land-points only
               IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
-! Safty for COSMO-DE initialization. t_so for ocean points = 0 below the top layer
-                IF (init_mode == MODE_COSMODE .AND. t_so_now(i,kso) < 200._ireals ) THEN 
-                  t_so_now(i,kso) = t_so_now(i,1)
-                ENDIF
                 zaa    = g*zpsis(i)/lh_f
                 zw_m(i)     = zporv(i)*zdzhs(kso)
                 zw_m(i)   = zw_m(i)*                                          &
