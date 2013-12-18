@@ -49,6 +49,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
+  &                                     threshold_vn,                                                       &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA,        &
@@ -251,8 +252,10 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !      ENDIF
 !    END DO
 
+!  #slo# TBD: include local/global location of values above thresholds
+
       minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,1), &
-         & range_subset=cells_in_domain)
+        & range_subset=cells_in_domain)
       IF (my_process_is_stdio()) THEN
         ! Abort if tracer is below or above threshold, read from namelist
         ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
@@ -269,6 +272,19 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
           write(0,*) ' too high temperature at jk =', jk, minmaxmean(2)
           CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
             &              'Temperature above threshold')
+        ENDIF
+      ENDIF
+
+      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%vn(:,jk,:), &
+         & range_subset=cells_in_domain)
+      IF (my_process_is_stdio()) THEN
+        ! Abort if tracer is below or above threshold for velocity, read from namelist
+        ! abs(vn) > 10 m/s default limit for abort
+        IF ((minmaxmean(1) < -threshold_vn).OR. (minmaxmean(2) > threshold_vn)) THEN
+          write(0,*) ' ABSOLUTE VELOCITY ABOVE THRESHOLD = ', threshold_vn
+          write(0,*) ' too high velocities at jk =', jk, minmaxmean(2)
+          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
+            &              'Velocity above threshold')
         ENDIF
       ENDIF
 

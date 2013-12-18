@@ -200,8 +200,9 @@ MODULE mo_ocean_nml
 
   ! physical parameters for  aborting the ocean model
   REAL(wp) :: dhdtw_abort           =  3.17e-11_wp  ! abort criterion for gmres solution (~1mm/year)
-  REAL(wp) :: threshold_min_T       = -4.0_wp    ! abort criterion for salinity minimum
-  REAL(wp) :: threshold_max_T       = 100._wp    ! abort criterion for salinity minimum
+  REAL(wp) :: threshold_vn          = 10.0_wp    ! abort criterion for absolute velocity maximum
+  REAL(wp) :: threshold_min_T       = -4.0_wp    ! abort criterion for temperature minimum
+  REAL(wp) :: threshold_max_T       = 100._wp    ! abort criterion for temperature minimum
   REAL(wp) :: threshold_min_S       =  0.0_wp    ! abort criterion for salinity minimum
   REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
 
@@ -340,7 +341,8 @@ MODULE mo_ocean_nml
     &                 veloc_diffusion_order,veloc_diffusion_form,          &
     &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
     &                 dhdtw_abort, l_adpo_flowstrength,                    &
-    &                 threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
+    &                 threshold_min_T, threshold_max_T, threshold_vn,      &
+    &                 threshold_min_S, threshold_max_S,                    &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
     &                 select_solver, use_continuity_correction
