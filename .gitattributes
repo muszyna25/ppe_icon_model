@@ -684,12 +684,10 @@ run/exp.couple_dummy_models -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_ape_Acntl -text
-run/exp.hat_icoham_ape_jsbach -text
 run/exp.hat_icoham_ape_r2b6 -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
-run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
 run/exp.hat_jww-moist_cld-cnv-vdf_ptest -text
 run/exp.hat_jww_echam -text
 run/exp.hat_jww_ptest -text
@@ -699,7 +697,6 @@ run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
-run/exp.iconrun -text
 run/exp.nah_jww -text
 run/exp.nat_ape-dec -text
 run/exp.nat_jww -text
