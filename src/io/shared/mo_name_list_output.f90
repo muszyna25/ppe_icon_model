@@ -38,7 +38,7 @@ MODULE mo_name_list_output
   USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_io_util,                   ONLY: get_file_extension
   USE mo_exception,                 ONLY: finish, message, message_text
-  USE mo_var_metadata,              ONLY: t_var_metadata, POST_OP_NONE
+  USE mo_var_metadata,              ONLY: t_var_metadata, POST_OP_SCALE
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
     &                                     level_type_il, lev_type_str
   ! MPI Communication routines
@@ -106,7 +106,7 @@ MODULE mo_name_list_output
     &                                     check_write_readyfile, wait_for_final_irecvs
 
 #ifndef __NO_ICON_ATMO__
-  USE mo_dynamics_config,           ONLY: nnow, nnow_rcf
+  USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
 
 ! tool dependencies, maybe restructure
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
@@ -657,6 +657,8 @@ CONTAINS
         SELECT CASE (info%tlev_source)
           CASE(0); tl = nnow(i_log_dom)
           CASE(1); tl = nnow_rcf(i_log_dom)
+          CASE(2); tl = nnew(i_log_dom)
+          CASE(3); tl = nnew_rcf(i_log_dom)
           CASE DEFAULT
             CALL finish(routine,'Unsupported tlev_source')
         END SELECT
@@ -742,7 +744,7 @@ CONTAINS
       ! Perform post-ops (small arithmetic operations on fields)
       ! --------------------------------------------------------
 
-      IF (of%var_desc(iv)%info%post_op%ipost_op_type /= POST_OP_NONE) THEN
+      IF (of%var_desc(iv)%info%post_op%ipost_op_type == POST_OP_SCALE) THEN
         IF (idata_type == iINTEGER) CALL finish(routine, "Not yet implemented!")
         CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
       END IF

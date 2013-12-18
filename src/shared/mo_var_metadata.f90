@@ -69,6 +69,7 @@ MODULE mo_var_metadata
   ! fields). The implementation is placed in "mo_post_op.f90".o
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_NONE      = -1  !< trivial post-op ("do nothing")
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_SCALE     =  1  !< multiply by scalar factor "arg1"
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_RHO       =  2  !< multiply by rho to get densities instead
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS

@@ -137,9 +137,10 @@ MODULE mo_nh_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
-  USE mo_art_emission_interface,  ONLY:art_emission_interface
-  USE mo_art_sedi_interface,  ONLY:art_sedi_interface
-  USE mo_art_config,          ONLY:art_config
+  USE mo_art_emission_interface, ONLY: art_emission_interface
+  USE mo_art_sedi_interface,  ONLY: art_sedi_interface
+  USE mo_art_tools_interface, ONLY: art_tools_interface
+  USE mo_art_config,          ONLY: art_config
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
@@ -601,8 +602,15 @@ MODULE mo_nh_stepping
     IF (l_compute_diagnostic_quants) THEN
       CALL diag_for_output_dyn ( linit=.FALSE. )
       IF (iforcing == inwp) CALL diag_for_output_phys
+
+      ! Unit conversion for output from mass mixing ratios to densities
+      !
+      DO jg = 1, n_dom
+        CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
+      END DO
     ENDIF
 
+    
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
     ! interpolate selected fields to p- and/or z-levels

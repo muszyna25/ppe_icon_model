@@ -82,7 +82,7 @@ CONTAINS
     &        lis_tracer,tracer_class,                                              &
     &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
-    &        rrho_tracer, halflife_tracer, imis_tracer)
+    &        rrho_tracer, halflife_tracer, imis_tracer, post_op)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -114,6 +114,7 @@ CONTAINS
     REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
     REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer! radioactive half-life in s^-1
     INTEGER             , INTENT(in), OPTIONAL :: imis_tracer    ! IMIS number
+    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op
 
 
     ! Local variables:
@@ -194,7 +195,7 @@ CONTAINS
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
        &          isteptype=isteptype, tlev_source=tlev_source,                  &
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &
-       &          tracer_info=tracer_info, in_group=in_group                     )
+       &          tracer_info=tracer_info, in_group=in_group, post_op=post_op)
 
     ! Get the number of convection tracers
     IF(PRESENT(lconv_tracer)) THEN
