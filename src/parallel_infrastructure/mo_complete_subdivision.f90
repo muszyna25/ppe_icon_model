@@ -1475,49 +1475,54 @@ CONTAINS
     INTEGER :: jp, jg, i
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
 
-    INTEGER :: n_patch_cve(max_phys_dom)
-    TYPE(t_comm_gather_pattern) :: comm_pat_gather_cve(max_phys_dom)
+    INTEGER :: n_patch_cells(max_phys_dom), n_patch_verts(max_phys_dom), &
+      &        n_patch_edges(max_phys_dom)
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_cells(max_phys_dom), &
+      &                            comm_pat_gather_verts(max_phys_dom), &
+      &                            comm_pat_gather_edges(max_phys_dom)
 
     p_phys_patch(:)%logical_id = -1
+    n_patch_cells(:) = 0
+    n_patch_verts(:) = 0
+    n_patch_edges(:) = 0
 
     DO jg = 1, n_dom
-
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_cells_g, &
         &                         p_patch(jg)%n_patch_cells, &
         &                         p_patch(jg)%cells%decomp_info, &
         &                         p_patch(jg)%cells%phys_id, jg, &
-        &                         .TRUE., n_patch_cve(:), &
-        &                         comm_pat_gather_cve(:))
-      DO i = 1, max_phys_dom
-        p_phys_patch(i)%n_patch_cells = n_patch_cve(i)
-        p_phys_patch(i)%comm_pat_gather_c = comm_pat_gather_cve(i)
-        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
-      ENDDO
-
+        &                         .TRUE., n_patch_cells(:), &
+        &                         comm_pat_gather_cells(:))
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
         &                         p_patch(jg)%n_patch_verts, &
         &                         p_patch(jg)%verts%decomp_info, &
         &                         p_patch(jg)%verts%phys_id, jg, &
-        &                         .FALSE., n_patch_cve(:), &
-        &                         comm_pat_gather_cve(:))
-      DO i = 1, max_phys_dom
-        p_phys_patch(i)%n_patch_verts = n_patch_cve(i)
-        p_phys_patch(i)%comm_pat_gather_v = comm_pat_gather_cve(i)
-        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
-      ENDDO
-
+        &                         .FALSE., n_patch_verts(:), &
+        &                         comm_pat_gather_verts(:))
       CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
         &                         p_patch(jg)%n_patch_edges, &
         &                         p_patch(jg)%edges%decomp_info, &
         &                         p_patch(jg)%edges%phys_id, jg, &
-        &                         .FALSE., n_patch_cve(:), &
-        &                         comm_pat_gather_cve(:))
-      DO i = 1, max_phys_dom
-        p_phys_patch(i)%n_patch_edges = n_patch_cve(i)
-        p_phys_patch(i)%comm_pat_gather_e = comm_pat_gather_cve(i)
-        CALL delete_comm_gather_pattern(comm_pat_gather_cve(i))
-      ENDDO
+        &                         .FALSE., n_patch_edges(:), &
+        &                         comm_pat_gather_edges(:))
+    ENDDO
 
+    ! MoHa: remark:
+    ! We cannot pass p_phys_patch(:)%n_patch_cells and 
+    ! p_phys_patch(:)%comm_pat_gather_c directly to setup_phys_patches_cve
+    ! because some compiler(intel and pgi) have problems with this type
+    ! of array argument... Therefore, the temporary arrays n_patch_*(:) and
+    ! comm_pat_gather_*(:) had to be used.
+    DO i = 1, max_phys_dom
+      p_phys_patch(i)%n_patch_cells = n_patch_cells(i)
+      p_phys_patch(i)%comm_pat_gather_c = comm_pat_gather_cells(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_cells(i))
+      p_phys_patch(i)%n_patch_verts = n_patch_verts(i)
+      p_phys_patch(i)%comm_pat_gather_v = comm_pat_gather_verts(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_verts(i))
+      p_phys_patch(i)%n_patch_edges = n_patch_edges(i)
+      p_phys_patch(i)%comm_pat_gather_e = comm_pat_gather_edges(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_edges(i))
     ENDDO
 
     ! Get total number of physical patches
@@ -1550,7 +1555,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: phys_id(:,:)
     INTEGER, INTENT(IN) :: curr_patch_idx
     LOGICAL, INTENT(IN) :: set_logical_id
-    INTEGER, INTENT(OUT) :: n_patch_cve(:)
+    INTEGER, INTENT(INOUT) :: n_patch_cve(:)
     TYPE(t_comm_gather_pattern), INTENT(INOUT) :: comm_pat_gather(:)
 
     INTEGER, ALLOCATABLE :: owner_local(:)
