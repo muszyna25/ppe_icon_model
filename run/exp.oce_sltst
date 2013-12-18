@@ -236,6 +236,7 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  l_runoff_zero      = .TRUE.    ! set runoff to zero for comparison to MPIOM
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only

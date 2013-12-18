@@ -73,6 +73,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oc
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
   &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw,    &
+  &                               l_runoff_zero,                                           &
   &                               limit_elevation, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -379,8 +380,12 @@ CONTAINS
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
         !p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
         !  &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
-        p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
-          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+        IF (l_runoff_zero) THEN
+          p_sfc_flx%forc_runoff(:,:) = 0.0_wp
+        ELSE
+          p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+            &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+        ENDIF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
