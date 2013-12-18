@@ -36,7 +36,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 echo "-----------------------------------------------------------"
-set -x
+# set -x
 
 base_folder=$(pwd)
 input_folder=run
@@ -215,6 +215,9 @@ check_accept_script()
           accepted_script="false"
           ;;
        *_rce_*)
+          accepted_script="false"
+          ;;
+        post.test_hat_jww*)
           accepted_script="false"
           ;;
        esac
