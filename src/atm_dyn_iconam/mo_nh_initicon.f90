@@ -45,8 +45,6 @@ MODULE mo_nh_initicon
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
-  USE mo_extpar_config,       ONLY: extpar_filename,     &
-    &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -100,18 +98,14 @@ MODULE mo_nh_initicon
     &                               total_number_of_variables
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
-    &                               zaxisInqType, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF,    &
-    &                               ZAXIS_HEIGHT, vlistInqVarZaxis, vlistNvars,       &
-    &                               streamInqVlist, streamOpenRead, streamInqNvars
+    &                               vlistInqVarZaxis, vlistNvars, streamInqVlist,     &
+    &                               streamOpenRead, streamInqNvars
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
-  USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
-  USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
-  USE mo_limarea_config,      ONLY: latbc_config
 
   IMPLICIT NONE
 
@@ -466,7 +460,7 @@ MODULE mo_nh_initicon
           CALL print_cdi_summary(vlistID)
         END DO
       ENDIF  ! lread_ana
-    END IF
+    END IF  ! p_pe == p_io
 
 
 
@@ -517,7 +511,7 @@ MODULE mo_nh_initicon
   !>
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
-  !! - Reads DWD first guess and DA increments (atmosphere only). 
+  !! - Reads DWD first guess and analysis(atmosphere only). 
   !!   Data are directly written to the prognostic NH state and added.
   !! - resulting fields are converted to the NH set of prognostic variables
   !!
@@ -556,7 +550,7 @@ MODULE mo_nh_initicon
   !! Initialization routine of icon:
   !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
-  !! - reads DWD DA inrements (land/surface only). Data are written 
+  !! - reads DWD analysis (land/surface only). Data are written 
   !!   to intermediate initicon variables
   !! - first guess and increments are added and resulting fields are 
   !!   converted to the NH set of prognostic variables
@@ -584,8 +578,8 @@ MODULE mo_nh_initicon
     CALL read_dwdana_sfc(p_patch, prm_diag, p_lnd_state)
 
 
-    ! add increments to first guess and convert variables to 
-    ! the NH set of prognostic variables
+    ! get SST from first soil level t_so (for sea and lake points)
+    ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
   END SUBROUTINE process_dwdana_sfc
@@ -1400,7 +1394,7 @@ MODULE mo_nh_initicon
         ENDIF
 
         !
-        ! Check if surface pressure (VN) is provided as input
+        ! Check if normal velocity component (VN) is provided as input
         !
         IF (nf_inq_varid(ncid, 'VN', varid) == nf_noerr) THEN
           lread_vn = .TRUE.
