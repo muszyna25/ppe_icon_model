@@ -796,7 +796,6 @@ run/run_ICONAM_R2B4_NWP -text
 run/run_ICON_R2B13limL40_MRWnh_turb.txt -text
 run/run_ICON_R2B4_real_mpi_ref -text
 run/run_grflocal_R2B7N13.txt -text
-run/test_local_patch_refinement -text
 run/variations.rb -text
 schedulers/ecmwf/def/climplot.def -text
 schedulers/ecmwf/def/fc.def -text
