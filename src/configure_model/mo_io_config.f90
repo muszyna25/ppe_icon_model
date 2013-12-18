@@ -82,6 +82,7 @@ MODULE mo_io_config
 
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
   LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
+  LOGICAL ::  use_set_event_to_simstep = .true.       ! if .true., the set_event_to_simstep routine is activated
 
 
 CONTAINS

@@ -165,7 +165,7 @@ MODULE mo_output_event_handler
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
-
+  USE mo_io_config,              ONLY: use_set_event_to_simstep
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -679,8 +679,9 @@ CONTAINS
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
     n_event_steps = 0
     EVENT_LOOP: DO
-      IF ((mtime_date >= run_start) .AND. &
-        & (mtime_date >= mtime_dom_start)) THEN
+      IF  ((mtime_date >= run_start)      .AND. &
+        & (mtime_date >= mtime_dom_start) .AND. &
+          (mtime_restart >= mtime_date) )  THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
           ! resize buffer
@@ -705,12 +706,14 @@ CONTAINS
       DO iadd_days=1,additional_days
         mtime_date = mtime_date + delta_1day
       END DO
+
       IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
       l_active = .NOT. (mtime_date > mtime_end) .AND.   &
         &        .NOT. (mtime_date > sim_end)   .AND.   &
         &        .NOT. (mtime_date > mtime_restart)
       IF (.NOT. l_active) EXIT EVENT_LOOP
+
       ! Optional: Append the last event time step
       IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
         n_event_steps = n_event_steps + 1
@@ -2152,6 +2155,9 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
+  ! LL: Unreadable names, what is n_pes? ev_step? n_event_steps?  i_event_step? !
+  !     I just disable it through the namelist use_set_event_to_simstep             !
+  !
   SUBROUTINE set_event_to_simstep(event, jstep, lrecover_open_file)
     TYPE(t_output_event), INTENT(INOUT), target :: event              !< output event data structure
     INTEGER,              INTENT(IN)            :: jstep              !< simulation step
@@ -2162,39 +2168,50 @@ CONTAINS
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
+
     ev_step = 0
     DO istep=1,event%n_event_steps
       IF (event%event_step(istep)%i_sim_step <= jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
+
+
     IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
       n_pes = event%event_step(istep)%n_pes
       
       DO i_pe=1,n_pes
-        event_step_data => event%event_step(istep)%event_step_data(i_pe)        
+        event_step_data => event%event_step(istep)%event_step_data(i_pe)
+
+
         event_step_data%l_open_file = .TRUE.
-        IF (event_step_data%jpart > 1) THEN
-          ! Resuming after a restart means that we have to open the
-          ! file for output though this has not been planned
-          ! initially. We must find a unique suffix then for this new
-          ! file (otherwise we would overwrite the file from the last
-          ! step) and we must inform the user about this incident.
-          IF (.NOT. lrecover_open_file) THEN
-            ! simply throw an error message
-            CALL finish(routine, "Attempt to overwrite existing file after restart!")
-          ELSE
-            ! otherwise: modify file name s.t. the new, resumed file
-            ! is clearly distinguishable: We append "_<part>+"
-            jpart_str = int2string(event_step_data%jpart)
-            WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-              &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
-              &      " after restart."
-            CALL modify_filename(event, trim(event_step_data%filename_string), &
-              &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
-              &       start_step=istep)
+
+        IF (use_set_event_to_simstep) THEN
+
+          IF (event_step_data%jpart > 1) THEN
+            ! Resuming after a restart means that we have to open the
+            ! file for output though this has not been planned
+            ! initially. We must find a unique suffix then for this new
+            ! file (otherwise we would overwrite the file from the last
+            ! step) and we must inform the user about this incident.
+            IF (.NOT. lrecover_open_file) THEN
+              ! simply throw an error message
+              CALL finish(routine, "Attempt to overwrite existing file after restart!")
+            ELSE
+              ! otherwise: modify file name s.t. the new, resumed file
+              ! is clearly distinguishable: We append "_<part>+"
+              jpart_str = int2string(event_step_data%jpart)
+              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+                &      " after restart."
+              CALL modify_filename(event, trim(event_step_data%filename_string), &
+                &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
+                &       start_step=istep)
+            END IF
           END IF
-        END IF
+
+        END IF  !(.not. use_set_event_to_simstep)
+
       END DO
     END IF
   END SUBROUTINE set_event_to_simstep

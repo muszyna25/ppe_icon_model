@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -35,8 +36,8 @@ B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
-# LOC='POOL'   # all ocean files needed for running are found on pool
-  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+ LOC='POOL'   # all ocean files needed for running are found on pool
+#  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -83,7 +84,7 @@ iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T12:00:00Z"
+  end_date="2001-01-04T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -159,6 +160,8 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','hi','conc'
 ! ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
+  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ! include_last     = .true.  
 /
 !&output_nml
 !  output_bounds    = 0, ${outputLength}, ${dt_data}   !start, end, increment
@@ -249,7 +252,11 @@ cat > ${ocean_namelist} << EOF
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
+  use_set_event_to_simstep = .false. 
 /
+!&time_nml
+!  is_relative_time = .true.
+!/
 EOF
 #-----------------------------------------------------------------------------
 # add required standard input files

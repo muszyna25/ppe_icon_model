@@ -229,6 +229,11 @@ CONTAINS
   !------------------------------------------------------------------
   ocean_statistics = new_statistic()
 
+  jstep0 = 0
+  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+    ! get start counter for time loop from restart file:
+    CALL get_restart_attribute("jstep", jstep0)
+  END IF
   !------------------------------------------------------------------
   ! write initial
   !------------------------------------------------------------------
@@ -258,21 +263,18 @@ CONTAINS
         &                          n_zlev)
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_3D%p_patch_2D(1)%cells%owned)
     ENDIF
-    CALL write_name_list_output(jstep=0)
+
+    CALL write_name_list_output(jstep=jstep0)
+
     IF (.NOT. is_restart_run()) THEN
       CALL reset_ocean_statistics(p_os(1)%p_acc,p_sfc_flx)
       IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
     ENDIF
-  ENDIF
+
+  ENDIF ! output_mode%l_nml
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
-
-  jstep0 = 0
-  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
-    ! get start counter for time loop from restart file:
-    CALL get_restart_attribute("jstep", jstep0)
-  END IF
 
   TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 

@@ -62,7 +62,8 @@ MODULE mo_io_nml
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_lzaxis_reference        => lzaxis_reference       , &
-                                 & config_itype_rh                => itype_rh
+                                 & config_itype_rh                => itype_rh               , &
+                                 & config_use_set_event_to_simstep => use_set_event_to_simstep
 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
@@ -71,42 +72,6 @@ MODULE mo_io_nml
   PUBLIC :: read_io_namelist
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  !-------------------------------------------------------------------------
-  ! Namelist variables
-  !-------------------------------------------------------------------------
-
-  LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
-  REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
-  REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
-
-  INTEGER :: inextra_2d                 ! number of extra output fields for debugging
-  INTEGER :: inextra_3d                 ! number of extra output fields for debugging
-  LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
-                                        !  from the beginning of the run
-                                        ! if .TRUE. the output fluxex are average values 
-                                        !  from the beginning of the run, except of 
-                                        !  TOT_PREC that would be accumulated
-  INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
-                                        ! 1: GME-type extrapolation
-                                        ! 2: stepwise analytical integration
-                                        ! 3: IFS method
-                                        ! 4: IFS method with consistency correction
-  INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
-                                        ! 1: WMO: water only (e_s=e_s_water)
-                                        ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice) 
-
-  LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric 
-                                        ! output fields
-
-  CHARACTER(LEN=filename_max) :: &
-    &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
-    &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
-
-  NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
-    &              inextra_2d, inextra_3d,                 &
-    &              lflux_avg, itype_pres_msl, itype_rh,    &
-    &              output_nml_dict, netcdf_dict,           &
-    &              lzaxis_reference 
   
 CONTAINS
   !>
@@ -130,6 +95,45 @@ CONTAINS
     INTEGER                        :: istat, funit
     INTEGER                        :: iunit
 
+    !-------------------------------------------------------------------------
+    ! Namelist variables
+    !-------------------------------------------------------------------------
+
+    LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
+    REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+    REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
+
+    INTEGER :: inextra_2d                 ! number of extra output fields for debugging
+    INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+    LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated
+                                          !  from the beginning of the run
+                                          ! if .TRUE. the output fluxex are average values
+                                          !  from the beginning of the run, except of
+                                          !  TOT_PREC that would be accumulated
+    INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
+                                          ! 1: GME-type extrapolation
+                                          ! 2: stepwise analytical integration
+                                          ! 3: IFS method
+                                          ! 4: IFS method with consistency correction
+    INTEGER :: itype_rh                   ! Specifies method for computation of relative humidity
+                                          ! 1: WMO: water only (e_s=e_s_water)
+                                          ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice)
+
+    LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric
+                                          ! output fields
+
+    LOGICAL ::  use_set_event_to_simstep
+
+    CHARACTER(LEN=filename_max) :: &
+      &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
+      &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
+
+    NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
+      &              inextra_2d, inextra_3d,                 &
+      &              lflux_avg, itype_pres_msl, itype_rh,    &
+      &              output_nml_dict, netcdf_dict,           &
+      &              lzaxis_reference,  use_set_event_to_simstep
+
     !-----------------------
     ! 1. default settings
     !-----------------------
@@ -147,7 +151,7 @@ CONTAINS
     netcdf_dict             = ' '
 
     lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
-
+    use_set_event_to_simstep = .TRUE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -193,7 +197,7 @@ CONTAINS
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
     config_lzaxis_reference        = lzaxis_reference
-
+    config_use_set_event_to_simstep = use_set_event_to_simstep
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
