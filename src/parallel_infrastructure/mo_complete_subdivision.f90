@@ -76,8 +76,6 @@ MODULE mo_complete_subdivision
   PUBLIC :: setup_phys_patches
   PUBLIC :: set_comm_pat_gather
   PUBLIC :: complete_parallel_setup
-  PUBLIC :: complete_parallel_setup_oce
-  PUBLIC :: finalize_decomposition_oce
 
 
 CONTAINS
@@ -201,56 +199,64 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! sets communication patterns and parent-child relationships.
   !
-  SUBROUTINE complete_parallel_setup
+  SUBROUTINE complete_parallel_setup(patch, is_ocean_decomposition)
+
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
 
     INTEGER :: jg, jgp
 
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('finalize_decomposition_oce', &
+        &         'functionality with local parent patch not implemented')
+
     DO jg = n_dom_start, n_dom
 
-      jgp = p_patch(jg)%parent_id
+      jgp = patch(jg)%parent_id
 
       ! Set communication patterns for boundary exchange
-      CALL set_comm_pat_bound_exch(p_patch(jg))
+      CALL set_comm_pat_bound_exch(patch(jg))
 
       ! Set communication patterns for gathering on proc 0
-      CALL set_comm_pat_gather(p_patch(jg))
+      CALL set_comm_pat_gather(patch(jg))
 
-      CALL set_owner_mask(p_patch(jg)%cells%decomp_info)
-      CALL set_owner_mask(p_patch(jg)%verts%decomp_info)
-      CALL set_owner_mask(p_patch(jg)%edges%decomp_info)
+      CALL set_owner_mask(patch(jg)%cells%decomp_info)
+      CALL set_owner_mask(patch(jg)%verts%decomp_info)
+      CALL set_owner_mask(patch(jg)%edges%decomp_info)
 
       IF(jg == n_dom_start) THEN
         ! parent_idx/blk is set to 0 since it just doesn't exist,
-        p_patch(jg)%cells%parent_idx = 0
-        p_patch(jg)%cells%parent_blk = 0
-        p_patch(jg)%edges%parent_idx = 0
-        p_patch(jg)%edges%parent_blk = 0
+        patch(jg)%cells%parent_idx = 0
+        patch(jg)%cells%parent_blk = 0
+        patch(jg)%edges%parent_idx = 0
+        patch(jg)%edges%parent_blk = 0
 
         ! For parallel runs, child_idx/blk is set to 0 since it makes
         ! sense only on the local parent
-        IF (.NOT. my_process_is_mpi_parallel()) THEN
-          p_patch(jg)%cells%child_idx  = 0
-          p_patch(jg)%cells%child_blk  = 0
-          p_patch(jg)%edges%child_idx  = 0
-          p_patch(jg)%edges%child_blk  = 0
+        IF (.NOT. my_process_is_mpi_parallel() .OR. &
+            is_ocean_decomposition) THEN
+          patch(jg)%cells%child_idx  = 0
+          patch(jg)%cells%child_blk  = 0
+          patch(jg)%edges%child_idx  = 0
+          patch(jg)%edges%child_blk  = 0
         END IF
 
       ELSE
 
         ! Note: The following call is deprecated and will be removed.
         !
-        ! CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
+        ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
 
-        CALL setup_comm_grf_interpolation(p_patch(jg), p_patch(jgp))
-        CALL setup_comm_ubc_interpolation(p_patch(jg), p_patch(jgp))
+        CALL setup_comm_grf_interpolation(patch(jg), patch(jgp))
+        CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
         CALL set_comm_pat_gather(p_patch_local_parent(jg))
 
-        CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
+        CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
 
-        CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
-          &                   p_patch(jg)%parent_child_index)
+        CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
+          &                   patch(jg)%parent_child_index)
 
         CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
         CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
@@ -259,22 +265,28 @@ CONTAINS
 
     ENDDO
 
-    CALL set_patch_communicators(p_patch)
+    CALL set_patch_communicators(patch)
 
   END SUBROUTINE complete_parallel_setup
 
   !-----------------------------------------------------------------------------
 
-  SUBROUTINE finalize_decomposition
+  SUBROUTINE finalize_decomposition(patch, is_ocean_decomposition)
 
-    implicit none
-    integer jg
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
+
+    INTEGER :: jg
+
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('finalize_decomposition_oce', &
+        &         'functionality with local parent patch not implemented')
 
     ! Remap indices in patches and local parents
 
     DO jg = n_dom_start, n_dom
 
-      CALL remap_patch_indices(p_patch(jg))
+      CALL remap_patch_indices(patch(jg))
 
       IF(jg>n_dom_start) THEN
         CALL remap_patch_indices(p_patch_local_parent(jg))
@@ -1651,89 +1663,6 @@ CONTAINS
     l_blk = blk_no(j_l)
 
   END SUBROUTINE remap_index
-
-!--------------------------------------------------------------
-  SUBROUTINE complete_parallel_setup_oce(p_patch_2D)
-
-   TYPE(t_patch) :: p_patch_2D(:)
-
-    INTEGER :: jg, jgp
-
-    DO jg = n_dom_start, n_dom
-
-      jgp = p_patch_2D(jg)%parent_id
-
-      ! Set communication patterns for boundary exchange
-      CALL set_comm_pat_bound_exch(p_patch_2D(jg))
-
-      ! Set communication patterns for gathering on proc 0
-      CALL set_comm_pat_gather(p_patch_2D(jg))
-
-      CALL set_owner_mask(p_patch_2D(jg)%cells%decomp_info)
-      CALL set_owner_mask(p_patch_2D(jg)%verts%decomp_info)
-      CALL set_owner_mask(p_patch_2D(jg)%edges%decomp_info)
-
-      IF(jg == n_dom_start) THEN
-
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        ! child_idx/blk is set to 0 since it makes sense only on the local parent
-        p_patch_2D(jg)%cells%parent_idx = 0
-        p_patch_2D(jg)%cells%parent_blk = 0
-        p_patch_2D(jg)%cells%child_idx  = 0
-        p_patch_2D(jg)%cells%child_blk  = 0
-        p_patch_2D(jg)%edges%parent_idx = 0
-        p_patch_2D(jg)%edges%parent_blk = 0
-        p_patch_2D(jg)%edges%child_idx  = 0
-        p_patch_2D(jg)%edges%child_blk  = 0
-
-      ELSE
-        CALL finish('complete_parallel_setup_oce','functionality with local parent patch not implemented')
-!         CALL setup_comm_cpy_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!         CALL setup_comm_grf_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!         CALL setup_comm_ubc_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!
-!         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
-!         CALL set_comm_pat_gather(p_patch_local_parent(jg))
-!
-!         CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
-!
-!         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
-!           &                   p_patch(jg)%parent_child_index)
-!
-!         CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
-!         CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
-!         CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
-      ENDIF
-
-    ENDDO
-
-    CALL set_patch_communicators(p_patch_2D)
-
-  END SUBROUTINE complete_parallel_setup_oce
-
-  !-----------------------------------------------------------------------------
-
-  SUBROUTINE finalize_decomposition_oce(p_patch_2D)
-
-    implicit none
-
-    TYPE(t_patch) :: p_patch_2D(:)
-    integer jg
-
-    ! Remap indices in patches and local parents
-
-    DO jg = n_dom_start, n_dom
-
-      CALL remap_patch_indices(p_patch_2D(jg))
-
-      IF(jg>n_dom_start) THEN
-        CALL finish('finalize_decomposition_oce','functionality with local parent patch not implemented')
-        CALL remap_patch_indices(p_patch_local_parent(jg))
-      ENDIF
-
-    ENDDO
-
-  END SUBROUTINE finalize_decomposition_oce
 
   !-----------------------------------------------------------------------------
 END MODULE mo_complete_subdivision

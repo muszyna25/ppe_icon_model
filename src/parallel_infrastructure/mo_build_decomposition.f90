@@ -101,11 +101,7 @@ CONTAINS
     DEALLOCATE(p_patch_global)
 
     ! setup communication patterns (also done in sequential runs)
-    IF (is_ocean_decomposition) THEN
-      CALL complete_parallel_setup_oce(p_patch)
-    ELSE
-      CALL complete_parallel_setup
-    END IF
+    CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
 
     ! Complete information which is not yet read or calculated
     CALL complete_patches( p_patch )
@@ -114,11 +110,7 @@ CONTAINS
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     !--------------------------------------------------------------------------------
     
-    IF (is_ocean_decomposition) THEN
-      CALL finalize_decomposition_oce(p_patch)
-    ELSE
-      CALL finalize_decomposition
-    END IF
+    CALL finalize_decomposition(p_patch, is_ocean_decomposition)
     
     IF(.NOT.p_test_run .AND. my_process_is_mpi_parallel()) THEN ! the call below hangs in test mode
       ! Print diagnostic information about domain decomposition
