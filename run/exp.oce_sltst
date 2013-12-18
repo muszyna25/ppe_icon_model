@@ -156,6 +156,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
+  filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','hi','conc'
 ! ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
 /
