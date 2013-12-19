@@ -80,6 +80,7 @@ echo "trunc=${trunc}"                                     >> ${set_env}
 echo "compute_remap_weights=${compute_remap_weights}"     >> ${set_env}
 echo "grid_optimization=${grid_optimization}"             >> ${set_env}
 echo "rm_tmp_files=${rm_tmp_files}"                       >> ${set_env}
+echo "cdo=${cdo}"                                         >> ${set_env}
 
 # Load NCL resources
 #

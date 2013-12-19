@@ -16,7 +16,7 @@
 # contour plots.
 #
 # Software needed:
-# - CDO (Climate Data Operators, www.mpimet.mpg.de/cdo) 
+# - ${cdo} (Climate Data Operators, www.mpimet.mpg.de/${cdo}) 
 #   for interplation and for the spectral transform;
 # - NCL (NCAR Command Language, www.ncl.ucar.edu)
 #   for visualization.
@@ -45,12 +45,6 @@ check_error()
 #--------------------------------------------------------------------------
 # Check if a parameter is given
 
-if [ "x$1" != "x" ]
-then
-  set_env=$1 
-else
-  set_env=/null
-fi
 
 # 1. About the model output
 #--------------------------------------------------------------------------
@@ -171,9 +165,15 @@ interp_cloud=1
 
 rm_tmp_files=1
 
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
 if [ -f ${set_env} ] 
 then 
-
   echo " "
   echo " !!!!! Use setting from ./${set_env}"
   echo " "
@@ -194,7 +194,7 @@ plot_file_path="${model_data_path}plots/"
 tmp_data_path="${model_data_path}tmp/"
 
 #--------------------------------------------------------------------------
-# Do you want CDO to run in silence mode, or to report everything
+# Do you want ${cdo} to run in silence mode, or to report everything
 # it is doing?
 
 cdo_silence=1   #( 1 = silence mode; 0 = detailed report )
@@ -291,8 +291,8 @@ EOF
 
      fsurf=${model_data_path}${EXP}_${month}.${tid2}"_surf.nc"
      fstmp=${fostem}"_stmp.nc"
-     cdo $silence selvar,jrsfl,jssfl,jrsfc,jssfc $fsurf $fstmp
-     cdo $silence merge $fetmp $fstmp  $fostem".nc"
+     ${cdo} $silence selvar,jrsfl,jssfl,jrsfc,jssfc $fsurf $fstmp
+     ${cdo} $silence merge $fetmp $fstmp  $fostem".nc"
 
      rm $fetmp $fstmp
      echo " file "$tid4" done"
@@ -363,8 +363,8 @@ EOF
         tid4=$(printf "%04d" $fid)
         fori=${model_data_path}${ExpName}_${tid4}".nc"
         ftmp=${tmp_data_path}${ExpName}_${tid4}"_cloud_p.nc"
-       #cdo $silence ml2pl,90000,85000,80000,70000 \
-        cdo $silence ml2pl,90000 \
+       #${cdo} $silence ml2pl,90000,85000,80000,70000 \
+        ${cdo} $silence ml2pl,90000 \
                      -selname,OMEGA_PHY,ACLC,Qw,Qi,PS    ${fori} ${ftmp}
         check_error $? "In script JWw-Moist_postpro_driver.bash: part 'Interpolating cloud over'"
         echo " File $tid4 done"

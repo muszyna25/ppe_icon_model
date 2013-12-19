@@ -64,6 +64,7 @@ echo "cn_plot_option=${cn_plot_option}"                   >> ${set_env}
 echo "interp_option=${interp_option}"                     >> ${set_env}
 echo "rm_tmp_files=${rm_tmp_files}"                       >> ${set_env}
 echo "cdo_silence=${cdo_silence}"                         >> ${set_env}
+echo "cdo=${cdo}"                                         >> ${set_env}
 
 # Load NCL resources
 #

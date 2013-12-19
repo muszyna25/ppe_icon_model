@@ -15,7 +15,7 @@
 # at various pressure levels can also be diagnosed and plotted.
 #
 # Software needed:
-# - CDO (Climate Data Operators, www.mpimet.mpg.de/cdo) 
+# - ${cdo} (Climate Data Operators, www.mpimet.mpg.de/${cdo}) 
 #   for interplation and for the spectral transform;
 # - NCL (NCAR Command Language, www.ncl.ucar.edu)
 #   for visualization.
@@ -197,7 +197,7 @@ grid_optimization="spr0.90"
 
 rm_tmp_files=1
 
-
+cdo="cdo"
 if [ -f ${set_env} ] 
 then 
 
@@ -315,7 +315,7 @@ fi
 if [ ${data_file_split} -eq 1 ]; then
    echo
    echo "=== Merging model output ..."
-   cdo copy ${fori}*.nc ${ftmp}.nc
+   ${cdo} copy ${fori}*.nc ${ftmp}.nc
 
    check_error $? "In script JWw_postpro_driver.bash: part 'Merging model output'"
 
@@ -396,25 +396,25 @@ if [ $interp_temp -eq 1 ];then
    echo "=== $(date)"
    echo "=== Interpolating temperature ..."
 
-   cdo selname,ta    ${ftmp}".nc" ${ftmp}"_T_hyb.nc"
+   ${cdo} selname,ta    ${ftmp}".nc" ${ftmp}"_T_hyb.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 1"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 1"
 
-   cdo selname,ps   ${ftmp}".nc" ${ftmp}"_PS.nc"
+   ${cdo} selname,ps   ${ftmp}".nc" ${ftmp}"_PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 2"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 2"
 
-   cdo selname,geosp ${ftmp}".nc" ${ftmp}"_PHIS.nc"
+   ${cdo} selname,geosp ${ftmp}".nc" ${ftmp}"_PHIS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 3"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 3"
 
-   cdo merge ${ftmp}"_T_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_PHIS.nc" ${ftmp}"_T-PS-PHIS.nc"
+   ${cdo} merge ${ftmp}"_T_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_PHIS.nc" ${ftmp}"_T-PS-PHIS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 4"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 4"
 
-   cdo -v ml2pl,85000 -chname,ps,aps ${ftmp}"_T-PS-PHIS.nc" ${ftmp}"_T850.nc"
+   ${cdo} -v ml2pl,85000 -chname,ps,aps ${ftmp}"_T-PS-PHIS.nc" ${ftmp}"_T850.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' cdo call 5"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 5"
 
    rm  ${ftmp}"_T_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_PHIS.nc" ${ftmp}"_T-PS-PHIS.nc"
 
@@ -442,21 +442,21 @@ if [ $interp_div -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating divergence ..."
-   cdo selname,sd  ${ftmp}".nc" ${ftmp}"_DIV_hyb.nc"
+   ${cdo} selname,sd  ${ftmp}".nc" ${ftmp}"_DIV_hyb.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 1"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' ${cdo} call 1"
 
-   cdo selname,ps   ${ftmp}".nc" ${ftmp}"_PS.nc"
+   ${cdo} selname,ps   ${ftmp}".nc" ${ftmp}"_PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 2"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' ${cdo} call 2"
 
-   cdo merge ${ftmp}"_DIV_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_DIV-PS.nc"
+   ${cdo} merge ${ftmp}"_DIV_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_DIV-PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 3"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' ${cdo} call 3"
 
-   cdo -v ml2pl,85000 -chname,ps,aps ${ftmp}"_DIV-PS.nc" ${ftmp}"_DIV850.nc"
+   ${cdo} -v ml2pl,85000 -chname,ps,aps ${ftmp}"_DIV-PS.nc" ${ftmp}"_DIV850.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' cdo call 4"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating divergence' ${cdo} call 4"
 
    echo "=== $(date)"
    rm  ${ftmp}"_DIV_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_DIV-PS.nc"
@@ -487,21 +487,21 @@ if [ $interp_omega -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating omega ..."
-   cdo selname,wap  ${ftmp}".nc" ${ftmp}"_OMEGA_hyb.nc"
+   ${cdo} selname,wap  ${ftmp}".nc" ${ftmp}"_OMEGA_hyb.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 1"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' ${cdo} call 1"
 
-   cdo selname,ps     ${ftmp}".nc" ${ftmp}"_PS.nc"
+   ${cdo} selname,ps     ${ftmp}".nc" ${ftmp}"_PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 2"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' ${cdo} call 2"
 
-   cdo merge ${ftmp}"_OMEGA_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_OMEGA-PS.nc"
+   ${cdo} merge ${ftmp}"_OMEGA_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_OMEGA-PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 3"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' ${cdo} call 3"
 
-   cdo -v ml2pl,85000 -chname,ps,aps ${ftmp}"_OMEGA-PS.nc" ${ftmp}"_OMEGA850.nc"
+   ${cdo} -v ml2pl,85000 -chname,ps,aps ${ftmp}"_OMEGA-PS.nc" ${ftmp}"_OMEGA850.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' cdo call 4"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating omega' ${cdo} call 4"
 
    echo "=== $(date)"
    rm  ${ftmp}"_OMEGA_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_OMEGA-PS.nc"
@@ -532,25 +532,25 @@ if [ $interp_vor -eq 1 ]; then
    echo "=================================="
    echo "=== $(date)"
    echo "=== Interpolating vorticity ..."
-   cdo selname,svo  ${ftmp}".nc" ${ftmp}"_VOR_hyb.nc"
+   ${cdo} selname,svo  ${ftmp}".nc" ${ftmp}"_VOR_hyb.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 1"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' ${cdo} call 1"
 
    if [ $vorticity_at_corners -eq 1 ]; then
-     cdo remapdis,${ftmp}"_VOR_hyb.nc" -selname,ps ${ftmp}".nc" ${ftmp}"_PS.nc"
+     ${cdo} remapdis,${ftmp}"_VOR_hyb.nc" -selname,ps ${ftmp}".nc" ${ftmp}"_PS.nc"
    else
-     cdo selname,ps  ${ftmp}".nc" ${ftmp}"_PS.nc"
+     ${cdo} selname,ps  ${ftmp}".nc" ${ftmp}"_PS.nc"
    fi
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 2"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' ${cdo} call 2"
 
-   cdo merge ${ftmp}"_VOR_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_VOR-PS.nc"
+   ${cdo} merge ${ftmp}"_VOR_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_VOR-PS.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 3"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' ${cdo} call 3"
 
-   cdo -v ml2pl,85000 -chname,ps,aps ${ftmp}"_VOR-PS.nc" ${ftmp}"_VOR850.nc"
+   ${cdo} -v ml2pl,85000 -chname,ps,aps ${ftmp}"_VOR-PS.nc" ${ftmp}"_VOR850.nc"
 
-   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' cdo call 4"
+   check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating vorticity' ${cdo} call 4"
 
    rm  ${ftmp}"_VOR_hyb.nc" ${ftmp}"_PS.nc" ${ftmp}"_VOR-PS.nc"
    echo "=== $(date)"
@@ -601,7 +601,7 @@ if [ ${compute_remap_weights} -eq 1 ]; then
  if [ -e ${ftmp}"_DIV850.nc" ]; then
     echo
     echo "=== Computing remapping weights (ICON to Gaussian) ..."
-    cdo gendis,t${trunc}grid -selname,sd ${ftmp}"_DIV850.nc" ${weights}
+    ${cdo} gendis,t${trunc}grid -selname,sd ${ftmp}"_DIV850.nc" ${weights}
 
     check_error $? "In script JWw_postpro_driver.bash: part 'Computing remapping weights (ICON to Gaussian)'"
 
@@ -635,26 +635,26 @@ if [ ${ke_spectrum_diag} -eq 1 ]; then
 
 # Interpolate to Gaussian grid
 
-  cdo -r remap,t${trunc}grid,${weights} -selname,sd  \
+  ${cdo} -r remap,t${trunc}grid,${weights} -selname,sd  \
          ${ftmp}"_DIV850.nc" ${ftmp}"_DIV850_T"${trunc}"_gp.nc"
 
-  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' cdo call 1"
+  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' ${cdo} call 1"
 
-  cdo -r remap,t${trunc}grid,${weights} -selname,svo  \
+  ${cdo} -r remap,t${trunc}grid,${weights} -selname,svo  \
          ${ftmp}"_VOR850.nc" ${ftmp}"_VOR850_T"${trunc}"_gp.nc"
 
-  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' cdo call 2"
+  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' ${cdo} call 2"
 
-  cdo merge ${ftmp}"_DIV850_T"${trunc}"_gp.nc"  \
+  ${cdo} merge ${ftmp}"_DIV850_T"${trunc}"_gp.nc"  \
             ${ftmp}"_VOR850_T"${trunc}"_gp.nc"  \
             ${ftmp}"_DIV-VOR850_T"${trunc}"_gp.nc"
 
-  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' cdo call 3"
+  check_error $? "In script JWw_postpro_driver.bash: part 'Interpolate to Gaussian grid' ${cdo} call 3"
 
            
 # Transform to spectral space 
 
-  cdo gp2sp ${ftmp}"_DIV-VOR850_T"${trunc}"_gp.nc"   \
+  ${cdo} gp2sp ${ftmp}"_DIV-VOR850_T"${trunc}"_gp.nc"   \
             ${ftmp}"_DIV-VOR850_T"${trunc}"_spec.nc"
 
   check_error $? "In script JWw_postpro_driver.bash: part 'Transform to spectral space'"

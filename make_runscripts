@@ -217,9 +217,9 @@ check_accept_script()
        *_rce_*)
           accepted_script="false"
           ;;
-        post.test_hat_jw*)
-          accepted_script="false"
-          ;;
+      #  post.test_hat_jw*)
+      #    accepted_script="false"
+      #    ;;
        esac
      ;; 
 
@@ -234,9 +234,9 @@ check_accept_script()
        *_rce_*)
           accepted_script="false"
           ;;
-        post.test_hat_jw*)
-          accepted_script="false"
-          ;;
+      #  post.test_hat_jw*)
+      #    accepted_script="false"
+      #    ;;
        esac
      ;; 
 
