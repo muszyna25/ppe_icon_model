@@ -336,7 +336,6 @@ LOGICAL, PARAMETER :: ltuning_test_kessler = .TRUE.
 !#include "cubasmcn.intfb.h"
 !#include "cuentr.intfb.h"
 
-!DIR$ VFUNCTION EXPHF
 !#include "fcttre.h"
 !!----------------------------------------------------------------------
 
@@ -1141,8 +1140,8 @@ END SUBROUTINE cuascn
     !!*    1.           CALCULATE ENTRAINMENT AND DETRAINMENT RATES
     !!                  -------------------------------------------
 
-    !DIR$ IVDEP
-    !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
     IF (lhook) CALL dr_hook('CUBASMCN',0,zhook_handle)
     DO jl=kidia,kfdia
 
@@ -1548,8 +1547,8 @@ END SUBROUTINE cuascn
         ENDIF
       ENDDO
 
-      !DIR$ IVDEP
-      !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
       DO jl=kidia,kfdia
         IF(llbl(jl)) THEN
           zbuo=ztc(jl,jk)*(1.0_JPRB+retv  *zqc(jl,jk))-&
