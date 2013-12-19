@@ -94,6 +94,7 @@ ndays_restart=1      # stop model for restart [days]
 nhours_data=6        # ocean model output interval hours [hours]
 nyear_outpLen=1      # stop writing model output to file [years] - must be <60y
 (( dt_data = nhours_data * 3600 ))
+nout_interv="PT0${nhours_data}H"                    # ocean model output interval
 #
 # this is valid for production runs using output_start, output_end, output_interval using ISO-format
 #ndays_data=30        # ocean model output interval [days]  - no longer than 30 days ??
@@ -105,7 +106,6 @@ nyear_outpLen=1      # stop writing model output to file [years] - must be <60y
 #ndays_checkp=1850    # write restart file interval [days]
 #
 # calculate model timesteps using $ndays
-nout_interv="P${ndays_data}D"                    # ocean model output interval
 (( dt_restart    = ndays_restart * 86400 ))
 dt_file=$dt_restart
 dt_checkpoint=$dt_restart
@@ -149,10 +149,10 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
-  output_bounds    = 0, ${outputLength}, ${dt_data}   ! start, end, increment in seconds <60 years
-! output_start     = "${start_date}"                  ! start in ISO-format
-! output_end       = "${end_date}"                    ! end in ISO-format
-! output_interval  = "${nout_interv}"                 ! interval in ISO-format
+!  output_bounds    = 0, ${outputLength}, ${dt_data}   ! start, end, increment in seconds <60 years
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${nout_interv}"                 ! interval in ISO-format
   steps_per_file   = ${steps_per_file}
   include_last     = .TRUE.
   output_grid      = .TRUE.
