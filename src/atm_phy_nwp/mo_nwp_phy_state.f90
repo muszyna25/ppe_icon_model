@@ -336,6 +336,39 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & isteptype=TSTEP_INSTANT )
 
 
+    !For two moment microphysics
+    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 ) THEN
+
+       ! &      diag%ice_gsp_rate(nproma,nblks_c)
+      cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
+        &                   DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'ice_gsp_rate', diag%ice_gsp_rate,            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d,                                             &
+                  & isteptype=TSTEP_INSTANT )
+      
+       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
+      cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
+        &                   DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'graupel_gsp_rate', diag%graupel_gsp_rate,            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d,                                             &
+                  & isteptype=TSTEP_INSTANT )
+
+       ! &      diag%hail_gsp_rate(nproma,nblks_c)
+      cf_desc    = t_cf_var('hail_gsp_rate', 'kg m-2 s-1', 'gridscale hail rate', &
+        &                   DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'hail_gsp_rate', diag%hail_gsp_rate,            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d,                                             &
+                  & isteptype=TSTEP_INSTANT )
+
+    END IF!inwp_gscp==4
+
+
     ! &      diag%rain_con_rate(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con_rate', 'kg m-2 s-1', 'convective rain rate', &
       &                   DATATYPE_FLT32)

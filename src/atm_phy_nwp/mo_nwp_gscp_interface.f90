@@ -58,14 +58,15 @@ MODULE mo_nwp_gscp_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, &
-                                     iqni, iqni_nuc !CK<
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
+                                     iqni, iqni_nuc, iqg, iqh, iqnr, iqns,&
+                                     iqng, iqnh    
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: hydci_pp_old, kessler_pp
   USE gscp_hydci_pp,           ONLY: hydci_pp
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
-
   USE mo_exception,            ONLY: finish
+  USE mo_mcrph_sb,             ONLY: two_moment_mcrph
 
 
   IMPLICIT NONE
@@ -211,8 +212,37 @@ CONTAINS
 
         CASE(4)  ! two-moment scheme 
 
-          CALL finish('mo_nwp_gscp_interface', 'Two-moment scheme not implemented.')
-
+          CALL two_moment_mcrph(                       &
+                       isize  = nproma,                &!in: array size
+                       ke     = nlev,                  &!in: end level/array size
+                       is     = i_startidx,            &!in: start index
+                       ie     = i_endidx,              &!in: end index
+                       ks     = kstart_moist(jg),      &!in: start level
+                       dt     = tcall_gscp_jg ,        &!in: time step
+                       dz     = p_metrics%ddqz_z_full(:,:,jb),  &!in: vertical layer thickness
+                       rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
+                       pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
+                       qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
+                       qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
+                       qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
+                       qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
+                       qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
+                       qni    = p_prog_rcf%tracer (:,:,jb,iqni),&!inout: cloud ice number
+                       qs     = p_prog_rcf%tracer (:,:,jb,iqs), &!inout: snow 
+                       qns    = p_prog_rcf%tracer (:,:,jb,iqns),&!inout: snow number
+                       qg     = p_prog_rcf%tracer (:,:,jb,iqg), &!inout: graupel 
+                       qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
+                       qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
+                       qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
+                       tk     = p_diag%temp(:,:,jb),            &!inout: temp 
+                       w      = p_prog%w(:,:,jb),               &!inout: w
+                       prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
+                       prec_i = prm_diag%ice_gsp_rate (:,jb),   &!inout precp rate ice
+                       prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
+                       prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
+                       prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+                       dbg_level = msg_level                ,    &
+                       l_cv=.TRUE.          )    
 
         CASE(9)  ! Kessler scheme (warm rain scheme)
 

@@ -501,7 +501,7 @@ SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
   REAL(KIND=wp), PARAMETER :: z1d3  = 1.0_wp/3.0_wp
   REAL(KIND=wp), PARAMETER :: z2d3  = 2.0_wp/3.0_wp
 
-  IF ( msg_level >= 15) CALL message( 'mo_gme_turbdiff:', 'parturs')
+  IF ( msg_level >= 25) CALL message( 'mo_gme_turbdiff:', 'parturs')
  
 !     wind velocity in Prandtl layer
       DO j1 = i_startidx, i_endidx

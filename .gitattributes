@@ -87,6 +87,7 @@ contrib/libmtime_example/example.f90 -text
 contrib/monika/remap.sh -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
+data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
 doc/contrib/ICON_Grafik1_Legende_Okt09.jpg -text
@@ -1245,6 +1246,8 @@ src/atm_phy_edmf/mo_vupdz0.f90 -text
 src/atm_phy_les/mo_interface_les.f90 -text
 src/atm_phy_les/mo_les_turb_interface.f90 -text
 src/atm_phy_les/mo_ls_forcing.f90 -text
+src/atm_phy_les/mo_mcrph_main.f90 -text
+src/atm_phy_les/mo_mcrph_sb.f90 -text
 src/atm_phy_les/mo_sgs_turbulence.f90 -text
 src/atm_phy_les/mo_surface_les.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
@@ -1416,6 +1419,7 @@ src/grid_generator/mo_zlayers.f90 -text
 src/grid_generator/partitioner.f90 -text
 src/include/dsl_definitions.inc -text
 src/include/omp_definitions.inc -text
+src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
 src/io/shared/mo_cf_convention.f90 -text

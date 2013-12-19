@@ -127,6 +127,7 @@ MODULE mo_nwp_phy_init
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
+  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
 
   IMPLICIT NONE
 
@@ -470,6 +471,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CASE (3)  ! ice nucleation scheme by C.K. based on new hydci_pp from COSMO_V4_23
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
     CALL hydci_pp_ice_init
+
+  CASE (4) !two moment micrphysics
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysic:SB')
+    CALL two_moment_mcrph_init( )
 
   CASE (10)  ! old hydci_pp from COSMO_V4_14
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')

@@ -53,6 +53,7 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
+  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iash1_conv,iash2_conv,iash3_conv,iash4_conv,iash5_conv,iash6_conv !K.L. Running index for convection 
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
@@ -127,6 +128,13 @@ MODULE mo_run_config
     INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
     INTEGER :: iqm_max    !< highest tracer index carrying a mass-related moisture variable
   
+    !For 2 moment microphysics
+    INTEGER :: iqh        !<hail
+    INTEGER :: iqnh       !<hail number
+    INTEGER :: iqnr       !<rain number
+    INTEGER :: iqns       !<snow number
+    INTEGER :: iqng       !<graupel number
+
     ! Tracer indices of other species
     INTEGER :: ico2       !< CO2
     INTEGER :: iqt        !< start index of other tracers than hydrometeors

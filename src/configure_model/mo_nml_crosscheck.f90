@@ -68,6 +68,7 @@ MODULE mo_nml_crosscheck
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
+    &                              iqg, iqh, iqnr, iqns, iqng, iqnh,          &                     
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -582,6 +583,12 @@ CONTAINS
       iqni_nuc = ntracer+100    !! activated ice nuclei  
       iqg      = ntracer+100    !! graupel
       iqtvar   = ntracer+100    !! qt variance (for EDMF turbulence)
+      iqh      = ntracer+100
+      iqnr     = ntracer+100  
+      iqns     = ntracer+100
+      iqng     = ntracer+100
+      iqnh     = ntracer+100
+
       !
       !
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
@@ -607,8 +614,20 @@ CONTAINS
         IF (.NOT. art_config(1)%lart) ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
+      
+        iqg  = 6
+        iqh  = 7
+        iqni = 8        
+        iqnr = 9        
+        iqns = 10        
+        iqng = 11        
+        iqnh = 12
 
-        CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 7     !! end index of water species mixing ratios
+        iqt       = 13    !! start index of other tracers not related at all to moisture
+       
+        IF (.NOT. art_config(1)%lart) ntracer = 12
 
       END SELECT ! microphysics schemes
 
