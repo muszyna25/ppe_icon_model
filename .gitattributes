@@ -675,6 +675,7 @@ run/add_required_ocean_files -text
 run/ana_varnames_map_file.txt -text
 run/dict.cmor -text
 run/exec.iconrun -text
+run/exp.ICON_limarea -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
