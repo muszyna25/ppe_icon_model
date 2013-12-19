@@ -36,7 +36,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 echo "-----------------------------------------------------------"
-# set -x
+ set -x
 
 base_folder=$(pwd)
 input_folder=run
@@ -136,7 +136,7 @@ omp_stacksize=200M
 # returns "true" in accepted_script, if the script name is accepted
 check_accept_script()
 {
-  # set -x
+  set -x
   check_accepted_filename=$1
   
   if [[ -r $input_folder/$check_accepted_filename ]] ; then
@@ -217,7 +217,7 @@ check_accept_script()
        *_rce_*)
           accepted_script="false"
           ;;
-        post.test_hat_jww*)
+        post.test_hat_jw*)
           accepted_script="false"
           ;;
        esac
@@ -232,6 +232,9 @@ check_accept_script()
           accepted_script="false"
           ;;
        *_rce_*)
+          accepted_script="false"
+          ;;
+        post.test_hat_jw*)
           accepted_script="false"
           ;;
        esac
