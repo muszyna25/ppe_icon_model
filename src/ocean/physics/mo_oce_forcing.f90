@@ -267,7 +267,7 @@ CONTAINS
 
    CASE (5)
       CALL message(TRIM(routine), &
-        &  'iforc_stat_oce=4: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
+        &  'iforc_stat_oce=5: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
 
       ! Forcing for ape
       z_forc_period     = 3.0_wp
