@@ -1740,7 +1740,10 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
          ENDIF
        ENDIF
      ENDDO
+
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
      RETURN
+     !---------------------------------------------------------------
    ENDIF
 
    ! Reset kshift to 0 if 2D fields are passed together with 3D fields
@@ -2528,7 +2531,10 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDDO
        ENDDO
      ENDDO
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
+
      RETURN
+     !---------------------------------------------------------
    ENDIF
 
 
