@@ -1198,7 +1198,7 @@ CONTAINS
     !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
     !     -------
 
-    IF( rsltn>=39000 ) THEN
+    IF( rsltn<=39000 ) THEN
       phy_params%mfcfl=3.0_JPRB
     ELSE
       phy_params%mfcfl=5.0_JPRB
