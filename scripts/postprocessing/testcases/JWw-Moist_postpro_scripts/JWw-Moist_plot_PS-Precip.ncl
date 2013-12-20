@@ -61,8 +61,8 @@
   PlotFileName = PlotPath + plotBaseName +"_"+sprinti("%4.4i",iday)+"_precip"
 
   if (Model.eq."ICOHAM") then
-     prName = (/"APRL","RSFL","SSFL","APRC","RSFC","SSFC"/)
-     psName = "PS"
+     prName = (/"pr","prlr","prls","prcr","prcs"/)
+     psName = "ps"
   else
      prName = (/"aprl","jrsfl","jssfl","aprc","jrsfc","jssfc"/)
      psName = "aps"
@@ -224,9 +224,9 @@
 
         if (Model.eq."ICOHAM") then
            pr = File->$prName(iv)$(tid(it),:)
-           if (iv.eq.0.or.iv.eq.3) then
-             pr = pr*OutFrq/86400.
-           end if
+           ;if (iv.eq.0.or.iv.eq.3) then
+           ;  pr = pr*OutFrq/86400.
+           ;end if
         else ;ECHAM
            pr = File->$prName(iv)$(tid(it),:,:)
         end if

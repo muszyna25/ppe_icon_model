@@ -114,8 +114,9 @@ cat > ${atmo_namelist} << EOF
 /
 &io_nml
  dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
-! output_nml_dict  = '${dict_file}'
-! netcdf_dict      = '${dict_file}'
+ output_nml_dict  = '${dict_file}'
+ netcdf_dict      = '${dict_file}'
+ lzaxis_reference = .false.
 /
 &output_nml
  output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
@@ -123,11 +124,15 @@ cat > ${atmo_namelist} << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}"
-!!! ml_varlist       = 'ps'      , 'ta'      ,
-!                    'hus'     , 'clw'     , 'cli'     ,
-!                    'ua'      , 'va'      , 'wap'     ,
-!                    'pfull'   , 'gpfull'
- ml_varlist       = 'prm_r','prm_qvi','prm_xlvi','prm_xivi','prm_evap','ha_diag_u','ha_diag_v','ha_diag_rel_vort_c','ha_diag_div','prm_t','prm_omega','prm_vo','prm_aclc','prm_rsfl','prm_rsfc','prm_totprec_avg','prm_lhflx','prm_shflx','prm_swflxsfc','prm_lwflxsfc','prm_tsfc','prm_flxdwswtoa','ha_prog_out_pres_sfc'
+ ml_varlist       = 'ps'      , 'ts'      , 'ta'      ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'pfull'   , 'gpfull'  ,
+                    'pr'      , 'prcr'    , 'prcs'    , 'prlr'    , 'prls'
+                    'prw'     , 'cllvi'   , 'clivi'   , 'clt'
+                    'evspsbl' , 'hfls'    , 'hfss'    ,
+                    'rlns'    , 'rlnt'    , 'rsns'    , 'rsnt'    ,
+                    'rsdt'    , 'alb'
 /
 &transport_nml
  ctracer_list='vwi'         ! v: water vapour, w: cloud water, i: cloud ice
