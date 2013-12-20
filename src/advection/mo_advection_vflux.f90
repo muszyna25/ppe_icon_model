@@ -1874,12 +1874,12 @@ CONTAINS
             jc = i_indlist_m(ji_m,nlist,jb)
             jk = i_levlist_m(ji_m,nlist,jb)
 
-            ! cycle if the model level is in a region where advection is 
-            ! turned off for the present variable
-            IF (jk < slevp1) CYCLE
-
             ! integer shift (depends on the applied list)
             jk_shift = jk - nlist
+
+            ! cycle if the source model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk_shift < slevp1) CYCLE
 
             ! Integer flux (division by p_dtime is done at the end)
             z_iflx_m(jc,jk) = z_iflx_m(jc,jk) + coeff_grid*p_cc(jc,jk_shift,jb) &
@@ -1903,6 +1903,10 @@ CONTAINS
             ! cycle if the model level is in a region where advection is 
             ! turned off for the present variable
             IF (jk < slevp1) CYCLE
+
+            ! this is needed in addition in order to avoid accessing non-existing (uninitalized)
+            ! source levels for tracers that are not advected on all model levels
+            IF (jk_int_m(jc,jk,jb) < slev) CYCLE
 
             ! fractional downward flux
             ! if w < 0 , weta > 0 (physical downwelling)
