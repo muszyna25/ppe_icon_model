@@ -131,7 +131,7 @@
 !
 
 MODULE wolken_konstanten
-
+  USE mo_kind,   ONLY: wp
   IMPLICIT NONE 
 
   !INTERFACE OPERATOR(**)
@@ -268,7 +268,7 @@ MODULE wolken_konstanten
     ttstep = 2,       &  ! increment for temperature in look-up table
     ssstep = 1           ! increment for ice supersaturation in look-up table
 
-  REAL(KIND=8), DIMENSION(0:100,0:100), SAVE :: &
+  REAL(wp), DIMENSION(0:100,0:100), SAVE :: &
     afrac_dust, &  ! look-up table of activated fraction of dust particles acting as ice nuclei
     afrac_soot, &  ! ... of soot particles
     afrac_orga     ! ... of organic material
@@ -1276,6 +1276,7 @@ END MODULE wolken_konstanten
 
 MODULE gamma_functions_mp_seifert
 
+  USE mo_kind,   ONLY: wp
   IMPLICIT NONE
   PUBLIC
 
@@ -2047,6 +2048,7 @@ END MODULE gamma_functions_mp_seifert
 
 MODULE wolken_driver
 
+  USE mo_kind,   ONLY: wp
   USE wolken_konstanten
 
   
@@ -2337,6 +2339,7 @@ END MODULE wolken_driver
 !****************************************************************************
 
 MODULE globale_variablen
+
   USE wolken_driver, ONLY: dt, loc_ix, loc_iy, loc_iz, &
        & w, T, p, q, rho, T_g, p_g, rho_g,       &
        & q_cloud, n_cloud, prec_cloud,   &
@@ -2425,6 +2428,7 @@ MODULE wolken_sedi
   !                                                                              *
   !*******************************************************************************
 
+  USE mo_kind,            ONLY: wp
   USE wolken_konstanten 
   USE mo_exception      , ONLY: message, message_text
 
@@ -2442,40 +2446,39 @@ CONTAINS
     !       Berechnung der Sedimentation der Regentropfen                          *
     !*******************************************************************************
 
-    USE mo_kind,            ONLY: ireals=>wp    
     USE konstanten
 
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qr,qnr,qc
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
-    REAL(KIND=ireals), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
-    REAL(KIND=ireals) :: dt
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qr,qnr,qc
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
+    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
+    REAL(wp) :: dt
 
     ! .. Local Variables ..
     INTEGER  :: i, j, k, kk
-    REAL(KIND=ireals)     :: n_r,q_r,x_r,n0,lam,n,G1,G4,D_m,D_r,mue,v_n,v_q
+    REAL(wp)     :: n_r,q_r,x_r,n0,lam,n,G1,G4,D_m,D_r,mue,v_n,v_q
 
-    REAL(KIND=ireals), PARAMETER :: alf = 9.65e+00     ! in SI [m/s]
-    REAL(KIND=ireals), PARAMETER :: bet = 1.03e+01     ! in SI [m/s]
-    REAL(KIND=ireals), PARAMETER :: gam = 6.00e+02     ! in SI [1/m]
-    REAL(KIND=ireals), PARAMETER :: n_0 = 1.00e+07     ! in SI [1/m^4]
-    REAL(KIND=ireals), PARAMETER :: eps = 1.00e-15  
+    REAL(wp), PARAMETER :: alf = 9.65e+00     ! in SI [m/s]
+    REAL(wp), PARAMETER :: bet = 1.03e+01     ! in SI [m/s]
+    REAL(wp), PARAMETER :: gam = 6.00e+02     ! in SI [1/m]
+    REAL(wp), PARAMETER :: n_0 = 1.00e+07     ! in SI [1/m^4]
+    REAL(wp), PARAMETER :: eps = 1.00e-15  
 
 !!! Maybe convert the following arrays to ALLOCATABLE to save stack memory!
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: v_n_rain,v_q_rain,zr
-    REAL(KIND=ireals), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_rain,v_q_rain,zr
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL, DIMENSION(its:ite) :: cflag
 
     WHERE (qnr < 0.0) qnr = 0.0
     WHERE (qr < 0.0) qr = 0.0
 
-    v_n_rain = 0.0_ireals
-    v_q_rain = 0.0_ireals
-    q_fluss  = 0.0_ireals
-    n_fluss  = 0.0_ireals
+    v_n_rain = 0.0_wp
+    v_q_rain = 0.0_wp
+    q_fluss  = 0.0_wp
+    n_fluss  = 0.0_wp
 
     n  = 0.0
     G1 = 1.0 
@@ -2550,8 +2553,8 @@ CONTAINS
           v_n_rain(i,k) = - v_n
           v_q_rain(i,k) = - v_q
         ELSE
-          v_n_rain(i,k) = 0.0_ireals
-          v_q_rain(i,k) = 0.0_ireals
+          v_n_rain(i,k) = 0.0_wp
+          v_q_rain(i,k) = 0.0_wp
         ENDIF
         END DO
     END DO
@@ -2654,28 +2657,27 @@ CONTAINS
     !*******************************************************************************
     !       Berechnung der Sedimentation von Graupel                               *
     !*******************************************************************************
-    USE mo_kind,            ONLY: ireals=>wp    
     USE konstanten
 
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qg,ng
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
-    REAL(KIND=ireals), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
-    REAL(KIND=ireals) :: dt
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qg,ng
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
+    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
+    REAL(wp) :: dt
 
     ! .. Local Variables ..
     INTEGER  :: i, j, k, kk
     INTEGER, SAVE    :: firstcall
-    REAL(KIND=ireals)     :: n_g,q_g,x_g,n0,lam,n,v_n,v_q
-    REAL(KIND=ireals), SAVE      :: alf_n,alf_q,c_lam
-    REAL(KIND=ireals), PARAMETER :: eps = 1.00e-20   
+    REAL(wp)     :: n_g,q_g,x_g,n0,lam,n,v_n,v_q
+    REAL(wp), SAVE      :: alf_n,alf_q,c_lam
+    REAL(wp), PARAMETER :: eps = 1.00e-20   
 
 !!! Maybe convert the following arrays to ALLOCATABLE to save stack memory!
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
-    REAL(KIND=ireals), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL, DIMENSION(its:ite) :: cflag
 
     IF (firstcall.NE.1) THEN
@@ -2820,28 +2822,27 @@ CONTAINS
     !*******************************************************************************
     !       Berechnung der Sedimentation von Hail                               *
     !*******************************************************************************
-    USE mo_kind,            ONLY: ireals=>wp    
     USE konstanten
 
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qh,nh
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
-    REAL(KIND=ireals), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
-    REAL(KIND=ireals) :: dt
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qh,nh
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
+    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
+    REAL(wp) :: dt
 
     ! .. Local Variables ..
     INTEGER  :: i, j, k, kk
     INTEGER, SAVE    :: firstcall
-    REAL(KIND=ireals)     :: n_g,q_g,x_g,n0,lam,v_n,v_q,n
-    REAL(KIND=ireals), SAVE      :: alf_n,alf_q,c_lam
-    REAL(KIND=ireals), PARAMETER :: eps = 1.00e-20   
+    REAL(wp)     :: n_g,q_g,x_g,n0,lam,v_n,v_q,n
+    REAL(wp), SAVE      :: alf_n,alf_q,c_lam
+    REAL(wp), PARAMETER :: eps = 1.00e-20   
 
 !!! Maybe convert the following arrays to ALLOCATABLE to save stack memory!
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
-    REAL(KIND=ireals), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL, DIMENSION(its:ite) :: cflag
 
     IF (firstcall.NE.1) THEN
@@ -2983,28 +2984,27 @@ CONTAINS
     !*******************************************************************************
     !       Berechnung der Sedimentation von Snow                               *
     !*******************************************************************************
-    USE mo_kind,            ONLY: ireals=>wp    
     USE konstanten
 
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qs,ns
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
-    REAL(KIND=ireals), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
-    REAL(KIND=ireals) :: dt
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qs,ns
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
+    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
+    REAL(wp) :: dt
 
     ! .. Local Variables ..
     INTEGER  :: i, j, k, kk
     INTEGER, SAVE    :: firstcall
-    REAL(KIND=ireals)     :: n_s,q_s,x_s,n0,lam,v_n,v_q,n,mue,nue,D_m
-    REAL(KIND=ireals), SAVE      :: alf_n,alf_q,c_lam
-    REAL(KIND=ireals), PARAMETER :: eps = 1.00e-20   
+    REAL(wp)     :: n_s,q_s,x_s,n0,lam,v_n,v_q,n,mue,nue,D_m
+    REAL(wp), SAVE      :: alf_n,alf_q,c_lam
+    REAL(wp), PARAMETER :: eps = 1.00e-20   
 
 !!! Maybe convert the following arrays to ALLOCATABLE to save stack memory!
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
-    REAL(KIND=ireals), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL, DIMENSION(its:ite) :: cflag
 
     IF (firstcall.NE.1) THEN
@@ -3155,28 +3155,27 @@ CONTAINS
     !*******************************************************************************
     !       Berechnung der Sedimentation von Ice                                   *
     !*******************************************************************************
-    USE mo_kind,            ONLY: ireals=>wp    
     USE konstanten
 
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qi,ni
-    REAL(KIND=ireals), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
-    REAL(KIND=ireals), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
-    REAL(KIND=ireals) :: dt
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qi,ni
+    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: rho,adz,rhocorr
+    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: rainrate
+    REAL(wp) :: dt
 
     ! .. Local Variables ..
     INTEGER  :: i, j, k, kk
     INTEGER, SAVE    :: firstcall
-    REAL(KIND=ireals)     :: n_i,q_i,x_i,n0,lam,v_n,v_q,n
-    REAL(KIND=ireals), SAVE      :: alf_n,alf_q,c_lam
-    REAL(KIND=ireals), PARAMETER :: eps = 1.00e-20   
+    REAL(wp)     :: n_i,q_i,x_i,n0,lam,v_n,v_q,n
+    REAL(wp), SAVE      :: alf_n,alf_q,c_lam
+    REAL(wp), PARAMETER :: eps = 1.00e-20   
 
 !!! Maybe convert the following arrays to ALLOCATABLE to save stack memory!
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
-    REAL(KIND=ireals), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
-    REAL(KIND=ireals), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss,n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,zr
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL, DIMENSION(its:ite) :: cflag
 
     IF (firstcall.NE.1) THEN
@@ -3323,6 +3322,7 @@ MODULE wolken_eis
   !                                                                              *
   !*******************************************************************************
 
+  USE mo_kind,            ONLY: wp
   USE wolken_konstanten 
 ! UB_20090227>>
   USE gamma_functions_mp_seifert
@@ -3434,15 +3434,15 @@ CONTAINS
 
   END SUBROUTINE ice_nucleation
 
-  REAL(KIND=8) ELEMENTAL FUNCTION dep_growth_timescale(b,y,x_0)
+  REAL(wp) ELEMENTAL FUNCTION dep_growth_timescale(b,y,x_0)
   IMPLICIT NONE
-  REAL(KIND=8), INTENT(in) :: b,y,x_0
+  REAL(wp), INTENT(in) :: b,y,x_0
   
-  REAL(KIND=8), PARAMETER  :: &
+  REAL(wp), PARAMETER  :: &
     SQ31 = 0.577350269,       &
     SIX1 = 0.166666666
   
-  REAL(KIND=8) ::  X,F1,F10,F2,F20
+  REAL(wp) ::  X,F1,F10,F2,F20
     
   IF (y.LE.x_0) THEN
     dep_growth_timescale = 0.
@@ -3517,18 +3517,18 @@ CONTAINS
     p0      = 1013.25e2        , &
     svol    = ma_w / rho_ice          ! specific volume of a water molecule in ice
   
-  REAL(KIND=8)  :: Si, e_si
-  REAL(KIND=8)  :: ni_hom,ri_hom,mi_hom
-  REAL(KIND=8)  :: v_th,n_sat,flux,phi,D_v,cool,tau,delta,w_p,scr
-  REAL(KIND=8)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
-  REAL(KIND=8)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
-  REAL(KIND=8)  :: tgrow,ri_max,beta,xj,dxj,xmid,fmid,nimax
-  REAL(KIND=8)  :: xt,xs
+  REAL(wp)  :: Si, e_si
+  REAL(wp)  :: ni_hom,ri_hom,mi_hom
+  REAL(wp)  :: v_th,n_sat,flux,phi,D_v,cool,tau,delta,w_p,scr
+  REAL(wp)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
+  REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
+  REAL(wp)  :: tgrow,ri_max,beta,xj,dxj,xmid,fmid,nimax
+  REAL(wp)  :: xt,xs
   INTEGER       :: jj,ss,tt
 
   LOGICAL :: use_hetnuc, use_homnuc, used0
 
-  REAL(KIND=8), DIMENSION(3) :: infrac
+  REAL(wp), DIMENSION(3) :: infrac
 
   DOUBLE PRECISION, ALLOCATABLE :: nuc_n(:,:,:), nuc_q(:,:,:)
 
@@ -10698,6 +10698,7 @@ END MODULE wolken_eis
 
 MODULE wolken
 
+  USE mo_kind,            ONLY: wp
   USE wolken_konstanten
   USE wolken_eis
   ! use isnan_int
