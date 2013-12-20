@@ -122,7 +122,7 @@ MODULE mo_model_domimp_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
     & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
-    & init_butterfly_idx, fill_grid_subsets, complete_ocean_patch_geometry
+    & init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
