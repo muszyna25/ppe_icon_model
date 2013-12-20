@@ -131,8 +131,7 @@ cat > ${atmo_namelist} << EOF
                     'pr'      , 'prcr'    , 'prcs'    , 'prlr'    , 'prls'
                     'prw'     , 'cllvi'   , 'clivi'   , 'clt'
                     'evspsbl' , 'hfls'    , 'hfss'    ,
-                    'rlns'    , 'rlnt'    , 'rsns'    , 'rsnt'    ,
-                    'rsdt'    , 'alb'
+                    'rlns'    , 'rlnt'    , 'rsns'    , 'rsnt'    , 'rsdt'
 /
 &transport_nml
  ctracer_list='vwi'         ! v: water vapour, w: cloud water, i: cloud ice
