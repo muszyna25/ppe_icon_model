@@ -75,10 +75,10 @@ echo "-- ---------------------------------------------------------"
 echo "-- JWw-Moist_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-#./JWw-Moist_postpro_driver.bash ${set_env}
-echo "-- ---------------------------------------------------------"
-echo "-- JWw-Moist_postpro_driver.bash temporarily disabled --"
-echo "-- ---------------------------------------------------------"
+./JWw-Moist_postpro_driver.bash ${set_env}
+#echo "-- ---------------------------------------------------------"
+#echo "-- JWw-Moist_postpro_driver.bash temporarily disabled --"
+#echo "-- ---------------------------------------------------------"
 STATUS=$?
 echo "-- ---------------------------------------------------------"
 echo "-- JWw-Moist_postpro_driver.bash ends at $(date) --"
