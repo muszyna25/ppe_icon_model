@@ -350,9 +350,9 @@ MODULE mo_vertical_grid
 
 
       ! offcentering in vertical mass flux 
-      p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 0.5_wp - vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt_sv(:,:) = p_nh(jg)%metrics%vwind_impl_wgt(:,:)
+      p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(:,:)
 
       ! Rayleigh damping properties
 
@@ -509,9 +509,9 @@ MODULE mo_vertical_grid
           z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp, MIN(0.25_wp,2.5e-4_wp*(z_diff-250._wp)))
           z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
 
-          p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
           p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = 0.5_wp + z_offctr
           p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+          p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
 
         ENDDO
 
@@ -523,9 +523,9 @@ MODULE mo_vertical_grid
             ! squeezing ratio with respect to nominal layer thickness
             z_diff = (p_nh(jg)%metrics%z_ifc(jc,jk,jb)-p_nh(jg)%metrics%z_ifc(jc,jk+1,jb))/(vct_a(jk1)-vct_a(jk1+1))
             IF (z_diff < 0.6_wp) THEN
-              p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
+              p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
               p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
-              p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+              p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
             ENDIF
           ENDDO
         ENDDO
