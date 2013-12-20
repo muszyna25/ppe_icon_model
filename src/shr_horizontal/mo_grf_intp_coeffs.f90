@@ -915,6 +915,7 @@ INTEGER  :: i_endidx         ! end index
 REAL(wp) :: z_nx1(3),z_nx2(3), thresh_dotpr
 
 TYPE(t_patch), POINTER :: ptr_patch(:)! indices of all data points
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grf_intp_coeffs:grf_index'
 !--------------------------------------------------------------------
 
 ptr_patch => p_patch
@@ -1055,6 +1056,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil points 2 and 3 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,2,jb) = ptr_cp%edge_idx(iipc,ibpc,ii2(je))
@@ -1073,6 +1076,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii4(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii4(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 4 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,4,jb) = ptr_ep%quad_idx(iie,ibe,ii4(je))
@@ -1088,6 +1093,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii5(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii5(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 5 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,5,jb) = ptr_ep%quad_idx(iie,ibe,ii5(je))
@@ -1154,6 +1161,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 2 and 3 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,2,jb) = ptr_cp%edge_idx(iipc,ibpc,ii2(je))
@@ -1172,6 +1181,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii4(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii4(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 4 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,4,jb) = ptr_ep%quad_idx(iie,ibe,ii4(je))
@@ -1187,6 +1198,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii5(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii5(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 5 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,5,jb) = ptr_ep%quad_idx(iie,ibe,ii5(je))
@@ -1201,6 +1214,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         iie   = ptr_grf%grf_vec_ind_2b(je,4,jb)
         ibe   = ptr_grf%grf_vec_blk_2b(je,4,jb)
 
+        ! write(0,*) iie, ibe
         z_nx2(:) = ptr_ep%primal_cart_normal(iie,ibe)%x(:)
 
         IF (ABS(DOT_PRODUCT(z_nx1,z_nx2)) < thresh_dotpr) ierror(je) = ierror(je) + 1
