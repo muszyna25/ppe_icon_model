@@ -124,6 +124,7 @@ cat > ${atmo_namelist} << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}"
+ filename_format  = "<output_filename>_<jfile>"
  ml_varlist       = 'ps'      , 'ts'      , 'ta'      ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'ua'      , 'va'      , 'wap'     ,
