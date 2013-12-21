@@ -362,10 +362,15 @@ EOF
    
         tid4=$(printf "%04d" $fid)
         fori=${model_data_path}${ExpName}_${tid4}".nc"
+
+        # change name "ps" to "aps" so that cdo finds the surface pressure for ml2pl
+        ${cdo} $silence chname,ps,aps ${fori} ${fori}_chname
+        mv ${fori}_chname ${fori}
+
         ftmp=${tmp_data_path}${ExpName}_${tid4}"_cloud_p.nc"
-       #${cdo} $silence ml2pl,90000,85000,80000,70000 \
+        #${cdo} $silence ml2pl,90000,85000,80000,70000 \
         ${cdo} $silence ml2pl,90000 \
-                     -selname,wap,clt,clw,cli,ps    ${fori} ${ftmp}
+                     -selname,wap,clt,clw,cli,aps    ${fori} ${ftmp}
         check_error $? "In script JWw-Moist_postpro_driver.bash: part 'Interpolating cloud cover'"
         echo " File $tid4 done"
    

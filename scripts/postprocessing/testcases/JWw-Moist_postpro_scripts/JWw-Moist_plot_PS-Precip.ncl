@@ -62,7 +62,7 @@
 
   if (Model.eq."ICOHAM") then
      prName = (/"pr","prlr","prls","prcr","prcs"/)
-     psName = "ps"
+     psName = "aps"
   else
      prName = (/"aprl","jrsfl","jssfl","aprc","jrsfc","jssfc"/)
      psName = "aps"
