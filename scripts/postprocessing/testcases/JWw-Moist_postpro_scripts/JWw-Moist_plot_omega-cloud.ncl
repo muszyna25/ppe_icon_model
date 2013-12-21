@@ -62,7 +62,7 @@
   PlotFileName = PlotPath + plotBaseName +"_"+sprinti("%4.4i",iday)+"_cloud"
 
   if (Model.eq."ICOHAM") then
-     cldName = (/"clt","cllvi","clivi"/)
+     cldName = (/"clt","clw","cli"/)
      omgName = "wap"
   else 
   if (Model.eq."ECHAM") then

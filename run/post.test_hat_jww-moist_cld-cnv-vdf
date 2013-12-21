@@ -10,7 +10,7 @@
 Model="ICOHAM"
 EXP="test_hat_jww-moist_cld-cnv-vdf"
 grid_name="iconR2B04-grid"
-ExpName="${EXP}_${grid_name}"
+ExpName="${EXP}"
 plotBaseName="${EXP}_R2B04L31"
 config_string="JWw-Moist R2B04"
 cell_type=3
@@ -19,7 +19,7 @@ vertical_resolution="L31"
 physics=2
 DOMAIN=""
 output_frequency=4
-data_file_split=1
+data_file_split=0
 post_start=2
 post_end=2
 plot_file_format="eps"

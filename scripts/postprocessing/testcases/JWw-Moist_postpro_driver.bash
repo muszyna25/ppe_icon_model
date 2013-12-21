@@ -365,8 +365,8 @@ EOF
         ftmp=${tmp_data_path}${ExpName}_${tid4}"_cloud_p.nc"
        #${cdo} $silence ml2pl,90000,85000,80000,70000 \
         ${cdo} $silence ml2pl,90000 \
-                     -selname,OMEGA_PHY,ACLC,Qw,Qi,PS    ${fori} ${ftmp}
-        check_error $? "In script JWw-Moist_postpro_driver.bash: part 'Interpolating cloud over'"
+                     -selname,wap,clt,clw,cli,ps    ${fori} ${ftmp}
+        check_error $? "In script JWw-Moist_postpro_driver.bash: part 'Interpolating cloud cover'"
         echo " File $tid4 done"
    
         fid=`expr $fid + 1`
