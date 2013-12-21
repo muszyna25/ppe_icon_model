@@ -126,7 +126,7 @@ cat > ${atmo_namelist} << EOF
  output_filename  = "${EXPNAME}"
  filename_format  = "<output_filename>_<jfile>"
  ml_varlist       = 'ps'      , 'ts'      , 'ta'      ,
-                    'hus'     , 'clw'     , 'cli'     ,
+                    'hus'     , 'clw'     , 'cli'     , 'cl'      ,
                     'ua'      , 'va'      , 'wap'     ,
                     'pfull'   , 'gpfull'  ,
                     'pr'      , 'prcr'    , 'prcs'    , 'prlr'    , 'prls'
