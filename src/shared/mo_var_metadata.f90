@@ -21,7 +21,7 @@ MODULE mo_var_metadata
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(31) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(33) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -47,6 +47,8 @@ MODULE mo_var_metadata
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &
+    &  "oce_essentials        ",  &
+    &  "oce_force_essentials  ",  &
     &  "OCE_AUX               ",  &
     &  "OCE_GEOMETRY          ",  &
     &  "OCE_PHYSICS           ",  &

@@ -57,7 +57,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-06T00:00:00Z"
+  end_date="3000-01-01T00:00:00Z"
 # global resolution
 #
 R=2   # nroot
@@ -66,28 +66,22 @@ B=3   # number of bisections applied
 #time stepping
 #
 dtime_atmo=${dtime_atmo:=600}
-dtime_ocean=3600
-dt_coupling=3600
-dtime=$dtime_atmo
+dtime_ocean=$hour
+dt_coupling=$hour
 (( dt_rad        = 2 * hour ))  # radiation time step
 #
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-ndays_restart=2
-ndays_checkpoint=${ndays_restart}
-(( dt_checkpoint = ${ndays_checkpoint} * day )) # checkpointing not yet supported for coupling fields
-(( dt_restart    = ${ndays_restart} * day ))
+restart_months=156   # 13 years
+(( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
+(( dt_restart    = restart_months * month ))
 #
-output_interval="PT06H"
-steps_per_file=4
-
-#
-#-----------------------------------------------------------------------------
-# define variable names
-#
-dict_file='dict.cmor'
-#
+atmo_output_interval="PT06H"
+atmo_steps_per_file=720   # 6 months
+ocean_output_interval="PT12H"
+ocean_steps_per_file=360   # 6 months
+ 
 #-----------------------------------------------------------------------------
 #
 # model parameters
@@ -238,7 +232,7 @@ cat > $atmo_namelist << EOF
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer     = 5            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level   = 10           ! detailed report during integration 
+ msg_level   = 1           ! detailed report during integration 
  ltimer = .TRUE.
  timers_level = 10
  activate_sync_timers = .TRUE.
@@ -252,51 +246,24 @@ cat > $atmo_namelist << EOF
  rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
-  ! out_expname      = '${EXPNAME}_atm' ! file name base
   dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
-  !output_nml_dict  = '${dict_file}'
-  !netcdf_dict      = '${dict_file}'
-  ! lwrite_initial   = .FALSE.          ! do/don't write out initial data
-  ! lwrite_radiation = .TRUE.           ! add radiation fields to output
-  ! lwrite_cloud     = .TRUE.           ! add cloud fraction to output
-  ! lwrite_precip    = .TRUE.           ! add precipitation to output
-  ! lwrite_pres      = .FALSE.          ! remove pressure from output
-  ! lwrite_tend_phy  = .FALSE.          ! write out tendencies 
-  ! lflux_avg        = .FALSE.
   use_set_event_to_simstep = .false.   
+/
 /
 &output_nml
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
- output_interval  = "${output_interval}"                 ! interval in ISO-format
- steps_per_file   = ${steps_per_file}
+ output_interval  = "${atmo_output_interval}"                 ! interval in ISO-format
+ steps_per_file   = ${atmo_steps_per_file}
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
- output_filename  = "${EXPNAME}_atm_dyn"
- ml_varlist       = 'ha_prog_out_pres_sfc'      , 'ha_prog_out_temp'      ,
-                    'ha_prog_out_qv'     , 'ha_prog_out_qw'     , 'ha_prog_out_qi'     ,
-                    'ha_diag_out_u'      , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'     ,
-                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' ,
-                      'ha_diag_rel_vort_c'  ,'ha_diag_div' , 'prm_omega' , 'prm_vo' 
-/                    
-&output_nml
- filename_format  = "<output_filename>_<datetime2>"
- output_start     = "${start_date}"                  ! start in ISO-format
- output_end       = "${end_date}"                    ! end in ISO-format
- output_interval  = "${output_interval}"                 ! interval in ISO-format
- steps_per_file   = ${steps_per_file}
- include_last     = .TRUE.
- output_grid      = .TRUE.
- output_filename  = "${EXPNAME}_atm_phy"
- ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa'    , 'prm_t' ,
-                    'prm_swflxsfc'    , 'prm_lwflxsfc'  , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
-                    'prm_tsfc'        , 'prm_seaice'    , 'prm_o3', 'prm_ghm'   , 'prm_ghi' ,
-                    'prm_aclcov'      , 'prm_aclc'      , 
-                    'prm_rsfl'    , 'prm_ssfl'    , 'prm_rsfc'    , 'prm_ssfc'  ,
-                    'prm_totprec' , 'prm_qvi'     , 'prm_xlvi'    , 'prm_xivi'  ,
-                    'prm_evap'    , 'prm_lhflx'   , 'prm_shflx'   ,
-                    'prm_u_stress', 'prm_v_stress'
+ output_filename  = "${EXPNAME}_atmo"
+ ml_varlist       = 'ha_prog_out_pres_sfc', 
+                    'prm_vo'          , 'prm_t'         ,
+                    'prm_swflxtoa'    , 'prm_lwflxtoa'  ,
+                    'prm_tsfc'        , 'prm_ghm'       , 
+                    'prm_aclcov'      , 'prm_qvi'
 /                    
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -336,6 +303,38 @@ cat > $atmo_namelist << EOF
  irad_aero  = 0         ! switch off aerosols
  izenith    = 3         ! circular orbit, no seasonal cycle but with diurnal cycle 
 /
+!&output_nml
+! filename_format  = "<output_filename>_<datetime2>"
+! output_start     = "${start_date}"                  ! start in ISO-format
+! output_end       = "${end_date}"                    ! end in ISO-format
+! output_interval  = "${atmo_output_interval}"                 ! interval in ISO-format
+! steps_per_file   = ${atmo_steps_per_file}
+! ! include_last     = .TRUE.
+! output_grid      = .TRUE.
+! output_filename  = "${EXPNAME}_atm_dyn"
+! ml_varlist       = 'ha_prog_out_pres_sfc'      , 'ha_prog_out_temp'      ,
+!                    'ha_prog_out_qv'     , 'ha_prog_out_qw'     , 'ha_prog_out_qi'     ,
+!                    'ha_diag_out_u'      , 'ha_diag_out_v'      , 'ha_diag_out_wpres_mc'     ,
+!                    'ha_diag_out_pres_mc' , 'ha_diag_out_geo_mc' ,
+!                      'ha_diag_rel_vort_c'  ,'ha_diag_div' , 'prm_omega' , 'prm_vo' 
+!&output_nml
+! filename_format  = "<output_filename>_<datetime2>"
+! output_start     = "${start_date}"                  ! start in ISO-format
+! output_end       = "${end_date}"                    ! end in ISO-format
+! output_interval  = "${output_interval}"                 ! interval in ISO-format
+! steps_per_file   = ${steps_per_file}
+! include_last     = .TRUE.
+! output_grid      = .TRUE.
+! output_filename  = "${EXPNAME}_atm_phy"
+! ml_varlist       = 'prm_cosmu0'  , 'prm_flxdwswtoa'    , 'prm_t' ,
+!                    'prm_swflxsfc'    , 'prm_lwflxsfc'  , 'prm_swflxtoa'    , 'prm_lwflxtoa'    ,
+!                    'prm_tsfc'        , 'prm_seaice'    , 'prm_o3', 'prm_ghm'   , 'prm_ghi' ,
+!                    'prm_aclcov'      , 'prm_aclc'      , 
+!                    'prm_rsfl'    , 'prm_ssfl'    , 'prm_rsfc'    , 'prm_ssfc'  ,
+!                    'prm_totprec' , 'prm_qvi'     , 'prm_xlvi'    , 'prm_xivi'  ,
+!                    'prm_evap'    , 'prm_lhflx'   , 'prm_shflx'   ,
+!                    'prm_u_stress', 'prm_v_stress'
+!/
 EOF
 #-----------------------------------------------------------------------------
 # OCEAN
@@ -362,20 +361,6 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 iforc_oce=14
 #
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
-#
-#-----------------------------------------------------------------------------
-# global timing
-#
-#-----------------------------------------------------------------------------
-# model timing
-#
-dtime=$dtime_ocean   # ocean model timestep [s]
-#
-# calculate model timesteps 
-#
-#-----------------------------------------------------------------------------
-# diagnostic output (not in ocean model)
-#
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -500,28 +485,18 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  write_timer_files  = .TRUE.
  msg_timestamp = .TRUE.
- msg_level     = 12
+ msg_level     = 8
 /
 &output_nml
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
- output_interval  = "${output_interval}"             ! interval in ISO-format
- steps_per_file   = ${steps_per_file}
- ! include_last     = .TRUE.
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_ocn_iconR${R}B0${B}"
-  ml_varlist       =  'group:oce_default','hi','conc'
+ output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
+ steps_per_file   = ${ocean_steps_per_file}
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_ocean"
+ ml_varlist       =  'group:oce_essentials', 'group:oce_force_essentials','hi'
 /
-! no complete sea ice
-!&output_nml
-!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-!  steps_per_file   = ${steps_per_file}
-!  include_last     = .TRUE.
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_R2B02_ice"
-!  ml_varlist       = 'wet_c','group:ice_default'
-!/
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -588,9 +563,7 @@ cat > ${ocean_namelist} << EOF
   i_ice_dyn     = 1
 /
 &io_nml
-! out_expname = '${EXPNAME}_ocn'  ! file name base
   dt_checkpoint=${dt_checkpoint}
-!  lwrite_initial   = .FALSE.      ! do/don't write out initial data
   lkeep_in_sync = .TRUE.          ! sync after each timestep
   use_set_event_to_simstep = .false.   
 /
