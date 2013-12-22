@@ -223,23 +223,6 @@ check_accept_script()
        esac
      ;; 
 
-     hpc)
-       case $check_accepted_filename in
-       *test_oce_*)
-          accepted_script="false"
-          ;;
-       *test_nh_hdcp2_lam_r15000_modified*)
-          accepted_script="false"
-          ;;
-       *_rce_*)
-          accepted_script="false"
-          ;;
-      #  post.test_hat_jw*)
-      #    accepted_script="false"
-      #    ;;
-       esac
-     ;; 
-
    esac
    
    #--------------------------
