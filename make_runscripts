@@ -185,6 +185,9 @@ check_accept_script()
        *test_couple*)
           accepted_script="false"
           ;;
+       *ptest*)
+          accepted_script="false"
+          ;;
        esac
    fi
 
