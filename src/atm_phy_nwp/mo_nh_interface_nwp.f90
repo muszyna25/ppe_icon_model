@@ -331,7 +331,7 @@ CONTAINS
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
 
-      IF (msg_level >= 20) THEN ! Initial diagnostic output
+      IF (msg_level >= 18) THEN ! Initial diagnostic output
         CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
       ENDIF
 

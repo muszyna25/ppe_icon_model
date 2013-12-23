@@ -955,7 +955,7 @@ MODULE mo_nh_stepping
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
           &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
-          &         prep_adv(jg)%topflx_tra                               )! out
+          &         prep_adv(jg)%rhodz_mc_avg, prep_adv(jg)%topflx_tra    )! out
 
 
         IF (lstep_adv(jg)) THEN
@@ -966,6 +966,7 @@ MODULE mo_nh_stepping
             &        prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
             &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &        prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
+            &        prep_adv(jg)%rhodz_mc_avg,                            & !in
             &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
             &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
@@ -1091,7 +1092,7 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
-            &         prep_adv(jg)%topflx_tra                               )! out
+            &         prep_adv(jg)%rhodz_mc_avg, prep_adv(jg)%topflx_tra    )! out
 
         ENDIF
 
@@ -1115,6 +1116,7 @@ MODULE mo_nh_stepping
               &          prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
               &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
               &          prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
+              &          prep_adv(jg)%rhodz_mc_avg,                            & !in
               &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
               &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
               &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
@@ -1967,7 +1969,7 @@ MODULE mo_nh_stepping
     DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
       &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
       &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
-      &         prep_adv(jg)%topflx_tra, STAT=ist )
+      &         prep_adv(jg)%rhodz_mc_avg, prep_adv(jg)%topflx_tra, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
@@ -2082,6 +2084,7 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%rhodz_mc_avg(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -2100,6 +2103,7 @@ MODULE mo_nh_stepping
     prep_adv(jg)%w_traj      (:,:,:) = 0._wp
     prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
     prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
+    prep_adv(jg)%rhodz_mc_avg(:,:,:) = 0._wp
     prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
 !$OMP END WORKSHARE
 !$OMP END PARALLEL

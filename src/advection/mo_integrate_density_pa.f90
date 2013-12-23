@@ -237,7 +237,7 @@ CONTAINS
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full,                        &! in 
+          &                  p_metrics%ddqz_z_full, p_metrics%ddqz_z_full, &! in 
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in
@@ -437,7 +437,7 @@ CONTAINS
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full,                        &! in
+          &                  p_metrics%ddqz_z_full, p_metrics%ddqz_z_full, &! in
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in

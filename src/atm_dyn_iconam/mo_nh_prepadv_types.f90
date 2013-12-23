@@ -68,6 +68,9 @@ MODULE mo_nh_prepadv_types
     !< density times layer thickness at cell center at time step N+1
     REAL(wp), ALLOCATABLE :: rhodz_mc_new(:,:,:)
 
+    !< average of rhodz_mc_now and rhodz_mc_new used for calculating the vertical Courant number
+    REAL(wp), ALLOCATABLE :: rhodz_mc_avg(:,:,:)
+
     !< vertical tracer flux at domain top (time average; n+1/2)
     REAL(wp), ALLOCATABLE :: topflx_tra(:,:,:)
 

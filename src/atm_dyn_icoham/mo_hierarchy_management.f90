@@ -437,7 +437,7 @@ CONTAINS
             &                  p_hydro_state(jg)%diag%weta,                 & !in
             &                  z_delp_mc_now,                               & !in
             &                  p_hydro_state(jg)%diag%delp_c,               & !in
-            &                  z_delp_mc_now,                               & !in
+            &                  z_delp_mc_now, z_delp_mc_now,                & !in
             &                  p_hydro_state(jg)%tend_dyn%tracer,           & !inout
             &                  p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
             &                  p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -531,7 +531,7 @@ CONTAINS
               &                 z_mflx_ic,                                   &! in
               &                 z_delp_mc_now,                               &! in
               &                 p_hydro_state(jg)%diag%delp_c,               &! in
-              &                 z_delp_mc_now,                               &! in
+              &                 z_delp_mc_now, z_delp_mc_now,                &! in
               &                 p_hydro_state(jg)%tend_dyn%tracer,           &! inout*
               &                 p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                 p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -687,7 +687,7 @@ CONTAINS
                 &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
                 &                  z_delp_mc_now,                              &!in (in fact"old")
                 &                  p_hydro_state(jg)%diag%delp_c,              &!in ("new")
-                &                  z_delp_mc_now,                              &!in (in fact "old")
+                &                  z_delp_mc_now, z_delp_mc_now,               &!in (in fact "old")
                 &                  p_hydro_state(jg)%tend_dyn%tracer,          &!in (ONLY for ref.)
                 &                  p_hydro_state(jg)%prog(n_new)%tracer,       &!inout
                 &                  p_hydro_state(jg)%diag%hfl_tracer,          &!out
@@ -803,7 +803,7 @@ CONTAINS
               &                  z_mflx_ic,                                   &! in
               &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%diag%delp_c,               &! in
-              &                  z_delp_mc_now,                               &! in
+              &                  z_delp_mc_now, z_delp_mc_now,                &! in
               &                  p_hydro_state(jg)%tend_dyn%tracer,           &! inout
               &                  p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                  p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -875,7 +875,7 @@ CONTAINS
               &                  p_hydro_state(jg)%diag%weta,                 &! in
               &                  z_delp_mc_now,                               &! in
               &                  p_hydro_state(jg)%diag%delp_c,               &! in
-              &                  z_delp_mc_now,                               &! in
+              &                  z_delp_mc_now, z_delp_mc_now,                &! in
               &                  p_hydro_state(jg)%tend_dyn%tracer,           &! inout*
               &                  p_hydro_state(jg)%prog(n_new)%tracer,        &! inout
               &                  p_hydro_state(jg)%diag%hfl_tracer,           &! out
@@ -1369,7 +1369,7 @@ CONTAINS
           &                  z_mflx_ic,                                   & !in
           &                  z_delp_mc_now,                               & !in
           &                  p_hydro_state(jg)%diag%delp_c,               & !in
-          &                  z_delp_mc_now,                               & !in
+          &                  z_delp_mc_now, z_delp_mc_now,                & !in
           &                  p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                  p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                  p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1443,7 +1443,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now,                               & !in
+          &                 z_delp_mc_now, z_delp_mc_now,                & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1510,7 +1510,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now,                               & !in
+          &                 z_delp_mc_now, z_delp_mc_now,                & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out
@@ -1619,7 +1619,7 @@ CONTAINS
           &                 z_mflx_ic,                                   & !in
           &                 z_delp_mc_now,                               & !in
           &                 p_hydro_state(jg)%diag%delp_c,               & !in
-          &                 z_delp_mc_now,                               & !in
+          &                 z_delp_mc_now, z_delp_mc_now,                & !in
           &                 p_hydro_state(jg)%tend_dyn%tracer,           & !inout
           &                 p_hydro_state(jg)%prog(n_new)%tracer,        & !inout
           &                 p_hydro_state(jg)%diag%hfl_tracer,           & !out
