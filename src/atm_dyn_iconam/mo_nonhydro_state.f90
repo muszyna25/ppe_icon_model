@@ -50,7 +50,7 @@
 !!
 MODULE mo_nonhydro_state
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, vp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, INWP,     &
     &                                VINTP_METHOD_UV,                    &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
@@ -2119,6 +2119,10 @@ MODULE mo_nonhydro_state
              p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
              p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
              p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
+    p_metrics%ddxn_z_full   = 0._vp
+    p_metrics%ddxt_z_full   = 0._vp
+    p_metrics%ddqz_z_full_e = 0._vp
+    p_metrics%ddqz_z_half   = 0._vp
 #endif
 
 
@@ -2374,6 +2378,16 @@ MODULE mo_nonhydro_state
                p_metrics%coeff_gradekin(nproma,2,nblks_e),     &
                p_metrics%coeff1_dwdz(nproma,nlev,nblks_c),     & 
                p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)      )
+      p_metrics%inv_ddqz_z_full = 0._vp
+      p_metrics%wgtfac_c        = 0._vp
+      p_metrics%wgtfac_e        = 0._vp
+      p_metrics%wgtfacq_c       = 0._vp
+      p_metrics%wgtfacq_e       = 0._vp
+      p_metrics%wgtfacq1_c      = 0._vp
+      p_metrics%wgtfacq1_e      = 0._vp
+      p_metrics%coeff_gradekin  = 0._vp
+      p_metrics%coeff1_dwdz     = 0._vp
+      p_metrics%coeff2_dwdz     = 0._vp
 #endif
 
       ! Reference atmosphere field exner
@@ -2415,6 +2429,7 @@ MODULE mo_nonhydro_state
                     & isteptype=TSTEP_CONSTANT  )
 #else
         ALLOCATE(p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e))
+        p_metrics%zdiff_gradp = 0._vp
 #endif
       ELSE
         ! Coefficients for cubic interpolation of Exner pressure
@@ -2430,6 +2445,7 @@ MODULE mo_nonhydro_state
                     & isteptype=TSTEP_CONSTANT  )
 #else
         ALLOCATE(p_metrics%coeff_gradp(8,nproma,nlev,nblks_e))
+        p_metrics%coeff_gradp = 0._vp
 #endif
       ENDIF
 
@@ -2447,6 +2463,7 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 #else
       ALLOCATE(p_metrics%exner_exfac(nproma,nlev,nblks_c))
+      p_metrics%exner_exfac = 0._vp
 #endif
 
       ! Reference atmosphere field theta
@@ -2560,9 +2577,12 @@ MODULE mo_nonhydro_state
       ENDIF
 #else
       ALLOCATE(p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c))
+      p_metrics%d_exner_dz_ref_ic = 0._vp
       IF (igradp_method <= 3) THEN
         ALLOCATE(p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c), &
                  p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)  )
+        p_metrics%d2dexdz2_fac1_mc = 0._vp
+        p_metrics%d2dexdz2_fac2_mc = 0._vp
       ENDIF
 #endif
 
