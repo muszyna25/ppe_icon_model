@@ -2054,8 +2054,8 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END DO
 
-    ! Boundary update in case of nesting - non-MPI-parallelized (serial) case
-    IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1) .AND. my_process_is_mpi_all_seq() ) THEN
+    ! Boundary update in case of nesting
+    IF (l_limited_area .OR. p_patch%id > 1) THEN
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -2069,30 +2069,64 @@ MODULE mo_solve_nonhydro
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1, nlev
+        ! non-MPI-parallelized (serial) case
+        IF (istep == 1 .AND. my_process_is_mpi_all_seq() ) THEN
+
+          DO jk = 1, nlev
 !DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
+            DO jc = i_startidx, i_endidx
 
-            p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
+              p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
 
-            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
+              p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-            ! Diagnose exner from rho*theta
-            p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
+              ! Diagnose exner from rho*theta
+              p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+                p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
-            p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
+              p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
 
+            ENDDO
           ENDDO
-        ENDDO
 
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
-            dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
-        ENDDO
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
+              dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
+          ENDDO
+
+        ELSE IF (istep == 1 ) THEN
+
+          ! In the MPI-parallelized case, only rho and w are updated here,
+          ! and theta_v is preliminarily stored on exner in order to save
+          ! halo communications
+
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
+
+              ! *** Storing theta_v on exner is done to save MPI communications ***
+              ! DO NOT TOUCH THIS!
+              p_nh%prog(nnew)%exner(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
+
+              p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
+
+            ENDDO
+          ENDDO
+
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
+              dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
+          ENDDO
+
+        ENDIF
 
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
@@ -2122,62 +2156,8 @@ MODULE mo_solve_nonhydro
       ENDDO
 !OMP END DO
 
-    ELSE IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
-      ! In the MPI-parallelized case, only rho and w are updated here,
-      ! and theta_v is preliminarily stored on exner in order to save
-      ! halo communications
-
-      rl_start = 1
-      rl_end   = grf_bdywidth_c
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
-
-            ! *** Storing theta_v on exner is done to save MPI communications ***
-            ! DO NOT TOUCH THIS!
-            p_nh%prog(nnew)%exner(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
-
-            p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
-            dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
-        ENDDO
-
-        ! compute dw/dz for divergence damping term
-        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
-                ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
-                  (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
-            ENDDO
-          ENDDO
-        ENDIF
-
-      ENDDO
-!OMP END DO
-
     ENDIF
+
 !$OMP END PARALLEL
 
     !-------------------------
