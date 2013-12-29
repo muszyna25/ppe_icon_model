@@ -2027,7 +2027,7 @@ CONTAINS
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
-      IF (msg_level >= 13 .AND. max_cfl_tot > 8._wp) THEN
+      IF (msg_level >= 13 .AND. max_cfl_tot > 4._wp) THEN
         DO jk = slevp1_ti, nlev
           max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
         ENDDO
