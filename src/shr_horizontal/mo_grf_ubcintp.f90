@@ -291,8 +291,8 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE (jb,nlen,nshift,jn,jc,limfac1,limfac2,limfac, &
-!$OMP   maxval_neighb,minval_neighb,relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jb,nlen,nshift,jn,jc,limfac1,limfac2,limfac,min_expval,max_expval, &
+!$OMP   relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_ubcintp
     IF (jb == nblks_ubcintp) THEN
       nlen = npromz_ubcintp

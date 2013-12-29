@@ -493,9 +493,6 @@ CONTAINS
     ! Pointers to index fields
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
-    ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
-    LOGICAL :: lpar_fields=.FALSE.
-
     ! Switch to control if the child domain is vertically nested and therefore 
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
@@ -565,8 +562,6 @@ CONTAINS
       ! grf_intmethod_c = 2, use gradient at cell center for interpolation
     ELSE IF (grf_intmethod_c == 2) THEN
 
-      !$  IF (num_threads_omp <= 14) lpar_fields=.TRUE.
-
       ! Interpolation of temporal tendencies, full w, perturbation density (stored in div) 
       !  and perturbationvirtual potential temperature (stored in dpres_mc)
       CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 6,         &
@@ -575,15 +570,14 @@ CONTAINS
         p_diagp%grf_tend_w,   p_diagc%grf_tend_w,    &
         p_nhp_dyn%w,          p_nhc_dyn%w,           &
         p_nh_state(jg)%diag%div, rho_prc,            &
-        p_nh_state(jg)%diag%dpres_mc, theta_prc,     &
-        lpar_fields=lpar_fields )
+        p_nh_state(jg)%diag%dpres_mc, theta_prc      )
 
       ! Start and end blocks for which interpolation is needed
       i_startblk = p_pc%cells%start_blk(1,1)
       i_endblk   = p_pc%cells%end_blk(grf_bdywidth_c,i_nchdom)
 
-      ! This loop is not OpenMP parallelized because the overhead for opening a
-      ! parallel section is too large
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb =  i_startblk, i_endblk
 
         CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -599,10 +593,12 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+!$OMP END DO
 
       ! The following index list contains the halo points of the lateral boundary
       ! cells. These have to be copied as well in order for rho and theta to be
       ! synchronized.
+!$OMP DO PRIVATE(ic,jb,jc,jk)
       DO ic = 1, p_nh_state(jgc)%metrics%bdy_halo_c_dim
 
         jb = p_nh_state(jgc)%metrics%bdy_halo_c_blk(ic)
@@ -616,6 +612,8 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
     ENDIF
 
     ! Interpolation of cell based tracer variables
@@ -631,16 +629,13 @@ CONTAINS
 
     ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
 
-      !$  IF (num_threads_omp <= 4*ntracer+1) lpar_fields=.TRUE.
-
       ! Apply positive definite limiter on full tracer fields but not on tendencies
       l_limit(1:ntracer) = .FALSE.
       l_limit(ntracer+1:2*ntracer) = .TRUE.
 
-      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,        &
-        f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,          &
-        f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, lpar_fields=lpar_fields, &
-        llimit_nneg=l_limit)
+      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,  &
+        f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,     &
+        f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, llimit_nneg=l_limit )
 
     ENDIF
 
@@ -686,6 +681,7 @@ CONTAINS
 
       IF (ltransport .AND. lstep_adv) THEN
 
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
         DO jb =  i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -702,12 +698,14 @@ CONTAINS
             ENDDO
           ENDDO
         ENDDO
+!$OMP END PARALLEL DO
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
         CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
           ntracer+4, aux3dp, aux3dc)
 
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
@@ -724,9 +722,11 @@ CONTAINS
             ENDDO
           ENDDO
         ENDDO
+!$OMP END PARALLEL DO
 
       ELSE
 
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb =  i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -738,11 +738,13 @@ CONTAINS
             aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
           ENDDO
         ENDDO
+!$OMP END PARALLEL DO
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
         CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
 
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
@@ -754,6 +756,7 @@ CONTAINS
             p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
           ENDDO
         ENDDO
+!$OMP END PARALLEL DO
 
       ENDIF
 

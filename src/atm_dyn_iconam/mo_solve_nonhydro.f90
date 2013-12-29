@@ -1324,7 +1324,7 @@ MODULE mo_solve_nonhydro
     ! end communication phase
     !-------------------------
 
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jk_start)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = 5
     rl_end   = min_rledge_int - 2
@@ -1651,7 +1651,7 @@ MODULE mo_solve_nonhydro
                    opt_rlend=min_rlcell_int)
     ENDIF
 
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jk_start)
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
