@@ -117,6 +117,15 @@ TYPE t_gridref_state
   ! dim1=nproma, dim2=nblks, dim3=n_childdom 
   LOGICAL, ALLOCATABLE :: mask_ovlp_c(:,:,:), mask_ovlp_ch(:,:,:), mask_ovlp_e(:,:,:), mask_ovlp_v(:,:,:)
 
+  ! Number of grid points for which tendencies for lateral boundary interpolation need to be computed
+  ! at the parent grid level
+  INTEGER :: npoints_bdyintp_src_c, npoints_bdyintp_src_e
+
+  ! Index lists of grid points for which tendencies for lateral boundary interpolation need to be computed
+  ! at the parent grid level
+  INTEGER, ALLOCATABLE :: idxlist_bdyintp_src_c(:), idxlist_bdyintp_src_e(:), &
+                          blklist_bdyintp_src_c(:), blklist_bdyintp_src_e(:)
+
 END TYPE t_gridref_state
 
   !----------------------------------------------------------------------------

@@ -822,8 +822,8 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
 
   INTEGER :: jcd, icid, i_nchdom, ist
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-  INTEGER :: jg, jb, jc, je, jv, i, ic, ib, iv, ie, ip
-  INTEGER :: npoints_lbc, npoints_ubc, icount_lbc, icount_ubc
+  INTEGER :: jg, jb, jc, je, jv, i, ic, ib, iv, ie, ip, iv1, iv2, ib1, ib2
+  INTEGER :: npoints_lbc, npoints_ubc, icount_lbc, icount_ubc, npoints_lbc_src, icount_lbc_src
   LOGICAL :: lprocess, lfound(2,6)
   INTEGER, ALLOCATABLE :: inv_ind_c(:,:), inv_ind_e_lbc(:,:), inv_ind_e_ubc(:,:), &
                           inv_ind_v(:,:)
@@ -1385,6 +1385,160 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     DEALLOCATE (inv_ind_c, inv_ind_e_lbc, inv_ind_e_ubc, inv_ind_v)
 
    ENDDO ! child domains
+
+
+   ! Index lists for grid points on which tendency fields for lateral boundary interpolation
+   ! need to be computed at parent level (including neighbor plus halo points for 
+   ! gradient computation / interpolation stencil)
+
+   ! cell points
+
+    npoints_lbc_src = 0
+
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlcell)
+
+      DO jc = i_startidx, i_endidx
+
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%cells%refin_ctrl(jc,jb) >= grf_bdyintp_end_c-1 ) THEN
+          npoints_lbc_src = npoints_lbc_src + 1
+        ENDIF
+        IF (p_patch%cells%refin_ctrl(jc,jb) == 0) THEN
+          neighbor_points: DO i = 2, 10
+            ic = p_int%rbf_c2grad_idx(i,jc,jb)
+            ib = p_int%rbf_c2grad_blk(i,jc,jb)
+            IF (p_patch%cells%refin_ctrl(ic,ib) < 0) THEN
+              npoints_lbc_src = npoints_lbc_src + 1
+              EXIT neighbor_points ! to avoid multiple counts of the same grid point
+            ENDIF
+          ENDDO neighbor_points
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    p_grf%npoints_bdyintp_src_c = npoints_lbc_src
+
+    ! edge points
+
+    npoints_lbc_src = 0
+
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rledge)
+
+      DO je = i_startidx, i_endidx
+
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
+            p_patch%edges%refin_ctrl(je,jb) >= grf_bdyintp_end_e-2 ) THEN
+          npoints_lbc_src = npoints_lbc_src + 1
+        ENDIF
+        IF (p_patch%edges%refin_ctrl(je,jb) == 0) THEN
+          iv1 = p_patch%edges%vertex_idx(je,jb,1)
+          ib1 = p_patch%edges%vertex_blk(je,jb,1)
+          iv2 = p_patch%edges%vertex_idx(je,jb,2)
+          ib2 = p_patch%edges%vertex_blk(je,jb,2)
+          IF (p_patch%verts%refin_ctrl(iv1,ib1) < 0 .OR. p_patch%verts%refin_ctrl(iv2,ib2) < 0) THEN
+            npoints_lbc_src = npoints_lbc_src + 1
+          ENDIF
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    p_grf%npoints_bdyintp_src_e = npoints_lbc_src
+
+    ALLOCATE (p_grf%idxlist_bdyintp_src_c(MAX(1,p_grf%npoints_bdyintp_src_c)),         &
+              p_grf%blklist_bdyintp_src_c(MAX(1,p_grf%npoints_bdyintp_src_c)),         &
+              p_grf%idxlist_bdyintp_src_e(MAX(1,p_grf%npoints_bdyintp_src_e)),         &
+              p_grf%blklist_bdyintp_src_e(MAX(1,p_grf%npoints_bdyintp_src_e)), STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of parent-level index lists failed')
+    ENDIF
+
+    ! Now compute index lists
+
+    ! cell points
+
+    i_startblk = p_patch%cells%start_blk(1,1)
+    i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+
+    icount_lbc_src = 0
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rlcell)
+
+      DO jc = i_startidx, i_endidx
+
+        IF (p_patch%cells%refin_ctrl(jc,jb) <= grf_bdyintp_start_c .AND. &
+            p_patch%cells%refin_ctrl(jc,jb) >= grf_bdyintp_end_c-1 ) THEN
+          icount_lbc_src = icount_lbc_src + 1
+          p_grf%idxlist_bdyintp_src_c(icount_lbc_src) = jc
+          p_grf%blklist_bdyintp_src_c(icount_lbc_src) = jb
+        ENDIF
+        IF (p_patch%cells%refin_ctrl(jc,jb) == 0) THEN
+          neighbor_points_l2: DO i = 2, 10
+            ic = p_int%rbf_c2grad_idx(i,jc,jb)
+            ib = p_int%rbf_c2grad_blk(i,jc,jb)
+            IF (p_patch%cells%refin_ctrl(ic,ib) < 0) THEN
+              icount_lbc_src = icount_lbc_src + 1
+              p_grf%idxlist_bdyintp_src_c(icount_lbc_src) = jc
+              p_grf%blklist_bdyintp_src_c(icount_lbc_src) = jb
+              EXIT neighbor_points_l2 ! to avoid multiple counts of the same grid point
+            ENDIF
+          ENDDO neighbor_points_l2
+        ENDIF
+
+      ENDDO
+    ENDDO
+
+    ! edge points
+
+    i_startblk = p_patch%edges%start_blk(1,1)
+    i_endblk   = p_patch%edges%end_blk(min_rledge,i_nchdom)
+
+    icount_lbc_src = 0
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, 1, min_rledge)
+
+      DO je = i_startidx, i_endidx
+
+        IF (p_patch%edges%refin_ctrl(je,jb) <= grf_bdyintp_start_e .AND. &
+            p_patch%edges%refin_ctrl(je,jb) >= grf_bdyintp_end_e-2 ) THEN
+            icount_lbc_src = icount_lbc_src + 1
+            p_grf%idxlist_bdyintp_src_e(icount_lbc_src) = je
+            p_grf%blklist_bdyintp_src_e(icount_lbc_src) = jb
+        ENDIF
+        IF (p_patch%edges%refin_ctrl(je,jb) == 0) THEN
+          iv1 = p_patch%edges%vertex_idx(je,jb,1)
+          ib1 = p_patch%edges%vertex_blk(je,jb,1)
+          iv2 = p_patch%edges%vertex_idx(je,jb,2)
+          ib2 = p_patch%edges%vertex_blk(je,jb,2)
+          IF (p_patch%verts%refin_ctrl(iv1,ib1) < 0 .OR. p_patch%verts%refin_ctrl(iv2,ib2) < 0) THEN
+            icount_lbc_src = icount_lbc_src + 1
+            p_grf%idxlist_bdyintp_src_e(icount_lbc_src) = je
+            p_grf%blklist_bdyintp_src_e(icount_lbc_src) = jb
+          ENDIF
+        ENDIF
+
+      ENDDO
+    ENDDO
+
 
    ! Compute mask fields needed for feedback computations executed at the (normal) parent grid level
    !
