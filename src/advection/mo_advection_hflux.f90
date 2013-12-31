@@ -125,7 +125,7 @@ MODULE mo_advection_hflux
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
-
+  USE mo_vertical_coord_table,ONLY: vct_a
 
   IMPLICIT NONE
 
@@ -234,6 +234,7 @@ CONTAINS
     INTEGER :: iadv_min_slev        !< scheme specific minimum slev
                                     !< i.e. minimum slev of all tracers which 
                                     !< are advected with the given scheme 
+    INTEGER :: nsubsteps            !< number of substeps in miura_cycl (2 or 3)
 
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
@@ -275,6 +276,16 @@ CONTAINS
 
 
     DO jt = 1, ntracer ! Tracer loop
+
+      ! Determine number of substeps in miura_cycl
+      ! It is assumed that three substeps are needed if the top of the currently active
+      ! model domain is higher than 40 km, otherwise, two are sufficient
+      !
+      IF (vct_a(p_iadv_slev(jt)+p_patch%nshift_total) > 40000._wp) THEN
+        nsubsteps = 3
+      ELSE
+        nsubsteps = 2
+      ENDIF
 
       ! Select desired flux calculation method
       SELECT CASE( p_ihadv_tracer(jt) )
@@ -351,21 +362,13 @@ CONTAINS
           &                 opt_ti_slev = iadv_min_slev                   )! in
 
 
-
-      CASE( UP3 )   ! ihadv_tracer = 6
-        ! CALL 3rd order upwind (only for hexagons, currently)
-        CALL upwind_hflux_hex( p_patch, p_int, p_cc(:,:,:,jt), p_c0(:,:,:,jt), &! in
-          &                 p_mass_flx_e, p_dtime, p_itype_hlimit(jt),         &! in
-          &                 p_upflux(:,:,:,jt), opt_slev=p_iadv_slev(jt)       )! inout
-
-
       CASE ( MCYCL )   ! ihadv_tracer = 20
 
         iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
 
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
-          &             p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,        &! in
+          &             p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps,&! in
           &             p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),&! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
@@ -394,22 +397,24 @@ CONTAINS
           &              opt_ti_slev = qvsubstep_elev+1,                 &! in
           &              opt_ti_elev = p_patch%nlev                      )! in
 
+        IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%miura_mcycl_h is only used for miura 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
         ! with substepping. This prevents us from computing the backward 
-        ! trajectories twice for the standard miura3-scheme.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
-          &              p_int, lcompute%miura_mcycl_h(jt),              &! in
-          &              lcleanup%miura_mcycl_h(jt),                     &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              elev        = qvsubstep_elev,                   &! in
-          &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
-          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ! trajectories multiple times when combining the substepping scheme with
+        ! different other schemes.
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
+          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              elev        = qvsubstep_elev,                      &! in
+          &              opt_lconsv  = llsq_lin_consv,                      &! in
+          &              opt_rlend   = i_rlend,                             &! in
+          &              opt_slev    = p_iadv_slev(jt),                     &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
+          &              opt_ti_elev = qvsubstep_elev                       )! in
+        ENDIF
 
 
       CASE( MIURA3_MCYCL )   ! ihadv_tracer = 32
@@ -431,21 +436,21 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
         ! with substepping. This prevents us from computing the backward 
-        ! trajectories twice for the standard miura3-scheme.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
-          &              p_int, lcompute%miura3_mcycl_h(jt),             &! in
-          &              lcleanup%miura3_mcycl_h(jt),                    &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              elev        = qvsubstep_elev,                   &! in
-          &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
-          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ! trajectories multiple times when combining the substepping scheme with
+        ! different other schemes.
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
+          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              elev        = qvsubstep_elev,                      &! in
+          &              opt_lconsv  = llsq_lin_consv,                      &! in
+          &              opt_rlend   = i_rlend,                             &! in
+          &              opt_slev    = p_iadv_slev(jt),                     &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
+          &              opt_ti_elev = qvsubstep_elev                       )! in
         ENDIF
 
       CASE (FFSL_MCYCL)   ! ihadv_tracer = 42
@@ -468,21 +473,21 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
         ! with substepping. This prevents us from computing the backward 
-        ! trajectories twice for the standard miura3-scheme.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
-          &              p_int, lcompute%ffsl_mcycl_h(jt),               &! in
-          &              lcleanup%ffsl_mcycl_h(jt),                      &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              elev        = qvsubstep_elev,                   &! in
-          &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
-          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ! trajectories multiple times when combining the substepping scheme with
+        ! different other schemes.
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
+          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              elev        = qvsubstep_elev,                      &! in
+          &              opt_lconsv  = llsq_lin_consv,                      &! in
+          &              opt_rlend   = i_rlend,                             &! in
+          &              opt_slev    = p_iadv_slev(jt),                     &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
+          &              opt_ti_elev = qvsubstep_elev                       )! in
         ENDIF
 
 
@@ -507,21 +512,21 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
         ! with substepping. This prevents us from computing the backward 
-        ! trajectories twice for the standard miura3-scheme.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, 3,      &! in
-          &              p_int, lcompute%ffsl_hyb_mcycl_h(jt),           &! in
-          &              lcleanup%ffsl_hyb_mcycl_h(jt),                  &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              elev        = qvsubstep_elev,                   &! in
-          &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = p_iadv_slev(jt),                  &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                  &! in
-          &              opt_ti_elev = qvsubstep_elev                    )! in
+        ! trajectories multiple times when combining the substepping scheme with
+        ! different other schemes.
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
+          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
+          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              elev        = qvsubstep_elev,                      &! in
+          &              opt_lconsv  = llsq_lin_consv,                      &! in
+          &              opt_rlend   = i_rlend,                             &! in
+          &              opt_slev    = p_iadv_slev(jt),                     &! in
+          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
+          &              opt_ti_elev = qvsubstep_elev                       )! in
         ENDIF
 
       END SELECT
@@ -1075,14 +1080,12 @@ CONTAINS
     !    The flux limiter is based on work by Zalesak (1979)
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &                p_out_e, opt_rlend=i_rlend, opt_slev=slev,      & !inout,in
-        &                opt_elev=elev                                   ) !in
+        &                p_out_e, slev, elev, opt_rlend=i_rlend          ) !inout,in
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       ! MPI-sync necessary
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
-        &                   opt_rlend=i_rlend, opt_slev=slev,       & !in
-        &                   opt_elev=elev                           ) !in
+        &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
 
@@ -1268,9 +1271,9 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-    IF (p_ncycl /= 3) &
+    IF (p_ncycl /= 2 .AND. p_ncycl /= 3) &
     CALL finish(TRIM(routine),'current implementation of upwind_hflux_miura_cycl '//&
-      &                       'requires 3 subcycling steps (p_ncycl=3)')
+      &                       'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1520,14 +1523,12 @@ CONTAINS
       !    The flux limiter is based on work by Zalesak (1979)
       !
       IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
-        ! MPI-sync necessary
         !
         CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
           &                   z_tracer_mflx(:,:,:,nsub)        , & !inout
-          &                   opt_rho = z_rho(:,:,:,nnow)      , & !in 
-          &                   opt_rlend=i_rlend, opt_slev=slev , & !in
-          &                   opt_elev=elev                      ) !in
+          &                   slev, elev, opt_rlend=i_rlend    , & !in 
+          &                   opt_rho = z_rho(:,:,:,nnow)        ) !in
       ENDIF
 
 
@@ -1544,10 +1545,10 @@ CONTAINS
       i_endblk   = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
 
 
-    ! initialize also nest boundary points with zero
-    IF ( p_patch%id > 1 .OR. l_limited_area) THEN
+    ! initialize nest boundary points at the second time level
+    IF ( nsub == 1 .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
 !$OMP WORKSHARE
-      z_tracer(:,:,1:i_startblk,nnew) = 0._wp
+      z_tracer(:,slev:elev,1:i_startblk,nnew) = z_tracer(:,slev:elev,1:i_startblk,nnow)
 !$OMP END WORKSHARE
     ENDIF
 
@@ -1653,15 +1654,23 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
+        ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
+        !
+        IF (p_ncycl == 2) THEN
 !CDIR UNROLL=5
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
-
-            ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
-
-          ENDDO ! loop over edges
-        ENDDO   ! loop over vertical levels
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
+              p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        ELSE IF (p_ncycl == 3) THEN
+!CDIR UNROLL=5
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
+              p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        ENDIF
 
     ENDDO    ! loop over blocks
 !$OMP END DO NOWAIT
@@ -2163,14 +2172,13 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, opt_beta_fct=advection_config(pid)%beta_fct,& !inout,in 
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
-        &           opt_rlend=i_rlend, opt_slev=slev, opt_elev=elev      ) !in
+        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
-      ! no MPI-sync necessary
+      !
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   opt_rlend=i_rlend, opt_slev=slev,            & !in
-        &                   opt_elev=elev                                ) !in
+        &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
 
@@ -2722,14 +2730,13 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, opt_beta_fct=advection_config(pid)%beta_fct,& !inout,in
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
-        &           opt_rlend=i_rlend, opt_slev=slev, opt_elev=elev      ) !in
+        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
-      ! no MPI-sync necessary
+      !
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   opt_rlend=i_rlend, opt_slev=slev,            & !in
-        &                   opt_elev=elev                                ) !in
+        &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
 
@@ -3277,14 +3284,13 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, opt_beta_fct=advection_config(pid)%beta_fct,& !inout,in
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
-        &           opt_rlend=i_rlend, opt_slev=slev, opt_elev=elev      ) !in
+        &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
-      ! no MPI-sync necessary
+      !
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
-        &                   opt_rlend=i_rlend, opt_slev=slev,            & !in
-        &                   opt_elev=elev                                ) !in
+        &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
 
@@ -3306,115 +3312,6 @@ CONTAINS
 
   END SUBROUTINE hflux_ffsl_hybrid
 
-
-  !-----------------------------------------------------------------------
-  !>
-  !! The upwind biased 3rd oder advection for the hexagonal grid.
-  !! It would be generizable for triangles, too.
-  !!
-  !! @par Revision History
-  !! Developed by Almut Gassmann, MPI-M (2010-11-18)
-  !!
-  !! @par !LITERATURE
-  !! - Skamarock and Gassmann (2011), Mon. Wea. Rev., 139, pp. 2962-2975
-  !!
-  SUBROUTINE upwind_hflux_hex( p_patch, p_int, p_cc, p_c0, p_mass_flx_e,   &
-    &                          p_dtime, p_itype_hlimit, p_out_e, opt_slev, &
-    &                          opt_elev )
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &    !< patch on which computation is performed
-      &  p_patch
-
-    TYPE(t_int_state), TARGET, INTENT(IN) :: & !< pointer to data structure for interpolation
-      &  p_int
-
-    REAL(wp), INTENT(IN) ::     &   !< cell centered variable to be advected
-      &  p_cc(:,:,:)                !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(IN) ::     &   !< advected cell centered variable (step n)
-      &  p_c0(:,:,:)                !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(IN) ::     &   !< contravariant horizontal mass flux
-      &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp), INTENT(INOUT) ::  &   !< variable in which the upwind flux is stored
-      &  p_out_e(:,:,:)             !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp), INTENT(IN) :: p_dtime !< time step
- 
-    INTEGER, INTENT(IN) ::      &   !< parameter to select the limiter
-      &  p_itype_hlimit             !< for horizontal transport
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
-    REAL(wp) :: z_ave_e     (nproma,p_patch%nlev,p_patch%nblks_e), &
-      &         z_dir_lapl_e(nproma,p_patch%nlev,p_patch%nblks_e)
-
-    INTEGER  :: slev, elev         !< vertical start and end level
-    INTEGER  :: nblks_e, npromz_e
-    INTEGER  :: jk, jb, nlen       !< index vert level, block; length of block
-    INTEGER  :: jg                 !< patch ID
-
-    !-----------------------------------------------------------------------
-
-
-    ! check optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = p_patch%nlev
-    END IF
-
-    ! get patch ID
-    jg = p_patch%id
-
-    ! compute ordinary average at the edge
-    CALL cells2edges_scalar(p_cc,p_patch,p_int%c_lin_e,z_ave_e, &
-      &                     opt_slev=slev, opt_elev=elev )
-
-    ! compute directional laplace in edge direction
-    CALL directional_laplace(p_mass_flx_e,p_cc,p_patch,p_int,&
-      &                      advection_config(jg)%upstr_beta_adv,z_dir_lapl_e,&
-      &                      opt_slev=slev, opt_elev=elev )
-
-    ! values for the blocking
-    nblks_e  = p_patch%nblks_e
-    npromz_e = p_patch%npromz_e
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-      DO jk = slev, elev
-          p_out_e(1:nlen,jk,jb) = p_mass_flx_e(1:nlen,jk,jb) &
-          & *(z_ave_e(1:nlen,jk,jb) &
-          & - p_patch%edges%dual_edge_length(1:nlen,jb)  &
-          & * p_patch%edges%dual_edge_length(1:nlen,jb)  &
-          & /6.0_wp * z_dir_lapl_e(1:nlen,jk,jb))
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    IF ( p_itype_hlimit == ifluxl_sm) THEN
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_c0, p_out_e, & !in,inout
-        &                   opt_slev=slev, opt_elev=elev            ) !in
-    ENDIF
-
-  END SUBROUTINE upwind_hflux_hex
 
 END MODULE mo_advection_hflux
 

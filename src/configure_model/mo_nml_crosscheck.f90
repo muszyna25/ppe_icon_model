@@ -768,17 +768,6 @@ CONTAINS
           ENDIF
         ENDDO
 
-        IF ( ntracer > 1 ) THEN
-          z_nogo_tri(1:3)=(/MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL/)
-          DO jt=2,ntracer
-            IF ( ANY(z_nogo_tri == advection_config(jg)%ihadv_tracer(jt)) ) THEN
-              CALL finish( TRIM(method_name),                                       &
-                &  'TRI-C grid ihadv_tracer: MIURA(3)/FFSL_MCYCL not allowed for '// &
-                &  'any other tracer than qv.')
-            ENDIF
-          ENDDO
-        ENDIF
-
       CASE (6)
         CALL finish( TRIM(method_name),         &
          'hexagonal code is no longer available')
