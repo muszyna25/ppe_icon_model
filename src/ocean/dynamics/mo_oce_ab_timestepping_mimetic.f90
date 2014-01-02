@@ -119,12 +119,11 @@ MODULE mo_oce_ab_timestepping_mimetic
   LOGICAL, PUBLIC,PARAMETER :: l_staggered_timestep = .FALSE.
   
   
-  ! these are allocated once for efficeincy and used only by the lhs for the solver
+  ! these are allocated once for efficiency and used only by the lhs for the solver
   REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
   REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
   REAL(wp), ALLOCATABLE :: lhs_z_e_top (:,:)
-  REAL(wp), ALLOCATABLE :: lhs_div_z_c(:,:)  ! (nproma,1,patch%alloc_cell_blocks)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)
   REAL(wp), PARAMETER ::  min_top_height = 0.05_wp ! we have to have at least 5cm water on top of sea cells
   
@@ -139,7 +138,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
-    & p_phys_param, timestep, p_op_coeff)
+    & p_phys_param, timestep, op_coeffs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -148,7 +147,7 @@ CONTAINS
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER :: timestep
     !TYPE(t_int_state),TARGET,INTENT(IN)           :: p_int
-    TYPE(t_operator_coeff)                        :: p_op_coeff
+    TYPE(t_operator_coeff)                        :: op_coeffs
     !
     !Local variables
     !
@@ -194,7 +193,7 @@ CONTAINS
                                                                   & ocean_state%p_prog(nold(1))%vn,&
                                                                   & ocean_state%p_prog(nold(1))%vn,&
                                                                   & ocean_state%p_diag,            &
-                                                                  & p_op_coeff)
+                                                                  & op_coeffs)
 
     ENDIF
 
@@ -248,24 +247,24 @@ CONTAINS
     END IF
     
     ! Apply windstress
-    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, p_op_coeff, p_sfc_flx,     &
+    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_sfc_flx,     &
       & ocean_state%p_aux%bc_top_u, ocean_state%p_aux%bc_top_v, &
       & ocean_state%p_aux%bc_top_veloc_cc)
     
     
     ! Apply bot boundary condition for horizontal velocity
-    CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, p_op_coeff)
+    CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, op_coeffs)
     
     IF (ltimer) CALL timer_start(timer_ab_expl)
     CALL calculate_explicit_term_ab(patch_3d, ocean_state, p_phys_param, &
-      & is_initial_timestep(timestep), p_op_coeff)
+      & is_initial_timestep(timestep), op_coeffs)
     IF (ltimer) CALL timer_stop(timer_ab_expl)
     
     IF(.NOT.l_rigid_lid)THEN
       
       ! Calculate RHS of surface equation
       IF (ltimer) CALL timer_start(timer_ab_rhs4sfc)
-      CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, p_op_coeff)
+      CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, op_coeffs)
       IF (ltimer) CALL timer_stop(timer_ab_rhs4sfc)
       
       
@@ -301,7 +300,7 @@ CONTAINS
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
               & z_implcoeff,               &  ! arg 4 of lhs
-              & p_op_coeff,                &
+              & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
               & .FALSE.,                   &  ! NOT absolute tolerance
@@ -321,7 +320,7 @@ CONTAINS
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
               & z_implcoeff,               &  ! arg 4 of lhs
-              & p_op_coeff,                &
+              & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
               & .FALSE.,                   &  ! NOT absolute tolerance
@@ -369,7 +368,7 @@ CONTAINS
             & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
             & patch_3d,                    &  ! arg 3 of lhs
             & z_implcoeff,                   &  ! arg 4 of lhs
-            & p_op_coeff,                    &
+            & op_coeffs,                    &
             & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
             & solver_tolerance,              &  ! tolerance
             & use_absolute_solver_tolerance, &  ! use absolute tolerance = true
@@ -428,7 +427,7 @@ CONTAINS
       !         & z_implcoeff,            &
       !         & ocean_state%p_diag%thick_e,    &
       !         & ocean_state%p_diag%thick_c,    &
-      !         & p_op_coeff)             &
+      !         & op_coeffs)             &
       !         & -ocean_state%p_aux%p_rhs_sfc_eq
       !     CALL dbg_print('SolvSfc: residual h-res'    ,z_h_c                  ,str_module,idt_src)
       idt_src=1  ! output print level (1-5, fix)
@@ -452,15 +451,15 @@ CONTAINS
   
   
   !-------------------------------------------------------------------------
-  SUBROUTINE jacobi_precon( p_jp, patch_3d, p_op_coeff,thick_e) !RESULT(p_jp)
+  SUBROUTINE jacobi_precon( p_jp, patch_3d, op_coeffs,thick_e) !RESULT(p_jp)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp),INTENT(inout)                        :: p_jp(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
-    TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)             :: op_coeffs
     REAL(wp),INTENT(in)                           :: thick_e(:,:)
     !
     ! Left-hand side calculated from iterated height
-    !REAL(wp) :: p_jp(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,patch%alloc_cell_blocks)
+    !REAL(wp) :: p_jp(SIZE(x,1), SIZE(x,2))  ! (nproma,patch%alloc_cell_blocks)
     !
     ! local variables
     REAL(wp) :: gdt2
@@ -501,39 +500,39 @@ CONTAINS
         edge_3_blk = patch%cells%edge_blk(jc,jb,3)
         !
         !         p_diag(jc,jb) = patch%cells%area(jc,jb)-&
-        !                &gdt2*ab_gam*ab_beta*((p_op_coeff%div_coeff(jc,1,jb,1)&!*thick_e(edge_1_idx,edge_1_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_1_idx,1,edge_1_blk)&
+        !                &gdt2*ab_gam*ab_beta*((op_coeffs%div_coeff(jc,1,jb,1)&!*thick_e(edge_1_idx,edge_1_blk)&
+        !                &*op_coeffs%grad_coeff(edge_1_idx,1,edge_1_blk)&
         !                &+&
-        !                &p_op_coeff%div_coeff(jc,1,jb,2)&!*thick_e(edge_2_idx,edge_2_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_2_idx,1,edge_2_blk)&
+        !                &op_coeffs%div_coeff(jc,1,jb,2)&!*thick_e(edge_2_idx,edge_2_blk)&
+        !                &*op_coeffs%grad_coeff(edge_2_idx,1,edge_2_blk)&
         !                &+&
-        !                &p_op_coeff%div_coeff(jc,1,jb,3)&!*thick_e(edge_3_idx,edge_3_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_3_idx,1,edge_3_blk)))&
+        !                &op_coeffs%div_coeff(jc,1,jb,3)&!*thick_e(edge_3_idx,edge_3_blk)&
+        !                &*op_coeffs%grad_coeff(edge_3_idx,1,edge_3_blk)))&
         !                &*patch%cells%area(jc,jb)
         !
         ! z1=gdt2*ab_gam*ab_beta*(&
-        !   & p_op_coeff%div_coeff(jc,1,jb,1)*thick_e(edge_1_idx,edge_1_blk)&
-        !   &*p_op_coeff%grad_coeff(edge_1_idx,1,edge_1_blk))
+        !   & op_coeffs%div_coeff(jc,1,jb,1)*thick_e(edge_1_idx,edge_1_blk)&
+        !   &*op_coeffs%grad_coeff(edge_1_idx,1,edge_1_blk))
         !
         !
-        ! z2=gdt2*ab_gam*ab_beta*(p_op_coeff%div_coeff(jc,1,jb,2)*thick_e(edge_2_idx,edge_2_blk)&
-        !    &*p_op_coeff%grad_coeff(edge_2_idx,1,edge_2_blk))
+        ! z2=gdt2*ab_gam*ab_beta*(op_coeffs%div_coeff(jc,1,jb,2)*thick_e(edge_2_idx,edge_2_blk)&
+        !    &*op_coeffs%grad_coeff(edge_2_idx,1,edge_2_blk))
         !
-        ! z3=gdt2*ab_gam*ab_beta*(p_op_coeff%div_coeff(jc,1,jb,3)*thick_e(edge_3_idx,edge_3_blk)&
-        !   &*p_op_coeff%grad_coeff(edge_3_idx,1,edge_3_blk))
+        ! z3=gdt2*ab_gam*ab_beta*(op_coeffs%div_coeff(jc,1,jb,3)*thick_e(edge_3_idx,edge_3_blk)&
+        !   &*op_coeffs%grad_coeff(edge_3_idx,1,edge_3_blk))
         !
         ! p_diag(jc,jb)=1.0_wp-sqrt(z1*z1+z2*z2+z3*z3)gdt2
         
         !         p_diag(jc,jb) = (1.0_wp-&
         !                &gdt2*ab_gam*ab_beta*(&
-        !                & p_op_coeff%div_coeff(jc,1,jb,1)*thick_e(edge_1_idx,edge_1_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_1_idx,1,edge_1_blk)&
+        !                & op_coeffs%div_coeff(jc,1,jb,1)*thick_e(edge_1_idx,edge_1_blk)&
+        !                &*op_coeffs%grad_coeff(edge_1_idx,1,edge_1_blk)&
         !                &+&
-        !                &p_op_coeff%div_coeff(jc,1,jb,2)*thick_e(edge_2_idx,edge_2_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_2_idx,1,edge_2_blk)&
+        !                &op_coeffs%div_coeff(jc,1,jb,2)*thick_e(edge_2_idx,edge_2_blk)&
+        !                &*op_coeffs%grad_coeff(edge_2_idx,1,edge_2_blk)&
         !                &+&
-        !                &p_op_coeff%div_coeff(jc,1,jb,3)*thick_e(edge_3_idx,edge_3_blk)&
-        !                &*p_op_coeff%grad_coeff(edge_3_idx,1,edge_3_blk)))*patch%cells%area(jc,jb)/gdt2
+        !                &op_coeffs%div_coeff(jc,1,jb,3)*thick_e(edge_3_idx,edge_3_blk)&
+        !                &*op_coeffs%grad_coeff(edge_3_idx,1,edge_3_blk)))*patch%cells%area(jc,jb)/gdt2
         !
         p_diag(jc,jb)=1.0_wp- &
           & gdt2*ab_gam*ab_beta*(patch%edges%primal_edge_length(edge_1_idx,edge_1_blk)&
@@ -570,7 +569,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE calculate_explicit_term_ab( patch_3d, ocean_state, p_phys_param,&
-    & l_initial_timestep, p_op_coeff)
+    & l_initial_timestep, op_coeffs)
     
     !TYPE(t_patch), TARGET, INTENT(in)             :: patch
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -578,7 +577,7 @@ CONTAINS
     TYPE (t_ho_params)                            :: p_phys_param
     !TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
     LOGICAL,INTENT(in)                            :: l_initial_timestep
-    TYPE(t_operator_coeff)                        :: p_op_coeff
+    TYPE(t_operator_coeff)                        :: op_coeffs
     !
     !local variables
     !
@@ -612,14 +611,14 @@ CONTAINS
         & ocean_state%p_prog(nold(1))%vn,    &
         & ocean_state%p_diag,                &
         & ocean_state%p_diag%veloc_adv_horz, &
-        & p_op_coeff)
+        & op_coeffs)
     ELSE
       CALL veloc_adv_horz_mimetic( patch_3d,         &
         & ocean_state%p_prog(nold(1))%vn,    &
         & ocean_state%p_prog(nnew(1))%vn,    &
         & ocean_state%p_diag,                &
         & ocean_state%p_diag%veloc_adv_horz, &
-        & p_op_coeff)
+        & op_coeffs)
     ENDIF
     
     !---------------------------------------------------------------------
@@ -642,13 +641,13 @@ CONTAINS
       ! calculate gradient of hydrostatic pressure in 3D
       CALL grad_fd_norm_oce_3d( ocean_state%p_diag%press_hyd,  &
         & patch_3d,             &
-        & p_op_coeff%grad_coeff,  &
+        & op_coeffs%grad_coeff,  &
         & ocean_state%p_diag%press_grad)
       CALL sync_patch_array(sync_e, patch_horz, ocean_state%p_diag%press_grad)
       
       ! calculate vertical velocity advection
       CALL veloc_adv_vert_mimetic( patch_3d,                 &
-        & ocean_state%p_diag,p_op_coeff,     &
+        & ocean_state%p_diag,op_coeffs,     &
         & ocean_state%p_diag%veloc_adv_vert )
       
       ! calculate vertical velocity diffusion
@@ -657,7 +656,7 @@ CONTAINS
       IF (expl_vertical_velocity_diff==0) THEN
         CALL velocity_diffusion_vert_mimetic( patch_3d,     &
           & ocean_state%p_diag,            &
-          & ocean_state%p_aux,p_op_coeff,  &
+          & ocean_state%p_aux,op_coeffs,  &
           & p_phys_param,           &
           & ocean_state%p_diag%laplacian_vert)
       ENDIF
@@ -692,7 +691,7 @@ CONTAINS
     CALL velocity_diffusion(patch_3d,              &
       & ocean_state%p_prog(nold(1))%vn, &
       & p_phys_param,            &
-      & ocean_state%p_diag,p_op_coeff,  &
+      & ocean_state%p_diag,op_coeffs,  &
       & ocean_state%p_diag%laplacian_horz)
     
     CALL sync_patch_array(sync_e, patch_horz, ocean_state%p_diag%laplacian_horz)
@@ -709,7 +708,7 @@ CONTAINS
     
     CALL grad_fd_norm_oce_2d_3d(ocean_state%p_prog(nold(1))%h, &
       & patch_horz,                  &
-      & p_op_coeff%grad_coeff(:,1,:),  &
+      & op_coeffs%grad_coeff(:,1,:),  &
       & z_gradh_e(:,:))
     CALL dbg_print('old height gradient'  ,z_gradh_e, str_module,idt_src, in_subset=owned_edges)
 
@@ -727,10 +726,10 @@ CONTAINS
     IF (l_inverse_flip_flop) THEN
       
       IF ( iswm_oce /= 1 ) THEN
-        z_e = inverse_primal_flip_flop(patch_horz,patch_3d,p_op_coeff,&
+        z_e = inverse_primal_flip_flop(patch_horz,patch_3d,op_coeffs,&
           & ocean_state%p_diag%veloc_adv_horz, ocean_state%p_diag%h_e)
       ELSE
-        z_e = inverse_primal_flip_flop(patch_horz,patch_3d, p_op_coeff, &
+        z_e = inverse_primal_flip_flop(patch_horz,patch_3d, op_coeffs, &
           & ocean_state%p_diag%veloc_adv_horz, ocean_state%p_diag%thick_e)
       ENDIF
       
@@ -972,7 +971,7 @@ CONTAINS
       CALL veloc_diffusion_vert_impl_hom( patch_3d,             &
         & ocean_state%p_diag%vn_pred,      &
         & p_phys_param%a_veloc_v,   &
-        & p_op_coeff,               &
+        & op_coeffs,               &
         & ocean_state%p_diag%vn_impl_vert_diff)
       IF(l_rigid_lid)THEN
         ocean_state%p_diag%vn_pred(1:nproma,1:n_zlev,1:patch_horz%nblks_e) &
@@ -1026,7 +1025,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, p_op_coeff)
+  SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, op_coeffs)
     !
     ! Patch on which computation is performed
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1034,7 +1033,7 @@ CONTAINS
     ! Type containing ocean state
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_sfc_flx), INTENT(in)       :: p_sfc_flx
-    TYPE(t_operator_coeff)            :: p_op_coeff
+    TYPE(t_operator_coeff)            :: op_coeffs
     !
     !  local variables
     !
@@ -1165,21 +1164,21 @@ CONTAINS
       
       IF( iswm_oce /= 1 ) THEN !the 3D case
         
-        CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab, p_op_coeff, z_e )
+        CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab, op_coeffs, z_e )
         
       ELSEIF( iswm_oce == 1 ) THEN
         !    CALL map_edges2edges_viacell_3D( patch_3d,    &
         !                                    & z_vn_ab(:,1,:),&
-        !                                    & p_op_coeff,    &
+        !                                    & op_coeffs,    &
         !                                    & z_e(:,1,:),    &
         !                                    & ocean_state%p_diag%thick_c, level=1)
-        CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab(:,1,:), p_op_coeff, z_e(:,1,:) )
+        CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab(:,1,:), op_coeffs, z_e(:,1,:) )
         
       ENDIF!( iswm_oce == 1 )
       
     ENDIF!EDGE-BASED
     
-    CALL div_oce_3d( z_e, patch_horz,p_op_coeff%div_coeff, div_z_c, subset_range=cells_in_domain )
+    CALL div_oce_3d( z_e, patch_horz,op_coeffs%div_coeff, div_z_c, subset_range=cells_in_domain )
     
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1256,18 +1255,17 @@ CONTAINS
       & lhs_z_grad_h(nproma,patch%nblks_e),     &
       & lhs_z_e     (nproma,patch%nblks_e),     &
       & lhs_z_e_top (nproma,patch%nblks_e),     &
-      & lhs_div_z_c (nproma,patch%alloc_cell_blocks),     &
       & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
     
     IF (return_status > 0) &
       & CALL finish("mo_oce_ab_timestepping_mimetic:init_ho_lhs_fields", "Allocation failed")
     
+    ! these are arrays used by the lhs routine
     lhs_result(:,:)   = 0.0_wp
     lhs_z_grad_h(:,:) = 0.0_wp
     lhs_z_e     (:,:) = 0.0_wp
     lhs_z_e_top (:,:) = 0.0_wp
-    lhs_div_z_c (:,:) = 0.0_wp
     lhs_z_grad_h_cc(:,:)%x(1) = 0.0_wp
     lhs_z_grad_h_cc(:,:)%x(2) = 0.0_wp
     lhs_z_grad_h_cc(:,:)%x(3) = 0.0_wp
@@ -1289,20 +1287,20 @@ CONTAINS
   !!
   !!  The result is NOT synced. Should be done in the calling method if required
   !-------------------------------------------------------------------------
-  FUNCTION lhs_surface_height_ab_mim( p_x, h_old, patch_3d,coeff, thickness_e,&
-    & thickness_c,p_op_coeff) result(lhs)
+  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d,coeff, thickness_e,&
+    & thickness_c,op_coeffs) result(lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp),    INTENT(inout)       :: p_x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
+    REAL(wp),    INTENT(inout)       :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
     REAL(wp),    INTENT(in)          :: h_old(:,:)
     REAL(wp),    INTENT(in)          :: coeff
-    TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in):: op_coeffs
     REAL(wp),    INTENT(in)          :: thickness_e(:,:)
     REAL(wp),    INTENT(in)          :: thickness_c(:,:) !thickness of fluid column
     !  these are small (2D) arrays and allocated once for efficiency
     ! Left-hand side calculated from iterated height
     !
-    REAL(wp) :: lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%alloc_cell_blocks)
+    REAL(wp) :: lhs(SIZE(x,1), SIZE(x,2))  ! (nproma,p_patch%alloc_cell_blocks)
     
     ! local variables,
     REAL(wp) :: gdt2_inv, gam_times_beta
@@ -1323,19 +1321,19 @@ CONTAINS
     
     lhs   (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
-    CALL sync_patch_array(sync_c, patch_2D, p_x(1:nproma,1:patch_2D%cells%all%end_block) )
+    CALL sync_patch_array(sync_c, patch_2D, x(1:nproma,1:patch_2D%cells%all%end_block) )
     
     !Step 1) Calculate gradient of iterated height.
-    CALL grad_fd_norm_oce_2d_3d( p_x, &
+    CALL grad_fd_norm_oce_2d_3d( x, &
       & patch_2D,                       &
-      & p_op_coeff%grad_coeff(:,1,:),&
+      & op_coeffs%grad_coeff(:,1,:),&
       & lhs_z_grad_h(:,:))
     
     ! the result lhs_z_grad_h is computed on in_domain edges
     ! CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
     
     
-    !TODO check
+    !---------------------------------------
     IF(l_edge_based)THEN
       
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -1362,18 +1360,20 @@ CONTAINS
       
       IF( iswm_oce /= 1 ) THEN
         
-        CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), p_op_coeff, lhs_z_e(:,:))
+        CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
         
       ELSEIF( iswm_oce == 1 ) THEN
         
-        !CALL map_edges2edges_viacell_3D( patch_3d, lhs_z_grad_h, p_op_coeff, lhs_z_e,thickness_c, level=top)
-        CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), p_op_coeff, lhs_z_e(:,:))
+        !CALL map_edges2edges_viacell_3D( patch_3d, lhs_z_grad_h, op_coeffs, lhs_z_e,thickness_c, level=top)
+        CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
       ENDIF!( iswm_oce == 1 )
       
     ENDIF ! l_edge_based
+    !---------------------------------------
     
     !Step 3) Calculate divergence
-    CALL div_oce_3d( lhs_z_e, patch_2D, p_op_coeff%div_coeff, lhs_div_z_c, &
+    ! store the div in lhs for reducing memory and improving performance
+    CALL div_oce_3d( lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs, &
       & level=top, subset_range=cells_in_domain  )
     
     !Step 4) Finalize LHS calculations
@@ -1381,8 +1381,8 @@ CONTAINS
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         
-        !lhs(jc,jb) =(p_x(jc,jb) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,jb)) / gdt2 !rho_sfc(jc,jb)*rho_inv
-        lhs(jc,jb) = p_x(jc,jb) * gdt2_inv - gam_times_beta * lhs_div_z_c(jc,jb)
+        !lhs(jc,jb) =(x(jc,jb) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,jb)) / gdt2 !rho_sfc(jc,jb)*rho_inv
+        lhs(jc,jb) = x(jc,jb) * gdt2_inv - gam_times_beta * lhs(jc,jb)
         
         IF(patch_3d%lsm_c(jc,1,jb) > sea_boundary) THEN
           IF (lhs(jc,jb) /= 0.0_wp) &
@@ -1392,7 +1392,6 @@ CONTAINS
     END DO
     
     IF (ltimer) CALL timer_stop(timer_lhs)
-    !-----------------------------------------------------------------------
     
   END FUNCTION lhs_surface_height_ab_mim
   !-------------------------------------------------------------------------
@@ -1404,11 +1403,11 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, p_op_coeff, p_ext_data)
+  SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, p_ext_data)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_operator_coeff),INTENT(in)      :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)      :: op_coeffs
     TYPE(t_external_data), TARGET :: p_ext_data
     !
     !  local variables
@@ -1438,7 +1437,7 @@ CONTAINS
     IF(.NOT.l_rigid_lid.OR.iswm_oce == 1) THEN
       CALL grad_fd_norm_oce_2d_3d( ocean_state%p_prog(nnew(1))%h, &
         & patch,                                                  &
-        & p_op_coeff%grad_coeff(:,1,:),                           &
+        & op_coeffs%grad_coeff(:,1,:),                           &
         & z_grad_h(:,:))
     ENDIF
     
@@ -1518,7 +1517,7 @@ CONTAINS
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
       !                                    & ocean_state%p_diag,            &
-      !                                    & p_op_coeff)
+      !                                    & op_coeffs)
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=4  ! output print level (1-5, fix)
@@ -1546,12 +1545,12 @@ CONTAINS
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!  Modified by Stephan Lorenz, MPI-M (2010-06)
   !TODO review
-  SUBROUTINE calc_vert_velocity_mim_bottomup( patch_3d, ocean_state, p_diag,p_op_coeff,pw_c )
+  SUBROUTINE calc_vert_velocity_mim_bottomup( patch_3d, ocean_state, p_diag,op_coeffs,pw_c )
     
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3d       ! patch on which computation is performed
     TYPE(t_hydro_ocean_state)         :: ocean_state
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: op_coeffs
     REAL(wp),         INTENT(inout)   :: pw_c (nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! vertical velocity on cells
     !
     !
@@ -1596,7 +1595,7 @@ CONTAINS
       
       CALL div_oce_3d( ocean_state%p_diag%mass_flx_e,    &
         & p_patch,                   &
-        & p_op_coeff%div_coeff,      &
+        & op_coeffs%div_coeff,      &
         & ocean_state%p_diag%div_mass_flx_c,&
         & subset_range=cells_in_domain)
       
@@ -1619,13 +1618,13 @@ CONTAINS
     !-------------------------------------------------------------------------------
     ELSEIF(.NOT.l_edge_based)THEN
       
-      CALL map_edges2edges_viacell_3d_const_z( patch_3d, p_diag%vn_time_weighted, p_op_coeff, &
+      CALL map_edges2edges_viacell_3d_const_z( patch_3d, p_diag%vn_time_weighted, op_coeffs, &
         & ocean_state%p_diag%mass_flx_e)
 
       CALL sync_patch_array(sync_e,p_patch,ocean_state%p_diag%mass_flx_e)
       
       CALL div_oce_3d( ocean_state%p_diag%mass_flx_e,      &
-        & p_patch,p_op_coeff%div_coeff,&
+        & p_patch,op_coeffs%div_coeff,&
         & ocean_state%p_diag%div_mass_flx_c,  &
         & subset_range=cells_in_domain)
       CALL sync_patch_array(sync_c,p_patch,ocean_state%p_diag%div_mass_flx_c)
@@ -1727,11 +1726,11 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !!  The result is NOT synced. Should be done in the calling method if required
-  FUNCTION inverse_primal_flip_flop(p_patch, patch_3d, p_op_coeff, rhs_e, h_e) result(inv_flip_flop_e)
+  FUNCTION inverse_primal_flip_flop(p_patch, patch_3d, op_coeffs, rhs_e, h_e) result(inv_flip_flop_e)
     !
     TYPE(t_patch), TARGET :: p_patch
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)             :: op_coeffs
     REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
     REAL(wp)      :: inv_flip_flop_e(SIZE(rhs_e,1),SIZE(rhs_e,2),SIZE(rhs_e,3))
@@ -1761,10 +1760,10 @@ CONTAINS
     
     DO jk=1, n_zlev
       rhstemp(:,:) = rhs_e(:,jk,:)&
-        & -zimpl_coeff*lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, patch_3d, p_op_coeff,jk,zimpl_coeff, h_e)
+        & -zimpl_coeff*lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, patch_3d, op_coeffs,jk,zimpl_coeff, h_e)
       
       IF (MAXVAL (ABS (rhstemp (:,:))) <= tolerance) THEN
-        inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, patch_3d, p_op_coeff,jk,zimpl_coeff, h_e)
+        inv_flip_flop_e(:,jk,:) = lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:), p_patch, patch_3d, op_coeffs,jk,zimpl_coeff, h_e)
         PRINT*, "Inv_flipflop gmres_oce_e2e solved by initial guess!",&
           & jk,MAXVAL(rhstemp(:,:)), MINVAL(rhstemp(:,:)),MAXVAL(rhs_e(:,jk,:)), MINVAL(rhs_e(:,jk,:))
       ELSE
@@ -1777,7 +1776,7 @@ CONTAINS
           & jk,                        &
           & p_patch, patch_3d,       &  !arg 3 of lhs
           & zimpl_coeff,               &  !arg 4 of lhs
-          & p_op_coeff,                &
+          & op_coeffs,                &
           & rhs_e(:,jk,:),             &  ! right hand side as input
           & tolerance,                 &  ! relative tolerance
           & .FALSE.,                   &  ! NOT absolute tolerance
@@ -1786,7 +1785,7 @@ CONTAINS
           & n_iter,                    &  ! out: # of iterations done
           & z_residual)                  ! inout: the residual (array)
         
-        rhstemp(:,:) = rhs_e(:,jk,:)-lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:),p_patch, patch_3d,p_op_coeff,&
+        rhstemp(:,:) = rhs_e(:,jk,:)-lhs_primal_flip_flop(inv_flip_flop_e(:,jk,:),p_patch, patch_3d,op_coeffs,&
           & jk,zimpl_coeff,h_e)
         !WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
         !  &        jk, maxval(rhstemp),minval(rhstemp)
@@ -1815,12 +1814,12 @@ CONTAINS
   
   !--------------------------------------------------------------------
   !!  results is valid only in in_domain edges
-  FUNCTION lhs_primal_flip_flop( x, p_patch, patch_3d, p_op_coeff,jk,coeff, h_e) result(llhs)
+  FUNCTION lhs_primal_flip_flop( x, p_patch, patch_3d, op_coeffs,jk,coeff, h_e) result(llhs)
     !
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_patch_3d ),TARGET, INTENT(in)          :: patch_3d
     REAL(wp),INTENT(inout)                        :: x(:,:)
-    TYPE(t_operator_coeff),INTENT(in)             :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)             :: op_coeffs
     INTEGER ,INTENT(in)                           :: jk
     REAL(wp),INTENT(in)                           :: coeff
     REAL(wp),OPTIONAL,INTENT(in)                  :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
@@ -1838,7 +1837,7 @@ CONTAINS
     
     CALL map_edges2edges_viacell_3d( patch_3d,    &
       & z_x_out(:,1,:),&
-      & p_op_coeff,    &
+      & op_coeffs,    &
       & z_e(:,1,:),    &
     !& patch_3d%p_patch_1D(n_dom)%prism_thick_c(:,1,:),&
       & level=1)
