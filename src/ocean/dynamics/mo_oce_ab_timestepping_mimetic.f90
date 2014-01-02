@@ -55,7 +55,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & l_forc_freshw, select_solver,select_restart_gmres,  &
     & select_gmres, use_continuity_correction
   
-  USE mo_run_config,                ONLY: dtime, ltimer
+  USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
     & timer_ab_rhs4sfc, timer_lhs
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -1384,12 +1384,22 @@ CONTAINS
         !lhs(jc,jb) =(x(jc,jb) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,jb)) / gdt2 !rho_sfc(jc,jb)*rho_inv
         lhs(jc,jb) = x(jc,jb) * gdt2_inv - gam_times_beta * lhs(jc,jb)
         
-        IF(patch_3d%lsm_c(jc,1,jb) > sea_boundary) THEN
-          IF (lhs(jc,jb) /= 0.0_wp) &
-            & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,jb) /= 0 on land")
-        ENDIF
       END DO
     END DO
+    !---------------------------------------
+
+    IF (debug_check_level > 1) THEN
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
+          IF(patch_3d%lsm_c(jc,1,jb) > sea_boundary) THEN
+            IF (lhs(jc,jb) /= 0.0_wp) &
+              & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,jb) /= 0 on land")
+          ENDIF
+        END DO
+      END DO
+    ENDIF
+
     
     IF (ltimer) CALL timer_stop(timer_lhs)
     

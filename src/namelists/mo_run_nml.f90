@@ -51,7 +51,8 @@ MODULE mo_run_nml
                          & config_check_epsilon   => check_epsilon,   &
                          & config_test_mode       => test_mode,       &
                          & config_write_timer_files => write_timer_files,  &
-                         & t_output_mode, max_output_modes
+                         & t_output_mode, max_output_modes,           &
+                         & config_debug_check_level => debug_check_level
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
@@ -110,7 +111,7 @@ MODULE mo_run_nml
 
   INTEGER :: test_mode  ! if =0 then run the standard version,
                         ! otherwise special setup for (performance) tests, see Namelist_overview
-                            
+  INTEGER :: debug_check_level
 
   !> output mode (logicals)
   !  one or multiple of "none", "nml", "totint"
@@ -128,7 +129,8 @@ MODULE mo_run_nml
                      msg_level, check_epsilon,      &
                      test_mode,                     &
                      output,                        &
-                     msg_timestamp
+                     msg_timestamp,                 &
+                     debug_check_level
 
 CONTAINS
   !>
@@ -169,6 +171,7 @@ CONTAINS
     msg_timestamp        = .FALSE.
     check_epsilon        = 1.e-6_wp
     test_mode         = 0
+    debug_check_level = 0
 
     output(:) = " "
     output(1) = "default"
@@ -257,6 +260,7 @@ CONTAINS
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
     config_test_mode    = test_mode
+    config_debug_check_level = debug_check_level
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

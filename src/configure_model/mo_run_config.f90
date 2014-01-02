@@ -68,6 +68,7 @@ MODULE mo_run_config
   PUBLIC :: check_epsilon, test_mode
   PUBLIC :: configure_run
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
+  PUBLIC :: debug_check_level
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -94,6 +95,8 @@ MODULE mo_run_config
   
     REAL(wp):: check_epsilon   !< small value for checks
     INTEGER :: test_mode
+    INTEGER :: debug_check_level = 0  ! Define debug checks level. This is not related to the debug output in
+                                      ! mo_dbg_nml, it only controls the activation of internal checks
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
 
