@@ -204,10 +204,9 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,    &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,        &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, multfac_vntraj, &
-               scal_divdamp_o2
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,  &
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,      &
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
@@ -348,12 +347,6 @@ MODULE mo_solve_nonhydro
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     DO istep = 1, 2
-
-      IF (istep == 1 .AND. lclean_mflx .OR. lstep_adv) THEN
-        multfac_vntraj = 0.5_wp*r_iadv_rcf
-      ELSE
-        multfac_vntraj = r_iadv_rcf
-      ENDIF
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
@@ -740,23 +733,6 @@ MODULE mo_solve_nonhydro
         z_theta_v_e(:,:,i_startblk:i_endblk) = 0._wp
 !$OMP END WORKSHARE
 
-        ! Initialize halo points on level 2 of vn_traj for tracer advection
-        i_endblk   = p_patch%edges%end_blk(min_rledge_int-2,i_nchdom)
-        IF (lprep_adv .AND. lclean_mflx) THEN
-!$OMP WORKSHARE
-          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-        ENDIF
-
-        ! Initialize also the relevant nest boundary points of vn_traj for tracer advection
-        IF (lprep_adv .AND. lclean_mflx .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
-          i_startblk = p_patch%edges%start_blk(5,1)
-          i_endblk   = p_patch%edges%end_blk  (6,1)
-!$OMP WORKSHARE
-          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-        ENDIF
-
         rl_start = 7
         rl_end   = min_rledge_int-1
 
@@ -891,15 +867,6 @@ MODULE mo_solve_nonhydro
 
               ENDDO ! loop over edges
             ENDDO   ! loop over vertical levels
-          ENDIF
-
-          ! Initialize vn_traj for tracer advection
-          IF (lprep_adv .AND. lclean_mflx) THEN
-            DO jk = 1, nlev
-              DO je = i_startidx, i_endidx
-                prep_adv%vn_traj(je,jk,jb) = multfac_vntraj*p_nh%prog(nnow)%vn(je,jk,jb)
-              ENDDO
-            ENDDO
           ENDIF
 
         ENDDO
@@ -1290,6 +1257,22 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
     ENDIF
 
+    ! Preparations for nest boundary interpolation of mass fluxes from parent domain
+    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1 .AND. jstep == 0 .AND. istep == 1) THEN
+!$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
+        je = p_nh%metrics%bdy_mflx_e_idx(ic)
+        jb = p_nh%metrics%bdy_mflx_e_blk(ic)
+
+        DO jk = 1, nlev
+          p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
+          p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+    ENDIF
+
 !$OMP END PARALLEL
 
     !-------------------------
@@ -1445,15 +1428,22 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         IF (lsave_mflx .AND. istep == 2) THEN ! store mass flux for nest boundary interpolation
+          DO je = i_startidx, i_endidx
+            IF (p_patch%edges%refin_ctrl(je,jb) <= -4 .AND. p_patch%edges%refin_ctrl(je,jb) >= -6) THEN
 !DIR$ IVDEP
-          p_nh%diag%mass_fl_e_sv(i_startidx:i_endidx,:,jb) = p_nh%diag%mass_fl_e(i_startidx:i_endidx,:,jb)
+              p_nh%diag%mass_fl_e_sv(je,:,jb) = p_nh%diag%mass_fl_e(je,:,jb)
+            ENDIF
+          ENDDO
         ENDIF
 
         IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
-          IF (lclean_mflx) prep_adv%mass_flx_me(:,:,jb) = 0._wp
+          IF (lclean_mflx) THEN
+            prep_adv%mass_flx_me(:,:,jb) = 0._wp
+            prep_adv%vn_traj    (:,:,jb) = 0._wp
+          ENDIF
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + multfac_vntraj*p_nh%prog(nnew)%vn(je,jk,jb)
+              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_iadv_rcf*z_vn_avg(je,jk)
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
             ENDDO
           ENDDO
@@ -1532,10 +1522,12 @@ MODULE mo_solve_nonhydro
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
         jb = p_nh%metrics%bdy_mflx_e_blk(ic)
 
-        IF (jstep == 0) THEN
+        ! This is needed for tracer mass consistency along the lateral boundaries
+        IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
           DO jk = 1, nlev
-            p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
-            p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
           ENDDO
         ENDIF
 
@@ -1544,6 +1536,15 @@ MODULE mo_solve_nonhydro
             REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
           z_theta_v_fl_e(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb) * z_theta_v_e(je,jk,jb)
         ENDDO
+
+        IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
+          DO jk = 1, nlev
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
     ENDIF

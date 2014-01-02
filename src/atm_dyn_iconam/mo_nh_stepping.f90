@@ -53,7 +53,7 @@ MODULE mo_nh_stepping
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
     & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
   USE mo_diffusion_config,     ONLY: diffusion_config
-  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
+  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time
   USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
@@ -1042,13 +1042,17 @@ MODULE mo_nh_stepping
           lsave_mflx = .FALSE.
         ENDIF
 
-        IF ( ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5) THEN
-          lprep_adv = .TRUE.
+        IF ( idiv_method == 1 .AND. (ltransport .OR. p_patch(jg)%n_childdom > 0 .AND. grf_intmethod_e >= 5)) THEN
+          lprep_adv = .TRUE. ! do computations for preparing tracer advection in solve_nh
         ELSE
           lprep_adv = .FALSE.
         ENDIF
 
-        lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
+        IF (idiv_method == 1) THEN
+          lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
+        ELSE
+          lfull_comp = .TRUE.
+        ENDIF
 
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
@@ -1148,6 +1152,20 @@ MODULE mo_nh_stepping
 
         ENDIF
 
+        ! Apply boundary nudging in case of one-way nesting
+        IF (jg > 1 .AND. lstep_adv(jg)) THEN
+          IF (ltimer)            CALL timer_start(timer_nesting)
+          IF (timers_level >= 2) CALL timer_start(timer_nudging)
+
+          IF (lfeedback(jg) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
+            CALL density_boundary_nudging(jg,nnew(jg),REAL(iadv_rcf,wp))
+          ELSE IF (.NOT. lfeedback(jg)) THEN
+            CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+          ENDIF
+
+          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+          IF (ltimer)            CALL timer_stop(timer_nesting)
+        ENDIF
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
        
@@ -1235,21 +1253,6 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_stop(timer_nesting)
 
         ENDIF !iforcing
-
-        ! Apply boundary nudging in case of one-way nesting
-        IF (jg > 1 .AND. lstep_adv(jg)) THEN
-          IF (ltimer)            CALL timer_start(timer_nesting)
-          IF (timers_level >= 2) CALL timer_start(timer_nudging)
-
-          IF (lfeedback(jg) .AND. l_density_nudging) THEN
-            CALL density_boundary_nudging(jg,nnew(jg),REAL(iadv_rcf,wp))
-          ELSE IF (.NOT. lfeedback(jg)) THEN
-            CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
-          ENDIF
-
-          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
-          IF (ltimer)            CALL timer_stop(timer_nesting)
-        ENDIF
 
       ENDIF  ! itime_scheme
 
@@ -1340,7 +1343,7 @@ MODULE mo_nh_stepping
           ! If feedback is turned off for child domain, compute parent-child
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
-          IF (lfeedback(jgc) .AND. l_density_nudging) THEN
+          IF (lfeedback(jgc) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
             CALL prep_rho_bdy_nudging(jg,jgc)
           ELSE IF (.NOT. lfeedback(jgc)) THEN
             CALL prep_bdy_nudging(jg,jgc,lstep_adv(jg))
