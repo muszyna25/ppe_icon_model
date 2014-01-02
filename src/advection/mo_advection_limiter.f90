@@ -398,6 +398,26 @@ CONTAINS
 
         ENDDO
       ENDDO
+
+      IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
+
+        ! Due to the lack of dynamic consistency between mass fluxes and cell mass changes
+        ! in the boundary interpolation zone, the low-order advected tracer fields may be
+        ! nonsense and therefore need artificial limitation
+        DO jc = i_startidx, i_endidx
+          IF (ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c-1 .OR. &
+              ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c) THEN
+            DO jk = slev, elev
+              z_tracer_new_low(jc,jk,jb) = MAX(0.9_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_new_low(jc,jk,jb) = MIN(1.1_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_max(jc,jk,jb) = MAX(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_min(jc,jk,jb) = MIN(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+            ENDDO
+          ENDIF
+        ENDDO
+
+      ENDIF
+
     ENDDO
 !$OMP END DO
 
