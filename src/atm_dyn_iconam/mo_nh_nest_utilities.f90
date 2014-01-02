@@ -1587,7 +1587,7 @@ CONTAINS
 
     INTEGER :: nlev  ! number of vertical full levels
 
-    REAL(wp) :: rd_o_cvd, rd_o_p0ref
+    REAL(wp) :: rd_o_cvd, rd_o_p0ref, upper_lim, lower_lim
 
     ! Set pointers
     p_nh  => p_nh_state(jg)
@@ -1604,7 +1604,7 @@ CONTAINS
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,ic,upper_lim,lower_lim) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1618,13 +1618,19 @@ CONTAINS
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
 #endif
+        upper_lim = 1.0025_wp*p_nh%prog(nnew)%rho(jc,jk,jb)
+        lower_lim = 0.9975_wp*p_nh%prog(nnew)%rho(jc,jk,jb)
         p_nh%prog(nnew)%rho(jc,jk,jb) =                                      &
           p_nh%prog(nnew)%rho(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
           p_nh%diag%grf_tend_rho(jc,jk,jb)
+        p_nh%prog(nnew)%rho(jc,jk,jb) = MAX(lower_lim,MIN(upper_lim,p_nh%prog(nnew)%rho(jc,jk,jb)))
 
+        upper_lim = 1.0025_wp*p_nh%prog(nnew)%theta_v(jc,jk,jb)
+        lower_lim = 0.9975_wp*p_nh%prog(nnew)%theta_v(jc,jk,jb)
         p_nh%prog(nnew)%theta_v(jc,jk,jb) =                                     &
           p_nh%prog(nnew)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
           p_nh%diag%grf_tend_thv(jc,jk,jb)
+        p_nh%prog(nnew)%theta_v(jc,jk,jb) = MAX(lower_lim,MIN(upper_lim,p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
         p_nh%prog(nnew)%exner(jc,jk,jb) =                                  &
           EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
@@ -1638,7 +1644,7 @@ CONTAINS
 !$OMP END DO
 
     IF (ltransport) THEN
-!$OMP DO PRIVATE(jk,jc,jb,jt,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,jt,ic,upper_lim,lower_lim) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1655,8 +1661,12 @@ CONTAINS
             jb = p_nh%metrics%nudge_c_blk(ic)
 #endif
 
+            upper_lim = 1.01_wp*p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)
+            lower_lim = 0.99_wp*p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)
             p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) + &
               rcffac*p_int%nudgecoeff_c(jc,jb)*p_nh%diag%grf_tend_tracer(jc,jk,jb,jt)
+            p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) =  MAX(lower_lim,MIN(upper_lim,&
+              p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)))
 
           ENDDO
         ENDDO
