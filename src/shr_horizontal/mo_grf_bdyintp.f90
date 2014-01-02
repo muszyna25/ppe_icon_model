@@ -274,7 +274,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   ! Auxiliary fields
   REAL(wp) :: vn_aux(p_pc%nlev,p_grf%npoints_bdyintp_e,4,nfields)
-  REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v) :: u_vert,v_vert
+  REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v,nfields) :: u_vert,v_vert
 
   ! Pointers to index fields/lists
   INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
@@ -342,36 +342,36 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   ! upper boundary of child domain (in terms of vertical levels
   js = p_pc%nshift
 
-!$OMP PARALLEL PRIVATE(jn)
+!$OMP PARALLEL
 
-  DO jn = 1, nfields
-
-!$OMP DO PRIVATE(jb,jk,jv,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_bdyintp_v
-      IF (jb == nblks_bdyintp_v) THEN
-        nlen = npromz_bdyintp_v
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      nshift = (jb-1)*nproma_bdyintp
+!$OMP DO PRIVATE(jb,jn,jk,jv,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = 1, nblks_bdyintp_v
+    IF (jb == nblks_bdyintp_v) THEN
+      nlen = npromz_bdyintp_v
+    ELSE
+      nlen = nproma_bdyintp
+    ENDIF
+    nshift = (jb-1)*nproma_bdyintp
 
 #ifdef __LOOP_EXCHANGE
-       DO jv = nshift+1, nshift+nlen
+    DO jv = nshift+1, nshift+nlen
+      DO jn = 1, nfields
         DO jk = 1, nlev_c
 #else
+    DO jn = 1, nfields
 !CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO jv = nshift+1, nshift+nlen
 #endif
 
-          u_vert(jk,jv) =  &
+          u_vert(jk,jv,jn) =  &
             p_grf%coeff_rbf_v(1,1,jv)*p_in(jn)%fld(ividx(1,jv),jk+js,ivblk(1,jv)) + &
             p_grf%coeff_rbf_v(2,1,jv)*p_in(jn)%fld(ividx(2,jv),jk+js,ivblk(2,jv)) + &
             p_grf%coeff_rbf_v(3,1,jv)*p_in(jn)%fld(ividx(3,jv),jk+js,ivblk(3,jv)) + &
             p_grf%coeff_rbf_v(4,1,jv)*p_in(jn)%fld(ividx(4,jv),jk+js,ivblk(4,jv)) + &
             p_grf%coeff_rbf_v(5,1,jv)*p_in(jn)%fld(ividx(5,jv),jk+js,ivblk(5,jv)) + &
             p_grf%coeff_rbf_v(6,1,jv)*p_in(jn)%fld(ividx(6,jv),jk+js,ivblk(6,jv))
-          v_vert(jk,jv) =  &
+          v_vert(jk,jv,jn) =  &
             p_grf%coeff_rbf_v(1,2,jv)*p_in(jn)%fld(ividx(1,jv),jk+js,ivblk(1,jv)) + &
             p_grf%coeff_rbf_v(2,2,jv)*p_in(jn)%fld(ividx(2,jv),jk+js,ivblk(2,jv)) + &
             p_grf%coeff_rbf_v(3,2,jv)*p_in(jn)%fld(ividx(3,jv),jk+js,ivblk(3,jv)) + &
@@ -381,34 +381,37 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
         ENDDO
       ENDDO
-
     ENDDO
+
+  ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,je,nlen,nshift,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_bdyintp_e
-      IF (jb == nblks_bdyintp_e) THEN
-        nlen = npromz_bdyintp_e
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      nshift = (jb-1)*nproma_bdyintp
+!$OMP DO PRIVATE(jb,jn,jk,je,nlen,nshift,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = 1, nblks_bdyintp_e
+    IF (jb == nblks_bdyintp_e) THEN
+      nlen = npromz_bdyintp_e
+    ELSE
+      nlen = nproma_bdyintp
+    ENDIF
+    nshift = (jb-1)*nproma_bdyintp
 
 #ifdef __LOOP_EXCHANGE
-      DO je = nshift+1, nshift+nlen
+    DO je = nshift+1, nshift+nlen
+      DO jn = 1, nfields
 !DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
+    DO jn = 1, nfields
 !CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO je = nshift+1, nshift+nlen
 #endif
 
           ! child edges 1 and 2
-          dvn_tang = u_vert(jk,ievidx(2,je)) * p_grf%prim_norm(2,1,je) + &
-                     v_vert(jk,ievidx(2,je)) * p_grf%prim_norm(2,2,je) - &
-                    (u_vert(jk,ievidx(1,je)) * p_grf%prim_norm(1,1,je) + &
-                     v_vert(jk,ievidx(1,je)) * p_grf%prim_norm(1,2,je) )
+          dvn_tang = u_vert(jk,ievidx(2,je),jn) * p_grf%prim_norm(2,1,je) + &
+                     v_vert(jk,ievidx(2,je),jn) * p_grf%prim_norm(2,2,je) - &
+                    (u_vert(jk,ievidx(1,je),jn) * p_grf%prim_norm(1,1,je) + &
+                     v_vert(jk,ievidx(1,je),jn) * p_grf%prim_norm(1,2,je) )
 
           vn_aux(jk,je,1,jn) = p_in(jn)%fld(iidx(1,je),jk+js,iblk(1,je)) + &
                                dvn_tang*p_grf%dist_pe2ce(1,je)
@@ -443,11 +446,10 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
         ENDDO
       ENDDO
+    ENDDO
 
-    ENDDO ! blocks
+  ENDDO ! blocks
 !$OMP END DO
-
-  ENDDO ! fields
 !$OMP END PARALLEL
 
   nsendtot = SUM(p_pc%comm_pat_interpol_vec_grf(1:4)%n_send)
