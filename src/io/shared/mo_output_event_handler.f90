@@ -146,7 +146,8 @@ MODULE mo_output_event_handler
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
-    &                                  p_wait, p_bcast, get_my_global_mpi_id
+    &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
+    &                                  my_process_is_mpi_test
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -1001,7 +1002,8 @@ CONTAINS
     IF (ldebug)  WRITE (0,*) routine, " enter."
 #ifndef NOMPI
     lbroadcast = PRESENT(opt_broadcast_root) .AND. &
-         &       PRESENT(opt_broadcast_comm)
+         &       PRESENT(opt_broadcast_comm) .AND. &
+         &       (.NOT. my_process_is_mpi_test())
 #else
     lbroadcast = .FALSE.
 #endif

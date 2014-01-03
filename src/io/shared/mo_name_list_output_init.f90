@@ -1094,7 +1094,11 @@ CONTAINS
         output_file(i)%io_proc_id = MOD(i-1,process_mpi_io_size) + p_io_pe0
       ELSE
         ! Normal I/O done by the standard I/O processor
-        output_file(i)%io_proc_id = process_mpi_stdio_id
+         IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
+            output_file(i)%io_proc_id = process_mpi_stdio_id + 1
+         ELSE
+            output_file(i)%io_proc_id = process_mpi_stdio_id
+         END IF
       ENDIF
     ENDDO
 
@@ -1159,22 +1163,23 @@ CONTAINS
     ! output event info and generates a unified output event,
     ! indicating which PE performs a write process at which step.
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
-      &                               p_comm_work_io, process_work_io0)
+         &                               p_comm_work_io, process_work_io0)
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
-
     ! print a table with all output events
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      CALL print_output_event(all_events)                                       ! screen output
-      if (dom_sim_step_info%jstep0 > 0) then
-         CALL print_output_event(all_events, &
-              &  opt_filename="output_schedule_steps_"//trim(int2string(dom_sim_step_info%jstep0))//"+.txt")   ! ASCII file output
-      else
-         CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
-      end if
-    END IF
+    if (.not. my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          CALL print_output_event(all_events)                                       ! screen output
+          if (dom_sim_step_info%jstep0 > 0) then
+             CALL print_output_event(all_events, &
+                  &  opt_filename="output_schedule_steps_"//trim(int2string(dom_sim_step_info%jstep0))//"+.txt")   ! ASCII file output
+          else
+             CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
+          end if
+       END IF
+    end if
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
@@ -1184,15 +1189,17 @@ CONTAINS
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      ev => all_events
-      HANDLE_COMPLETE_STEPS : DO
-        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-        CALL trigger_output_step_irecv(ev)
-        ev => ev%next
-      END DO HANDLE_COMPLETE_STEPS
-    END IF
+    if (.not. my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          ev => all_events
+          HANDLE_COMPLETE_STEPS : DO
+             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+             CALL trigger_output_step_irecv(ev)
+             ev => ev%next
+          END DO HANDLE_COMPLETE_STEPS
+       END IF
+    end if
 
     CALL message(routine,'Done')
 

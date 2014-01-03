@@ -56,12 +56,11 @@ MODULE mo_name_list_output
                                           my_process_is_mpi_workroot, my_process_is_mpi_seq,        &
                                           my_process_is_io, my_process_is_mpi_ioroot
   ! MPI Process IDs
-  USE mo_mpi,                       ONLY: process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-                                          process_mpi_stdio_id
+  USE mo_mpi,                       ONLY: process_mpi_all_test_id, process_mpi_all_workroot_id
   ! MPI Process group sizes
   USE mo_mpi,                       ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
-  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
+  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0, p_barrier
 
   USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
   USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -313,7 +312,7 @@ CONTAINS
     ! GRB2 format: define geographical longitude, latitude as special
     ! variables "RLON", "RLAT"
     is_output_process = my_process_is_io() .OR. &
-      &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_stdio())
+      &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_mpi_workroot())
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
 #ifndef __NO_ICON_ATMO__
@@ -414,6 +413,7 @@ CONTAINS
       ! -------------------------------------------------
       ! Check if files have to be (re)opened
       ! -------------------------------------------------
+
       IF (check_open_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
         CALL setup_output_vlist(output_file(i))
@@ -492,22 +492,24 @@ CONTAINS
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
     ! write processes, we trigger a "ready file" on the first I/O PE.
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      ev => all_events
-      HANDLE_COMPLETE_STEPS : DO
-        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-        IF (.NOT. is_output_step_complete(ev) .OR.  &
-          & is_output_event_finished(ev)) THEN 
-          ev => ev%next
-          CYCLE HANDLE_COMPLETE_STEPS
-        END IF         
-        !--- write ready file
-        IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-        ! launch a non-blocking request to all participating PEs to
-        ! acknowledge the completion of the next output event
-        CALL trigger_output_step_irecv(ev)
-      END DO HANDLE_COMPLETE_STEPS
+    IF (.NOT.my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          ev => all_events
+          HANDLE_COMPLETE_STEPS : DO
+             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+             IF (.NOT. is_output_step_complete(ev) .OR.  &
+                  & is_output_event_finished(ev)) THEN 
+                ev => ev%next
+                CYCLE HANDLE_COMPLETE_STEPS
+             END IF
+             !--- write ready file
+             IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+             ! launch a non-blocking request to all participating PEs to
+             ! acknowledge the completion of the next output event
+             CALL trigger_output_step_irecv(ev)
+          END DO HANDLE_COMPLETE_STEPS
+       END IF
     END IF
     IF (ltimer) CALL timer_stop(timer_write_output)
 
@@ -828,7 +830,7 @@ CONTAINS
           ! ------------------
           !
           ! compare results on worker PEs and test PE
-          IF (p_test_run  .AND.  .NOT. use_async_name_list_io  .AND.  use_dp_mpi2io) THEN
+          IF (p_test_run  .AND.  use_dp_mpi2io) THEN
             ! Currently we don't do the check for REAL*4, we would need
             ! p_send/p_recv for this type
             IF(.NOT. my_process_is_mpi_test()) THEN
@@ -865,7 +867,7 @@ CONTAINS
         ! write data
         ! ----------
 
-        IF (my_process_is_stdio() .AND. .NOT. my_process_is_mpi_test()) THEN
+        IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
           IF (use_dp_mpi2io .or. have_GRIB) THEN
             CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
           ELSE
@@ -1035,17 +1037,19 @@ CONTAINS
     ! Handle final pending "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
     ! write processes, we trigger a "ready file" on the first I/O PE.
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      CALL wait_for_final_irecvs(all_events)
-      ev => all_events
-      HANDLE_COMPLETE_STEPS : DO
-        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-
-        !--- write ready file
-        IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-        ev => ev%next
-      END DO HANDLE_COMPLETE_STEPS
+    IF (.NOT.my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          CALL wait_for_final_irecvs(all_events)
+          ev => all_events
+          HANDLE_COMPLETE_STEPS : DO
+             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+             
+             !--- write ready file
+             IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+             ev => ev%next
+          END DO HANDLE_COMPLETE_STEPS
+       END IF
     END IF
 
     ! Finalization sequence:

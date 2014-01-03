@@ -382,10 +382,10 @@ CONTAINS
 
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN
-!!$        ! (a) use filename with extension "_TEST" (then any post-processing needs to be adapted)
-!!$        WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
-        ! (b) use standard filename
-        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
+         ! (a) use filename with extension "_TEST" (then any post-processing needs to be adapted)
+         WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
+!        ! (b) use standard filename
+!        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ELSE
         WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ENDIF
