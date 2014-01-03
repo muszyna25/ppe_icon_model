@@ -710,35 +710,35 @@ CONTAINS
 
       IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
+
       l_active = .NOT. (mtime_date > mtime_end) .AND.   &
         &        .NOT. (mtime_date > sim_end)   .AND.   &
         &        .NOT. (mtime_date > mtime_restart)
       IF (.NOT. l_active) EXIT EVENT_LOOP
-
-      ! Optional: Append the last event time step
-      IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
-        n_event_steps = n_event_steps + 1
-        IF (n_event_steps > SIZE(mtime_date_string)) THEN
-          ! resize buffer
-          ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          tmp(:) = mtime_date_string(:)
-          DEALLOCATE(mtime_date_string, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-          ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          mtime_date_string(1:SIZE(tmp)) = tmp(:)
-          DEALLOCATE(tmp, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-        END IF
-        CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
-        IF (ldebug) THEN
-          WRITE (0,*) get_my_global_mpi_id(), ": ", &
-               &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
-        END IF
-        EXIT EVENT_LOOP
-      END IF
     END DO EVENT_LOOP
+
+    ! Optional: Append the last event time step
+    IF (l_output_last .AND. (mtime_date > sim_end)) THEN
+      n_event_steps = n_event_steps + 1
+      IF (n_event_steps > SIZE(mtime_date_string)) THEN
+        ! resize buffer
+        ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+        tmp(:) = mtime_date_string(:)
+        DEALLOCATE(mtime_date_string, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+        ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+        mtime_date_string(1:SIZE(tmp)) = tmp(:)
+        DEALLOCATE(tmp, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+      END IF
+      CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
+      IF (ldebug) THEN
+        WRITE (0,*) get_my_global_mpi_id(), ": ", &
+             &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+      END IF
+    END IF
 
     ALLOCATE(mtime_sim_steps(SIZE(mtime_date_string)),   &
       &      mtime_exactdate(SIZE(mtime_date_string)),   &
