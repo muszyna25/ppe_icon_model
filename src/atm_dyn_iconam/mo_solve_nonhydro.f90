@@ -311,7 +311,7 @@ MODULE mo_solve_nonhydro
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
-    dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
+    dt_shift = dtime*REAL(2*iadv_rcf-1,wp)/2._wp
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
