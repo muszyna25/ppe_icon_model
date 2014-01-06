@@ -1664,7 +1664,7 @@ n\_dom>1\tabularnewline
 
 \hline
 grf\_intmethod\_e&
-I& 4& &
+I& 6& &
 Interpolation method for grid refinement (edge-based variables):&
 n\_dom>1\tabularnewline
 & & & & 1: inverse-distance weighting (IDW) & \tabularnewline
@@ -1735,15 +1735,21 @@ n\_dom>1\tabularnewline
 
 \hline
 l\_mass\_consvcorr&
-L& .TRUE.& &
+L& .FALSE.& &
 .TRUE.: Apply mass conservation correction in feedback routine &
 n\_dom>1\tabularnewline
 
 \hline
 l\_density\_nudging &
-L& .TRUE.& &
-.TRUE.: Apply density nudging near lateral nest boundary &
+L& .FALSE.& &
+.TRUE.: Apply density nudging near lateral nest boundary if grf\_intmethod\_e $\le$ 4 &
 n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
+
+\hline
+fbk\_relax\_timescale &
+R & 10800& &
+Relaxation time scale for feedback &
+n\_dom>1 .AND. lfeedback = .TRUE. .AND. ifeedback\_type = 2 \tabularnewline
 
 \end{longtab}
 

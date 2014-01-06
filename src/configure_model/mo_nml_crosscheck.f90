@@ -426,6 +426,11 @@ CONTAINS
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(TRIM(method_name), &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
+    IF (grf_intmethod_e >= 5 .AND. iequations /= INWP .AND. n_dom > 1) THEN
+      grf_intmethod_e = 4
+      CALL message( TRIM(method_name), 'grf_intmethod_e has been reset to 4')
+    ENDIF
+
     !--------------------------------------------------------------------
     ! Atmospheric physics, general
     !--------------------------------------------------------------------

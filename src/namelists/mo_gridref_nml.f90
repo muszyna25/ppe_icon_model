@@ -141,8 +141,9 @@ CONTAINS
     ! Switch for interpolation method used for tracer variables
     grf_intmethod_ct  = 2     ! 1: copying, 2: gradient-based interpolation
     ! Currently, grf_intmethod_c is used for temperature only; other variables are copied
-    grf_intmethod_e   = 4     ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 
-                              ! 4: RBF/gradient-based
+    grf_intmethod_e   = 6     ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 
+                              ! 4: RBF/gradient-based,
+                              ! 5/6: same as 3/4, but direct interpolation of mass fluxes
 
     ! Switch for velocity feedback method.
     grf_velfbk      = 1       ! 1: average over child edges 1 and 2
@@ -173,11 +174,12 @@ CONTAINS
     ! Denominator for velocity boundary diffusion
     denom_diffu_v = 200._wp
 
-    ! Mass conservation correction turned on by default
-    l_mass_consvcorr = .TRUE. 
+    ! Mass conservation correction turned off by default
+    l_mass_consvcorr = .FALSE. 
 
-    ! Density nudging near nest boundaries turned on by default
-    l_density_nudging = .TRUE.
+    ! Density nudging near nest boundaries turned off by default
+    ! only applicable for grf_intmethod_e <= 4
+    l_density_nudging = .FALSE.
 
     ! Relaxation time scale for feedback in case of ifeedback_type = 2
     fbk_relax_timescale = 10800._wp ! 3 hours
