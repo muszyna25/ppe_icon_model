@@ -60,7 +60,7 @@ MODULE mo_name_list_output
   ! MPI Process group sizes
   USE mo_mpi,                       ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
-  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0, p_barrier
+  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
 
   USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
   USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -472,6 +472,7 @@ CONTAINS
       IF (check_close_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
         CALL close_output_file(output_file(i))
+        CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
       END IF
 
       ! -------------------------------------------------

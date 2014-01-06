@@ -155,7 +155,8 @@ MODULE mo_output_event_handler
     &                                  setCalendar, resetCalendar, newTimedelta,            &
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
-    &                                  OPERATOR(>), OPERATOR(+), deallocateTimedelta
+    &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
+    &                                  deallocateTimedelta
   USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS,             &
     &                                  get_duration_string
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
@@ -630,7 +631,7 @@ CONTAINS
       &                         sim_end, mtime_dom_start, run_start
     TYPE(timedelta), POINTER :: delta, delta_1day
     INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
-    LOGICAL                  :: l_active
+    LOGICAL                  :: l_active, l_append_step
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
@@ -719,24 +720,33 @@ CONTAINS
 
     ! Optional: Append the last event time step
     IF (l_output_last .AND. (mtime_date > sim_end)) THEN
-      n_event_steps = n_event_steps + 1
-      IF (n_event_steps > SIZE(mtime_date_string)) THEN
-        ! resize buffer
-        ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-        tmp(:) = mtime_date_string(:)
-        DEALLOCATE(mtime_date_string, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-        ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-        mtime_date_string(1:SIZE(tmp)) = tmp(:)
-        DEALLOCATE(tmp, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+      ! check, that we do not duplicate the last time step:
+      l_append_step = .FALSE.
+      IF (n_event_steps > 0) THEN
+        mtime_date => newDatetime(TRIM(mtime_date_string(n_event_steps)))
+        IF (mtime_date /= sim_end)  l_append_step = .TRUE.
+        CALL deallocateDatetime(mtime_date)
       END IF
-      CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
-      IF (ldebug) THEN
-        WRITE (0,*) get_my_global_mpi_id(), ": ", &
-             &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+      IF (l_append_step) THEN 
+        n_event_steps = n_event_steps + 1
+        IF (n_event_steps > SIZE(mtime_date_string)) THEN
+          ! resize buffer
+          ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          tmp(:) = mtime_date_string(:)
+          DEALLOCATE(mtime_date_string, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+          ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+          mtime_date_string(1:SIZE(tmp)) = tmp(:)
+          DEALLOCATE(tmp, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+        END IF
+        CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
+        IF (ldebug) THEN
+          WRITE (0,*) get_my_global_mpi_id(), ": ", &
+            &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+        END IF
       END IF
     END IF
 
@@ -1999,7 +2009,14 @@ CONTAINS
       CALL MPI_ISEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
         &            event%icomm, event%isend_req, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_ISEND.')
+      IF (ldebug) THEN
+        WRITE (0,*) "pass ", event%output_event%i_event_step, &
+          &         " (",  event%output_event%event_step(istep)%event_step_data(1)%jfile, &
+          &         " / ", event%output_event%event_step(istep)%event_step_data(1)%jpart, &
+          &         " )"
+      END IF
     END IF
+
 #endif
     IF (.NOT. is_output_event_finished(event)) THEN
       ! increment step counter
