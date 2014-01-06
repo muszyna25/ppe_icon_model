@@ -2236,7 +2236,7 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
 
   ! Allocation of local storage fields 
   nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
-  ALLOCATE(z_aux3d_lp(nproma,7,nblks_c_lp), z_aux3d_par(nproma,7,p_patch(jgp)%nblks_c))
+  ALLOCATE(z_aux3d_lp(nproma,7,nblks_c_lp), z_aux3d_par(nproma,5,p_patch(jgp)%nblks_c))
 
   p_aux3d => z_aux3d_lp
 
@@ -2285,18 +2285,6 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jg)%snow_gsp(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         prm_diag(jg)%snow_gsp(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_aux3d(jc,6,jb) =                                         &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_aux3d(jc,7,jb) =                                         &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
     ENDDO
 
   ENDDO
@@ -2325,8 +2313,6 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jgp)%snow_con(jc,jb)      = p_aux3d(jc,3,jb)
         prm_diag(jgp)%rain_gsp(jc,jb)      = p_aux3d(jc,4,jb)
         prm_diag(jgp)%snow_gsp(jc,jb)      = p_aux3d(jc,5,jb)
-        prm_diag(jgp)%rain_gsp_rate(jc,jb) = p_aux3d(jc,6,jb)
-        prm_diag(jgp)%snow_gsp_rate(jc,jb) = p_aux3d(jc,7,jb)
       END IF
 
     ENDDO

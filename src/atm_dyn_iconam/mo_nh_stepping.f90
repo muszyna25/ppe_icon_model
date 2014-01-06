@@ -764,7 +764,7 @@ MODULE mo_nh_stepping
     INTEGER :: jstep, jgp, jgc, jn
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
 
-    REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
+    REAL(wp):: dt_sub, dtadv_sub, dt_fbk ! (advective) timestep for next finer grid level
     REAL(wp):: rdt_loc,  rdtadv_loc, rdtmflx_loc ! inverse time step for local grid level
 
     LOGICAL :: l_bdy_nudge
@@ -1381,9 +1381,10 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),          &
-                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),   &
-                & p_grf_state(n_dom_start:n_dom), jgc, jg, lstep_adv(jg))
+              dt_fbk = 1._wp/rdt_loc
+              CALL relax_feedback(  p_patch(n_dom_start:n_dom),                 &
+                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),          &
+                & p_grf_state(n_dom_start:n_dom), jgc, jg, lstep_adv(jg), dt_fbk)
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
@@ -1753,7 +1754,7 @@ MODULE mo_nh_stepping
 
         CALL interpol_phys_grf(jg, jgc, jn) 
 
-        IF (lfeedback(jgc)) CALL feedback_phys_diag(jgc, jg)
+        IF (lfeedback(jgc) .AND. ifeedback_type==1) CALL feedback_phys_diag(jgc, jg)
 
         CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), 1, &
            p_nh_state(jg)%prog(nnow_rcf(jg))%tke, p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)

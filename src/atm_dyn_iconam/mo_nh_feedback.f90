@@ -48,7 +48,7 @@ MODULE mo_nh_feedback
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
-  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr
+  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr, fbk_relax_timescale
   USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
   USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
   USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -977,7 +977,7 @@ CONTAINS
   !! Change feedback for cell-based variables from area-weighted averaging
   !! to using fbk_wgt (see above routine)
   !!
-  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
+  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk, dt_fbk)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -994,6 +994,8 @@ CONTAINS
     ! (when calling transport and microphysics not every dynamics time step, tracer feedback
     !  should probably be restricted to transport time steps)
     LOGICAL, INTENT(IN) :: l_trac_fbk
+
+    REAL(wp), INTENT(IN) :: dt_fbk ! time step at which feedback is called
 
     ! local variables
 
@@ -1097,7 +1099,7 @@ CONTAINS
     ! R / p0ref
     rd_o_p0ref = rd / p0ref
 
-    relfac = 0.075_wp
+    relfac = MIN(0.075_wp, dt_fbk/fbk_relax_timescale) ! default for relaxation time scale is 3 hours
     dcoef_vec  = 1._wp/12._wp
 
     ! Allocation of storage fields

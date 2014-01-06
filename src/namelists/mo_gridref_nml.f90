@@ -55,7 +55,8 @@ MODULE mo_gridref_nml
     &                            config_l_mass_consvcorr   => l_mass_consvcorr,&
     &                            config_l_density_nudging  => l_density_nudging,&
     &                            config_denom_diffu_v      => denom_diffu_v,&
-    &                            config_denom_diffu_t      => denom_diffu_t
+    &                            config_denom_diffu_t      => denom_diffu_t,&
+    &                            config_fbk_relax_timescale => fbk_relax_timescale
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
 
@@ -100,12 +101,15 @@ MODULE mo_gridref_nml
   ! Denominators of normalized diffusion coefficients for boundary diffusion
   REAL(wp) :: denom_diffu_v, denom_diffu_t
 
-  NAMELIST/gridref_nml/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
-    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
-    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
-    &                    grf_intmethod_c, grf_intmethod_e,                &
-    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,  &
-    &                    l_mass_consvcorr, l_density_nudging
+  ! Relaxation time scale for feedback in case of ifeedback_type = 2
+  REAL(wp) :: fbk_relax_timescale
+
+  NAMELIST/gridref_nml/  rbf_vec_kern_grf_e, rbf_scale_grf_e,                   &
+    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,                  &
+    &                    grf_idw_exp_e12, grf_idw_exp_e34,                      &
+    &                    grf_intmethod_c, grf_intmethod_e,                      &
+    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,        &
+    &                    l_mass_consvcorr, l_density_nudging, fbk_relax_timescale
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -175,6 +179,9 @@ CONTAINS
     ! Density nudging near nest boundaries turned on by default
     l_density_nudging = .TRUE.
 
+    ! Relaxation time scale for feedback in case of ifeedback_type = 2
+    fbk_relax_timescale = 10800._wp ! 3 hours
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -221,6 +228,7 @@ CONTAINS
       config_denom_diffu_t = denom_diffu_t
       config_l_mass_consvcorr = l_mass_consvcorr
       config_l_density_nudging = l_density_nudging
+      config_fbk_relax_timescale = fbk_relax_timescale
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
