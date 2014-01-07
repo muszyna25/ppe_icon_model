@@ -876,11 +876,6 @@ CONTAINS
     REAL(wp), DIMENSION(p_patch%nblks_c,p_patch%nlev) :: maxtturb, maxuturb, maxvturb
     REAL(wp), DIMENSION(p_patch%nlev) :: tturbmax, uturbmax, vturbmax
 
-    ! variables for CFL diagnostic
-    REAL(wp) :: maxcfl(p_patch%nblks_c), cflmax, avg_invedgelen(nproma), csfac
-
-    INTEGER,  POINTER :: ieidx(:,:,:), ieblk(:,:,:)
-
     ! loop indices
     INTEGER :: jc,jk,jb,jg
 
@@ -902,14 +897,6 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    ieidx => p_patch%cells%edge_idx
-    ieblk => p_patch%cells%edge_blk
-
-    ! factor for sound speed computation
-    csfac = rd*cpd*rcvd
-
-    ! Initialization
-    maxcfl(:) = 0._wp
 
     ! In case that turbulence diagnostics are computed
     IF (msg_level >= 18) THEN
@@ -920,33 +907,6 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-
-    ! CFL-diagnostic
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-
-
-      DO jc = i_startidx, i_endidx
-        avg_invedgelen(jc) = 3._wp/                                       &
-          (p_patch%edges%dual_edge_length(ieidx(jc,jb,1),ieblk(jc,jb,1))+ &
-           p_patch%edges%dual_edge_length(ieidx(jc,jb,2),ieblk(jc,jb,2))+ &
-           p_patch%edges%dual_edge_length(ieidx(jc,jb,3),ieblk(jc,jb,3))  )
-      ENDDO
-
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          maxcfl(jb) = MAX(maxcfl(jb),dtime*avg_invedgelen(jc)*( &
-            SQRT(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2)+   &
-            SQRT(csfac*p_diag%temp(jc,jk,jb)) ))
-        ENDDO
-      ENDDO
-
-    ENDDO
-!$OMP END DO
 
     ! Extended turbulence diagnostics if msg_level >= 18
     IF (lcall_turb .AND. msg_level >= 18) THEN
@@ -976,13 +936,6 @@ CONTAINS
 
     ENDIF
 !$OMP END PARALLEL
-
-    ! CFL diagnostic
-    cflmax = MAXVAL(maxcfl)
-    cflmax = global_max(cflmax) ! maximum over all PEs
-    WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
-    CALL message('nwp_diag_output_2: ', TRIM(message_text))
-
 
     IF (msg_level >= 18 .AND. lcall_turb) THEN ! extended turbulence diagnostic
       DO jk = 1, nlevp1

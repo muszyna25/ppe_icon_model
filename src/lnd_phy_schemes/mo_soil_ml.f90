@@ -1727,7 +1727,7 @@ END SUBROUTINE message
 
 
 ! In debugging mode and if transfer coefficient occured for at least one grid point
-  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 14) THEN
+  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 19) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
            'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
@@ -3507,7 +3507,7 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-IF (msg_level >= 14) THEN
+IF (msg_level >= 19) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
     IF ( ABS( zshfl_s(i) )  >  500.0  .OR. & 
@@ -3964,7 +3964,7 @@ ENDIF
 !      END IF          ! land-points only
   END DO
 
-IF (msg_level >= 14) THEN
+IF (msg_level >= 19) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
     IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
@@ -4874,7 +4874,7 @@ ENDIF
 
 
 #ifdef __ICON__
-  IF (msg_level >= 14) THEN
+  IF (msg_level >= 19) THEN
 !     DO ic=1,icount_snow
 !       i=melt_list(ic) 
       DO i = istarts, iends
@@ -5552,7 +5552,7 @@ SUBROUTINE terra_multlay_init (                &
 !---------------------
 
 #ifdef __ICON__
-  IF (msg_level >= 14) THEN
+  IF (msg_level >= 19) THEN
         DO i = istarts, iends
              IF (w_snow_now(i) > 2.410E-003 .AND. w_snow_now(i) < 2.411E-003 ) THEN
               write(0,*) "SFC-DIAGNOSIS TERRA INIT",i
