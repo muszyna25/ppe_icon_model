@@ -53,7 +53,6 @@ MODULE mo_util_cdi
   PRIVATE
 
   PUBLIC  :: read_cdi_2d, read_cdi_3d
-  PUBLIC  :: get_varID
 
 
   CHARACTER(len=*), PARAMETER :: version = &
@@ -68,13 +67,13 @@ CONTAINS
   !  Uses cdilib for file access.
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  FUNCTION get_varID(streamID, name, opt_tileidx) RESULT(result_varID)
+  FUNCTION get_cdi_varID(streamID, name, opt_tileidx) RESULT(result_varID)
     INTEGER                                 :: result_varID
     INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx         !< tile index, encoded as "localInformationNumber"
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::get_varID'
+    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::get_cdi_varID'
     CHARACTER(len=MAX_CHAR_LENGTH) :: zname
     LOGICAL                        :: l_found
     INTEGER                        :: nvars, varID, vlistID, tileidx
@@ -110,7 +109,7 @@ CONTAINS
       end if
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
-  END FUNCTION get_varID
+  END FUNCTION get_cdi_varID
 
 
   !-------------------------------------------------------------------------
@@ -154,7 +153,7 @@ CONTAINS
     ! get var ID
     IF(p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
       zaxisID   = vlistInqVarZaxis(vlistID, varID)
       gridID    = vlistInqVarGrid(vlistID, varID)
       dimlen(1) = gridInqSize(gridID)
@@ -238,7 +237,7 @@ CONTAINS
     ! Get var ID
     IF (p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
       gridID    = vlistInqVarGrid(vlistID, varID)
       ! Check variable dimensions:
       IF (gridInqSize(gridID) /= glb_arr_len) THEN
