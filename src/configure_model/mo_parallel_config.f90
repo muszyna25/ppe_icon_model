@@ -57,7 +57,7 @@ MODULE mo_parallel_config
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  redrad_split_factor
+       &  redrad_split_factor, restart_chunk_size
   PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
        & ext_div_medial_redrad_cluster, ext_div_from_file
 
@@ -165,6 +165,10 @@ MODULE mo_parallel_config
   ! anyway by default and GRIB2 has 16 or 24 bit per data word.
   !
   LOGICAL :: use_dp_mpi2io
+
+  ! The (asynchronous) restart is capable of writing and communicating
+  ! more than one 2D slice at once
+  INTEGER :: restart_chunk_size
 
 CONTAINS
 

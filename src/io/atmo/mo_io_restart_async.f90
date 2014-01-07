@@ -66,7 +66,7 @@ MODULE mo_io_restart_async
   USE mo_io_restart_namelist,     ONLY: nmllen_max
 #endif
   USE mo_communication,           ONLY: idx_no, blk_no
-  USE mo_parallel_config,         ONLY: nproma
+  USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
@@ -2556,7 +2556,9 @@ CONTAINS
       &                                np, mpi_error, i, idate, itime, status, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
     INTEGER                         :: voff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var3_dp(:)
+    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
+    INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
+      &                                this_chunk_nlevs, ioff2
 
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
 
@@ -2587,7 +2589,7 @@ CONTAINS
     nval = MAX(p_pd%cells%n_glb, p_pd%edges%n_glb, p_pd%verts%n_glb)
 
     ! allocate RMA memory
-    ALLOCATE(var1_dp(nval), STAT=ierrstat)
+    ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
     ioff(:) = p_rf%mem_win_off(:)
@@ -2620,21 +2622,26 @@ CONTAINS
       ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
-      ! loop over all levels
-      LEVELS : DO ilev=1,nlevs
+      ! no. of chunks of levels (each of size "restart_chunk_size"):
+      nchunks = (nlevs-1)/restart_chunk_size + 1
+      ! loop over all chunks (of levels)
+      LEVELS : DO ichunk=1,nchunks
+        chunk_start       = (ichunk-1)*restart_chunk_size + 1
+        chunk_end         = MIN(chunk_start+restart_chunk_size-1, nlevs)
+        this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
         ! retrieve part of variable from every worker PE using MPI_Get
-        nv_off = 0
+        nv_off  = 0
         DO np = 0, num_work_procs-1
           IF(p_ri%pe_own(np) == 0) CYCLE
           
           ! number of words to transfer
-          nval = p_ri%pe_own(np)
+          nval = p_ri%pe_own(np) * this_chunk_nlevs
           
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
           CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
           
-          CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+          CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
             &          nval, p_real_dp, mpi_win, mpi_error)
           CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
           
@@ -2643,15 +2650,26 @@ CONTAINS
           
           ! update the offset in the RMA window on compute PEs
           ioff(np) = ioff(np) + INT(nval,i8)
-          ! update the offset in var1
-          nv_off   = nv_off + nval
+
+          ! separate the levels received from PE "np":
+          ioff2 = 0
+          DO ilev=1,this_chunk_nlevs
+            DO i=1,p_ri%pe_own(np)
+              var2_dp(i+nv_off,ilev) = var1_dp(ioff2 + i)
+            END DO
+            ioff2 = ioff2 + p_ri%pe_own(np)
+          END DO
+          ! update the offset in var2
+          nv_off = nv_off + p_ri%pe_own(np)
         END DO
-        DO i = 1, p_ri%n_glb
-          var3_dp(i) = var1_dp(p_ri%reorder_index(i))
-        ENDDO
 
         ! write field content into a file
-        CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp, 0)
+        DO ilev=chunk_start, chunk_end
+          DO i = 1, p_ri%n_glb
+            var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
+          ENDDO
+          CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
+        END DO
       ENDDO LEVELS
 
 #ifdef DEBUG
@@ -2664,7 +2682,7 @@ CONTAINS
 
     ENDDO VAR_LOOP
 
-    DEALLOCATE(var1_dp, STAT=ierrstat)
+    DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
 
   END SUBROUTINE restart_write_var_list

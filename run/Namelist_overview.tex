@@ -4169,6 +4169,14 @@ L & .FALSE. & &
  Enable this flag if output fields shall be gathered by the output processes in DOUBLE PRECISION. &
 \tabularnewline
 
+\hline
+restart\_chunk\_size &
+I & 1 & &
+Number of levels to be buffered by the asynchronous restart process.
+The (asynchronous) restart is capable of writing and communicating
+more than one 2D slice at once. &
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_parallel\_nml.f90
