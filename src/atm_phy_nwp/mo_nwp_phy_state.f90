@@ -74,11 +74,10 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB, &
   &                               iedmf 
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, ltestcase
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom
-USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil

@@ -329,21 +329,20 @@
 
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
-            cf_desc    = t_cf_var('gw', '1', 'area weights', DATATYPE_FLT32)
-            grib2_desc = t_grib2_var(0, 0, 0, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
+            cf_desc    = t_cf_var('aw', '1', 'area weights for lat-lon grid', DATATYPE_FLT32)
+            grib2_desc = t_grib2_var(0, 191, 192, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
             CALL add_var( p_nh_state(jg)%diag_list,                             &
-              &           "gw", p_dummy,                                        &
+              &           "aw", p_dummy,                                        &
               &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
               &           ldims=var_shape, lrestart=.FALSE.,                    &
               &           loutput=.TRUE., new_element=new_element,              &
               &           hor_interp=create_hor_interp_metadata(                &
               &             hor_intp_type=HINTP_TYPE_NONE ),                    &
-              &           isteptype=TSTEP_CONSTANT,                             &
-              &           cdiTimeID=TIME_CONSTANT )                ! deprecated
+              &           isteptype=TSTEP_CONSTANT )
             ! link this new variable to the lon-lat grid:
             new_element%field%info%hor_interp%lonlat_id = i
             ! compute area weights:
