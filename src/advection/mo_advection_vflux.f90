@@ -142,10 +142,10 @@ CONTAINS
   !                                                  independent versions)
   !
   SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v, p_w_contra,    &
-    &                      p_dtime, p_cellhgt_mc_now, p_cellmass_now,         &
-    &                      p_cellmass_avg, p_ivadv_tracer, p_itype_vlimit,    &
-    &                      p_iubc_adv, p_iadv_slev, p_upflux, opt_topflx_tra, &
-    &                      opt_q_int, opt_rlstart, opt_rlend )
+    &                      p_dtime, p_cellhgt_mc_now,                         &
+    &                      p_cellmass_now, p_ivadv_tracer, p_itype_vlimit,    &
+    &                      p_iubc_adv, p_iadv_slev, lprint_cfl, p_upflux,     &
+    &                      opt_topflx_tra, opt_q_int, opt_rlstart, opt_rlend  )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is 
       &  p_patch                             !< performed
@@ -171,12 +171,6 @@ CONTAINS
                                     !< at time step n [Pa]
                                     !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), TARGET, INTENT(IN)::& !< NH: density weighted cell height at full levels
-      &  p_cellmass_avg(:,:,:)      !< at time step n+1/2 [kg/m**2]
-                                    !< HA: pressure thickness for full levels 
-                                    !< at time step n [Pa]
-                                    !< dim: (nproma,nlev,nblks_c)
-
     INTEGER, INTENT(IN) ::   &      !< parameter to select numerical
       &  p_ivadv_tracer(:)          !< scheme for vertical transport
                                     !< dim: (ntracer)
@@ -190,6 +184,9 @@ CONTAINS
 
     INTEGER, INTENT(IN) ::   &      !< selects upper boundary condition
       &  p_iubc_adv
+
+    LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
+      &  lprint_cfl                 !< in routine upwind_vflux_ppm_cfl
 
     REAL(wp), INTENT(OUT) :: &      !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
@@ -254,16 +251,16 @@ CONTAINS
           iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
           ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt),     &! in
-            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),           &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now, p_cellmass_avg, &! in
-            &                  p_upflux(:,:,:,jt),                               &! out
-            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),            &! in
-            &                  opt_slev=p_iadv_slev(jt),                         &! in
-            &                  opt_ti_slev=iadv_min_slev,                        &! in
-            &                  opt_rlstart=opt_rlstart,                          &! in
-            &                  opt_rlend=opt_rlend                               )! in
+          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
+            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
+            &                  p_upflux(:,:,:,jt),                           &! out
+            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
+            &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
+            &                  opt_rlstart=opt_rlstart,                      &! in
+            &                  opt_rlend=opt_rlend                           )! in
         CASE( ippm_v )
           ! CALL third order PPM
           CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
@@ -330,15 +327,15 @@ CONTAINS
           iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
           ! CALL third order PPM which handles long time steps (i.e. CFL>1)
-          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt),     &! in
-            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),           &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now, p_cellmass_avg, &! in
-            &                  p_upflux(:,:,:,jt),                               &! out
-            &                  opt_slev=p_iadv_slev(jt),                         &! in
-            &                  opt_ti_slev=iadv_min_slev,                        &! in
-            &                  opt_rlstart=opt_rlstart,                          &! in
-            &                  opt_rlend=opt_rlend                               )! in
+          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
+            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
+            &                  p_upflux(:,:,:,jt),                           &! out
+            &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
+            &                  opt_rlstart=opt_rlstart,                      &! in
+            &                  opt_rlend=opt_rlend                           )! in
 
         CASE( ippm_v )
           ! CALL third order PPM
@@ -1097,7 +1094,7 @@ CONTAINS
   !
   SUBROUTINE upwind_vflux_ppm_cfl( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v, &
     &                      p_dtime,  ld_compute, ld_cleanup, p_itype_vlimit,   &
-    &                      p_cellhgt_mc_now, p_cellmass_now, p_cellmass_avg,   &
+    &                      p_cellhgt_mc_now, p_cellmass_now, lprint_cfl,       &
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend )
 
@@ -1137,11 +1134,8 @@ CONTAINS
                                   !< at time step n [Pa]
                                   !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(IN) ::  &    !< NH: density weighted cell height at full levels
-      &  p_cellmass_avg(:,:,:)    !< at time step n+1/2 [kg/m**2]
-                                  !< HA: pressure thickness for full levels 
-                                  !< at time step n [Pa]
-                                  !< dim: (nproma,nlev,nblks_c)
+    LOGICAL, INTENT(IN) ::   &    !< determines if vertical CFL number shall be written out
+      &  lprint_cfl
 
     REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
@@ -1428,8 +1422,8 @@ CONTAINS
           z_dummy = p_dtime * ABS(p_mflx_contra_v(jc,jk,jb))
 
           ! compute Courant number
-          z_cflfrac_p(jc,jk,jb) = z_dummy / p_cellmass_avg(jc,jk,jb)
-          z_cflfrac_m(jc,jk,jb) = z_dummy / p_cellmass_avg(jc,ikm1,jb)
+          z_cflfrac_p(jc,jk,jb) = z_dummy / p_cellmass_now(jc,jk,jb)
+          z_cflfrac_m(jc,jk,jb) = z_dummy / p_cellmass_now(jc,ikm1,jb)
 
           max_cfl(jc,jk) = MAX(z_cflfrac_p(jc,jk,jb),z_cflfrac_m(jc,jk,jb))
         ENDDO
@@ -1475,11 +1469,11 @@ CONTAINS
 
             DO jc = i_startidx, i_endidx
 
-              IF ( z_aux_p(jc) > p_cellmass_avg(jc,jk_int_p(jc,jk,jb),jb)    &
+              IF ( z_aux_p(jc) > p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)    &
                 &  .AND. jk_int_p(jc,jk,jb) <= nlev-1                        &
                 &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) < 0._wp ) THEN
 
-                z_aux_p(jc) = z_aux_p(jc) - p_cellmass_avg(jc,jk_int_p(jc,jk,jb),jb)
+                z_aux_p(jc) = z_aux_p(jc) - p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
 
                 ! update shift index
                 jk_int_p(jc,jk,jb) = jk_int_p(jc,jk,jb) + 1
@@ -1495,7 +1489,7 @@ CONTAINS
                 i_levlist_p(counter_jip,nlist_p,jb) = jk
 
                 ! compute fractional Courant number
-                z_cflfrac_p(jc,jk,jb) = z_aux_p(jc) / p_cellmass_avg(jc,jk_int_p(jc,jk,jb),jb)
+                z_cflfrac_p(jc,jk,jb) = z_aux_p(jc) / p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
 
               ENDIF
 
@@ -1522,11 +1516,11 @@ CONTAINS
 
             DO jc = i_startidx, i_endidx
 
-              IF ( z_aux_m(jc) > p_cellmass_avg(jc,jk_int_m(jc,jk,jb),jb)    &
+              IF ( z_aux_m(jc) > p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)    &
                 &  .AND. jk_int_m(jc,jk,jb) >= slevp1_ti                     &
                 &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) > 0._wp ) THEN
 
-                z_aux_m(jc) = z_aux_m(jc) - p_cellmass_avg(jc,jk_int_m(jc,jk,jb),jb)
+                z_aux_m(jc) = z_aux_m(jc) - p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
 
                 ! Index shift
                 jk_int_m(jc,jk,jb) = jk_int_m(jc,jk,jb) - 1
@@ -1542,7 +1536,7 @@ CONTAINS
                 i_levlist_m(counter_jim,nlist_m,jb) = jk
 
                 ! compute fractional Courant number
-                z_cflfrac_m(jc,jk,jb) = z_aux_m(jc) / p_cellmass_avg(jc,jk_int_m(jc,jk,jb),jb)
+                z_cflfrac_m(jc,jk,jb) = z_aux_m(jc) / p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
               ENDIF
 
             END DO ! end loop over cells
@@ -2010,7 +2004,7 @@ CONTAINS
     !
     ! If desired, print maximum vertical CFL number
     !
-    IF ( ld_compute .AND. msg_level >= 10 ) THEN
+    IF ( ld_compute .AND. msg_level >= 10 .AND. lprint_cfl) THEN
 
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 
@@ -2026,7 +2020,7 @@ CONTAINS
         CALL message(TRIM(routine),message_text)
       ENDIF
 
-      ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
+      ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
       IF (msg_level >= 13 .AND. max_cfl_tot > 4._wp) THEN
         DO jk = slevp1_ti, nlev
           max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))

@@ -139,11 +139,11 @@ CONTAINS
   !!   after removal of the MUSCL vertical advection scheme
   !! 
   !!
-  SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now,           &
-    &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,            &
-    &                        p_w_contra_traj, p_cellhgt_mc_now, p_delp_mc_new,              &
-    &                        p_delp_mc_now, p_delp_mc_avg, p_grf_tend_tracer, p_tracer_new, &
-    &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,              &
+  SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now, &
+    &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,  &
+    &                        p_w_contra_traj, p_cellhgt_mc_now, p_delp_mc_new,    &
+    &                        p_delp_mc_now, p_grf_tend_tracer, p_tracer_new,      &
+    &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
     &                        opt_q_int, opt_ddt_tracer_adv )
   !
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
@@ -193,12 +193,6 @@ CONTAINS
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
       &  p_delp_mc_now(:,:,:)           !< at time step n [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
-                                        !< at time step n [Pa]
-                                        !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
-      &  p_delp_mc_avg(:,:,:)           !< at time step n+1/2 [kg/m**2]
                                         !< HA: pressure thickness for full levels 
                                         !< at time step n [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
@@ -353,11 +347,12 @@ CONTAINS
           &              p_w_contra_traj,                            &! in
           &              advection_config(jg)%cSTR*p_dtime,          &! in
           &              p_cellhgt_mc_now,                           &! in
-          &              ptr_delp_mc_now, p_delp_mc_avg,             &! in
+          &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
           &              advection_config(jg)%iubc_adv,              &! in
           &              advection_config(jg)%iadv_slev(:),          &! in
+          &              .TRUE.,                                     &! print CFL number
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
           &              opt_q_int=opt_q_int,                        &! out
@@ -505,11 +500,14 @@ CONTAINS
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
             &                 i_startidx, i_endidx, i_rlstart, i_rlend )
  
+          ! The intermediate cell mass is limited to 10% of the original value in order
+          ! to prevent instabilities in extreme breaking gravity waves
           ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                        &
+            &       MAX(0.1_wp*p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb),      &
             &                  p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb)       &
             &                + pdtime_mod                                         &
             &                * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
-            &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
+            &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )   )
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -676,11 +674,12 @@ CONTAINS
         &              p_w_contra_traj,                            &! in
         &              advection_config(jg)%cSTR*p_dtime,          &! in
         &              p_cellhgt_mc_now,                           &! in
-        &              ptr_delp_mc_now, p_delp_mc_avg,             &! in
+        &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in
         &              advection_config(jg)%iubc_adv,              &! in
         &              advection_config(jg)%iadv_slev(:),          &! in
+        &              .FALSE.,                                    &! do not print CFL number
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
         &              opt_q_int=opt_q_int,                        &! out

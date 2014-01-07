@@ -93,7 +93,7 @@ CONTAINS
     &                        p_nh_diag,                                       &!inout
     &                        p_vn_traj, p_mass_flx_me,                        &!inout
     &                        p_w_traj, p_mass_flx_ic,                         &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new, p_rhodz_mc_avg,  &!inout
+    &                        p_rhodz_mc_now, p_rhodz_mc_new,                  &!inout
     &                        p_topflx_tra                                     )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -117,7 +117,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_avg(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
@@ -319,8 +318,6 @@ CONTAINS
 
             p_rhodz_mc_new(jc,jk,jb) =                                          &
               &           p_new%rho(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
-            p_rhodz_mc_avg(jc,jk,jb) =                                                 &
-              &           0.5_wp * (p_rhodz_mc_now(jc,jk,jb) + p_rhodz_mc_new(jc,jk,jb))
 
           ENDDO
         ENDDO
