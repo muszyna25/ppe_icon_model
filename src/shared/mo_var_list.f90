@@ -39,8 +39,6 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
   USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
   
-!  USE mo_advection_config, ONLY: t_advection_config
-!  USE mo_art_config,       ONLY: t_art_config, art_config
 
   IMPLICIT NONE
 
@@ -595,7 +593,6 @@ CONTAINS
     !
     this_info%in_group(:)         = groups()
     !
-    this_info%cdiTimeID           = TIME_VARIABLE
     this_info%l_pp_scheduler_task = 0
 
   END FUNCTION default_var_list_metadata
@@ -818,7 +815,7 @@ CONTAINS
          &                     loutput, lcontainer, lrestart, lrestart_cont,   &
          &                     initval, isteptype, resetval, lmiss,            &
          &                     missval, tlev_source, tracer_info, vert_interp, &
-         &                     hor_interp, in_group, verbose, cdiTimeID,       &
+         &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
@@ -843,7 +840,6 @@ CONTAINS
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))    ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
-    INTEGER,                 INTENT(in), OPTIONAL :: cdiTimeID     ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
     !
@@ -900,8 +896,6 @@ CONTAINS
       info%in_group(:) = in_group(:)
     END IF
 
-    CALL assign_if_present (info%cdiTimeID,   cdiTimeID)
-
     CALL assign_if_present (info%l_pp_scheduler_task, l_pp_scheduler_task)
 
     CALL struct_assign_if_present (info%post_op, post_op)
@@ -930,7 +924,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -957,7 +951,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1002,8 +995,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
-         post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1062,7 +1054,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1089,7 +1081,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1134,8 +1125,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
-         post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1195,7 +1185,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1222,7 +1212,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1267,8 +1256,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
-         post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1328,7 +1316,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1355,7 +1343,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1400,8 +1387,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
-         post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1461,7 +1447,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       cdiTimeID, l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1488,7 +1474,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1533,8 +1518,7 @@ CONTAINS
          isteptype=isteptype,resetval=resetval, lmiss=lmiss,                      &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         cdiTimeID=cdiTimeID, l_pp_scheduler_task=l_pp_scheduler_task,            &
-         post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1595,7 +1579,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
-       vert_interp, in_group, verbose, new_element, cdiTimeID, &
+       vert_interp, in_group, verbose, new_element,            &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -1621,7 +1605,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1665,7 +1648,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             & 
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
+         in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
          post_op=post_op)
     !
@@ -1718,7 +1701,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -1744,7 +1727,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1788,7 +1770,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
+         in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
          post_op=post_op)
     !
@@ -1841,7 +1823,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -1868,7 +1850,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -1912,7 +1893,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp,         &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,                 &
+         in_group=in_group, verbose=verbose,                                      &
          l_pp_scheduler_task=l_pp_scheduler_task,                                 &
          post_op=post_op)
     !
@@ -1966,7 +1947,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -1992,7 +1973,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2089,7 +2069,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2115,7 +2095,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2214,7 +2193,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2240,7 +2219,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2337,7 +2315,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2363,7 +2341,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2460,7 +2437,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2486,7 +2463,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2583,7 +2559,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2609,7 +2585,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2706,7 +2681,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
-       hor_interp, in_group, verbose, new_element, cdiTimeID,  &
+       hor_interp, in_group, verbose, new_element,             &
        l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
@@ -2732,7 +2707,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -2776,7 +2750,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,             &
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,         &
+         in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
          post_op=post_op)
     !
@@ -3082,7 +3056,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, cdiTimeID, l_pp_scheduler_task, post_op)
+       &                                 new_element, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -3110,7 +3084,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -3188,7 +3161,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
+         in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op)
     !
@@ -3241,7 +3214,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
-       &                                 verbose, new_element, cdiTimeID, l_pp_scheduler_task,   &
+       &                                 verbose, new_element, l_pp_scheduler_task,              &
        &                                 post_op)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
@@ -3270,7 +3243,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -3347,7 +3319,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
+         in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op)
     !
@@ -3399,7 +3371,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_i, isteptype,          &
        &                                 resetval_i, lmiss, missval_i, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, cdiTimeID, l_pp_scheduler_task, post_op)
+       &                                 new_element, l_pp_scheduler_task, post_op)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -3427,7 +3399,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))       ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
-    INTEGER,              INTENT(in), OPTIONAL :: cdiTimeID           ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
     !
@@ -3504,7 +3475,7 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,               &
          missval=missval, tlev_source=tlev_source, tracer_info=tracer_info, &
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
-         in_group=in_group, verbose=verbose, cdiTimeID=cdiTimeID,           &
+         in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
          post_op=post_op)
     !
