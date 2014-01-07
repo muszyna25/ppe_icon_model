@@ -70,7 +70,7 @@ MODULE mo_nh_initicon
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
-  USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
+  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, get_varID
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
@@ -727,8 +727,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_2d(fileid, varname, glb_arr_len, loc_arr_len, &
-          &                    glb_index, var_out)
+        CALL read_cdi_2d(fileid, varname, glb_arr_len, loc_arr_len, &
+          &              glb_index, var_out)
 
       CASE (FILETYPE_GRB2)
         IF(p_pe == p_io .AND. msg_level>10) THEN
@@ -736,8 +736,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &                    glb_index, var_out, opt_tileidx)
+        CALL read_cdi_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &              glb_index, var_out, opt_tileidx)
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
@@ -797,8 +797,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_3d (fileid, varname, glb_arr_len, loc_arr_len, &
-          &                glb_index, nlevs, var_out)
+        CALL read_cdi_3d (fileid, varname, glb_arr_len, loc_arr_len, &
+          &               glb_index, nlevs, var_out)
 
       CASE (FILETYPE_GRB2)
         IF(p_pe == p_io .AND. msg_level>10 ) THEN
@@ -806,8 +806,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &                glb_index, nlevs, var_out, opt_tileidx)
+        CALL read_cdi_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &               glb_index, nlevs, var_out, opt_tileidx)
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")

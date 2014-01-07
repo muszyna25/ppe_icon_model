@@ -34,7 +34,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_util_grib
+MODULE mo_util_cdi
 
   USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: finish
@@ -52,13 +52,13 @@ MODULE mo_util_grib
 
   PRIVATE
 
-  PUBLIC  :: read_grib_2d, read_grib_3d
+  PUBLIC  :: read_cdi_2d, read_cdi_3d
   PUBLIC  :: get_varID
 
 
   CHARACTER(len=*), PARAMETER :: version = &
     &    '$Id$'
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_grib'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
 CONTAINS
 
@@ -70,7 +70,7 @@ CONTAINS
   !
   FUNCTION get_varID(streamID, name, opt_tileidx) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to GRIB file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx         !< tile index, encoded as "localInformationNumber"
     ! local variables
@@ -114,14 +114,14 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  !> Read 3D dataset from GRIB2 file.
+  !> Read 3D dataset from file.
   ! 
   !  Note: This implementation uses a 2D buffer.
   ! 
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
-  SUBROUTINE read_grib_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
+  SUBROUTINE read_cdi_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
     &                     nlevs, var_out, opt_tileidx, opt_lvalue_add)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
@@ -135,7 +135,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL   :: opt_lvalue_add !< If .TRUE., add values to given field
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_grib_3d'
+      routine = modname//':read_cdi_3d'
     ! local variables:
     INTEGER               :: vlistID, varID, zaxisID, gridID,   &
       &                      mpi_comm, j, jl, jb, jk, ierrstat, &
@@ -208,17 +208,17 @@ CONTAINS
     DEALLOCATE(tmp_buf, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-  END SUBROUTINE read_grib_3d
+  END SUBROUTINE read_cdi_3d
 
 
   !-------------------------------------------------------------------------
-  !> Read 2D dataset from GRIB2 file
+  !> Read 2D dataset from file
   !
   !  @par Revision History
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_grib_2d (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
+  SUBROUTINE read_cdi_2d (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
@@ -229,7 +229,7 @@ CONTAINS
     INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_grib_2d'
+      routine = modname//':read_cdi_2d'
     INTEGER       :: varID, mpi_comm, j, jl, jb, &
       &              nmiss, vlistID, gridID
     REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
@@ -268,6 +268,6 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
       var_out(jl,jb) = z_dummy_array(glb_index(j))
     ENDDO
-  END SUBROUTINE read_grib_2d
+  END SUBROUTINE read_cdi_2d
 
-END MODULE mo_util_grib
+END MODULE mo_util_cdi
