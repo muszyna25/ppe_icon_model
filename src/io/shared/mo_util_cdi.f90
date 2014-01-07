@@ -1,5 +1,6 @@
 !>
-!! Contains routines for reading GRIB2 files (using the CDI library).
+!! Contains utility routines for reading NetCDF and GRIB2 files (using
+!! the CDI library) and communicating fields in parallel.
 !!
 !! @author F. Prill, DWD
 !!
@@ -36,7 +37,7 @@
 !!
 MODULE mo_util_cdi
 
-  USE mo_kind,               ONLY: wp, sp
+  USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
@@ -73,7 +74,7 @@ CONTAINS
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx         !< tile index, encoded as "localInformationNumber"
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::get_cdi_varID'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_varID'
     CHARACTER(len=MAX_CHAR_LENGTH) :: zname
     LOGICAL                        :: l_found
     INTEGER                        :: nvars, varID, vlistID, tileidx
