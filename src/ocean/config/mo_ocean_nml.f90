@@ -252,8 +252,8 @@ MODULE mo_ocean_nml
                                                  ! are set to the background values in case of stable stratification
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
 
-  REAL(wp) :: oce_t_ref             = 16.0_wp    ! reference temperature used for initialization in testcase 46
-  REAL(wp) :: oce_s_ref             = 35.0_wp    ! reference salinity used for initialization in testcase 46
+  REAL(wp) :: initial_temperature_reference             = 16.0_wp    ! reference temperature used for initialization in testcase 46
+  REAL(wp) :: initial_salinity_reference             = 35.0_wp    ! reference salinity used for initialization in testcase 46
   INTEGER  :: scatter_levels(10)    = 0          ! levels for possible scattering of the constant tracer fields
   REAL(wp) :: scatter_t             = 20.0_wp    ! temperature value for scattering
   REAL(wp) :: scatter_s             = 10.0_wp    ! salinity value for scattering
@@ -376,7 +376,7 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
     &                 l_runoff_zero,                                       &
-    &                 oce_t_ref, oce_s_ref, z_forc_period, y_forc_period,  &
+    &                 initial_temperature_reference, initial_salinity_reference, z_forc_period, y_forc_period,  &
     &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
     &                 scatter_s
 

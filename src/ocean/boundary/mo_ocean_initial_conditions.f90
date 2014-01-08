@@ -61,7 +61,7 @@ MODULE mo_ocean_initial_conditions
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
     & basin_center_lat, basin_center_lon,idisc_scheme,           &
     & basin_height_deg,  basin_width_deg, temperature_relaxation,&
-    & oce_t_ref, oce_s_ref, use_tracer_x_height, scatter_levels, &
+    & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
     & scatter_t, scatter_s
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -1547,16 +1547,16 @@ CONTAINS
         CALL message(TRIM(routine), 'Initialization of testcases (46)')
         CALL message(TRIM(routine), &
           & ' - here: horizontally and vertically homogen')
-        t = oce_t_ref
-        s = oce_s_ref
+        t = initial_temperature_reference
+        s = initial_salinity_reference
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             DO jk=1,n_zlev
               
               IF (461 == itestcase_oce) THEN
-                t = MERGE(scatter_t,oce_t_ref,ANY(scatter_levels .EQ. jk))
-                s = MERGE(scatter_s,oce_s_ref,ANY(scatter_levels .EQ. jk))
+                t = MERGE(scatter_t,initial_temperature_reference,ANY(scatter_levels .EQ. jk))
+                s = MERGE(scatter_s,initial_salinity_reference,ANY(scatter_levels .EQ. jk))
               ENDIF
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = t
