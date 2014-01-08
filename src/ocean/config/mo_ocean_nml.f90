@@ -122,7 +122,7 @@ MODULE mo_ocean_nml
   INTEGER            :: itestcase_oce  = 0
 
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
-  INTEGER            :: idiag_oce      = 0
+  INTEGER            :: diagnostics_level      = 0
 
   ! switch for ocean stream function (not yet activated):
   !                   ! 0: no output
@@ -370,7 +370,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
-    &                 itestcase_oce, idiag_oce, l_relaxsal_ice,            &
+    &                 itestcase_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
@@ -380,7 +380,7 @@ MODULE mo_ocean_nml
     &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
     &                 scatter_s
 
-  NAMELIST/ocean_diagnostics_nml/ denmark_strait,drake_passage,gibraltar,  &
+  NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland
 
   ! ------------------------------------------------------------------------

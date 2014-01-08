@@ -53,7 +53,7 @@ USE mo_grid_config,            ONLY: n_dom, use_dummy_cell_closure
 USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, init_oce_relax, &
+  &                                  itestcase_oce, diagnostics_level, init_oce_prog, init_oce_relax, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_checkpoints
@@ -219,7 +219,7 @@ CONTAINS
 
   CALL datetime_to_string(datestring, datetime)
 
-  IF (idiag_oce == 1) &
+  IF (diagnostics_level == 1) &
     & CALL construct_oce_diagnostics( patch_3D, p_os(jg), oce_ts, datestring)
 
   ! IF (ltimer) CALL timer_start(timer_total)
@@ -419,7 +419,7 @@ CONTAINS
       &                             p_os(jg)%p_diag)
 
     IF (istime4name_list_output(jstep)) THEN
-      IF (idiag_oce == 1 ) THEN
+      IF (diagnostics_level == 1 ) THEN
         CALL calc_slow_oce_diagnostics( patch_3D,      &
           &                             p_os(jg),      &
           &                             p_sfc_flx,     &
@@ -475,7 +475,7 @@ CONTAINS
     nsteps_since_last_output = nsteps_since_last_output + 1
   ENDDO TIME_LOOP
 
-  IF (idiag_oce==1) CALL destruct_oce_diagnostics(oce_ts)
+  IF (diagnostics_level==1) CALL destruct_oce_diagnostics(oce_ts)
   CALL delete_statistic(ocean_statistics)
 
   CALL timer_stop(timer_total)
