@@ -79,19 +79,19 @@ MODULE mo_ocean_model
   
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
   
-  ! External data
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    &                               t_hydro_ocean_prog
-  USE mo_oce_state,           ONLY: setup_ocean_namelists, destruct_patch_3D, &
-    &                               init_ho_base, init_ho_basins, v_base, &
-    &                               construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
-    &                               construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    &                               init_coriolis_oce, init_oce_config, &
-    &                               construct_patch_3D, init_patch_3D, &
-    &                               setup_ocean_namelists, ocean_default_list
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, &
+    & t_hydro_ocean_acc, t_hydro_ocean_diag, &
+    & t_hydro_ocean_prog
+  USE mo_oce_state,           ONLY:  v_base, &
+    & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
+    & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list
+  USE mo_ocean_initialization,    ONLY:    setup_ocean_namelists,  init_ho_base, &
+    & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
+    & init_patch_3d, setup_ocean_namelists
   USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
-    &                                  init_ho_recon_fields, init_ho_relaxation
+    & init_ho_recon_fields, init_ho_relaxation
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -103,11 +103,11 @@ MODULE mo_ocean_model
   USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
-  USE mo_sea_ice,             ONLY: construct_sfcflx,   ice_init, &
+  USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice
-  USE mo_oce_forcing,         ONLY: init_sfcflx
+  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length
-
+  
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
@@ -118,7 +118,7 @@ MODULE mo_ocean_model
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
-  USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
+  USE mtime,                  ONLY: setcalendar, proleptic_gregorian
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
   
   !-------------------------------------------------------------
@@ -128,10 +128,10 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: nproma
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE finterface_description, ONLY: yac_finit, yac_fdef_comp,                    &
-    &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
-    &                               yac_fdef_elements, yac_fdef_points,          &
-    &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize
+    & yac_fdef_subdomain, yac_fconnect_subdomains, &
+    & yac_fdef_elements, yac_fdef_points,          &
+    & yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
+    & yac_ffinalize
   USE mo_coupling_config,     ONLY: is_coupled_run
 # else
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
@@ -152,18 +152,18 @@ MODULE mo_ocean_model
   PUBLIC :: ocean_model
   PUBLIC :: construct_ocean_model, destruct_ocean_model
   PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
-
+  
   TYPE(t_patch_3d), POINTER :: ocean_patch_3d
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
   TYPE(t_operator_coeff)                          :: operators_coefficients
-  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
+  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
-
+  
   
 CONTAINS
-
-
+  
+  
   !--------------------------------------------------------------------------
   !>
   !!
@@ -175,14 +175,14 @@ CONTAINS
     
     INTEGER :: jg, ist
     INTEGER :: error_status
-    TYPE(t_sim_step_info) :: sim_step_info  
+    TYPE(t_sim_step_info) :: sim_step_info
     INTEGER :: jstep0
-
+    
     !-------------------------------------------------------------------
     IF (is_restart_run()) THEN
       CALL read_restart_ocean_namelists('restart_oce.nc')
     END IF
-
+    
     !-------------------------------------------------------------------
     CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
     
@@ -207,22 +207,22 @@ CONTAINS
     ! The special initial time step for the three time level schemes
     ! is executed within process_grid_level
     !------------------------------------------------------------------
-
+    
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
     ! Write out initial conditions.
     !------------------------------------------------------------------
-
+    
     IF (output_mode%l_nml) THEN
       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
+      CALL setcalendar(proleptic_gregorian)
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
       CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-        &                      INT(time_config%dt_restart))
+        & INT(time_config%dt_restart))
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
       sim_step_info%iadv_rcf   = 1
@@ -234,9 +234,9 @@ CONTAINS
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
-
+    
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),is_restart_run())
-
+    
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
       & ext_data, start_datetime,                     &
@@ -250,54 +250,54 @@ CONTAINS
     !------------------------------------------------------------------
     !  cleaning up process
     CALL destruct_ocean_model()
-
+    
   END SUBROUTINE ocean_model
   !--------------------------------------------------------------------------
-
+  
   !--------------------------------------------------------------------------
   !>
   !!
   SUBROUTINE destruct_ocean_model()
-
+    
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:destruct_ocean_model"
-
+    
     INTEGER :: error_status
-
+    
     !------------------------------------------------------------------
     !  cleaning up process
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
-
+    
     CALL finalise_ho_integration(ocean_state, v_params, &
       & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
-
+    
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     ! Destruct external data state
     CALL destruct_ocean_ext_data
-
+    
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
-
+    
     !The 3D-ocean version of previous calls
     CALL destruct_patches( ocean_patch_3d%p_patch_2d )
     CALL destruct_patches( p_patch_local_parent )
     NULLIFY( ocean_patch_3d%p_patch_2d )
-    CALL destruct_patch_3D( ocean_patch_3d )
-
-
+    CALL destruct_patch_3d( ocean_patch_3d )
+    
+    
     ! Delete variable lists
-
+    
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
     ENDIF
-
+    
     CALL destruct_icon_communication()
-
+    
 #ifndef __NO_ICON_ATMO__
 # ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL yac_ffinalize
@@ -305,40 +305,40 @@ CONTAINS
     IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
 # endif
 #endif
-
+    
     CALL message(TRIM(routine),'clean-up finished')
-
+    
   END SUBROUTINE destruct_ocean_model
   !--------------------------------------------------------------------------
-
+  
   !--------------------------------------------------------------------------
   !>
   !!
   !! It does not include the restart processes, these are called from the calling routine ocean_model
   !!
   SUBROUTINE construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
-
+    
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
-
+    
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:construct_ocean_model"
-
+    
     INTEGER :: ist
-
+    
     INTEGER :: error_status
     !-------------------------------------------------------------------
-
+    
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
-
+    
     CALL read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
-
+    
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
     CALL oce_crosscheck()
-
+    
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
@@ -346,36 +346,36 @@ CONTAINS
     !    modified in this subroutine which affect the following CALLs.
     !---------------------------------------------------------------------
     CALL configure_run
-
+    
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs)
-
+    
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     CALL init_timer
-
+    
     IF (ltimer) CALL timer_start(timer_model_init)
-
+    
     !-------------------------------------------------------------------
     ! Initialize date and time
     !-------------------------------------------------------------------
     start_datetime = time_config%cur_datetime
-
+    
     !-------------------------------------------------------------------
     ! 4. Import patches
     !-------------------------------------------------------------------
     CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
-      &                      patch_3d=ocean_patch_3d)
+      & patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
     CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))
-
+    
     !--------------------------------------------
     ! Setup the information for the physical patches
     CALL setup_phys_patches
-
+    
     CALL setup_ocean_namelists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
@@ -384,23 +384,23 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'allocation for ocean_state failed')
     ENDIF
-
+    
     !---------------------------------------------------------------------
     ! 9. Horizontal and vertical grid(s) are now defined.
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
-
+    
     CALL configure_dynamics ( n_dom )
-
+    
     CALL configure_gribout(grid_generatingcenter, grid_generatingsubcenter, n_dom)
-
+    
     !    DO jg =1,n_dom
     !      !The 3D-ocean version of previous calls
     !      CALL configure_advection( jg, ocean_patch_3d%p_patch_2D(jg)%nlev, ocean_patch_3d%p_patch_2D(1)%nlev, &
     !        &                      iequations, iforcing, iqc, iqi, iqr, iqs, iqni, iqni_nuc, iqg, &
     !        &                      0, 1, .false., .true., ntracer )
     !    ENDDO
-
+    
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
     !------------------------------------------------------------------
@@ -408,133 +408,130 @@ CONTAINS
     IF (error_status /= success) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
-
+    
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
     CALL construct_ocean_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data)
-
+    
 #ifndef __NO_ICON_ATMO__
     IF ( is_coupled_run() ) THEN
       CALL construct_ocean_coupling()
     ENDIF
 #endif
-
+    
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
-
-
+    
+    
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------
-  !-------------------------------------------------------------------------
+  
+  !--------------------------------------------------------------------------
   !>
   !! Simple routine for preparing hydrostatic ocean model.
   !!
-  !! Simple routine for preparing hydrostatic ocean model.
-  !! Calls basic routines ...
-  !!
-  !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  SUBROUTINE construct_ocean_states(patch_3D, p_os, p_ext_data, p_sfc_flx, &
-                                  & p_phys_param, p_as,&
-                                  & p_atm_f, p_ice, p_op_coeff)
-
-    TYPE(t_patch_3D ),TARGET,   INTENT(INOUT)  :: patch_3D
-    TYPE(t_hydro_ocean_state),  INTENT(INOUT)  :: p_os(n_dom)
-    TYPE(t_external_data),      INTENT(INOUT)  :: p_ext_data(n_dom)
-    TYPE(t_sfc_flx),            INTENT(INOUT)  :: p_sfc_flx
-    TYPE(t_ho_params),          INTENT(INOUT)  :: p_phys_param
-    TYPE(t_atmos_for_ocean ),   INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),      INTENT(INOUT)  :: p_atm_f
-    TYPE(t_sea_ice),            INTENT(INOUT)  :: p_ice
-    TYPE(t_operator_coeff),     INTENT(INOUT)  :: p_op_coeff
-
+  SUBROUTINE construct_ocean_states(patch_3d, p_os, p_ext_data, p_sfc_flx, &
+    & p_phys_param, p_as,&
+    & p_atm_f, p_ice, p_op_coeff)
+    
+    TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
+    TYPE(t_hydro_ocean_state),  INTENT(inout)  :: p_os(n_dom)
+    TYPE(t_external_data),      INTENT(inout)  :: p_ext_data(n_dom)
+    TYPE(t_sfc_flx),            INTENT(inout)  :: p_sfc_flx
+    TYPE(t_ho_params),          INTENT(inout)  :: p_phys_param
+    TYPE(t_atmos_for_ocean ),   INTENT(inout)  :: p_as
+    TYPE(t_atmos_fluxes ),      INTENT(inout)  :: p_atm_f
+    TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
+    TYPE(t_operator_coeff),     INTENT(inout)  :: p_op_coeff
+    
     ! local variables
     INTEGER, PARAMETER :: kice = 1
     INTEGER :: jg
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      &      routine = 'mo_test_hydro_ocean:construct_ocean_states'
-
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_test_hydro_ocean:construct_ocean_states'
+    
     CALL message (TRIM(routine),'start')
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
-
+    
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
-
+    
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
     CALL init_oce_config
-
+    
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
-    CALL init_dbg_index(patch_3D%p_patch_2D(jg))!(patch_2D(jg))
-
+    CALL init_dbg_index(patch_3d%p_patch_2d(jg))!(patch_2D(jg))
+    
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
-
-    CALL construct_patch_3D(patch_3D)
-
-    CALL construct_hydro_ocean_base(patch_3D%p_patch_2D(jg), v_base)
-    CALL init_ho_base     (patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
-    CALL init_ho_basins   (patch_3D%p_patch_2D(jg),                 v_base)
-    CALL init_coriolis_oce(patch_3D%p_patch_2D(jg) )
-    CALL init_patch_3D    (patch_3D,                p_ext_data(jg), v_base)
+    
+    CALL construct_patch_3d(patch_3d)
+    
+    CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(jg), v_base)
+    CALL init_ho_base     (patch_3d%p_patch_2d(jg), p_ext_data(jg), v_base)
+    CALL init_ho_basins   (patch_3d%p_patch_2d(jg),                 v_base)
+    CALL init_coriolis_oce(patch_3d%p_patch_2d(jg) )
+    CALL init_patch_3d    (patch_3d,                p_ext_data(jg), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
-
+    
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
-
+    
     ! patch_2D and p_os have dimension n_dom
-    CALL construct_hydro_ocean_state(patch_3D%p_patch_2D, p_os)
-
+    CALL construct_hydro_ocean_state(patch_3d%p_patch_2d, p_os)
+    
     ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3D%p_patch_2D,patch_3D, p_os, p_ext_data )
-
-    CALL construct_ho_params(patch_3D%p_patch_2D(jg), p_phys_param)
-    CALL init_ho_params(patch_3D, p_phys_param)
-
+    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, p_ext_data )
+    
+    CALL construct_ho_params(patch_3d%p_patch_2d(jg), p_phys_param)
+    CALL init_ho_params(patch_3d, p_phys_param)
+    
     !------------------------------------------------------------------
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
-
-    CALL construct_sfcflx(patch_3D%p_patch_2D(jg),p_sfc_flx, ocean_default_list)
-    CALL      init_sfcflx(patch_3D, p_sfc_flx)
-
-    CALL construct_sea_ice(patch_3D, p_ice, kice)
-    CALL construct_atmos_for_ocean(patch_3D%p_patch_2D(jg), p_as)
-    CALL construct_atmos_fluxes(patch_3D%p_patch_2D(jg), p_atm_f, kice)
-
+    
+    CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
+    CALL init_ocean_forcing(patch_3d, p_sfc_flx)
+    
+    CALL construct_sea_ice(patch_3d, p_ice, kice)
+    CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
+    CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), p_atm_f, kice)
+    
     IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
+      CALL init_ho_testcases(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
     ELSE IF (init_oce_prog == 1) THEN
-
-      CALL init_ho_prog(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_sfc_flx)
+      
+      CALL init_ho_prog(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
     END IF
-
+    
     IF (init_oce_relax == 1) THEN
-      CALL init_ho_relaxation(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_sfc_flx)
+      CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
     END IF
-
-    CALL init_ho_coupled(patch_3D%p_patch_2D(jg), p_os(jg))
+    
+    CALL init_ho_coupled(patch_3d%p_patch_2d(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
-
-    CALL allocate_exp_coeff     ( patch_3D%p_patch_2D(jg), p_op_coeff, ocean_default_list)
-    CALL par_init_operator_coeff( patch_3D, p_os(jg),p_phys_param, p_op_coeff)
-    CALL init_ho_recon_fields   ( patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_op_coeff)
-
-    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
-
+      & CALL ice_init(patch_3d, p_os(jg), p_ice)
+    
+    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
+    CALL par_init_operator_coeff( patch_3d, p_os(jg),p_phys_param, p_op_coeff)
+    CALL init_ho_recon_fields   ( patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_op_coeff)
+    
+    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3d)
+    
     CALL message (TRIM(routine),'end')
-
+    
   END SUBROUTINE construct_ocean_states
   !-------------------------------------------------------------------------
-
+  
   !--------------------------------------------------------------------------
 #ifndef __NO_ICON_ATMO__
   !------------------------------------------------------------------
@@ -545,7 +542,7 @@ CONTAINS
   ! too much in future.
   !------------------------------------------------------------------
   SUBROUTINE construct_ocean_coupling()
-
+    
     INTEGER, PARAMETER :: no_of_fields = 10
     CHARACTER(LEN=max_char_length) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
@@ -553,82 +550,82 @@ CONTAINS
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
     INTEGER :: i, error_status
-
+    
     INTEGER :: patch_no
-
+    
 # ifdef YAC_coupling
     INTEGER, PARAMETER :: nbr_vertices_per_cell = 3 ! Triangle
-
+    
     INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-
-    INTEGER            :: comp_id
-    INTEGER            :: cell_point_id
-    INTEGER            :: edge_point_id
-    INTEGER            :: mask_id
-    INTEGER            :: subdomain_id
-    INTEGER            :: subdomain_ids(nbr_subdomain_ids)
-
-    INTEGER, PARAMETER :: CELL     = 0 ! one point per cell
-    INTEGER, PARAMETER :: CORNER   = 1 ! one point per vertex
-    INTEGER, PARAMETER :: EDGE     = 2 ! one point per edge
-                                       ! (see definition of enum location in points.h)
-    INTEGER            :: jb, jc, je, index
-    INTEGER            :: cell_start_idx, cell_end_idx
-    INTEGER            :: edge_start_idx, edge_end_idx
-
+    
+    INTEGER :: comp_id
+    INTEGER :: cell_point_id
+    INTEGER :: edge_point_id
+    INTEGER :: mask_id
+    INTEGER :: subdomain_id
+    INTEGER :: subdomain_ids(nbr_subdomain_ids)
+    
+    INTEGER, PARAMETER :: cell     = 0 ! one point per cell
+    INTEGER, PARAMETER :: corner   = 1 ! one point per vertex
+    INTEGER, PARAMETER :: edge     = 2 ! one point per edge
+    ! (see definition of enum location in points.h)
+    INTEGER :: jb, jc, je, INDEX
+    INTEGER :: cell_start_idx, cell_end_idx
+    INTEGER :: edge_start_idx, edge_end_idx
+    
     REAL(wp), ALLOCATABLE :: buffer_x(:)
     REAL(wp), ALLOCATABLE :: buffer_y(:)
     REAL(wp), ALLOCATABLE :: buffer_c(:)
-
+    
     TYPE(t_subset_range), POINTER :: all_cells, all_edges
-    TYPE(t_patch), POINTER        :: patch_horz
-
+    TYPE(t_patch), POINTER :: patch_horz
+    
     patch_no = 1
-
+    
     ! Initialise the coupler
     CALL yac_finit ( "couling.xml", "coupling.xsd" )
-
+    
     ! Inform the coupler about what we are
     CALL yac_fdef_comp ( "ICON_ocean", comp_id )
-
+    
     ! Announce one subdomain (patch) to the coupler
     CALL yac_fdef_subdomain ( comp_id, "ICON_ocean", subdomain_id )
-
-    patch_horz => patch_3D%p_patch_2D(patch_no)
+    
+    patch_horz => patch_3d%p_patch_2d(patch_no)
     all_cells  => patch_horz%cells%ALL
     all_edges  => patch_horz%edges%ALL
- 
+    
     ! Extract cell information
     !
     ! cartesian coordinates of cell vertices are stored in
     ! patch_horz%verts%cartesian(:,:)%x(1:3)
     ! Here we use the longitudes and latitudes.
-
+    
     ALLOCATE(buffer_x(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
     ALLOCATE(buffer_y(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
     ALLOCATE(buffer_c(nproma*(all_cells%end_block-all_cells%start_block+1)*3))
-
+    
     DO jb = all_cells%start_block, all_cells%end_block
-       CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
-       DO jc = cell_start_idx, cell_end_idx
-          index = (jb-1)*nproma+jc
-          buffer_x(index) = patch_horz%verts(jc,jb)%vertex%lon
-          buffer_y(index) = patch_horz%verts(jc,jb)%vertex%lat
-          buffer_c((index-1)*3+1) = patch_horz%cells%vertex_idx(jc,jb,1)
-          buffer_c((index-1)*3+2) = patch_horz%cells%vertex_idx(jc,jb,2)
-          buffer_c((index-1)*3+3) = patch_horz%cells%vertex_idx(jc,jb,3)
-       ENDDO
+      CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
+      DO jc = cell_start_idx, cell_end_idx
+        INDEX = (jb-1)*nproma+jc
+        buffer_x(INDEX) = patch_horz%verts(jc,jb)%vertex%lon
+        buffer_y(INDEX) = patch_horz%verts(jc,jb)%vertex%lat
+        buffer_c((INDEX-1)*3+1) = patch_horz%cells%vertex_idx(jc,jb,1)
+        buffer_c((INDEX-1)*3+2) = patch_horz%cells%vertex_idx(jc,jb,2)
+        buffer_c((INDEX-1)*3+3) = patch_horz%cells%vertex_idx(jc,jb,3)
+      ENDDO
     ENDDO
-
+    
     ! Description of elements, here as unstructured grid
     CALL yac_fdef_elements ( subdomain_id,              &
-                             patch_horz%n_patch_verts,  &
-                             patch_horz%n_patch_cells,  &
-                             nbr_vertices_per_cell,     &
-                             buffer_x,                  &
-                             buffer_y,                  &
-                             buffer_c )
-
+      & patch_horz%n_patch_verts,  &
+      & patch_horz%n_patch_cells,  &
+      & nbr_vertices_per_cell,     &
+      & buffer_x,                  &
+      & buffer_y,                  &
+      & buffer_c )
+    
     ! Can we have two fdef_point calls for the same subdomain, i.e.
     ! one single set of cells?
     !
@@ -637,55 +634,55 @@ CONTAINS
     ! cartesian coordinates of cell centers are stored in
     ! patch_horz%cells%cartesian_center(:,:)%x(1:3)
     ! Here we use the longitudes and latitudes.
-
+    
     DO jb = all_cells%start_block, all_cells%end_block
-       CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
-       DO jc = cell_start_idx, cell_end_idx
-          index = (jb-1)*nproma+jc
-          buffer_x(index) = patch_horz%cells%center(jc,jb)%lon
-          buffer_x(index) = patch_horz%cells%center(jc,jb)%lat
-       ENDDO
+      CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
+      DO jc = cell_start_idx, cell_end_idx
+        INDEX = (jb-1)*nproma+jc
+        buffer_x(INDEX) = patch_horz%cells%center(jc,jb)%lon
+        buffer_x(INDEX) = patch_horz%cells%center(jc,jb)%lat
+      ENDDO
     ENDDO
-
+    
     CALL yac_fdef_points ( subdomain_id,            &
-                           patch_horz%n_patch_cells,   &
-                           CELL,                    &
-                           buffer_x,                &
-                           buffer_y,                &
-                           cell_point_id )
-
+      & patch_horz%n_patch_cells,   &
+      & cell,                    &
+      & buffer_x,                &
+      & buffer_y,                &
+      & cell_point_id )
+    
     ! Define edge center points (location = 2)
     !
     ! cartesian coordinates of cell centers are stored in
     ! patch_horz%edges%cartesian_center(:,:)%x(1:3)
     ! Here we use the longitudes and latitudes.
-
+    
     DEALLOCATE (buffer_x, buffer_y)
-
+    
     ALLOCATE(buffer_x(nproma*(all_edges%end_block-all_edges%start_block+1)))
     ALLOCATE(buffer_y(nproma*(all_edges%end_block-all_edges%start_block+1)))
-
+    
     DO jb = all_edges%start_block, all_edges%end_block
-       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-       DO je = edge_start_idx, edge_end_idx
-          index = (jb-1)*nproma+je
-          buffer_x(index) = patch_horz%edges%center(jc,jb)%lon
-          buffer_x(index) = patch_horz%edges%center(jc,jb)%lat
-       ENDDO
+      CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+      DO je = edge_start_idx, edge_end_idx
+        INDEX = (jb-1)*nproma+je
+        buffer_x(INDEX) = patch_horz%edges%center(jc,jb)%lon
+        buffer_x(INDEX) = patch_horz%edges%center(jc,jb)%lat
+      ENDDO
     ENDDO
-
+    
     CALL yac_fdef_points ( subdomain_id,             &
-                           patch_horz%n_patch_cells, &
-                           EDGE,                     &
-                           buffer_x,                 &
-                           buffer_y,                 &
-                           edge_point_id )
-
+      & patch_horz%n_patch_cells, &
+      & edge,                     &
+      & buffer_x,                 &
+      & buffer_y,                 &
+      & edge_point_id )
+    
     ! Connect subdomains
     CALL yac_fconnect_subdomains ( comp_id,           &
-                                   nbr_subdomain_ids, &
-                                   subdomain_ids,     &
-                                   domain_id )
+      & nbr_subdomain_ids, &
+      & subdomain_ids,     &
+      & domain_id )
     !
     ! mask generation : ... not yet defined ...
     !
@@ -704,16 +701,16 @@ CONTAINS
     !                      imask,         &
     !                      cell_point_id, &
     !                      mask_id )
-
+    
     CALL yac_fdef_mask ( mask_size,  &  !rr TODO
-                         imask,      &  !rr TODO
-                         points_id,  &
-                         mask_id )
-
+      & imask,      &  !rr TODO
+      & points_id,  &
+      & mask_id )
+    
     DEALLOCATE (buffer_x, buffer_y, buffer_c)
-
+    
 # else
-
+    
     !------------------------------------------------------------
     CALL icon_cpl_init(debug_level=config_debug_coupler_level)
     ! Inform the coupler about what we are
@@ -721,23 +718,23 @@ CONTAINS
     ! split the global_mpi_communicator into the components
     !------------------------------------------------------------
     patch_no      = 1
-
+    
     grid_shape(1) = 1
     grid_shape(2) = ocean_patch_3d%p_patch_2d(patch_no)%n_patch_cells
-
+    
     CALL icon_cpl_def_grid ( &
       & grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%glb_index, & ! input
       & grid_id, error_status )                          ! output
-
+    
     ! Marker for internal and halo points, a list which contains the
     ! rank where the native cells are located.
     CALL icon_cpl_def_location ( &
       & grid_id, grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%owner_local, & ! input
       & p_pe_work,  & ! this owner id
       & error_status )                                            ! output
-
+    
 # endif
-
+    
     field_name(1) = "TAUX"   ! bundled field containing two components
     field_name(2) = "TAUY"   ! bundled field containing two components
     field_name(3) = "SFWFLX" ! bundled field containing two components
@@ -748,23 +745,23 @@ CONTAINS
     field_name(8) = "OCEANU"
     field_name(9) = "OCEANV"
     field_name(10) = "ICEOCE" ! bundled field containing four components
-
+    
 # ifdef YAC_coupling
-       DO i = 1, no_of_fields
-          CALL yac_fdef_field ( field_name(i),            &
-                                comp_id,                  &
-                                domain_id,                &
-                                point_id,                 &
-                                mask_id,                  &
-                                patch_horz%n_patch_cells, &
-                                field_id(i) )
-       ENDDO
-
-       CALL yac_fsearch ( nbr_components, comp_id, no_of_fields, field_id, error_status )
+    DO i = 1, no_of_fields
+      CALL yac_fdef_field ( field_name(i),            &
+        & comp_id,                  &
+        & domain_id,                &
+        & point_id,                 &
+        & mask_id,                  &
+        & patch_horz%n_patch_cells, &
+        & field_id(i) )
+    ENDDO
+    
+    CALL yac_fsearch ( nbr_components, comp_id, no_of_fields, field_id, error_status )
 # else
-
+    
     field_shape(1:2) = grid_shape(1:2)
-
+    
     DO i = 1, no_of_fields
       IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
         field_shape(3) = 2
@@ -778,33 +775,33 @@ CONTAINS
       CALL icon_cpl_def_field ( field_name(i), grid_id, field_id(i), &
         & field_shape, error_status )
     ENDDO
-
+    
     CALL icon_cpl_search
 #endif
   END SUBROUTINE construct_ocean_coupling
 #endif
   !--------------------------------------------------------------------------
-
+  
   !--------------------------------------------------------------------------
   !>
   !!
   SUBROUTINE read_restart_ocean_namelists(restart_filename)
-
+    
     CHARACTER(LEN=*), INTENT(in) :: restart_filename
-
+    
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:read_restart_namelists"
-
+    
     CHARACTER(LEN=max_char_length) :: grid_file_name
     LOGICAL :: lsuccess
     !-------------------------------------------------------------------
-
+    
     ! First read the restart master file (ASCII format) to find out
     ! which NetCDF files the model should read.
     ! Comment by Hui Wan:
     ! The namelist variable atmo_restart_info_filename should be
     ! an input argument of the subroutine read_restart_info_file.
     CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-
+    
     IF (lsuccess) THEN
       CALL message( TRIM(routine),                          &
         & 'Running model in restart mode. '       &
@@ -813,22 +810,22 @@ CONTAINS
     ELSE
       CALL finish(TRIM(routine),'Failed to read restart info file')
     END IF
-
+    
     ! Read all namelists used in the previous run
     ! and store them in a buffer. These values will overwrite the
     ! model default, and will later be overwritten if the user has
     ! specified something different for this integraion.
     CALL read_restart_namelists(restart_filename)
     CALL message(TRIM(routine), 'read namelists from ocean restart file')
-
+    
     ! Read all global attributs in the restart file and store them in a buffer.
-
+    
     CALL read_restart_attributes(restart_filename)
     CALL message(TRIM(routine), 'read global attributes from ocean restart file')
-
+    
   END SUBROUTINE read_restart_ocean_namelists
   !--------------------------------------------------------------------------
-
+  
   
 END MODULE mo_ocean_model
 

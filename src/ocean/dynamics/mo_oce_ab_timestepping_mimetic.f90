@@ -60,8 +60,8 @@ MODULE mo_oce_ab_timestepping_mimetic
     & timer_ab_rhs4sfc, timer_lhs
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_physical_constants,        ONLY: grav,rho_inv
+  USE mo_ocean_initialization,      ONLY: is_initial_timestep
   USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
-  USE mo_oce_state,                 ONLY: is_initial_timestep
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e

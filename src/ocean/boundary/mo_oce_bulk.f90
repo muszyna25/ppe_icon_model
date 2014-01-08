@@ -93,7 +93,7 @@ USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,       
 #ifndef __NO_ICON_ATMO__
 USE mo_coupling_config,     ONLY: is_coupled_run
 # ifdef YAC_coupling
-USE finterface_description  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+USE finterface_description,  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
 # else
 USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get

@@ -1520,6 +1520,7 @@ src/ocean/dynamics/mo_oce_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_oce_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_oce_types.f90 -text
 src/ocean/dynamics/mo_oce_veloc_advection.f90 -text
+src/ocean/dynamics/mo_ocean_initialization.f90 -text
 src/ocean/math/mo_oce_math_operators.f90 -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
