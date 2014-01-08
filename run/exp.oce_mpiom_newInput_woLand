@@ -237,7 +237,6 @@ cat > ${ocean_namelist} << EOF
 
 /
 &ocean_forcing_and_init_nml
-  idiag_oce          = 1              ! 1: write standard ocean diagnostics to stderr
   iforc_oce          = ${iforc}       ! ocean forcing
   iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
@@ -253,6 +252,7 @@ cat > ${ocean_namelist} << EOF
   l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_diagnostics_nml
+   diagnostics_level            = 0
 ! vertex list for R2B04 only
    gibraltar(1:10)              = 2371,2374
    denmark_strait(1:10)         = 2436,2471

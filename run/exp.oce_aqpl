@@ -197,7 +197,6 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
-  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);

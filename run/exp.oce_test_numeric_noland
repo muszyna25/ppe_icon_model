@@ -215,7 +215,6 @@ cat > ${ocean_namelist} << EOF
   analytic_wind_amplitude = 0.5
   z_forc_period     = 3.0_wp
   y_forc_period     = 3.0_wp
-  idiag_oce         =  0      !  0: no diagnostics; 1: write diagnostics to stderr
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
