@@ -49,11 +49,11 @@ MODULE mo_hydro_ocean_run
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch, t_patch_3D, t_subset_range, t_patch_vert
-USE mo_grid_config,            ONLY: n_dom, use_dummy_cell_closure
+USE mo_grid_config,            ONLY: n_dom
 USE mo_grid_subset,            ONLY: get_index_range
 USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
 USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-  &                                  itestcase_oce, diagnostics_level, init_oce_prog, init_oce_relax, &
+  &                                  itestcase_oce, diagnostics_level, &
   &                                  EOS_TYPE, i_sea_ice, l_staggered_timestep, gibraltar
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: n_checkpoints
@@ -69,36 +69,35 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity,       &
   &                                  update_time_indices
-USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
-  &                                  init_ho_recon_fields, init_ho_relaxation
-USE mo_oce_check_tools,        ONLY: init_oce_index
-USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
+!USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
+!  &                                  init_ho_recon_fields, init_ho_relaxation
+!USE mo_oce_check_tools,        ONLY: init_oce_index
+!USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
+!USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+!  &                                  t_hydro_ocean_prog, &
+!  &                                  init_ho_base, init_ho_basins, v_base, &
+!  &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
+!  &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
+!  &                                  init_coriolis_oce, init_oce_config, &
+!  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
+!  &                                  setup_ocean_namelists, ocean_default_list, ocean_restart_list
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-  &                                  t_hydro_ocean_prog, &
-  &                                  init_ho_base, init_ho_basins, v_base, &
-  &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
-  &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-  &                                  init_coriolis_oce, init_oce_config, &
-  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
-  &                                  setup_ocean_namelists, ocean_default_list, ocean_restart_list
+  &                                  t_hydro_ocean_prog,  destruct_hydro_ocean_state, &
+  &                                  set_lateral_boundary_values, ocean_restart_list
 USE mo_oce_math_operators,     ONLY: calc_thickness 
-USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff,&
-  &                                  update_diffusion_matrices
+USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
 USE mo_oce_bulk,               ONLY: update_sfcflx
-USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
-  &                                  construct_atmos_for_ocean,&
+USE mo_sea_ice,                ONLY: destruct_sfcflx,&
   &                                  destruct_atmos_for_ocean,&
-  &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
-  &                                  construct_sea_ice, destruct_sea_ice, ice_init, &
+  &                                  destruct_atmos_fluxes,&
+  &                                  destruct_sea_ice,  &
   &                                  update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
 USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
   &                                  t_sea_ice
-USE mo_oce_forcing,            ONLY: init_sfcflx
 USE mo_oce_physics,            ONLY: t_ho_params, &
-  &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func, calc_potential_density, &
@@ -116,14 +115,12 @@ USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_time_config,            ONLY: time_config
 USE mo_master_control,         ONLY: is_restart_run
 USE mo_statistics
-USE mo_grid_tools,             ONLY: create_dummy_cell_closure
 USE mo_sea_ice_nml,            ONLY: i_ice_dyn
-USE mo_ocean_nml,              ONLY: i_sea_ice
+USE mo_util_dbg_prnt,          ONLY: dbg_print
 
 IMPLICIT NONE
 
 PRIVATE
-INTEGER, PARAMETER :: kice = 1
 
 !VERSION CONTROL:
 CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -133,7 +130,6 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 ! public subroutines
 PUBLIC :: perform_ho_stepping
 PUBLIC :: prepare_ho_stepping
-PUBLIC :: construct_ocean_states
 PUBLIC :: finalise_ho_integration
 PRIVATE:: update_intermediate_tracer_vars
 !
@@ -206,6 +202,7 @@ CONTAINS
   !------------------------------------------------------------------
 
   nsteps_since_last_output = 1
+  CALL init_ho_lhs_fields_mimetic   ( patch_3D )
 
   !------------------------------------------------------------------
   ! no grid refinement allowed here so far
@@ -481,114 +478,8 @@ CONTAINS
   CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping
- !-------------------------------------------------------------------------
-  !>
-  !! Simple routine for preparing hydrostatic ocean model.
-  !!
-  !! Simple routine for preparing hydrostatic ocean model.
-  !! Calls basic routines ...
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  SUBROUTINE construct_ocean_states(patch_3D, p_os, p_ext_data, p_sfc_flx, &
-                                  & p_phys_param, p_as,&
-                                  & p_atm_f, p_ice, p_op_coeff)
+  !-------------------------------------------------------------------------
 
-    TYPE(t_patch_3D ),TARGET,   INTENT(INOUT)  :: patch_3D
-    TYPE(t_hydro_ocean_state),  INTENT(INOUT)  :: p_os(n_dom)
-    TYPE(t_external_data),      INTENT(INOUT)  :: p_ext_data(n_dom)
-    TYPE(t_sfc_flx),            INTENT(INOUT)  :: p_sfc_flx
-    TYPE(t_ho_params),          INTENT(INOUT)  :: p_phys_param
-    TYPE(t_atmos_for_ocean ),   INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),      INTENT(INOUT)  :: p_atm_f
-    TYPE(t_sea_ice),            INTENT(INOUT)  :: p_ice
-    TYPE(t_operator_coeff),     INTENT(INOUT)  :: p_op_coeff
-
-    ! local variables
-    INTEGER :: jg
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      &      routine = 'mo_test_hydro_ocean:construct_ocean_states'
-
-    CALL message (TRIM(routine),'start')
-    !------------------------------------------------------------------
-    ! no grid refinement allowed here so far
-    !------------------------------------------------------------------
-
-    IF (n_dom > 1 ) THEN
-      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
-    END IF
-    jg = n_dom
-
-    !------------------------------------------------------------------
-    ! construct ocean state and physics
-    !------------------------------------------------------------------
-    CALL init_oce_config
-
-    ! initialize ocean indices for debug output (before ocean state, no 3-dim)
-    CALL init_dbg_index(patch_3D%p_patch_2D(jg))!(patch_2D(jg))
-
-    ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
-
-    CALL construct_patch_3D(patch_3D)
-
-    CALL construct_hydro_ocean_base(patch_3D%p_patch_2D(jg), v_base)
-    CALL init_ho_base     (patch_3D%p_patch_2D(jg), p_ext_data(jg), v_base)
-    CALL init_ho_basins   (patch_3D%p_patch_2D(jg),                 v_base)
-    CALL init_coriolis_oce(patch_3D%p_patch_2D(jg) )
-    CALL init_patch_3D    (patch_3D,                p_ext_data(jg), v_base)
-    !CALL init_patch_3D(patch_3D, v_base)
-
-    !------------------------------------------------------------------
-    ! construct ocean state and physics
-    !------------------------------------------------------------------
-
-    ! patch_2D and p_os have dimension n_dom
-    CALL construct_hydro_ocean_state(patch_3D%p_patch_2D, p_os)
-
-    ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3D%p_patch_2D,patch_3D, p_os, p_ext_data )
-
-    CALL construct_ho_params(patch_3D%p_patch_2D(jg), p_phys_param)
-    CALL init_ho_params(patch_3D, p_phys_param)
-
-    !------------------------------------------------------------------
-    ! construct ocean forcing and testcases
-    !------------------------------------------------------------------
-
-    CALL construct_sfcflx(patch_3D%p_patch_2D(jg),p_sfc_flx, ocean_default_list)
-    CALL      init_sfcflx(patch_3D, p_sfc_flx)
-
-    CALL construct_sea_ice(patch_3D, p_ice, kice)
-    CALL construct_atmos_for_ocean(patch_3D%p_patch_2D(jg), p_as)
-    CALL construct_atmos_fluxes(patch_3D%p_patch_2D(jg), p_atm_f, kice)
-
-    IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
-    ELSE IF (init_oce_prog == 1) THEN
-
-      CALL init_ho_prog(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_sfc_flx)
-    END IF
-
-    IF (init_oce_relax == 1) THEN
-      CALL init_ho_relaxation(patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_sfc_flx)
-    END IF
-
-    CALL init_ho_coupled(patch_3D%p_patch_2D(jg), p_os(jg))
-    IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
-
-    CALL allocate_exp_coeff     ( patch_3D%p_patch_2D(jg), p_op_coeff, ocean_default_list)
-    CALL par_init_operator_coeff( patch_3D, p_os(jg),p_phys_param, p_op_coeff)
-    CALL init_ho_recon_fields   ( patch_3D%p_patch_2D(jg),patch_3D, p_os(jg), p_op_coeff)
-
-    CALL init_ho_lhs_fields_mimetic   ( patch_3D )
-
-    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
-
-    CALL message (TRIM(routine),'end')
-
-  END SUBROUTINE construct_ocean_states
 
   !-------------------------------------------------------------------------
   !>
