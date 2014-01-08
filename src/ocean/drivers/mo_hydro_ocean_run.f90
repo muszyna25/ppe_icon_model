@@ -70,7 +70,8 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_vert_velocity,       &
   &                                  update_time_indices
 USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
-  &                                  init_ho_recon_fields, init_ho_relaxation, init_oce_index
+  &                                  init_ho_recon_fields, init_ho_relaxation
+USE mo_oce_check_tools,        ONLY: init_oce_index
 USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
   &                                  t_hydro_ocean_prog, &
