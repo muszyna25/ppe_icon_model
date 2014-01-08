@@ -1267,9 +1267,9 @@ CONTAINS
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
 
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
           var3_dp(1:p_ri%n_glb,jk) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
         ELSE
 
           DO np = 0, num_work_procs-1
@@ -1281,13 +1281,13 @@ CONTAINS
 
           IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
             var3_dp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
           ELSE
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
             var3_sp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
           END IF
 
         ENDIF
