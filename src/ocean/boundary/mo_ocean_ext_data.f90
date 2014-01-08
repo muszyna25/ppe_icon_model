@@ -77,7 +77,7 @@ MODULE mo_ocean_ext_data
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_netcdf_read,        ONLY: read_netcdf_data, read_netcdf_lu, nf
+  USE mo_netcdf_read,        ONLY: read_netcdf_data, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
