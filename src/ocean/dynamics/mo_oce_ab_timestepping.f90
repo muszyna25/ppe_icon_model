@@ -48,7 +48,7 @@ MODULE mo_oce_ab_timestepping
 !
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
-USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
+USE mo_oce_types,                      ONLY: t_hydro_ocean_state
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
 USE mo_model_domain,                   ONLY: t_patch_3D !, t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data

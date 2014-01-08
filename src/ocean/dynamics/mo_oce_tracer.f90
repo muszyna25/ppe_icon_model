@@ -59,7 +59,7 @@ USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer 
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 !USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src

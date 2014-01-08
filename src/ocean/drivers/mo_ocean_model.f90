@@ -81,15 +81,15 @@ MODULE mo_ocean_model
   
   ! External data
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
-  USE mo_oce_state,           ONLY:    t_hydro_ocean_state, setup_ocean_namelists, destruct_patch_3D, &
-    &                                  t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    &                                  t_hydro_ocean_prog, &
-    &                                  init_ho_base, init_ho_basins, v_base, &
-    &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
-    &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    &                                  init_coriolis_oce, init_oce_config, &
-    &                                  construct_patch_3D, init_patch_3D, &
-    &                                  setup_ocean_namelists, ocean_default_list
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+    &                               t_hydro_ocean_prog
+  USE mo_oce_state,           ONLY: setup_ocean_namelists, destruct_patch_3D, &
+    &                               init_ho_base, init_ho_basins, v_base, &
+    &                               construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
+    &                               construct_hydro_ocean_state, destruct_hydro_ocean_state, &
+    &                               init_coriolis_oce, init_oce_config, &
+    &                               construct_patch_3D, init_patch_3D, &
+    &                               setup_ocean_namelists, ocean_default_list
   USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
     &                                  init_ho_recon_fields, init_ho_relaxation
   USE mo_oce_check_tools,     ONLY: init_oce_index

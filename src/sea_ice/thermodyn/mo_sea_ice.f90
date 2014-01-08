@@ -62,7 +62,8 @@ MODULE mo_sea_ice
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
     &                               i_ice_albedo
 
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, &
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
+  USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
   USE mo_var_list,            ONLY: add_var, add_ref, groups
   USE mo_linked_list,         ONLY: t_var_list

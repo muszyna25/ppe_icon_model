@@ -49,7 +49,7 @@ MODULE mo_sea_ice_zerolayer
   USE mo_ocean_nml,           ONLY: no_tracer
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, hci_layer
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state 
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state 
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx

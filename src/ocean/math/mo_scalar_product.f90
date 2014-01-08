@@ -52,7 +52,7 @@ MODULE mo_scalar_product
   !USE mo_run_config,         ONLY: dtime
   USE mo_impl_constants,     ONLY: sea_boundary, sea
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
-  USE mo_oce_state,          ONLY: t_hydro_ocean_diag!, t_hydro_ocean_state
+  USE mo_oce_types,          ONLY: t_hydro_ocean_diag
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce 
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges

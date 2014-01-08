@@ -52,7 +52,7 @@ MODULE mo_oce_check_tools
   USE mo_util_dbg_prnt,      ONLY: dbg_print, c_i, c_b
   USE mo_grid_config,        ONLY: n_dom
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_math_constants,     ONLY: pi

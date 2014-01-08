@@ -81,9 +81,8 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 !  &                                  init_coriolis_oce, init_oce_config, &
 !  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
 !  &                                  setup_ocean_namelists, ocean_default_list, ocean_restart_list
-USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-  &                                  t_hydro_ocean_prog,  destruct_hydro_ocean_state, &
-  &                                  set_lateral_boundary_values, ocean_restart_list
+USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, t_hydro_ocean_prog
+USE mo_oce_state,              ONLY: destruct_hydro_ocean_state, set_lateral_boundary_values, ocean_restart_list
 USE mo_oce_math_operators,     ONLY: calc_thickness 
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3D

@@ -68,7 +68,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_netcdf_read,        ONLY: read_netcdf_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state!, v_base
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d !, map_edges2cell_3D
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3d
   USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func

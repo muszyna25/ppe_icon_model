@@ -51,7 +51,7 @@ MODULE mo_oce_boundcond
   USE mo_exception,          ONLY: message, finish
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx

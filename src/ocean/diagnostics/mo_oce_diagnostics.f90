@@ -54,8 +54,9 @@ MODULE mo_oce_diagnostics
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rho_ref
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                              set_lateral_boundary_values, t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
+    &                              t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
+  USE mo_oce_state,          ONLY: set_lateral_boundary_values
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D,t_patch_vert, t_grid_edges
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text

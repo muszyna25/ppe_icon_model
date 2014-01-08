@@ -60,7 +60,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
   !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
