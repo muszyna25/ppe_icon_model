@@ -56,6 +56,7 @@ MODULE mo_extpar_config
   PRIVATE
   PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
   PUBLIC :: extpar_filename, generate_filename, generate_td_filename
+  PUBLIC :: extpar_varnames_map_file
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
@@ -76,6 +77,10 @@ MODULE mo_extpar_config
   ! ExtPar input filename, may contain keywords, by default
   ! extpar_filename = "<path>extpar_<gridfile>"
   CHARACTER(LEN=filename_max) :: extpar_filename
+
+  ! external parameter: dictionary which maps internal variable names
+  ! onto GRIB2 shortnames or NetCDF var names.
+  CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
   
   !!----------------------------------------------------------------------------
 

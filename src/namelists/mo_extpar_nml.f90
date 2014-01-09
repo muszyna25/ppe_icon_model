@@ -43,12 +43,13 @@ MODULE mo_extpar_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
                                   & open_and_restore_namelist, close_tmpfile
 
-  USE mo_extpar_config,       ONLY: config_itopo              => itopo             , &
-                                  & config_fac_smooth_topo    => fac_smooth_topo   , &
-                                  & config_n_iter_smooth_topo => n_iter_smooth_topo, &
-                                  & config_l_emiss            => l_emiss,            &
-                                  & config_heightdiff_threshold => heightdiff_threshold, &
-                                  & config_extpar_filename    => extpar_filename
+  USE mo_extpar_config,       ONLY: config_itopo                    => itopo             ,           &
+                                  & config_fac_smooth_topo          => fac_smooth_topo   ,           &
+                                  & config_n_iter_smooth_topo       => n_iter_smooth_topo,           &
+                                  & config_l_emiss                  => l_emiss,                      &
+                                  & config_heightdiff_threshold     => heightdiff_threshold,         &
+                                  & config_extpar_filename          => extpar_filename,              &
+                                  & config_extpar_varnames_map_file => extpar_varnames_map_file
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -69,8 +70,13 @@ MODULE mo_extpar_nml
   REAL(wp) :: heightdiff_threshold(max_dom)
   CHARACTER(LEN=filename_max) :: extpar_filename
 
+  ! external parameter: dictionary which maps internal variable names
+  ! onto GRIB2 shortnames or NetCDF var names.
+  CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
+
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
-                        heightdiff_threshold, extpar_filename
+                        heightdiff_threshold, extpar_filename,             &
+                        extpar_varnames_map_file
 
 CONTAINS
   !>
@@ -91,6 +97,7 @@ CONTAINS
     l_emiss                 = .TRUE.
     heightdiff_threshold(:) = 3000._wp
     extpar_filename         = "<path>extpar_<gridfile>"
+    extpar_varnames_map_file = " "
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -139,6 +146,7 @@ CONTAINS
     config_l_emiss            = l_emiss
     config_heightdiff_threshold = heightdiff_threshold
     config_extpar_filename    = extpar_filename
+    config_extpar_varnames_map_file = extpar_varnames_map_file
 
     !-----------------------------------------------------
     ! Store the namelist for restart

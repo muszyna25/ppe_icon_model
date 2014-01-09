@@ -3318,7 +3318,7 @@ MODULE mo_nh_initicon
       IF(ana_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(ana_varnames_dict, TRIM(ana_varnames_map_file))
       END IF
-    end IF
+    END IF
 
   END SUBROUTINE allocate_initicon
 
