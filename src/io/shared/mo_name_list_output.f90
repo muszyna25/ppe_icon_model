@@ -1331,11 +1331,11 @@ CONTAINS
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
 #ifndef __SX__
     IF (msg_level >= 12) THEN
-      WRITE (message_text,'(10(a,f10.3))') &
+      WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
            & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
            & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
            & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
-      CALL message('',message_text)
+   !   CALL message('',message_text)
     ENDIF
 #endif
 ! __SX__
