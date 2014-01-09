@@ -58,7 +58,6 @@ USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast,                   &
   &                               p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
-!USE mo_util_string,         ONLY: t_keyword_list
 USE mo_netcdf_read,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
@@ -87,20 +86,11 @@ USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,                  &
   &                               ice_slow, ice_fast
 
-#ifndef __NO_ICON_ATMO__
-USE mo_coupling_config,     ONLY: is_coupled_run
-# ifdef YAC_coupling
-USE finterface_description,  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
-# else
-USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
-USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
-USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-#endif
-#endif
-USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
 IMPLICIT NONE
 
@@ -686,259 +676,35 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
-#ifndef __NO_ICON_ATMO__
-      IF ( is_coupled_run() ) THEN
-        IF (ltimer) CALL timer_start(timer_coupling)
+      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-        time_config%cur_datetime = datetime
+      ! call of sea ice model
+      IF (i_sea_ice >= 1) THEN
 
-        nbr_hor_points = p_patch%n_patch_cells
-        nbr_points     = nproma * p_patch%nblks_c
-        ALLOCATE(buffer(nbr_points,5))
-        buffer(:,:) = 0.0_wp
+        Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
+        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
 
-      !
-      !  see drivers/mo_ocean_model.f90:
-      !
-      !   field_id(1) represents "TAUX"   wind stress component
-      !   field_id(2) represents "TAUY"   wind stress component
-      !   field_id(3) represents "SFWFLX" surface fresh water flux
-      !   field_id(4) represents "SFTEMP" surface temperature
-      !   field_id(5) represents "THFLX"  total heat flux
-      !   field_id(6) represents "ICEATM" ice temperatures and melt potential
-      !
-      !   field_id(7) represents "SST"    sea surface temperature
-      !   field_id(8) represents "OCEANU" u component of ocean surface current
-      !   field_id(9) represents "OCEANV" v component of ocean surface current
-      !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
-      !
-      !
-#ifdef YAC_Coupling
-        CALL yac_fget_nbr_fields ( nbr_fields )
-        ALLOCATE(field_id(nbr_fields))
-        CALL yac_fget_field_ids ( nbr_fields, field_id )
-#else
-        CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-        ALLOCATE(field_id(nbr_fields))
-        CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-#endif
-      !
-        field_shape(1) = 1
-        field_shape(2) = p_patch%n_patch_cells 
-        field_shape(3) = 1
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-      !
-      ! buffer is allocated over nproma only
-
-      !
-      ! Send fields from ocean to atmosphere
-      ! ------------------------------------
-      !
-        write_coupler_restart = .FALSE.
-      !
-      ! SST
-        buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
-
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! zonal velocity
-        buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! meridional velocity
-        buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! Ice thickness, concentration, T1 and T2
-        buffer(:,1) = RESHAPE(p_ice%hi  (:,1,:), (/nbr_points /) )
-        buffer(:,2) = RESHAPE(p_ice%hs  (:,1,:), (/nbr_points /) )
-        buffer(:,3) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
-        buffer(:,4) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
-        buffer(:,5) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
-        field_shape(3) = 5
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-
-        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
-      !
-      ! Receive fields from atmosphere
-      ! ------------------------------
-
-      !
-      ! Apply wind stress - records 0 and 1 of field_id
-
-      ! zonal wind stress
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
-            Qatm%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            Qatm%stress_x (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_xw(:,:))
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_x (:,:))
-        ENDIF
-      !
-      ! meridional wind stress
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
-            Qatm%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            Qatm%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_yw(:,:))
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_y (:,:))
-        ENDIF
-      !
-      ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
-      !  - here freshwater can be bracketed by l_forc_freshw, i.e. it must not be passed through coupler if not used
-      ! IF (l_forc_freshw) THEN
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
-            p_sfc_flx%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            p_sfc_flx%forc_evap  (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_precip(:,:))
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evap(:,:))
-            ! sum of fluxes for ocean boundary condition
-            p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
-        END IF
-      ! ENDIF ! l_forc_freshw
-      !
-      ! Apply surface air temperature
-      !  - it can be used for relaxing SST to T_a with temperature_relaxation=1
-      !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
-      ! IF (temperature_relaxation >=1) THEN
-        field_shape(3) = 1
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-          p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-        !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-          p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
-        END IF
-      ! ENDIF  ! temperature_relaxation >=1
-      !
-      ! Apply total heat flux - 4 parts - record 5
-      ! p_sfc_flx%swflx(:,:)  ocean short wave heat flux                              [W/m2]
-      ! p_sfc_flx%lwflx(:,:)  ocean long  wave, latent and sensible heat fluxes (sum) [W/m2]
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
-          p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-          p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_swflx(:,:))
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_lwflx(:,:))
-          ! sum of fluxes for ocean boundary condition
-          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:)
-        ENDIF
-      ! p_ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
-      ! p_ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
-      ! p_ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
-      ! p_ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
-        field_shape(3) = 4
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-          p_ice%Qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-          p_ice%Qbot(:,1,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-          p_ice%T1  (:,1,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
-          p_ice%T2  (:,1,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
-          CALL sync_patch_array(sync_c, p_patch, p_ice%Qtop(:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%Qbot(:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%T1  (:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%T2  (:,1,:))
-        END IF
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        !  done in mo_sea_ice:upper_ocean_TS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: CPL: SW-flux'       ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: non-solar flux',p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fw_bc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
-        DEALLOCATE(buffer)
-        DEALLOCATE(field_id)      
+      ELSE
 
-        IF (ltimer) CALL timer_stop(timer_coupling)
+        p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+        p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
-        ! call of sea ice model
-        IF (i_sea_ice >= 1) THEN
+      ENDIF
 
-          Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
-          Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-
-          CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
-
-          ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
-          !  done in mo_sea_ice:upper_ocean_TS
-
-          !---------DEBUG DIAGNOSTICS-------------------------------------------
-          idt_src=1  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          !---------------------------------------------------------------------
-
-        ELSE
-
-          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
-          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
-
-        ENDIF
-
-      ENDIF ! is_coupled
-#endif
 
     CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction

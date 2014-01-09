@@ -1500,6 +1500,7 @@ src/ocean/attic/mo_simple_expl_run -text
 src/ocean/boundary/mo_oce_boundcond.f90 -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_oce_forcing.f90 -text
+src/ocean/boundary/mo_ocean_coupling.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_ocean_initial_conditions.f90 -text
 src/ocean/config/mo_ocean_config.f90 -text

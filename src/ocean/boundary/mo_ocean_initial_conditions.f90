@@ -59,7 +59,6 @@ MODULE mo_ocean_initial_conditions
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  !USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_exception,          ONLY: finish, message, message_text
@@ -91,7 +90,6 @@ MODULE mo_ocean_initial_conditions
   PUBLIC :: init_ho_testcases
   PUBLIC :: init_ho_prog
   PUBLIC :: init_ho_relaxation
-  PUBLIC :: init_ho_coupled
   PUBLIC :: init_ho_recon_fields
   
   REAL(wp) :: sphere_radius, u0
@@ -519,84 +517,7 @@ CONTAINS
   END SUBROUTINE init_ho_recon_fields
   !-------------------------------------------------------------------------
   
-  
-  !-------------------------------------------------------------------------
-  !>
-  !! Send data from atmosphere to ocean after initialization of ocean state
-  !
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M, 2011-09
-  SUBROUTINE init_ho_coupled(patch_2d, p_os)
-    TYPE(t_patch)                     :: patch_2d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    
-    sphere_radius = grid_sphere_radius
-    u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-    
-    !rr  ! Local declarations for coupling:
-    !rr  INTEGER               :: ierror         !   return values form cpl_put/get calls
-    !rr  INTEGER               :: nbr_hor_points ! = inner and halo points
-    !rr  INTEGER               :: nbr_points     ! = nproma * nblks
-    !rr  INTEGER               :: nbr_fields
-    !rr  INTEGER, ALLOCATABLE  :: field_id(:)
-    !rr  INTEGER               :: field_shape(3)
-    !rr  REAL(wp), ALLOCATABLE :: buffer(:,:)
-    !rr
-    !rr  !-------------------------------------------------------------------------
-    !rr
-    !rr  IF ( is_coupled_run() ) THEN
-    !rr
-    !rr     nbr_hor_points = patch_2D%n_patch_cells
-    !rr     nbr_points     = nproma * patch_2D%nblks_c
-    !rr     ALLOCATE(buffer(nbr_points,1))
-    !rr     !
-    !rr     !  see drivers/mo_atmo_model.f90:
-    !rr     !
-    !rr     !   field_id(1) represents "TAUX"   wind stress component
-    !rr     !   field_id(2) represents "TAUY"   wind stress component
-    !rr     !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !rr     !   field_id(4) represents "SHFLX"  sensible heat flux
-    !rr     !   field_id(5) represents "LHFLX"  latent heat flux
-    !rr     !
-    !rr     !   field_id(6) represents "SST"    sea surface temperature
-    !rr     !   field_id(7) represents "OCEANU" u component of ocean surface current
-    !rr     !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !rr     !
-    !rr     CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-    !rr     ALLOCATE(field_id(nbr_fields))
-    !rr     CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-    !rr     !
-    !rr     field_shape(1) = 1
-    !rr     field_shape(2) = patch_2D%n_patch_cells
-    !rr     field_shape(3) = 1
-    !rr
-    !rr     !
-    !rr     ! buffer is allocated over nproma only
-    !rr
-    !rr     !
-    !rr     ! Send fields from ocean to atmosphere
-    !rr     ! ------------------------------------
-    !rr     !
-    !rr     ! SST:
-    !rr     buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
-    !rr     CALL ICON_cpl_put_init ( field_id(6), field_shape, buffer, ierror )
-    !rr     !
-    !rr     ! zonal velocity
-    !rr     buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-    !rr     CALL ICON_cpl_put_init ( field_id(7), field_shape, buffer, ierror )
-    !rr     !
-    !rr     ! meridional velocity
-    !rr     buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-    !rr     CALL ICON_cpl_put_init ( field_id(8), field_shape, buffer, ierror )
-    !rr
-    !rr     DeALLOCATE(field_id)
-    !rr     DEALLOCATE(buffer)
-    !rr
-    !rr  END IF
-    
-  END SUBROUTINE init_ho_coupled
-  !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Initialization of test cases for the hydrostatic ocean model.

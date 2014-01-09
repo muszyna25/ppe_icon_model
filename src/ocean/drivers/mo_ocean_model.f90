@@ -42,11 +42,9 @@ MODULE mo_ocean_model
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
-  USE mo_grid_config,         ONLY: n_dom
-  USE mo_dynamics_config,     ONLY: iequations
+  USE mo_dynamics_config,     ONLY: iequations, configure_dynamics
   
   !  USE mo_advection_config,    ONLY: configure_advection
-  USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   USE mo_run_config,          ONLY: configure_run, output_mode
   USE mo_gribout_config,      ONLY: configure_gribout
   
@@ -77,8 +75,6 @@ MODULE mo_ocean_model
   USE mo_build_decomposition, ONLY: build_decomposition
   USE mo_complete_subdivision,ONLY: setup_phys_patches
   
-  USE mo_impl_constants,      ONLY: success !, ihs_ocean
-  
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
   USE mo_oce_types,           ONLY: t_hydro_ocean_state, &
     & t_hydro_ocean_acc, t_hydro_ocean_diag, &
@@ -90,23 +86,22 @@ MODULE mo_ocean_model
   USE mo_ocean_initialization,    ONLY:    setup_ocean_namelists,  init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
     & init_patch_3d, setup_ocean_namelists
-  USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
+  USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog,&
     & init_ho_recon_fields, init_ho_relaxation
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params
+  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff
   
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
     & prepare_ho_stepping,  finalise_ho_integration
-  USE mo_oce_physics,         ONLY: v_params!, t_ho_params, t_ho_physics
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice
   USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing
-  USE mo_impl_constants,      ONLY: max_char_length
+  USE mo_impl_constants,      ONLY: max_char_length, success
   
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
@@ -123,27 +118,7 @@ MODULE mo_ocean_model
   
   !-------------------------------------------------------------
   ! For the coupling
-#ifndef __NO_ICON_ATMO__
-# ifdef YAC_coupling
-  USE mo_parallel_config,     ONLY: nproma
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE finterface_description, ONLY: yac_finit, yac_fdef_comp,                    &
-    & yac_fdef_subdomain, yac_fconnect_subdomains, &
-    & yac_fdef_elements, yac_fdef_points,          &
-    & yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    & yac_ffinalize
-  USE mo_coupling_config,     ONLY: is_coupled_run
-# else
-  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
-  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
-  USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
-  USE mo_icon_cpl_def_grid,   ONLY: icon_cpl_def_grid, icon_cpl_def_location
-  USE mo_icon_cpl_def_field,  ONLY: icon_cpl_def_field
-  USE mo_icon_cpl_search,     ONLY: icon_cpl_search
-  USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-# endif
-#endif
-  !-------------------------------------------------------------
+  USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
   
   IMPLICIT NONE
   
@@ -298,13 +273,7 @@ CONTAINS
     
     CALL destruct_icon_communication()
     
-#ifndef __NO_ICON_ATMO__
-# ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL yac_ffinalize
-# else
-    IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
-# endif
-#endif
+    CALL destruct_ocean_coupling ()
     
     CALL message(TRIM(routine),'clean-up finished')
     
@@ -412,13 +381,7 @@ CONTAINS
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
     CALL construct_ocean_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data)
-    
-#ifndef __NO_ICON_ATMO__
-    IF ( is_coupled_run() ) THEN
-      CALL construct_ocean_coupling()
-    ENDIF
-#endif
-    
+
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
@@ -498,6 +461,8 @@ CONTAINS
     !------------------------------------------------------------------
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
+    CALL construct_ocean_coupling(ocean_patch_3d)
+    ! CALL init_coupled_ocean(patch_3d%p_patch_2d(jg), p_os(jg))
     
     CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
     CALL init_ocean_forcing(patch_3d, p_sfc_flx)
@@ -517,7 +482,6 @@ CONTAINS
       CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
     END IF
     
-    CALL init_ho_coupled(patch_3d%p_patch_2d(jg), p_os(jg))
     IF (i_sea_ice >= 1) &
       & CALL ice_init(patch_3d, p_os(jg), p_ice)
     
@@ -532,255 +496,6 @@ CONTAINS
   END SUBROUTINE construct_ocean_states
   !-------------------------------------------------------------------------
   
-  !--------------------------------------------------------------------------
-#ifndef __NO_ICON_ATMO__
-  !------------------------------------------------------------------
-  ! Prepare the coupling
-  !
-  ! For the time being this could all go into a subroutine which is
-  ! common to atmo and ocean. Does this make sense if the setup deviates
-  ! too much in future.
-  !------------------------------------------------------------------
-  SUBROUTINE construct_ocean_coupling()
-    
-    INTEGER, PARAMETER :: no_of_fields = 10
-    CHARACTER(LEN=max_char_length) ::  field_name(no_of_fields)
-    INTEGER :: field_id(no_of_fields)
-    INTEGER :: grid_id
-    INTEGER :: grid_shape(2)
-    INTEGER :: field_shape(3)
-    INTEGER :: i, error_status
-    
-    INTEGER :: patch_no
-    
-# ifdef YAC_coupling
-    INTEGER, PARAMETER :: nbr_vertices_per_cell = 3 ! Triangle
-    
-    INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-    
-    INTEGER :: comp_id
-    INTEGER :: cell_point_id
-    INTEGER :: edge_point_id
-    INTEGER :: mask_id
-    INTEGER :: subdomain_id
-    INTEGER :: subdomain_ids(nbr_subdomain_ids)
-    
-    INTEGER, PARAMETER :: cell     = 0 ! one point per cell
-    INTEGER, PARAMETER :: corner   = 1 ! one point per vertex
-    INTEGER, PARAMETER :: edge     = 2 ! one point per edge
-    ! (see definition of enum location in points.h)
-    INTEGER :: jb, jc, je, INDEX
-    INTEGER :: cell_start_idx, cell_end_idx
-    INTEGER :: edge_start_idx, edge_end_idx
-    
-    REAL(wp), ALLOCATABLE :: buffer_x(:)
-    REAL(wp), ALLOCATABLE :: buffer_y(:)
-    REAL(wp), ALLOCATABLE :: buffer_c(:)
-    
-    TYPE(t_subset_range), POINTER :: all_cells, all_edges
-    TYPE(t_patch), POINTER :: patch_horz
-    
-    patch_no = 1
-    
-    ! Initialise the coupler
-    CALL yac_finit ( "couling.xml", "coupling.xsd" )
-    
-    ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( "ICON_ocean", comp_id )
-    
-    ! Announce one subdomain (patch) to the coupler
-    CALL yac_fdef_subdomain ( comp_id, "ICON_ocean", subdomain_id )
-    
-    patch_horz => patch_3d%p_patch_2d(patch_no)
-    all_cells  => patch_horz%cells%ALL
-    all_edges  => patch_horz%edges%ALL
-    
-    ! Extract cell information
-    !
-    ! cartesian coordinates of cell vertices are stored in
-    ! patch_horz%verts%cartesian(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-    
-    ALLOCATE(buffer_x(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
-    ALLOCATE(buffer_y(nproma*(all_cells%end_block-all_cells%start_block+1)  ))
-    ALLOCATE(buffer_c(nproma*(all_cells%end_block-all_cells%start_block+1)*3))
-    
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
-      DO jc = cell_start_idx, cell_end_idx
-        INDEX = (jb-1)*nproma+jc
-        buffer_x(INDEX) = patch_horz%verts(jc,jb)%vertex%lon
-        buffer_y(INDEX) = patch_horz%verts(jc,jb)%vertex%lat
-        buffer_c((INDEX-1)*3+1) = patch_horz%cells%vertex_idx(jc,jb,1)
-        buffer_c((INDEX-1)*3+2) = patch_horz%cells%vertex_idx(jc,jb,2)
-        buffer_c((INDEX-1)*3+3) = patch_horz%cells%vertex_idx(jc,jb,3)
-      ENDDO
-    ENDDO
-    
-    ! Description of elements, here as unstructured grid
-    CALL yac_fdef_elements ( subdomain_id,              &
-      & patch_horz%n_patch_verts,  &
-      & patch_horz%n_patch_cells,  &
-      & nbr_vertices_per_cell,     &
-      & buffer_x,                  &
-      & buffer_y,                  &
-      & buffer_c )
-    
-    ! Can we have two fdef_point calls for the same subdomain, i.e.
-    ! one single set of cells?
-    !
-    ! Define cell center points (location = 0)
-    !
-    ! cartesian coordinates of cell centers are stored in
-    ! patch_horz%cells%cartesian_center(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-    
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, cell_start_idx, cell_end_idx)
-      DO jc = cell_start_idx, cell_end_idx
-        INDEX = (jb-1)*nproma+jc
-        buffer_x(INDEX) = patch_horz%cells%center(jc,jb)%lon
-        buffer_x(INDEX) = patch_horz%cells%center(jc,jb)%lat
-      ENDDO
-    ENDDO
-    
-    CALL yac_fdef_points ( subdomain_id,            &
-      & patch_horz%n_patch_cells,   &
-      & cell,                    &
-      & buffer_x,                &
-      & buffer_y,                &
-      & cell_point_id )
-    
-    ! Define edge center points (location = 2)
-    !
-    ! cartesian coordinates of cell centers are stored in
-    ! patch_horz%edges%cartesian_center(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-    
-    DEALLOCATE (buffer_x, buffer_y)
-    
-    ALLOCATE(buffer_x(nproma*(all_edges%end_block-all_edges%start_block+1)))
-    ALLOCATE(buffer_y(nproma*(all_edges%end_block-all_edges%start_block+1)))
-    
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-      DO je = edge_start_idx, edge_end_idx
-        INDEX = (jb-1)*nproma+je
-        buffer_x(INDEX) = patch_horz%edges%center(jc,jb)%lon
-        buffer_x(INDEX) = patch_horz%edges%center(jc,jb)%lat
-      ENDDO
-    ENDDO
-    
-    CALL yac_fdef_points ( subdomain_id,             &
-      & patch_horz%n_patch_cells, &
-      & edge,                     &
-      & buffer_x,                 &
-      & buffer_y,                 &
-      & edge_point_id )
-    
-    ! Connect subdomains
-    CALL yac_fconnect_subdomains ( comp_id,           &
-      & nbr_subdomain_ids, &
-      & subdomain_ids,     &
-      & domain_id )
-    !
-    ! mask generation : ... not yet defined ...
-    !
-    ! We could use the patch_horz%cells%decomp_info%owner_local information
-    ! e.g. to mask out halo points. We do we get the info about what is local and what
-    ! is remote.
-    !
-    ! The land-sea mask for the ocean is available in p_patch_3D%surface_cell_sea_land_mask(:,:)
-    !
-    !          -2: inner ocean
-    !          -1: boundary ocean
-    !           1: boundary land
-    !           2: inner land
-    !
-    ! CALL yac_fdef_mask ( mask_size,     &
-    !                      imask,         &
-    !                      cell_point_id, &
-    !                      mask_id )
-    
-    CALL yac_fdef_mask ( mask_size,  &  !rr TODO
-      & imask,      &  !rr TODO
-      & points_id,  &
-      & mask_id )
-    
-    DEALLOCATE (buffer_x, buffer_y, buffer_c)
-    
-# else
-    
-    !------------------------------------------------------------
-    CALL icon_cpl_init(debug_level=config_debug_coupler_level)
-    ! Inform the coupler about what we are
-    CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
-    ! split the global_mpi_communicator into the components
-    !------------------------------------------------------------
-    patch_no      = 1
-    
-    grid_shape(1) = 1
-    grid_shape(2) = ocean_patch_3d%p_patch_2d(patch_no)%n_patch_cells
-    
-    CALL icon_cpl_def_grid ( &
-      & grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%glb_index, & ! input
-      & grid_id, error_status )                          ! output
-    
-    ! Marker for internal and halo points, a list which contains the
-    ! rank where the native cells are located.
-    CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, ocean_patch_3d%p_patch_2d(patch_no)%cells%decomp_info%owner_local, & ! input
-      & p_pe_work,  & ! this owner id
-      & error_status )                                            ! output
-    
-# endif
-    
-    field_name(1) = "TAUX"   ! bundled field containing two components
-    field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
-    field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
-    field_name(6) = "ICEATM" ! bundled field containing four components
-    field_name(7) = "SST"
-    field_name(8) = "OCEANU"
-    field_name(9) = "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
-    
-# ifdef YAC_coupling
-    DO i = 1, no_of_fields
-      CALL yac_fdef_field ( field_name(i),            &
-        & comp_id,                  &
-        & domain_id,                &
-        & point_id,                 &
-        & mask_id,                  &
-        & patch_horz%n_patch_cells, &
-        & field_id(i) )
-    ENDDO
-    
-    CALL yac_fsearch ( nbr_components, comp_id, no_of_fields, field_id, error_status )
-# else
-    
-    field_shape(1:2) = grid_shape(1:2)
-    
-    DO i = 1, no_of_fields
-      IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
-        field_shape(3) = 2
-      ELSE IF ( i == 6 ) THEN
-        field_shape(3) = 4
-      ELSE IF ( i == 10 ) THEN
-        field_shape(3) = 5
-      ELSE
-        field_shape(3) = 1
-      ENDIF
-      CALL icon_cpl_def_field ( field_name(i), grid_id, field_id(i), &
-        & field_shape, error_status )
-    ENDDO
-    
-    CALL icon_cpl_search
-#endif
-  END SUBROUTINE construct_ocean_coupling
-#endif
-  !--------------------------------------------------------------------------
   
   !--------------------------------------------------------------------------
   !>

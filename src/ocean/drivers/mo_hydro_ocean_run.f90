@@ -63,19 +63,7 @@ MODULE mo_hydro_ocean_run
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
-  !USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
-  !  &                                  init_ho_recon_fields, init_ho_relaxation
-  !USE mo_oce_check_tools,        ONLY: init_oce_index
-  !USE mo_util_dbg_prnt,          ONLY: init_dbg_index, dbg_print
-  !USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-  !  &                                  t_hydro_ocean_prog, &
-  !  &                                  init_ho_base, init_ho_basins, v_base, &
-  !  &                                  construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
-  !  &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-  !  &                                  init_coriolis_oce, init_oce_config, &
-  !  &                                  set_lateral_boundary_values, construct_patch_3D, init_patch_3D, &
-  !  &                                  setup_ocean_namelists, ocean_default_list, ocean_restart_list
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+ USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
  USE mo_oce_state,              ONLY: destruct_hydro_ocean_state,            &
     & ocean_restart_list

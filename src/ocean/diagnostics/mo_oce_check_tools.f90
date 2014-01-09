@@ -88,7 +88,7 @@ CONTAINS
     CHARACTER(LEN=90) :: form4ar
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_initial_conditions:init_oce_index'
+      & routine = 'mo_oce_check_tools:init_oce_index'
 
     !CALL message(TRIM(routine), 'Start' )
 
