@@ -1722,7 +1722,7 @@ CONTAINS
 !     CALL MPI_BCAST (global_no_of_threads, 1, MPI_INTEGER, 0, global_mpi_communicator, p_error)
 #endif
 
-     IF (my_global_mpi_id == 0) THEN
+    IF (my_global_mpi_id == 0) THEN
 
       IF (is_global_mpi_parallel) THEN
         WRITE (nerr,'(/,a,a)') method_name, &
@@ -1730,9 +1730,9 @@ CONTAINS
       ELSE
         WRITE (nerr,'(/,a,a)') method_name,': Running globally OpenMP mode.'
       ENDIF
+      WRITE (nerr,'(a, a, i5, a, i0)') method_name, &
+        & ' global_no_of_threads is ', global_no_of_threads
     ENDIF
-    WRITE (nerr,'(a, a, i5, a, i0)') method_name,': PE:', my_global_mpi_id, &
-      & ' global_no_of_threads is ', global_no_of_threads
 
 #endif
 
