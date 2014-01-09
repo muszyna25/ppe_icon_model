@@ -2218,9 +2218,9 @@ CONTAINS
 
           ! Check whether external parameter file contains MODIS albedo-data
           IF ( albedo_type == MODIS ) THEN
-            IF ( (test_cdi_varID(cdi_extpar_id(jg), 'ALB')   /= -1) .OR.    &
-              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALNID') /= -1) .OR.    &
-              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALUVD') /= -1) ) THEN
+            IF ( (test_cdi_varID(cdi_extpar_id(jg), 'ALB')   == -1) .OR.    &
+              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALNID') == -1) .OR.    &
+              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALUVD') == -1) ) THEN
               CALL finish(routine,'MODIS albedo fields missing in '//TRIM(extpar_filename))
             ENDIF
           ENDIF
