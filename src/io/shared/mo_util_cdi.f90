@@ -422,7 +422,8 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_lu'
     INTEGER       :: varID, mpi_comm, j, jl, jb, islice, &
       &              nmiss, vlistID, gridID, ioffset
-    REAL(wp)      :: z_dummy_array(glb_arr_len*nslice)       !< local dummy array
+    REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
+    REAL(wp), ALLOCATABLE :: z_dummy_array_lu(:)
 
     ! Get var ID
     IF (p_pe == p_io) THEN
@@ -445,23 +446,26 @@ CONTAINS
     ! I/O PE reads and broadcasts data
 
     IF (p_pe == p_io) THEN
+      ALLOCATE (z_dummy_array_lu(glb_arr_len*nslice))
       ! read record as 1D field
-      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array(:), nmiss)
+      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array_lu(:), nmiss)
     END IF
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-
-    var_out(:,:,:) = 0._wp
 
     ! Set var_out from global data
     ioffset = 0
     DO islice = 1, nslice
+      IF (p_pe == p_io) z_dummy_array(:) = z_dummy_array_lu(ioffset+1:ioffset+glb_arr_len)
+      CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+      var_out(:,:,islice) = 0._wp
       DO j = 1, loc_arr_len
         jb = blk_no(j) ! Block index in distributed patch
         jl = idx_no(j) ! Line  index in distributed patch
-        var_out(jl,jb,islice) = z_dummy_array(ioffset + glb_index(j))
+        var_out(jl,jb,islice) = z_dummy_array(glb_index(j))
       ENDDO
       ioffset = ioffset + glb_arr_len
     END DO
+    IF (p_pe == p_io) DEALLOCATE (z_dummy_array_lu)
+
   END SUBROUTINE read_cdi_2d_lu
 
 END MODULE mo_util_cdi
