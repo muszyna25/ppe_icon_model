@@ -154,7 +154,6 @@ CONTAINS
     INTEGER               :: nbr_fields
     INTEGER, ALLOCATABLE  :: field_id(:)
     INTEGER               :: field_shape(3)
-    REAL(wp), ALLOCATABLE :: buffer(:,:)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp !TODO: use real month lenght
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain

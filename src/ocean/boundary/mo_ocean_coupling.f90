@@ -301,6 +301,7 @@ CONTAINS
     DEALLOCATE (buffer_x, buffer_y, buffer_c)
     
 # else
+    IF (.NOT. is_coupled_run()) RETURN
     
     !------------------------------------------------------------
     CALL icon_cpl_init(debug_level=config_debug_coupler_level)
@@ -426,6 +427,7 @@ CONTAINS
     
     IF (ltimer) CALL timer_start(timer_coupling)
     
+    patch_2d   => patch_3D%p_patch_2D(1)
     time_config%cur_datetime = datetime
     
     nbr_hor_points = patch_2d%n_patch_cells
