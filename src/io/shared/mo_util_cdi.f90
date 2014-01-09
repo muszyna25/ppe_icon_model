@@ -62,6 +62,7 @@ MODULE mo_util_cdi
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
   INTERFACE read_cdi_2d
+    MODULE PROCEDURE read_cdi_2d_real_id
     MODULE PROCEDURE read_cdi_2d_real
     MODULE PROCEDURE read_cdi_2d_int
     MODULE PROCEDURE read_cdi_2d_time
@@ -244,32 +245,19 @@ CONTAINS
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
+  SUBROUTINE read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: varID          !< ID of CDI variable
     INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
-    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_cdi_2d_real'
-    INTEGER       :: varID, mpi_comm, j, jl, jb, &
-      &              nmiss, vlistID, gridID
+      routine = modname//':read_cdi_2d_real_id'
+    INTEGER       :: mpi_comm, j, jl, jb, nmiss
     REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
-
-    ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      ! Check variable dimensions:
-      IF (gridInqSize(gridID) /= glb_arr_len) THEN
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
-    END IF
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -293,6 +281,39 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
       var_out(jl,jb) = z_dummy_array(glb_index(j))
     ENDDO
+  END SUBROUTINE read_cdi_2d_real_id
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for REAL fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = modname//':read_cdi_2d_real'
+    INTEGER       :: varID, vlistID, gridID
+
+    ! Get var ID
+    IF (p_pe == p_io) THEN
+      vlistID   = streamInqVlist(streamID)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
+      gridID    = vlistInqVarGrid(vlistID, varID)
+      ! Check variable dimensions:
+      IF (gridInqSize(gridID) /= glb_arr_len) &
+        &  CALL finish(routine, "Incompatible dimensions!")
+    END IF
+    CALL read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
   END SUBROUTINE read_cdi_2d_real
 
 
@@ -349,16 +370,19 @@ CONTAINS
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_cdi_2d_time'
-    INTEGER :: jt, nrecs, vlistID
+    INTEGER :: jt, nrecs, vlistID, varID
 
+    ! Get var ID
     IF (p_pe == p_io) THEN
-      vlistID = streamInqVlist(streamID)
+      vlistID   = streamInqVlist(streamID)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
     END IF
+
     DO jt = 1, ntime
       IF (p_pe == p_io) THEN
         nrecs = streamInqTimestep(streamID, (jt-1))
       END IF
-      CALL read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt), opt_tileidx)
+      CALL read_cdi_2d (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt))
     END DO
   END SUBROUTINE read_cdi_2d_time
 
