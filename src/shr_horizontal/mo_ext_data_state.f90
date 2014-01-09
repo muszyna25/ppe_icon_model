@@ -2037,6 +2037,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk   !> blocks
     INTEGER :: i_startidx, i_endidx   !< slices
     INTEGER :: i_nchdom               !< domain index
+    INTEGER :: filetype, lu_var_id, localInformationNumber
 
     INTEGER :: i_lctype(n_dom) ! stores the landcover classification used for the external parameter data
                                ! 1: GLC2000, 2: Globcover2009
@@ -2205,16 +2206,36 @@ CONTAINS
 
         IF(my_process_is_stdio()) THEN
 
-          ! Check which data source has been used to generate the external perameters
+          ! Determine which data source has been used to generate the
+          ! external perameters: For NetCDF format, we check the
+          ! global attribute "rawdata". For GRIB2 format we check the
+          ! key "localInformationNumber".
           vlist_id = streamInqVlist(cdi_extpar_id(jg))
-          ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
-          IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
-            i_lctype(jg) = 1
-          ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
-            i_lctype(jg) = 2
-          ELSE
-            CALL finish(routine,'Unknown landcover data source')
-          ENDIF
+          filetype = streamInqFileType(cdi_extpar_id(jg))
+
+          IF ((filetype == FILETYPE_NC)  .OR. &
+            & (filetype == FILETYPE_NC2) .OR. &
+            & (filetype == FILETYPE_NC4)) THEN
+            ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
+            IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
+              i_lctype(jg) = 1
+            ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
+              i_lctype(jg) = 2
+            ELSE
+              CALL finish(routine,'Unknown landcover data source')
+            ENDIF
+          ELSE IF (filetype == FILETYPE_GRB2) THEN
+            lu_var_id              = get_cdi_varID(cdi_extpar_id(jg), 'LU_CLASS_FRACTION')
+            localInformationNumber = vlistInqVarIntKey(vlist_id, lu_var_id, "localInformationNumber")
+            SELECT CASE (localInformationNumber)
+            CASE (2)  ! 2 = GLC2000
+              i_lctype(jg) = 1
+            CASE (1)  ! 1 = ESA GLOBCOVER
+              i_lctype(jg) = 2 
+            CASE DEFAULT
+              CALL finish(routine,'Unknown landcover data source')
+            END SELECT
+          END IF
 
           ! Check whether external parameter file contains MODIS albedo-data
           IF ( albedo_type == MODIS ) THEN
