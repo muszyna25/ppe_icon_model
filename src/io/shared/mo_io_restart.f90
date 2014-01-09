@@ -1693,7 +1693,7 @@ CONTAINS
     !
     INTEGER :: string_length  !, ncid
 
-    write(0,*) "read_restart_files, nvar_lists=", nvar_lists
+    IF (my_process_is_mpi_workroot()) write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
     abbreviations(1:nvar_lists)%abbreviation = ""
     key = 0
@@ -1739,10 +1739,10 @@ CONTAINS
 !       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
 !       CALL nf(nf_close(ncid))
 
-      write(0,*) "streamOpenRead ", TRIM(restart_filename)
+      IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
-      write(0,*) "fileID=",fileID
+      IF (my_process_is_mpi_workroot()) write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
 !       write(0,*) "vlistID=",vlistID
 
