@@ -456,12 +456,12 @@ CONTAINS
 
     CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_u', 'm/s', 'forc_wind_u', DATATYPE_FLT32),&
+    &          t_cf_var('forc_wind_u', 'Pa', 'forc_wind_u', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_v', 'm/s', 'forc_wind_v', DATATYPE_FLT32),&
+    &          t_cf_var('forc_wind_v', 'Pa', 'forc_wind_v', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
