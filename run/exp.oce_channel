@@ -81,11 +81,11 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6        # ocean model output interval hours [hours]
+nhours_data=1        # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=370    # stop model for restart [days]
@@ -131,8 +131,10 @@ cat > ${ocean_namelist} << EOF
  write_timer_files    = .FALSE.
 /
 &output_nml
-  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
-  steps_per_file   = ${steps_per_file}
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "PT02H"
+  steps_per_file   = 30
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
@@ -191,7 +193,7 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    1.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_enable_freshwater      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
   iforc_stat_oce     =    3      ! analytic forcing constant westerly
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /

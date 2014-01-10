@@ -57,7 +57,7 @@ MODULE mo_testbed_ocean_performance
     &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
     &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-    &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer
+    &                                     MIMETIC_MIURA, forcing_enable_freshwater, l_skip_tracer
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer

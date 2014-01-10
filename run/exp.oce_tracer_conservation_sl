@@ -223,7 +223,7 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_enable_freshwater      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
   iforc_stat_oce     =    3      ! analytic forcing constant westerly
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 ! forcing_windstress_zonal_waveno      =    1.0    ! wave number for zonal wind forcing

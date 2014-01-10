@@ -71,7 +71,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, ites
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw,    &
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, forcing_enable_freshwater,    &
   &                               forcing_set_runoff_to_zero,                                           &
   &                               limit_elevation, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
@@ -384,7 +384,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo   ,str_module,idt_src, in_subset=p_patch%cells%owned)
 
-        IF (l_forc_freshw) THEN
+        IF (forcing_enable_freshwater) THEN
           idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src, &
             & in_subset=p_patch%cells%owned)
@@ -475,7 +475,7 @@ CONTAINS
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
-          IF (l_forc_freshw) THEN
+          IF (forcing_enable_freshwater) THEN
             ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
             ! TODO: evaporation of ice and snow must be implemented
             p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
@@ -555,7 +555,7 @@ CONTAINS
 
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-        IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
 
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
@@ -956,7 +956,7 @@ CONTAINS
     ! Vertical diffusion term for salinity Q_S in tracer equation and freshwater forcing W_s is
     !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
 
-    IF (l_forc_freshw) THEN
+    IF (forcing_enable_freshwater) THEN
 
       p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
         &                            - p_sfc_flx%forc_fw_bc(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
@@ -988,9 +988,9 @@ CONTAINS
     ! apply additional volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - no change in salt concentration
-    !  - volume flux is considered for l_forc_freshw=true only
+    !  - volume flux is considered for forcing_enable_freshwater=true only
     !    i.e. for salinity relaxation only, no volume flux is applied
-    IF (l_forc_freshw) THEN
+    IF (forcing_enable_freshwater) THEN
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c

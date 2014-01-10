@@ -52,7 +52,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & use_absolute_solver_tolerance,                      &
     & solver_max_restart_iterations,                      &
     & solver_max_iter_per_restart, dhdtw_abort,           &
-    & l_forc_freshw, select_solver,select_restart_gmres,  &
+    & forcing_enable_freshwater, select_solver,select_restart_gmres,  &
     & select_gmres, use_continuity_correction
   
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -1194,7 +1194,7 @@ CONTAINS
     
     !-------------------------------------------------------------------------
     ! Apply net surface freshwater flux to elevation - incorrect?
-    !IF(l_forc_freshw)THEN
+    !IF(forcing_enable_freshwater)THEN
     !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     !    DO jc = i_startidx_c, i_endidx_c
@@ -1206,7 +1206,7 @@ CONTAINS
     !    ENDDO
     !  END DO
     
-    !ELSEIF(.NOT.l_forc_freshw)THEN
+    !ELSEIF(.NOT.forcing_enable_freshwater)THEN
     
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)

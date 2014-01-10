@@ -270,7 +270,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
-  LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_enable_freshwater         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero         = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
@@ -374,7 +374,7 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 l_forc_freshw, limit_elevation, seaice_limit,        &
+    &                 forcing_enable_freshwater, limit_elevation, seaice_limit,        &
     &                 forcing_set_runoff_to_zero,                                       &
     &                 initial_temperature_reference, initial_salinity_reference, &
     &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
@@ -611,9 +611,9 @@ MODULE mo_ocean_nml
 !       solver_tolerance_decrease_ratio  = 0.1_wp ! must be < 1
 !     ENDIF
 
-     IF (l_forc_freshw) THEN
+     IF (forcing_enable_freshwater) THEN
        limit_elevation = .TRUE.
-       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
+       CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
      END IF
 
      IF (forcing_set_runoff_to_zero) THEN

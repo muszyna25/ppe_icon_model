@@ -555,8 +555,8 @@ CONTAINS
     ENDIF
     !
     ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
-    !  - here freshwater can be bracketed by l_forc_freshw, i.e. it must not be passed through coupler if not used
-    ! IF (l_forc_freshw) THEN
+    !  - here freshwater can be bracketed by forcing_enable_freshwater, i.e. it must not be passed through coupler if not used
+    ! IF (forcing_enable_freshwater) THEN
     field_shape(3) = 2
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
@@ -572,7 +572,7 @@ CONTAINS
       ! sum of fluxes for ocean boundary condition
       surface_fluxes%forc_fw_bc(:,:) = surface_fluxes%forc_precip(:,:) + surface_fluxes%forc_evap(:,:)
     END IF
-    ! ENDIF ! l_forc_freshw
+    ! ENDIF ! forcing_enable_freshwater
     !
     ! Apply surface air temperature
     !  - it can be used for relaxing SST to T_a with temperature_relaxation=1
