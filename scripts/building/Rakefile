@@ -437,6 +437,27 @@ def doCmpExps(build,expA,expB)
                EOS
               ),true)
 end
+def doCmpExpDirs(build,dirA,dirB)
+  expA, expB = File.basename(dirA), File.basename(dirB)
+  #check model outout
+  call(connect(build,<<-EOS
+      cd experiments/;
+      fileA=$(ls -1 #{dirA}/#{expA}*.nc | head -1);
+      fileB=$(ls -1 #{dirB}/#{expB}*.nc | head -1);
+      cdo diffv $fileA $fileB
+               EOS
+              ),true)
+  # check possbile restart files
+  call(connect(build,<<-EOS
+      cd experiments/;
+      fileA=$(ls -1 #{dirA}/restart_oce.nc | head -1);
+      fileB=$(ls -1 #{dirB}/restart_oce.nc | head -1);
+      if test -n "$fileA"  -a -n "$fileB" ; then
+        cdo diffv $fileA $fileB;
+      fi;
+               EOS
+              ),true)
+end
 def doCheckExp(build,exp)
   var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
   ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
@@ -524,6 +545,10 @@ $builds.each_key {|build|
   desc "Compare outputs of two experiments"
   task "#{build.to_s}_cmp".to_sym, [:expA,:expB] => ["#{build.to_s}_run".to_sym] do |t, args|
     doCmpExps(build,args.expA,args.expB)
+  end
+  desc "Compare model output of 2 experiment directories"
+  task "#{build.to_s}_cmpDirs".to_sym, [:dirA,:dirB] do |t, args|
+    doCmpExpDirs(build,args.dirA,args.dirB)
   end
 
   # post processing
