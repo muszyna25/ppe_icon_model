@@ -459,11 +459,10 @@ CONTAINS
               z_lat = patch_2d%cells%center(jc,jb)%lat
               z_lon = patch_2d%cells%center(jc,jb)%lon
               
-              p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * &
-                & COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
+              p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
             ELSE
               p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-            ENDIF !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb)
+            ENDIF
             p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
             
             !Init cartesian wind
@@ -474,7 +473,6 @@ CONTAINS
               & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
               & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
               & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            !write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
             
           END DO
         END DO
@@ -492,12 +490,10 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             IF (p_patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
-              p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)&
-                & / y_length)
+              p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
             ELSE
               p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
             ENDIF
-            !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb)
             p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
             
             !Init cartesian wind
@@ -509,7 +505,6 @@ CONTAINS
                 & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                 & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                 & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-              ! write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
             ELSE
               p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
             ENDIF
