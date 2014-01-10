@@ -543,8 +543,7 @@ CONTAINS
         DO idx = startidx, endidx
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
-!          sum_weight(start_vertical, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, block)
-          total_weight(start_vertical)  = total_weight(start_vertical) + weights(idx, block)
+          sum_weight(start_vertical, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, block)
           DO level = start_vertical, end_vertical
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx, block)
@@ -578,7 +577,6 @@ CONTAINS
 
     ! Get average and add
     DO level = start_vertical, end_vertical
-
       ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
       accumulated_mean(level) = accumulated_mean(level) + total_sum(level)/total_weight(level)
     ENDDO
