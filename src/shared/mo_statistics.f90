@@ -63,8 +63,10 @@ MODULE mo_statistics
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
 
   INTERFACE global_minmaxmean
-    MODULE PROCEDURE globalspace_2D_minmaxmean
-    MODULE PROCEDURE globalspace_3D_minmaxmean
+    MODULE PROCEDURE MinMaxMean_2D
+    MODULE PROCEDURE MinMaxMean_3D_TotalLevels
+    MODULE PROCEDURE MinMaxMean_2D_InRange
+    MODULE PROCEDURE MinMaxMean_3D_TotalLevels_InRange
   END INTERFACE global_minmaxmean
 
   INTERFACE subset_sum
@@ -202,30 +204,44 @@ MODULE mo_statistics
     MODULE PROCEDURE add_fields_2d
   END INTERFACE add_fields
 
+  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
 
 CONTAINS
 
 #ifndef __ICON_GRID_GENERATOR__
+
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_2D_minmaxmean(values, range_subset) result(minmaxmean)
+  FUNCTION MinMaxMean_2D(values) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:)
-    TYPE(t_subset_range), TARGET, OPTIONAL :: range_subset
+    REAL(wp) :: minmaxmean(3)
+    CALL warning(module_name, "not available without subset input")
+    minmaxmean(:) = 1234567890
+  END FUNCTION MinMaxMean_2D
+  !-----------------------------------------------------------------------
+  FUNCTION MinMaxMean_3D_TotalLevels(values, start_level, end_level) result(minmaxmean)
+    REAL(wp), INTENT(in) :: values(:,:,:)
+    INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
 
-    REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
-    INTEGER :: block, startidx, endidx, number_of_values, idx
-    INTEGER :: communicator
+    CALL warning(module_name, "not available without subset input")
+    minmaxmean(:) = 1234567890
 
-    IF (PRESENT(range_subset)) THEN
+  END FUNCTION MinMaxMean_3D_TotalLevels
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  FUNCTION MinMaxMean_2D_InRange(values, range_subset) result(minmaxmean)
+    REAL(wp), INTENT(in) :: values(:,:)
+    TYPE(t_subset_range), TARGET :: range_subset
+    REAL(wp) :: minmaxmean(3)
+
+    REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value
+    INTEGER :: block, startidx, endidx, number_of_values, idx
+
       ! init the min, max values
-!      block = range_subset%start_block
-!      CALL get_index_range(range_subset, block, startidx, endidx)
-!      min_value = values(startidx, block)
-!      max_value = values(startidx, block)
-!      sum_value = 0._wp
-      min_value = 1.e16_wp         ! some large value
-      max_value = -1.e16_wp        ! some small value
+      CALL init_min_max(min_value, max_value)
       sum_value = 0._wp
       number_of_values = 0
 
@@ -265,52 +281,17 @@ CONTAINS
 
       ENDIF ! (ASSOCIATED(range_subset%vertical_levels))
 
-    ELSE
-      min_value = values(1,1)
-      max_value = values(1,1)
-      sum_value = 0._wp
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
-!ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO block = 1,  SIZE(values, 2)
-        min_in_block = MINVAL(values(:, block))
-        max_in_block = MAXVAL(values(:, block))
-        min_value    = MIN(min_value, min_in_block)
-        max_value    = MAX(max_value, max_in_block)
-        sum_value    = sum_value + SUM(values(:, block))
-      ENDDO
-!ICON_OMP_END_PARALLEL_DO
-      number_of_values = SIZE(values)
-    ENDIF
-
-
     ! the global min, max, mean, is avaliable only to stdio process
-    IF (my_process_is_mpi_parallel()) THEN
-      communicator = get_my_mpi_work_communicator()
-      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+    CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
 
-      ! these are avaliable to all processes
-      global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
-      minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
-
-
-    ELSE
-
-      minmaxmean(1) = min_value
-      minmaxmean(2) = max_value
-      minmaxmean(3) = sum_value / REAL(number_of_values, wp)
-
-    ENDIF
-
-  END FUNCTION globalspace_2D_minmaxmean
+  END FUNCTION MinMaxMean_2D_InRange
   !-----------------------------------------------------------------------
-
 
   !-----------------------------------------------------------------------
   !>
-  FUNCTION globalspace_3D_minmaxmean(values, range_subset, start_level, end_level) result(minmaxmean)
+  FUNCTION MinMaxMean_3D_TotalLevels_InRange(values, range_subset, start_level, end_level) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:,:)
-    TYPE(t_subset_range), TARGET, OPTIONAL :: range_subset
+    TYPE(t_subset_range), TARGET :: range_subset
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
 
@@ -318,7 +299,7 @@ CONTAINS
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical, number_of_values
     INTEGER :: communicator
 !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:globalspace_3D_minmaxmean'
+    CHARACTER(LEN=*), PARAMETER :: method_name='mo_statistics:MinMaxMean_3D_TotalLevels'
 
 
     IF (PRESENT(start_level)) THEN
@@ -334,14 +315,8 @@ CONTAINS
     IF (start_vertical > end_vertical) &
       CALL finish(method_name, "start_vertical > end_vertical")
 
-    IF (PRESENT(range_subset)) THEN
       ! init the min, max values
-!      block=range_subset%start_block
-!      CALL get_index_range(range_subset, block, startidx, endidx)
-!      min_value = values(startidx, start_vertical, block)
-!      max_value = values(startidx, start_vertical, block)
-      min_value = 1.e16_wp         ! some large value
-      max_value = -1.e16_wp        ! some small value
+      CALL init_min_max(min_value, max_value)
       sum_value = 0._wp
       number_of_values = 0
 
@@ -391,49 +366,13 @@ CONTAINS
 
       ENDIF
 
-    ELSE ! no range_subset
-      ! Warning:this most likely will give wrong results because of double calculation on  halos
 
-      min_value      = values(1, start_vertical, 1)
-      max_value      = values(1, start_vertical, 1)
-      sum_value = 0._wp
+    ! the global min, max, mean, is avaliable only to stdio process
+    CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) FIRSTPRIVATE(min_in_block, max_in_block, sum_value) &
-!ICON_OMP  reduction(min:min_value) reduction(max:max_value) reduction(sum:sum_value)
-      DO block = 1,  SIZE(values, 3)
-        DO level = start_vertical, end_vertical
-          min_in_block = MINVAL(values(:, level, block))
-          max_in_block = MAXVAL(values(:, level, block))
-          min_value    = MIN(min_value, min_in_block)
-          max_value    = MAX(max_value, max_in_block)
-          sum_value    = sum_value + SUM(values(:, level, block))
-        ENDDO
-      ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-      number_of_values = SIZE(values(:,start_vertical:end_vertical,:))
-    ENDIF
-
-    ! the global min, max is avaliable only to stdio process
-    IF (my_process_is_mpi_parallel()) THEN
-      communicator = get_my_mpi_work_communicator()
-      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
-
-      ! these are avaliable to all processes
-      global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
-      minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
-
-    ELSE
-
-      minmaxmean(1) = min_value
-      minmaxmean(2) = max_value
-      minmaxmean(3) = sum_value / REAL(number_of_values, wp)
-
-    ENDIF
-
-  END FUNCTION globalspace_3D_minmaxmean
+  END FUNCTION MinMaxMean_3D_TotalLevels_InRange
   !-----------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------
   !>
@@ -590,8 +529,51 @@ CONTAINS
 
   END FUNCTION globalspace_3D_sum_max_level_array
   !-----------------------------------------------------------------------
-#endif
 
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE init_min_max(min_value, max_value)
+    REAL(wp), INTENT(inout) :: min_value, max_value
+
+    min_value = 1.e16_wp         ! some large value
+    max_value = -1.e16_wp        ! some small value
+
+  END SUBROUTINE init_min_max
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
+    REAL(wp), INTENT(in) :: min_value, max_value, sum_value
+    INTEGER, INTENT(in) :: number_of_values
+    REAL(wp), INTENT(inout) :: minmaxmean(3)
+
+    REAL(wp) :: global_number_of_values
+    INTEGER :: communicator
+
+    IF (my_process_is_mpi_parallel()) THEN
+      communicator = get_my_mpi_work_communicator()
+      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
+      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+
+      ! these are avaliable to all processes
+      global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
+      minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
+
+    ELSE
+
+      minmaxmean(1) = min_value
+      minmaxmean(2) = max_value
+      minmaxmean(3) = sum_value / REAL(number_of_values, wp)
+
+    ENDIF
+  END SUBROUTINE gather_minmaxmean
+  !-----------------------------------------------------------------------
+
+
+
+  !-----------------------------------------------------------------------
+#endif
+! ICON_GRID_GENERATOR
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE new_statistic_operator(statistic)
