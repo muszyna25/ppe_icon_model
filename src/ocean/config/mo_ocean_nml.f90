@@ -271,7 +271,7 @@ MODULE mo_ocean_nml
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: l_forc_freshw         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: l_runoff_zero         = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: forcing_set_runoff_to_zero         = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
 
@@ -375,7 +375,7 @@ MODULE mo_ocean_nml
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
-    &                 l_runoff_zero,                                       &
+    &                 forcing_set_runoff_to_zero,                                       &
     &                 initial_temperature_reference, initial_salinity_reference, &
     &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
     &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
@@ -616,8 +616,8 @@ MODULE mo_ocean_nml
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with l_forc_freshw=.TRUE.')
      END IF
 
-     IF (l_runoff_zero) THEN
-       CALL message(TRIM(routine),'WARNING, l_runoff_zero is .TRUE. - forcing with river runoff is set to zero')
+     IF (forcing_set_runoff_to_zero) THEN
+       CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
      END IF
 
 #ifndef __NO_ICON_ATMO__
