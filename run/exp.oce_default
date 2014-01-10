@@ -210,7 +210,7 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -225,8 +225,8 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &sea_ice_nml
-  i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_therm   = 1              !  1=zero-layer, 2=Winton
+  i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
 /
 &ocean_forcing_and_init_nml
   idiag_oce          = 1              ! 1: write standard ocean diagnostics to stderr
