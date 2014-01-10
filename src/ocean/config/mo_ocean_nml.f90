@@ -323,8 +323,8 @@ MODULE mo_ocean_nml
   INTEGER :: indonesian_throughflow(100) = -1
   INTEGER :: scotland_iceland(100)       = -1
 
-  REAL(wp) ::  z_forc_period     = 3.0_wp  ! For the periodic analytic forcing (wind)
-  REAL(wp) ::  y_forc_period     = 3.0_wp
+  REAL(wp) ::  forcing_windstress_zonal_waveno     = 3.0_wp  ! For the periodic analytic forcing (wind)
+  REAL(wp) ::  forcing_windstress_meridional_waveno     = 3.0_wp
   REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
@@ -376,7 +376,8 @@ MODULE mo_ocean_nml
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 l_forc_freshw, limit_elevation, seaice_limit,        &
     &                 l_runoff_zero,                                       &
-    &                 initial_temperature_reference, initial_salinity_reference, z_forc_period, y_forc_period,  &
+    &                 initial_temperature_reference, initial_salinity_reference, &
+    &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
     &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
     &                 scatter_s
 

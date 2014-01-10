@@ -219,8 +219,8 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   iforc_stat_oce = 5
   analytic_wind_amplitude = 1.0
-  z_forc_period     = 1.0_wp
-  y_forc_period     = 1.0_wp  
+  forcing_windstress_zonal_waveno     = 1.0_wp
+  forcing_windstress_meridional_waveno     = 1.0_wp
 /
 &ocean_diagnostics_nml
   diagnostics_level  = 1

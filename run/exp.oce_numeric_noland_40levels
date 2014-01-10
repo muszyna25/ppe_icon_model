@@ -222,8 +222,8 @@ cat > ${ocean_namelist} << EOF
   itestcase_oce = 1050
   iforc_stat_oce = 5
   analytic_wind_amplitude = 0.1
-  z_forc_period     = 3.0_wp
-  y_forc_period     = 3.0_wp
+  forcing_windstress_zonal_waveno     = 3.0_wp
+  forcing_windstress_meridional_waveno     = 3.0_wp
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
