@@ -416,7 +416,9 @@ CONTAINS
 
       IF (check_open_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
-        CALL setup_output_vlist(output_file(i))
+        IF (output_file(i)%cdiVlistId == CDI_UNDEFID) THEN
+          CALL setup_output_vlist(output_file(i))
+        END IF
         CALL open_output_file(output_file(i))
       END IF
 
