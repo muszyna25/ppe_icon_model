@@ -512,7 +512,7 @@ CONTAINS
     ENDIF
 
     IF (iequations == inh_atmosphere) THEN ! set dimensions of tile-based variables
-      CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
+      CALL configure_lnd_nwp()
     ENDIF
 
     ! allocate memory for atmospheric/oceanic external data and

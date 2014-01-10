@@ -223,7 +223,6 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    TYPE (t_datetime)                 :: rel_fct_time
     CHARACTER(LEN=filename_max)       :: filename
 
     ! open file:
@@ -601,7 +600,7 @@ CONTAINS
 
     INTEGER                        :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                               nlevs, nblks, nindex, mpierr, lonlat_id,   &
-      &                               ierrstat, idata_type
+      &                               idata_type
     INTEGER(i8)                    :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info),  POINTER :: p_ri
@@ -1097,7 +1096,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
-    INTEGER                        :: nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
+    INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
       &                               lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER                        :: voff(0:num_work_procs-1)

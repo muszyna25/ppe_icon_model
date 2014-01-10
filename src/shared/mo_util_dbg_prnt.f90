@@ -96,7 +96,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
     CHARACTER(LEN=*) :: variable_name
     
-    INTEGER :: BLOCK, start_edge_index, end_edge_index, jb, jk, edge_index
+    INTEGER :: start_edge_index, end_edge_index, jb, jk, edge_index
     TYPE(t_subset_range), POINTER :: edges_owned
     TYPE(t_patch), POINTER :: patch_2d
     REAL(wp), POINTER :: edge_added_values(:,:,:)

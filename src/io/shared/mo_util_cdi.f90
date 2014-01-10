@@ -191,7 +191,7 @@ CONTAINS
     ! get var ID
     IF(p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, opt_dict=opt_dict)
       zaxisID   = vlistInqVarZaxis(vlistID, varID)
       gridID    = vlistInqVarGrid(vlistID, varID)
       dimlen(1) = gridInqSize(gridID)

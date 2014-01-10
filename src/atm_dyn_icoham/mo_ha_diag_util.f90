@@ -373,7 +373,7 @@ CONTAINS
     nblks_e = p_patch%nblks_e
 
     ! Edge-based layer thickness: pressure levels
-    IF (p_test_run)  p_delp_e(:,:,:) = 0
+    IF (p_test_run)  p_delp_e(:,:,:) = 0._wp
 
     jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL

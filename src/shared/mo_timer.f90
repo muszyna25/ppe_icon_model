@@ -541,7 +541,6 @@ CONTAINS
     REAL, INTENT(OUT) :: time_s
     ! local variables:
     LOGICAL :: lopenmp
-    REAL    :: time_total, elapsed(2)
 
     lopenmp = .FALSE.
 !$  lopenmp = .TRUE.
@@ -562,7 +561,6 @@ CONTAINS
     REAL, INTENT(IN) :: time_s
     ! local variables:
     LOGICAL :: lopenmp
-    REAL    :: time_total, elapsed(2)
 !$  lopenmp = .TRUE.
 
     IF (.NOT. lopenmp) THEN

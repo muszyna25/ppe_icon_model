@@ -507,7 +507,8 @@ CONTAINS
     ! - year, month, day, hour, minute, second
 
     REAL(wp) :: za, zb, zc, zd, ze, zf
-    REAL(wp) :: time, daytim
+    REAL(wp) :: time
+!    REAL(wp) :: daytim
 
     time = REAL(datetime%calday,wp)+datetime%caltime
 

@@ -542,7 +542,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: jstep
 
     TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx, noutput_files, j
+    INTEGER                         :: idx, noutput_files
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -2553,10 +2553,9 @@ CONTAINS
     TYPE(t_datetime), POINTER       :: dt
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, nlev_max, ierrstat, nlevs, nv_off, &
+    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
       &                                np, mpi_error, i, idate, itime, status, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    INTEGER                         :: voff(0:num_work_procs-1)
     REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
       &                                this_chunk_nlevs, ioff2

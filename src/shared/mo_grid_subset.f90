@@ -277,7 +277,6 @@ CONTAINS
     INTEGER, INTENT(in) :: ncid
     TYPE(t_subset_range), INTENT(inout) :: subset_range
 
-    INTEGER :: netcd_status
     CHARACTER(*), PARAMETER :: method_name = "write_subset_range"
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_block', nf_int, 1,     &

@@ -79,7 +79,7 @@ MODULE mo_latitude_interpolation
                                                       ! ATTENTION: they must contain the poles 
                                                       ! r_lat_clim(0)=+-Pi/2, r_lat_clim(nlat_clim+1)=+-Pi/2
 
-    INTEGER                           :: jl
+!    INTEGER                           :: jl
     REAL(wp)                          :: zlat(kbdim)
     
     zlat(1:kproma)=p_patch(jg)%cells%center(1:kproma,krow)%lat

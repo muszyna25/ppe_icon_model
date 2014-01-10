@@ -400,7 +400,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:)
 
-    INTEGER :: total_number_of_cells
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
@@ -469,7 +468,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
     INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
 
-    INTEGER :: total_number_of_cells
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
@@ -577,7 +575,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
     INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
 
-    INTEGER :: total_number_of_cells
     INTEGER :: varid, var_type, var_dims
     INTEGER :: var_size(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
@@ -1177,7 +1174,7 @@ CONTAINS
     INTEGER  :: number_of_attributes  
     INTEGER :: var_dims_reference(MAX_VAR_DIMS)
     CHARACTER(LEN=filename_max) :: check_var_name
-    INTEGER :: i, return_status
+    INTEGER :: i
 
     netcdf_inq_var = -1
     IF ( .NOT. my_process_is_mpi_workroot() ) RETURN
@@ -1751,12 +1748,13 @@ CONTAINS
     TYPE(t_patch), TARGET        :: patch
 
     REAL(wp), ALLOCATABLE        :: output_array(:)
-    INTEGER :: total_number_of_cells, array_vertical_levels, array_time_steps
-    INTEGER :: dim_number_of_cells, dim_vertical_levels, dim_array_time_steps
+    INTEGER :: total_number_of_cells
+!    INTEGER :: array_time_steps, array_vertical_levels
+    INTEGER :: dim_number_of_cells
+!    INTEGER :: dim_array_time_steps, dim_vertical_levels
     INTEGER :: output_shape(1), dim_write_shape(1), diff_shape(1)
     INTEGER :: variable_id
 
-    INTEGER                      :: return_status
 !    INTEGER                      :: i,j,t
     CHARACTER(LEN=*), PARAMETER  :: method_name = 'mo_netcdf_read:netcdf_write_REAL_ONCELLS_3D_time_fileid'
 

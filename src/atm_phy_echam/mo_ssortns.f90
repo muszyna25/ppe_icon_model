@@ -860,7 +860,7 @@ SUBROUTINE orosetup                                           &
 !IBM* ASSERT(NODEPS)
      DO 253  ji=1,kgwd
         jl = kdx(ji)
-        pzdep(jl,jk)=0
+        pzdep(jl,jk)=0._wp
         IF(jk >= kkenvh(jl).AND.kkenvh(jl) /= klev) THEN
            pzdep(jl,jk)=(pgeom1(jl,kkenvh(jl)-1)-pgeom1(jl,jk))/         &
                 (pgeom1(jl,kkenvh(jl)  )-pgeom1(jl,klev))

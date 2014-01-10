@@ -108,7 +108,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: var_name   !< variable name
     ! local variables
     INTEGER :: ivar
-    LOGICAL :: a
    
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file

@@ -3437,7 +3437,6 @@ CONTAINS
     TYPE(t_grid_edges),   POINTER :: edges
     INTEGER, POINTER :: cells_vertical_levels(:,:), edges_vertical_levels(:,:)
 
-    INTEGER :: block, startidx, endidx, idx
     !-----------------------------------------------------------------------------
 
     cells  => patch_3D%p_patch_2D(1)%cells

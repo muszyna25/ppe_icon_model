@@ -1492,16 +1492,16 @@ CONTAINS
     ! variables used for determing the OpenMP threads
     ! suitable as well for coupled models
 #if (defined _OPENMP)
-    CHARACTER(len=32) :: env_name
-    CHARACTER(len=32) :: thread_num
-    INTEGER :: env_threads, threads
+!    CHARACTER(len=32) :: env_name
+!    CHARACTER(len=32) :: thread_num
+!    INTEGER :: threads
     INTEGER :: global_no_of_threads
 #ifndef NOMPI
     INTEGER :: provided
 #endif
 #ifndef __SX__
     ! status
-    INTEGER :: istat
+!    INTEGER :: istat
 #else
     EXTERNAL :: getenv
 #endif

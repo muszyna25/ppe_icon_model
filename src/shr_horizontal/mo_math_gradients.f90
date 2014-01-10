@@ -202,7 +202,6 @@ INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: je, jk, jb
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlen, nblks_e, npromz_e
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
@@ -779,7 +778,6 @@ INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlen, npromz_c, nblks_c
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 

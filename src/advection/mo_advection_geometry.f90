@@ -976,7 +976,7 @@ CONTAINS
 
     INTEGER :: je, jk, jb, jl          !< loop index of edge, vert level, block, lists
     INTEGER :: ie                      !< index list loop counter
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startblk, i_endblk
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev              !< vertical start and end level
 

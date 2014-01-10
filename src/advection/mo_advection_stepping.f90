@@ -272,7 +272,6 @@ CONTAINS
     LOGICAL  :: l_parallel
 
     INTEGER, POINTER :: i_itype_hlimit(:) => NULL()
-    INTEGER, TARGET  :: itype_hlimit_0(ntracer)
      
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
