@@ -1792,14 +1792,16 @@ CONTAINS
                 ENDIF
                 !
                 gdims(:) = (/ ic, il, 1, 1, 1 /)
-                ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
-                IF (istat /= 0) THEN
-                  CALL finish('','allocation of r5d failed ...')
-                ENDIF
                 !
                 IF (my_process_is_mpi_workroot()) THEN
+                  ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+                  IF (istat /= 0) THEN
+                    CALL finish('','allocation of r5d failed ...')
+                  ENDIF
                   CALL streamReadVar(fileID, varID, r5d, nmiss)
-                END IF
+                ELSE
+                  ALLOCATE(r5d(gdims(1),1,gdims(3),gdims(4),gdims(5)),STAT=istat)
+                ENDIF
                 CALL p_barrier(comm=p_comm_work)
                 !
                 IF (info%lcontained) THEN

@@ -44,7 +44,7 @@ MODULE mo_scatter
   USE mo_communication, ONLY: idx_no, blk_no
   USE mo_model_domain,  ONLY: t_patch
   USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
-                              my_process_is_mpi_seq
+                              my_process_is_mpi_seq, my_process_is_mpi_workroot
   !
   IMPLICIT NONE
   !
@@ -204,17 +204,22 @@ CONTAINS
     REAL(wp), POINTER :: out_array(:,:,:)
     INTEGER           :: global_index(:)
 
-    INTEGER :: j, jl, jb, jk
-
-    CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
+    INTEGER :: j, jl, jb, jk, jk1
 
     out_array(:,:,:) = 0.0_wp
 
     DO jk = 1, SIZE(out_array,2)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL p_bcast(in_array(:,jk), process_mpi_root_id, p_comm_work)
+        jk1 = jk
+      ELSE
+        CALL p_bcast(in_array(:,1), process_mpi_root_id, p_comm_work)
+        jk1 = 1
+      ENDIF
       DO j = 1, SIZE(global_index)
         jb = blk_no(j)
         jl = idx_no(j)
-        out_array(jl,jk,jb) = in_array(global_index(j),jk)
+        out_array(jl,jk,jb) = in_array(global_index(j),jk1)
       ENDDO
     ENDDO
     !
