@@ -107,7 +107,7 @@ MODULE mo_ocean_nml
   INTEGER            :: iforc_type     = 10
 
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
-  INTEGER            :: iforc_len      = 1
+  INTEGER            :: forcing_timescale      = 1
 
   ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 3
@@ -368,7 +368,7 @@ MODULE mo_ocean_nml
     &                 use_tracer_x_height
 
 
-  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
+  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, forcing_timescale,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
     &                 itestcase_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &

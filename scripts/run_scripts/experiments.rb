@@ -39,7 +39,7 @@ module TestCases
   initNml = NmlLib.create( :ocean_forcing_and_init_nml,{
     :iforc_oce          =>10,
     :iforc_omip         =>10,
-    :iforc_len          =>10,
+    :forcing_timescale          =>10,
     :iforc_stat_oce     => 3,
     :init_oce_prog      =>10,
     :itestcase_oce      =>  50,

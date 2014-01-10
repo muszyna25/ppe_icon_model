@@ -64,7 +64,7 @@ MODULE mo_ext_data_state
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
-  ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
+  ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, forcing_timescale
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
@@ -1630,7 +1630,7 @@ CONTAINS
 !    shape2d_c = (/ nproma, nblks_c /)
 !    shape2d_e = (/ nproma, nblks_e /)
 !
-!    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
+!    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, forcing_timescale data sets
 !    ! for type of forcing see mo_oce_bulk
 !    idim_omip = 0
 !    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
@@ -1638,7 +1638,7 @@ CONTAINS
 !    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
 !    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
 !    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
-!    shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
+!    shape4d_c = (/ nproma, forcing_timescale, nblks_c, idim_omip /)
 !
 !    !
 !    ! Register a field list and apply default settings

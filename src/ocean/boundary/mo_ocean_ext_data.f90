@@ -56,7 +56,7 @@ MODULE mo_ocean_ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_char_length, LAND
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
+  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, forcing_timescale
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -233,7 +233,7 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
 
-    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
+    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, forcing_timescale data sets
     ! for type of forcing see mo_oce_bulk
     idim_omip = 0
     IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
@@ -241,7 +241,7 @@ CONTAINS
     IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
     IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
     IF (iforc_type == 5 ) idim_omip = 14    !  NCEP type forcing - time dependent read in mo_oce_bulk
-    shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
+    shape4d_c = (/ nproma, forcing_timescale, nblks_c, idim_omip /)
 
     !
     ! Register a field list and apply default settings
@@ -361,7 +361,7 @@ CONTAINS
     INTEGER :: mpi_comm
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
-    REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
+    REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%nblks_c)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     CALL message (TRIM(routine), 'start')
@@ -528,9 +528,9 @@ CONTAINS
         !
         WRITE(message_text,'(A,I6,A)')  'Ocean OMIP flux file contains',no_tst,' data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
-        IF(no_tst /= iforc_len ) THEN
+        IF(no_tst /= forcing_timescale ) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of forcing timesteps is not equal iforc_len specified in namelist - ABORT')
+          & 'Number of forcing timesteps is not equal forcing_timescale specified in namelist - ABORT')
         ENDIF
       ENDIF
       IF(p_test_run) THEN

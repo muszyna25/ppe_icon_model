@@ -64,7 +64,7 @@ USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
+USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, itestcase_oce,         &
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
   &                               relaxation_param, wstress_coeff, i_apply_bulk,           &
@@ -244,7 +244,7 @@ CONTAINS
       !
       ! use annual forcing-data:
       !
-      IF (iforc_len == 1)  THEN
+      IF (forcing_timescale == 1)  THEN
 
         jmon1=1
         jmon2=1
@@ -254,7 +254,7 @@ CONTAINS
       !
       ! interpolate monthly forcing-data daily:
       !
-      ELSE IF (iforc_len == 12)  THEN
+      ELSE IF (forcing_timescale == 12)  THEN
 
         jmon1=jmon-1
         jmon2=jmon
@@ -1548,7 +1548,7 @@ CONTAINS
   !! Read ocean forcing data from netcdf
   !!
   !! Read ocean forcing data for NCEP or other forcing
-  !! This routine reads annual data sets of length iforc_len
+  !! This routine reads annual data sets of length forcing_timescale
   !!
   !! @par Revision History
   !! Initial revision by Stephan Lorenz, MPI (2012-02-17)
@@ -1570,8 +1570,8 @@ CONTAINS
     INTEGER :: ncid, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
-    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,iforc_len)  ! set length is iforc_len, 3rd dimension
-    REAL(wp):: z_c   (nproma,iforc_len,p_patch%alloc_cell_blocks)  ! 2nd dimension is iforc_len
+    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,forcing_timescale)  ! set length is forcing_timescale, 3rd dimension
+    REAL(wp):: z_c   (nproma,forcing_timescale,p_patch%alloc_cell_blocks)  ! 2nd dimension is forcing_timescale
     !TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------
@@ -1641,7 +1641,7 @@ CONTAINS
       !-------------------------------------------------------
 
       jcells = p_patch%n_patch_cells  !  global dimension
-      jtime  = iforc_len              !  time period to read (not yet)
+      jtime  = forcing_timescale              !  time period to read (not yet)
 
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
@@ -1651,10 +1651,10 @@ CONTAINS
 
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-      ! &  iforc_len, nproma, p_patch%nblks_c
+      ! &  forcing_timescale, nproma, p_patch%nblks_c
       !CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
       !  &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
-      !  &                    iforc_len, z_flx2(:,:,:))
+      !  &                    forcing_timescale, z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       !do jt=1,jtime
       !  write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)
