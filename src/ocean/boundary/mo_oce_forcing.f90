@@ -447,7 +447,7 @@ CONTAINS
         
       CASE (1)
         CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
-        y_length = basin_height_deg * deg2rad
+        y_length                        = basin_height_deg * deg2rad
         forcing_windstress_zonal_waveno = 1.0_wp
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -482,7 +482,7 @@ CONTAINS
           & 'iforc_stat_oce=2: stationary wind forcing over basin - u=cos(n*(lat-lat_0)/lat_0)')
         
         ! Latitudes vary from -pi/2 to pi/2
-        y_length = basin_height_deg * deg2rad
+        y_length                        = basin_height_deg * deg2rad
         forcing_windstress_zonal_waveno = 1.0_wp
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -516,8 +516,8 @@ CONTAINS
           & 'iforc_stat_oce=3: apply stationary wind forcing globally - u=cos(n*lat/lat_0); v=0')
         
         ! Use here global scale:
-        y_length = 180.0_wp * deg2rad
-        y_center = -60.0_wp * deg2rad
+        y_length                        = 180.0_wp * deg2rad
+        y_center                        = -60.0_wp * deg2rad
         forcing_windstress_zonal_waveno = 3.0_wp
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -525,8 +525,8 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             IF (p_patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
-              p_sfc_flx%forc_wind_u(jc,jb) =  analytic_wind_amplitude * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_center) &
-                & / y_length)
+              p_sfc_flx%forc_wind_u(jc,jb) = analytic_wind_amplitude * &
+                & COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_center)/y_length)
             ELSE
               p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
             ENDIF
@@ -552,8 +552,8 @@ CONTAINS
           & 'iforc_stat_oce=4: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
         
         ! Forcing for ape
-        forcing_windstress_zonal_waveno     = 3.0_wp
-        forcing_windstress_meridional_waveno     = 3.0_wp
+        forcing_windstress_zonal_waveno      = 3.0_wp
+        forcing_windstress_meridional_waveno = 3.0_wp
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
@@ -592,8 +592,8 @@ CONTAINS
           & 'iforc_stat_oce=5: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
         
         ! Forcing for ape
-        forcing_windstress_zonal_waveno     = 3.0_wp
-        forcing_windstress_meridional_waveno     = 3.0_wp
+        forcing_windstress_zonal_waveno      = 3.0_wp
+        forcing_windstress_meridional_waveno = 3.0_wp
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
