@@ -299,8 +299,8 @@ CONTAINS
       IF (iforc_type >= 1)  THEN
 
         ! provide OMIP fluxes for wind stress forcing
-        ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [m/s]
-        ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [m/s]
+        ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
+        ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [Pa]
 
         ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
         p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
@@ -311,7 +311,7 @@ CONTAINS
        ! Wind stress boundary condition for vertical diffusion D:
        !   D = d/dz(K_v*du/dz)  where
        ! Boundary condition at surface (upper bound of D at center of first layer)
-       !   derived from wind-stress boundary condition Tau read from OMIP data (or elsewhere)
+       !   derived from wind-stress boundary condition Tau (in Pascal Pa=N/m2) read from OMIP data (or elsewhere)
        !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
        ! discretized:
        !   top_bc_u_c = forc_wind_u / rho_ref
@@ -1645,8 +1645,8 @@ CONTAINS
 
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
-      ! 1:  'stress_x': zonal wind stress       [m/s]
-      ! 2:  'stress_y': meridional wind stress  [m/s]
+      ! 1:  'stress_x': zonal wind stress       [Pa]
+      ! 2:  'stress_y': meridional wind stress  [Pa]
       ! 3:  'SST"     : sea surface temperature [K]
 
       ! zonal wind stress
