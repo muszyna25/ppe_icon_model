@@ -1524,7 +1524,7 @@ CONTAINS
           ! parameterization of clear-air solar transmissivity in order to use the same 
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output
           trsolclr = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
-           (1._wp-albedo(jc))**(1._wp-0.2_wp*cosmu0(jc)+0.1_wp*MIN(10._wp,tqv(jc))**0.33)
+           (1._wp-albedo(jc))**(1._wp-0.2_wp*cosmu0(jc)+0.1_wp*MIN(10._wp,tqv(jc))**0.33_wp)
 
           swfac1(jc) = (MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr))**0.36_wp
           swfac2(jc) =  MAX(0.25_wp,3._wp*cosmu0(jc))**0.1_wp

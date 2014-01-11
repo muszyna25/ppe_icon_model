@@ -435,7 +435,7 @@ CONTAINS
       vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:)
       CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
       !---------------------------------------------------------------------
-      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), range_subset=owned_cells)
+      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
       IF (my_process_is_stdio()) THEN
         IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
           CALL finish(method_name, "height below min_top_height")
@@ -1682,7 +1682,7 @@ CONTAINS
       CALL dbg_print('after cont-correct: vol_h', &
         & patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:), &
         & str_module,idt_src, in_subset=cells_in_domain)
-!      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), range_subset=cells_in_domain)
+!      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=cells_in_domain)
 !      IF (my_process_is_stdio()) THEN
 !        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
 !          CALL finish(method_name, "height below min_top_height")

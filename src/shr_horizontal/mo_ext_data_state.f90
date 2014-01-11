@@ -57,10 +57,11 @@ MODULE mo_ext_data_state
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
-    &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, min_rlcell_int, VINTP_METHOD_LIN, &
-    &                              HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, MODIS
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
+    &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
+    &                              max_char_length, min_rlcell_int, VINTP_METHOD_LIN,               &
+    &                              HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, MODIS,                   &
+    &                              SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: ppmv2gg, o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
@@ -71,7 +72,7 @@ MODULE mo_ext_data_state
                                    isub_lake, sstice_mode, sst_td_filename, ci_td_filename,         &
                                    llake, itype_lndtbl
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, & 
-    &                              generate_td_filename
+    &                              generate_td_filename, extpar_varnames_map_file
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
@@ -100,25 +101,28 @@ MODULE mo_ext_data_state
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_netcdf_read,        ONLY: read_netcdf_data, read_netcdf_lu, nf
+  USE mo_netcdf_read,        ONLY: read_netcdf_data, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
+    &                              GRID_UNSTRUCTURED_VERT,                         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              ZA_LAKE_BOTTOM, DATATYPE_FLT32, DATATYPE_PACK16,&
-    &                              FILETYPE_NC2, TSTEP_CONSTANT, TSTEP_MAX,        &
-    &                              TSTEP_AVG
+    &                              ZA_LAKE_BOTTOM
+  USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d
+  USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
+    &                              dict_loadfile
 
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_master_control,     ONLY: is_restart_run
 
   IMPLICIT NONE
+  INCLUDE 'cdi.inc'
 
   ! required for reading external data
   INCLUDE 'netcdf.inc'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_ext_data_state'
 
   PRIVATE
 
@@ -178,11 +182,16 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
 
-    INTEGER :: jg
+    INTEGER              :: jg, ist
+    INTEGER, ALLOCATABLE :: cdi_extpar_id(:)  !< CDI stream ID (for each domain)
+    INTEGER, ALLOCATABLE :: cdi_filetype(:)   !< CDI filetype (for each domain)
+    ! dictionary which maps internal variable names onto
+    ! GRIB2 shortnames or NetCDF var names.
+    TYPE (t_dictionary) :: extpar_varnames_dict
 
     TYPE(t_datetime) :: datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:init_ext_data'
+      routine = modname//':init_ext_data'
 
     !-------------------------------------------------------------------------
     CALL message (TRIM(routine), 'Start')
@@ -201,7 +210,18 @@ CONTAINS
     ! are read from file
     nmonths_ext(1:n_dom) = 1
 
-    CALL inquire_external_files(p_patch)
+    ! Allocate and open CDI stream (files):
+    ALLOCATE (cdi_extpar_id(n_dom), cdi_filetype(n_dom), stat=ist)
+    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
+    CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
+
+    ! read the map file (internal -> GRIB2) into dictionary data structure:
+    CALL dict_init(extpar_varnames_dict, lcase_sensitive=.FALSE.)
+    IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
+      IF(extpar_varnames_map_file /= ' ') THEN
+        CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
+      END IF
+    END IF
 
     !------------------------------------------------------------------
     !  2.  construct external fields for the model
@@ -275,14 +295,16 @@ CONTAINS
         ELSE
           CALL message( TRIM(routine),'Running with analytical topography' )
         END IF
-        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
+        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, cdi_filetype, &
+          &                     extpar_varnames_dict)
       END IF 
 
-    CASE(1) ! read external data from netcdf dataset
+    CASE(1) ! read external data from file
 
       CALL message( TRIM(routine),'Start reading external data from file' )
 
-      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
+      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, cdi_filetype, &
+        &                     extpar_varnames_dict)
       DO jg = 1, n_dom
         CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
                                 ext_data(jg)%atm%topography_c, &
@@ -341,6 +363,17 @@ CONTAINS
 
     END SELECT
 
+    ! close CDI stream (file):
+    DO jg=1,n_dom
+      IF (cdi_extpar_id(jg) == -1) CYCLE
+      IF (my_process_is_stdio())  CALL streamClose(cdi_extpar_id(jg))
+    END DO
+    DEALLOCATE (cdi_extpar_id, cdi_filetype, stat=ist)
+    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
+
+    ! destroy variable name dictionary:
+    CALL dict_finalize(extpar_varnames_dict)
+
   END SUBROUTINE init_ext_data
 
 
@@ -361,7 +394,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:construct_ext_data'
+      routine = modname//':construct_ext_data'
 
 !-------------------------------------------------------------------------
 
@@ -1338,7 +1371,7 @@ CONTAINS
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:new_ext_data_atm_td_list'
+      routine = modname//':new_ext_data_atm_td_list'
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1713,7 +1746,7 @@ CONTAINS
 
     INTEGER :: jg, errstat
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_ext_data_state:destruct_ext_data'
+      routine = modname//':destruct_ext_data'
     !-------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
@@ -1744,7 +1777,80 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE inquire_external_files(p_patch)
+  ! Open ExtPar file and investigate the data structure of the
+  ! external parameters.
+  !
+  ! Note: This subroutine opens the file and returns a CDI file ID.
+  !
+  ! @author F. Prill, DWD (2014-01-07)
+  !-------------------------------------------------------------------------
+  SUBROUTINE inquire_extpar_file(p_patch, jg, cdi_extpar_id, cdi_filetype, nclass_lu, nmonths_ext)
+    TYPE(t_patch), INTENT(IN)      :: p_patch(:)
+    INTEGER,       INTENT(IN)      :: jg
+    INTEGER,       INTENT(INOUT)   :: cdi_extpar_id     !< CDI stream ID
+    INTEGER,       INTENT(INOUT)   :: cdi_filetype      !< CDI filetype
+    INTEGER,       INTENT(INOUT)   :: nclass_lu         !< number of landuse classes
+    INTEGER,       INTENT(INOUT)   :: nmonths_ext       !< time dimension from external data file
+
+    ! local variables
+    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::inquire_extpar_file'
+    INTEGER                 :: mpi_comm, vlist_id, grid_id, lu_class_fraction_id
+    LOGICAL                 :: l_exist
+    CHARACTER(filename_max) :: extpar_file !< file name for reading in
+
+    IF (.NOT. (itopo == 1 .AND. iequations /=ihs_ocean )) RETURN
+
+    !---------------------------------------------!
+    ! Check validity of external parameter file   !
+    !---------------------------------------------!
+    IF (my_process_is_stdio()) THEN
+      ! generate file name
+      extpar_file = generate_filename(extpar_filename,                   &
+        &                             model_base_dir,                    &
+        &                             TRIM(p_patch(jg)%grid_filename))
+      CALL message(routine, "extpar_file = "//TRIM(extpar_file))
+
+      INQUIRE (FILE=extpar_file, EXIST=l_exist)
+      IF (.NOT.l_exist)  CALL finish(routine,'external data file is not found.')
+
+      ! open file
+      cdi_extpar_id = streamOpenRead(TRIM(extpar_file))
+      cdi_filetype  = streamInqFileType(cdi_extpar_id)
+
+      ! TODO: Consistency check
+      ! Compare UUID of external parameter file with UUID of grid.
+
+      ! get the number of landuse classes
+      lu_class_fraction_id = get_cdi_varID(cdi_extpar_id, "LU_CLASS_FRACTION")
+      vlist_id             = streamInqVlist(cdi_extpar_id)
+      grid_id              = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
+      nclass_lu            = gridInqYsize(grid_id)
+
+      ! get time dimension from external data file
+      nmonths_ext     = vlistNtsteps(vlist_id)
+
+      WRITE(message_text,'(A,I4)')  &
+        & 'Number of months in external data file = ', nmonths_ext
+      CALL message(routine,message_text)
+    ENDIF ! my_process_is_stdio()
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+    ! broadcast nclass_lu from I-Pe to WORK Pes
+    CALL p_bcast(nclass_lu, p_io, mpi_comm)
+    ! broadcast nmonths from I-Pe to WORK Pes
+    CALL p_bcast(nmonths_ext, p_io, mpi_comm)
+
+  END SUBROUTINE inquire_extpar_file
+
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     !-------------------------------------------------------
     !
@@ -1754,20 +1860,26 @@ CONTAINS
     !-------------------------------------------------------
 
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
+    INTEGER,       INTENT(INOUT)   :: cdi_extpar_id(:)  !< CDI stream ID
+    INTEGER,       INTENT(INOUT)   :: cdi_filetype(:)   !< CDI filetype
 
     INTEGER :: jg, mpi_comm
-    INTEGER :: no_cells, no_verts
+    INTEGER :: no_cells
     INTEGER :: ncid, dimid
 
     LOGICAL :: l_exist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:inquire_external_files'
+      routine = modname//':inquire_external_files'
 
-    CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
 !--------------------------------------------------------------------------
+
+    ! set stream IDs to "uninitialized":
+    IF( my_process_is_stdio()) THEN
+      cdi_extpar_id(:) = -1
+    END IF
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -1780,86 +1892,8 @@ CONTAINS
       !------------------------------------------------!
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
-      IF (itopo == 1 .AND. iequations /=ihs_ocean ) THEN
-
-        IF( my_process_is_stdio()) THEN
-          !
-          ! generate file name
-          extpar_file = generate_filename(extpar_filename,                   &
-            &                             model_base_dir,                    &
-            &                             TRIM(p_patch(jg)%grid_filename))
-          CALL message("read_ext_data_atm, extpar_file=",extpar_file)
-        
-          INQUIRE (FILE=extpar_file, EXIST=l_exist)
-          IF (.NOT.l_exist) THEN
-            CALL finish(TRIM(routine),'external data file is not found.')
-          ENDIF
-
-          !
-          ! open file
-          !
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
-
-          !
-          ! get number of cells and vertices
-          !
-          CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-          ENDIF
-
-          CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-          ENDIF
-
-          !
-          ! check the number of cells and verts
-          !
-          IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-            CALL finish(TRIM(ROUTINE),&
-            & 'Number of patch cells and cells in extpar file do not match.')
-          ENDIF
-          IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
-            CALL finish(TRIM(ROUTINE),&
-            & 'Number of patch verts and verts in extpar file do not match.')
-          ENDIF
-
-          !
-          ! get the number of landuse classes
-          !
-          CALL nf(nf_inq_dimid (ncid, 'nclass_lu', dimid), routine)
-          CALL nf(nf_inq_dimlen(ncid, dimid, nclass_lu(jg)), routine)
-
-
-          ! get time dimension from external data file
-          CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
-          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths_ext(jg)), routine)
-
-          WRITE(message_text,'(A,I4)')  &
-            & 'Number of months in external data file = ', &
-            & nmonths_ext(jg)
-          CALL message(TRIM(ROUTINE),message_text)
-
-          !
-          ! close file
-          !
-          CALL nf(nf_close(ncid), routine)
-
-        ENDIF ! my_process_is_stdio()
-
-        ! broadcast nclass_lu from I-Pe to WORK Pes
-        CALL p_bcast(nclass_lu(jg), p_io, mpi_comm)
-
-        ! broadcast nmonths from I-Pe to WORK Pes
-        CALL p_bcast(nmonths_ext(jg), p_io, mpi_comm)
-
-      ENDIF
-
+      CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
+        &                      nclass_lu(jg), nmonths_ext(jg))
 
       !------------------------------------------------!
       ! 2. Check validity of ozone file                !
@@ -2002,16 +2036,20 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !!
-  SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3)
+  SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
+    &                           cdi_filetype, extpar_varnames_dict)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    INTEGER, INTENT(IN)                  :: nlev_o3
+    INTEGER,               INTENT(IN)    :: nlev_o3
+
+    INTEGER,               INTENT(IN)    :: cdi_extpar_id(:)      !< CDI stream ID
+    INTEGER,               INTENT(IN)    :: cdi_filetype(:)       !< CDI filetype
+    TYPE (t_dictionary),   INTENT(IN)    :: extpar_varnames_dict  !< variable names dictionary (for GRIB2)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:read_ext_data_atm'
+      routine = modname//':read_ext_data_atm'
 
-    CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(len=max_char_length) :: rawdata_attr
 
@@ -2020,12 +2058,13 @@ CONTAINS
 
     INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
     INTEGER :: i_lev,jk
-    INTEGER :: ncid, varid
+    INTEGER :: ncid, varid, vlist_id, ret
 
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk   !> blocks
     INTEGER :: i_startidx, i_endidx   !< slices
     INTEGER :: i_nchdom               !< domain index
+    INTEGER :: lu_var_id, localInformationNumber
 
     INTEGER :: i_lctype(n_dom) ! stores the landcover classification used for the external parameter data
                                ! 1: GLC2000, 2: Globcover2009
@@ -2183,37 +2222,53 @@ CONTAINS
 
     END IF
 
-    IF(itopo == 1 ) THEN
+    !------------------------------------------------!
+    ! Read data from ExtPar file                     !
+    !------------------------------------------------!
+
+    IF (itopo == 1) THEN
       DO jg = 1,n_dom
 
         i_lev = p_patch(jg)%level
 
         IF(my_process_is_stdio()) THEN
 
-          !
-          ! generate file name and open file
-          extpar_file = generate_filename(extpar_filename,                  &
-            &                             model_base_dir,                   &
-            &                             TRIM(p_patch(jg)%grid_filename))
-          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid), routine)
+          ! Determine which data source has been used to generate the
+          ! external perameters: For NetCDF format, we check the
+          ! global attribute "rawdata". For GRIB2 format we check the
+          ! key "localInformationNumber".
+          vlist_id = streamInqVlist(cdi_extpar_id(jg))
 
-          ! Check which data source has been used to generate the external perameters
-          CALL nf(nf_get_att_text(ncid, nf_global, 'rawdata', rawdata_attr), routine)
-
-          IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
-            i_lctype(jg) = 1
-          ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
-            i_lctype(jg) = 2
-          ELSE
-            CALL finish(TRIM(ROUTINE),'Unknown landcover data source')
-          ENDIF
+          IF ((cdi_filetype(jg) == FILETYPE_NC)  .OR. &
+            & (cdi_filetype(jg) == FILETYPE_NC2) .OR. &
+            & (cdi_filetype(jg) == FILETYPE_NC4)) THEN
+            ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
+            IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
+              i_lctype(jg) = 1
+            ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN
+              i_lctype(jg) = 2
+            ELSE
+              CALL finish(routine,'Unknown landcover data source')
+            ENDIF
+          ELSE IF (cdi_filetype(jg) == FILETYPE_GRB2) THEN
+            lu_var_id              = get_cdi_varID(cdi_extpar_id(jg), 'LU_CLASS_FRACTION')
+            localInformationNumber = vlistInqVarIntKey(vlist_id, lu_var_id, "localInformationNumber")
+            SELECT CASE (localInformationNumber)
+            CASE (2)  ! 2 = GLC2000
+              i_lctype(jg) = 1
+            CASE (1)  ! 1 = ESA GLOBCOVER
+              i_lctype(jg) = 2 
+            CASE DEFAULT
+              CALL finish(routine,'Unknown landcover data source')
+            END SELECT
+          END IF
 
           ! Check whether external parameter file contains MODIS albedo-data
           IF ( albedo_type == MODIS ) THEN
-            IF ( (nf_inq_varid(ncid, 'ALB',   varid) /= nf_noerr) .OR.    &
-                 (nf_inq_varid(ncid, 'ALNID', varid) /= nf_noerr) .OR.    &
-                 (nf_inq_varid(ncid, 'ALUVD', varid) /= nf_noerr) ) THEN
-              CALL finish(TRIM(ROUTINE),'MODIS albedo fields missing in '//TRIM(extpar_filename))
+            IF ( (test_cdi_varID(cdi_extpar_id(jg), 'ALB')   == -1) .OR.    &
+              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALNID') == -1) .OR.    &
+              &  (test_cdi_varID(cdi_extpar_id(jg), 'ALUVD') == -1) ) THEN
+              CALL finish(routine,'MODIS albedo fields missing in '//TRIM(extpar_filename))
             ENDIF
           ENDIF
 
@@ -2281,7 +2336,7 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
-
+        
         ! Derived parameter: minimum allowed land-cover related roughness length in the 
         ! presence of low ndvi and/or snow cover
         DO ilu = 1, num_lcc
@@ -2294,204 +2349,182 @@ CONTAINS
           ENDIF
         ENDDO
 
-        !-------------------------------------------------------
+        !--------------------------------------------------------------------
         !
-        ! Read topography for triangle centers and vertices
+        ! Read topography for triangle centers and vertices (triangular grid)
         !
-        !-------------------------------------------------------
+        !--------------------------------------------------------------------
 
-        !
-        ! topography
-        !
-        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-          ! triangle center
-          CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%topography_c)
-
-          ! triangle vertex
-          CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
-            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%topography_v)
-
-        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-
-          ! As extpar "knows" only the triangular grid, cells and vertices need to be switched here
-          ! triangle center
-          CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
-            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%topography_v)
-
-          ! triangle vertex
-          CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%topography_c)
-
-        ENDIF
-
+        ! triangle center
+        CALL read_cdi_2d(cdi_extpar_id(jg), 'topography_c', p_patch(jg)%n_patch_cells_g,         &
+          &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &              ext_data(jg)%atm%topography_c, opt_dict=extpar_varnames_dict)
+        
+        ! triangle vertex
+        CALL read_cdi_2d(cdi_extpar_id(jg), 'topography_v', p_patch(jg)%n_patch_verts_g,         &
+          &              p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index,     &
+          &              ext_data(jg)%atm%topography_v, opt_dict=extpar_varnames_dict)
 
         !
         ! other external parameters on triangular grid
         !
-        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
-          CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-            &                     ext_data(jg)%atm%fr_land)
+        CALL read_cdi_2d(cdi_extpar_id(jg), 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
+          &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &              ext_data(jg)%atm%fr_land, opt_dict=extpar_varnames_dict)
 
-          CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%fr_glac)
+        CALL read_cdi_2d(cdi_extpar_id(jg), 'ICE', p_patch(jg)%n_patch_cells_g,                  &
+          &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &              ext_data(jg)%atm%fr_glac, opt_dict=extpar_varnames_dict)
 
+        SELECT CASE ( iforcing )
+        CASE ( inwp )
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%plcov_mx, opt_dict=extpar_varnames_dict)
 
-          SELECT CASE ( iforcing )
-          CASE ( inwp )
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%lai_mx, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%plcov_mx)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%rootdp, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%lai_mx)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'RSMIN', p_patch(jg)%n_patch_cells_g,              &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%rsmin, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%rootdp)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%for_d, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'RSMIN', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%rsmin)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%for_e, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%for_d)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'Z0', p_patch(jg)%n_patch_cells_g,                 &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%z0, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%for_e)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%ndvi_max, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%z0)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'SOILTYP', p_patch(jg)%n_patch_cells_g,            &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              ext_data(jg)%atm%soiltyp, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%ndvi_max)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,               &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+            &              nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction,                    &
+            &              opt_dict=extpar_varnames_dict )
 
-            CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,            &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%soiltyp)
+          IF ( l_emiss ) THEN
+            CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &
+              &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+              &              ext_data(jg)%atm%emis_rad, opt_dict=extpar_varnames_dict)
+          ELSE
+            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
+          ENDIF
 
-            CALL read_netcdf_lu (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,    &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction )
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'T_CL', p_patch(jg)%n_patch_cells_g,             &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%t_cl, opt_dict=extpar_varnames_dict)
 
-           
-            IF ( l_emiss ) THEN
-              CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
-                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-                &                     ext_data(jg)%atm%emis_rad)
-            ELSE
-              ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
-            ENDIF
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'SSO_STDH', p_patch(jg)%n_patch_cells_g,         &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%sso_stdh, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%t_cl)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'SSO_THETA', p_patch(jg)%n_patch_cells_g,        &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%sso_theta, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%sso_stdh)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,        &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%sso_gamma, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%sso_theta)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,        &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%sso_sigma, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%sso_gamma)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'FR_LAKE', p_patch(jg)%n_patch_cells_g,          &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%fr_lake, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%sso_sigma)
+          CALL read_cdi_2d(cdi_extpar_id(jg), 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,         &
+            &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &              ext_data(jg)%atm%depth_lk, opt_dict=extpar_varnames_dict)
 
-            CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%fr_lake)
+          ! Read time dependent data
+          IF ( irad_aero == 6 ) THEN
 
-            CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
-              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &                     ext_data(jg)%atm%depth_lk)
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'AER_SS',    &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         & 
+              &              ext_data(jg)%atm_td%aer_ss,                      &
+              &              opt_dict=extpar_varnames_dict)
 
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'AER_DUST',  &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         & 
+              &              ext_data(jg)%atm_td%aer_dust,                    &
+              &              opt_dict=extpar_varnames_dict)
 
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!
-            ! Read time dependent data
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!
-            IF ( irad_aero == 6 ) THEN
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'AER_ORG',   &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         & 
+              &              ext_data(jg)%atm_td%aer_org,                     &
+              &              opt_dict=extpar_varnames_dict)
 
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SS', &
-                &                    p_patch(jg)%n_patch_cells_g,     &
-                &                    p_patch(jg)%n_patch_cells,       &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,     & 
-                &                    ext_data(jg)%atm_td%aer_ss)
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'AER_SO4',   &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         & 
+              &              ext_data(jg)%atm_td%aer_so4,                     &
+              &              opt_dict=extpar_varnames_dict)
 
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_DUST',&
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%aer_dust)
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'AER_BC',    &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         & 
+              &              ext_data(jg)%atm_td%aer_bc,                      &
+              &              opt_dict=extpar_varnames_dict)
 
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_ORG', &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%aer_org)
-
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_SO4', &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%aer_so4)
-
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'AER_BC',  &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%aer_bc)
-
-            ENDIF
-
-
-            CALL read_netcdf_data (ncid, nmonths_ext(jg), 'NDVI_MRAT', &
-              &                    p_patch(jg)%n_patch_cells_g,        &
-              &                    p_patch(jg)%n_patch_cells,          &
-              &                    p_patch(jg)%cells%decomp_info%glb_index,        &
-              &                    ext_data(jg)%atm_td%ndvi_mrat)
-           
+            CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'NDVI_MRAT', &
+              &              p_patch(jg)%n_patch_cells_g,                     &
+              &              p_patch(jg)%n_patch_cells,                       &
+              &              p_patch(jg)%cells%decomp_info%glb_index,         &
+              &              ext_data(jg)%atm_td%ndvi_mrat,                   &
+              &              opt_dict=extpar_varnames_dict)
 
             !--------------------------------
             ! If MODIS albedo is used
             !--------------------------------
             IF ( albedo_type == MODIS) THEN
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALB',     &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%alb_dif)
+              CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'ALB',     &
+                &              p_patch(jg)%n_patch_cells_g,                   &
+                &              p_patch(jg)%n_patch_cells,                     &
+                &              p_patch(jg)%cells%decomp_info%glb_index,       & 
+                &              ext_data(jg)%atm_td%alb_dif,                   &
+                &              opt_dict=extpar_varnames_dict)
 
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALUVD',   &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%albuv_dif)
+              CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'ALUVD',   &
+                &              p_patch(jg)%n_patch_cells_g,                   &
+                &              p_patch(jg)%n_patch_cells,                     &
+                &              p_patch(jg)%cells%decomp_info%glb_index,       & 
+                &              ext_data(jg)%atm_td%albuv_dif,                 &
+                &              opt_dict=extpar_varnames_dict)
 
-              CALL read_netcdf_data (ncid, nmonths_ext(jg), 'ALNID',   &
-                &                    p_patch(jg)%n_patch_cells_g,      &
-                &                    p_patch(jg)%n_patch_cells,        &
-                &                    p_patch(jg)%cells%decomp_info%glb_index,      & 
-                &                    ext_data(jg)%atm_td%albni_dif)
+              CALL read_cdi_2d(cdi_extpar_id(jg), nmonths_ext(jg), 'ALNID',   &
+                &              p_patch(jg)%n_patch_cells_g,                   &
+                &              p_patch(jg)%n_patch_cells,                     &
+                &              p_patch(jg)%cells%decomp_info%glb_index,       & 
+                &              ext_data(jg)%atm_td%albni_dif,                 &
+                &              opt_dict=extpar_varnames_dict)
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
@@ -2503,85 +2536,66 @@ CONTAINS
 !$OMP END PARALLEL
 
             ENDIF
+          END IF
+            
+        CASE ( iecham, ildf_echam )
+          IF ( l_emiss ) THEN
+            CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &
+              &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+              &              ext_data(jg)%atm%emis_rad, opt_dict=extpar_varnames_dict)
+          ELSE
+            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
+          ENDIF
+            
+        END SELECT ! iforcing
 
-          CASE ( iecham, ildf_echam )
+        !
+        ! derived external parameter fields
+        !
+        
+        ! land sea mask at cell centers (LOGICAL)
+        !
+        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-            IF ( l_emiss ) THEN
-              CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
-                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-                &                     ext_data(jg)%atm%emis_rad)
+        rl_start = 1
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            &                i_startidx, i_endidx, rl_start, rl_end)
+
+          ! Loop starts with 1 instead of i_startidx 
+          ! because the start index is missing in RRTM
+          DO jc = 1,i_endidx
+            IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
+              ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
             ELSE
-              ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
+              ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
             ENDIF
+          ENDDO
+        ENDDO
 
-          END SELECT ! iforcing
-
-
-
-          !
-          ! derived external parameter fields
-          !
-
-          ! land sea mask at cell centers (LOGICAL)
-          !
-          i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
-
-          rl_start = 1
-          rl_end   = min_rlcell_int
-
-          i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-          i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-              &                i_startidx, i_endidx, rl_start, rl_end)
-
-            ! Loop starts with 1 instead of i_startidx 
-            ! because the start index is missing in RRTM
-            DO jc = 1,i_endidx
-              IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
-                ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
-              ELSE
-                ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
-              ENDIF
-            ENDDO
+        !DR !!!! Quick fix, as long as a routine for computing smoothed external 
+        ! parameter fields is missing. Just copy.
+        !
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            &                i_startidx, i_endidx, rl_start, rl_end)
+          ! Loop starts with 1 instead of i_startidx 
+          ! because the start index is missing in RRTM
+          DO jc = 1,i_endidx
+            ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
+            ext_data(jg)%atm%fr_glac_smt(jc,jb) = ext_data(jg)%atm%fr_glac(jc,jb)
           ENDDO
 
-
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !DR !!!! Quick fix, as long as a routine for computing smoothed external 
-          ! parameter fields is missing. Just copy.
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-              &                i_startidx, i_endidx, rl_start, rl_end)
-            ! Loop starts with 1 instead of i_startidx 
-            ! because the start index is missing in RRTM
-            DO jc = 1,i_endidx
-              ext_data(jg)%atm%fr_land_smt(jc,jb) = ext_data(jg)%atm%fr_land(jc,jb)
-              ext_data(jg)%atm%fr_glac_smt(jc,jb) = ext_data(jg)%atm%fr_glac(jc,jb)
-            ENDDO
-
-          ENDDO
-
-
-        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-
-          CALL finish(TRIM(ROUTINE),&
-            & 'Hexagonal grid is not supported, yet.')
-
-        ENDIF
-
-        !
-        ! close file
-        !
-        IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+        ENDDO
 
       ENDDO  ! jg
 
-    ENDIF ! itopo
-
+    ENDIF ! (itopo == 1)
 
     !-------------------------------------------------------
     ! Read ozone
@@ -2715,7 +2729,7 @@ CONTAINS
 
           INQUIRE (FILE=sst_td_file, EXIST=l_exist)
           IF (.NOT.l_exist) THEN
-            CALL finish(TRIM(routine),'td sst external data file is not found.')
+            CALL finish(routine,'td sst external data file is not found.')
           ENDIF
 
           CALL nf(nf_open(TRIM(sst_td_file), NF_NOWRITE, ncid), routine)
@@ -2737,7 +2751,7 @@ CONTAINS
 
           INQUIRE (FILE=ci_td_file, EXIST=l_exist)
           IF (.NOT.l_exist) THEN
-            CALL finish(TRIM(routine),'td ci external data file is not found.')
+            CALL finish(routine,'td ci external data file is not found.')
           ENDIF
 
           CALL nf(nf_open(TRIM(ci_td_file), NF_NOWRITE, ncid), routine)
@@ -2751,7 +2765,7 @@ CONTAINS
 
         END DO 
  
-       ! CALL finish(TRIM(routine),'sstice_mode == 2 not yet implemented .')
+       ! CALL finish(routine,'sstice_mode == 2 not yet implemented .')
       END DO ! ndom
 
    END IF ! sstice_mode
@@ -2787,7 +2801,7 @@ CONTAINS
     REAL(wp) :: zfr_land      ! fr_land derived from land tile fractions
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:init_index_lists'
+      routine = modname//':init_index_lists'
 
     !-------------------------------------------------------------------------
 
@@ -3247,7 +3261,7 @@ CONTAINS
     REAL(wp) :: area_frac
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state:diagnose_ext_aggr'
+      routine = modname//':diagnose_ext_aggr'
     !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom 
@@ -3376,7 +3390,7 @@ CONTAINS
     REAL(wp):: zw1, zw2
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data_state: interpol_monthly_mean'
+      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
 

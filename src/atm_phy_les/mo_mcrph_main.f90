@@ -2203,7 +2203,10 @@ CONTAINS
          &    dT0dz(0:loc_ix,1:loc_iy,1:loc_iz), &
          &      w_g(0:loc_ix,1:loc_iy,1:loc_iz), &
          &    x3_x3(0:loc_ix,1:loc_iy,1:loc_iz), STAT = stat_var )
-
+    IF (stat_var /= 0) THEN
+      WRITE (*,*) 'Problem in allocation', stat_var
+      STOP
+    END IF
 
 
     ! >>hn height zml_k and updraft at cloud base w_cb needed for

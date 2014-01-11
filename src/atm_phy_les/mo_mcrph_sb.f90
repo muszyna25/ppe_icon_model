@@ -212,9 +212,6 @@ CONTAINS
     REAL(wp)   :: wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,&
                   precmax,ncmax,nimax,dzmin,tmax,tmin
     
-    REAL(wp), DIMENSION(ke) :: wmax_1d,qvmax_1d,qcmax_1d,qrmax_1d,qimax_1d, &
-                               qsmax_1d,qgmax_1d,qhmax_1d,nimax_1d,tmax_1d
-
     REAL(wp) :: q_vap_new,q_vap_old
     REAL(wp) :: q_liq_new,q_liq_old
     REAL(wp) :: q_ice_new,q_ice_old
@@ -270,7 +267,7 @@ CONTAINS
 
     IF (dbg_level>=15) CALL message(TRIM(routine),'')
 
-    IF (dbg_level>18) THEN
+    IF (dbg_level>20) THEN
        debug_maxval = .true.
     ELSE
        debug_maxval = .false.
@@ -289,17 +286,17 @@ CONTAINS
 
     IF (debug_maxval) THEN
  
-        !local max val 
-       wmax  = MAXVAL(w)
-       qvmax = MAXVAL(qv)
-       qcmax = MAXVAL(qc)
-       qrmax = MAXVAL(qr)
-       qimax = MAXVAL(qi)
-       qsmax = MAXVAL(qs)
-       qhmax = MAXVAL(qh)
-       qgmax = MAXVAL(qg)
-       nimax = MAXVAL(qni)
-       tmax  = MAXVAL(tk)
+       !local max val 
+       wmax  = MAXVAL(w(its:ite,kts:kte))
+       qvmax = MAXVAL(qv(its:ite,kts:kte))
+       qcmax = MAXVAL(qc(its:ite,kts:kte))
+       qrmax = MAXVAL(qr(its:ite,kts:kte))
+       qimax = MAXVAL(qi(its:ite,kts:kte))
+       qsmax = MAXVAL(qs(its:ite,kts:kte))
+       qhmax = MAXVAL(qh(its:ite,kts:kte))
+       qgmax = MAXVAL(qg(its:ite,kts:kte))
+       nimax = MAXVAL(qni(its:ite,kts:kte))
+       tmax  = MAXVAL(tk(its:ite,kts:kte))
 
        !now calculate global max
        wmax  = global_max(wmax)
@@ -617,16 +614,16 @@ CONTAINS
     IF (debug_maxval) THEN
 
        !local max val 
-       wmax  = MAXVAL(w)
-       qvmax = MAXVAL(qv)
-       qcmax = MAXVAL(qc)
-       qrmax = MAXVAL(qr)
-       qimax = MAXVAL(qi)
-       qsmax = MAXVAL(qs)
-       qhmax = MAXVAL(qh)
-       qgmax = MAXVAL(qg)
-       nimax = MAXVAL(qni)
-       tmax  = MAXVAL(tk)
+       wmax  = MAXVAL(w(its:ite,kts:kte))
+       qvmax = MAXVAL(qv(its:ite,kts:kte))
+       qcmax = MAXVAL(qc(its:ite,kts:kte))
+       qrmax = MAXVAL(qr(its:ite,kts:kte))
+       qimax = MAXVAL(qi(its:ite,kts:kte))
+       qsmax = MAXVAL(qs(its:ite,kts:kte))
+       qhmax = MAXVAL(qh(its:ite,kts:kte))
+       qgmax = MAXVAL(qg(its:ite,kts:kte))
+       nimax = MAXVAL(qni(its:ite,kts:kte))
+       tmax  = MAXVAL(tk(its:ite,kts:kte))
 
        !now calculate global max
        wmax  = global_max(wmax)

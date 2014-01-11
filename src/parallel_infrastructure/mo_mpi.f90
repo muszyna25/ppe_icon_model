@@ -1492,16 +1492,16 @@ CONTAINS
     ! variables used for determing the OpenMP threads
     ! suitable as well for coupled models
 #if (defined _OPENMP)
-    CHARACTER(len=32) :: env_name
-    CHARACTER(len=32) :: thread_num
-    INTEGER :: env_threads, threads
+!    CHARACTER(len=32) :: env_name
+!    CHARACTER(len=32) :: thread_num
+!    INTEGER :: threads
     INTEGER :: global_no_of_threads
 #ifndef NOMPI
     INTEGER :: provided
 #endif
 #ifndef __SX__
     ! status
-    INTEGER :: istat
+!    INTEGER :: istat
 #else
     EXTERNAL :: getenv
 #endif
@@ -1722,7 +1722,7 @@ CONTAINS
 !     CALL MPI_BCAST (global_no_of_threads, 1, MPI_INTEGER, 0, global_mpi_communicator, p_error)
 #endif
 
-     IF (my_global_mpi_id == 0) THEN
+    IF (my_global_mpi_id == 0) THEN
 
       IF (is_global_mpi_parallel) THEN
         WRITE (nerr,'(/,a,a)') method_name, &
@@ -1730,9 +1730,9 @@ CONTAINS
       ELSE
         WRITE (nerr,'(/,a,a)') method_name,': Running globally OpenMP mode.'
       ENDIF
+      WRITE (nerr,'(a, a, i5, a, i0)') method_name, &
+        & ' global_no_of_threads is ', global_no_of_threads
     ENDIF
-    WRITE (nerr,'(a, a, i5, a, i0)') method_name,': PE:', my_global_mpi_id, &
-      & ' global_no_of_threads is ', global_no_of_threads
 
 #endif
 

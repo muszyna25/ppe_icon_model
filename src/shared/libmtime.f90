@@ -1007,6 +1007,7 @@ end module mtime_timedelta
 module mtime_events
   !
   use, intrinsic :: iso_c_binding, only: c_int64_t, c_char, c_null_char, c_bool, c_ptr, c_loc, c_f_pointer
+  use mtime_datetime
   !
   implicit none
   !
@@ -1017,6 +1018,7 @@ module mtime_events
   public :: newEvent
   public :: deallocateEvent
   public :: eventToString
+  public :: isCurrentEventActive
   !
   !> provides a string length for toString 
   integer, parameter :: max_eventname_str_len = 132
@@ -1077,6 +1079,17 @@ module mtime_events
       character(c_char), dimension(*) :: string
     end function my_eventtostring
     !
+    function my_isCurrentEventActive(my_event, my_datetime) result(ret) bind(c, name='isCurrentEventActive')
+#ifdef __SX__
+      use, intrinsic :: iso_c_binding, only: c_bool, c_ptr
+#else
+      import :: c_bool, c_ptr
+#endif
+      type(c_ptr), value :: my_event
+      type(c_ptr), value :: my_datetime
+      logical(c_bool) :: ret
+    end function my_isCurrentEventActive
+    !
   end interface
   !
 contains
@@ -1116,6 +1129,13 @@ contains
     string(i:len(string)) = ' '
   end subroutine eventToString
   !
+  !
+  function isCurrentEventActive(my_event, my_datetime) result(ret)
+    type(event), pointer :: my_event
+    type(datetime), pointer :: my_datetime
+    logical(c_bool) :: ret
+    ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime))
+  end function isCurrentEventActive
 end module mtime_events
 !>
 !! @brief Event-groups which contains a list of events.

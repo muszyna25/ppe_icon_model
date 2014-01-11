@@ -121,8 +121,6 @@ CONTAINS
   SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
     TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
     TYPE(timedelta), INTENT(INOUT), TARGET   :: td_return     !< OUT
-    ! local variables
-    TYPE(c_ptr) :: ret
 
     CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
   END SUBROUTINE getTimeDeltaFromDateTime
@@ -213,8 +211,7 @@ CONTAINS
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_datetime_string_str"
-    INTEGER                  :: add_seconds, add_days, add_hours, add_minutes, &
-      &                         iadd_days, additional_days
+    INTEGER                  :: iadd_days, additional_days
     TYPE(datetime),  POINTER :: mtime_datetime
     TYPE(timedelta), POINTER :: mtime_td, delta_1day
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string

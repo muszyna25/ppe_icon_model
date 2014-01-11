@@ -29,23 +29,24 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-!! $Id: n/a$
+!! $Id$
 !!
 MODULE mo_build_decomposition
 
-  USE mo_complete_subdivision
-  USE mo_setup_subdivision,   ONLY: decompose_domain
-  USE mo_sync,                ONLY: disable_sync_checks, enable_sync_checks, decomposition_statistics
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start
-  USE mo_mpi
-  USE mo_kind
-  USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants
-  USE mo_model_domain,        ONLY: p_patch,t_patch_3d,t_patch,p_patch_local_parent
-  USE mo_model_domimp_patches
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
-  USE mo_impl_constants,      ONLY: success, max_dom
-  USE mo_exception,           ONLY: finish, message, message_text, get_filename_noext
+  USE mo_complete_subdivision, ONLY: complete_parallel_setup, finalize_decomposition,            &
+    &                                copy_processor_splitting
+  USE mo_setup_subdivision,    ONLY: decompose_domain
+  USE mo_sync,                 ONLY: disable_sync_checks, enable_sync_checks,                    &
+    &                                decomposition_statistics
+  USE mo_grid_config,          ONLY: n_dom, n_dom_start
+  USE mo_mpi,                  ONLY: my_process_is_mpi_parallel
+  USE mo_loopindices,          ONLY: get_indices_e
+  USE mo_model_domain,         ONLY: p_patch,t_patch_3d,t_patch,p_patch_local_parent
+  USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl, import_basic_patches,             &
+    &                                complete_patches
+  USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
+  USE mo_impl_constants,       ONLY: success, max_dom
+  USE mo_exception,            ONLY: finish, message, message_text, get_filename_noext
     
   IMPLICIT NONE
   

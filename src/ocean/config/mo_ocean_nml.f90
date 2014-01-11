@@ -300,7 +300,7 @@ MODULE mo_ocean_nml
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
   INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
-  INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1=apply sea ice model using sea_ice_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
 

@@ -67,6 +67,7 @@ MODULE mo_io_restart_async
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
+  USE mo_run_config,              ONLY: msg_level
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
   USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
@@ -79,7 +80,7 @@ MODULE mo_io_restart_async
     &                                   my_process_is_restart, my_process_is_work, &
     &                                   p_comm_work_2_restart, p_n_work, p_int, &
     &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
-    &                                   p_comm_work_restart
+    &                                   p_comm_work_restart, p_mpi_wtime
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -540,7 +541,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: jstep
 
     TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx, noutput_files, j
+    INTEGER                         :: idx, noutput_files
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -2551,15 +2552,16 @@ CONTAINS
     TYPE(t_datetime), POINTER       :: dt
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, nlev_max, ierrstat, nlevs, nv_off, &
+    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
       &                                np, mpi_error, i, idate, itime, status, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    INTEGER                         :: voff(0:num_work_procs-1)
     REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
       &                                this_chunk_nlevs, ioff2
 
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
+    ! For timing
+    REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -2567,6 +2569,11 @@ CONTAINS
 
     ! check process
     IF (.NOT. my_process_is_restart()) CALL finish(subname, NO_RESTART_PE)
+
+    t_get   = 0.d0
+    t_write = 0.d0
+    mb_get  = 0.d0
+    mb_wr   = 0.d0
 
     ! write restart time
     dt => restart_args%datetime
@@ -2636,17 +2643,20 @@ CONTAINS
           
           ! number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
-          
+          t_0 = p_mpi_wtime()
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-          CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
+   !       CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
           
           CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
             &          nval, p_real_dp, mpi_win, mpi_error)
-          CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
+  !        CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
           
           CALL MPI_Win_unlock(np, mpi_win, mpi_error)
-          CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
+  !        CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
           
+          t_get  = t_get  + p_mpi_wtime() - t_0
+          mb_get = mb_get + nval
+
           ! update the offset in the RMA window on compute PEs
           ioff(np) = ioff(np) + INT(nval,i8)
 
@@ -2661,6 +2671,7 @@ CONTAINS
           ! update the offset in var2
           nv_off = nv_off + p_ri%pe_own(np)
         END DO
+        t_0 = p_mpi_wtime()
 
         ! write field content into a file
         DO ilev=chunk_start, chunk_end
@@ -2668,7 +2679,10 @@ CONTAINS
             var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
           ENDDO
           CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
+          mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         END DO
+        t_write = t_write + p_mpi_wtime() - t_0
+
       ENDDO LEVELS
 
 #ifdef DEBUG
@@ -2683,6 +2697,15 @@ CONTAINS
 
     DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
+    mb_get = mb_get*8*1.d-6
+    mb_wr  = mb_wr*8*1.d-6
+
+    IF (msg_level >= 12) THEN
+      WRITE (0,'(10(a,f10.3))') &
+           & ' Restart: Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
+           & ' MB/s]'
+    ENDIF
 
   END SUBROUTINE restart_write_var_list
 

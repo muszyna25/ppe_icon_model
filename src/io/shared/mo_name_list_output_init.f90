@@ -3391,12 +3391,6 @@ CONTAINS
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
         &                            get_var_tileidx(TRIM(info%name)) )
 
-      !!!!!!! OBSOLETE !!!!!!!!
-      !Set typeOfStatisticalProcessing
-      !Note: instead of calling vlistDefVarTsteptype, one should probably replace
-      !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
-
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist

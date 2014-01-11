@@ -42,11 +42,12 @@ MODULE mo_util_cdi
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,  &
-    &                              p_comm_work, p_comm_work_test, &
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,           &
+    &                              p_comm_work, p_comm_work_test,          &
     &                              p_io, p_pe
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
+  USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -54,30 +55,48 @@ MODULE mo_util_cdi
   PRIVATE
 
   PUBLIC  :: read_cdi_2d, read_cdi_3d
-
+  PUBLIC  :: get_cdi_varID
+  PUBLIC  :: test_cdi_varID
 
   CHARACTER(len=*), PARAMETER :: version = &
     &    '$Id$'
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
+  INTERFACE read_cdi_2d
+    MODULE PROCEDURE read_cdi_2d_real_id
+    MODULE PROCEDURE read_cdi_2d_real
+    MODULE PROCEDURE read_cdi_2d_int
+    MODULE PROCEDURE read_cdi_2d_time
+    MODULE PROCEDURE read_cdi_2d_lu
+  END INTERFACE
+
 CONTAINS
 
   !-------------------------------------------------------------------------
-  !> @return vlist variable ID for a given variable name
+  !> @return CDI variable ID if CDI stream contains a variable of the
+  !> given name, -1 otherwise
   !
   !  Uses cdilib for file access.
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  FUNCTION get_cdi_varID(streamID, name, opt_tileidx) RESULT(result_varID)
+  FUNCTION test_cdi_varID(streamID, name, opt_tileidx, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
     INTEGER,           INTENT(IN)           :: streamID            !< link to file 
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
-    INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx         !< tile index, encoded as "localInformationNumber"
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_varID'
-    CHARACTER(len=MAX_CHAR_LENGTH) :: zname
-    LOGICAL                        :: l_found
-    INTEGER                        :: nvars, varID, vlistID, tileidx
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
+    LOGICAL                         :: l_found
+    INTEGER                         :: nvars, varID, vlistID, tileidx
+    CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+
+    mapped_name = TRIM(name)
+    IF (PRESENT(opt_dict)) THEN
+      ! Search name mapping for name in NetCDF/GRIB2 file
+      mapped_name = TRIM(dict_get(opt_dict, name, default=name))
+    END IF
+    mapped_name = tolower(TRIM(mapped_name))
 
     zname   = ""
     vlistID = streamInqVlist(streamID)
@@ -90,8 +109,7 @@ CONTAINS
     LOOP : DO varID=0,(nvars-1)
 
       CALL vlistInqVarName(vlistID, varID, zname)
-
-      IF (tolower(TRIM(zname)) == tolower(TRIM(name))) THEN
+      IF (TRIM(tolower(TRIM(zname))) == TRIM(mapped_name)) THEN
 
         ! check tile index
         IF (PRESENT(opt_tileidx)) THEN
@@ -104,10 +122,29 @@ CONTAINS
         EXIT LOOP
       END IF
     END DO LOOP
-    IF (.NOT. l_found) THEN
-      if (present(opt_tileidx)) then
-        write (0,*) "tileidx = ", opt_tileidx
-      end if
+  END FUNCTION test_cdi_varID
+
+
+  !-------------------------------------------------------------------------
+  !> @return vlist variable ID for a given variable name
+  !
+  !  Uses cdilib for file access.
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  FUNCTION get_cdi_varID(streamID, name, opt_tileidx, opt_dict) RESULT(result_varID)
+    INTEGER                                 :: result_varID
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx       !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_varID'
+
+    result_varID = test_cdi_varID(streamID, name, opt_tileidx, opt_dict)
+    IF (result_varID== -1) THEN
+      IF (PRESENT(opt_tileidx)) THEN
+        WRITE (0,*) "tileidx = ", opt_tileidx
+      END IF
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END FUNCTION get_cdi_varID
@@ -122,27 +159,27 @@ CONTAINS
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
   SUBROUTINE read_cdi_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add)
+    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict)
 
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
-    LOGICAL, INTENT(IN), OPTIONAL   :: opt_lvalue_add !< If .TRUE., add values to given field
+    INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
+    INTEGER,             INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,             INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,             INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    REAL(wp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
+    LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_cdi_3d'
     ! local variables:
-    INTEGER               :: vlistID, varID, zaxisID, gridID,   &
-      &                      mpi_comm, j, jl, jb, jk, ierrstat, &
-      &                      dimlen(3), nmiss
-    REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
-    LOGICAL               :: lvalue_add
-
+    INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
+      &                                mpi_comm, j, jl, jb, jk, ierrstat, &
+      &                                dimlen(3), nmiss
+    REAL(wp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
+    LOGICAL                         :: lvalue_add
 
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
@@ -154,14 +191,12 @@ CONTAINS
     ! get var ID
     IF(p_pe == p_io) THEN
       vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, opt_dict=opt_dict)
       zaxisID   = vlistInqVarZaxis(vlistID, varID)
       gridID    = vlistInqVarGrid(vlistID, varID)
       dimlen(1) = gridInqSize(gridID)
       dimlen(2) = zaxisInqSize(zaxisID)
 
-!DR write(0,*) "varname, varID, zaxisID, dimlen(2), nlevs: ", TRIM(varname), &
-!DR  & varID, zaxisID, dimlen(2), nlevs
       ! Check variable dimensions:
       IF ((dimlen(1) /= glb_arr_len) .OR.  &
         & (dimlen(2) /= nlevs)) THEN
@@ -212,39 +247,25 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  !> Read 2D dataset from file
+  !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
   ! 
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
-  SUBROUTINE read_cdi_2d (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, opt_tileidx)
+  SUBROUTINE read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: varID          !< ID of CDI variable
     INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
     REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
-    INTEGER,          INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_cdi_2d'
-    INTEGER       :: varID, mpi_comm, j, jl, jb, &
-      &              nmiss, vlistID, gridID
+      routine = modname//':read_cdi_2d_real_id'
+    INTEGER       :: mpi_comm, j, jl, jb, nmiss
     REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
-
-
-    ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      ! Check variable dimensions:
-      IF (gridInqSize(gridID) /= glb_arr_len) THEN
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
-    END IF
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -268,6 +289,183 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
       var_out(jl,jb) = z_dummy_array(glb_index(j))
     ENDDO
-  END SUBROUTINE read_cdi_2d
+  END SUBROUTINE read_cdi_2d_real_id
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for REAL fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
+    &                          opt_tileidx, opt_dict)
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    REAL(wp),         INTENT(INOUT) :: var_out(:,:)   !< output field
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_real'
+    INTEGER       :: varID, vlistID, gridID
+
+    ! Get var ID
+    IF (p_pe == p_io) THEN
+      vlistID   = streamInqVlist(streamID)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, opt_dict=opt_dict)
+      gridID    = vlistInqVarGrid(vlistID, varID)
+      ! Check variable dimensions:
+      IF (gridInqSize(gridID) /= glb_arr_len) &
+        &  CALL finish(routine, "Incompatible dimensions!")
+    END IF
+    CALL read_cdi_2d_real_id (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out)
+  END SUBROUTINE read_cdi_2d_real
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for INTEGER fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_int (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
+    &                         opt_tileidx, opt_dict)
+
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    INTEGER,          INTENT(INOUT) :: var_out(:,:)   !< output field
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_int'
+    REAL(wp), ALLOCATABLE :: var_tmp(:,:)
+    INTEGER               :: ierrstat
+
+    ! allocate a temporary array:
+    ALLOCATE(var_tmp(SIZE(var_out,1), SIZE(var_out,2)), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ! read the field as a REAL-valued field:
+    CALL read_cdi_2d_real (streamID, varname, glb_arr_len, loc_arr_len, glb_index, var_tmp, &
+      &                    opt_tileidx, opt_dict=opt_dict)
+    ! perform number conversion
+    var_out(:,:) = NINT(var_tmp)
+    ! clean up
+    DEALLOCATE(var_tmp, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+  END SUBROUTINE read_cdi_2d_int
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, implementation for REAL fields
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_time (streamID, ntime, varname, glb_arr_len, loc_arr_len, glb_index, var_out, &
+    &                          opt_tileidx, opt_dict)
+
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    INTEGER,          INTENT(IN)    :: ntime          !< time levels of file
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict     !< optional: variable name dictionary
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_time'
+    INTEGER :: jt, nrecs, vlistID, varID
+
+    ! Get var ID
+    IF (p_pe == p_io) THEN
+      vlistID   = streamInqVlist(streamID)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, &
+        &                       opt_dict=opt_dict)
+    END IF
+
+    DO jt = 1, ntime
+      IF (p_pe == p_io) THEN
+        nrecs = streamInqTimestep(streamID, (jt-1))
+      END IF
+      CALL read_cdi_2d (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt))
+    END DO
+  END SUBROUTINE read_cdi_2d_time
+
+
+  !-------------------------------------------------------------------------
+  !> Read 2D dataset from file, specific read-routine for LU_CLASS_FRACTION. 
+  !
+  !  @par Revision History
+  ! 
+  !  Initial revision by F. Prill, DWD (2013-02-19)
+  !
+  SUBROUTINE read_cdi_2d_lu (streamID, varname, glb_arr_len, loc_arr_len, glb_index, nslice, var_out, opt_dict)
+
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
+    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
+    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
+    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
+    INTEGER,          INTENT(IN)    :: nslice         !< slices of field
+    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
+    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict  !< optional: variable name dictionary
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_lu'
+    INTEGER       :: varID, mpi_comm, j, jl, jb, islice, &
+      &              nmiss, vlistID, gridID, ioffset
+    REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
+    REAL(wp), ALLOCATABLE :: z_dummy_array_lu(:)
+
+    ! Get var ID
+    IF (p_pe == p_io) THEN
+      vlistID   = streamInqVlist(streamID)
+      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_dict=opt_dict)
+      gridID    = vlistInqVarGrid(vlistID, varID)
+      ! Check variable dimensions:
+      IF ((gridInqXSize(gridID) /= glb_arr_len) .OR.  &
+        & (gridInqYSize(gridID) /= nslice)) THEN
+        CALL finish(routine, "Incompatible dimensions!")
+      END IF
+    END IF
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+    ! I/O PE reads and broadcasts data
+
+    IF (p_pe == p_io) THEN
+      ALLOCATE (z_dummy_array_lu(glb_arr_len*nslice))
+      ! read record as 1D field
+      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array_lu(:), nmiss)
+    END IF
+
+    ! Set var_out from global data
+    ioffset = 0
+    DO islice = 1, nslice
+      IF (p_pe == p_io) z_dummy_array(:) = z_dummy_array_lu(ioffset+1:ioffset+glb_arr_len)
+      CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+      var_out(:,:,islice) = 0._wp
+      DO j = 1, loc_arr_len
+        jb = blk_no(j) ! Block index in distributed patch
+        jl = idx_no(j) ! Line  index in distributed patch
+        var_out(jl,jb,islice) = z_dummy_array(glb_index(j))
+      ENDDO
+      ioffset = ioffset + glb_arr_len
+    END DO
+    IF (p_pe == p_io) DEALLOCATE (z_dummy_array_lu)
+
+  END SUBROUTINE read_cdi_2d_lu
 
 END MODULE mo_util_cdi

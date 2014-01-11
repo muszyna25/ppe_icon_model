@@ -223,7 +223,6 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    TYPE (t_datetime)                 :: rel_fct_time
     CHARACTER(LEN=filename_max)       :: filename
 
     ! open file:
@@ -416,7 +415,9 @@ CONTAINS
 
       IF (check_open_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
-        CALL setup_output_vlist(output_file(i))
+        IF (output_file(i)%cdiVlistId == CDI_UNDEFID) THEN
+          CALL setup_output_vlist(output_file(i))
+        END IF
         CALL open_output_file(output_file(i))
       END IF
 
@@ -599,7 +600,7 @@ CONTAINS
 
     INTEGER                        :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                               nlevs, nblks, nindex, mpierr, lonlat_id,   &
-      &                               ierrstat, idata_type
+      &                               idata_type
     INTEGER(i8)                    :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info),  POINTER :: p_ri
@@ -1095,7 +1096,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
-    INTEGER                        :: nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
+    INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
       &                               lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER                        :: voff(0:num_work_procs-1)
@@ -1267,9 +1268,9 @@ CONTAINS
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
 
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
           var3_dp(1:p_ri%n_glb,jk) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
         ELSE
 
           DO np = 0, num_work_procs-1
@@ -1281,13 +1282,13 @@ CONTAINS
 
           IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
             var3_dp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
           ELSE
-!$OMP WORKSHARE
+!$OMP PARALLEL WORKSHARE
             var3_sp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
+!$OMP END PARALLEL WORKSHARE
           END IF
 
         ENDIF
@@ -1331,11 +1332,11 @@ CONTAINS
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
 #ifndef __SX__
     IF (msg_level >= 12) THEN
-      WRITE (message_text,'(10(a,f10.3))') &
+      WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
            & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
            & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
            & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
-      CALL message('',message_text)
+   !   CALL message('',message_text)
     ENDIF
 #endif
 ! __SX__

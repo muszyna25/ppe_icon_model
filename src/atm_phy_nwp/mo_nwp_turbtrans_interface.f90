@@ -124,46 +124,50 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! local variables for turbdiff
 
-  INTEGER :: ierrstat=0
+  INTEGER :: ierrstat
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
-  INTEGER  :: lc_class, i_lc_si                     !< land-cover class
+  INTEGER  :: lc_class                              !< land-cover class
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
+  ! SQRT(2*TKE)
+  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
   REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac,z0_mod
 
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
-  ! 2D fields
+  ! 1D fields
+  REAL(wp), DIMENSION(nproma)   :: pres_sfc_t
+
+  ! 2D half-level fields
+  REAL(wp), DIMENSION(nproma,3) :: z_ifc_t, rcld_t
+
+  ! 2D full level fields (no tiles)
+  REAL(wp), DIMENSION(nproma,2) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t
+
+  ! 3D full-level fields (tiles)
+  REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: tkvm_t, tkvh_t
+
+  ! 2D fields (tiles)
   REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water) :: gz0_t, tcm_t, tch_t, tfm_t, tfh_t, tfv_t, &  
-   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, pres_sfc_t, sai_t, shfl_s_t,  &
+   t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t,  &
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
-
-  ! 3D full-level fields
-  REAL(wp), DIMENSION(nproma,2,ntiles_total+ntiles_water) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t, tkvm_t, tkvh_t
-
-  ! 3D half-level fields
-  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: z_ifc_t, rcld_t
-
-  ! SQRT(2*TKE)
-  REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
   INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
 
 !--------------------------------------------------------------
 
 
+  IF (msg_level >= 15) CALL message('mo_nwp_turbtrans_interface:', 'turbulence')
+
   ! number of vertical levels
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
-  i_lc_si= ext_data%atm%i_lc_snow_ice
-
-  IF (msg_level >= 15) CALL message('mo_nwp_turbtrans:', 'turbulence')
-    
+   
   ! local variables related to the blocking
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
@@ -372,7 +376,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
-      ! dynamic gusts
+        ! dynamic gusts
         prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
           &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
           &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
@@ -434,28 +438,32 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           !MR: Hauptflaechengroessen nur fuer level nlev
           DO ic = 1, i_count
             jc = ilist(ic)
-            gz0_t(ic,jt)         = prm_diag%gz0_t(jc,jb,jt)
-            t_g_t(ic,jt)         = lnd_prog_new%t_g_t(jc,jb,jt)
-            qv_s_t(ic,jt)        = lnd_diag%qv_s_t(jc,jb,jt)
-            sai_t(ic,jt)         = ext_data%atm%sai_t(jc,jb,jt)
-            z_ifc_t(ic,1:3,jt)   = p_metrics%z_ifc(jc,nlev-1:nlevp1,jb)
-            pres_sfc_t(ic,jt)    = p_diag%pres_sfc(jc,jb)
-            u_t(ic,1:2,jt)       = p_diag%u(jc,nlev-1:nlev,jb)
-            v_t(ic,1:2,jt)       = p_diag%v(jc,nlev-1:nlev,jb)
-            temp_t(ic,1:2,jt)    = p_diag%temp(jc,nlev-1:nlev,jb)
-            pres_t(ic,1:2,jt)    = p_diag%pres(jc,nlev-1:nlev,jb)
-            qv_t(ic,1:2,jt)      = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqv)
-            qc_t(ic,1:2,jt)      = p_prog_rcf%tracer(jc,nlev-1:nlev,jb,iqc)
-            tvs_t(ic,1:2,1,jt)   = z_tvs(jc,nlev-1:nlev,1)
-            tvs_t(ic,3,1,jt)     = prm_diag%tvs_s_t(jc,jb,jt)      ! tile-specific for lowest level   
-            tkvm_t(ic,1,jt)      = prm_diag%tkvm(jc,nlev,jb)
-            tkvm_t(ic,2,jt)      = prm_diag%tkvm_s_t(jc,jb,jt)     ! tile-specific for lowest level       
-            tkvh_t(ic,1,jt)      = prm_diag%tkvh(jc,nlev,jb)
-            tkvh_t(ic,2,jt)      = prm_diag%tkvh_s_t(jc,jb,jt)     ! tile-specific for lowest level        
 
+            z_ifc_t (ic,1:3)    = p_metrics%z_ifc   (jc,nlev-1:nlevp1,jb)
 !MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
-            rcld_t(ic,1:3,jt)    = prm_diag%rcld(jc,nlev-1:nlevp1,jb)
+            rcld_t (ic,1:3)     = prm_diag%rcld     (jc,nlev-1:nlevp1,jb)
+            u_t    (ic,1:2)     = p_diag%u          (jc,nlev-1:nlev  ,jb)
+            v_t    (ic,1:2)     = p_diag%v          (jc,nlev-1:nlev  ,jb)
+            temp_t (ic,1:2)     = p_diag%temp       (jc,nlev-1:nlev  ,jb)
+            pres_t (ic,1:2)     = p_diag%pres       (jc,nlev-1:nlev  ,jb)
+            qv_t   (ic,1:2)     = p_prog_rcf%tracer (jc,nlev-1:nlev  ,jb,iqv)
+            qc_t   (ic,1:2)     = p_prog_rcf%tracer (jc,nlev-1:nlev  ,jb,iqc)
+            pres_sfc_t(ic)      = p_diag%pres_sfc   (jc,jb)
+
+            gz0_t  (ic,jt)      = prm_diag%gz0_t    (jc,jb,jt)
+            t_g_t  (ic,jt)      = lnd_prog_new%t_g_t(jc,jb,jt)
+            qv_s_t (ic,jt)      = lnd_diag%qv_s_t   (jc,jb,jt)
+            sai_t  (ic,jt)      = ext_data%atm%sai_t(jc,jb,jt)
+            tvs_t  (ic,1:2,1,jt)= z_tvs             (jc,nlev-1:nlev,1)
+            tvs_t  (ic,3,1,jt)  = prm_diag%tvs_s_t  (jc,jb,jt)      ! tile-specific for lowest level   
+            tkvm_t (ic,1,jt)    = prm_diag%tkvm     (jc,nlev,jb)
+            tkvm_t (ic,2,jt)    = prm_diag%tkvm_s_t (jc,jb,jt)     ! tile-specific for lowest level       
+            tkvh_t (ic,1,jt)    = prm_diag%tkvh     (jc,nlev,jb)
+            tkvh_t (ic,2,jt)    = prm_diag%tkvh_s_t (jc,jb,jt)     ! tile-specific for lowest level
+
           ENDDO
+
+
 
           IF ( ANY( (/10,11/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
@@ -469,20 +477,20 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               &  nprv=1, ntur=1, ntim=1, &
               &  ie=nproma, ke=2, ke1=3, kcm=nlevcm, &
               &  i_st=1, i_en=i_count, i_stp=1, i_enp=i_count, &
-              &  l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt), &
+              &  l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:), &
               &  fr_land=fr_land_t(:), depth_lk=depth_lk_t(:), &
               &  h_ice=h_ice_t(:), gz0=gz0_t(:,jt), &
               &  sai=sai_t(:,jt), &
-              &  t_g=t_g_t(:,jt), ps=pres_sfc_t(:,jt), &
+              &  t_g=t_g_t(:,jt), ps=pres_sfc_t(:), &
               &  qv_s=qv_s_t(:,jt), &
-              &  u=u_t(:,:,jt), v=v_t(:,:,jt), &
-              &  t=temp_t(:,:,jt), prs=pres_t(:,:,jt), &
-              &  qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), &
+              &  u=u_t(:,:), v=v_t(:,:), &
+              &  t=temp_t(:,:), prs=pres_t(:,:), &
+              &  qv=qv_t(:,:), qc=qc_t(:,:), &
               &  tcm=tcm_t(:,jt), tch=tch_t(:,jt), &
               &  tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt), &
               &  tke=tvs_t(:,:,:,jt), &
               &  tkvm=tkvm_t(:,:,jt), tkvh=tkvh_t(:,:,jt), &
-              &  rcld=rcld_t(:,:,jt), &
+              &  rcld=rcld_t(:,:), &
               &  t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), &
               &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt), &
               &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt), &
@@ -498,16 +506,16 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               & dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1,                           & !in
               & ie=nproma, ke=2, ke1=3,                                                 & !in
               & istart=1, iend=i_count, istartpar=1, iendpar=i_count,                   & !in
-              & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:,jt),                & !in
+              & l_hori=phy_params(jg)%mean_charlen, hhl=z_ifc_t(:,:),                   & !in
               & fr_land=fr_land_t(:), depth_lk=depth_lk_t(:),                           & !in
-              & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:,jt),                 & !in
+              & sai=sai_t(:,jt), h_ice=h_ice_t(:), ps=pres_sfc_t(:),                    & !in
               & t_g=t_g_t(:,jt), qv_s=qv_s_t(:,jt),                                     & !in
-              & u=u_t(:,:,jt), v=v_t(:,:,jt),                                           & !in
-              & T=temp_t(:,:,jt), prs=pres_t(:,:,jt), qv=qv_t(:,:,jt), qc=qc_t(:,:,jt), & !in
+              & u=u_t(:,:), v=v_t(:,:),                                                 & !in
+              & T=temp_t(:,:), prs=pres_t(:,:), qv=qv_t(:,:), qc=qc_t(:,:),             & !in
               & gz0=gz0_t(:,jt), tcm=tcm_t(:,jt), tch=tch_t(:,jt),                      & !inout
               & tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),                      & !inout
               & tke=tvs_t(:,:,:,jt), tkvm=tkvm_t(:,:,jt),                               & !inout
-              & tkvh=tkvh_t(:,:,jt), rcld=rcld_t(:,:,jt),                               & !inout
+              & tkvh=tkvh_t(:,:,jt), rcld=rcld_t(:,:),                                  & !inout
               & t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt), td_2m=td_2m_t(:,jt),            & !out
               & rh_2m=rh_2m_t(:,jt), u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),          & !out
               & shfl_s=shfl_s_t(:,jt), lhfl_s=lhfl_s_t(:,jt), qhfl_s=qhfl_s_t(:,jt),    & !out

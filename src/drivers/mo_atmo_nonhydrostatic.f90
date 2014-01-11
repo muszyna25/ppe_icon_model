@@ -163,7 +163,7 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
-      CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+      CALL configure_atm_phy_nwp(n_dom, pat_level(:), dtime_adv )
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
