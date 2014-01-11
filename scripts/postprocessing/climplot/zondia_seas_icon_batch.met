@@ -88,10 +88,8 @@
   if lev_type = "pl" then
 
     levels       = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
-                   # 600,700,775,850,925,1000]          #23 levels (climate&ERA40)
-                   # 600,700,775,800,850,900,925,950,1000]      #26 levels (climate&ERA40)
-                   # 600,700,775,850,925,1000]          #23 levels (climate&ERA40)#levels in IFS experiment
-                    600,700,850,925,1000]             #22 levels, 775 excluded because it is not included in ICON
+                   # 600,700,775,800,850,900,925,950,1000] #26 levels (climate&ERA40)
+                     600,700,775,850,925,1000]             #23 levels (climate&ERA40&levels in IFS experiment
     p_max        = 1000
     p_min        = 1
    # ... variables available on pressure levels by default
@@ -192,7 +190,7 @@
     print("@I  Vertical Scaling    : ", p_scale)
     print("@I  Parameter           : ", param)
     print("@I  Plotting Mode       : ", plot_modus)
-    print("@I  Contour Mode       : ", cont_modus)
+    print("@I  Contour Mode        : ", cont_modus)
     print("@I  Contour Intervals   : ", cint_param)
     if cont_modus = 'Fancy Contour Shading' then
       print("@I  Maximum Shading Values: ",cmax_param) 
@@ -561,8 +559,8 @@ function layout(lev_type,p_scale,p_min,p_max)
         axis_position            :   "left",
         axis_title_text          :   "Latitude [deg]",
         axis_title_height        :   0.6,
-        axis_line_thickness:  5,
-        axis_tick_label_height:  0.5,
+        axis_line_thickness	 :   5,
+        axis_tick_label_height	 :   0.5,
         axis_tick_interval       :   30          )
 
     if lev_type = "pl" then
@@ -580,28 +578,25 @@ function layout(lev_type,p_scale,p_min,p_max)
     vertical_axis = maxis(
         axis_title_text          :  axis_title_text,
         axis_title_height        :  0.6,
-        axis_line_thickness:  5,
-        axis_tick_label_height:  0.5,
+        axis_line_thickness	 :  5,
+        axis_tick_label_height	 :  0.5,
         axis_orientation         :  "vertical" )
 
     if  y_axis_type = "logarithmic" then
        Cartesian_View = maverageview(
-         direction           : "EW",
-         pressure_level_axis : y_axis_type,
+         direction           :  "EW",
+         vertical_scaling    : "log",
          horizontal_axis     :  lat_axis,
          vertical_axis       :  vertical_axis,
-         top_pressure : p_min,
-         bottom_pressure : p_max
+         top_level 	     :  p_min,
+         bottom_level        :  p_max
    	   )
     else
-      Cartesian_View = cartesianview(  
-   	    map_projection           :  "cartesian",
-        x_automatic              :  "on",
-        y_automatic              :  "on",
-        x_axis_type              :  "regular",
-        y_axis_type              :  y_axis_type,  
-        horizontal_axis          :  lat_axis,
-        vertical_axis            :  vertical_axis )
+       Cartesian_View = maverageview(
+         direction           :  "EW",
+         horizontal_axis     :  lat_axis,
+         vertical_axis       :  vertical_axis
+   	   )
     end if
 
     Page = plot_page(  

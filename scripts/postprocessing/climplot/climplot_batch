@@ -99,7 +99,8 @@ fi
 # --- metview troubleshooting
 
 #metview=metview3
-metview=metview4_old
+#metview=metview4_old
+metview=metview4_dev
 pgi_path="/usr/local/apps/nag/22/LP64"
 NAGLIB="-libnag.a"
 
