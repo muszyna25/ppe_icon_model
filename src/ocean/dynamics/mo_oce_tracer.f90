@@ -255,7 +255,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !  #slo# TBD: include local/global location of values above thresholds
 
       minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,1), &
-        & range_subset=cells_in_domain)
+        & in_subset=cells_in_domain)
       IF (my_process_is_stdio()) THEN
         ! Abort if tracer is below or above threshold, read from namelist
         ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
@@ -276,7 +276,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
       ENDIF
 
       minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%vn(:,jk,:), &
-         & range_subset=cells_in_domain)
+         & in_subset=cells_in_domain)
       IF (my_process_is_stdio()) THEN
         ! Abort if tracer is below or above threshold for velocity, read from namelist
         ! abs(vn) > 10 m/s default limit for abort
@@ -323,7 +323,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !      ENDIF
 
       minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,2), &
-         & range_subset=cells_in_domain)
+         & in_subset=cells_in_domain)
 
       IF (my_process_is_stdio()) THEN
         ! Abort if salinity is negative:

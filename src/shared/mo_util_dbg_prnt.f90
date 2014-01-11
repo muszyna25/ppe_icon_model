@@ -523,7 +523,7 @@ CONTAINS
       DO jk = slev, elev_mxmn
         
         IF (PRESENT(in_subset)) THEN
-          minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), range_subset=in_subset, start_level=jk, end_level=jk)
+          minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), in_subset=in_subset, start_level=jk, end_level=jk)
         ELSE
           minmaxmean(:) = global_minmaxmean(values=p_array(:,:,:), start_level=jk, end_level=jk)
         ENDIF
@@ -639,7 +639,7 @@ CONTAINS
     IF (idbg_mxmn >= idetail_src ) THEN
 
       IF (PRESENT(in_subset)) THEN
-        minmaxmean(:) = global_minmaxmean(values=p_array(:,:), range_subset=in_subset)
+        minmaxmean(:) = global_minmaxmean(values=p_array(:,:), in_subset=in_subset)
       ELSE
         minmaxmean(:) = global_minmaxmean(values=p_array(:,:))
       ENDIF

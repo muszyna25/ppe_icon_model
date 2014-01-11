@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------------
 !>
 !! Set of methods for simple statistics
-!! NOTE: in order to get correct results make sure you provide the proper range_subset!
+!! NOTE: in order to get correct results make sure you provide the proper in_subset!
 !!
 !! @author Leonidas Linardakis, MPI-M
 !!
@@ -64,7 +64,7 @@ MODULE mo_statistics
   
   !-------------------------------------------------------------------------
   
-  ! NOTE: in order to get correct results make sure you provide the proper range_subset (ie, owned)!
+  ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
   PUBLIC :: accumulate_mean
@@ -82,7 +82,7 @@ MODULE mo_statistics
   END INTERFACE subset_sum
 
   INTERFACE accumulate_mean
-    MODULE PROCEDURE AddSum_3D_EachLevel_InRange_2Dweights
+    MODULE PROCEDURE AccumulateMean_3D_EachLevel_InRange_2Dweights
   END INTERFACE accumulate_mean
 
 
@@ -245,27 +245,28 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  FUNCTION MinMaxMean_2D_InRange(values, range_subset) result(minmaxmean)
+  ! Returns the min max mean in a 2D array in a given range subset
+  FUNCTION MinMaxMean_2D_InRange(values, in_subset) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:)
-    TYPE(t_subset_range), TARGET :: range_subset
+    TYPE(t_subset_range), TARGET :: in_subset
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value
     INTEGER :: block, startidx, endidx, number_of_values, idx
     
-    IF (range_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     ! init the min, max values
     CALL init_min_max(min_value, max_value)
     sum_value = 0._wp
     number_of_values = 0
     
-    IF (ASSOCIATED(range_subset%vertical_levels)) THEN
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx) reduction(+:number_of_values, sum_value) &
 !ICON_OMP reduction(MIN:min_value) reduction(MAX:max_value)
-      DO block = range_subset%start_block, range_subset%end_block
-        CALL get_index_range(range_subset, block, startidx, endidx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
         DO idx = startidx, endidx
-          IF (range_subset%vertical_levels(idx,block) > 0) THEN
+          IF (in_subset%vertical_levels(idx,block) > 0) THEN
             min_value    = MIN(min_value, values(idx, block))
             max_value    = MAX(max_value, values(idx, block))
             sum_value    = sum_value + values(idx, block)
@@ -276,12 +277,12 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       
-    ELSE ! no range_subset%vertical_levels
+    ELSE ! no in_subset%vertical_levels
       
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
-      DO block = range_subset%start_block, range_subset%end_block
-        CALL get_index_range(range_subset, block, startidx, endidx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
         min_in_block = MINVAL(values(startidx:endidx, block))
         max_in_block = MAXVAL(values(startidx:endidx, block))
         min_value    = MIN(min_value, min_in_block)
@@ -290,9 +291,9 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       ! compute the total number of values
-      number_of_values = range_subset%SIZE
+      number_of_values = in_subset%SIZE
       
-    ENDIF ! (ASSOCIATED(range_subset%vertical_levels))
+    ENDIF ! (ASSOCIATED(in_subset%vertical_levels))
     
     ! the global min, max, mean, is avaliable only to stdio process
     CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
@@ -302,19 +303,19 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  FUNCTION MinMaxMean_3D_TotalLevels_InRange(values, range_subset, start_level, end_level) result(minmaxmean)
+  ! Returns the min max mean in a 3D array in a given range subset
+  ! The results are over all levels
+  FUNCTION MinMaxMean_3D_TotalLevels_InRange(values, in_subset, start_level, end_level) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:,:)
-    TYPE(t_subset_range), TARGET :: range_subset
+    TYPE(t_subset_range), TARGET :: in_subset
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical, number_of_values
-    INTEGER :: communicator
-    !    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_TotalLevels'
     
-    IF (range_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -334,30 +335,30 @@ CONTAINS
     sum_value = 0._wp
     number_of_values = 0
     
-    IF (ASSOCIATED(range_subset%vertical_levels)) THEN
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value, number_of_values)
-      DO block = range_subset%start_block, range_subset%end_block
-        CALL get_index_range(range_subset, block, startidx, endidx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
         DO idx = startidx, endidx
-          !            write(0,*) "end_vertical:", end_vertical," vertical_levels:", range_subset%vertical_levels(idx,block)
-          DO level = start_vertical, MIN(end_vertical, range_subset%vertical_levels(idx,block))
+          !            write(0,*) "end_vertical:", end_vertical," vertical_levels:", in_subset%vertical_levels(idx,block)
+          DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
             min_value    = MIN(min_value, values(idx, level, block))
             max_value    = MAX(max_value, values(idx, level, block))
             sum_value    = sum_value + values(idx, level, block)
           ENDDO
           number_of_values = number_of_values + MAX(0,    &
-            & (MIN(end_vertical, range_subset%vertical_levels(idx,block)) - start_vertical + 1))
+            & (MIN(end_vertical, in_subset%vertical_levels(idx,block)) - start_vertical + 1))
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       
-    ELSE ! no range_subset%vertical_levels
+    ELSE ! no in_subset%vertical_levels
       
 !ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx)  &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
-      DO block = range_subset%start_block, range_subset%end_block
-        CALL get_index_range(range_subset, block, startidx, endidx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
         DO level = start_vertical, end_vertical
           min_in_block = MINVAL(values(startidx:endidx, level, block))
           max_in_block = MAXVAL(values(startidx:endidx, level, block))
@@ -368,18 +369,17 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       
-      IF ((range_subset%end_block - range_subset%start_block) > 1) THEN
-        number_of_values = (range_subset%end_block - range_subset%start_block -1) * range_subset%block_size
+      IF ((in_subset%end_block - in_subset%start_block) > 1) THEN
+        number_of_values = (in_subset%end_block - in_subset%start_block -1) * in_subset%block_size
       ELSE
         number_of_values = 0
       ENDIF
-      number_of_values = (number_of_values + range_subset%end_index + &
-        & (range_subset%block_size - range_subset%start_index + 1)) * &
+      number_of_values = (number_of_values + in_subset%end_index + &
+        & (in_subset%block_size - in_subset%start_index + 1)) * &
         & (end_vertical - start_vertical + 1)
       
     ENDIF
-    
-    
+
     ! the global min, max, mean, is avaliable only to stdio process
     CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
     
@@ -389,10 +389,14 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
+  ! Returns the sum in a 3D array in a given indexed subset,
+  ! and optional weights with the original 3D index (weights)
+  ! or using the the subset index ( subset_indexed_weights ( level, sunset_index)).
+  ! The sum is over all levels.
   FUNCTION Sum_3D_TotalLevels_InIndexed(values, indexed_subset, start_level, end_level, weights, &
     & subset_indexed_weights) result(total_sum)
     REAL(wp) :: values(:,:,:)
-    TYPE(t_subset_indexed), TARGET, OPTIONAL :: indexed_subset
+    TYPE(t_subset_indexed), TARGET :: indexed_subset
     INTEGER,  OPTIONAL :: start_level, end_level
     REAL(wp), OPTIONAL :: weights(:,:,:)
     REAL(wp), OPTIONAL :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
@@ -418,10 +422,7 @@ CONTAINS
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
-    
-    IF (.NOT. PRESENT(indexed_subset)) &
-      & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
-    
+
     ! init the min, max values
     sum_value = 0._wp
     IF (PRESENT(weights)) THEN
@@ -474,28 +475,74 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE AddSum_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, accumulated_mean, start_level, end_level)
+  ! Computes the weighted average for each level in a 3D array in a given range subset.
+  ! The result is added in the given accumulated_mean array(levels)
+  SUBROUTINE AccumulateMean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, accumulated_mean, start_level, end_level)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: accumulated_mean(:)   ! sum for each level
+    REAL(wp), TARGET, INTENT(inout) :: accumulated_mean(:)   ! accumulated mean for each level
+    INTEGER, OPTIONAL :: start_level, end_level
+
+    REAL(wp), ALLOCATABLE :: mean(:)
+    INTEGER :: block, level, start_vertical, end_vertical
+    INTEGER :: allocated_levels, no_of_threads, myThreadNo
+
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':AccumulateMean_3D_EachLevel_InRange_2Dweights'
+
+    allocated_levels = SIZE(accumulated_mean)
+    ALLOCATE(  mean(allocated_levels) )
+
+    IF (PRESENT(start_level)) THEN
+      start_vertical = start_level
+    ELSE
+      start_vertical = 1
+    ENDIF
+    IF (PRESENT(end_level)) THEN
+      end_vertical = start_level
+    ELSE
+      end_vertical = SIZE(values, 2)
+    ENDIF
+    IF (start_vertical > end_vertical) &
+      & CALL finish(method_name, "start_vertical > end_vertical")
+
+    CALL Mean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, mean, start_vertical, end_vertical)
+
+    ! add average
+    DO level = start_vertical, end_vertical
+      ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
+      accumulated_mean(level) = accumulated_mean(level) + mean(level)
+    ENDDO
+
+    DEALLOCATE(  mean )
+
+  END SUBROUTINE AccumulateMean_3D_EachLevel_InRange_2Dweights
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
+  SUBROUTINE Mean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
+    REAL(wp), INTENT(in) :: values(:,:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
 
     REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
-    INTEGER :: communicator
-    !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_TotalLevels'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Mean_3D_EachLevel_InRange_2Dweights'
 
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+
     no_of_threads = 1
     myThreadNo = 0
 #ifdef _OPENMP
     no_of_threads = omp_get_max_threads()
 #endif
 
-    allocated_levels = SIZE(accumulated_mean)
+    allocated_levels = SIZE(mean)
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
       & total_sum(allocated_levels), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
@@ -576,13 +623,16 @@ CONTAINS
     CALL gather_sums(total_sum, total_weight)
 
     ! Get average and add
+    mean(:) = 0.0_wp
     DO level = start_vertical, end_vertical
       ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
-      accumulated_mean(level) = accumulated_mean(level) + total_sum(level)/total_weight(level)
+      mean(level) = total_sum(level)/total_weight(level)
     ENDDO
+    DEALLOCATE(total_sum, total_weight)
 
-  END SUBROUTINE AddSum_3D_EachLevel_InRange_2Dweights
+  END SUBROUTINE Mean_3D_EachLevel_InRange_2Dweights
   !-----------------------------------------------------------------------
+
 
   
   !-----------------------------------------------------------------------
