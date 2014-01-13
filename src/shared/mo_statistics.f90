@@ -67,7 +67,7 @@ MODULE mo_statistics
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
-  PUBLIC :: accumulate_mean
+  PUBLIC :: accumulate_mean, levels_horizontal_mean
   
   INTERFACE global_minmaxmean
     MODULE PROCEDURE MinMaxMean_2D
@@ -85,7 +85,9 @@ MODULE mo_statistics
     MODULE PROCEDURE AccumulateMean_3D_EachLevel_InRange_2Dweights
   END INTERFACE accumulate_mean
 
-
+  INTERFACE levels_horizontal_mean
+    MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
+  END INTERFACE levels_horizontal_mean
 #endif
   
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
@@ -506,7 +508,7 @@ CONTAINS
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
 
-    CALL Mean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, mean, start_vertical, end_vertical)
+    CALL LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_vertical, end_vertical)
 
     ! add average
     DO level = start_vertical, end_vertical
@@ -522,7 +524,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE Mean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
+  SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
@@ -532,7 +534,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Mean_3D_EachLevel_InRange_2Dweights'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
 
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
 
@@ -630,7 +632,7 @@ CONTAINS
     ENDDO
     DEALLOCATE(total_sum, total_weight)
 
-  END SUBROUTINE Mean_3D_EachLevel_InRange_2Dweights
+  END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
 
