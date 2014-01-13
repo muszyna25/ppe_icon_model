@@ -50,11 +50,11 @@ MODULE mo_ocean_initial_conditions
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
     & basin_center_lat, basin_center_lon,idisc_scheme,           &
-    & basin_height_deg,  basin_width_deg, temperature_relaxation,&
+    & basin_height_deg,  basin_width_deg,  &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
     & scatter_t, scatter_s
+!    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -77,8 +77,8 @@ MODULE mo_ocean_initial_conditions
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   IMPLICIT NONE
-  INCLUDE 'netcdf.inc'
   PRIVATE
+  INCLUDE 'netcdf.inc'
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -89,7 +89,6 @@ MODULE mo_ocean_initial_conditions
   !
   PUBLIC :: init_ho_testcases
   PUBLIC :: init_ho_prog
-  PUBLIC :: init_ho_relaxation
   PUBLIC :: init_ho_recon_fields
   
   REAL(wp) :: sphere_radius, u0
@@ -283,195 +282,6 @@ CONTAINS
   END SUBROUTINE init_ho_prog
   !-------------------------------------------------------------------------
   
-  !-------------------------------------------------------------------------
-  !>
-  !! Initialization of temperature and salinity relaxation for the hydrostatic ocean model.
-  !! Temperature and salinity relaxation data are read from external data
-  !
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M, 2011-11
-  !
-  !-------------------------------------------------------------------------
-  !
-  SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, p_os, p_sfc_flx)
-    
-    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_sfc_flx)                   :: p_sfc_flx
-    
-    ! Local Variables
-    
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ho_relaxation'
-    CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
-    
-    LOGICAL :: l_exist
-    INTEGER :: i_lev, no_cells, no_levels, jb, jc
-    INTEGER :: ncid, dimid
-    INTEGER :: i_startidx_c, i_endidx_c
-    
-    REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp):: z_relax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    
-    TYPE(t_subset_range), POINTER :: all_cells
-    !-------------------------------------------------------------------------
-    
-    ! Read relaxation data from file
-    IF (init_oce_relax == 1) THEN
-      
-      sphere_radius = grid_sphere_radius
-      u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-      all_cells => patch_2d%cells%ALL
-      
-      CALL message (TRIM(routine), 'start')
-      
-      i_lev        = patch_2d%level
-      
-      IF (my_process_is_stdio()) THEN
-        !
-        ! Relaxation variables are read from relax_init_file
-        WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
-        
-        INQUIRE (FILE=relax_init_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
-          CALL message(TRIM(routine),TRIM(message_text))
-          CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
-        ENDIF
-        
-        WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
-          & ' opened for reading'
-        CALL message(TRIM(routine),TRIM(message_text))
-        
-        !
-        ! open file
-        !
-        CALL nf(nf_open(TRIM(relax_init_file), nf_nowrite, ncid))
-        
-        !
-        ! get number of cells
-        !
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        
-        !
-        ! check the number of cells
-        !
-        WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
-        CALL message(TRIM(routine),TRIM(message_text))
-        IF (patch_2d%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(routine),&
-            & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
-        ENDIF
-        !
-        ! get number of levels
-        !
-        CALL nf(nf_inq_dimid(ncid, 'level', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
-        
-        !
-        ! check the number of cells
-        !
-        WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
-        CALL message(TRIM(routine),TRIM(message_text))
-        IF (no_levels /= 1) THEN
-          CALL finish(TRIM(routine),'Number of vertical levels is not equal 1 - ABORT')
-        ENDIF
-        
-      ENDIF  !  stdio
-      
-      
-      !-------------------------------------------------------
-      !
-      ! Read ocean relaxation data at cells
-      !
-      !-------------------------------------------------------
-      
-      ! triangle center and edges
-      
-      ! read temperature
-      !  - read one data set, annual mean only
-      !  - "T": annual mean temperature
-      CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-        & patch_2d%cells%decomp_info%glb_index, z_relax)
-      
-      IF (no_tracer>=1) THEN
-        p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
-      ELSE
-        CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
-      END IF
-      
-      ! read salinity
-      !  - "S": annual mean salinity
-      IF (no_tracer > 1) THEN
-        CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-          & patch_2d%cells%decomp_info%glb_index, z_relax)
-        p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
-      END IF
-      
-      ! close file
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-      
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF ( patch_3d%lsm_c(jc,1,jb) > sea_boundary ) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-            IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-      
-      CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
-      
-    ENDIF  !  read relaxation data from file
-    
-    !-------------------------------------------------------
-    !
-    ! use initialized temperature/salinity, assigned to tracer, for 2-dim/3-dim relaxation
-    !  - relaxation switch equals 3
-    !
-    !-------------------------------------------------------
-    
-    !   IF (irelax_2d_T == 3) THEN
-    IF (temperature_relaxation == 3) THEN
-      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    END IF
-    
-    IF (irelax_2d_s == 3) THEN
-      IF (no_tracer > 1) THEN
-        p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      ELSE
-        CALL finish(TRIM(routine),' irelax_2d_S=3 and no_tracer<2 - ABORT')
-      END IF
-    END IF
-    
-    IF (irelax_3d_t == 3) THEN
-      p_os%p_aux%relax_3d_data_t(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-    END IF
-    IF (irelax_3d_s == 3) THEN
-      IF (no_tracer > 1) THEN
-        p_os%p_aux%relax_3d_data_s(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-      ELSE
-        CALL finish(TRIM(routine),' irelax_3d_S=3 and no_tracer<2 - ABORT')
-      END IF
-    END IF
-    
-    !---------Debug Diagnostics-------------------------------------------
-    IF (temperature_relaxation > 0) THEN
-      idt_src=0  ! output print level - 0: print in any case
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL dbg_print('init relaxation - T'       ,z_c                     ,str_module,idt_src)
-      IF (irelax_2d_s > 0) THEN
-        z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-        CALL dbg_print('init relaxation - S'       ,z_c                   ,str_module,idt_src)
-      END IF
-    END IF
-    
-    CALL message( TRIM(routine),'end' )
-    
-  END SUBROUTINE init_ho_relaxation
-  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS)
