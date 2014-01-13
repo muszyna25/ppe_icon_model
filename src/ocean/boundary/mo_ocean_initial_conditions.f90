@@ -51,7 +51,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
     & basin_center_lat, basin_center_lon,idisc_scheme,           &
-    & basin_height_deg,  basin_width_deg,  &
+    & basin_height_deg,  basin_width_deg,  init_oce_prog,        &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
     & scatter_t, scatter_s
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
@@ -76,20 +76,19 @@ MODULE mo_ocean_initial_conditions
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+
   IMPLICIT NONE
   PRIVATE
   INCLUDE 'netcdf.inc'
+  !
+  PUBLIC :: apply_initial_conditions
+  PUBLIC :: init_ho_recon_fields
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(LEN=12)           :: str_module    = 'oceInit     '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
-  ! public interface
-  !
-  PUBLIC :: init_ho_testcases
-  PUBLIC :: init_ho_prog
-  PUBLIC :: init_ho_recon_fields
   
   REAL(wp) :: sphere_radius, u0
   
@@ -97,6 +96,26 @@ MODULE mo_ocean_initial_conditions
   
 CONTAINS
   
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE apply_initial_conditions(patch_2d, patch_3d, ocean_state, external_data, &
+    & operators_coeff)
+    TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_external_data)             :: external_data
+    TYPE(t_operator_coeff)            :: operators_coeff
+    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
+
+    IF (init_oce_prog == 0) THEN
+      CALL init_ho_testcases(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
+    ELSE IF (init_oce_prog == 1) THEN
+      CALL init_ho_prog(patch_2d, patch_3d, ocean_state)
+    END IF
+  END SUBROUTINE apply_initial_conditions
+  !-------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------
   !>
   !! Initialization of prognostic variables for the hydrostatic ocean model.
@@ -106,12 +125,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M, 2011-09
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_prog(patch_2d, patch_3d, p_os, p_sfc_flx)
+  SUBROUTINE init_ho_prog(patch_2d, patch_3d, ocean_state)
     TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    !TYPE(t_external_data)             :: p_ext_data
-    TYPE(t_sfc_flx)                   :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    !TYPE(t_external_data)             :: external_data
+    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
     
     ! Local Variables
     
@@ -209,8 +228,8 @@ CONTAINS
       & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
     
     IF (no_tracer>=1) THEN
-      !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
-      p_os%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
+      !ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+      ocean_state%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
     ELSE
       CALL message( TRIM(routine),'WARNING: no tracer used, but init temperature attempted')
     END IF
@@ -221,7 +240,7 @@ CONTAINS
     IF (no_tracer > 1) THEN
       CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
         & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
-      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
+      ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
     
     
@@ -235,16 +254,16 @@ CONTAINS
             ! set values on land to zero/reference
             IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
-                & convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                & p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
+                & convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
+                & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                 & sfc_press_bar)
             ENDIF
           END DO
         END DO
       END DO
     ELSEIF(no_tracer==1)THEN
-      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
+      ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=ocean_state%p_diag%temp_insitu(:,1:n_zlev,:)
     ENDIF
     
     !
@@ -259,8 +278,8 @@ CONTAINS
           
           ! set values on land to zero/reference
           IF ( patch_3d%lsm_c(jc,jk,jb) > sea_boundary ) THEN
-            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-            IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
+            ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+            IF (no_tracer>=2) ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
           ENDIF
           
         END DO
@@ -269,10 +288,10 @@ CONTAINS
     
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
-    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     CALL dbg_print('init prognostic - T'       ,z_c                     ,str_module,idt_src)
     IF (no_tracer > 1) THEN
-      z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
       CALL dbg_print('init prognostic - S'       ,z_c                   ,str_module,idt_src)
     END IF
     !---------------------------------------------------------------------
@@ -296,11 +315,11 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_recon_fields( patch_2d,patch_3d, p_os, p_op_coeff)
+  SUBROUTINE init_ho_recon_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_operator_coeff)                        :: p_op_coeff
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_operator_coeff)                        :: operators_coeff
     
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
@@ -308,10 +327,10 @@ CONTAINS
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
       CALL calc_scalar_product_veloc_3d( patch_3d,&
-        & p_os%p_prog(nold(1))%vn,&
-        & p_os%p_prog(nold(1))%vn,&
-        & p_os%p_diag,            &
-        & p_op_coeff)
+        & ocean_state%p_prog(nold(1))%vn,&
+        & ocean_state%p_prog(nold(1))%vn,&
+        & ocean_state%p_diag,            &
+        & operators_coeff)
       
       IF (is_restart_run()) CALL update_time_indices(1)
     ELSE
@@ -319,10 +338,10 @@ CONTAINS
     
     !---------Debug Diagnostics-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('recon_fields: p_vn%x(1)'        ,p_os%p_diag%p_vn%x(1)  ,str_module,idt_src)
+    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1)  ,str_module,idt_src)
     !---------------------------------------------------------------------
     
-    !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, p_os, p_op_coeff)
+    !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, ocean_state, operators_coeff)
     
   END SUBROUTINE init_ho_recon_fields
   !-------------------------------------------------------------------------
@@ -338,13 +357,13 @@ CONTAINS
   !! Developed  by Peter Korn, MPI-M, 2006-08
   !
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_testcases(patch_2d, patch_3d,p_os, p_ext_data, p_op_coeff,p_sfc_flx)
+  SUBROUTINE init_ho_testcases(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
     TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_external_data)             :: p_ext_data
-    TYPE(t_operator_coeff)            :: p_op_coeff
-    TYPE(t_sfc_flx)                   :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_external_data)             :: external_data
+    TYPE(t_operator_coeff)            :: operators_coeff
+    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
     ! Local Variables
     INTEGER :: jb, jc, je, jk
     INTEGER :: i_startidx_c, i_endidx_c
@@ -402,7 +421,7 @@ CONTAINS
     ! initialize salinity with reference value rather than with zero
     !  - mainly for plotting purpose
     IF ( no_tracer >= 2) THEN
-      p_os%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
+      ocean_state%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
     END IF
     
     !IF shallow-water option is NOT selected then)
@@ -424,10 +443,10 @@ CONTAINS
         CALL message(TRIM(routine), ' - Add forcing / restoring / wave for dynamic test')
         
         !Flat surface of the ocean
-        p_os%p_prog(nold(1))%h(:,:) = 0.0_wp
+        ocean_state%p_prog(nold(1))%h(:,:) = 0.0_wp
         
         !Ocean at rest
-        p_os%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
+        ocean_state%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
         
         !init temperature and salinity with vertical profiles
         IF(n_zlev==4)THEN
@@ -439,13 +458,13 @@ CONTAINS
                 IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                   IF(no_tracer==1)THEN
                     !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerstommel(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerstommel(jk)
                   ELSEIF(no_tracer==2)THEN
                     !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerstommel(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerstommel(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
                   ENDIF
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
+                  !ocean_state%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
                 ENDIF
               END DO
             END DO
@@ -459,13 +478,13 @@ CONTAINS
                 IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                   IF(no_tracer==1)THEN
                     !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
                   ELSEIF(no_tracer==2)THEN
                     !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
                   ENDIF
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
+                  !ocean_state%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
                 ENDIF
               END DO
             END DO
@@ -488,7 +507,7 @@ CONTAINS
               
               ! #slo#: simple elevation between 30W and 30E (pi/3.)
               IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
+                ocean_state%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
                   & SIN(z_lon*6.0_wp) * COS(z_lat*3.0_wp)
               ENDIF
             END DO
@@ -516,33 +535,33 @@ CONTAINS
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 ! #slo# 2011-09-02: testcase now with warm water in first layer only
                 !IF ( jk == 1 ) THEN
-                !p_os%p_diag%temp_insitu = 30.0_wp
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=12.0_wp-REAL(jk,wp)! tprof(jk)!30.0_wp
+                !ocean_state%p_diag%temp_insitu = 30.0_wp
+                !ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)=12.0_wp-REAL(jk,wp)! tprof(jk)!30.0_wp
                 
                 !constant salinity
                 IF(no_tracer==2)THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
                 ENDIF
                 
                 IF(ABS(z_lat_deg)>=40.0_wp)THEN
                   
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
                   
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                    & = 5.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                  !                      &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                    & = 5.0_wp!convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
+                  !                      &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                   !                      &sfc_press_bar)
                   !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)
                   
                 ELSEIF(ABS(z_lat_deg)<=20.0_wp)THEN
                   
-                  !p_os%p_prog(nold(1))%h(jc,jb)=0.25_wp
-                  !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
+                  !ocean_state%p_prog(nold(1))%h(jc,jb)=0.25_wp
+                  !ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
                   
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                    & = 30.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                  !                     &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                    & = 30.0_wp!convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
+                  !                     &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                   !                     &sfc_press_bar)
                   !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
                   
@@ -550,18 +569,18 @@ CONTAINS
                 ELSEIF(ABS(z_lat_deg)<40.0_wp .AND. ABS(z_lat_deg)>20.0_wp)THEN
                   
                   z_tmp = pi*((ABS(z_lat_deg) -20.0_wp)/20.0_wp)
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
                     & + 0.5_wp*25.0_wp*(1.0_wp+COS(z_tmp))
                   
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=p_os%p_diag%temp_insitu(jc,jk,jb)!&
-                  !                 &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                  !                                                &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)=ocean_state%p_diag%temp_insitu(jc,jk,jb)!&
+                  !                 &= convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
+                  !                                                &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                   !                                                &sfc_press_bar)
                   !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
                 ENDIF
                 !ELSE
-                !   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
-                !   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                !   ocean_state%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
+                !   ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                 !ENDIF ! jk=1
               ENDIF  ! lsm
             END DO
@@ -585,9 +604,9 @@ CONTAINS
               !depends on latitude only and is uniform across
               !all vertical layers
               IF(z_lon_deg>=basin_center_lon*rad2deg)THEN
-                p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 30.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 30.0_wp
               ELSE
-                p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp
               ENDIF
             ENDIF
           END DO
@@ -605,7 +624,7 @@ CONTAINS
         !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         !         DO jc = i_startidx_c, i_endidx_c
         !
-        !           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
+        !           ocean_state%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
         !
         !           z_lat = patch_2D%cells%center(jc,jb)%lat
         !           z_lon = patch_2D%cells%center(jc,jb)%lon
@@ -617,9 +636,9 @@ CONTAINS
         !             ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
         !             ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
         !             DO jk = 1, z_dolic
-        !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+        !                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
         !               & = 20.0_wp+0.1_wp*v_base%zlev_m(jk)/v_base%zlev_m(z_dolic)
-        !               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+        !               ! ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
         !               !   & = 20.0_wp -  v_base%zlev_m(jk)*15.0_wp/4000.0_wp
         !             END DO
         !           END IF
@@ -627,8 +646,8 @@ CONTAINS
         !       END DO
         ! DO jk = 1, n_zlev
         ! write(*,*)'Temperature strat',jk,&
-        ! &maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
-        ! &minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
+        ! &maxval(ocean_state%p_prog(nold(1))%tracer(:,jk,:,1)),&
+        ! &minval(ocean_state%p_prog(nold(1))%tracer(:,jk,:,1))
         ! END DO
         
         z_perlat = basin_center_lat + 0.1_wp*basin_height_deg
@@ -652,19 +671,19 @@ CONTAINS
                 ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
                 ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
                 ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
-                p_os%p_prog(nold(1))%tracer(jc,1:z_dolic,jb,1) = 20.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,1:z_dolic,jb,1) = 20.0_wp
                 z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
                 !write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
                 !Local hot perturbation
                 IF(z_dst<=5.0_wp*deg2rad)THEN
                   DO jk = 1, z_dolic
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
-                      & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
+                      & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
                       & + z_permax*EXP(-(z_dst/(z_perwid*deg2rad))**2) &
                     !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
                       & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk)/patch_3d%p_patch_1d(1)%zlev_i(z_dolic+1))
                     !&v_base%del_zlev_i(z_dolic))
-                    WRITE(0,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
+                    WRITE(0,*)'temp init',jc,jb,jk,ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1),&
                       & z_permax*EXP(-(z_dst/(z_perwid*deg2rad))**2) &
                       & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk)/4000.0_wp)
                   END DO
@@ -674,8 +693,8 @@ CONTAINS
           END DO
           DO jk = 1, n_zlev
             WRITE(0,*)'Temperature init',jk,&
-              & MAXVAL(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
-              & MINVAL(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
+              & MAXVAL(ocean_state%p_prog(nold(1))%tracer(:,jk,:,1)),&
+              & MINVAL(ocean_state%p_prog(nold(1))%tracer(:,jk,:,1))
           END DO
           !         !After hot spot now a cool spot at a slightly different location
           !         ! Add temperature perturbation at new values - 35N; 10W
@@ -709,8 +728,8 @@ CONTAINS
           !               !   T(jk=1)=19.0625+20.1*exp(-4)*sin(pi* 250/4000) = 19.06 + 20.1*0.18*0.06 = 19.28
           !               !   T(jk=4)=13.4375+20.1*exp(-4)*sin(pi*1750/4000) = 13.44 + 20.1*0.18*0.42 = 15.00
           !               DO jk = 1, z_dolic
-          !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
-          !                 & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
+          !                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
+          !                 & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
           !                 &   - z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
           !                 &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
           !               ENDDO
@@ -731,7 +750,7 @@ CONTAINS
                 z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
                 !IF(z_dst<=15.5_wp*deg2rad) cycle
                 IF(z_dst<10.0_wp*deg2rad) THEN
-                  p_os%p_prog(nold(1))%h(jc,jb) = 0.5_wp&!p_os%p_prog(nold(1))%h(jc,jb)&
+                  ocean_state%p_prog(nold(1))%h(jc,jb) = 0.5_wp&!ocean_state%p_prog(nold(1))%h(jc,jb)&
                     & +0.3_wp*EXP(-(z_dst/(2.2_wp*deg2rad))**2)
                 ENDIF
               ENDIF
@@ -756,7 +775,7 @@ CONTAINS
         ! !             ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
         ! !             ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
         ! !             DO jk = 1, z_dolic
-        ! !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+        ! !                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
         ! !               & = 20.0_wp-v_base%zlev_m(jk)*15.0_wp/v_base%zlev_i(z_dolic+1)
         ! !             END DO
         ! !           END IF
@@ -779,8 +798,8 @@ CONTAINS
         ! !               !Local hot perturbation
         ! !               !IF(z_dst<=5.0_wp*deg2rad)THEN
         ! !               DO jk = 1, z_dolic
-        ! !                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
-        ! !                  & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
+        ! !                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
+        ! !                  & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
         ! !                  &   + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
         ! !                  &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
         ! !               END DO
@@ -837,24 +856,24 @@ CONTAINS
                 
                 !constant salinity
                 IF(no_tracer==2)THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
                 ENDIF
                 
                 IF(ABS(z_lat_deg)>=z_lpol)THEN
                   
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpols
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpols
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                   
                 ELSEIF(ABS(z_lat_deg)<=z_ltrop)THEN
                   
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                   
                   
                 ELSEIF(ABS(z_lat_deg)<z_lpol .AND. ABS(z_lat_deg)>z_ltrop)THEN
                   z_tmp = 0.5_wp*pi*((ABS(z_lat_deg) - z_ltrop)/z_ldiff)
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                 ENDIF
               ENDIF   ! lsm
             END DO
@@ -896,24 +915,24 @@ CONTAINS
                 
                 !constant salinity
                 IF(no_tracer==2)THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
                 ENDIF
                 
                 IF(ABS(z_lat_deg)>=z_lpol)THEN
                   
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpol
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                   
                 ELSEIF(ABS(z_lat_deg)<=z_ltrop)THEN
                   
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                   
                   
                 ELSEIF(ABS(z_lat_deg)<z_lpol .AND. ABS(z_lat_deg)>z_ltrop)THEN
                   z_tmp = 0.5_wp*pi*((ABS(z_lat_deg) - z_ltrop)/z_ldiff)
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                 ENDIF
               ENDIF   ! lsm
             END DO
@@ -958,37 +977,37 @@ CONTAINS
                   
                   !constant salinity
                   IF(no_tracer==2)THEN
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
                   ENDIF
                   
                   IF(ABS(z_lat_deg)>=z_lpol)THEN
                     
-                    p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
-                    !            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                    !             &= 30.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                    !                     &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                    ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpol
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
+                    !            ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                    !             &= 30.0_wp!convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
+                    !                     &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
                     !                     &sfc_press_bar)
                     !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
                     
                   ELSEIF(ABS(z_lat_deg)<=z_ltrop)THEN
                     
-                    p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                    ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                     
                     
                   ELSEIF(ABS(z_lat_deg)<z_lpol .AND. ABS(z_lat_deg)>z_ltrop)THEN
                     !   z_tmp = pi*((abs(z_lat_deg) - z_lpol)/z_ldiff)
-                    !   p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol + 0.5_wp*z_tdiff*(1.0_wp+cos(z_tmp))
+                    !   ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpol + 0.5_wp*z_tdiff*(1.0_wp+cos(z_tmp))
                     z_tmp = 0.5_wp*pi*((ABS(z_lat_deg) - z_ltrop)/z_ldiff)
-                    p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                    ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                     !      if (jk==1) write(*,*) 'zlat,ztmp(deg),temp', &
-                    !   &  jb,jc,z_lat_deg,(abs(z_lat_deg)-z_lpol)/z_ldiff,p_os%p_diag%temp_insitu(jc,jk,jb)
+                    !   &  jb,jc,z_lat_deg,(abs(z_lat_deg)-z_lpol)/z_ldiff,ocean_state%p_diag%temp_insitu(jc,jk,jb)
                   ENDIF
                 ELSE
-                  p_os%p_diag%temp_insitu(jc,jk,jb) = z_tdeep
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+                  ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tdeep
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ocean_state%p_diag%temp_insitu(jc,jk,jb)
                 ENDIF  ! jk=1
               ENDIF   ! lsm
             END DO
@@ -1008,13 +1027,13 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             
             !IF(patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
-            p_os%p_prog(nold(1))%tracer(:,1,:,1)=30.5_wp
-            p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
+            ocean_state%p_prog(nold(1))%tracer(:,1,:,1)=30.5_wp
+            ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
             !ENDIF
             DO jk=2,n_zlev-1
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                  & =p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                  & =ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
                 
               ENDIF
             END DO
@@ -1033,16 +1052,16 @@ CONTAINS
             DO jk=1,n_zlev
               
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
                 IF (no_tracer == 2) THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
                 END IF
               END IF
               
             END DO
           END DO
         END DO
-        ! p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
+        ! ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
         
       CASE (46,461)
         ! T and S are horizontally and vertically homegeneous
@@ -1062,9 +1081,9 @@ CONTAINS
                 s = MERGE(scatter_s,initial_salinity_reference,ANY(scatter_levels .EQ. jk))
               ENDIF
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = t
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = t
                 IF (no_tracer == 2) THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = s
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = s
                 END IF
               END IF
             END DO
@@ -1106,18 +1125,18 @@ CONTAINS
               
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
                 IF (no_tracer == 2) THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
                 END IF
                 
                 IF ( (z_lat_deg >= z_lat1 .AND. z_lat_deg <= z_lat2) .AND. &
                   & (z_lon_deg >= z_lon1 .AND. z_lon_deg <= z_lon2) .AND. &
                   & ( jk <= 1 ) ) THEN
                   
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =  6.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =  6.0_wp
                   IF (no_tracer == 2) THEN
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
+                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
                   END IF
                   
                 END IF
@@ -1144,7 +1163,7 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             z_lat = patch_2d%cells%center(jc,jb)%lat
             IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
             END IF
           END DO
         END DO
@@ -1154,7 +1173,7 @@ CONTAINS
         z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
         WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
         
-        p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+        ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
         DO jk=2,n_zlev-1
           
           z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
@@ -1163,10 +1182,10 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                  & = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                  & = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
               ELSE
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
               ENDIF
             END DO
           END DO
@@ -1182,7 +1201,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
               END DO
             END DO
           END DO
@@ -1201,7 +1220,7 @@ CONTAINS
         !         DO jc = i_startidx_c, i_endidx_c
         !           z_lat = patch_2D%cells%center(jc,jb)%lat
         !           IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        !             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+        !             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
         !           END IF
         !         END DO
         !       END DO
@@ -1213,7 +1232,7 @@ CONTAINS
         !       WRITE(message_text,*) 'Vertical temperature increment = ',z_temp_incr
         !       CALL message(TRIM(routine),TRIM(message_text))
         !
-        !       p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+        !       ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
         !       DO jk=2,n_zlev-1
         !
         !         z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
@@ -1224,10 +1243,10 @@ CONTAINS
         !           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         !           DO jc = i_startidx_c, i_endidx_c
         !             IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        !               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-        !                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
+        !               ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+        !                 &  = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
         !             ELSE
-        !               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+        !               ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
         !             ENDIF
         !           END DO
         !         END DO
@@ -1237,7 +1256,7 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
             END DO
           END DO
         END DO
@@ -1257,7 +1276,7 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile(jk)
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile(jk)
               END DO
             END DO
           END DO
@@ -1285,13 +1304,13 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             z_lat = patch_2d%cells%center(jc,jb)%lat
             IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
             END IF
           END DO
         END DO
         WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
         
-        p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+        ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
         DO jk=2,n_zlev-1
           
           z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
@@ -1300,10 +1319,10 @@ CONTAINS
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                  & = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                  & = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
               ELSE
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
               ENDIF
             END DO
           END DO
@@ -1316,8 +1335,8 @@ CONTAINS
               CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
               DO jc = i_startidx_c, i_endidx_c
                 IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
-                  ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
+                  ! ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
                 ENDIF
               END DO
             END DO
@@ -1337,21 +1356,21 @@ CONTAINS
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             
-            p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
+            ocean_state%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
             !IF(patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
             !ENDIF
             
             IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
             ENDIF
             IF ( patch_3d%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
-              p_os%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
             ENDIF
             DO jk=2,n_zlev-1
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                  & =p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                  & =ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
                 
               ENDIF
             END DO
@@ -1370,8 +1389,8 @@ CONTAINS
                 
                 z_temp_max=0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
                 
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                  & =p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)*EXP(-z_temp_max/basin_height_deg)!(1.0_wp-exp(-z_temp_max/basin_height_deg))
+                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                  & =ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)*EXP(-z_temp_max/basin_height_deg)!(1.0_wp-exp(-z_temp_max/basin_height_deg))
                 
               ENDIF
             END DO
@@ -1393,9 +1412,9 @@ CONTAINS
                 IF(ABS(z_lon_deg)<2.5_wp&
                   & .AND.ABS(z_lat_deg-basin_center_lat)<0.25_wp*basin_height_deg)THEN
                   
-                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                    & =p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                    & + 0.1_wp*p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                    & =ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                    & + 0.1_wp*ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)
                 ENDIF
               ENDIF
             END DO
@@ -1404,12 +1423,12 @@ CONTAINS
         
       CASE(53)
         CALL message(TRIM(routine), 'LOCK exchange (53)')
-        p_os%p_prog(nold(1))%h  = 0.0_wp
-        p_os%p_prog(nold(1))%vn = 0.0_wp
-        p_os%p_prog(nnew(1))%vn = 0.0_wp
+        ocean_state%p_prog(nold(1))%h  = 0.0_wp
+        ocean_state%p_prog(nold(1))%vn = 0.0_wp
+        ocean_state%p_prog(nnew(1))%vn = 0.0_wp
         IF(no_tracer>0)THEN
-          p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
-          p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+          ocean_state%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
+          ocean_state%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
         ELSE
           CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
         ENDIF
@@ -1423,14 +1442,14 @@ CONTAINS
                 !Impose emperature profile. Profile
                 !depends on latitude only
                 !            IF(abs(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
-                !              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
+                !              ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
                 !            ELSEIF(abs(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
-                !              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
+                !              ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
                 !            ENDIF
                 IF((z_lon_deg-basin_center_lon)>=0.0_wp)THEN
-                  p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
                 ELSEIF((z_lon_deg-basin_center_lon)<0.0_wp)THEN
-                  p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
+                  ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
                 ENDIF
               ENDIF
             END DO
@@ -1445,16 +1464,16 @@ CONTAINS
       !---------Debug Diagnostics-------------------------------------------
       idt_src=0  ! output print level - 0: print in any case
       IF (no_tracer >=1) THEN
-        z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+        z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
         CALL dbg_print('init testcases  - T'       ,z_c                     ,str_module,idt_src, &
           & in_subset=owned_cells)
       END IF
       IF (no_tracer >= 2) THEN
-        z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+        z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
         CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src, &
           & in_subset=owned_cells)
       END IF
-      CALL dbg_print('init testcases  - H'       ,p_os%p_prog(nold(1))%h    ,str_module,idt_src, &
+      CALL dbg_print('init testcases  - H'       ,ocean_state%p_prog(nold(1))%h    ,str_module,idt_src, &
         & in_subset=owned_cells)
       !---------------------------------------------------------------------
       
@@ -1481,10 +1500,10 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
-            p_os%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
-            p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !test_usbr_oro( z_lon, z_lat, 0.0_wp )
-            ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,p_os%p_prog(nold(1))%h(jc,jb)!, &
-            !                                            p_ext_data%oce%bathymetry_c(jc,jb)
+            ocean_state%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
+            external_data%oce%bathymetry_c(jc,jb) = 0.0_wp !test_usbr_oro( z_lon, z_lat, 0.0_wp )
+            ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,ocean_state%p_prog(nold(1))%h(jc,jb)!, &
+            !                                            external_data%oce%bathymetry_c(jc,jb)
           END DO
         END DO
         
@@ -1495,7 +1514,7 @@ CONTAINS
             z_lat = patch_2d%edges%center(je,jb)%lat
             z_lon = patch_2d%edges%center(je,jb)%lon
             
-            p_os%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(z_lon, z_lat,0.0_wp)* &
+            ocean_state%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(z_lon, z_lat,0.0_wp)* &
               & patch_2d%edges%primal_normal(je,jb)%v1&
               & + test_usbr_v(z_lon, z_lat,0.0_wp)* &
               & patch_2d%edges%primal_normal(je,jb)%v2
@@ -1514,16 +1533,16 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
-            p_os%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
-            p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp !should be test2_oro( z_lon, z_lat, 0.0_wp )
+            ocean_state%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
+            external_data%oce%bathymetry_c(jc,jb) = 0.0_wp !should be test2_oro( z_lon, z_lat, 0.0_wp )
           END DO
         END DO
-        !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
+        !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
         !                  & patch_2D,    &
-        !                  & p_os%p_diag%grad(:,1,:))
-        !       p_os%p_diag%grad(:,1,:)= -p_os%p_diag%grad(:,1,:)*grav
-        !       p_os%p_prog(nold(1))%vn(:,1,:) = &
-        !       &geo_balance_mim(patch_2D, p_os%p_diag%h_e, p_os%p_diag%grad(:,1,:))
+        !                  & ocean_state%p_diag%grad(:,1,:))
+        !       ocean_state%p_diag%grad(:,1,:)= -ocean_state%p_diag%grad(:,1,:)*grav
+        !       ocean_state%p_prog(nold(1))%vn(:,1,:) = &
+        !       &geo_balance_mim(patch_2D, ocean_state%p_diag%h_e, ocean_state%p_diag%grad(:,1,:))
         
         
         !init normal velocity
@@ -1533,11 +1552,11 @@ CONTAINS
             z_lat = patch_2d%edges%center(je,jb)%lat
             z_lon = patch_2d%edges%center(je,jb)%lon
             
-            p_os%p_prog(nold(1))%vn(je,1,jb) = &
+            ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
               & test2_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
               & + test2_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
             !           write(*,*)'vn:expl: inverse', je,jb,&
-            !           &p_os%p_prog(nold(1))%vn(je,1,jb),p_os%p_prog(nnew(1))%vn(je,1,jb)
+            !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
           END DO
         END DO
         
@@ -1554,16 +1573,16 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
-            p_os%p_prog(nold(1))%h(jc,jb)     = test5_h( z_lon, z_lat, 0.0_wp)
-            p_ext_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
+            ocean_state%p_prog(nold(1))%h(jc,jb)     = test5_h( z_lon, z_lat, 0.0_wp)
+            external_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
           END DO
         END DO
-        !       CALL grad_fd_norm_oce_2D( p_os%p_prog(nold(1))%h, &
+        !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
         !                  & patch_2D,    &
-        !                  & p_os%p_diag%grad(:,1,:))
-        !       p_os%p_diag%grad(:,1,:)= -p_os%p_diag%grad(:,1,:)*grav
-        !       p_os%p_prog(nold(1))%vn(:,1,:) = &
-        !       &geo_balance_mim(patch_2D, p_os%p_diag%h_e, p_os%p_diag%grad(:,1,:))
+        !                  & ocean_state%p_diag%grad(:,1,:))
+        !       ocean_state%p_diag%grad(:,1,:)= -ocean_state%p_diag%grad(:,1,:)*grav
+        !       ocean_state%p_prog(nold(1))%vn(:,1,:) = &
+        !       &geo_balance_mim(patch_2D, ocean_state%p_diag%h_e, ocean_state%p_diag%grad(:,1,:))
         
         
         !init normal velocity
@@ -1573,29 +1592,29 @@ CONTAINS
             z_lat = patch_2d%edges%center(je,jb)%lat
             z_lon = patch_2d%edges%center(je,jb)%lon
             
-            p_os%p_prog(nold(1))%vn(je,1,jb) = &
+            ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
               & test5_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
               & + test5_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
             !           write(*,*)'vn:expl: inverse', je,jb,&
-            !           &p_os%p_prog(nold(1))%vn(je,1,jb),p_os%p_prog(nnew(1))%vn(je,1,jb)
+            !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
           END DO
         END DO
         
       CASE(27)!temperature ditribution
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (27)')
-        p_os%p_prog(nold(1))%h  = 0.0_wp
-        p_os%p_prog(nold(1))%vn = 0.0_wp
-        p_os%p_prog(nnew(1))%vn = 0.0_wp
+        ocean_state%p_prog(nold(1))%h  = 0.0_wp
+        ocean_state%p_prog(nold(1))%vn = 0.0_wp
+        ocean_state%p_prog(nnew(1))%vn = 0.0_wp
         IF(no_tracer>0)THEN
-          p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
-          p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+          ocean_state%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
+          ocean_state%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
         ELSE
           CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
         ENDIF
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            p_ext_data%oce%bathymetry_c(jc,jb) = -200._wp
+            external_data%oce%bathymetry_c(jc,jb) = -200._wp
             patch_3d%p_patch_1d(1)%dolic_c(jc,jb)      = 1
             
             !latitude given in radians
@@ -1604,13 +1623,13 @@ CONTAINS
             !Impose emperature profile. Profile
             !depends on latitude only
             IF(ABS(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
-              p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp
-              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 5.0_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp
+              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1) = 5.0_wp
             ELSEIF(ABS(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
-              p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
-              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
+              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
             ENDIF
-            !           !write(90,*)'lat-degrees', jc,jb,z_lat, z_lat_deg, p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+            !           !write(90,*)'lat-degrees', jc,jb,z_lat, z_lat_deg, ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
           END DO
         END DO
         
@@ -1623,13 +1642,13 @@ CONTAINS
             z_lat = patch_2d%edges%center(je,jb)%lat
             z_lon = patch_2d%edges%center(je,jb)%lon
             IF(patch_3d%lsm_e(je,1,jb)<=sea_boundary)THEN
-              p_os%p_prog(nold(1))%vn(je,1,jb) = &
+              ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
                 & (test5_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
                 & + test5_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2)!/30.0_wp
-              ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
-              p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
-              p_os%p_diag%h_e(je,jb) = 1.0_wp
-              p_os%p_diag%vn_time_weighted(je,1,jb)=p_os%p_prog(nnew(1))%vn(je,1,jb)
+              ! write(*,*)'vn', je,jb,ocean_state%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
+              ocean_state%p_prog(nnew(1))%vn(je,1,jb) = ocean_state%p_prog(nold(1))%vn(je,1,jb)
+              ocean_state%p_diag%h_e(je,jb) = 1.0_wp
+              ocean_state%p_diag%vn_time_weighted(je,1,jb)=ocean_state%p_prog(nnew(1))%vn(je,1,jb)
             ENDIF
           END DO
         END DO
@@ -1645,28 +1664,28 @@ CONTAINS
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
             IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
-              p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
-              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
+              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
+              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
               
-              p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
+              ocean_state%p_prog(nold(1))%h(jc,jb) = 0.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
               
               z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
               !Local hot perturbation
               IF(z_dst<=z_perwid)THEN
-                p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) =        &
+                ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) =        &
                   & (1.0_wp+COS(pi*z_dst/z_perwid))/2.0_wp +2.0_wp
               ENDIF
-              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer)= p_os%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer)
-              p_os%p_prog(nnew(1))%h(jc,jb)         = p_os%p_prog(nold(1))%h(jc,jb)
+              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer)= ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer)
+              ocean_state%p_prog(nnew(1))%h(jc,jb)         = ocean_state%p_prog(nold(1))%h(jc,jb)
             ENDIF
           END DO
         END DO
         WRITE(*,*)'max/min tracer at initial time',&
-          & MAXVAL( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
-          & MINVAL( p_os%p_prog(nold(1))%tracer(:,1,:,1))
+          & MAXVAL( ocean_state%p_prog(nold(1))%tracer(:,1,:,1)),&
+          & MINVAL( ocean_state%p_prog(nold(1))%tracer(:,1,:,1))
         WRITE(*,*)'max/min height at initial time',&
-          & MAXVAL( p_os%p_prog(nold(1))%h(:,:)),&
-          & MINVAL( p_os%p_prog(nold(1))%h(:,:))
+          & MAXVAL( ocean_state%p_prog(nold(1))%h(:,:)),&
+          & MINVAL( ocean_state%p_prog(nold(1))%h(:,:))
         
       CASE(29)!State at rest, forced by wind
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (29)')
@@ -1676,14 +1695,14 @@ CONTAINS
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
-            p_os%p_prog(nold(1))%h(jc, jb)         = 0.0_wp
+            ocean_state%p_prog(nold(1))%h(jc, jb)         = 0.0_wp
             
-            !p_ext_data%oce%bathymetry_c(jc,jb) = 0.0_wp
+            !external_data%oce%bathymetry_c(jc,jb) = 0.0_wp
           END DO
         END DO
         
         
-        p_os%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
+        ocean_state%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
         
       CASE default
         WRITE(0,*)'testcase',itestcase_oce
@@ -1691,7 +1710,7 @@ CONTAINS
       END SELECT
     ENDIF  !  iswm_oce
     
-    CALL fill_tracer_x_height(patch_3d, p_os)
+    CALL fill_tracer_x_height(patch_3d, ocean_state)
     
     
     CALL message (TRIM(routine), 'end')

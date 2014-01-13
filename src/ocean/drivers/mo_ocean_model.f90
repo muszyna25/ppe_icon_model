@@ -64,7 +64,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
   
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: init_oce_prog, init_oce_relax, i_sea_ice
+  USE mo_ocean_nml,              ONLY: init_oce_prog, i_sea_ice
   
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
   
@@ -86,8 +86,7 @@ MODULE mo_ocean_model
   USE mo_ocean_initialization,    ONLY:    setup_ocean_namelists,  init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
     & init_patch_3d, setup_ocean_namelists
-  USE mo_ocean_initial_conditions,  ONLY: init_ho_testcases, init_ho_prog,&
-    & init_ho_recon_fields
+  USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ho_recon_fields
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -459,8 +458,10 @@ CONTAINS
     CALL init_ho_params(patch_3d, p_phys_param)
     
     !------------------------------------------------------------------
-    ! construct ocean forcing and testcases
+    ! construct ocean initial conditions and forcing
     !------------------------------------------------------------------
+    CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
+
     CALL construct_ocean_coupling(ocean_patch_3d)
     ! CALL init_coupled_ocean(patch_3d%p_patch_2d(jg), p_os(jg))
     
@@ -469,20 +470,12 @@ CONTAINS
     CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
     CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), p_atm_f, kice)
     
-    ! CALL aplly_initial_conditions()
-
-    IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff,p_sfc_flx)
-    ELSE IF (init_oce_prog == 1) THEN
-      CALL init_ho_prog(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
-    END IF
+    ! initialize forcing after the initial conditions, since it may require knowledge
+    ! of the initial conditions
+    CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
 !    IF (init_oce_relax == 1) THEN
 !      CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
 !    END IF
-
-    ! initialize forcing after initial conditions, since it may require knowledge
-    ! of the initial conditions
-    CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
 
 
     IF (i_sea_ice >= 1) &
