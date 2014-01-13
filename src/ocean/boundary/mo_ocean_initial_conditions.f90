@@ -82,7 +82,6 @@ MODULE mo_ocean_initial_conditions
   INCLUDE 'netcdf.inc'
   !
   PUBLIC :: apply_initial_conditions
-  PUBLIC :: init_ho_recon_fields
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -112,6 +111,9 @@ CONTAINS
     ELSE IF (init_oce_prog == 1) THEN
       CALL init_ho_prog(patch_2d, patch_3d, ocean_state)
     END IF
+
+    CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
+
   END SUBROUTINE apply_initial_conditions
   !-------------------------------------------------------------------------
 
@@ -129,11 +131,8 @@ CONTAINS
     TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    !TYPE(t_external_data)             :: external_data
-    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
     
     ! Local Variables
-    
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ho_prog'
     CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
     
@@ -315,7 +314,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_recon_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
+  SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -345,7 +344,7 @@ CONTAINS
     
     !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, ocean_state, operators_coeff)
     
-  END SUBROUTINE init_ho_recon_fields
+  END SUBROUTINE initialize_diagnostic_fields
   !-------------------------------------------------------------------------
   
 

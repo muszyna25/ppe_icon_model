@@ -86,7 +86,7 @@ MODULE mo_ocean_model
   USE mo_ocean_initialization,    ONLY:    setup_ocean_namelists,  init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
     & init_patch_3d, setup_ocean_namelists
-  USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ho_recon_fields
+  USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -460,16 +460,17 @@ CONTAINS
     !------------------------------------------------------------------
     ! construct ocean initial conditions and forcing
     !------------------------------------------------------------------
-    CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
-
-    CALL construct_ocean_coupling(ocean_patch_3d)
-    ! CALL init_coupled_ocean(patch_3d%p_patch_2d(jg), p_os(jg))
+    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
+    CALL par_init_operator_coeff( patch_3d, p_os(jg),p_phys_param, p_op_coeff)
     
-    CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
     CALL construct_sea_ice(patch_3d, p_ice, kice)
     CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
     CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), p_atm_f, kice)
     
+    CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
+    CALL construct_ocean_coupling(ocean_patch_3d)
+
+    CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
@@ -478,14 +479,6 @@ CONTAINS
 !    END IF
 
 
-    IF (i_sea_ice >= 1) &
-      & CALL ice_init(patch_3d, p_os(jg), p_ice)
-    
-    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
-    CALL par_init_operator_coeff( patch_3d, p_os(jg),p_phys_param, p_op_coeff)
-    CALL init_ho_recon_fields   ( patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_op_coeff)
-    
-    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3d)
     
     CALL message (TRIM(routine),'end')
     
