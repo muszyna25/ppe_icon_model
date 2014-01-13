@@ -138,6 +138,11 @@ MODULE mo_name_list_output_init
     &                                             set_event_to_simstep
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
 
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+  USE mo_coupling_config,                   ONLY: is_coupled_run
+  USE mo_icon_cpl,                          ONLY: comps
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1168,18 +1173,36 @@ CONTAINS
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
     ! print a table with all output events
-    if (.not. my_process_is_mpi_test()) THEN
+    IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           CALL print_output_event(all_events)                                       ! screen output
-          if (dom_sim_step_info%jstep0 > 0) then
+          IF (dom_sim_step_info%jstep0 > 0) THEN
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+               CALL print_output_event(all_events, &
+      &   opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+             ELSE
+               CALL print_output_event(all_events, &
+      &   opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+             ENDIF
+#else
              CALL print_output_event(all_events, &
-                  &  opt_filename="output_schedule_steps_"//trim(int2string(dom_sim_step_info%jstep0))//"+.txt")   ! ASCII file output
-          else
-             CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
-          end if
+      &        opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+#endif
+          ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//".txt") ! ASCII file output
+             ELSE
+                CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+             ENDIF
+#else
+             CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+#endif
+          END IF
        END IF
-    end if
+    END IF
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
