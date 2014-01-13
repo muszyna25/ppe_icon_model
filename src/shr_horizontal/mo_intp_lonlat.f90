@@ -2423,9 +2423,14 @@
             i_startidx = 1
             i_endidx   = nproma
             IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+#ifdef __LOOP_EXCHANGE
+            DO jc=i_startidx,i_endidx
+              DO jk=slev,elev
+#else
 !CDIR UNROLL=5
             DO jk=slev,elev
               DO jc=i_startidx,i_endidx
+#endif
                 p_lonlat_out(jc,jk,jb) = p_cell_in(ptr_int%tri_idx(1,jc,jb), jk, &
                   &                                ptr_int%tri_idx(2,jc,jb))     &
                   &           +  ptr_int%rdist(1,jc,jb) * grad_x(jc,jk,jb)       &

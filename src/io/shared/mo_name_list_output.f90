@@ -1327,7 +1327,11 @@ CONTAINS
     CALL date_and_time(TIME=ctime)
     WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' done at '//ctime
     ! Convert mb_get/mb_wr to MB
-    mb_get = mb_get*8*1.d-6
+    IF (use_dp_mpi2io) THEN
+      mb_get = mb_get*8*1.d-6
+    ELSE
+      mb_get = mb_get*4*1.d-6
+    ENDIF
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
 #ifndef __SX__
