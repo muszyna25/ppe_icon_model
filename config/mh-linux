@@ -229,7 +229,7 @@ esac
 case "$ac_sitename" in
     dwd.de)
         case "$(hostname)" in
-            xct*)
+            xc*)
                 NETCDFROOT  =${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
