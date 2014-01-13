@@ -49,7 +49,7 @@ MODULE mo_oce_diagnostics
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
     & gibraltar, denmark_strait,drake_passage, indonesian_throughflow,&
     & scotland_iceland, &
-    & ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
+    & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps

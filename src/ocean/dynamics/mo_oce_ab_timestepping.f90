@@ -46,7 +46,7 @@ MODULE mo_oce_ab_timestepping
 !
 !
 !
-USE mo_ocean_nml,                      ONLY: idisc_scheme
+USE mo_ocean_nml,                      ONLY: discretization_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_types,                      ONLY: t_hydro_ocean_state
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
@@ -94,7 +94,7 @@ CONTAINS
     INTEGER                                       :: timestep
     TYPE(t_operator_coeff)                        :: p_op_coeff
 
-    IF(idisc_scheme==MIMETIC_TYPE)THEN
+    IF(discretization_scheme==MIMETIC_TYPE)THEN
 
       CALL solve_free_sfc_ab_mimetic( p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
         &                            p_phys_param, timestep, p_op_coeff)
@@ -120,7 +120,7 @@ CONTAINS
     TYPE(t_external_data), TARGET        :: p_ext_data
     TYPE (t_ho_params)                   :: p_phys_param
     !-----------------------------------------------------------------------
-    IF(idisc_scheme==MIMETIC_TYPE)THEN
+    IF(discretization_scheme==MIMETIC_TYPE)THEN
 
       CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff, p_ext_data)
 
@@ -152,7 +152,7 @@ CONTAINS
     !Store current vertical velocity before the new one is calculated
     p_os%p_diag%w_old = p_os%p_diag%w
 
-    IF(idisc_scheme==MIMETIC_TYPE)THEN
+    IF(discretization_scheme==MIMETIC_TYPE)THEN
 
       CALL calc_vert_velocity_mim_bottomup( p_patch_3D,     &
                                   & p_os,                   &

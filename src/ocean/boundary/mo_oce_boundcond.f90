@@ -512,14 +512,14 @@ CONTAINS
 ! ! !          &                  z_gradh_e(:,1,:))
 ! !     CALL sync_patch_array(SYNC_E, patch_2D, z_grad_h(:,1,:))
 ! !     
-! !     IF(idisc_scheme==1)THEN
+! !     IF(discretization_scheme==1)THEN
 ! ! !       CALL map_edges2cell( patch_2D,        &
 ! ! !         & z_grad_h,       &
 ! ! !         & z_grad_h_cc_vec,&
 ! ! !       !                         & p_os%p_diag%h_e,&
 ! ! !         & opt_slev=1,opt_elev=1 )
 ! !       
-! ! ! !     ELSEIF(idisc_scheme==2)THEN
+! ! ! !     ELSEIF(discretization_scheme==2)THEN
 ! ! ! !       
 ! ! ! !       CALL rbf_vec_interpol_cell( z_grad_h,&
 ! ! ! !         & patch_2D,    &

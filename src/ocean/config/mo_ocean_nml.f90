@@ -175,7 +175,7 @@ MODULE mo_ocean_nml
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
-  INTEGER            :: idisc_scheme    =   1  ! discretization scheme: 1 for mimetic, 
+  INTEGER            :: discretization_scheme    =   1  ! discretization scheme: 1 for mimetic, 
                                                ! 2 for RBF-type of discretization
 
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
@@ -327,7 +327,7 @@ MODULE mo_ocean_nml
   REAL(wp) ::  forcing_windstress_meridional_waveno     = 3.0_wp
   REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
-  NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
+  NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, discretization_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
@@ -545,9 +545,9 @@ MODULE mo_ocean_nml
        n_zlev = 1
      ENDIF
 
-     IF(idisc_scheme == 1)THEN
+     IF(discretization_scheme == 1)THEN
        CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
-     ELSEIF(idisc_scheme == 2)THEN
+     ELSEIF(discretization_scheme == 2)THEN
        CALL message(TRIM(routine),'You have choosen the RBF dicretization')
      ELSE
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')

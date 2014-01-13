@@ -50,8 +50,8 @@ MODULE mo_ocean_initial_conditions
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
-    & basin_center_lat, basin_center_lon,idisc_scheme,           &
-    & basin_height_deg,  basin_width_deg,  init_oce_prog,        &
+    & basin_center_lat, basin_center_lon, discretization_scheme,           &
+    & basin_height_deg,  basin_width_deg,  init_oce_prog,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
     & scatter_t, scatter_s
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
@@ -321,11 +321,13 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff)                        :: operators_coeff
     
-    sphere_radius = grid_sphere_radius
-    u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
+ !   sphere_radius = grid_sphere_radius
+ !   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     
-    IF(idisc_scheme==1)THEN
+    IF(discretization_scheme==1)THEN
+
       IF (is_restart_run()) CALL update_time_indices(1)
+
       CALL calc_scalar_product_veloc_3d( patch_3d,&
         & ocean_state%p_prog(nold(1))%vn,&
         & ocean_state%p_prog(nold(1))%vn,&
