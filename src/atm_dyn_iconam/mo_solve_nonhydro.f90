@@ -1211,18 +1211,10 @@ MODULE mo_solve_nonhydro
 
     IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
 !$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-#ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
         jb = p_nh%metrics%nudge_e_blk(ic)
         DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, p_nh%metrics%nudge_e_dim
-          je = p_nh%metrics%nudge_e_idx(ic)
-          jb = p_nh%metrics%nudge_e_blk(ic)
-#endif
           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
             + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
         ENDDO
@@ -2309,4 +2301,3 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro
-
