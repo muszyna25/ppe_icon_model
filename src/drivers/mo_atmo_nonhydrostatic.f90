@@ -36,8 +36,8 @@ USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp
 USE mo_mpi,                  ONLY: my_process_is_stdio
-USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
-  &                                timer_stop, timer_model_init
+USE mo_timer,                ONLY: print_timer, timers_level, timer_start, timer_stop, &
+  &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
@@ -268,6 +268,7 @@ CONTAINS
     IF (is_restart_run()) THEN
       ! This is a resumed integration. Read model state from restart file(s).
 
+      IF (timers_level > 5) CALL timer_start(timer_read_restart)
 #ifdef NOMPI
       CALL read_restart_files
 #else
@@ -277,6 +278,7 @@ CONTAINS
       !END DO
 #endif      
       CALL message(TRIM(routine),'normal exit from read_restart_files')
+      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
     ENDIF
 
@@ -313,8 +315,10 @@ CONTAINS
     !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
+      IF (timers_level > 5) CALL timer_start(timer_init_icon)
       CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
         &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
+      IF (timers_level > 5) CALL timer_stop(timer_init_icon)
 
     ENDIF
 
