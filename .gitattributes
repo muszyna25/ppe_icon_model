@@ -1691,7 +1691,6 @@ support/cdilib.c -text
 support/cfortran.h -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
-support/resource_handle.h -text
 support/rtc_sx.s -text
 support/util_backtrace.c -text
 support/util_backtrace.c_luis -text

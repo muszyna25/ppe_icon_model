@@ -67,7 +67,6 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_2d_real
     MODULE PROCEDURE read_cdi_2d_int
     MODULE PROCEDURE read_cdi_2d_time
-    MODULE PROCEDURE read_cdi_2d_lu
   END INTERFACE
 
 CONTAINS
@@ -399,73 +398,5 @@ CONTAINS
       CALL read_cdi_2d (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt))
     END DO
   END SUBROUTINE read_cdi_2d_time
-
-
-  !-------------------------------------------------------------------------
-  !> Read 2D dataset from file, specific read-routine for LU_CLASS_FRACTION. 
-  !
-  !  @par Revision History
-  ! 
-  !  Initial revision by F. Prill, DWD (2013-02-19)
-  !
-  SUBROUTINE read_cdi_2d_lu (streamID, varname, glb_arr_len, loc_arr_len, glb_index, nslice, var_out, opt_dict)
-
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    INTEGER,          INTENT(IN)    :: nslice         !< slices of field
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict  !< optional: variable name dictionary
-    ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_lu'
-    INTEGER       :: varID, mpi_comm, j, jl, jb, islice, &
-      &              nmiss, vlistID, gridID, ioffset
-    REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
-    REAL(wp), ALLOCATABLE :: z_dummy_array_lu(:)
-
-    ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_dict=opt_dict)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      ! Check variable dimensions:
-      IF ((gridInqXSize(gridID) /= glb_arr_len) .OR.  &
-        & (gridInqYSize(gridID) /= nslice)) THEN
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
-    END IF
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF (p_pe == p_io) THEN
-      ALLOCATE (z_dummy_array_lu(glb_arr_len*nslice))
-      ! read record as 1D field
-      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array_lu(:), nmiss)
-    END IF
-
-    ! Set var_out from global data
-    ioffset = 0
-    DO islice = 1, nslice
-      IF (p_pe == p_io) z_dummy_array(:) = z_dummy_array_lu(ioffset+1:ioffset+glb_arr_len)
-      CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-      var_out(:,:,islice) = 0._wp
-      DO j = 1, loc_arr_len
-        jb = blk_no(j) ! Block index in distributed patch
-        jl = idx_no(j) ! Line  index in distributed patch
-        var_out(jl,jb,islice) = z_dummy_array(glb_index(j))
-      ENDDO
-      ioffset = ioffset + glb_arr_len
-    END DO
-    IF (p_pe == p_io) DEALLOCATE (z_dummy_array_lu)
-
-  END SUBROUTINE read_cdi_2d_lu
 
 END MODULE mo_util_cdi

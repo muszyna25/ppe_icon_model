@@ -1,10 +1,10 @@
 ! This file was automatically generated, don't edit!
 !
-! Fortran interface for CDI library version 1.6.2
+! Fortran interface for CDI library version 1.6.3
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   November 2013
+! Uwe Schulzweida, MPI-MET, Hamburg,   January 2014
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -369,51 +369,6 @@
       INTEGER    CALENDAR_NONE         
       PARAMETER (CALENDAR_NONE          =  5)
 !
-!  parallel IO IOMode
-!
-      INTEGER    PIO_NONE              
-      PARAMETER (PIO_NONE               =  0)
-      INTEGER    PIO_MPI               
-      PARAMETER (PIO_MPI                =  1)
-      INTEGER    PIO_WRITER            
-      PARAMETER (PIO_WRITER             =  2)
-      INTEGER    PIO_ASYNCH            
-      PARAMETER (PIO_ASYNCH             =  3)
-      INTEGER    PIO_FPGUARD           
-      PARAMETER (PIO_FPGUARD            =  4)
-!
-!  parallel IO routines
-!
-!                     pioEndDef
-!DR      EXTERNAL        pioEndDef
-
-!                     pioEndTimestepping
-!DR      EXTERNAL        pioEndTimestepping
-
-!                     pioFinalize
-!DR      EXTERNAL        pioFinalize
-
-!DR      INTEGER         pioInit
-!                                    (INTEGER         commSuper,
-!                                     INTEGER         nProcsIO,
-!                                     INTEGER         IOMode,
-!                                     INTEGER         pioNamespace,
-!                                     REAL            partInflate)
-!DR      EXTERNAL        pioInit
-
-!                     streamWriteVarPart
-!                                    (INTEGER         streamID,
-!                                     INTEGER         varID,
-!                                     CHOICE          data,
-!                                     INTEGER         nmiss,
-!                                     TYPE(XT_IDXLIST)partDesc)
-!DR      EXTERNAL        streamWriteVarPart
-
-!                     pioNamespaceSetActive
-!                                    (INTEGER         )
-      EXTERNAL        pioNamespaceSetActive
-
-!
 !  CDI control routines
 !
 !                     cdiReset
@@ -448,6 +403,17 @@
 !                                    (CHARACTER*(*)   string,
 !                                     INTEGER         val)
       EXTERNAL        cdiDefGlobal
+
+      INTEGER         namespaceNew
+      EXTERNAL        namespaceNew
+
+!                     namespaceSetActive
+!                                    (INTEGER         namespaceID)
+      EXTERNAL        namespaceSetActive
+
+!                     namespaceDelete
+!                                    (INTEGER         namespaceID)
+      EXTERNAL        namespaceDelete
 
 !
 !  CDI converter routines
@@ -579,6 +545,13 @@
 !                                     INTEGER         tsID)
       EXTERNAL        streamDefTimestep
 
+!
+!  query currently set timestep id
+!
+      INTEGER         streamInqCurTimestepID
+!                                    (INTEGER         streamID)
+      EXTERNAL        streamInqCurTimestepID
+
       INTEGER         streamInqTimestep
 !                                    (INTEGER         streamID,
 !                                     INTEGER         tsID)
@@ -693,12 +666,6 @@
 !                                    (INTEGER         streamIDdest,
 !                                     INTEGER         streamIDsrc)
       EXTERNAL        streamCopyRecord
-
-!                     streamInqGinfo
-!                                    (INTEGER         streamID,
-!                                     INTEGER         intnum,
-!                                     REAL            fltnum)
-      EXTERNAL        streamInqGinfo
 
 !
 !  VLIST routines
@@ -1226,6 +1193,9 @@
 !                                     INTEGER         ensCount,
 !                                     INTEGER         forecast_type)
       EXTERNAL        vlistInqVarEnsemble
+
+!                     cdiClearAdditionalKeys
+      EXTERNAL        cdiClearAdditionalKeys
 
 !                     cdiDefAdditionalKey
 !                                    (CHARACTER*(*)   string)
