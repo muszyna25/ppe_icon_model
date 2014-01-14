@@ -209,7 +209,7 @@ CONTAINS
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
     
-    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),is_restart_run())
+    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),v_params, is_restart_run())
     
     !------------------------------------------------------------------
     CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
@@ -456,8 +456,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! construct ocean initial conditions and forcing
     !------------------------------------------------------------------
-    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
-    CALL par_init_operator_coeff( patch_3d, p_os(jg),p_phys_param, p_op_coeff)
     
     CALL construct_sea_ice(patch_3d, p_ice, kice)
     CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
@@ -467,23 +465,27 @@ CONTAINS
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
-    ! initialize phase
-    !------------------------------------------------------------------
     CALL init_ho_params(patch_3d, p_phys_param)
-    IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
+
+    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
+    CALL par_init_operator_coeff( patch_3d, p_op_coeff)
+
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
 !    IF (init_oce_relax == 1) THEN
+!      this is called in init_ocean_forcing
 !      CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
 !    END IF
+
+    IF (i_sea_ice >= 1) &
+      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
 
     ! initialize ocean indices for debug output (including 3-dim lsm)
     CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, p_ext_data )
 
-
+    IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
     
     CALL message (TRIM(routine),'end')
     

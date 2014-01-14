@@ -500,11 +500,9 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-  SUBROUTINE par_init_operator_coeff( p_patch_3D, p_os, p_phys_param, ocean_coeff)
+  SUBROUTINE par_init_operator_coeff( p_patch_3D, ocean_coeff)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
-    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
-    TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
     TYPE(t_operator_coeff),   INTENT(inout) :: ocean_coeff
    !
    !Local variables:
@@ -522,13 +520,6 @@ CONTAINS
 
     CALL par_apply_boundary2coeffs(p_patch_3D, ocean_coeff)
 
-
-    CALL update_diffusion_matrices(   p_patch_3D,                    &
-                                    & p_os,                          &
-                                    & p_phys_param,                  &
-                                    & ocean_coeff%matrix_vert_diff_e,&
-                                    & ocean_coeff%matrix_vert_diff_c)
-
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------
 
@@ -540,13 +531,11 @@ CONTAINS
   !! Peter Korn (2012-2)
   !! Parellelized by Leonidas Linardakis 2012-3 
   SUBROUTINE update_diffusion_matrices(   p_patch_3D,          &
-                                         & p_os,               &  
                                          & p_phys_param,       &
                                          & matrix_vert_diff_e, &
                                          & matrix_vert_diff_c)
  
-     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: p_patch_3D
-     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
      TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e,1:3)
      REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
