@@ -451,11 +451,7 @@ CONTAINS
     ! patch_2D and p_os have dimension n_dom
     CALL construct_hydro_ocean_state(patch_3d%p_patch_2d, p_os)
     
-    ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, p_ext_data )
-    
     CALL construct_ho_params(patch_3d%p_patch_2d(jg), p_phys_param)
-    CALL init_ho_params(patch_3d, p_phys_param)
     
     !------------------------------------------------------------------
     ! construct ocean initial conditions and forcing
@@ -470,6 +466,12 @@ CONTAINS
     CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
     CALL construct_ocean_coupling(ocean_patch_3d)
 
+    !------------------------------------------------------------------
+    ! initialize phase
+    !------------------------------------------------------------------
+    CALL init_ho_params(patch_3d, p_phys_param)
+    IF (i_sea_ice >= 1) &
+      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
@@ -477,6 +479,9 @@ CONTAINS
 !    IF (init_oce_relax == 1) THEN
 !      CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
 !    END IF
+
+    ! initialize ocean indices for debug output (including 3-dim lsm)
+    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, p_ext_data )
 
 
     
