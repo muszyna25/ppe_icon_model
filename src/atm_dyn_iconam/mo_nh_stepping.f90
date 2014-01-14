@@ -112,7 +112,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
+  USE mo_mpi,                 ONLY: my_process_is_mpi_parallel,                      &
     &                               proc_split, push_glob_comm, pop_glob_comm,       &
     &                               get_my_mpi_all_id
 #ifdef NOMPI
