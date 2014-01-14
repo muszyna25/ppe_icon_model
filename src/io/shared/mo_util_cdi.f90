@@ -158,7 +158,7 @@ CONTAINS
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
   SUBROUTINE read_cdi_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict)
+    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
 
     INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
@@ -170,6 +170,7 @@ CONTAINS
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_cdi_3d'
@@ -179,6 +180,10 @@ CONTAINS
       &                                dimlen(3), nmiss
     REAL(wp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     LOGICAL                         :: lvalue_add
+    INTEGER                         :: lev_dim
+
+    lev_dim = 2
+    CALL assign_if_present(lev_dim, opt_lev_dim)
 
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
@@ -223,19 +228,39 @@ CONTAINS
       ! broadcast data: 
       CALL p_bcast(tmp_buf, p_io, mpi_comm)
       ! Set var_out from global data
-      IF (lvalue_add) THEN
-        DO j = 1, loc_arr_len
-          jb = blk_no(j) ! Block index in distributed patch
-          jl = idx_no(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
-        ENDDO
-      ELSE
-        DO j = 1, loc_arr_len
-          jb = blk_no(j) ! Block index in distributed patch
-          jl = idx_no(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j)), wp)
-        ENDDO
-      END IF
+
+      SELECT CASE(lev_dim)
+      CASE(2) 
+        IF (lvalue_add) THEN
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        ELSE
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        END IF
+      CASE(3)
+        IF (lvalue_add) THEN
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jb,jk) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        ELSE
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jb,jk) = REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        END IF
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+      END SELECT
     END DO ! jk=1,nlevs
       
     ! clean up

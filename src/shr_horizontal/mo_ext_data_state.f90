@@ -2419,7 +2419,7 @@ CONTAINS
           CALL read_cdi_3d(cdi_extpar_id(jg), 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
             &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
             &              nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction,                    &
-            &              opt_dict=extpar_varnames_dict )
+            &              opt_dict=extpar_varnames_dict, opt_lev_dim=3 )
 
           IF ( l_emiss ) THEN
             CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &
