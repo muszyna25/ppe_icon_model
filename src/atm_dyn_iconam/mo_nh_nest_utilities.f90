@@ -48,7 +48,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grid_config,         ONLY: n_dom, n_dom_start
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
-  USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct
+  USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct, grf_scalfbk, grf_tracfbk
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
   USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
@@ -179,7 +179,7 @@ CONTAINS
         nlev_c = p_pc%nlev
         nshift = p_pc%nshift
 
-        p_fbkwgt => p_grf_state_local_parent(jgc)%fbk_wgt_c
+        p_fbkwgt => p_grf_state_local_parent(jgc)%fbk_wgt_bln
         p_gcp => p_patch_local_parent(jgc)%cells
         p_pp  => p_patch_local_parent(jgc)
 
@@ -979,8 +979,16 @@ CONTAINS
     ieidx => p_gep%child_idx
     ieblk => p_gep%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
-    p_fbkwgt_tr => p_grf%fbk_wgt_ct
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
+    IF (grf_tracfbk == 1) THEN
+      p_fbkwgt_tr => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt_tr => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbkwgt_v  => p_grf%fbk_wgt_e
 
     ! 1st step: Copy prognostic variables from parent grid to fields on feedback-parent grid
@@ -1248,7 +1256,11 @@ CONTAINS
     iidx  => p_gcp%child_idx
     iblk  => p_gcp%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
 
     ! 1st step: Copy prognostic variables from parent grid to fields on feedback-parent grid
     ! (trivial without MPI parallelization, but communication call needed for MPI)

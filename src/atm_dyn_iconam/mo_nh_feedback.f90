@@ -48,7 +48,7 @@ MODULE mo_nh_feedback
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
-  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr, fbk_relax_timescale
+  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr, fbk_relax_timescale, grf_scalfbk, grf_tracfbk
   USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
   USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
   USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -278,8 +278,16 @@ CONTAINS
     iidx => p_gcp%child_idx
     iblk => p_gcp%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
-    p_fbkwgt_tr => p_grf%fbk_wgt_ct
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
+    IF (grf_tracfbk == 1) THEN
+      p_fbkwgt_tr => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt_tr => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbarea    => p_gcp%area
 
     p_fb_layer_thickness => p_gcp%ddqz_z_full
@@ -1133,8 +1141,13 @@ CONTAINS
     iceidx => p_gep%child_idx
     iceblk => p_gep%child_blk
 
-
-    p_fbkwgt    => p_grf%fbk_wgt_c
+    ! Note: for consistency, there is no distiction between scalar and tracer feedback weights in this routine
+    ! Temperature and vertical wind feedback is always bilinear
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbkwgt_e  => p_grf%fbk_wgt_e
 
     IF (p_test_run) THEN
@@ -1190,6 +1203,12 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
 
+          feedback_thv(jc,jk,jb) =                                                      &
+            theta_v_pr(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            theta_v_pr(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            theta_v_pr(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            theta_v_pr(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
+
           z_fbk_rho(jc,1,jk) =                                                   & 
             p_child_prog%rho(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1)
           z_fbk_rho(jc,2,jk) =                                                   &
@@ -1199,21 +1218,18 @@ CONTAINS
           z_fbk_rho(jc,4,jk) =                                                   &
             p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-          feedback_rho(jc,jk,jb) =                                                         &
-           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) - &
-            p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
+          ! The semi-empirical correction for density feedback is necessitated by the fact that
+          ! increased orography resolution goes along with increased mass. This needs to be
+          ! corrected for in order to avoid a systematic mass drift in two-way nesting
+          feedback_rho(jc,jk,jb) =                                                               &
+           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) -       &
+           (1.05_wp-0.005_wp*feedback_thv(jc,jk,jb))*p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
 
-          feedback_thv(jc,jk,jb) =                                             &
-            theta_v_pr(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-            theta_v_pr(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-            theta_v_pr(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-            theta_v_pr(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-          feedback_w(jc,jk,jb) =                                                   &
-            p_child_prog%w(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-            p_child_prog%w(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-            p_child_prog%w(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-            p_child_prog%w(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+          feedback_w(jc,jk,jb) =                                                            &
+            p_child_prog%w(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            p_child_prog%w(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            p_child_prog%w(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            p_child_prog%w(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
 
         ENDDO
       ENDDO

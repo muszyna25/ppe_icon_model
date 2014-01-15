@@ -1094,11 +1094,11 @@ MODULE mo_nh_init_nest_utils
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
       DO jc = i_startidx, i_endidx
-        ptr_topo_cp(jc,jb) =                                                &
-          topo_cc(iidx(jc,jb,1),iblk(jc,jb,1))*ptr_grf%fbk_wgt_c(jc,jb,1) + &
-          topo_cc(iidx(jc,jb,2),iblk(jc,jb,2))*ptr_grf%fbk_wgt_c(jc,jb,2) + &
-          topo_cc(iidx(jc,jb,3),iblk(jc,jb,3))*ptr_grf%fbk_wgt_c(jc,jb,3) + &
-          topo_cc(iidx(jc,jb,4),iblk(jc,jb,4))*ptr_grf%fbk_wgt_c(jc,jb,4)
+        ptr_topo_cp(jc,jb) =                                                  &
+          topo_cc(iidx(jc,jb,1),iblk(jc,jb,1))*ptr_grf%fbk_wgt_bln(jc,jb,1) + &
+          topo_cc(iidx(jc,jb,2),iblk(jc,jb,2))*ptr_grf%fbk_wgt_bln(jc,jb,2) + &
+          topo_cc(iidx(jc,jb,3),iblk(jc,jb,3))*ptr_grf%fbk_wgt_bln(jc,jb,3) + &
+          topo_cc(iidx(jc,jb,4),iblk(jc,jb,4))*ptr_grf%fbk_wgt_bln(jc,jb,4)
       ENDDO
     ENDDO
 

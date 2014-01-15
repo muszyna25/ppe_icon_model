@@ -190,7 +190,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_bln
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
   nst = p_patch(jg)%nshift_total
@@ -1158,7 +1158,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_bln
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
   nst = p_patch(jg)%nshift_total
@@ -2232,11 +2232,11 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_aw
 
   ! Allocation of local storage fields 
   nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
-  ALLOCATE(z_aux3d_lp(nproma,7,nblks_c_lp), z_aux3d_par(nproma,5,p_patch(jgp)%nblks_c))
+  ALLOCATE(z_aux3d_lp(nproma,5,nblks_c_lp), z_aux3d_par(nproma,5,p_patch(jgp)%nblks_c))
 
   p_aux3d => z_aux3d_lp
 

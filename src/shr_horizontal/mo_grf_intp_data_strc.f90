@@ -104,11 +104,11 @@ TYPE t_gridref_state
 
   ! These fields are allocated for the full parent domain and thus do not need
   ! to be held separately for each child domain
-  REAL(wp), ALLOCATABLE :: fbk_wgt_c(:,:,:)     ! Feedback weights for cell-based variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_aw(:,:,:)    ! Area-weighted feedback weights for cell-based variables
                                                 !  dim1=1,nproma, dim2=nblks_c, dim3=4
-  REAL(wp), ALLOCATABLE :: fbk_wgt_ct(:,:,:)    ! Feedback weights for cell-based tracer variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_bln(:,:,:)   ! Bilinear feedback weights for cell-based variables
                                                 !  dim1=1,nproma, dim2=nblks_c, dim3=4
-  REAL(wp), ALLOCATABLE :: fbk_wgt_e(:,:,:)     ! The same for edge-based variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_e(:,:,:)     ! Feedback weights for edge-based variables
 
   REAL(wp), ALLOCATABLE :: fbk_dom_area(:) ! Area of subdomain for which feedback is performed
                                            ! dimension: n_childdom
