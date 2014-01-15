@@ -650,7 +650,8 @@ CONTAINS
     TYPE(t_subset_range), TARGET :: in_subset
     REAL(wp), TARGET, INTENT(inout) :: mean   ! mean for each level
 
-    REAL(wp), ALLOCATABLE :: sum_value(:), total_sum, sum_weight(:), total_weight
+    REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
+    REAL(wp):: total_sum, total_weight
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_2D_InRange_2Dweights'
