@@ -391,15 +391,18 @@ MODULE mo_ocean_nml
   REAL(wp) :: scatter_t             = 20.0_wp    ! temperature value for scattering
   REAL(wp) :: scatter_s             = 10.0_wp    ! salinity value for scattering
   INTEGER  :: topography_type  = 0               ! >= 200 analytic bathymetry
-  REAL(wp) :: topography_height = 0.0_wp         ! used if topography_type >= 200
+  REAL(wp) :: topography_height_reference = 0.0_wp         ! used if topography_type >= 200
   INTEGER  :: sea_surface_height_type  = 0       ! >= 200 sea_surface_height
+  INTEGER  :: initial_salinity_type    = 0
+  INTEGER  :: initial_temperature_type = 0
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
   NAMELIST/ocean_initialConditions_nml/ use_file_initialConditions, itestcase_oce,      &
     &  initial_temperature_reference, initial_salinity_reference, &
     &  scatter_levels, scatter_t, scatter_s,     &
-    &  topography_type, topography_height, sea_surface_height_type
+    &  topography_type, topography_height_reference, sea_surface_height_type, &
+    &  initial_salinity_type, initial_temperature_type
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &

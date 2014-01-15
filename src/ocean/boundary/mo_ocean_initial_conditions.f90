@@ -53,7 +53,8 @@ MODULE mo_ocean_initial_conditions
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
-    & scatter_t, scatter_s, topography_type, topography_height, sea_surface_height_type
+    & scatter_t, scatter_s, topography_type, topography_height_reference, sea_surface_height_type, &
+    & initial_temperature_type, initial_salinity_type
 
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
@@ -1463,7 +1464,7 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (24)')
         CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
         
-        ! use topography_type = 200, topography_height = 0
+        ! use topography_type = 200, topography_height_reference = 0
 
         ! use sea_surface_height_type = 203
         
@@ -1484,7 +1485,7 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
         
-        ! use topography_type = 200, topography_height = 0
+        ! use topography_type = 200, topography_height_reference = 0
         ! use sea_surface_height_type = 204
 
         !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
@@ -1552,7 +1553,7 @@ CONTAINS
           CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
         ENDIF
 
-        ! use topography_type = 200, topography_height = -200
+        ! use topography_type = 200, topography_height_reference = -200
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1645,25 +1646,106 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE init_ocean_surface_height(patch_3d, ocean_state)
+  SUBROUTINE init_ocean_salinity(patch_3d, ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
 
     TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
 
-    ! Local Variables
     INTEGER :: jb, jc, je, jk
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: z_dolic
     REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
     REAL(wp):: z_perlat, z_perlon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_salinity'
+    !-------------------------------------------------------------------------
+
+    IF (no_tracer < 1) RETURN        ! no salinity
+    IF (initial_salinity_type < 200) RETURN ! not analytic salinity
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    SELECT CASE (initial_salinity_type)
+    CASE (200)
+      ! uniform salinity
+      ocean_state%p_prog(nold(1))%tracer(:,:,:,1) = initial_salinity_reference
+
+    CASE default
+      CALL finish(method_name, "unknown initial_salinity_type")
+
+    END SELECT
+
+    CALL dbg_print('init_ocean_salinity', ocean_state%p_prog(nold(1))%tracer(:,:,:,1), &
+      & str_module,  1, in_subset=patch_2d%cells%owned)
+
+  END SUBROUTINE init_ocean_salinity
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_temperature(patch_3d, ocean_state)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: z_dolic
+    REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
+    REAL(wp):: z_perlat, z_perlon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
+    !-------------------------------------------------------------------------
+
+    IF (no_tracer < 1) RETURN        ! no temperature
+    IF (initial_temperature_type < 200) RETURN ! not analytic temperature
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    SELECT CASE (initial_temperature_type)
+    CASE (200)
+      ! uniform temperature
+      ocean_state%p_prog(nold(1))%tracer(:,:,:,1) = initial_temperature_reference
+
+    CASE default
+      CALL finish(method_name, "unknown initial_temperature_type")
+
+    END SELECT
+
+    CALL dbg_print('init_ocean_temperature', ocean_state%p_prog(nold(1))%tracer(:,:,:,1), &
+      & str_module,  1, in_subset=patch_2d%cells%owned)
+
+  END SUBROUTINE init_ocean_temperature
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_surface_height(patch_3d, ocean_state)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: z_dolic
+    REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
+    REAL(wp):: z_perlat, z_perlon
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
 
-    IF (sea_surface_height_type < 200) RETURN ! not analytic bathymetry
+    IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -1781,11 +1863,11 @@ CONTAINS
 
     SELECT CASE (topography_type)
     CASE (200)
-      ! constant depth given by topography_height
+      ! constant depth given by topography_height_reference
       ! the whole grid is considered sea
       patch_3d%lsm_c(:,:,:) = sea
       patch_3d%lsm_e(:,:,:) = sea
-      external_data%oce%bathymetry_c(:,:) = topography_height
+      external_data%oce%bathymetry_c(:,:) = topography_height_reference
 
     CASE (201)
       ! test5_oro
