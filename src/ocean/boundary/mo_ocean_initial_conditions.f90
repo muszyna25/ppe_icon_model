@@ -49,11 +49,13 @@ MODULE mo_ocean_initial_conditions
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
+
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
-    & scatter_t, scatter_s
+    & scatter_t, scatter_s, bathymetry_type, bathymetry_depth
+
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -90,8 +92,9 @@ MODULE mo_ocean_initial_conditions
   
   
   REAL(wp) :: sphere_radius, u0
-  
   REAL(wp), PARAMETER :: aleph = 0.0_wp
+  
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'ocean_initial_conditions'
   
 CONTAINS
   
@@ -1718,6 +1721,44 @@ CONTAINS
   END SUBROUTINE init_ocean_analytically
   !-------------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_bathymetry(patch_3d, external_data)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_external_data)             :: external_data
+
+    TYPE(t_patch),POINTER   :: patch_2d
+
+    ! Local Variables
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: z_dolic
+    REAL(wp):: z_lat, z_lon
+    REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_bathymetry'
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+
+    IF (bathymetry_type < 200) RETURN ! not analytic bathymetry
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    SELECT CASE (bathymetry_type)
+    CASE (200)
+      ! constant depth given by bathymetry_depth
+      ! the whole grid is considered sea
+      patch_3d%lsm_c(:,:,:) = sea
+      patch_3d%lsm_e(:,:,:) = sea
+      external_data%oce%bathymetry_c(:,:) = bathymetry_depth
+
+    CASE default
+      CALL finish(method_name, "unknown bathymetry_type")
+    END SELECT
+
+  END SUBROUTINE init_ocean_bathymetry
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   FUNCTION geo_balance_mim(patch_2d, h_e,grad_coeff, rhs_e) result(vn_e)
