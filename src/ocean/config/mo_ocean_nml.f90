@@ -104,10 +104,10 @@ MODULE mo_ocean_nml
                       ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
                       ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_type     = 10
+  INTEGER            :: iforc_type = 10
 
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
-  INTEGER            :: forcing_timescale      = 1
+  INTEGER            :: forcing_timescale = 1
 
   ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 3

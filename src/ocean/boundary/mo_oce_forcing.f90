@@ -44,23 +44,18 @@
 MODULE mo_oce_forcing
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: filename_max
-  USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
     & wstress_coeff, iforc_stat_oce, basin_height_deg, no_tracer, &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,     &
     & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno, analytic_wind_amplitude
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_exception,           ONLY: finish, message, message_text
+  USE mo_exception,           ONLY: finish, message
   USE mo_math_constants,      ONLY: pi, deg2rad
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_math_utilities,      ONLY: gvec2cvec
   USE mo_sea_ice_types,       ONLY: t_sfc_flx
   USE mo_oce_state,           ONLY: set_oce_tracer_info
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state
-  USE mo_dynamics_config,     ONLY: nold
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref, groups
@@ -68,12 +63,9 @@ MODULE mo_oce_forcing
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-  USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_netcdf_read,        ONLY: read_netcdf_data
   
   IMPLICIT NONE
   PRIVATE
-  INCLUDE 'netcdf.inc'
   
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(LEN=12)           :: str_module    = 'oceForcing  '  ! Output of module for 1 line debug
@@ -451,10 +443,9 @@ CONTAINS
       SELECT CASE (iforc_stat_oce)
       
       CASE (0)
-        CALL message(TRIM(routine), &
-          & 'iforc_stat_oce=0: no stationary wind forcing applied' )
+        CALL message(TRIM(routine), 'iforc_stat_oce=0: no stationary wind forcing applied' )
         
-      CASE (1)
+      CASE (1,2)
         CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
         y_length                        = basin_height_deg * deg2rad
         forcing_windstress_zonal_waveno = 1.0_wp
@@ -498,7 +489,7 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             z_lat = patch_2d%cells%center(jc,jb)%lat
             z_lon = patch_2d%cells%center(jc,jb)%lon
-            IF (patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
+            IF (p_patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
               p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
             ELSE
               p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
@@ -506,7 +497,7 @@ CONTAINS
             p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
             
             !Init cartesian wind
-            IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
+            IF(p_patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
               CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
                 & p_sfc_flx%forc_wind_v(jc,jb),      &
                 & patch_2d%cells%center(jc,jb)%lon,   &
@@ -521,8 +512,7 @@ CONTAINS
         END DO
         
       CASE (3)
-        CALL message(TRIM(routine), &
-          & 'iforc_stat_oce=3: apply stationary wind forcing globally - u=cos(n*lat/lat_0); v=0')
+        CALL message(TRIM(routine), 'iforc_stat_oce=3: apply stationary wind forcing globally - u=cos(n*lat/lat_0); v=0')
         
         ! Use here global scale:
         y_length                        = 180.0_wp * deg2rad
@@ -846,17 +836,5 @@ CONTAINS
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
   
-   !-------------------------------------------------------------------------
-  SUBROUTINE nf(STATUS)
-
-    INTEGER, INTENT(in) :: STATUS
-
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(STATUS))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
-
   
 END MODULE mo_oce_forcing
