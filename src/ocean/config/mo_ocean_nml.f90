@@ -368,18 +368,20 @@ MODULE mo_ocean_nml
     &                 use_tracer_x_height
 
 
-  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, forcing_timescale,    &
-    &                 iforc_stat_oce, use_file_initialConditions, init_oce_relax,       &
-    &                 itestcase_oce, l_relaxsal_ice,            &
+  NAMELIST/ocean_forcing_nml/iforc_oce, iforc_type, forcing_timescale,    &
+    &                 iforc_stat_oce, init_oce_relax,       &
+    &                 l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 forcing_enable_freshwater, limit_elevation, seaice_limit,        &
     &                 forcing_set_runoff_to_zero,                                       &
-    &                 initial_temperature_reference, initial_salinity_reference, &
     &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
-    &                 analytic_wind_amplitude, scatter_levels, scatter_t,  &
-    &                 scatter_s
+    &                 analytic_wind_amplitude
+
+  NAMELIST/ocean_initialConditions_nml/ use_file_initialConditions, itestcase_oce,      &
+    &                 initial_temperature_reference, initial_salinity_reference, &
+    &                 scatter_levels, scatter_t,    scatter_s
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
     &                 indonesian_throughflow, scotland_iceland
@@ -508,17 +510,31 @@ MODULE mo_ocean_nml
        END IF
      END SELECT
 
-     CALL position_nml ('ocean_forcing_and_init_nml', status=i_status)
+     CALL position_nml ('ocean_forcing_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
        iunit = temp_defaults()
-       WRITE(iunit, ocean_forcing_and_init_nml)  ! write defaults to temporary text file
+       WRITE(iunit, ocean_forcing_nml)  ! write defaults to temporary text file
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_forcing_and_init_nml, iostat=istat)                          ! overwrite default settings
+       READ (nnml, ocean_forcing_nml, iostat=istat)                          ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
-         WRITE(iunit, ocean_forcing_and_init_nml)  ! write settings to temporary text file
+         WRITE(iunit, ocean_forcing_nml)  ! write settings to temporary text file
+       END IF
+     END SELECT
+
+     CALL position_nml ('ocean_initialConditions_nml', status=i_status)
+     IF (my_process_is_stdio()) THEN
+       iunit = temp_defaults()
+       WRITE(iunit, ocean_initialConditions_nml)  ! write defaults to temporary text file
+     END IF
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_initialConditions_nml, iostat=istat)                          ! overwrite default settings
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_settings()
+         WRITE(iunit, ocean_initialConditions_nml)  ! write settings to temporary text file
        END IF
      END SELECT
 
@@ -632,10 +648,13 @@ MODULE mo_ocean_nml
 #endif
 
      ! write the contents of the namelist to an ASCII file
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_physics_nml)
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_forcing_and_init_nml)
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_diagnostics_nml)
+     IF(my_process_is_stdio()) THEN
+       WRITE(nnml_output,nml=ocean_dynamics_nml)
+       WRITE(nnml_output,nml=ocean_physics_nml)
+       WRITE(nnml_output,nml=ocean_forcing_nml)
+       WRITE(nnml_output,nml=ocean_initialConditions_nml)
+       WRITE(nnml_output,nml=ocean_diagnostics_nml)
+     ENDIF
      !------------------------------------------------------------
      ! 6.0 Read octst_nml namelist
      !------------------------------------------------------------

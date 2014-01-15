@@ -215,13 +215,15 @@ cat > ${ocean_namelist} << EOF
   i_ice_therm   = 1
   i_ice_dyn     = 0
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce = 11
-  itestcase_oce = 1050
   iforc_stat_oce = 5
   analytic_wind_amplitude = 0.1
   forcing_windstress_zonal_waveno     = 3.0_wp
   forcing_windstress_meridional_waveno     = 3.0_wp
+/
+&ocean_initialConditions_nml
+  itestcase_oce = 1050
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

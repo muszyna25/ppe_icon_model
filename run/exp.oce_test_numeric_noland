@@ -206,13 +206,15 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce = 11
-  itestcase_oce = 1050
   iforc_stat_oce = 5
   analytic_wind_amplitude = 0.5
   forcing_windstress_zonal_waveno     = 3.0_wp
   forcing_windstress_meridional_waveno     = 3.0_wp
+/
+&ocean_initialConditions_nml
+  itestcase_oce = 1050
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

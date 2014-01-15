@@ -109,7 +109,7 @@ CONTAINS
     IF (use_file_initialConditions) THEN
       CALL init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
     ELSE
-      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
+      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data)
     END IF
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
@@ -358,12 +358,11 @@ CONTAINS
   !! Developed  by Peter Korn, MPI-M, 2006-08
   !
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
+  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data)
     TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data)             :: external_data
-    TYPE(t_operator_coeff)            :: operators_coeff
     ! TYPE(t_sfc_flx)                   :: p_sfc_flx
     ! Local Variables
     INTEGER :: jb, jc, je, jk

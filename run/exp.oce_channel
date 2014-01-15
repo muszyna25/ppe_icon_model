@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -174,12 +175,11 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
   iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   forcing_timescale          = ${forcing_timescale}   ! length of ocean forcing data set, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   46      ! 51=analytical wind and temperature forcing for circumpolar channel
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
@@ -193,6 +193,9 @@ cat > ${ocean_namelist} << EOF
   forcing_enable_freshwater      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
   iforc_stat_oce     =    3      ! analytic forcing constant westerly
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
+/
+&ocean_initialConditions_nml
+  itestcase_oce      =   46      ! 51=analytical wind and temperature forcing for circumpolar channel
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

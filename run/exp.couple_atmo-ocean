@@ -589,11 +589,10 @@ cat > ${ocean_namelist} << EOF
   i_ice_therm   = 1
   i_ice_dyn     = 1
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:
                                         ! NO_FORCING                 = 10
                                         ! FORCING_FROM_COUPLED_FLUX  = 14
-  itestcase_oce          = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation = -1           !  0: no relaxation used
                                         !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                         !  2: use SST read from OMIP/bulk forcing (iforc=12);
@@ -606,6 +605,9 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S         =    3.0       ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T            =    0         ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                         ! 3: use initial T read with init_oce=1
+/
+&ocean_initialConditions_nml
+  itestcase_oce          = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
 /
 &ocean_diagnostics_nml
   diagnostics_level  = 0
