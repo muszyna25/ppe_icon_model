@@ -111,8 +111,12 @@ CONTAINS
 
     IF (use_file_initialConditions) THEN
       CALL init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
+
     ELSE
-      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data)
+
+      CALL init_ocean_bathymetry(patch_3d, external_data)
+      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state)
+
     END IF
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
@@ -361,7 +365,7 @@ CONTAINS
   !! Developed  by Peter Korn, MPI-M, 2006-08
   !
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data)
+  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state)
     TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -409,13 +413,16 @@ CONTAINS
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ocean_analytically'
-    !-------------------------------------------------------------------------
+
     TYPE(t_subset_range), POINTER :: all_cells, owned_cells, all_edges
     !-------------------------------------------------------------------------
+
     CALL message (TRIM(routine), 'start')
     
     sphere_radius = grid_sphere_radius
     u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
+
+    !-------------------------------------------------------------------------
     
     all_cells => patch_2d%cells%ALL
     owned_cells => patch_2d%cells%owned
@@ -1494,8 +1501,8 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (24)')
         CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
         
-        patch_3d%lsm_c(:,:,:) = sea
-        patch_3d%lsm_e(:,:,:) = sea
+        ! use bathymetry_type = 200, bathymetry_depth = 0
+
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1504,9 +1511,7 @@ CONTAINS
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
             ocean_state%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
-            external_data%oce%bathymetry_c(jc,jb) = 0.0_wp !test_usbr_oro( z_lon, z_lat, 0.0_wp )
-            ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,ocean_state%p_prog(nold(1))%h(jc,jb)!, &
-            !                                            external_data%oce%bathymetry_c(jc,jb)
+            ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
           END DO
         END DO
         
@@ -1527,8 +1532,8 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
         
-        patch_3d%lsm_c(:,:,:) = sea
-        patch_3d%lsm_e(:,:,:) = sea
+        ! use bathymetry_type = 200, bathymetry_depth = 0
+
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1537,7 +1542,6 @@ CONTAINS
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
             ocean_state%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
-            external_data%oce%bathymetry_c(jc,jb) = 0.0_wp !should be test2_oro( z_lon, z_lat, 0.0_wp )
           END DO
         END DO
         !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
@@ -1567,8 +1571,8 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
         
-        patch_3d%lsm_c(:,:,:) = sea
-        patch_3d%lsm_e(:,:,:) = sea
+        ! use bathymetry_type = 201 (test5_oro)
+
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1577,7 +1581,6 @@ CONTAINS
             z_lon = patch_2d%cells%center(jc,jb)%lon
             
             ocean_state%p_prog(nold(1))%h(jc,jb)     = test5_h( z_lon, z_lat, 0.0_wp)
-            external_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
           END DO
         END DO
         !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
@@ -1608,16 +1611,19 @@ CONTAINS
         ocean_state%p_prog(nold(1))%h  = 0.0_wp
         ocean_state%p_prog(nold(1))%vn = 0.0_wp
         ocean_state%p_prog(nnew(1))%vn = 0.0_wp
+
         IF(no_tracer>0)THEN
           ocean_state%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
           ocean_state%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
         ELSE
           CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
         ENDIF
+
+        ! use bathymetry_type = 200, bathymetry_depth = -200
+
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            external_data%oce%bathymetry_c(jc,jb) = -200._wp
             patch_3d%p_patch_1d(1)%dolic_c(jc,jb)      = 1
             
             !latitude given in radians
@@ -1700,7 +1706,6 @@ CONTAINS
             
             ocean_state%p_prog(nold(1))%h(jc, jb)         = 0.0_wp
             
-            !external_data%oce%bathymetry_c(jc,jb) = 0.0_wp
           END DO
         END DO
         
@@ -1752,6 +1757,20 @@ CONTAINS
       patch_3d%lsm_c(:,:,:) = sea
       patch_3d%lsm_e(:,:,:) = sea
       external_data%oce%bathymetry_c(:,:) = bathymetry_depth
+
+    CASE (201)
+      ! test5_oro
+      patch_3d%lsm_c(:,:,:) = sea
+      patch_3d%lsm_e(:,:,:) = sea
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = patch_2d%cells%center(jc,jb)%lat
+          z_lon = patch_2d%cells%center(jc,jb)%lon
+          external_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
+        END DO
+      END DO
 
     CASE default
       CALL finish(method_name, "unknown bathymetry_type")
