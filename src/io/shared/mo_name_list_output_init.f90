@@ -1181,10 +1181,10 @@ CONTAINS
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
                CALL print_output_event(all_events, &
-      &   opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+      & opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
              ELSE
                CALL print_output_event(all_events, &
-      &   opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+      & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
              ENDIF
 #else
              CALL print_output_event(all_events, &
