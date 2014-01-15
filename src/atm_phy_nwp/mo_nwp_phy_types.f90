@@ -251,6 +251,7 @@ MODULE mo_nwp_phy_types
       rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
       u_10m (:,:)     ,    & !! zonal wind in 10m                             ( m/s )
       v_10m (:,:)     ,    & !! meridional wind in 10m                        ( m/s )
+      sp_10m(:,:)     ,    & !! wind speed in 10m                             ( m/s )
       u_10m_s6avg (:,:),   & !! 6 hourly sample 10m zonal wind  average       ( m/s )
       v_10m_s6avg (:,:),   & !! 6 hourly sample 10m  meridional wind average  ( m/s )
       dyn_gust(:,:),       & !! dynamic gust at 10m                           ( m/s )

@@ -717,6 +717,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &                   prm_diag%gust10  (i_startidx:i_endidx,jb),  &
           &                   prm_diag%dyn_gust(i_startidx:i_endidx,jb))
 
+    ! wind speed in 10m
+    prm_diag%sp_10m(i_startidx:i_endidx,jb) = SQRT(prm_diag%u_10m(i_startidx:i_endidx,jb)**2 &
+      &                                     +      prm_diag%v_10m(i_startidx:i_endidx,jb)**2 )
+
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

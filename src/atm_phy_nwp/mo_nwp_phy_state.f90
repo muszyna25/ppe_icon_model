@@ -1487,6 +1487,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc, ldims=shape2d, &
           & isteptype=TSTEP_AVG )
 
+        ! &      diag%sp_10m(nproma,nblks_c)
+        cf_desc    = t_cf_var('sp_10m', 'm s-1 ','wind speed in 10m', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'sp_10m', diag%sp_10m,                       &
+          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
+          & ldims=shape2d, lrestart=.FALSE. )
 
 !tiled quantities
         ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
