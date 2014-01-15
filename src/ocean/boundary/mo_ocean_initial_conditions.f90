@@ -51,7 +51,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_parallel_config,    ONLY: nproma
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
-    & basin_height_deg,  basin_width_deg,  init_oce_prog,         &
+    & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
     & scatter_t, scatter_s
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
@@ -106,10 +106,10 @@ CONTAINS
     TYPE(t_operator_coeff)            :: operators_coeff
     ! TYPE(t_sfc_flx)                   :: p_sfc_flx
 
-    IF (init_oce_prog == 0) THEN
-      CALL init_ho_testcases(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
-    ELSE IF (init_oce_prog == 1) THEN
-      CALL init_ho_prog(patch_2d, patch_3d, ocean_state)
+    IF (use_file_initialConditions) THEN
+      CALL init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
+    ELSE
+      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
     END IF
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
@@ -127,13 +127,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M, 2011-09
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_prog(patch_2d, patch_3d, ocean_state)
+  SUBROUTINE init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
     TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     
     ! Local Variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ho_prog'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ocean_fromFile'
     CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
     
     LOGICAL :: l_exist
@@ -297,7 +297,7 @@ CONTAINS
     
     CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
     
-  END SUBROUTINE init_ho_prog
+  END SUBROUTINE init_ocean_fromFile
   !-------------------------------------------------------------------------
   
   
@@ -358,7 +358,7 @@ CONTAINS
   !! Developed  by Peter Korn, MPI-M, 2006-08
   !
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ho_testcases(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
+  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state, external_data, operators_coeff)
     TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -406,7 +406,7 @@ CONTAINS
     REAL(wp) , PARAMETER :: tprof_4layerstommel(4) = (/20.0_wp,10.0_wp,8.0_wp,6.0_wp/)
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ho_testcases'
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_initial_conditions:init_ocean_analytically'
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells, owned_cells, all_edges
     !-------------------------------------------------------------------------
@@ -1716,7 +1716,7 @@ CONTAINS
     
     CALL message (TRIM(routine), 'end')
     
-  END SUBROUTINE init_ho_testcases
+  END SUBROUTINE init_ocean_analytically
   !-------------------------------------------------------------------------------
 
 

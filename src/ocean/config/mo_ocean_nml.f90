@@ -113,7 +113,7 @@ MODULE mo_ocean_nml
   INTEGER            :: iforc_stat_oce = 3
 
   ! switch for reading prognostic variables: 1: read from file
-  INTEGER            :: init_oce_prog  = 0
+  LOGICAL            :: use_file_initialConditions  = .false.
 
   ! switch for reading relaxation data: 1: read from file
   INTEGER            :: init_oce_relax = 0
@@ -266,9 +266,9 @@ MODULE mo_ocean_nml
   INTEGER  :: irelax_2d_S           = 0          ! 0=no relax.; 3=use initialized values for relaxation
   REAL(wp) :: relax_2d_mon_S        = 1.0_wp     ! strength of 2-dim salinity relaxation in months
                                                  ! 3-dimensional relaxation of temperature and salinity
-  INTEGER  :: irelax_3d_T           = 0          ! 0: no 3-dim relax.,  3: use initial T read with init_oce_prog=1
+  INTEGER  :: irelax_3d_T           = 0          ! 0: no 3-dim relax.,  3: use initial T read with use_file_initialConditions=1
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
-  INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
+  INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with use_file_initialConditions=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: forcing_enable_freshwater         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero         = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
@@ -369,7 +369,7 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, forcing_timescale,    &
-    &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
+    &                 iforc_stat_oce, use_file_initialConditions, init_oce_relax,       &
     &                 itestcase_oce, l_relaxsal_ice,            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
