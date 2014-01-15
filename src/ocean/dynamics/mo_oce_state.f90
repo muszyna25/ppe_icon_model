@@ -1175,11 +1175,11 @@ CONTAINS
     call add_var(ocean_default_list, 'mld', p_os_diag%mld , GRID_UNSTRUCTURED_CELL,ZA_SURFACE, &
     &            t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag", "oce_default"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
     call add_var(ocean_default_list, 'condep', p_os_diag%condep , GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
     &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT16),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag", "oce_default"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), STAT=ist)
