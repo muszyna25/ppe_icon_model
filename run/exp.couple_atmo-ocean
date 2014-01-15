@@ -400,9 +400,6 @@ dt_file=$dt_restart
 (( outputLength  = nyear_outpLen * day * 366 ))
 #
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-#
-init_oce=0     # 1: use ocean initialization file; 0: init with constants or analytically
 #
 # prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
@@ -597,7 +594,6 @@ cat > ${ocean_namelist} << EOF
                                         ! NO_FORCING                 = 10
                                         ! FORCING_FROM_COUPLED_FLUX  = 14
   itestcase_oce          = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
-  init_oce_prog          = ${init_oce}  ! read ocean initialization file, see above
   temperature_relaxation = -1           !  0: no relaxation used
                                         !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                         !  2: use SST read from OMIP/bulk forcing (iforc=12);

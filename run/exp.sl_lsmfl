@@ -44,8 +44,7 @@ B=4   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init analytically
+use_file_initialConditions=".true."
 # prognostic ocean initialization file must match the vertical levels
 #   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
@@ -252,7 +251,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 1=locally varying u,v (testcase 27, 29)
                                  ! 2=varying u with latitude for basin using basin_width_deg
                                  ! 3=varying u with latitude globally
-  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
   itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave

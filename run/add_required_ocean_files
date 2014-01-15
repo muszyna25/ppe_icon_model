@@ -83,7 +83,7 @@
    # =======================================================
    # provide netcdf file for initialization of ocean prognostic variables
    # --------------------------------------------------------------------
-   if [[ "x$init_oce" = "x1" ]] ; then
+   if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
 
      ocean_prog_filename=iconR${R}B0${B}-prog.nc
      ocean_oini_filename=${init_prefix}annual${init_grid_desc}${init_oce_suff}
