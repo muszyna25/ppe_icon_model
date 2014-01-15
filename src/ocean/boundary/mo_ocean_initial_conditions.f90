@@ -53,14 +53,14 @@ MODULE mo_ocean_initial_conditions
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
-    & scatter_t, scatter_s, topography_type, topography_height
+    & scatter_t, scatter_s, topography_type, topography_height, sea_surface_height_type
 
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
   !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_util_dbg_prnt,      ONLY: dbg_print
@@ -114,11 +114,14 @@ CONTAINS
     ELSE
 
       CALL init_ocean_bathymetry(patch_3d, external_data)
-      CALL init_ocean_analytically(patch_2d, patch_3d, ocean_state)
+      CALL init_ocean_surface_height(patch_3d, ocean_state)
+      CALL init_ocean_analytically(patch_3d, ocean_state)
 
     END IF
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
+    CALL fill_tracer_x_height(patch_3d, ocean_state)
+
 
   END SUBROUTINE apply_initial_conditions
   !-------------------------------------------------------------------------
@@ -364,8 +367,7 @@ CONTAINS
   !! Developed  by Peter Korn, MPI-M, 2006-08
   !
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ocean_analytically(patch_2d, patch_3d, ocean_state)
-    TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
+  SUBROUTINE init_ocean_analytically(patch_3d, ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data)             :: external_data
@@ -375,8 +377,8 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: z_dolic
-    REAL(wp):: z_c(nproma,n_zlev,patch_2d%alloc_cell_blocks)
-    REAL(wp):: z_lat, z_lon
+    REAL(wp), ALLOCATABLE :: z_c(:,:,:)
+    REAL(wp):: cell_lat, cell_lon
     REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
     REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
     REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
@@ -385,6 +387,7 @@ CONTAINS
     REAL(wp):: t,s
     CHARACTER(LEN=max_char_length) :: sst_case
     
+    TYPE(t_patch), POINTER   :: patch_2d
     REAL(wp), PARAMETER :: tprof(20)=&
       & (/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp,  9.902_wp, &
       & 8.484_wp, 7.341_wp, 5.727_wp, 4.589_wp, 3.807_wp, 3.062_wp, 2.481_wp, 2.194_wp, &
@@ -423,10 +426,12 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     
+    patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     owned_cells => patch_2d%cells%owned
     all_edges => patch_2d%edges%ALL
-    
+    ALLOCATE(z_c(nproma,n_zlev,patch_2d%alloc_cell_blocks))
+
     ! initialize salinity with reference value rather than with zero
     !  - mainly for plotting purpose
     IF ( no_tracer >= 2) THEN
@@ -451,9 +456,6 @@ CONTAINS
         CALL message(TRIM(routine), ' - here: horizontally homogen, vertical profile for T and S')
         CALL message(TRIM(routine), ' - Add forcing / restoring / wave for dynamic test')
         
-        !Flat surface of the ocean
-        ocean_state%p_prog(nold(1))%h(:,:) = 0.0_wp
-        
         !Ocean at rest
         ocean_state%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
         
@@ -473,7 +475,6 @@ CONTAINS
                     ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerstommel(jk)
                     ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
                   ENDIF
-                  !ocean_state%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
                 ENDIF
               END DO
             END DO
@@ -493,7 +494,6 @@ CONTAINS
                     ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
                     ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerstommel(jk)
                   ENDIF
-                  !ocean_state%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
                 ENDIF
               END DO
             END DO
@@ -506,22 +506,8 @@ CONTAINS
           CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
           CALL message(TRIM(routine), ' - here: external gravity wave')
           
-          
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            DO jc = i_startidx_c, i_endidx_c
-              
-              z_lat = patch_2d%cells%center(jc,jb)%lat
-              z_lon = patch_2d%cells%center(jc,jb)%lon
-              
-              ! #slo#: simple elevation between 30W and 30E (pi/3.)
-              IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-                ocean_state%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
-                  & SIN(z_lon*6.0_wp) * COS(z_lat*3.0_wp)
-              ENDIF
-            END DO
-          END DO
-          
+          ! set sea_surface_height_type = 201
+
         END IF
         
       CASE (33)
@@ -534,9 +520,9 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             
             !latitude given in radians
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             !transer to latitude in degrees
-            z_lat_deg = z_lat*rad2deg
+            z_lat_deg = cell_lat*rad2deg
             !Impose emperature profile. Profile
             !depends on latitude only and is uniform across
             !all vertical layers
@@ -564,8 +550,6 @@ CONTAINS
                   
                 ELSEIF(ABS(z_lat_deg)<=20.0_wp)THEN
                   
-                  !ocean_state%p_prog(nold(1))%h(jc,jb)=0.25_wp
-                  !ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
                   ocean_state%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
                   
                   ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
@@ -635,8 +619,8 @@ CONTAINS
         !
         !           ocean_state%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
         !
-        !           z_lat = patch_2D%cells%center(jc,jb)%lat
-        !           z_lon = patch_2D%cells%center(jc,jb)%lon
+        !           cell_lat = patch_2D%cells%center(jc,jb)%lat
+        !           cell_lon = patch_2D%cells%center(jc,jb)%lon
         !
         !           z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         !           IF (z_dolic > 0) THEN
@@ -671,8 +655,8 @@ CONTAINS
           DO jb = all_cells%start_block, all_cells%end_block
             CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
-              z_lat = patch_2d%cells%center(jc,jb)%lat
-              z_lon = patch_2d%cells%center(jc,jb)%lon
+              cell_lat = patch_2d%cells%center(jc,jb)%lat
+              cell_lon = patch_2d%cells%center(jc,jb)%lon
               
               z_dolic = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
               IF (z_dolic > 0) THEN
@@ -681,8 +665,8 @@ CONTAINS
                 ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
                 ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
                 ocean_state%p_prog(nold(1))%tracer(jc,1:z_dolic,jb,1) = 20.0_wp
-                z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
-                !write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
+                z_dst=SQRT((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
+                !write(123,*)'zdist',cell_lat,cell_lon,z_dst,10.5_wp*deg2rad
                 !Local hot perturbation
                 IF(z_dst<=5.0_wp*deg2rad)THEN
                   DO jk = 1, z_dolic
@@ -719,16 +703,16 @@ CONTAINS
           !           CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
           !            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
           !           DO jc = i_startidx_c, i_endidx_c
-          !             z_lat = patch_2D%cells%center(jc,jb)%lat
-          !             z_lon = patch_2D%cells%center(jc,jb)%lon
+          !             cell_lat = patch_2D%cells%center(jc,jb)%lat
+          !             cell_lon = patch_2D%cells%center(jc,jb)%lon
           !             z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
           !             IF (z_dolic > 0) THEN
           !               ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
           !               ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
           !               ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
           !               ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
-          !               z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
-          !               !write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
+          !               z_dst=sqrt((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
+          !               !write(123,*)'zdist',cell_lat,cell_lon,z_dst,10.5_wp*deg2rad
           !               !IF(z_dst<=25.5_wp*deg2rad)cycle
           !               ! at distance > 25.5 degrees:
           !               !  e.g. at 30 deg distance the added perturbation would be ~ exp(-400) ~ 0.0
@@ -746,25 +730,7 @@ CONTAINS
           !           END DO
           !         END DO
           
-          ! Add elevation perturbation at new values - 35N; 10W
-          ! not clear yet
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            DO jc = i_startidx_c, i_endidx_c
-              
-              z_lat = patch_2d%cells%center(jc,jb)%lat
-              z_lon = patch_2d%cells%center(jc,jb)%lon
-              z_dolic = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-              IF (z_dolic > 0) THEN
-                z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
-                !IF(z_dst<=15.5_wp*deg2rad) cycle
-                IF(z_dst<10.0_wp*deg2rad) THEN
-                  ocean_state%p_prog(nold(1))%h(jc,jb) = 0.5_wp&!ocean_state%p_prog(nold(1))%h(jc,jb)&
-                    & +0.3_wp*EXP(-(z_dst/(2.2_wp*deg2rad))**2)
-                ENDIF
-              ENDIF
-            END DO
-          END DO
+          ! use sea_surface_height_type = 202
           
         END IF ! no_tracer > 0
         
@@ -775,8 +741,8 @@ CONTAINS
         ! !         CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
         ! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         ! !         DO jc = i_startidx_c, i_endidx_c
-        ! !           z_lat = patch_2D%cells%center(jc,jb)%lat
-        ! !           z_lon = patch_2D%cells%center(jc,jb)%lon
+        ! !           cell_lat = patch_2D%cells%center(jc,jb)%lat
+        ! !           cell_lon = patch_2D%cells%center(jc,jb)%lon
         ! !           z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         ! !           IF (z_dolic > 0) THEN
         ! !             ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
@@ -799,11 +765,11 @@ CONTAINS
         ! !           CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
         ! !            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         ! !           DO jc = i_startidx_c, i_endidx_c
-        ! !             z_lat = patch_2D%cells%center(jc,jb)%lat
-        ! !             z_lon = patch_2D%cells%center(jc,jb)%lon
+        ! !             cell_lat = patch_2D%cells%center(jc,jb)%lat
+        ! !             cell_lon = patch_2D%cells%center(jc,jb)%lon
         ! !             z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         ! !             IF (z_dolic > 0) THEN
-        ! !               z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
+        ! !               z_dst=sqrt((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
         ! !               !Local hot perturbation
         ! !               !IF(z_dst<=5.0_wp*deg2rad)THEN
         ! !               DO jk = 1, z_dolic
@@ -842,9 +808,9 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             
             !latitude given in radians
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             !transer to latitude in degrees
-            z_lat_deg = z_lat*rad2deg
+            z_lat_deg = cell_lat*rad2deg
             
             ! bugfix: z_tpol was 0 for 10 levels since jk was inner loop
             !         does not effect 4 levels
@@ -910,9 +876,9 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             
             !latitude given in radians
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             !transer to latitude in degrees
-            z_lat_deg = z_lat*rad2deg
+            z_lat_deg = cell_lat*rad2deg
             
             DO jk=1,n_zlev
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -976,9 +942,9 @@ CONTAINS
           DO jc = i_startidx_c, i_endidx_c
             
             !latitude given in radians
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             !transer to latitude in degrees
-            z_lat_deg = z_lat*rad2deg
+            z_lat_deg = cell_lat*rad2deg
             
             DO jk=1,n_zlev
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -1126,11 +1092,11 @@ CONTAINS
             DO jk=1,n_zlev
               
               !latitude given in radians
-              z_lat = patch_2d%cells%center(jc,jb)%lat
-              z_lon = patch_2d%cells%center(jc,jb)%lon
+              cell_lat = patch_2d%cells%center(jc,jb)%lat
+              cell_lon = patch_2d%cells%center(jc,jb)%lon
               !transer to latitude in degrees
-              z_lat_deg = z_lat*rad2deg
-              z_lon_deg = z_lon*rad2deg
+              z_lat_deg = cell_lat*rad2deg
+              z_lon_deg = cell_lon*rad2deg
               
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
                 
@@ -1170,9 +1136,9 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,cell_lat)-tmelt   ! SST in Celsius
             END IF
           END DO
         END DO
@@ -1227,9 +1193,9 @@ CONTAINS
         !       DO jb = all_cells%start_block, all_cells%end_block
         !         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         !         DO jc = i_startidx_c, i_endidx_c
-        !           z_lat = patch_2D%cells%center(jc,jb)%lat
+        !           cell_lat = patch_2D%cells%center(jc,jb)%lat
         !           IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        !             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
+        !             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,cell_lat)-tmelt   ! SST in Celsius
         !           END IF
         !         END DO
         !       END DO
@@ -1311,9 +1277,9 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
             IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,z_lat)-tmelt,z_temp_min)
+              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,cell_lat)-tmelt,z_temp_min)
             END IF
           END DO
         END DO
@@ -1390,8 +1356,8 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lat_deg = z_lat*rad2deg
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
+            z_lat_deg = cell_lat*rad2deg
             
             DO jk=1,n_zlev
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -1410,10 +1376,10 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lat_deg = z_lat*rad2deg
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            z_lon_deg = z_lon*rad2deg
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
+            z_lat_deg = cell_lat*rad2deg
+            cell_lon = patch_2d%cells%center(jc,jb)%lon
+            z_lon_deg = cell_lon*rad2deg
             
             DO jk=1,n_zlev
               IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -1432,7 +1398,6 @@ CONTAINS
         
       CASE(53)
         CALL message(TRIM(routine), 'LOCK exchange (53)')
-        ocean_state%p_prog(nold(1))%h  = 0.0_wp
         ocean_state%p_prog(nold(1))%vn = 0.0_wp
         ocean_state%p_prog(nnew(1))%vn = 0.0_wp
         IF(no_tracer>0)THEN
@@ -1482,8 +1447,6 @@ CONTAINS
         CALL dbg_print('init testcases  - S'       ,z_c                     ,str_module,idt_src, &
           & in_subset=owned_cells)
       END IF
-      CALL dbg_print('init testcases  - H'       ,ocean_state%p_prog(nold(1))%h    ,str_module,idt_src, &
-        & in_subset=owned_cells)
       !---------------------------------------------------------------------
       
       ! Shallow water testcases:
@@ -1502,28 +1465,18 @@ CONTAINS
         
         ! use topography_type = 200, topography_height = 0
 
-        !init height
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%h(jc,jb)      = test_usbr_h( z_lon, z_lat, 0.0_wp)
-            ! write(*,*)'h orig, bathy_c:', z_lon, z_lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
-          END DO
-        END DO
+        ! use sea_surface_height_type = 203
         
         !init normal velocity
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-            z_lat = patch_2d%edges%center(je,jb)%lat
-            z_lon = patch_2d%edges%center(je,jb)%lon
+            cell_lat = patch_2d%edges%center(je,jb)%lat
+            cell_lon = patch_2d%edges%center(je,jb)%lon
             
-            ocean_state%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(z_lon, z_lat,0.0_wp)* &
+            ocean_state%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(cell_lon, cell_lat,0.0_wp)* &
               & patch_2d%edges%primal_normal(je,jb)%v1&
-              & + test_usbr_v(z_lon, z_lat,0.0_wp)* &
+              & + test_usbr_v(cell_lon, cell_lat,0.0_wp)* &
               & patch_2d%edges%primal_normal(je,jb)%v2
           END DO
         END DO
@@ -1532,17 +1485,8 @@ CONTAINS
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
         
         ! use topography_type = 200, topography_height = 0
+        ! use sea_surface_height_type = 204
 
-        !init height
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%h(jc,jb) = test2_h( z_lon, z_lat, 0.0_wp)
-          END DO
-        END DO
         !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
         !                  & patch_2D,    &
         !                  & ocean_state%p_diag%grad(:,1,:))
@@ -1555,12 +1499,12 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-            z_lat = patch_2d%edges%center(je,jb)%lat
-            z_lon = patch_2d%edges%center(je,jb)%lon
+            cell_lat = patch_2d%edges%center(je,jb)%lat
+            cell_lon = patch_2d%edges%center(je,jb)%lon
             
             ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-              & test2_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-              & + test2_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
+              & test2_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
+              & + test2_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
             !           write(*,*)'vn:expl: inverse', je,jb,&
             !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
           END DO
@@ -1571,17 +1515,8 @@ CONTAINS
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
         
         ! use topography_type = 201 (test5_oro)
+        ! use sea_surface_height_type = 205
 
-        !init height
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%h(jc,jb)     = test5_h( z_lon, z_lat, 0.0_wp)
-          END DO
-        END DO
         !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
         !                  & patch_2D,    &
         !                  & ocean_state%p_diag%grad(:,1,:))
@@ -1594,12 +1529,12 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-            z_lat = patch_2d%edges%center(je,jb)%lat
-            z_lon = patch_2d%edges%center(je,jb)%lon
+            cell_lat = patch_2d%edges%center(je,jb)%lat
+            cell_lon = patch_2d%edges%center(je,jb)%lon
             
             ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-              & test5_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-              & + test5_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
+              & test5_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
+              & + test5_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
             !           write(*,*)'vn:expl: inverse', je,jb,&
             !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
           END DO
@@ -1607,7 +1542,6 @@ CONTAINS
         
       CASE(27)!temperature ditribution
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (27)')
-        ocean_state%p_prog(nold(1))%h  = 0.0_wp
         ocean_state%p_prog(nold(1))%vn = 0.0_wp
         ocean_state%p_prog(nnew(1))%vn = 0.0_wp
 
@@ -1626,8 +1560,8 @@ CONTAINS
             patch_3d%p_patch_1d(1)%dolic_c(jc,jb)      = 1
             
             !latitude given in radians
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lat_deg = z_lat*rad2deg
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
+            z_lat_deg = cell_lat*rad2deg
             !Impose emperature profile. Profile
             !depends on latitude only
             IF(ABS(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
@@ -1637,29 +1571,31 @@ CONTAINS
               ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
               ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
             ENDIF
-            !           !write(90,*)'lat-degrees', jc,jb,z_lat, z_lat_deg, ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
+            !           !write(90,*)'lat-degrees', jc,jb,cell_lat, z_lat_deg, ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
           END DO
         END DO
         
       CASE(28)
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (28)')
+
         !init normal velocity
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO je = i_startidx_e, i_endidx_e
-            z_lat = patch_2d%edges%center(je,jb)%lat
-            z_lon = patch_2d%edges%center(je,jb)%lon
+            cell_lat = patch_2d%edges%center(je,jb)%lat
+            cell_lon = patch_2d%edges%center(je,jb)%lon
             IF(patch_3d%lsm_e(je,1,jb)<=sea_boundary)THEN
               ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-                & (test5_u(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-                & + test5_v(z_lon, z_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2)!/30.0_wp
-              ! write(*,*)'vn', je,jb,ocean_state%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
+                & (test5_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
+                & + test5_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2)!/30.0_wp
+              ! write(*,*)'vn', je,jb,ocean_state%p_prog(nold(1))%vn(je,1,jb),cell_lon, cell_lat
               ocean_state%p_prog(nnew(1))%vn(je,1,jb) = ocean_state%p_prog(nold(1))%vn(je,1,jb)
               ocean_state%p_diag%h_e(je,jb) = 1.0_wp
               ocean_state%p_diag%vn_time_weighted(je,1,jb)=ocean_state%p_prog(nnew(1))%vn(je,1,jb)
             ENDIF
           END DO
         END DO
+
         z_perlat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
         z_perlon =  0.0_wp!0.1_wp*basin_width_deg                                 !4.5_wp
         !z_permax  = 20.0_wp            !20.1_wp
@@ -1668,46 +1604,29 @@ CONTAINS
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
+            cell_lat = patch_2d%cells%center(jc,jb)%lat
+            cell_lon = patch_2d%cells%center(jc,jb)%lon
             
             IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
               ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
               ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
               
-              ocean_state%p_prog(nold(1))%h(jc,jb) = 0.0_wp!test5_h( z_lon, z_lat, 0.0_wp)
-              
-              z_dst=SQRT((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
+              z_dst=SQRT((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
               !Local hot perturbation
               IF(z_dst<=z_perwid)THEN
                 ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) =        &
                   & (1.0_wp+COS(pi*z_dst/z_perwid))/2.0_wp +2.0_wp
               ENDIF
               ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer)= ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer)
-              ocean_state%p_prog(nnew(1))%h(jc,jb)         = ocean_state%p_prog(nold(1))%h(jc,jb)
             ENDIF
           END DO
         END DO
         WRITE(*,*)'max/min tracer at initial time',&
           & MAXVAL( ocean_state%p_prog(nold(1))%tracer(:,1,:,1)),&
           & MINVAL( ocean_state%p_prog(nold(1))%tracer(:,1,:,1))
-        WRITE(*,*)'max/min height at initial time',&
-          & MAXVAL( ocean_state%p_prog(nold(1))%h(:,:)),&
-          & MINVAL( ocean_state%p_prog(nold(1))%h(:,:))
         
       CASE(29)!State at rest, forced by wind
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (29)')
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%h(jc, jb)         = 0.0_wp
-            
-          END DO
-        END DO
-        
         
         ocean_state%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
         
@@ -1716,13 +1635,124 @@ CONTAINS
         CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED in SW MODE - TERMINATE')
       END SELECT
     ENDIF  !  iswm_oce
-    
-    CALL fill_tracer_x_height(patch_3d, ocean_state)
-    
-    
+
+    !---------------------------------------------------
+    DEALLOCATE(z_c )
+
     CALL message (TRIM(routine), 'end')
     
   END SUBROUTINE init_ocean_analytically
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_surface_height(patch_3d, ocean_state)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+
+    TYPE(t_patch),POINTER   :: patch_2d
+
+    ! Local Variables
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: z_dolic
+    REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
+    REAL(wp):: z_perlat, z_perlon
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
+    !-------------------------------------------------------------------------
+
+    IF (sea_surface_height_type < 200) RETURN ! not analytic bathymetry
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    SELECT CASE (sea_surface_height_type)
+    CASE (200)
+      ! 0 height, this is the initialization value,
+      ! so no need to explicilty define this case
+      ! the whole grid is considered sea
+      ocean_state%p_prog(nold(1))%h(:,:) = 0.0_wp
+
+    CASE (201)
+      ! #slo#: simple elevation between 30W and 30E (pi/3.)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            ocean_state%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
+              & SIN(cell_center(jc, jb)%lon * 6.0_wp) * COS(cell_center(jc, jb)%lat * 3.0_wp)
+
+          ENDIF
+        END DO
+      END DO
+
+    CASE (202)
+      ! Add elevation perturbation at new values - 35N; 10W
+      ! not clear yet
+      z_perlat = basin_center_lat + 0.1_wp * basin_height_deg
+      z_perlon = basin_center_lon + 0.1_wp * basin_width_deg
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
+
+            z_dst=SQRT((cell_center(jc, jb)%lat - z_perlat * deg2rad)**2 + &
+              & (cell_center(jc, jb)%lon - z_perlon * deg2rad)**2)
+            !IF(z_dst<=15.5_wp*deg2rad) cycle
+            IF(z_dst < 10.0_wp * deg2rad) THEN
+              ocean_state%p_prog(nold(1))%h(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
+                & + 0.3_wp * EXP(-(z_dst/(2.2_wp*deg2rad))**2)
+            ENDIF
+
+          ENDIF
+
+        END DO
+      END DO
+
+    CASE (203)
+      ! test_usbr_h
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          ocean_state%p_prog(nold(1))%h(jc,jb)  = test_usbr_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+          ! write(*,*)'h orig, bathy_c:', cell_center(jc, jb)%lon, cell_center(jc, jb)%lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
+        END DO
+      END DO
+
+    CASE (204)
+      ! test2_h
+      CALL message(TRIM(method_name), ' h for Williamson Test 2')
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          ocean_state%p_prog(nold(1))%h(jc,jb) = test2_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+        END DO
+      END DO
+
+    CASE (205)
+      ! test5_h
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          ocean_state%p_prog(nold(1))%h(jc,jb) = test5_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+        END DO
+      END DO
+
+
+    CASE default
+      CALL finish(method_name, "unknown sea_surface_height_type")
+
+    END SELECT
+
+    CALL dbg_print('init_ocean_surface_height', ocean_state%p_prog(nold(1))%h, str_module,  1, &
+        & in_subset=patch_2d%cells%owned)
+
+  END SUBROUTINE init_ocean_surface_height
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -1731,23 +1761,23 @@ CONTAINS
     TYPE(t_external_data)             :: external_data
 
     TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
 
     ! Local Variables
     INTEGER :: jb, jc, je, jk
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: z_dolic
-    REAL(wp):: z_lat, z_lon
     REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_bathymetry'
-    !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
 
     IF (topography_type < 200) RETURN ! not analytic bathymetry
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
 
     SELECT CASE (topography_type)
     CASE (200)
@@ -1765,9 +1795,8 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          z_lat = patch_2d%cells%center(jc,jb)%lat
-          z_lon = patch_2d%cells%center(jc,jb)%lon
-          external_data%oce%bathymetry_c(jc,jb) = test5_oro( z_lon, z_lat, 0.0_wp )
+          external_data%oce%bathymetry_c(jc,jb) = &
+            & test5_oro( cell_center(jc,jb)%lon, cell_center(jc,jb)%lat, 0.0_wp )
         END DO
       END DO
 
@@ -2885,7 +2914,7 @@ CONTAINS
     
     REAL(wp)             :: z_a             ! left bound
     REAL(wp)             :: z_b             ! right bound
-    REAL(wp)             :: z_lat           ! latitude in loop
+    REAL(wp)             :: cell_lat           ! latitude in loop
     REAL(wp)             :: z_step          ! step
     REAL(wp)             :: z_val, z_val2   ! intermediate values
     !-----------------------------------------------------------------------
@@ -2897,15 +2926,15 @@ CONTAINS
     
     p_hh = 0._wp
     
-    z_lat = z_a - 0.5_wp * z_step
+    cell_lat = z_a - 0.5_wp * z_step
     
     DO j = 1, 50
-      z_lat = z_lat + z_step
+      cell_lat = cell_lat + z_step
       
-      z_val = func(z_lat)
+      z_val = func(cell_lat)
       
-      z_val2 = 2._wp * grid_angular_velocity * SIN(z_lat)
-      z_val2 = z_val2 + z_val * TAN(z_lat)* sphere_radius
+      z_val2 = 2._wp * grid_angular_velocity * SIN(cell_lat)
+      z_val2 = z_val2 + z_val * TAN(cell_lat)* sphere_radius
       z_val2 = z_val * z_val2
       
       p_hh = p_hh + z_val2 * z_step
