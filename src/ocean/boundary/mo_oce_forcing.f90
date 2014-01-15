@@ -603,7 +603,7 @@ CONTAINS
               p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * analytic_wind_amplitude * &
                 & COS(z_lat) * COS(forcing_windstress_zonal_waveno * z_lat)
               
-              p_sfc_flx%forc_wind_v(jc,jb) = 0
+              p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
             ELSE
               p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
               p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
@@ -624,7 +624,7 @@ CONTAINS
           END DO
         END DO
         
-      CASE default
+      CASE DEFAULT
         
         CALL message(TRIM(routine), 'STOP: Stationary Analytical Forcing not implemented' )
         CALL finish(TRIM(routine), 'CHOSEN STATIONARY FORCING OPTION NOT SUPPORTED - TERMINATE')
