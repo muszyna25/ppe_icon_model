@@ -54,7 +54,7 @@ MODULE mo_ocean_initial_conditions
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
-    & scatter_t, scatter_s, bathymetry_type, bathymetry_depth
+    & scatter_t, scatter_s, topography_type, topography_height
 
 !    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
@@ -1501,7 +1501,7 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (24)')
         CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
         
-        ! use bathymetry_type = 200, bathymetry_depth = 0
+        ! use topography_type = 200, topography_height = 0
 
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1532,7 +1532,7 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 2')
         
-        ! use bathymetry_type = 200, bathymetry_depth = 0
+        ! use topography_type = 200, topography_height = 0
 
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1571,7 +1571,7 @@ CONTAINS
         CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
         CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
         
-        ! use bathymetry_type = 201 (test5_oro)
+        ! use topography_type = 201 (test5_oro)
 
         !init height
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1619,7 +1619,7 @@ CONTAINS
           CALL finish(TRIM(routine), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
         ENDIF
 
-        ! use bathymetry_type = 200, bathymetry_depth = -200
+        ! use topography_type = 200, topography_height = -200
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1745,18 +1745,18 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
 
-    IF (bathymetry_type < 200) RETURN ! not analytic bathymetry
+    IF (topography_type < 200) RETURN ! not analytic bathymetry
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
 
-    SELECT CASE (bathymetry_type)
+    SELECT CASE (topography_type)
     CASE (200)
-      ! constant depth given by bathymetry_depth
+      ! constant depth given by topography_height
       ! the whole grid is considered sea
       patch_3d%lsm_c(:,:,:) = sea
       patch_3d%lsm_e(:,:,:) = sea
-      external_data%oce%bathymetry_c(:,:) = bathymetry_depth
+      external_data%oce%bathymetry_c(:,:) = topography_height
 
     CASE (201)
       ! test5_oro
@@ -1773,7 +1773,7 @@ CONTAINS
       END DO
 
     CASE default
-      CALL finish(method_name, "unknown bathymetry_type")
+      CALL finish(method_name, "unknown topography_type")
     END SELECT
 
   END SUBROUTINE init_ocean_bathymetry
