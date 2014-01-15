@@ -49,7 +49,6 @@ MODULE mo_ocean_initial_conditions
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
-
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &

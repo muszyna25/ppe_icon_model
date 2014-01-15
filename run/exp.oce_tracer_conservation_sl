@@ -33,12 +33,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -85,11 +85,11 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2002-01-01T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=24       # ocean model output interval hours [hours]
+nhours_data=2        # ocean model output interval hours [hours]
 ndays_file=3750      # new output file generation interval [days]
 ndays_checkp=1850    # write restart file interval [days]
 ndays_restart=366    # stop model for restart [days]
@@ -145,17 +145,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  'wet_c','forc_wind_u','t','s','t_acc','s_acc'
-! ml_varlist       =  'group:oce_default','hi','conc'
-!/
-! no complete sea ice
-!&output_nml
-!  output_bounds    = ${dt_data},${dt_restart},${dt_data}   !start, end, increment
-!  steps_per_file   = ${steps_per_file}
-!  include_last     = .TRUE.
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-!  ml_varlist       = 'wet_c','group:ice_default'
+  ml_varlist       =  'wet_c','forc_wind_u','t','s','t_acc','s_acc','forc_wind_v'
 /
 &dbg_index_nml
   idbg_mxmn=2                     ! initialize MIN/MAX  debug output
@@ -220,7 +210,7 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater      = .FALSE.   ! apply freshwater forcing boundary condition (OMIP only)
-  iforc_stat_oce     =    3      ! analytic forcing constant westerly
+  iforc_stat_oce     =    5      ! analytic forcing constant westerly
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /
 &ocean_initialConditions_nml

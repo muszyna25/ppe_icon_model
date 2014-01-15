@@ -289,6 +289,7 @@ def showPlot(build,exp,var='t',timestep=0,level=0)
       ofiles.each {|ofile|
         puts "Check file " +ofile
         plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho",timeStep: timestep,levIndex: level))
+        plotter.show(plotter.scalarPlot(ofile,ofile,var,                 timeStep: timestep,levIndex: level))
       }
 EOR
    EOS

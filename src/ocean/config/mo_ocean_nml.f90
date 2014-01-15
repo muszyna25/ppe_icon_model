@@ -111,6 +111,17 @@ MODULE mo_ocean_nml
 
   ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 3
+!TODO
+  INTEGER            :: forcing_fluxes_type       = 0
+  INTEGER            :: forcing_windstress_u_type   = 0
+  INTEGER            :: forcing_windstress_v_type   = 0
+  REAL               :: forcing_windstress_zonal_period = 1.0_wp         ! replacement for forcing_windstress_zonal_period
+  REAL               :: forcing_windstress_meridional_period = 1.0_wp    ! replacement for forcing_windstress_meridional_period
+
+  INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
+  INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
+  INTEGER            :: relax_sal_type            = 0 ! will cover parts of init_oce_relax
+  INTEGER            :: relax_sal_param           = 0 ! replacement for relax_2d_mon_S
 
   ! switch for reading relaxation data: 1: read from file
   INTEGER            :: init_oce_relax = 0
@@ -315,6 +326,8 @@ MODULE mo_ocean_nml
 
   REAL(wp) ::  forcing_windstress_zonal_waveno     = 3.0_wp  ! For the periodic analytic forcing (wind)
   REAL(wp) ::  forcing_windstress_meridional_waveno     = 3.0_wp
+  REAL(wp) ::  forcing_wind_u_amplitude = 1.0_wp
+  REAL(wp) ::  forcing_wind_v_amplitude = 1.0_wp
   REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, discretization_scheme,              &
