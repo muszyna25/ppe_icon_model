@@ -508,7 +508,6 @@ CONTAINS
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
                               & pt_patch, p_metrics,              & !>in
-                              & pt_int_state,                     & !>in
                               & ext_data,                         & !>in
                               & pt_prog,                          & !>in
                               & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
