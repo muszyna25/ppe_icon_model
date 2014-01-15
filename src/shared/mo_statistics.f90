@@ -87,7 +87,7 @@ MODULE mo_statistics
 
   INTERFACE levels_horizontal_mean
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
-    MODULE PROCEDURE LevelHorizontalMean_2D_InRange_2Dweights
+    MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
   END INTERFACE levels_horizontal_mean
 
   INTERFACE gather_sums
@@ -644,7 +644,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
+  SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
     REAL(wp), INTENT(in) :: values(:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
@@ -654,7 +654,7 @@ CONTAINS
     REAL(wp):: total_sum, total_weight
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_2D_InRange_2Dweights'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':HorizontalMean_2D_InRange_2Dweights'
 
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
 
@@ -722,7 +722,7 @@ CONTAINS
     ! Get average and add
     mean = total_sum / total_weight
 
-  END SUBROUTINE LevelHorizontalMean_2D_InRange_2Dweights
+  END SUBROUTINE HorizontalMean_2D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
 
