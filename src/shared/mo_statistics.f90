@@ -87,7 +87,13 @@ MODULE mo_statistics
 
   INTERFACE levels_horizontal_mean
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
+    MODULE PROCEDURE LevelHorizontalMean_2D_InRange_2Dweights
   END INTERFACE levels_horizontal_mean
+
+  INTERFACE gather_sums
+    MODULE PROCEDURE gather_sums_0D
+    MODULE PROCEDURE gather_sums_1D
+  END INTERFACE gather_sums
 #endif
   
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
@@ -586,7 +592,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, startidx, endidx) reduction(+:total_sum, total_weight)
+!ICON_OMP_DO PRIVATE(block, startidx, endidx)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, startidx, endidx)
         DO idx = startidx, endidx
@@ -635,6 +641,89 @@ CONTAINS
   END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
+  SUBROUTINE LevelHorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
+    REAL(wp), INTENT(in) :: values(:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean   ! mean for each level
+
+    REAL(wp), ALLOCATABLE :: sum_value(:), total_sum, sum_weight(:), total_weight
+    INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
+    INTEGER :: no_of_threads, myThreadNo
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_2D_InRange_2Dweights'
+
+    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+
+    no_of_threads = 1
+    myThreadNo = 0
+#ifdef _OPENMP
+    no_of_threads = omp_get_max_threads()
+#endif
+
+    ALLOCATE( sum_value(0:no_of_threads-1), &
+      & sum_weight(0:no_of_threads-1) )
+
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+!$  myThreadNo = omp_get_thread_num()
+!ICON_OMP_SINGLE
+!$  no_of_threads = OMP_GET_NUM_THREADS()
+!ICON_OMP_END_SINGLE NOWAIT
+    sum_value(myThreadNo) = 0.0_wp
+    sum_weight(myThreadNo) = 0.0_wp
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+!ICON_OMP_DO PRIVATE(block, startidx, endidx, idx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          DO level = 1, MIN(1, in_subset%vertical_levels(idx,block))
+            sum_value(myThreadNo)  = sum_value(myThreadNo) + &
+              & values(idx, block) * weights(idx, block)
+            sum_weight(myThreadNo)  = sum_weight(myThreadNo) + weights(idx, block)
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ELSE ! no in_subset%vertical_levels
+
+!ICON_OMP_DO PRIVATE(block, startidx, endidx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, startidx, endidx)
+        DO idx = startidx, endidx
+          ! since we have the same numbder of vertical layers, the weight is the same
+          ! for all levels. Compute it only for the first level, and then copy it
+          sum_weight(myThreadNo)  = sum_weight(myThreadNo) + weights(idx, block)
+          sum_value(myThreadNo)  = sum_value(myThreadNo) + &
+              & values(idx, block) * weights(idx, block)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ENDIF
+!ICON_OMP_END_PARALLEL
+
+    ! gather the total level sum of this process in total_sum(level)
+    total_sum     = 0.0_wp
+    total_weight = 0.0_wp
+    DO myThreadNo=0, no_of_threads-1
+      ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
+      total_sum    = total_sum    + sum_value( myThreadNo)
+      total_weight = total_weight + sum_weight( myThreadNo)
+    ENDDO
+    DEALLOCATE(sum_value, sum_weight)
+
+    ! Collect the value and weight sums (at all procs)
+    CALL gather_sums(total_sum, total_weight)
+
+    ! Get average and add
+    mean = total_sum / total_weight
+
+  END SUBROUTINE LevelHorizontalMean_2D_InRange_2Dweights
+  !-----------------------------------------------------------------------
+
 
   
   !-----------------------------------------------------------------------
@@ -678,7 +767,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE gather_sums(sum_1, sum_2)
+  SUBROUTINE gather_sums_1D(sum_1, sum_2)
     REAL(wp), INTENT(inout) :: sum_1(:), sum_2(:)
 
     REAL(wp), ALLOCATABLE :: concat_input_sum(:), concat_output_sum(:)
@@ -708,9 +797,25 @@ CONTAINS
 
     DEALLOCATE(concat_input_sum, concat_output_sum)
 
-  END SUBROUTINE gather_sums
+  END SUBROUTINE gather_sums_1D
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE gather_sums_0D(sum_1, sum_2)
+    REAL(wp), INTENT(inout) :: sum_1, sum_2
+
+    REAL(wp) :: array_sum_1(1), array_sum_2(1)
+
+    array_sum_1(1) = sum_1
+    array_sum_2(1) = sum_2
+    CALL gather_sums(array_sum_1, array_sum_2)
+    sum_1 = array_sum_1(1)
+    sum_2 = array_sum_2(1)
+
+  END SUBROUTINE gather_sums_0D
   !-----------------------------------------------------------------------
   
+
 !  !-----------------------------------------------------------------------
 !  !>
 !  FUNCTION globalspace_3d_sum_max_level_array(values, indexed_subset, weights, &
