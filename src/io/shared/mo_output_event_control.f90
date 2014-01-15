@@ -340,6 +340,7 @@ CONTAINS
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
     forecast_delta => newTimedelta("P01D")
+    ifname = 0
     DO i=1,nstrings
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
@@ -392,7 +393,6 @@ CONTAINS
 
       ! consistency check: test if the user has accidentally chosen a
       ! file name syntax which yields duplicate file names:
-      ifname = 0
       DO j=1,ifname
         IF (result_fnames(i)%filename_string == fname(j)) THEN
           ! found a duplicate filename:
