@@ -510,7 +510,7 @@ MODULE mo_nh_stepping
 
 
       ! Check if MODIS albedo needs to be updated
-      IF ( albedo_type == MODIS) THEN
+      IF (iforcing == inwp .AND. albedo_type == MODIS) THEN
         ! Note that here only an update of the external parameter fields is 
         ! performed. The actual update happens in mo_albedo.
         DO jg = 1, n_dom
