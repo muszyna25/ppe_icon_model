@@ -1665,7 +1665,6 @@ CONTAINS
 
       !write out time series
       CALL write_time_series(prm_diag%turb_diag_0dvar)
-      prm_diag%turb_diag_0dvar = 0._wp
     END IF
 	    
     IF( (MOD(p_sim_time, avg_interval_sec) < trigger_dt) )THEN

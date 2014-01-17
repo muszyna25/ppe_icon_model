@@ -548,7 +548,7 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%z_pbl, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      END SELECT  
 
-     prm_diag%turb_diag_0dvar(n) = prm_diag%turb_diag_0dvar(n) + outvar0d 
+     prm_diag%turb_diag_0dvar(n) = outvar0d 
  
     END DO
  
