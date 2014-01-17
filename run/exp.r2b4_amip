@@ -29,6 +29,7 @@ restart=${restart:=".false."}
 # horizontal grid(s)
 grids_folder=/pool/data/ICON/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
+atmo_output_interval="PT01H"
 
 # vertical grid
 nlev=47
@@ -38,7 +39,7 @@ start_date="1978-01-01T00:00:00Z"        # start and end date
   end_date="1979-01-01T00:00:00Z"        # of the experiment
 #
 (( dt_restart      = 30 * day         )) # [s] time between restarts = length of run
-(( dt_checkpoint   =  1 * day         )) # [s] time between additional restart file writing
+(( dt_checkpoint   = 30 * day         )) # [s] time between additional restart file writing
 #
 # atm_dyn output
 (( dt_file_atm_dyn =  1 * day         )) # [s] data file interval
@@ -147,7 +148,10 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  lzaxis_reference = .FALSE. 
 /
 &output_nml
- output_bounds    = ${dt_data_atm_dyn},100000000,${dt_data_atm_dyn}   ! start, end, increment
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"       ! interval in ISO-format
  steps_per_file   = ${steps_per_file_atm_dyn}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_dyn"
@@ -158,7 +162,10 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'pfull'   , 'gpfull'
 /
 &output_nml
- output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"       ! interval in ISO-format
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy"
@@ -175,7 +182,10 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
                     'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
- output_bounds    = ${dt_data_lnd_phy},100000000,${dt_data_lnd_phy}   ! start, end, increment
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"       ! interval in ISO-format
  steps_per_file   = ${steps_per_file_lnd_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_lnd_phy"
@@ -197,7 +207,10 @@ EOF
 if [[ "$write_tend_temp" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"       ! interval in ISO-format
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend_t"
@@ -211,7 +224,10 @@ fi
 if [[ "$write_tend_other" == "yes" ]]; then
     cat >> ${atmo_namelist} << EOF
 &output_nml
- output_bounds    = ${dt_data_atm_phy},100000000,${dt_data_atm_phy}   ! start, end, increment
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"       ! interval in ISO-format
  steps_per_file   = ${steps_per_file_atm_phy}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_phy_tend"
