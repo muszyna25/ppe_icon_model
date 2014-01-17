@@ -53,8 +53,8 @@ nens=count(start_dates)
 for nl=1 to count(lev) do
 
     u_exp1 = read(
-		type	:	"fc",
-		expver	:	expid,
+	       #type	:	"fc",
+	       #expver	:	expid,
 		levelist	:lev[nl],
 		param	:	["u"],
 		date	:	start_dates,
@@ -62,8 +62,8 @@ for nl=1 to count(lev) do
                 source  : dir&"mmean_"&expid&"_pl_alldates.grb"
 		)
     v_exp1 = read(
-		type	:	"fc",
-		expver	:	expid,
+	       #type	:	"fc",
+	       #expver	:	expid,
 		levelist	:lev[nl],
 		param	:	["v"],
 		date	:	start_dates,

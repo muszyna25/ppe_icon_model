@@ -68,7 +68,7 @@ for ns=1 to count(seasons) do #  Loop over seasons
 
 #print('retrieve ',params[np])
 
-      for I=1 to NENS by 1 do  #  Loop over ensemble members 
+      for I=1 to NENS by 1 do  #  Loop over ensemble members
          e_b = retrieve(
 		       expver	:	exp,
 		       levtype	:	"ml",

@@ -153,17 +153,20 @@ if vartype = "ins" then
         "TP": 
            var_ctr_all=multiget(spec_par_tp,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_tp,expv1, levtype,lev,dates,res,file_mod)
-  	       unit = "mm d\\SP\\-1\\SPR\\"
+  	   unit = "[mm d<sup>-1</sup>]"
+  	  #unit = "[mm/day]"
         end
         "SURFRADN": 
            var_ctr_all=multiget(spec_par_surfradn,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_surfradn,expv1, levtype,lev,dates,res,file_mod)
-           unit = "W m\\SP\\-2\\SPR\\"
+           unit = "[W m<sup>-2</sup>]"
+          #unit = "[W/m2]"
         end
         "SURFNET": 
            var_ctr_all=multiget(spec_par_surfnet,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_surfnet,expv1, levtype,lev,dates,res,file_mod)
-           unit = "W m\\SP\\-2\\SPR\\"
+           unit = "[W m<sup>-2</sup>]"
+          #unit = "[W/m2]"
         end
         otherwise: 
 	  var_mod_all = read(
@@ -202,20 +205,22 @@ or varid = "LSP" or varid = 142
 or varid = "TP"  or varid = 228 then
         var_mod_all = var_mod_all * 86400 * 1000
         var_ctr_all = var_ctr_all * 86400 * 1000
-        unit = "mm d\\SP\\-1\\SPR\\"
+        unit = "[mm d<sup>-1</sup>]"
+       #unit = "[mm/day]"
 end if
 
 if varid = "SD" then
         var_mod_all = var_mod_all * 100
         var_ctr_all = var_ctr_all * 100
-        unit    = "cm of water equiv."
+        unit = "cm of water equiv."
 end if
 
 if varid = "SSR"
 or varid = "STR"
 or varid = "TSR"
 or varid = "TTR" then 
-   unit = "W m\\SP\\-2\\SPR\\"
+   unit = "[W m<sup>-2</sup>]"
+  #unit = "[W/m2]"
 end if
 print(unit)
 if varid = "ssr"
@@ -224,8 +229,8 @@ or varid = "tsr"
 or varid = "ttr" 
 or varid = "sshf"
 or varid = "slhf" then 
-   #unit = "W m\\SP\\-2\\SPR\\"
-   unit = "W m**-2"
+   unit = "[W m<sup>-2</sup>]"
+  #unit = "[W/m2]"
 end if
 print(unit)
 # --- calculate stats
