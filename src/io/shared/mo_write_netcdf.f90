@@ -140,6 +140,8 @@ contains
       if (iret /= nf_noerr) call nchandle_error(ncid, iret)
       iret  = nf_inq_dimlen(ncid, RecordDimID, nrec)
 
+      ncall = nrec
+
 !      if (iret==0) then
 !
 !        if (nrec > 0) then
@@ -202,7 +204,7 @@ contains
 
     end if
 
-!    if (present(nrec)) nrec = ncall
+    if (present(nrec)) nrec = ncall
     iret = nf_sync(ncid)
 
   end subroutine open_nc
@@ -455,7 +457,7 @@ contains
     real(wp),intent(in)              :: var    !< The variables to be written to file
     integer, intent(inout), optional :: nrec   !< Netcdf Record number
 
-    integer :: iret,varid, udimid, loc(1)
+    integer :: iret,varid, udimid, loc(1),dimsize(1)
     character(len=20) :: udimname
 
     iret = nf_inq_varid(ncid, trim(validate(ncname)), VarID)
@@ -473,10 +475,11 @@ contains
     else
       loc = 1
     end if
-
-    iret = nf_put_vara_double(ncid, VarID, loc, (/'1'/), var)
-
+   
+    dimsize(1) = 1
+    iret = nf_put_vara_double(ncid, VarID, loc, dimsize, var)
     if (iret /= nf_noerr .and. iret /= nf_erange) call nchandle_error(ncid, iret)
+
     iret = sync_nc(ncid)
 
   end subroutine writevar0D_nc

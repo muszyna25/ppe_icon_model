@@ -1176,6 +1176,7 @@ MODULE mo_nh_stepping
               &                  dtadv_loc,                          & !in
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
+              &                  nstep_global,                       & !in
               &                  datetime,                           & !in
               &                  p_patch(jg)  ,                      & !in
               &                  p_int_state(jg),                    & !in
@@ -1501,7 +1502,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now,n_now_rcf
+    INTEGER :: n_now,n_now_rcf, nstep
 
     INTEGER :: jgp, jgc, jn
 
@@ -1534,12 +1535,14 @@ MODULE mo_nh_stepping
 
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN!LES physics
 
+      nstep = 0
       CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
         &                  lredgrid_phys(jg),                  & !in
         &                  dt_loc,                             & !in
         &                  dtadv_loc,                          & !in
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in
+        &                  nstep,                              & !in
         &                  datetime,                           & !in
         &                  p_patch(jg)  ,                      & !in
         &                  p_int_state(jg),                    & !in

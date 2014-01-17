@@ -57,7 +57,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, dtime
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_lnd_diag 
@@ -77,6 +77,9 @@ MODULE mo_turbulent_diagnostic
 
   INTEGER  :: nrec_tseries,   nrec_profile
   INTEGER  :: fileid_tseries, fileid_profile
+  INTEGER  :: sampl_freq_step, avg_interval_step
+  CHARACTER(20) :: tname     = 'time'
+  CHARACTER(20) :: tlongname = 'Time'
 
   PRIVATE
 
@@ -85,6 +88,7 @@ MODULE mo_turbulent_diagnostic
 
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
+  PUBLIC  :: sampl_freq_step, avg_interval_step
 
 CONTAINS
 
@@ -99,8 +103,7 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE calculate_turbulent_diagnostics(             &
-                            & dt_phy,                     & !in
-                            & p_patch,  p_metrics,        & !in
+                            & p_patch,                    & !in
                             & p_prog,   p_prog_rcf,       & !in
                             & p_diag,                     & !in
                             & p_prog_land, p_diag_land,   & !in
@@ -110,14 +113,11 @@ CONTAINS
     !>
     ! !INPUT PARAMETERS:
 
-    REAL(wp),INTENT(in)          :: dt_phy          !< fast phy time interval
-
     TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
                                                         !< red. calling frequency for tracers!
-    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
 
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
     TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
@@ -141,7 +141,8 @@ CONTAINS
     INTEGER :: nvar, n
     CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:calculate_turbulent_diagnostics'
 
-    !CALL message(routine,'Start!')
+    IF(msg_level>18) & 
+      CALL message(routine,'Start!')
 
     kg2g = 1000._wp
      
@@ -555,7 +556,8 @@ CONTAINS
      
     DEALLOCATE( umean, vmean, thmean, qvmean, qcmean, wmean, outvar, var3df, var3dh, theta )
 
-    !CALL message(routine,'Over!')
+    IF(msg_level>18) & 
+      CALL message(routine,'Over!')
 
   END SUBROUTINE calculate_turbulent_diagnostics
 
@@ -570,27 +572,25 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE write_vertical_profiles(outvar)
-    REAL(wp), INTENT(IN) :: outvar(:,:)
+  SUBROUTINE write_vertical_profiles(outvar, sim_time)
+    REAL(wp), INTENT(IN) :: outvar(:,:), sim_time
 
     INTEGER :: nvar, n
  
-    !CALL message('write_vertical_profiles:','Start!')
-
-    !record for output
-    nrec_profile = nrec_profile + 1
-
     !Write profiles
     nvar = SIZE(turb_profile_list,1)
 
     !Loop over all variables
     IF( my_process_is_stdio() )THEN
-      DO n = 1 , nvar
+
+      !First write time
+      CALL writevar_nc(fileid_profile, tname, sim_time, nrec_profile) 
+
+      DO n = 1 , nvar       
        CALL writevar_nc(fileid_profile, TRIM(turb_profile_list(n)), outvar(n,:), nrec_profile) 
       END DO
-    END IF
 
-    !CALL message('write_vertical_profiles:','Over!')
+    END IF
 
   END SUBROUTINE write_vertical_profiles
 
@@ -605,27 +605,25 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE write_time_series(outvar)
-    REAL(wp), INTENT(IN) :: outvar(:)
+  SUBROUTINE write_time_series(outvar, sim_time)
+    REAL(wp), INTENT(IN) :: outvar(:), sim_time
 
     INTEGER :: nvar, n
-
-    !CALL message('write_time_series:','Start!')
-
-    !record for output
-    nrec_tseries = nrec_tseries + 1
 
     !Write time series 
     nvar = SIZE(turb_tseries_list,1)
 
     !Loop over all variables
     IF( my_process_is_stdio() )THEN
-      DO n = 1 , nvar
-        CALL writevar_nc(fileid_tseries, TRIM(turb_tseries_list(n)), outvar(n), nrec_tseries) 
-      END DO
-    END IF
 
-    !CALL message('write_time_series:','Over!')
+      !First write time
+      CALL writevar_nc(fileid_tseries, tname, sim_time, nrec_tseries) 
+
+      DO n = 1 , nvar
+        CALL writevar_nc(fileid_tseries, turb_tseries_list(n), outvar(n), nrec_tseries) 
+      END DO
+
+    END IF
 
   END SUBROUTINE write_time_series
 
@@ -655,6 +653,10 @@ CONTAINS
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
  
    IF(msg_level>18)CALL message(routine,'Start!')
+
+   !Sampling and output frequencies in terms of time steps
+   sampl_freq_step   = MAX(1,NINT(sampl_freq_sec/dtime))
+   avg_interval_step = MAX(1,NINT(avg_interval_sec/dtime))
 
    nlev   = p_patch%nlev
    nlevp1 = nlev + 1
@@ -755,8 +757,8 @@ CONTAINS
        is_at_full_level(n) = .FALSE.
      END SELECT
 
-     dimname(2) = 'time'
-     dimlongname(2) = 'Time'
+     dimname(2) = tname
+     dimlongname(2) = tlongname
      dimunit(1) = 'm'
      dimunit(2) = 's'
      dimvalues = 0._wp
@@ -821,8 +823,8 @@ CONTAINS
        unit     = 'm'
      END SELECT  
   
-     dimname(1) = 'time'
-     dimlongname(1) = 'Time'
+     dimname(1) = tname
+     dimlongname(1) = tlongname
      dimunit(1) = 's'
      IF( my_process_is_stdio() ) &
         CALL addvar_nc(fileid_tseries, TRIM(turb_tseries_list(n)), TRIM(longname), TRIM(unit), &
