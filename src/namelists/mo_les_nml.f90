@@ -141,7 +141,7 @@ CONTAINS
 
     turb_tseries_list = (/                                                  &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
-      'qsfc   ','hpbl   '  /)                                         !7-8
+      'qsfc   ','hbl    '  /)                                         !7-8
 
 
     !------------------------------------------------------------------
