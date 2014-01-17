@@ -215,6 +215,8 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   itestcase_oce      =   46      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_temperature_type = 200
+  initial_salinity_type = 200
 /
 &ocean_diagnostics_nml
 ! vertex list for R2B04 only

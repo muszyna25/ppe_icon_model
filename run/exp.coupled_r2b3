@@ -553,6 +553,11 @@ cat > ${ocean_namelist} << EOF
                                  ! 3: use initial T read with init_oce=1
 &ocean_initialConditions_nml
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type      = 402
+  initial_temperature_type   = 207
+  initial_sst_type           = 'sst1'
+  initial_temperature_top    = 27.0 
+  initial_temperature_bottom = 0.0
 /
 &sea_ice_nml
   i_ice_therm   = 1

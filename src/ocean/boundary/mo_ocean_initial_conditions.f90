@@ -52,11 +52,11 @@ MODULE mo_ocean_initial_conditions
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
-    & initial_temperature_reference, initial_salinity_reference, use_tracer_x_height, scatter_levels, &
-    & scatter_t, scatter_s, topography_type, topography_height_reference, sea_surface_height_type, &
-    & initial_temperature_type, initial_salinity_type
+    & initial_temperature_bottom, initial_temperature_top, &
+    & initial_salinity_top, initial_salinity_bottom, &
+    & use_tracer_x_height, topography_type, topography_height_reference, &
+    & sea_surface_height_type, initial_temperature_type, initial_salinity_type, initial_sst_type
 
-!    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s,     &
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
@@ -131,14 +131,14 @@ CONTAINS
 
     ELSE
 
-!      CALL init_ocean_bathymetry(patch_3d, external_data%oce%bathymetry_c(:,:))
-!      CALL init_ocean_surface_height(patch_3d, ocean_state%p_prog(nold(1))%h(:,:))
-!      IF (no_tracer > 0) &
-!        & CALL init_ocean_temperature(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
-!      IF (no_tracer > 1) &
-!        & CALL init_ocean_salinity(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
+      CALL init_ocean_bathymetry(patch_3d, external_data%oce%bathymetry_c(:,:))
+      CALL init_ocean_surface_height(patch_3d, ocean_state%p_prog(nold(1))%h(:,:))
+      IF (no_tracer > 0) &
+        & CALL init_ocean_temperature(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
+      IF (no_tracer > 1) &
+        & CALL init_ocean_salinity(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
 
-      CALL init_ocean_analytically(patch_3d, ocean_state)
+!      CALL init_ocean_analytically(patch_3d, ocean_state)
 
     END IF
 
@@ -405,28 +405,11 @@ CONTAINS
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
     REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
-    REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
     REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
     REAL(wp):: t,s
-    CHARACTER(LEN=max_char_length) :: sst_case
-
-    ! replace by file
-    REAL(wp), PARAMETER :: sprof(20)=&
-      & (/  34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp, 35.027084_wp, &
-      & 35.026825_wp, 34.960835_wp, 34.862324_wp, 34.752468_wp, 34.656761_wp, 34.596603_wp,&
-      & 34.594128_wp, 34.628601_wp, 34.678772_wp, 34.717495_wp, 34.738304_wp, 34.741512_wp,&
-      & 34.738205_wp, 34.729176_wp, 34.723465_wp /)
-
-    REAL(wp), PARAMETER :: salinity_profile_20levels(20)= &
-      & (/ 34.5_wp, 34.6_wp, 34.7_wp, 34.8_wp, 34.9_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp,&
-      & 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp/)
+    CHARACTER(LEN=max_char_length) :: initial_sst_type
 
     REAL(wp) :: salinity_profile(n_zlev)
-
-    REAL(wp), PARAMETER :: tprof_var(20)= &
-      & (/ 25.0_wp, 23.0_wp, 20.0_wp, 15.0_wp, 10.0_wp, 8.0_wp, 6.0_wp, 5.0_wp, 4.0_wp, 3.0_wp,&
-      & 2.0_wp,  1.0_wp,  0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp/)
-
 
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     
@@ -722,7 +705,7 @@ CONTAINS
         CALL message(TRIM(method_name), 'Initialization of testcases (44)')
         CALL message(TRIM(method_name), ' - here: horizontally homogen, stable vertical profile')
 
-        ! use initial_temperature_type = 206
+        ! use initial_temperature_type = 200
         
       CASE (45)
         ! T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
@@ -748,54 +731,9 @@ CONTAINS
         CALL message(TRIM(method_name), &
           & ' - here: horizontally and vertically homogen+warm/salty Indonesia')
         
-        ! 2012-10-31: Indonesian Archipelago - connected to Atlantic? (4 cpu)
-        z_lat1  =  -5.0_wp
-        z_lat2  =  10.0_wp
-        z_lon1  = 115.0_wp
-        z_lon2  = 135.0_wp
-        ! 2012-10-31: corresponding NAtl: 1N 20W, 3 levels
-        z_lon1  = 145.0_wp
-        z_lon2  = 160.0_wp
-        ! 2012-11-08: Test homogen with one cell differ at 10N; 70E
-        z_lat1  =   0.0_wp
-        z_lat2  =  15.0_wp
-        z_lon1  =  60.0_wp
-        z_lon2  =  80.0_wp
-        
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            DO jk=1,n_zlev
-              
-              !latitude given in radians
-              cell_lat = patch_2d%cells%center(jc,jb)%lat
-              cell_lon = patch_2d%cells%center(jc,jb)%lon
-              !transer to latitude in degrees
-              lat_deg = cell_lat*rad2deg
-              lon_deg = cell_lon*rad2deg
-              
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
-                IF (no_tracer == 2) THEN
-                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-                END IF
-                
-                IF ( (lat_deg >= z_lat1 .AND. lat_deg <= z_lat2) .AND. &
-                  & (lon_deg >= z_lon1 .AND. lon_deg <= z_lon2) .AND. &
-                  & ( jk <= 1 ) ) THEN
-                  
-                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =  6.0_wp
-                  IF (no_tracer == 2) THEN
-                    ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 34.8_wp
-                  END IF
-                  
-                END IF
-                
-              END IF
-            END DO
-          END DO
-        END DO
+        ! use initial_temperature_type = 206
+        ! use initial_salinity_type = 201
+
         
       CASE (50)
         ! Testcase for coupled Aquaplanet:
@@ -806,135 +744,23 @@ CONTAINS
         CALL message(TRIM(method_name), 'Initialization of testcases (50)')
         CALL message(TRIM(method_name), ' - here: testcase for coupled aquaplanet, using sst_qobs')
         
-        !sst_case='sst_qobs'
-        sst_case='sst1'
-        jk = 1
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            cell_lat = patch_2d%cells%center(jc,jb)%lat
-            IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,cell_lat)-tmelt   ! SST in Celsius
-            END IF
-          END DO
-        END DO
-        
-        z_temp_max  = 27.0_wp
-        z_temp_min  =  0.0_wp
-        z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
-        WRITE(0,*) TRIM(method_name),': Vertical temperature increment = ',z_temp_incr
-        
-        ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
-        DO jk=2,n_zlev-1
-          
-          z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
-          WRITE(0,*) TRIM(method_name),': jk=',jk,' Maximum Temperature =',z_max
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-            DO jc = start_cell_index, end_cell_index
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                  & = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
-              ELSE
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-              ENDIF
-            END DO
-          END DO
-        END DO
-        
-        !  - add horizontally homogen, vertically increasing / homogen salinity
-        IF (no_tracer==2) THEN
-          
-          DO jk=1,n_zlev
-            WRITE(0,*) TRIM(method_name),': jk=',jk,' Salinity =', salinity_profile_20levels(jk)
-          END DO
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-            DO jc = start_cell_index, end_cell_index
-              DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
-              END DO
-            END DO
-          END DO
-        END IF
+        ! use initial_salinity_type = 402
+        ! use initial_temperature_type = 207
+        ! use initial_sst_type='sst1'
+
+        ! Important:
+        !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
+        !   to be consistent with the old setup
         
       CASE (1050)
         ! as 50, but salinity is analytically calculated
         CALL message(TRIM(method_name), 'Initialization of testcase (1050)')
         CALL message(TRIM(method_name), ' - here: testcase for coupled aquaplanet, using analytic s')
         
-        !sst_case='sst_qobs'
-        !       sst_case='sst1'
-        !       jk = 1
-        !       DO jb = all_cells%start_block, all_cells%end_block
-        !         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        !         DO jc = start_cell_index, end_cell_index
-        !           cell_lat = patch_2D%cells%center(jc,jb)%lat
-        !           IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        !             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,cell_lat)-tmelt   ! SST in Celsius
-        !           END IF
-        !         END DO
-        !       END DO
-        !
-        !       z_temp_max  = 20.0_wp
-        !       z_temp_min  =  4.0_wp
-        !       z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
-        !       WRITE(0,*) TRIM(method_name),': Vertical temperature increment = ',z_temp_incr
-        !       WRITE(message_text,*) 'Vertical temperature increment = ',z_temp_incr
-        !       CALL message(TRIM(method_name),TRIM(message_text))
-        !
-        !       ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
-        !       DO jk=2,n_zlev-1
-        !
-        !         z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
-        !         WRITE(message_text,*) "jk=",jk,' Maximum Temperature =',z_max
-        !         CALL message(TRIM(method_name),TRIM(message_text))
-        !
-        !         DO jb = all_cells%start_block, all_cells%end_block
-        !           CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        !           DO jc = start_cell_index, end_cell_index
-        !             IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-        !               ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-        !                 &  = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
-        !             ELSE
-        !               ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-        !             ENDIF
-        !           END DO
-        !         END DO
-        !       END DO
-        
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 10.0_wp
-            END DO
-          END DO
-        END DO
-        
-        DO jk=1,n_zlev
+        ! use initial_temperature_type = 200 top_temperature = bottom_temperature = 10
+        ! use initial_salinity_type = 202    top_salinity = 34.1, bottom_salinity = 35.0
 
-          salinity_profile(jk) = &
-            & MIN(34.1_wp + LOG(1.3_wp + SQRT(patch_3d%p_patch_1d(1)%zlev_m(jk)) * 0.05), 35.0_wp)
 
-          ! write(0,*) jk, patch_3D%p_patch_1D(1)%zlev_m(jk), " salinity:", salinity_profile(jk)
-          WRITE(message_text,*) jk, patch_3d%p_patch_1d(1)%zlev_m(jk), " salinity:", salinity_profile(jk)
-          CALL message(TRIM(method_name),TRIM(message_text))
-        ENDDO
-        
-        !  - add h1rizontally homogen, vertically increasing / homogen salinity
-        IF (no_tracer==2) THEN
-          
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-            DO jc = start_cell_index, end_cell_index
-              DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile(jk)
-              END DO
-            END DO
-          END DO
-        END IF
-        
       CASE (52)
         ! Testcase for coupled Aquaplanet:
         !  - following APE_ATLAS Equations (2.1) - (2.5)
@@ -945,59 +771,17 @@ CONTAINS
         CALL message(TRIM(method_name), 'Initialization of testcases (52)')
         CALL message(TRIM(method_name), &
           & ' - here: testcase for coupled aquaplanet, using sst_qobs, min=10 deg C')
+
+        ! use initial_salinity_type = 402
+        ! use initial_temperature_type = 207
+        ! use initial_sst_type='sst_qobs'
+
+        ! Important:
+        !   use initial_temperature_top=27.0 initial_temperature_bottom=10.0
+        !   to be consistent with the old setup
         
-        z_temp_max  = 27.0_wp
-        z_temp_min  = 10.0_wp
-        z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
         
-        sst_case='sst_qobs'
-        jk = 1
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            cell_lat = patch_2d%cells%center(jc,jb)%lat
-            IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = MAX(ape_sst(sst_case,cell_lat)-tmelt,z_temp_min)
-            END IF
-          END DO
-        END DO
-        WRITE(0,*) TRIM(method_name),': Vertical temperature increment = ',z_temp_incr
-        
-        ocean_state%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
-        DO jk=2,n_zlev-1
-          
-          z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
-          WRITE(0,*) TRIM(method_name),': jk=',jk,' Maximum Temperature =',z_max
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-            DO jc = start_cell_index, end_cell_index
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                  & = MAX(ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr, z_temp_min)
-              ELSE
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-              ENDIF
-            END DO
-          END DO
-        END DO
-        
-        !  - add horizontally homogen, vertically increasing / homogen salinity
-        IF (no_tracer==2) THEN
-          DO jk=1,n_zlev
-            DO jb = all_cells%start_block, all_cells%end_block
-              CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-              DO jc = start_cell_index, end_cell_index
-                IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = salinity_profile_20levels(jk)
-                  ! ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-                ENDIF
-              END DO
-            END DO
-            WRITE(0,*) TRIM(method_name),': jk=',jk,' Salinity =', salinity_profile_20levels(jk)
-          END DO
-        END IF
-        
-      CASE (51)
+       CASE (51)
         CALL message(TRIM(method_name), 'Simple Initialization of testcases (51)')
         CALL message(TRIM(method_name), &
           & ' - here: horizontally varying T with local perturbation')
@@ -1336,8 +1120,6 @@ CONTAINS
       & (/ 34.5_wp, 34.6_wp, 34.7_wp, 34.8_wp, 34.9_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp,&
       & 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp/)
 
-    REAL(wp) :: salinity_profile(n_zlev)
-
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
 
@@ -1350,9 +1132,18 @@ CONTAINS
     SELECT CASE (initial_salinity_type)
     !------------------------------
     CASE (200)
-      ! uniform salinity
-      salinity_profile(:) = initial_salinity_reference
-      CALL fill_FromVerticalArrayProfile(patch_3d, ocean_salinity, VerticalProfileValue=salinity_profile)
+      ! uniform salinity or vertically linarly increasing
+      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
+      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+
+    !------------------------------
+    CASE (201)
+      CALL salinity_Uniform_SpecialArea(patch_3d, ocean_salinity)
+
+    !------------------------------
+    CASE (202)
+      CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 
     !------------------------------
     CASE (401)
@@ -1399,11 +1190,14 @@ CONTAINS
     IF (initial_temperature_type < 200) RETURN ! not analytic temperature
 
     SELECT CASE (initial_temperature_type)
+
     !------------------------------
     CASE (200)
-      ! uniform temperature
-      temperature_profile(:) = initial_temperature_reference
-      CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=temperature_profile)
+      ! uniform or lineraly decreasing temperature
+      ! Temperature is homogeneous in each layer.
+      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
+      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
     !------------------------------
     CASE (201)
@@ -1427,7 +1221,11 @@ CONTAINS
 
     !------------------------------
     CASE (206)
-      CALL temperature_VerticallyLinearlyDecreasing(patch_3d, ocean_temperature)
+      CALL temperature_Uniform_SpecialArea(patch_3d, ocean_temperature)
+
+    !------------------------------
+    CASE (207)
+      CALL temperature_APE(patch_3d, ocean_temperature)
 
     !------------------------------
     CASE (401)
@@ -1456,8 +1254,129 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE temperature_VerticallyLinearlyDecreasing(patch_3d, ocean_temperature)
+  SUBROUTINE temperature_Uniform_SpecialArea(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_Uniform_SpecialArea'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! 2012-10-31: Indonesian Archipelago - connected to Atlantic? (4 cpu)
+    z_lat1  =  -5.0_wp
+    z_lat2  =  10.0_wp
+    z_lon1  = 115.0_wp
+    z_lon2  = 135.0_wp
+    ! 2012-10-31: corresponding NAtl: 1N 20W, 3 levels
+    z_lon1  = 145.0_wp
+    z_lon2  = 160.0_wp
+    ! 2012-11-08: Test homogen with one cell differ at 10N; 70E
+    z_lat1  =   0.0_wp
+    z_lat2  =  15.0_wp
+    z_lon1  =  60.0_wp
+    z_lon2  =  80.0_wp
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        lat_deg = cell_center(jc, jb)%lat * rad2deg
+        lon_deg = cell_center(jc, jb)%lon * rad2deg
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          ocean_temperature(jc,jk,jb) = 5.0_wp
+
+          IF ( (lat_deg >= z_lat1 .AND. lat_deg <= z_lat2) .AND. &
+            & (lon_deg >= z_lon1 .AND. lon_deg <= z_lon2) .AND. &
+            & ( jk <= 1 ) ) THEN
+
+            ocean_temperature(jc,jk,jb) =  6.0_wp
+
+          END IF
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE temperature_Uniform_SpecialArea
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE salinity_Uniform_SpecialArea(patch_3d, ocean_salinity)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_salinity(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':salinity_Uniform_SpecialArea'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! 2012-10-31: Indonesian Archipelago - connected to Atlantic? (4 cpu)
+    z_lat1  =  -5.0_wp
+    z_lat2  =  10.0_wp
+    z_lon1  = 115.0_wp
+    z_lon2  = 135.0_wp
+    ! 2012-10-31: corresponding NAtl: 1N 20W, 3 levels
+    z_lon1  = 145.0_wp
+    z_lon2  = 160.0_wp
+    ! 2012-11-08: Test homogen with one cell differ at 10N; 70E
+    z_lat1  =   0.0_wp
+    z_lat2  =  15.0_wp
+    z_lon1  =  60.0_wp
+    z_lon2  =  80.0_wp
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        lat_deg = cell_center(jc, jb)%lat * rad2deg
+        lon_deg = cell_center(jc, jb)%lon * rad2deg
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          ocean_salinity(jc,jk,jb) = 35.0_wp
+
+          IF ( (lat_deg >= z_lat1 .AND. lat_deg <= z_lat2) .AND. &
+             & (lon_deg >= z_lon1 .AND. lon_deg <= z_lon2) .AND. &
+             & ( jk <= 1 ) ) THEN
+
+             ocean_salinity(jc,jk,jb) = 34.8_wp
+
+          END IF
+
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE salinity_Uniform_SpecialArea
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_APE(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     TYPE(t_patch),POINTER   :: patch_2d
@@ -1465,37 +1384,102 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_VerticallyLinearlyDecreasing'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
+    !-------------------------------------------------------------------------
+
+    ! Important:
+    !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
+    !   to be consistent with the old setup
+
+    CALL message(TRIM(method_name), ' using sst1')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_temperature(jc,jk,jb) = MAX( &
+            & ape_sst(initial_sst_type, patch_2d%cells%center(jc,jb)%lat) - tmelt,  & ! SST in Celsius
+            & initial_temperature_bottom)
+        END DO
+      END DO
+    END DO
+
+    CALL decreaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+      & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+
+  END SUBROUTINE temperature_APE
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_VerticallyLinearlyDecreasing(patch_3d, ocean_tracer, top_value, bottom_value)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: top_value, bottom_value
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearlyDecreasing'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
 
-    ! Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
-    CALL message(TRIM(method_name), ': horizontally homogen, stable vertical profile')
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO jk = 1, MIN(1,patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_tracer(jc,jk,jb) = top_value
+        ENDDO
+      END DO
+    END DO
 
-    z_temp_max  = 30.5_wp
-    z_temp_min  = 0.5_wp
-    z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
+    CALL decreaseTracerVerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+
+  END SUBROUTINE tracer_VerticallyLinearlyDecreasing
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  ! decrease tvertically linerarly the given tracer based on the top level value
+  ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
+  SUBROUTINE decreaseTracerVerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: top_value, bottom_value
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: linear_decrease
+
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    linear_decrease = (top_value - bottom_value) / (REAL(n_zlev,wp)-1.0_wp)
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        DO jk = 1, MIN(1,patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-          ocean_temperature(:,jk,:) = z_temp_max
-        ENDDO
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          ocean_temperature(jc,jk,jb) &
-            & = ocean_temperature(jc,jk-1,jb) - z_temp_incr
+          ocean_tracer(jc,jk,jb) &
+            & = MAX(ocean_tracer(jc,jk-1,jb) - linear_decrease, bottom_value)
         END DO
 
       END DO
     END DO
 
-  END SUBROUTINE temperature_VerticallyLinearlyDecreasing
+  END SUBROUTINE decreaseTracerVerticallyLinearly
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -1509,7 +1493,6 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
     REAL(wp):: lat_deg, lon_deg, z_tmp
     REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -1601,7 +1584,6 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
     REAL(wp):: lat_deg, lon_deg, z_tmp
     REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -1871,9 +1853,37 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE fill_FromVerticalArrayProfile(patch_3d, ocean_3D_value, VerticalProfileValue)
+  SUBROUTINE salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    REAL(wp), TARGET :: ocean_3D_value(:,:,:)
+    REAL(wp), TARGET :: ocean_salinity(:,:,:)
+
+    REAL(wp) :: salinity_profile(n_zlev)
+    INTEGER :: jk
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':salinity_AnalyticSmoothVerticalProfile'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name),' Creating analytic profile:')
+
+    DO jk=1,n_zlev
+
+      salinity_profile(jk) = &
+        & MIN(34.1_wp + LOG(1.3_wp + SQRT(patch_3d%p_patch_1d(1)%zlev_m(jk)) * 0.05), 35.0_wp)
+
+      ! write(0,*) jk, patch_3D%p_patch_1D(1)%zlev_m(jk), " salinity:", salinity_profile(jk)
+      WRITE(message_text,*) jk, patch_3d%p_patch_1d(1)%zlev_m(jk), " salinity:", salinity_profile(jk)
+      CALL message(TRIM(method_name),TRIM(message_text))
+    ENDDO
+
+    CALL fill_FromVerticalArrayProfile(patch_3d=patch_3d, ocean_tracer=ocean_salinity, VerticalProfileValue=salinity_profile)
+
+  END SUBROUTINE salinity_AnalyticSmoothVerticalProfile
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE fill_FromVerticalArrayProfile(patch_3d, ocean_tracer, VerticalProfileValue)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
     REAL(wp), TARGET :: VerticalProfileValue(:)
 
     TYPE(t_patch),POINTER   :: patch_2d
@@ -1893,7 +1903,7 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          ocean_3D_value(jc,jk,jb) = VerticalProfileValue(jk)
+          ocean_tracer(jc,jk,jb) = VerticalProfileValue(jk)
         END DO
       END DO
     END DO

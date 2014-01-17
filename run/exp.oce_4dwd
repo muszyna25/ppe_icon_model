@@ -202,6 +202,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type      = 402
+  initial_temperature_type   = 207
+  initial_sst_type           = 'sst1'
+  initial_temperature_top    = 27.0 
+  initial_temperature_bottom = 0.0
 /
 &ocean_diagnostics_nml
   diagnostics_level  = 1
