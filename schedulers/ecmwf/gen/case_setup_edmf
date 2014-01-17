@@ -121,7 +121,7 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'qv','qc','qi','qr','qs','o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia', 
 'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
-'u_10m','v_10m', 't_2m',
+'u_10m','v_10m','sp_10m', 't_2m', 'td_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
@@ -270,7 +270,7 @@ cat > ${atmo_namelist} << EOF
  itype_interception           = 1       ! 1: off/default, 2: on
 /
 &radiation_nml
- irad_o3                      = 7
+ irad_o3                      = 7           ! 6: GME, 7: GEMS
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo

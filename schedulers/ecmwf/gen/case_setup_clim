@@ -48,11 +48,6 @@ ifs2icon_filename=ifs2icon_${res}_DOM01.nc
 sst_td_filename="<path>SST_<year>_<month>_${res}_DOM01.nc"
 ci_td_filename="<path>CI_<year>_<month>_${res}_DOM01.nc"
 
-#rm -f ${atmo_dyn_grids}
-#rm -f ${atmo_rad_grids}
-#rm -f ${extpar_filename}
-#rm -f ${ifs2icon_filename}
-
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
 ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
@@ -61,11 +56,8 @@ ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
 
-rm -f *SST**${res}*
-rm -f *CI**${res}*
-
 ln -sf ${SSTICEDIR}/*/*SST**${res}* .
-ln -sf ${SSTICEDIR}/*/*CI**${res}* .
+ln -sf ${SSTICEDIR}/*/*CI**${res}*  .
 
 # global timing
 start_date="${INITIME_FMT}"
@@ -77,7 +69,6 @@ dtime=90     # dyn            R2B4:150  R2B5:90   R2B6:72   R2B7:36   R2B8:18
 dtconv=900   # conv, SSO, GWD R2B4:600  R2B5:900  R2B6:720  R2B7:360  R2B8:360
 dtrad=3600   # rad            R2B4:3600 R2B5:3600 R2B6:3600 R2B7:1800 R2B8:1800
 iadv_rcf=5   # adv, turb      R2B4:4    R2B5:5    R2B6:5    R2B7:5    R2B8:5
-#ndays=134    # number of days to run
 ndays=410    # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 ninc_mtgrm=40 #216     # output interval 3600s
@@ -135,14 +126,12 @@ done
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
 'o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia', 
-'clct', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
+'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
-'u_10m','v_10m', 't_2m',
+'u_10m','v_10m', 'sp_10m', 't_2m', 'td_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
-'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc'"
-
-#'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
-#,'u_10m_s6avg','v_10m_s6avg', 't_2m_s6avg','pres_sfc_s6avg'
+'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
+'dzh_snow'"
 
 pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"      
 hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"   
@@ -212,7 +201,7 @@ cat > ${atmo_namelist} << EOF
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                        ! write all domains
  output_time_unit             =  1                        ! 1: seconds
- output_bounds                =  0., 100000000., 86400.  ! start, end, increment
+ output_bounds                =  0., 100000000., 86400.   ! start, end, increment
  steps_per_file               =  500
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
@@ -227,8 +216,8 @@ cat > ${atmo_namelist} << EOF
 !namespace                    = "ECMWF"                   ! may give problems with metview
 /
 &gribout_nml
- generatingCenter             = 98                        ! ECMWF
- generatingSubcenter          = 0                         ! ECMWF
+ generatingCenter             = 78                        ! ECMWF 98, DWD 78
+ generatingSubcenter          = 255                       ! ECMWF 0 , DWD 255
 /
 &meteogram_output_nml
  lmeteogram_enabled= .TRUE.
@@ -294,7 +283,7 @@ cat > ${atmo_namelist} << EOF
  ci_td_filename               = '${ci_td_filename}'
 /
 &radiation_nml
- irad_o3                      = 7
+ irad_o3                      = 7           ! 6: GME, 7: GEMS
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo
