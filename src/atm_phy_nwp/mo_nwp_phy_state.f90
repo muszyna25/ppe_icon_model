@@ -106,7 +106,7 @@ USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 USE mo_advection_config,     ONLY: advection_config
 USE mo_art_config,           ONLY: t_art_config,art_config,nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-
+USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 
 IMPLICIT NONE
 PRIVATE
@@ -278,7 +278,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3), shape3dsubsw(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
-    INTEGER :: jsfc 
+    INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
     CHARACTER(len=21) :: name
     CHARACTER(len=3)  :: prefix
@@ -1988,6 +1988,16 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
         & ldims=shape2d, lrestart=.FALSE.,                                      &
         & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+
+      !1D and 0D diagnostic variables that can not be part of add_var
+      ALLOCATE( diag%turb_diag_1dvar(SIZE(turb_profile_list,1),klevp1),  &
+                diag%turb_diag_0dvar(SIZE(turb_tseries_list,1)), STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:new_nwp_phy_diag_list', &
+                    'allocation of 1D and 0D diag var failed!')
+      ENDIF
+      diag%turb_diag_1dvar = 0._wp
+      diag%turb_diag_0dvar = 0._wp
 
     END IF  
 

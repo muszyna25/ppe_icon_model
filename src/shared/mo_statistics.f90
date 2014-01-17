@@ -784,9 +784,9 @@ CONTAINS
 
     concat_input_sum(1:size_of_sum_1)            = sum_1(1:size_of_sum_1)
     concat_input_sum(size_of_sum_1+1:total_size) = sum_2(1:size_of_sum_2)
-    write(0,*) "sum_1=", sum_1
-    write(0,*) "sum_2=", sum_2
-    write(0,*) "concat_input_sum=", concat_input_sum
+    !write(0,*) "sum_1=", sum_1
+    !write(0,*) "sum_2=", sum_2
+    !write(0,*) "concat_input_sum=", concat_input_sum
 
     communicator = get_my_mpi_work_communicator()
     concat_output_sum(:) = p_sum( concat_input_sum,  comm=communicator)
@@ -794,7 +794,7 @@ CONTAINS
     sum_1(1:size_of_sum_1) = concat_output_sum(1:size_of_sum_1)
     sum_2(1:size_of_sum_2) = concat_output_sum(size_of_sum_1+1:total_size)
 
-    write(0,*) "concat_output_sum=", concat_output_sum
+    !write(0,*) "concat_output_sum=", concat_output_sum
 
     DEALLOCATE(concat_input_sum, concat_output_sum)
 

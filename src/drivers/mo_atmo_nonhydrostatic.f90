@@ -96,6 +96,7 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
+USE mo_turbulent_diagnostic, ONLY: init_les_turbulent_output, close_les_turbulent_output
 
 !-------------------------------------------------------------------------
 
@@ -391,6 +392,16 @@ CONTAINS
       CALL print_var_list (ext_data(1)%atm_td_list)
     ENDIF
 
+    !Anurag Dipankar, MPIM (2014-01-14)
+    !Special 1D and 0D output for LES runs till we get add_var/nml_out working
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_restart_run()) &
+      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                             time_config%sim_time(1), ldelete=.FALSE.)
+
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. .NOT.is_restart_run()) &
+      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                             time_config%sim_time(1), ldelete=.TRUE.)
+
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -449,6 +460,9 @@ CONTAINS
         DEALLOCATE(meteogram_output_config(jg)%station_list)
       END DO
     END IF
+
+    IF(atm_phy_nwp_config(1)%is_les_phy) &
+      CALL close_les_turbulent_output
 
     CALL message(TRIM(routine),'clean-up finished')
     

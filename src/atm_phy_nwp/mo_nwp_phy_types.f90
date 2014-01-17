@@ -326,6 +326,10 @@ MODULE mo_nwp_phy_types
     REAL(wp), POINTER ::  &
       rh(:,:,:)               !> relative humidity
 
+    !> Special 1D and 0D diagnostics for LES runs
+    REAL(wp), ALLOCATABLE :: &
+      turb_diag_1dvar(:,:), turb_diag_0dvar(:)  
+
   END TYPE t_nwp_phy_diag
   !
   ! !---tendencies of type global!
