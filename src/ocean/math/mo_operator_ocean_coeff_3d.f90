@@ -150,6 +150,8 @@ MODULE mo_operator_ocean_coeff_3d
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:,:)
     REAL(wp), ALLOCATABLE                      :: edge2edge_viacell_coeff(:,:,:,:)
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_top(:,:,:)
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_integrated(:,:,:)
 
     !coefficient for surface layer, changes in time, in contrast to other coefficients
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)
