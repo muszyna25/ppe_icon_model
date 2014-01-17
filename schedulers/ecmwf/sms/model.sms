@@ -31,6 +31,12 @@ set -x
 module load python
 module swap grib_api grib_api/1.11.0
 
+dwd_grib_api=/home/ms/de/dwd/grib_api
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/grib_api/definitions"
+
+
+#-----------------------------------------------------------------------------
+
 # calculate and format starting date of simulation: SMSDATE-  2 days, time: UTC 00 
 #REQUEST_DATE=`python %SCBASEDIR%/gen/date_calc.py -a printdate -d %SMSDATE%00 -s 2`
 INITIME=%YMD%%INIHOUR%

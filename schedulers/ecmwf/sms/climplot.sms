@@ -17,15 +17,17 @@
 %include <init_ecgate_submit.h>
 
 #==========================================================================
-#metview=metview3
-metview=metview4_old
 
+#metview=metview4_old
+metview=metview4_dev
+
+module swap grib_api grib_api/1.11.0
+
+dwd_grib_api=/home/ms/de/dwd/grib_api
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions"
 
 #-----------------------------------------------------------------------------
 # directory
-
-
-
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/seasonal
@@ -42,17 +44,16 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
 
 dirscripts=%ECPERM%/icon-dev/scripts/postprocessing/climplot
 cp -f $dirscripts/climplot_batch .
-#chmod u+x climplot_batch
 chmod a+x climplot_batch
 #cp $dirscripts/dates.met .
 #chmod a+x dates.met
 #cp $dirscripts/compvar_ens.met .
 #chmod a+x compvar_ens.met 
 #cp $dirscripts/ttest_thresh.f90 .
-cp $dirscripts/*.f90 .
 #cp $dirscripts/save_mean_diurnal_flux.met .
 #cp $dirscripts/plot_amp_phase_clim.met .
 #chmod a+x save_mean_diurnal_flux.met plot_amp_phase_clim.met
+cp $dirscripts/*.f90 .
 cp $dirscripts/*.met .
 chmod a+x *.met
 cp $dirscripts/zondia* .
@@ -111,12 +112,12 @@ fi
 
 # Plotting options: significance plotting, colour, titles, diurnal ccyle
 #NCLIMPL=${NCLIMPL:-21110111}
-NCLIMPL=${NCLIMPL:-21100010}
-lsigt=$( print $NCLIMPL| cut -c1 )
-lcol=$( print $NCLIMPL| cut -c2 )
-lartic=$( print $NCLIMPL| cut -c3 )
-ldcycle=$( print $NCLIMPL| cut -c4 )
-lmldif=$( print $NCLIMPL| cut -c5 )
+NCLIMPL=${NCLIMPL:-21100111}
+lsigt=$(    print $NCLIMPL| cut -c1 )
+lcol=$(     print $NCLIMPL| cut -c2 )
+lartic=$(   print $NCLIMPL| cut -c3 )
+ldcycle=$(  print $NCLIMPL| cut -c4 )
+lmldif=$(   print $NCLIMPL| cut -c5 )
 lwavfreq=$( print $NCLIMPL| cut -c6 )
 lzonnoml=$( print $NCLIMPL| cut -c7 )
 lvdspect=$( print $NCLIMPL| cut -c8 )
@@ -145,41 +146,41 @@ dayl=24
 #        dayl=1
 #  fi
 
-  if (( $BASETIME == ${INIDATE1[0]} )) ; then
-  #
-  # > 2 because of dummy date added.
-  #
-    if (( ${#INIDATE1[*]} > 2  )) ; then
-  
-      datestr=`echo ${INIDATE1[0]} | cut -c 1-8`
-      timestr=`echo ${INIDATE1[0]} | cut -c 9-10`
-  
-  # ---------------------------------------------------------------
-  # First guess plots: (after first simulation of each ensemble)
-  # ---------------------------------------------------------------
-  
-#      PLOT_OPT=010
-  
-      nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
-    # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
-      if (( %PLOTPERIOD% <= ${nperiods} )) ; then
-      # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
-      #  env  SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
-      #         ARCH=$ARCH PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME EMOSLIB="$EMOSLIB" \
-        env  SCRATCH=$SCRATCH  ECFS_SYS_PATH=$ECFS_SYS_PATH TMPDIR=$TMPDIR \
-               PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME \
-               ./climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
-                              -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT  \
-                              -m $lclimatoplot -t %TASK% -x %PLOTPERIOD% -i $timestr -v $lclassan \
-                              -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif -w $lwavfreq \
-                              -g $lvdspect -q $lzonnoml
-      fi
-  
-  
-  # -----------------------------------------------------------
-  
-    fi
-  fi
+##  if (( $BASETIME == ${INIDATE1[0]} )) ; then
+##  #
+##  # > 2 because of dummy date added.
+##  #
+##    if (( ${#INIDATE1[*]} > 2  )) ; then
+##  
+##      datestr=`echo ${INIDATE1[0]} | cut -c 1-8`
+##      timestr=`echo ${INIDATE1[0]} | cut -c 9-10`
+##  
+##  # ---------------------------------------------------------------
+##  # First guess plots: (after first simulation of each ensemble)
+##  # ---------------------------------------------------------------
+##  
+###      PLOT_OPT=010
+##  
+##      nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
+##    # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
+##      if (( %PLOTPERIOD% <= ${nperiods} )) ; then
+##      # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
+##      #  env  SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
+##      #         ARCH=$ARCH PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME EMOSLIB="$EMOSLIB" \
+##        env  SCRATCH=$SCRATCH  ECFS_SYS_PATH=$ECFS_SYS_PATH TMPDIR=$TMPDIR \
+##               PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME \
+##               ./climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
+##                              -r $locfcrange -n $locnumber -d $datestr -p $PLOT_OPT  \
+##                              -m $lclimatoplot -t %TASK% -x %PLOTPERIOD% -i $timestr -v $lclassan \
+##                              -s $lsigt -o $lcol -y $lartic -z $ldcycle -e $lmldif -w $lwavfreq \
+##                              -g $lvdspect -q $lzonnoml
+##      fi
+##  
+##  
+##  # -----------------------------------------------------------
+##  
+##    fi
+##  fi
 
 
 i=1
@@ -209,9 +210,6 @@ while (( ${i}+1 <= ${#INIDATE1[*]} )) ; do
       nperiods=`$metview -b dates.met $FCLENGTH $datestr $PLOT_OPT $dayl | grep nmon | sed 's/nmon//' | sed 'y/[],/   /'`
     # use env to reduce the number of environment variables from ~400 (SMS) to solve Magics plotting issues
       if (( %PLOTPERIOD% <= ${nperiods} )) ; then
-      # env -i SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
-#        env  SCRATCH=$SCRATCH ECFS_SYS_PATH=$ECFS_SYS_PATH FSROOT=$FSROOT TMPDIR=$TMPDIR \
-#               ARCH=$ARCH PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME EMOSLIB="$EMOSLIB" \
         env  SCRATCH=$SCRATCH  ECFS_SYS_PATH=$ECFS_SYS_PATH TMPDIR=$TMPDIR  \
                PATH=$PATH PLOTDATA=$PLOTDATA HOME=$HOME \
                ./climplot_batch -a $exp -b $expver2 -c $locclass1 -l $LEVELS -f $FCLENGTH \
