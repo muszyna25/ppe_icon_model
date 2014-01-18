@@ -91,7 +91,8 @@ MODULE mo_ocean_model
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, allocate_exp_coeff,par_init_operator_coeff
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, construct_operators_coefficients, &
+    & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
     & prepare_ho_stepping,  finalise_ho_integration
@@ -274,6 +275,8 @@ CONTAINS
 
     CALL destruct_ocean_coupling ()
 
+    CALL destruct_operators_coefficients(operators_coefficients)
+
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE destruct_ocean_model
@@ -444,6 +447,7 @@ CONTAINS
     CALL init_patch_3d    (patch_3d,                p_ext_data(jg), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
 
+    CALL construct_operators_coefficients     ( patch_3d, p_op_coeff, ocean_default_list)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
@@ -466,9 +470,6 @@ CONTAINS
 
     !------------------------------------------------------------------
     CALL init_ho_params(patch_3d, p_phys_param)
-
-    CALL allocate_exp_coeff     ( patch_3d%p_patch_2d(jg), p_op_coeff, ocean_default_list)
-    CALL par_init_operator_coeff( patch_3d, p_op_coeff)
 
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
