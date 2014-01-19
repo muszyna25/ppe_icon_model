@@ -56,7 +56,7 @@ MODULE mo_nh_init_nest_utils
     &                                 dzsoil
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
-  USE mo_grid_config,           ONLY: lfeedback
+  USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
   USE mo_communication,         ONLY: exchange_data, exchange_data_mult
@@ -799,7 +799,7 @@ MODULE mo_nh_init_nest_utils
 
       jgc = p_patch(jg)%child_id(jn)
 
-      IF (lfeedback(jgc)) THEN
+      IF (lfeedback(jgc) .AND. ifeedback_type == 1) THEN
         CALL topography_feedback(p_patch(jg), p_int_state(jg), p_grf_state(jg), jn, &
           ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c,            &
           ext_data(jg)%atm%topography_v                                             )
