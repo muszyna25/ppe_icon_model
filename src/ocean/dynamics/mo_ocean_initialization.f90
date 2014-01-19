@@ -1612,7 +1612,14 @@ CONTAINS
           patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(je,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
-        
+        DO jk = dolic_e(je,jb) + 1, n_zlev
+          patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = 0.0_wp
+          patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)          = 0.0_wp
+
+          patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = 0.0_wp
+          patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(je,jk,jb)= 0.0_wp
+        ENDDO
+
         ! bottom/columns values
         jk = v_base%dolic_e(je,jb)
         IF (jk >= min_dolic) THEN
@@ -1712,7 +1719,7 @@ CONTAINS
     CALL complete_ocean_subsets(patch_3d)
     
     CALL ocean_check_level_sea_land_mask(patch_3d)
-    
+
   END SUBROUTINE init_patch_3d
   !------------------------------------------------------------------------------------
   

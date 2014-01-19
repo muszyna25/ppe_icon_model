@@ -155,7 +155,8 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       =  'h' 'wet_c' 't' 's' 'rhopot'
+  ml_varlist       =
+   'h' 'wet_c' 't' 's' 'rhopot'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -171,6 +172,9 @@ cat > ${ocean_namelist} << EOF
 !  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
 !  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+! 10 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
+!  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
+!  dzlev_m(1:10)      =   40.0,   40.0,   80.0,   120.0,   200.0,   300.0,   500.0,   700.0,  1000.0,  2000.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   40
  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
@@ -186,9 +190,10 @@ cat > ${ocean_namelist} << EOF
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 28   !  inner solver loop without syncing (default: 200)
+  solver_max_iter_per_restart   = 26   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction = .true.
+  use_edges2edges_viacell_fast = .true.
 /
 &ocean_physics_nml
   !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
@@ -209,8 +214,8 @@ cat > ${ocean_namelist} << EOF
   iforc_oce = 11
   iforc_stat_oce = 5
   analytic_wind_amplitude = 0.25
-  forcing_windstress_zonal_waveno      = 3.0_wp
-  forcing_windstress_meridional_waveno = 3.0_wp
+  forcing_windstress_zonal_waveno     = 3.0_wp
+  forcing_windstress_meridional_waveno     = 3.0_wp
 /
 &ocean_initialConditions_nml
   itestcase_oce = 1050

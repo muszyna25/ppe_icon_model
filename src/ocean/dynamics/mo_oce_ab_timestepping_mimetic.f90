@@ -73,8 +73,8 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d, & ! map_cell2edges_3D,&
     & calc_scalar_product_veloc_3d,&
-  !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
     & map_edges2edges_viacell_3d_const_z
+  !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
     & grad_fd_norm_oce_2d_3d, calc_thickness! , height_related_quantities
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
@@ -1163,9 +1163,7 @@ CONTAINS
       ! !-------------------------------------------------------------------------------
       
       IF( iswm_oce /= 1 ) THEN !the 3D case
-        
         CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab, op_coeffs, z_e )
-        
       ELSEIF( iswm_oce == 1 ) THEN
         !    CALL map_edges2edges_viacell_3D( patch_3d,    &
         !                                    & z_vn_ab(:,1,:),&

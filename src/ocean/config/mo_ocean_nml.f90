@@ -202,6 +202,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_restart_gmres = 2
   INTEGER :: select_solver = select_restart_gmres
   LOGICAL :: use_continuity_correction = .false.
+  LOGICAL :: use_edges2edges_viacell_fast = .false.
 
 
   ! physical parameters for  aborting the ocean model
@@ -348,7 +349,8 @@ MODULE mo_ocean_nml
     &                 threshold_min_S, threshold_max_S,                    &
     &                 solver_max_restart_iterations,                       &
     &                 solver_max_iter_per_restart,                         &
-    &                 select_solver, use_continuity_correction
+    &                 select_solver, use_continuity_correction,            &
+    &                 use_edges2edges_viacell_fast
 
 
   NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
