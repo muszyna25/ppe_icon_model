@@ -74,7 +74,10 @@ module mo_write_netcdf
     module procedure putatt_single_nc
     module procedure putatt_double_nc
     module procedure putatt_int_nc
+! The NEC compiler does not support short integers and therefore cannot distinguish the interfaces between int and short
+#ifndef __SX__
     module procedure putatt_short_nc
+#endif
     module procedure putatt_str_nc
   end interface putatt_nc
 
@@ -83,7 +86,10 @@ module mo_write_netcdf
     module procedure getatt_single_nc
     module procedure getatt_double_nc
     module procedure getatt_int_nc
+! The NEC compiler does not support short integers and therefore cannot distinguish the interfaces between int and short
+#ifndef __SX__
     module procedure getatt_short_nc
+#endif
     module procedure getatt_str_nc
     module procedure getatt_str_fname_nc
   end interface getatt_nc
