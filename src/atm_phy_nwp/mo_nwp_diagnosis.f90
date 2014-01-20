@@ -57,7 +57,6 @@ MODULE mo_nwp_diagnosis
                                    icosmo, igme, iedmf, ismag
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
@@ -66,8 +65,7 @@ MODULE mo_nwp_diagnosis
   USE mo_parallel_config,    ONLY: nproma
   USE mo_time_config,        ONLY: time_config
   USE mo_lnd_nwp_config,     ONLY: nlev_soil
-  USE mo_physical_constants, ONLY: lh_v     => alv, &      !! latent heat of vapourization
-                                   rd, cpd, rcvd, tmelt, grav, cpd, vtmpc1
+  USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
@@ -140,6 +138,7 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
 
     REAL(wp):: z_help, p_sim_time_s6, r_sim_time
+    REAL(wp):: t_wgt                   !< weight for running time average
 
     INTEGER :: jc,jk,jb,jg      !block index
     INTEGER :: kstart_moist
@@ -162,6 +161,7 @@ CONTAINS
     INTEGER  :: jk_max
     REAL(wp) :: d_theta_dz, d_theta_dz_max
 
+
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
@@ -172,6 +172,10 @@ CONTAINS
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
+
+    ! time average weight
+    t_wgt = dt_phy_jg(itfastphy)/MAX(1.e-6_wp, p_sim_time)
+
 
     ! exclude nest boundary interpolation zone
     rl_start = grf_bdywidth_c+1
@@ -401,17 +405,13 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
 
-         prm_diag%tot_cld_vi_avg(jc,jb,1:3) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:3) &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy))       &
-                               &  + prm_diag%tot_cld_vi(jc,jb,1:3)            &
-                               &  * dt_phy_jg(itfastphy) )                    &
-                               &  * r_sim_time
+         prm_diag%tot_cld_vi_avg(jc,jb,1:3) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,1:3) &
+           &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,1:3)
 
-         prm_diag%clct_avg(jc,jb) = ( prm_diag%clct_avg(jc,jb)                &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy))       &
-                               &  + prm_diag%clct(jc,jb)                      &
-                               &  * dt_phy_jg(itfastphy) )                    &
-                               &  * r_sim_time 
+         prm_diag%clct_avg(jc,jb) = time_avg(prm_diag%clct_avg(jc,jb), &
+           &                                 prm_diag%clct    (jc,jb), &
+           &                                 t_wgt)
+ 
         ENDDO
       ENDDO ! nblks     
 !$OMP END DO
@@ -441,11 +441,8 @@ CONTAINS
       IF ( p_sim_time > 1.e-6_wp ) THEN
         DO jc = i_startidx, i_endidx 
 
-          pt_diag%tracer_vi_avg(jc,jb,1:5) = ( pt_diag%tracer_vi_avg(jc,jb,1:5) &
-                            &  * (p_sim_time - dt_phy_jg(itfastphy))      &
-                            &  + pt_diag%tracer_vi(jc,jb,1:5)             &
-                            &  * dt_phy_jg(itfastphy) )                   &
-                            &  * r_sim_time
+          pt_diag%tracer_vi_avg(jc,jb,1:5) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,1:5) &
+            &                              + t_wgt * pt_diag%tracer_vi(jc,jb,1:5)
         ENDDO
       END IF
     ENDDO ! nblks   
@@ -518,6 +515,7 @@ CONTAINS
     ! - surface moisture flux 
     ! Calculation of average/accumulated values since model start
     !
+
     IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -530,41 +528,34 @@ CONTAINS
         CASE (icosmo, igme, iedmf, ismag, 10, 11, 12)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_diag%alhfl_s(jc,jb) = ( prm_diag%alhfl_s(jc,jb)         &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
-                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & * r_sim_time
-            prm_diag%alhfl_bs(jc,jb) = ( prm_diag%alhfl_bs(jc,jb)       &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_bs(jc,jb)             &!attention to the sign, in the output all fluxes
-                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & * r_sim_time
-            prm_diag%ashfl_s(jc,jb) = ( prm_diag%ashfl_s(jc,jb)         &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
-                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & * r_sim_time
+
+            prm_diag%alhfl_s(jc,jb) = time_avg(prm_diag%alhfl_s(jc,jb), & !attention to the sign, in the output all fluxes 
+              &                                prm_diag%lhfl_s (jc,jb), & !must be positive downwards 
+              &                                t_wgt) 
+
+            prm_diag%alhfl_bs(jc,jb)= time_avg(prm_diag%alhfl_bs(jc,jb),& !attention to the sign, in the output all fluxes 
+              &                                prm_diag%lhfl_bs (jc,jb),& !must be positive downwards 
+              &                                t_wgt)
+
+            prm_diag%ashfl_s(jc,jb) = time_avg(prm_diag%ashfl_s(jc,jb), & !attention to the sign, in the output all fluxes 
+              &                                prm_diag%shfl_s (jc,jb), & !must be positive downwards 
+              &                                t_wgt)
+
+            prm_diag%aqhfl_s(jc,jb) = time_avg(prm_diag%aqhfl_s(jc,jb), & !attention to the sign, in the output all fluxes 
+              &                                prm_diag%qhfl_s (jc,jb), & !must be positive downwards 
+              &                                t_wgt )
           ENDDO  ! jc
           DO jk = 1, nlev_soil
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-            prm_diag%alhfl_pl(jc,jk,jb) = ( prm_diag%alhfl_pl(jc,jk,jb)       &
-                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                               &  + prm_diag%lhfl_pl(jc,jk,jb)          &!attention to the sign, in the output all fluxes
-                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
-                               & * r_sim_time
+            ! attention to the sign, in the output all fluxes
+            ! must be positive downwards 
+            prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
+              &                                    prm_diag%lhfl_pl (jc,jk,jb), &
+              &                                    t_wgt)
             ENDDO  ! jc
           ENDDO  ! jk
         END SELECT
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%aqhfl_s(jc,jb) = ( prm_diag%aqhfl_s(jc,jb)        &
-                            &  * (p_sim_time - dt_phy_jg(itfastphy)) &
-                            &  + prm_diag%qhfl_s(jc,jb)              & !attention to the sign, in the output all fluxes 
-                            &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
-                            & * r_sim_time
-        ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
@@ -582,11 +573,17 @@ CONTAINS
             prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
                                &  + prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+
             prm_diag%alhfl_bs(jc,jb) =  prm_diag%alhfl_bs(jc,jb)     &
                                &  + prm_diag%lhfl_bs(jc,jb)          &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+
             prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
                                &  + prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+
+            prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
+                               &  + prm_diag%qhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
                                &  * dt_phy_jg(itfastphy)              !must be positive downwards 
           ENDDO
           DO jk = 1, nlev_soil
@@ -598,14 +595,6 @@ CONTAINS
             ENDDO  ! jc
           ENDDO  ! jk
         END SELECT
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
-                             &  + prm_diag%qhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
-                             &  * dt_phy_jg(itfastphy)              !must be positive downwards 
-
-        ENDDO
-
       ENDDO ! nblks     
 !$OMP END DO    
 
@@ -626,14 +615,15 @@ CONTAINS
             & i_startidx, i_endidx, rl_start, rl_end)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
-                                   &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                   & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
-                                   &  * r_sim_time
-            prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
-                                   &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                   & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
-                                   &  * r_sim_time
+
+            prm_diag%aumfl_s(jc,jb) = time_avg(prm_diag%aumfl_s(jc,jb), &
+              &                                prm_diag%umfl_s (jc,jb), &
+              &                                t_wgt)
+
+            prm_diag%avmfl_s(jc,jb) = time_avg(prm_diag%avmfl_s(jc,jb), &
+              &                                prm_diag%vmfl_s (jc,jb), &
+              &                                t_wgt)
+
           ENDDO
         ENDDO ! nblks     
 !$OMP END DO
@@ -859,14 +849,12 @@ CONTAINS
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-01-07)
   !!
-  SUBROUTINE nwp_diag_output_2(p_patch, p_diag, p_prog_rcf, prm_nwp_tend, dtime, lcall_turb)
+  SUBROUTINE nwp_diag_output_2(p_patch, p_prog_rcf, prm_nwp_tend, lcall_turb)
 
     TYPE(t_patch), TARGET,INTENT(in) :: p_patch      !< grid/patch info.
-    TYPE(t_nh_diag),      INTENT(in) :: p_diag       !< NH diagnostic state
     TYPE(t_nh_prog),      INTENT(in) :: p_prog_rcf   !< state for TKE
     TYPE(t_nwp_phy_tend), INTENT(in) :: prm_nwp_tend !< physics tendencies
 
-    REAL(wp), INTENT(in) :: dtime      ! time step
     LOGICAL,  INTENT(in) :: lcall_turb ! switch if turbulence has been called
 
     ! Local variables
@@ -972,5 +960,33 @@ CONTAINS
 !
 !===========================================================================
 !
+  !>
+  !! Computes updated time average
+  !!
+  !! Computes updated time average for a particular field
+  !!
+  !! @Literature
+  !! Based on proposal found in 
+  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Strömungen, Teubner
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-17)
+  !!
+  FUNCTION time_avg (psi_avg_old, psi_inst, wgt)  RESULT (psi_avg_new)
+
+    REAL(wp), INTENT(IN) :: psi_avg_old       !< time average at t(n-1)
+    REAL(wp), INTENT(IN) :: psi_inst          !< instantaneous value
+    REAL(wp), INTENT(IN) :: wgt               !< weight (=dt/sim_time)
+
+    ! Result
+    REAL(wp) :: psi_avg_new                   !< updated time average
+
+    !--------------------------------------------------------------------
+
+    ! compute updated time average
+    psi_avg_new = (1._wp - wgt)*psi_avg_old + wgt*psi_inst
+
+  END FUNCTION time_avg
+
 END MODULE mo_nwp_diagnosis
 
