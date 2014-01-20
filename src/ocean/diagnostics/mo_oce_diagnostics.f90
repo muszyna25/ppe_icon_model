@@ -1180,6 +1180,8 @@ END SUBROUTINE calc_psi
    INTEGER :: maxcondep     !< maximum convective penetration level
    REAL(wp) :: masked_vertical_density_gradient(n_zlev)
 
+   condep = 1
+
    ! remove dbl_eps, which  is added in the vertical gradient computation
    masked_vertical_density_gradient = MAX(vertical_density_gradient - dbl_eps,0.0_wp)
 
@@ -1188,7 +1190,7 @@ END SUBROUTINE calc_psi
    !! convection from the surface downward
    !! calculated over integration period ; it should be written out
    !! as snapshot at the end of the run
-   maxcondep=1.0_wp
+   maxcondep=1
    DO jk=2,max_lev
      IF (masked_vertical_density_gradient(jk) .NE. 0.0_wp) THEN
        maxcondep = jk

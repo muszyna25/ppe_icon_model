@@ -1177,7 +1177,7 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
     call add_var(ocean_default_list, 'condep', p_os_diag%condep , GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
-    &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT16),&
+    &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
     &            t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
 
