@@ -382,7 +382,7 @@ MODULE mo_ocean_nml
     &                 forcing_enable_freshwater, limit_elevation, seaice_limit,        &
     &                 forcing_set_runoff_to_zero,                                       &
     &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
-    &                 analytic_wind_amplitude
+    &                 analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude
 
   !----------------------------------------------------------------------------
   ! initial conditions
