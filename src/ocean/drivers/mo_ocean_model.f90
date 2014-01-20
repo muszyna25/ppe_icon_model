@@ -64,7 +64,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice
+  USE mo_ocean_nml,              ONLY: i_sea_ice, use_new_forcing
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
 
@@ -474,11 +474,13 @@ CONTAINS
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
-    CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
-!    IF (init_oce_relax == 1) THEN
-!      this is called in init_ocean_forcing
-!      CALL init_ho_relaxation(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_sfc_flx)
-!    END IF
+    IF (use_new_forcing) THEN
+      CALL init_new_ocean_forcing(patch_3d%p_patch_2d(jg)%cells%All, &
+        & patch_3d%lsm_c(:,1,:), &
+        & p_sfc_flx)
+    ELSE
+      CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
+    ENDIF
 
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)

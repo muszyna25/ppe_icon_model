@@ -112,11 +112,19 @@ MODULE mo_ocean_nml
   ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 3
 !TODO
-  INTEGER            :: forcing_fluxes_type       = 0
-  INTEGER            :: forcing_windstress_u_type   = 0
-  INTEGER            :: forcing_windstress_v_type   = 0
-  REAL               :: forcing_windstress_zonal_period = 1.0_wp         ! replacement for forcing_windstress_zonal_period
-  REAL               :: forcing_windstress_meridional_period = 1.0_wp    ! replacement for forcing_windstress_meridional_period
+
+  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: use_new_forcing                      = .FALSE.
+  INTEGER  :: forcing_fluxes_type                  = 0
+  INTEGER  :: forcing_windstress_u_type            = 0
+  INTEGER  :: forcing_windstress_v_type            = 0
+  REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
+  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
+  REAL(wp) :: forcing_wind_u_amplitude             = 1.0_wp
+  REAL(wp) :: forcing_wind_v_amplitude             = 1.0_wp
+  REAL(wp) :: analytic_wind_amplitude              = 1.0_wp
+
 
   INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
   INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
@@ -271,8 +279,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with use_file_initialConditions=1
   REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
-  LOGICAL  :: forcing_enable_freshwater         = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: forcing_set_runoff_to_zero         = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
 
@@ -325,11 +331,6 @@ MODULE mo_ocean_nml
   INTEGER :: indonesian_throughflow(100) = -1
   INTEGER :: scotland_iceland(100)       = -1
 
-  REAL(wp) ::  forcing_windstress_zonal_waveno     = 3.0_wp  ! For the periodic analytic forcing (wind)
-  REAL(wp) ::  forcing_windstress_meridional_waveno     = 3.0_wp
-  REAL(wp) ::  forcing_wind_u_amplitude = 1.0_wp
-  REAL(wp) ::  forcing_wind_v_amplitude = 1.0_wp
-  REAL(wp) ::  analytic_wind_amplitude = 1.0_wp
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, discretization_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -380,9 +381,16 @@ MODULE mo_ocean_nml
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 forcing_enable_freshwater, limit_elevation, seaice_limit,        &
-    &                 forcing_set_runoff_to_zero,                                       &
-    &                 forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,  &
-    &                 analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude
+    &                 forcing_set_runoff_to_zero,         &
+    &                 use_new_forcing,                    &
+    &                 forcing_fluxes_type,                &
+    &                 forcing_windstress_u_type,          &
+    &                 forcing_windstress_v_type,          &
+    &                 forcing_windstress_zonal_waveno,    &
+    &                 forcing_windstress_meridional_waveno,&
+    &                 forcing_wind_u_amplitude ,          &
+    &                 forcing_wind_v_amplitude ,          &
+    &                 analytic_wind_amplitude
 
   !----------------------------------------------------------------------------
   ! initial conditions
