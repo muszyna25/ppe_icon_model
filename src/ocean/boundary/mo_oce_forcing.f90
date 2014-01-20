@@ -846,41 +846,6 @@ CONTAINS
 
   END SUBROUTINE set_lateral_pattern
 
-! SUBROUTINE set_lateral_pattern_A(lat,lon,amplitude,coeff,forc_wind_u,forc_wind_v)
-!   REAL(wp),INTENT(IN) :: lat,lon,amplitude,coeff
-!   REAL(wp),INTENT(INOUT) :: forc_wind_u, forc_wind_v
-!
-!   REAL(wp) :: y_length,y_center,x_length,x_center
-!   !1,2 basin init
-!       y_length                        = basin_height_deg * deg2rad
-!       x_length                        = basin_width_deg * deg2rad
-!       forc_wind_u = coeff * COS(forcing_windstress_zonal_waveno*pi*(lat-y_length)/y_length)
-!       forc_wind_v = coeff * COS(forcing_windstress_meridional_waveno*pi*(lon-x_length)/x_length) !added
-!
-!   ! 3 global zonal, nonzero at pols
-!       y_length                        = 180.0_wp * deg2rad
-!       y_center                        = -60.0_wp * deg2rad
-!       x_length                        =  90.0_wp * deg2rad
-!       x_center                        = -20.0_wp * deg2rad
-!       forcing_windstress_zonal_waveno = 3.0_wp
-!       forcing_windstress_meridional_waveno = 3.0_wp
-!       forc_wind_u = amplitude * COS(forcing_windstress_zonal_waveno*pi*(lat-y_center)/y_length)
-!       forc_wind_v = amplitude * COS(forcing_windstress_meridional_waveno*pi*(lon-x_center)/x_length) !added
-!
-!   ! 4 global u and v in global cells
-!       forcing_windstress_zonal_waveno      = 3.0_wp
-!       forcing_windstress_meridional_waveno = 3.0_wp
-!       forc_wind_u =   coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat) * COS(lon)
-!       forc_wind_v = - coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat) * &
-!         & SIN(forcing_windstress_meridional_waveno * lon)
-!   ! 5 global, zero at pols
-!       forcing_windstress_zonal_waveno      = 3.0_wp
-!       forcing_windstress_meridional_waveno = 3.0_wp
-!       forc_wind_u = coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat)
-!       forc_wind_v = coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat)
-!
-! END SUBROUTINE set_lateral_pattern_A
-
   SUBROUTINE init_new_ocean_forcing(all_cells, land_sea_mask,p_sfc_flx)
     !
     TYPE(t_subset_range), INTENT(IN) :: all_cells
