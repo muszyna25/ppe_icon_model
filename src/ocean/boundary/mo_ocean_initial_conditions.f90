@@ -786,111 +786,14 @@ CONTAINS
         CALL message(TRIM(method_name), &
           & ' - here: horizontally varying T with local perturbation')
         
-        z_temp_max  = 30.5_wp
-        z_temp_min  = 0.5_wp
-        z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            
-            ocean_state%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
-            !IF(patch_3D%p_patch_1D(1)%dolic_c(jc,jb)>=MIN_DOLIC)THEN
-            !ENDIF
-            
-            IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
-            ENDIF
-            IF ( patch_3d%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
-            ENDIF
-            DO jk=2,n_zlev-1
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                  & =ocean_state%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
-                
-              ENDIF
-            END DO
-          END DO
-        END DO
-        
-        !Add horizontal variation
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            cell_lat = patch_2d%cells%center(jc,jb)%lat
-            lat_deg = cell_lat*rad2deg
-            
-            DO jk=1,n_zlev
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                
-                z_temp_max=0.01_wp*(lat_deg-basin_center_lat)*(lat_deg-basin_center_lat)
-                
-                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                  & =ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)*EXP(-z_temp_max/basin_height_deg)!(1.0_wp-exp(-z_temp_max/basin_height_deg))
-                
-              ENDIF
-            END DO
-          END DO
-        END DO
-        
-        !Add local perturbation
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            cell_lat = patch_2d%cells%center(jc,jb)%lat
-            lat_deg = cell_lat*rad2deg
-            cell_lon = patch_2d%cells%center(jc,jb)%lon
-            lon_deg = cell_lon*rad2deg
-            
-            DO jk=1,n_zlev
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                
-                IF(ABS(lon_deg)<2.5_wp&
-                  & .AND.ABS(lat_deg-basin_center_lat)<0.25_wp*basin_height_deg)THEN
-                  
-                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                    & =ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) &
-                    & + 0.1_wp*ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)
-                ENDIF
-              ENDIF
-            END DO
-          END DO
-        END DO
+        ! use initial_temperature_type = 208, top_temperature = 30.5,  bottom_temperature = 0,5
         
       CASE(53)
         CALL message(TRIM(method_name), 'LOCK exchange (53)')
         ocean_state%p_prog(nold(1))%vn = 0.0_wp
         ocean_state%p_prog(nnew(1))%vn = 0.0_wp
-        IF(no_tracer>0)THEN
-          ocean_state%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
-          ocean_state%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
-        ELSE
-          CALL finish(TRIM(method_name), 'Number of tracers =0 is inappropriate for this test - TERMINATE')
-        ENDIF
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            DO jk=1,n_zlev
-              IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-                !latitude given in radians
-                lon_deg = patch_2d%cells%center(jc,jb)%lon*rad2deg
-                !Impose emperature profile. Profile
-                !depends on latitude only
-                !            IF(abs(lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
-                !              ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
-                !            ELSEIF(abs(lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
-                !              ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
-                !            ENDIF
-                IF((lon_deg-basin_center_lon)>=0.0_wp)THEN
-                  ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 10.0_wp
-                ELSEIF((lon_deg-basin_center_lon)<0.0_wp)THEN
-                  ocean_state%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 5.0_wp
-                ENDIF
-              ENDIF
-            END DO
-          END DO
-        END DO
+
+        ! use initial_temperature_type = 209
         
       CASE default
         WRITE(0,*)'testcase',itestcase_oce
@@ -1193,7 +1096,7 @@ CONTAINS
 
     !------------------------------
     CASE (200)
-      ! uniform or lineraly decreasing temperature
+      ! uniform or linearly decreasing temperature
       ! Temperature is homogeneous in each layer.
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
       CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
@@ -1228,6 +1131,25 @@ CONTAINS
       CALL temperature_APE(patch_3d, ocean_temperature)
 
     !------------------------------
+    CASE (208)
+      CALL message(TRIM(method_name), ': horizontally non-homogenous, local pertubation')
+
+      ! first create linearly vertically decreasing temperature, uniform horizontally
+      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+
+      !Add horizontal variation
+      CALL temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
+
+      !Add local perturbation
+      CALL temperature_AddLocalPerturbation(patch_3d, ocean_temperature)
+
+
+    !------------------------------
+    CASE (209)
+      CALL temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
+
+    !------------------------------
     CASE (401)
       ! assign from adhoc array values
       IF(n_zlev==4)THEN
@@ -1252,6 +1174,128 @@ CONTAINS
   END SUBROUTINE init_ocean_temperature
   !-------------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_UniformWithWallAtlon'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat
+        lon_deg = patch_2d%cells%center(jc,jb)%lon
+
+        IF((lon_deg-basin_center_lon)>=0.0_wp)THEN
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = 10.0_wp
+          ENDDO
+        ELSE
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = 5.0_wp
+          ENDDO
+        ENDIF
+
+      END DO
+    END DO
+
+  END SUBROUTINE temperature_UniformWithWallatlon
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_AddLocalPerturbation(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddLocalPerturbation'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat
+        lon_deg = patch_2d%cells%center(jc,jb)%lon
+
+        IF(ABS(lon_deg) < 2.5_wp .AND. &
+           ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
+
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) * 1.1_wp
+          END DO
+
+        ENDIF
+
+      END DO
+    END DO
+  END SUBROUTINE temperature_AddLocalPerturbation
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, z_temp_max
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddHorizontalVariation'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        lat_deg = patch_2d%cells%center(jc,jb)%lat
+        z_temp_max=0.01_wp* (lat_deg-basin_center_lat) * (lat_deg-basin_center_lat)
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          ocean_temperature(jc,jk,jb) = ocean_temperature(jc,jk,jb) * &
+            & EXP(-z_temp_max/basin_height_deg)!(1.0_wp-exp(-z_temp_max/basin_height_deg))
+
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE temperature_AddHorizontalVariation
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   SUBROUTINE temperature_Uniform_SpecialArea(patch_3d, ocean_temperature)
@@ -1269,6 +1313,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_Uniform_SpecialArea'
     !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -1329,6 +1375,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':salinity_Uniform_SpecialArea'
     !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
