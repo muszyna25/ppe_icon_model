@@ -89,8 +89,9 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
+  ! ------------------------------------------------------------------------
+  ! FORCING {
   ! parameterized forcing for ocean model:
-  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
   INTEGER, PARAMETER :: NO_FORCING                = 10
   INTEGER, PARAMETER :: ANALYT_FORC               = 11
   INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
@@ -98,6 +99,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
 
+  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
   ! read time varying OMIP or NCEP flux forcing from file:
                       ! 1: read wind stress (records 1, 2) and temperature (record 3)
                       ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
@@ -106,13 +108,14 @@ MODULE mo_ocean_nml
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
   INTEGER            :: iforc_type = 10
 
-  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
-  INTEGER            :: forcing_timescale = 1
 
   ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 3
 !TODO
 
+  ! new/renamed switches
+  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
+  INTEGER  :: forcing_timescale                    = 1
   LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: use_new_forcing                      = .FALSE.
@@ -124,6 +127,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_wind_u_amplitude             = 1.0_wp
   REAL(wp) :: forcing_wind_v_amplitude             = 1.0_wp
   REAL(wp) :: analytic_wind_amplitude              = 1.0_wp
+  ! } END FORCING
 
 
   INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
@@ -135,6 +139,8 @@ MODULE mo_ocean_nml
   INTEGER            :: init_oce_relax = 0
 
 
+  ! ----------------------------------------------------------------------------
+  ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
   INTEGER            :: diagnostics_level      = 0
 
