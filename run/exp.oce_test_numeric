@@ -87,7 +87,7 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-11T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 (( expLength = 10 * 86400 ))
 # possible unix call to compute:
 # perl -MDate::Parse -e '$period = str2time("2051-01-01T00:00:00") - str2time("2001-01-01T00:00:00"); print ($period/(3600*24));
@@ -153,7 +153,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       = 'group:oce_default','group:oce_prog'
+  ml_varlist       = 'group:oce_default','group:oce_prog','mld','condep'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -215,9 +215,9 @@ cat > ${ocean_namelist} << EOF
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   iforc_stat_oce = 5
-  analytic_wind_amplitude = 1.0
+  forcing_wind_u_amplitude = 0.25
   forcing_windstress_zonal_waveno     = 1.0_wp
-  forcing_windstress_meridional_waveno     = 1.0_wp
+  forcing_windstress_meridional_waveno = 1.0_wp
 /
 &ocean_initialConditions_nml
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
