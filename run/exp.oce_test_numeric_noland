@@ -75,11 +75,11 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-05T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=24       # ocean model output interval hours [hours]
+nhours_data=2       # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=10     # stop model for restart [days]
@@ -143,7 +143,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 3600         ! model timestep in seconds
- output      = 'none' ! 'nml'        ! namelist controlled output scheme
+ output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  write_timer_files    = .TRUE.
  ! msg_timestamp        = .TRUE.
@@ -158,7 +158,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'h' 'wet_c' 't' 's' 'rhopot'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -177,7 +177,7 @@ cat > ${ocean_namelist} << EOF
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-  l_edge_based    = .FALSE.       ! edge- or cell-based mimetic discretization
+  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
@@ -186,7 +186,7 @@ cat > ${ocean_namelist} << EOF
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 28   !  inner solver loop without syncing (default: 200)
+  solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction = .true.
 /
@@ -208,7 +208,7 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce = 11
   iforc_stat_oce = 5
-  analytic_wind_amplitude = 0.25
+  forcing_wind_u_amplitude = 0.5
   forcing_windstress_zonal_waveno      = 3.0_wp
   forcing_windstress_meridional_waveno = 3.0_wp
 /
