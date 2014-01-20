@@ -55,7 +55,8 @@ MODULE mo_ocean_initial_conditions
     & initial_temperature_bottom, initial_temperature_top, &
     & initial_salinity_top, initial_salinity_bottom, &
     & use_tracer_x_height, topography_type, topography_height_reference, &
-    & sea_surface_height_type, initial_temperature_type, initial_salinity_type, initial_sst_type
+    & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
+    & initial_sst_type, initial_velocity_type
 
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -274,8 +275,7 @@ CONTAINS
       ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
     
-    
-    
+
     IF (no_tracer >=2) THEN
       DO jk=1, n_zlev
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1173,6 +1173,135 @@ CONTAINS
 
   END SUBROUTINE init_ocean_temperature
   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_velocity(patch_3d, normal_velocity)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: normal_velocity(:,:,:)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity'
+    !-------------------------------------------------------------------------
+
+    IF (initial_velocity_type < 200) RETURN ! not analytic temperature
+
+    SELECT CASE (initial_velocity_type)
+    !------------------------------
+    CASE (200)
+      ! uniform velocity
+      CALL message(TRIM(method_name), ': uniform velocity')
+
+    !------------------------------
+    CASE (201)
+      CALL velocity_usbr(patch_3d, normal_velocity)
+
+    !------------------------------
+
+    !------------------------------
+     CASE default
+      CALL finish(method_name, "unknown initial_velocity_type")
+
+    END SELECT
+
+ !   CALL dbg_print('init_ocean_salinity', ocean_salinity(:,:,:), &
+ !     & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+
+  END SUBROUTINE init_ocean_velocity
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  !> Initial datum for zonal velocity u, test case unsteady solid body
+  ! rotation of L\"auter et al.(2007).
+
+  ! !REVISION HISTORY:
+  ! Developed by Th.Heinze, DWD, (2007-03)
+  !-------------------------------------------------------------------------
+  SUBROUTINE velocity_usbr(patch_3d, vn)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: vn(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_edges
+
+    INTEGER :: edge_block, edge_index, level
+    INTEGER :: start_edges_index, end_edges_index
+    REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: t       ! point of time
+    REAL(wp) :: uu, vv      ! zonal,  meridional velocity
+    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
+
+   CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_usbr_u'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_edges => patch_2d%edges%ALL
+
+    t = 0.0_wp
+    angle1 = .25_wp * pi
+    COS_angle1 = COS(angle1)
+    SIN_angle1 = SIN(angle1)
+
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+
+        angle2 = point_lon + grid_angular_velocity * t
+        uu = COS(point_lat) * COS_angle1
+        uu = uu + COS(angle2) * SIN(point_lat) * SIN_angle1
+        uu = u0 * uu
+
+        vv = SIN(angle2) * SIN_angle1
+        vv = -1._wp * u0 * vv
+
+        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          vn(edge_index, level, edge_block) = edge_vn
+        ENDDO
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE  velocity_usbr
+  !-----------------------------------------------------------------------------------
+
+  FUNCTION test_usbr_u( p_lon, p_lat, p_t) RESULT( p_uu)
+!
+! !DESCRIPTION:
+! Initial datum for zonal velocity u, test case unsteady solid body
+! rotation of L\"auter et al.(2007).
+
+! !REVISION HISTORY:
+! Developed by Th.Heinze, DWD, (2007-03)
+!
+! !INPUT PARAMETERS:
+    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
+    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
+    REAL(wp), INTENT(in) :: p_t       ! point of time
+
+! !RETURN VALUE:
+    REAL(wp)             :: p_uu      ! zonal velocity
+
+! !LOCAL VARIABLES:
+    REAL(wp)             :: z_angle1  ! 1st angle
+    REAL(wp)             :: z_angle2  ! 2nd angle
+
+!EOP
+!-----------------------------------------------------------------------
+!BOC
+
+    z_angle1 = .25_wp * pi
+    z_angle2 = p_lon + grid_angular_velocity * p_t
+    p_uu = COS(p_lat) * COS(z_angle1)
+    p_uu = p_uu + COS(z_angle2) * SIN(p_lat) * SIN(z_angle1)
+    p_uu = u0 * p_uu
+
+  END FUNCTION test_usbr_u
 
   !-------------------------------------------------------------------------------
   SUBROUTINE temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
@@ -3049,40 +3178,6 @@ CONTAINS
   END FUNCTION test_usbr_h
   !-------------------------------------------------------------------------
   
-
-  !-------------------------------------------------------------------------
-  FUNCTION test_usbr_u( point_lon, point_lat, p_t) result( p_uu)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for zonal velocity u, test case unsteady solid body
-    ! rotation of L\"auter et al.(2007).
-    
-    ! !REVISION HISTORY:
-    ! Developed by Th.Heinze, DWD, (2007-03)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_uu      ! zonal velocity
-    
-    ! !LOCAL VARIABLES:
-    REAL(wp)             :: z_angle1  ! 1st angle
-    REAL(wp)             :: z_angle2  ! 2nd angle
-    
-    !-----------------------------------------------------------------------
-    z_angle1 = .25_wp * pi
-    z_angle2 = point_lon + grid_angular_velocity * p_t
-    p_uu = COS(point_lat) * COS(z_angle1)
-    p_uu = p_uu + COS(z_angle2) * SIN(point_lat) * SIN(z_angle1)
-    p_uu = u0 * p_uu
-    
-  END FUNCTION test_usbr_u
-  !-----------------------------------------------------------------------------------
-  
-
   !-------------------------------------------------------------------------
   FUNCTION test_usbr_v( point_lon, point_lat,p_t) result(p_vv)
     !
