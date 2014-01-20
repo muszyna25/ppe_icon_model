@@ -215,7 +215,7 @@ cat > ${ocean_namelist} << EOF
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   iforc_stat_oce = 5
-  forcing_wind_u_amplitude = 0.25
+  forcing_wind_u_amplitude = 1.0_wp
   forcing_windstress_zonal_waveno     = 1.0_wp
   forcing_windstress_meridional_waveno = 1.0_wp
 /
