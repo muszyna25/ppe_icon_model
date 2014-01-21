@@ -7,12 +7,11 @@
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
 !!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!! @author <Pilar Ripodas, DWD>
 !!
 !!
 !! @par Revision History
-!! first implementation  by <Pilar Ripodas, DWD> (2011-03)
+!! first implementation by Pilar Ripodas, DWD (2011-03)
 !!
 !! $Id: n/a$
 !!
@@ -63,7 +62,6 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_time_config,        ONLY: time_config
   USE mo_lnd_nwp_config,     ONLY: nlev_soil
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
@@ -78,7 +76,9 @@ MODULE mo_nwp_diagnosis
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC  :: nwp_diagnosis, nwp_diag_output_1, nwp_diag_output_2
+  PUBLIC  :: nwp_diagnosis
+  PUBLIC  :: nwp_diag_output_1
+  PUBLIC  :: nwp_diag_output_2
 
 CONTAINS
 
@@ -126,9 +126,6 @@ CONTAINS
 
     ! Local
 
-    REAL(wp), PARAMETER :: dt_s6avg = 21600._wp   !6 hours in seconds
-    LOGICAL :: l_s6avg
-
     ! Local array bounds:
 
     INTEGER :: nlev, nlevp1            !< number of full levels
@@ -137,7 +134,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
 
-    REAL(wp):: z_help, p_sim_time_s6, r_sim_time
+    REAL(wp):: z_help, r_sim_time
     REAL(wp):: t_wgt                   !< weight for running time average
 
     INTEGER :: jc,jk,jb,jg      !block index
@@ -187,8 +184,7 @@ CONTAINS
 ! if cloud cover is called, vertical integration of cloud content
 ! (for iqv, iqc, iqi)
 
-!$OMP PARALLEL PRIVATE(l_s6avg,p_sim_time_s6)
-
+!$OMP PARALLEL
     IF ( lcall_phy_jg(itccov) ) THEN
 
 !$OMP DO PRIVATE(jb,z_help,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -674,7 +670,7 @@ CONTAINS
         ENDIF  ! lflux_avg
 
       ENDDO ! nblks     
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     END IF  ! p_sim_time
 
@@ -715,62 +711,6 @@ CONTAINS
 !$OMP END DO
 
     END IF !is_les_phy
-
-
-! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
-!    dt_s6avg average variables 
-
-    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0._wp &
-      & .AND. p_sim_time > 0.01_wp) THEN
-      l_s6avg = .TRUE.
-      p_sim_time_s6 = REAL(INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg),wp) &
-         &             * dt_s6avg
-    ELSE
-      l_s6avg = .FALSE.
-    END IF
-   ! WRITE(0,*) "diag", p_sim_time, time_config%ini_datetime%daysec, dt_s6avg, & 
-   !               & MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg), l_s6avg
-
-   
-    IF (l_s6avg ) THEN
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)   &
-                                    & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%u_10m(jc,jb)             &
-                                    & * dt_s6avg )                        &
-                                    & / p_sim_time_s6
-          prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)   &
-                                    & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%v_10m(jc,jb)             &
-                                    & * dt_s6avg )                        &
-                                    & / p_sim_time_s6
-          prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)     &
-                                    & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%t_2m(jc,jb)              &
-                                    & * dt_s6avg )                        &
-                                    & / p_sim_time_s6
-          prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)   &
-                                    & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%qv_2m(jc,jb)             &
-                                    & * dt_s6avg )                        &
-                                    & / p_sim_time_s6
-
-
-          pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb) &
-                                    & * (p_sim_time_s6 - dt_s6avg)          &
-                                    & + pt_diag%pres_sfc(jc,jb)             &
-                                    & * dt_s6avg )                          &
-                                    & / p_sim_time_s6
-        ENDDO
-      ENDDO ! nblks     
-!$OMP END DO NOWAIT
-    END IF
 
 !$OMP END PARALLEL  
 

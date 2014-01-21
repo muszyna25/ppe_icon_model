@@ -61,7 +61,6 @@ MODULE mo_nonhydro_state
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                                t_nh_ref, t_nh_metrics
-  USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
@@ -71,7 +70,6 @@ MODULE mo_nonhydro_state
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns, & 
     &                                iqng, iqnh, nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
-  USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
@@ -1258,14 +1256,6 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_sfc_old', p_diag%pres_sfc_old,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-                & ldims=shape2d_c, lrestart=.FALSE. )
-
-    ! pres_sfc_s6avg     p_diag%pres_sfc_s6avg(nproma,nblks_c)
-    !
-    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'pres_sfc_s6avg', p_diag%pres_sfc_s6avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
                 & ldims=shape2d_c, lrestart=.FALSE. )
 
