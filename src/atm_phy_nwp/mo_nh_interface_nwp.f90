@@ -79,7 +79,6 @@ MODULE mo_nh_interface_nwp
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy
-  USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -1079,64 +1078,6 @@ CONTAINS
           & pflxtoasw =prm_diag%swflxtoa (:,jb) )           ! out shortwave toa net flux     [W/m2]
 
         ENDIF
-
-        IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
-
-         !sum up for averaged fluxes
-          !T.R.: this is not correct for output after 1st timestep,
-          !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
-          !leading to wrong averaging.
-!DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
-                                 &  * r_sim_time
-
-          prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
-                                 &  * r_sim_time
-          prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
-                                 &  * r_sim_time
-          ENDDO
-
-        ELSEIF ( .NOT. lflux_avg ) THEN
-!DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)
-          prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb)
-          prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)
-          prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)
-
-          prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
-          prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)
-          END DO
-
-
-        END IF
 
       ENDDO ! blocks
 
