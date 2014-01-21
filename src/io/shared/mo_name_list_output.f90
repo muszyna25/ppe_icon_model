@@ -1,3 +1,4 @@
+!! -------------------------------------------------------------------------
 !>
 !! Module handling synchronous and asynchronous output; supporting
 !! multiple I/O PEs and horizontal interpolation.
@@ -19,9 +20,23 @@
 !!
 !! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
 !! BUT understand CRAY pointers
-!!
 !!   #define USE_CRAY_POINTER
 !!
+!! -------------------------------------------------------------------------
+!!
+!! MPI roles in asynchronous communication:
+!! 
+!! - Compute PEs create local memory windows, buffering all variables
+!!   for all output files (for the local horizontal grid partition).
+!!
+!! - Asynchronous I/O servers create trivial local memory windows of
+!!   size 1.
+!!
+!! - Additionally, when writing, the asynchronous I/O servers allocate
+!!   a 3D buffer for a single variable. This temporary field serves as
+!!   a target buffer for the one-sided MPI_GET operation.
+!!
+!! -------------------------------------------------------------------------
 MODULE mo_name_list_output
 
 #ifndef USE_CRAY_POINTER
@@ -63,7 +78,7 @@ MODULE mo_name_list_output
   USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
 
   USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io
+  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
 
   USE mo_run_config,                ONLY: num_lev, num_levp1, dtime,                                &
     &                                     msg_level, output_mode, ltestcase
@@ -84,7 +99,6 @@ MODULE mo_name_list_output
   &                                        IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,              &
   &                                        all_events
   USE mo_name_list_output_init,     ONLY:  init_name_list_output, setup_output_vlist,               &
-    &                                      mem_ptr_sp, mem_ptr_dp, mpi_win,                         &
     &                                      varnames_dict, out_varnames_dict,                        &
     &                                      output_file, patch_info, lonlat_info,                    &
     &                                      i_sample
@@ -102,7 +116,7 @@ MODULE mo_name_list_output
     &                                     pass_output_step, get_current_filename,                   &
     &                                     get_current_date, trigger_output_step_irecv,              &
     &                                     is_output_step_complete, is_output_event_finished,        &
-    &                                     check_write_readyfile, wait_for_final_irecvs
+    &                                     check_write_readyfile, blocking_wait_for_irecvs
 
 #ifndef __NO_ICON_ATMO__
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
@@ -133,6 +147,12 @@ MODULE mo_name_list_output
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
+
+  !> constant for better readability
+  INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
+
+  !> Internal switch for debugging output
+  LOGICAL, PARAMETER :: ldebug  = .FALSE.
 
 
 CONTAINS
@@ -250,6 +270,7 @@ CONTAINS
   !> Close all name_list files
   !
   SUBROUTINE close_name_list_output()
+    ! local variables
     INTEGER :: i, jg
 
 #ifndef NOMPI
@@ -266,7 +287,7 @@ CONTAINS
         END IF
       END DO
 
-      CALL compute_wait_for_async_io()
+      CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
       CALL compute_shutdown_async_io()
 
     ELSE
@@ -395,7 +416,7 @@ CONTAINS
         ! routine (write_name_list_output) is also called from the I/O
         ! PEs, but in this case the calling routine cares about the
         ! flow control.
-        CALL compute_wait_for_async_io()
+        CALL compute_wait_for_async_io(jstep)
       END IF
     ENDIF
 #endif
@@ -490,7 +511,6 @@ CONTAINS
       & .NOT.my_process_is_io() .AND. &
       & .NOT.my_process_is_mpi_test()) CALL compute_start_async_io(jstep)
 #endif
-
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
     ! write processes, we trigger a "ready file" on the first I/O PE.
@@ -575,7 +595,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Write a output name list
+  !> Write an output name list. Called by non-IO PEs.
   !
   SUBROUTINE write_name_list(of, l_first_write)
 
@@ -592,32 +612,31 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
     LOGICAL,              INTENT(IN)            :: l_first_write
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::write_name_list"
-    REAL(wp),         PARAMETER    :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
-    INTEGER,          PARAMETER    :: iUNKNOWN = 0
-    INTEGER,          PARAMETER    :: iINTEGER = 1
-    INTEGER,          PARAMETER    :: iREAL    = 2
-
-    INTEGER                        :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
-      &                               nlevs, nblks, nindex, mpierr, lonlat_id,   &
-      &                               idata_type
-    INTEGER(i8)                    :: ioff
-    TYPE (t_var_metadata), POINTER :: info
-    TYPE(t_reorder_info),  POINTER :: p_ri
-    REAL(wp),          ALLOCATABLE :: r_ptr(:,:,:)
-    INTEGER,           ALLOCATABLE :: i_ptr(:,:,:)
-    REAL(wp),          ALLOCATABLE :: r_out_recv(:,:)
-    REAL(wp),              POINTER :: r_out_wp(:,:)
-    INTEGER,           ALLOCATABLE :: r_out_int(:,:)
-    REAL(sp),  ALLOCATABLE, TARGET :: r_out_sp(:,:)
-    REAL(dp),  ALLOCATABLE, TARGET :: r_out_dp(:,:)
-    TYPE(t_comm_gather_pattern), &
-      &                   POINTER  :: p_pat
-    LOGICAL                        :: l_error
-    LOGICAL                        :: have_GRIB
+    CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
+    REAL(wp),         PARAMETER                 :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
+    INTEGER,          PARAMETER                 :: iUNKNOWN = 0
+    INTEGER,          PARAMETER                 :: iINTEGER = 1
+    INTEGER,          PARAMETER                 :: iREAL    = 2
+                                               
+    INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
+      &                                            nlevs, nblks, nindex, mpierr, lonlat_id,   &
+      &                                            idata_type
+    INTEGER(i8)                                 :: ioff
+    TYPE (t_var_metadata), POINTER              :: info
+    TYPE(t_reorder_info),  POINTER              :: p_ri
+    REAL(wp),          ALLOCATABLE              :: r_ptr(:,:,:)
+    INTEGER,           ALLOCATABLE              :: i_ptr(:,:,:)
+    REAL(wp),          ALLOCATABLE              :: r_out_recv(:,:)
+    REAL(wp),              POINTER              :: r_out_wp(:,:)
+    INTEGER,           ALLOCATABLE              :: r_out_int(:,:)
+    REAL(sp),          ALLOCATABLE, TARGET      :: r_out_sp(:,:)
+    REAL(dp),          ALLOCATABLE, TARGET      :: r_out_dp(:,:)
+    TYPE(t_comm_gather_pattern), POINTER        :: p_pat
+    LOGICAL                                     :: l_error
+    LOGICAL                                     :: have_GRIB
 
     ! Offset in memory window for async I/O
-    ioff = of%my_mem_win_off
+    ioff = 0_i8
 
     i_dom = of%phys_patch_id
     i_log_dom = of%log_patch_id
@@ -625,9 +644,9 @@ CONTAINS
     tl = 0 ! to prevent warning
 
 #ifndef NOMPI
-    ! In case of async IO: Lock own window before writing to it
-    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
-      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpierr)
+        ! In case of async IO: Lock own window before writing to it
+        IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
+          CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
 ! NOMPI
 
@@ -798,7 +817,7 @@ CONTAINS
           ALLOCATE(r_out_dp(MERGE(n_points, 0, &
             &                      my_process_is_mpi_workroot()), nlevs))
           r_out_wp => r_out_dp
-          r_out_wp(:,:) = 0
+          r_out_wp(:,:) = 0._wp
           CALL exchange_data(r_ptr(:,:,:), r_out_wp(:,:), p_pat)
 
         ELSE IF (idata_type == iINTEGER) THEN
@@ -888,35 +907,34 @@ CONTAINS
         ! ------------------------
         ! Asynchronous I/O is used
         ! ------------------------
-        !
-        ! just copy the OWN DATA points to the memory window
 
+        ! just copy the OWN DATA points to the memory window
         DO jk = 1, nlevs
           IF (use_dp_mpi2io) THEN
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
           ELSE
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
-        END DO
+        END DO ! nlevs
 
       END IF
 
@@ -927,9 +945,9 @@ CONTAINS
     ENDDO
 
 #ifndef NOMPI
-    ! In case of async IO: Done writing to memory window, unlock it
-    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
-      CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
+        ! In case of async IO: Done writing to memory window, unlock it
+        IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
+          CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win, mpierr)
 #endif
 ! NOMPI
 
@@ -992,7 +1010,7 @@ CONTAINS
     ! local variables:
 
 #ifndef __NO_ICON_ATMO__
-    LOGICAL             :: done
+    LOGICAL             :: done, l_complete
     INTEGER             :: jg, jstep
     TYPE(t_par_output_event), POINTER :: ev
 
@@ -1007,7 +1025,7 @@ CONTAINS
     CALL init_name_list_output(sim_step_info, opt_isample=isample)
 
     ! Tell the compute PEs that we are ready to work
-    CALL async_io_send_handshake
+    CALL async_io_send_handshake(0)
 
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
@@ -1026,7 +1044,7 @@ CONTAINS
       CALL write_name_list_output(jstep)
 
       ! Inform compute PEs that we are done
-      CALL async_io_send_handshake
+      CALL async_io_send_handshake(jstep)
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -1036,23 +1054,35 @@ CONTAINS
       END DO
     ENDDO
 
-    ! Handle final pending "output step completed" messages: After all
-    ! participating I/O PE's have acknowledged the completion of their
-    ! write processes, we trigger a "ready file" on the first I/O PE.
-    IF (.NOT.my_process_is_mpi_test()) THEN
-       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-          CALL wait_for_final_irecvs(all_events)
-          ev => all_events
-          HANDLE_COMPLETE_STEPS : DO
-             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-             
-             !--- write ready file
-             IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-             ev => ev%next
-          END DO HANDLE_COMPLETE_STEPS
+    IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
+    WAIT_FINAL : DO
+       ! Handle final pending "output step completed" messages: After all
+       ! participating I/O PE's have acknowledged the completion of their
+       ! write processes, we trigger a "ready file" on the first I/O PE.
+       IF (.NOT.my_process_is_mpi_test()) THEN
+          IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+               & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+             CALL blocking_wait_for_irecvs(all_events)
+             ev => all_events
+             l_complete = .TRUE.
+             HANDLE_COMPLETE_STEPS : DO
+                IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+                
+                !--- write ready file
+                IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+                IF (.NOT. is_output_event_finished(ev)) THEN 
+                   l_complete = .FALSE.
+                   IF (is_output_step_complete(ev)) THEN 
+                      CALL trigger_output_step_irecv(ev)
+                   END IF
+                END IF
+                ev => ev%next
+             END DO HANDLE_COMPLETE_STEPS
+          END IF
        END IF
-    END IF
+       IF (l_complete) EXIT WAIT_FINAL
+    END DO WAIT_FINAL
+    IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
 
     ! Finalization sequence:
     CALL close_name_list_output
@@ -1080,7 +1110,9 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Output routine on the IO PE
+  !> Output routine on the IO PEs
+  !
+  !  @note This subroutine is called by asynchronous I/O PEs only.
   !
   SUBROUTINE io_proc_write_name_list(of, l_first_write)
 
@@ -1162,11 +1194,9 @@ CONTAINS
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    ioff(:) = of%mem_win_off(:)
-
-
     ! Go over all name list variables for this output file
 
+    ioff(:) = 0
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
@@ -1205,7 +1235,7 @@ CONTAINS
 
       ! Retrieve part of variable from every worker PE using MPI_Get
 
-      nv_off = 0
+      nv_off  = 0
       DO np = 0, num_work_procs-1
 
         IF(p_ri%pe_own(np) == 0) CYCLE
@@ -1213,17 +1243,17 @@ CONTAINS
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
         t_0 = p_mpi_wtime()
-        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
+        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 
         IF (use_dp_mpi2io) THEN
           CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-            &          nval, p_real_dp, mpi_win, mpierr)
+            &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
         ELSE
           CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-            &          nval, p_real_sp, mpi_win, mpierr)
+            &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
         ENDIF
 
-        CALL MPI_Win_unlock(np, mpi_win, mpierr)
+        CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
         t_get  = t_get  + p_mpi_wtime() - t_0
         mb_get = mb_get + nval
 
@@ -1374,24 +1404,27 @@ CONTAINS
   !> Send a message to the compute PEs that the I/O is ready. The
   !  counterpart on the compute side is compute_wait_for_async_io
   !
-  SUBROUTINE async_io_send_handshake
+  SUBROUTINE async_io_send_handshake(jstep)
+    INTEGER, INTENT(IN) :: jstep
     ! local variables
     REAL(wp) :: msg
     TYPE(t_par_output_event), POINTER :: ev
 
-    ! make sure all are done
-    CALL p_barrier(comm=p_comm_work)
+    IF (ldebug) &
+         & WRITE (0,*) "pe ", p_pe, ": async_io_send_handshake, jstep=", jstep
 
-    ! Simply send a message from I/O PE 0 to compute PE 0
-    ! 
+    ! --- Send a message from this I/O PE to the compute PE #0
+    !
     ! Note: We have to do this in a non-blocking fashion in order to
     !       receive "ready file" messages.
+    CALL p_wait() 
+    msg = REAL(msg_io_done, wp)
+    CALL p_isend(msg, p_work_pe0, 0)
+
+    ! --- I/O PE #0  :  take care of ready files    
     IF(p_pe_work == 0) THEN
-      ! launch non-blocking receive request:
-      CALL p_wait()
-      msg = REAL(msg_io_done, wp)
-      CALL p_isend(msg, p_work_pe0, 0)
       DO 
+        IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": trigger, async_io_send_handshake"
         ev => all_events
         HANDLE_COMPLETE_STEPS : DO
           IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
@@ -1406,11 +1439,10 @@ CONTAINS
           ! acknowledge the completion of the next output event
           CALL trigger_output_step_irecv(ev)
         END DO HANDLE_COMPLETE_STEPS
-
         IF (p_test()) EXIT
       END DO
-      CALL p_wait()
     END IF
+    CALL p_wait() 
 
   END SUBROUTINE async_io_send_handshake
 
@@ -1418,7 +1450,7 @@ CONTAINS
   !-------------------------------------------------------------------------------------------------
   !> async_io_wait_for_start: Wait for a message from work PEs that we
   !  should start I/O or finish.  The counterpart on the compute side is
-  !  compute_start_io/compute_shutdown_io
+  !  compute_start_async_io/compute_shutdown_async_io
   !
   SUBROUTINE async_io_wait_for_start(done, jstep)
     LOGICAL, INTENT(OUT)          :: done ! flag if we should shut down
@@ -1481,14 +1513,50 @@ CONTAINS
   !> compute_wait_for_async_io: Wait for a message that the I/O is ready
   !  The counterpart on the I/O side is io_send_handshake
   !
-  SUBROUTINE compute_wait_for_async_io
+  SUBROUTINE compute_wait_for_async_io(jstep)
+    INTEGER, INTENT(IN) :: jstep         !< model step
+    ! local variables
     REAL(wp) :: msg
+    INTEGER  :: i,j, nwait_list, wait_idx
+    INTEGER  :: wait_list(num_io_procs)
 
-    ! First compute PE receives message from I/O leader
+    ! Compute PE #0 receives message from I/O PEs
+    !
+    ! Note: We only need to wait for those I/O PEs which are involved
+    !       in the current step.
     IF(p_pe_work==0) THEN
-      CALL p_recv(msg, p_io_pe0, 0)
-      ! Just for safety: Check if we got the correct tag
-      IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
+      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_wait_for_async_io, jstep=",jstep
+      IF (jstep == WAIT_UNTIL_FINISHED) THEN
+        CALL p_wait()
+      ELSE
+        wait_list(:) = -1
+        nwait_list   = 0
+
+        ! Go over all output files, collect IO PEs
+        OUTFILE_LOOP : DO i=1,SIZE(output_file)
+          ! Skip this output file if it is not due for output!
+          IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
+          wait_idx = -1
+          DO j=1,nwait_list
+            IF (wait_list(j) == output_file(i)%io_proc_id) THEN 
+              wait_idx = j
+              EXIT
+            END IF
+          END DO
+          IF (wait_idx == -1) THEN
+            nwait_list = nwait_list + 1
+            wait_idx   = nwait_list
+          END IF
+          wait_list(wait_idx) = output_file(i)%io_proc_id
+        END DO OUTFILE_LOOP
+        DO i=1,nwait_list
+          ! Blocking receive call:
+          IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
+          CALL p_recv(msg, wait_list(i), 0)
+        END DO
+        ! Just for safety: Check if we got the correct tag
+        IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
+      END IF
     ENDIF
     ! Wait in barrier until message is here
     CALL p_barrier(comm=p_comm_work)

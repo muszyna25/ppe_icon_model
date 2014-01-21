@@ -14,7 +14,7 @@
 !!
 MODULE mo_name_list_output_types
 
-  USE mo_kind,                  ONLY: wp, i8
+  USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
     &                                 MAX_TIME_LEVELS, max_levels
@@ -41,6 +41,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: second_tos, first_tos
   PUBLIC :: GRP_PREFIX
   ! derived data types:
+  PUBLIC :: t_mem_win
   PUBLIC :: t_reorder_info
   PUBLIC :: t_grid_info
   PUBLIC :: t_patch_info
@@ -268,12 +269,21 @@ MODULE mo_name_list_output_types
 
 
   TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)         ! Pointer to time level independent REAL data (or NULL)
-    INTEGER,  POINTER :: i_ptr(:,:,:,:,:)         ! Pointer to time level independent INTEGER data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_rptr(MAX_TIME_LEVELS) ! Pointers to time level dependent REAL data
-    TYPE(t_iptr_5d) :: tlev_iptr(MAX_TIME_LEVELS) ! Pointers to time level dependent INTEGER data
-    TYPE(t_var_metadata) :: info                  ! Info structure for variable
+    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL data (or NULL)
+    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
+    TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
+    TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
+    TYPE(t_var_metadata)                  :: info                             !< Info structure for variable
   END TYPE t_var_desc
+
+
+  !> Data structure containing variables for MPI memory window
+  !
+  TYPE t_mem_win
+    INTEGER                               :: mpi_win
+    REAL(dp), POINTER                     :: mem_ptr_dp(:)                    !< Pointer to memory window (REAL*8)
+    REAL(sp), POINTER                     :: mem_ptr_sp(:)                    !< Pointer to memory window (REAL*4)
+  END TYPE t_mem_win
 
 
   !> Data structure containing additional meta-data for generating
@@ -294,45 +304,45 @@ MODULE mo_name_list_output_types
   TYPE t_output_file
     ! The following data must be set before opening the output file:
 
-    TYPE(t_par_output_event), POINTER :: out_event            ! data structure for parallel output events
+    TYPE(t_par_output_event), POINTER     :: out_event                        !< data structure for parallel output events
 
-    CHARACTER(LEN=filename_max)       :: filename_pref        ! Prefix of output file name
-    INTEGER                           :: output_type          ! CDI format
-    INTEGER                           :: phys_patch_id        ! ID of physical output patch
-    INTEGER                           :: log_patch_id         ! ID of logical output patch
-    INTEGER                           :: ilev_type            ! level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
-    INTEGER                           :: max_vars             ! maximum number of variables allocated
-    INTEGER                           :: num_vars             ! number of variables in use
-    TYPE(t_var_desc),ALLOCATABLE      :: var_desc(:)
-    TYPE(t_output_name_list), POINTER :: name_list            ! Pointer to corresponding output name list
+    CHARACTER(LEN=filename_max)           :: filename_pref                    !< Prefix of output file name
+    INTEGER                               :: output_type                      !< CDI format
+    INTEGER                               :: phys_patch_id                    !< ID of physical output patch
+    INTEGER                               :: log_patch_id                     !< ID of logical output patch
+    INTEGER                               :: ilev_type                        !< level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    INTEGER                               :: max_vars                         !< maximum number of variables allocated
+    INTEGER                               :: num_vars                         !< number of variables in use
+    TYPE(t_var_desc),ALLOCATABLE          :: var_desc(:)
+    TYPE(t_output_name_list), POINTER     :: name_list                        !< Pointer to corresponding output name list
 
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:)    ! mapping internal names -> names in NetCDF
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:)                    !< mapping internal names -> names in NetCDF
 
-    INTEGER                           :: remap                ! Copy of remap from associated namelist
-    INTEGER                           :: io_proc_id           ! ID of process doing I/O on this file
+    INTEGER                               :: remap                            !< Copy of remap from associated namelist
+    INTEGER                               :: io_proc_id                       !< ID of process doing I/O on this file
 
     ! Used for async IO only
-    INTEGER(i8)                       :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE          :: mem_win_off(:)
+    TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window
+
 
     ! The following members are set during open
-    INTEGER                     :: cdiFileId
-    INTEGER                     :: cdiVlistId         ! cdi vlist handler
-    INTEGER                     :: cdiCellGridID
-    INTEGER                     :: cdiVertGridID
-    INTEGER                     :: cdiEdgeGridID
-    INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(max_z_axes) ! All types of possible Zaxis ID's
-    INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiTimeIndex
-    INTEGER                     :: cdiInstID      ! output generating institute
-    INTEGER                     :: cdi_grb2(3,2)  !< geographical position: (GRID, latitude/longitude)
+    INTEGER                               :: cdiFileId
+    INTEGER                               :: cdiVlistId                       !< cdi vlist handler
+    INTEGER                               :: cdiCellGridID
+    INTEGER                               :: cdiVertGridID
+    INTEGER                               :: cdiEdgeGridID
+    INTEGER                               :: cdiLonLatGridID
+    INTEGER                               :: cdiZaxisID(max_z_axes)           !< All types of possible Zaxis ID's
+    INTEGER                               :: cdiTaxisID
+    INTEGER                               :: cdiTimeIndex
+    INTEGER                               :: cdiInstID                        !< output generating institute
+    INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
   END TYPE t_output_file
 
   ! "all_events": The root I/O MPI rank "ROOT_OUTEVENT" asks all
   ! participating I/O PEs for their output event info and generates a
   ! unified output event, indicating which PE performs a write process
   ! at which step:
-  TYPE(t_par_output_event), POINTER :: all_events
+  TYPE(t_par_output_event), POINTER       :: all_events
 
 END MODULE mo_name_list_output_types

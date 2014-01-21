@@ -410,6 +410,13 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
   INTEGER, PUBLIC :: comm_lev = 0, glob_comm(0:max_lev), comm_proc0(0:max_lev)
 
+  ! Storage for buffered non-blocking point-to-point communication. This is
+  ! especially needed for communication between I/O servers. These tasks may
+  ! be completely asynchronous and therefore ISENDs may be launched before a
+  ! corresponding IRECVs has been issued.
+  INTEGER :: mpi_buffer(10000)
+
+
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
 
@@ -1564,6 +1571,12 @@ CONTAINS
     END IF
 #endif
 #endif
+
+    CALL MPI_BUFFER_ATTACH(mpi_buffer, SIZE(mpi_buffer), p_error)
+    IF (p_error /= 0) THEN
+       WRITE (0,*) "Error in MPI_BUFFER_ATTACH."
+       STOP
+    END IF
 
     process_mpi_all_comm = MPI_COMM_NULL
     IF (PRESENT(global_name)) THEN

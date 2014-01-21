@@ -154,8 +154,6 @@ MODULE mo_name_list_output_init
   INCLUDE 'netcdf.inc'
 
   ! variables and data types
-  PUBLIC :: mem_ptr_sp, mem_ptr_dp
-  PUBLIC :: mpi_win
   PUBLIC :: out_varnames_dict
   PUBLIC :: varnames_dict
   PUBLIC :: output_file
@@ -182,12 +180,6 @@ MODULE mo_name_list_output_init
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
   INTEGER :: n_dom_out
-
-  !------------------------------------------------------------------------------------------------
-  ! Currently, we use only 1 MPI window for all output files
-  INTEGER mpi_win
-  REAL(dp), POINTER :: mem_ptr_dp(:) ! Pointer to memory window (REAL*8)
-  REAL(sp), POINTER :: mem_ptr_sp(:) ! Pointer to memory window (REAL*4)
 
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
@@ -1002,7 +994,6 @@ CONTAINS
 
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
-    output_file(:)%my_mem_win_off = 0_i8 ! Set if async IO is enabled
 
     ! Loop over all output namelists, set up the output_file struct for all associated files
 
@@ -3763,38 +3754,24 @@ CONTAINS
 #endif
 ! __SUNPRO_F95
 
-    INTEGER :: jp, i, iv, nlevs
-    INTEGER :: nbytes_real, mpierr, rma_cache_hint
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
-#ifdef USE_CRAY_POINTER
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-    REAL(sp) :: tmp_sp
-    POINTER(tmp_ptr_sp,tmp_sp(*))
-    REAL(dp) :: tmp_dp
-    POINTER(tmp_ptr_dp,tmp_dp(*))
-#else
-    TYPE(c_ptr) :: c_mem_ptr
-#endif
-! USE_CRAY_POINTER
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::init_async_name_list_output"
+    
+    INTEGER                         :: jp, i, iv, nlevs, mpierr, i_log_dom, &
+      &                                n_own, lonlat_id
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
-    INTEGER :: i_log_dom, n_own, lonlat_id
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
 
-
-    ! Get size and offset of the data for every output file
-
-    mem_size = 0_i8
-
     ! Go over all output files
-    DO i = 1, SIZE(output_file)
-
-      output_file(i)%my_mem_win_off = mem_size
-
+    OUT_FILE_LOOP : DO i = 1, SIZE(output_file)
+      
+      ! Get size of the data for every output file
+      mem_size = 0_i8
+      
       ! Go over all name list variables for this output file
-
       DO iv = 1, output_file(i)%num_vars
 
         jp = output_file(i)%phys_patch_id
@@ -3806,41 +3783,67 @@ CONTAINS
         ENDIF
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
-          CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_CELL)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_EDGE)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_VERT)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
 
 #ifndef __NO_ICON_ATMO__
-          CASE (GRID_REGULAR_LONLAT)
-            lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
-            i_log_dom = output_file(i)%log_patch_id
-            n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
-            mem_size  = mem_size + INT(nlevs*n_own,i8)
+        CASE (GRID_REGULAR_LONLAT)
+          lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
+          i_log_dom = output_file(i)%log_patch_id
+          n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
+          mem_size  = mem_size + INT(nlevs*n_own,i8)
 #endif
 ! #ifndef __NO_ICON_ATMO__
 
-          CASE DEFAULT
-            CALL finish(routine,'unknown grid type')
+        CASE DEFAULT
+          CALL finish(routine,'unknown grid type')
         END SELECT
 
-      ENDDO
+      ENDDO ! vars
+     
+      ! allocate amount of memory needed with MPI_Alloc_mem
+#ifdef USE_CRAY_POINTER
+      CALL allocate_mem_cray(mem_size, output_file(i))
+#else
+      CALL allocate_mem_noncray(mem_size, output_file(i))
+#endif
+      ! USE_CRAY_POINTER
 
-      ! Get the offset on all PEs
-      ALLOCATE(output_file(i)%mem_win_off(0:num_work_procs-1))
-      IF(.NOT.my_process_is_io()) THEN
-        CALL MPI_Allgather(output_file(i)%my_mem_win_off, 1, p_int_i8, &
-                           output_file(i)%mem_win_off, 1, p_int_i8,    &
-                           p_comm_work, mpierr)
-      ENDIF
+    ENDDO OUT_FILE_LOOP
+    
+  END SUBROUTINE init_memory_window
+  
 
-      CALL p_bcast(output_file(i)%mem_win_off, bcast_root, p_comm_work_2_io)
+#ifdef USE_CRAY_POINTER
+  !------------------------------------------------------------------------------------------------
+  !> allocate amount of memory needed with MPI_Alloc_mem
+  !
+  !  @note Implementation for Cray pointers
+  !
+  SUBROUTINE allocate_mem_cray(mem_size, of)
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
+#else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
+! __SUNPRO_F95
 
-    ENDDO
-
-    ! mem_size is calculated as number of variables above, get number of bytes
+    INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
+    TYPE (t_output_file),            INTENT(INOUT) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
+    REAL(sp)                        :: tmp_sp
+    REAL(dp)                        :: tmp_dp
+    INTEGER                         :: mpierr
+    INTEGER                         :: nbytes_real
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+    POINTER(tmp_ptr_sp,tmp_sp(*))
+    POINTER(tmp_ptr_dp,tmp_dp(*))
 
     ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
@@ -3853,9 +3856,6 @@ CONTAINS
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
 
-    ! allocate amount of memory needed with MPI_Alloc_mem
-
-#ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
 
     IF (use_dp_mpi2io) THEN
@@ -3865,7 +3865,58 @@ CONTAINS
       tmp_ptr_sp = iptr
       CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
     ENDIF
+
+    ! Create memory window for communication
+    IF (use_dp_mpi2io) THEN
+      of%mem_win%mem_ptr_dp(:) = 0._dp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+    ELSE
+      of%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+    ENDIF
+    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+
+  END SUBROUTINE allocate_mem_cray
+#endif
+! USE_CRAY_POINTER
+
+
+#ifndef USE_CRAY_POINTER
+  !------------------------------------------------------------------------------------------------
+  !> allocate amount of memory needed with MPI_Alloc_mem
+  !
+  !  @note Implementation for non-Cray pointers
+  !
+  SUBROUTINE allocate_mem_noncray(mem_size, of)
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
 #else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
+! __SUNPRO_F95
+
+    INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
+    TYPE (t_output_file),            INTENT(INOUT) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
+    TYPE(c_ptr)                     :: c_mem_ptr
+    INTEGER                         :: mpierr
+    INTEGER                         :: nbytes_real
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+
+    ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
+    ! communication)
+    IF (use_dp_mpi2io) THEN
+      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+    ELSE
+      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+    ENDIF
+
+    ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
+    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
     ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
     ! into deep, deep troubles!
@@ -3883,55 +3934,40 @@ CONTAINS
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
 
-    NULLIFY(mem_ptr_sp)
-    NULLIFY(mem_ptr_dp)
+    NULLIFY(of%mem_win%mem_ptr_sp)
+    NULLIFY(of%mem_win%mem_ptr_dp)
+
+    IF (use_dp_mpi2io) THEN
 
 #ifdef __SX__
-    IF (use_dp_mpi2io) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
-    ELSE
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ INT(mem_size) /) )
-    ENDIF
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ INT(mem_size) /) )
 #else
-    IF (use_dp_mpi2io) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
+#endif
+      ! Create memory window for communication
+      of%mem_win%mem_ptr_dp(:) = 0._dp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+
     ELSE
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ mem_size /) )
-    ENDIF
-#endif
-! __SX__
-#endif
-! USE_CRAY_POINTER
 
-    rma_cache_hint = MPI_INFO_NULL
-#ifdef __xlC__
-    ! IBM specific RMA hint, that we don't want window caching
-    CALL MPI_Info_create(rma_cache_hint, mpierr);
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-    CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+#ifdef __SX__
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
+#else
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
 #endif
-! __xlC__
+      ! Create memory window for communication
+      of%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 
-    ! Create memory window for communication
-    IF (use_dp_mpi2io) THEN
-      mem_ptr_dp(:) = 0._dp
-      CALL MPI_Win_create( mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,mpi_win,mpierr )
-    ELSE
-      mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,mpi_win,mpierr )
-    ENDIF
-    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+    ENDIF ! use_dp_mpi2io
 
-#ifdef __xlC__
-    CALL MPI_Info_free(rma_cache_hint, mpierr);
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+  END SUBROUTINE allocate_mem_noncray
 #endif
-! __xlC__
-
-  END SUBROUTINE init_memory_window
+! .not. USE_CRAY_POINTER
 
 #endif
 ! NOMPI
