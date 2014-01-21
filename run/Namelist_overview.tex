@@ -2461,7 +2461,7 @@ Defined and used in: src/namelists/mo\_les\_nml.f90
 itype\_latbc&
 I & 0& &
 Type of lateral boundary nudging. Nudge from\\
-0: the initial date,\\
+0: the initial data,\\
 1: IFS data analysis/forecast (if \texttt{init\_mode}=4, we take COSMO-DE data),\\
 2: ICON output data (with the identical 3d grid)&
 \tabularnewline
@@ -2469,9 +2469,9 @@ Type of lateral boundary nudging. Nudge from\\
 \hline
 dtime\_latbc&
 R &
-43200.0& s
+10800.0& s
 &
-Time step size of boundary data
+Time difference between two consecutive boundary data.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2481,7 +2481,7 @@ nlev\_latbc&
 I &
 0& s
 &
-Number of vertical levels in boundary data
+Number of vertical levels in boundary data.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2492,9 +2492,10 @@ C &
 &
 &
 Filename of boundary data input file, default:\\
-''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
-keyword ''\texttt{<path>}'' which will be substituted by
-\texttt{latbc\_path}.
+''\texttt{<path>prepiconR<nroot>B<jlev>\_<timestamp>}.nc''. Optional
+keyword \texttt{<path>} will be substituted by
+\texttt{latbc\_path}. \texttt{<timestamp>} will be automatically
+replaced in the run-time.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2502,20 +2503,10 @@ itype\_latbc $\ge$ 1
 \hline
 latbc\_path&
 C &
+''\texttt{./}''
 &
 &
 Absolute path to boundary data.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-lupdate\_qvqc&
-L &
-.FALSE.
-&
-&
-Switch to update $q_v$, $q_c$ from available boundary data. Only first ''\texttt{grf\_bdywidth\_c}'' cells and ''\texttt{grf\_bdywidth\_e}'' edges are updated.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline

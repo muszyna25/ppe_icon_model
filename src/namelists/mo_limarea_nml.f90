@@ -82,10 +82,10 @@ CONTAINS
     ! Default settings
     !------------------------------------------------------------
     itype_latbc      = 0
-    dtime_latbc      = 43200._wp
+    dtime_latbc      = 10800._wp
     nlev_latbc       = 0
-    latbc_filename   = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
-    latbc_path       = "<path>"
+    latbc_filename   = "<path>prepiconR<nroot>B<jlev>_<timestamp>.nc"
+    latbc_path       = "./"
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
