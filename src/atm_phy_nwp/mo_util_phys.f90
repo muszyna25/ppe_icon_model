@@ -306,7 +306,7 @@ CONTAINS
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL    
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,temp,qv,p_ex), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
@@ -391,7 +391,7 @@ CONTAINS
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL    
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,temp,qv,p_ex), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
