@@ -249,7 +249,7 @@ CONTAINS
           DO j = 1, loc_arr_len
             jb = blk_no(j) ! Block index in distributed patch
             jl = idx_no(j) ! Line  index in distributed patch
-            var_out(jl,jb,jk) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
+            var_out(jl,jb,jk) = var_out(jl,jb,jk) + REAL(tmp_buf(glb_index(j)), wp)
           ENDDO
         ELSE
           DO j = 1, loc_arr_len
