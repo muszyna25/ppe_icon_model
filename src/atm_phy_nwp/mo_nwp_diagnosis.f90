@@ -241,7 +241,7 @@ CONTAINS
 !h     ENDDO ! nblks  
 !!$OMP END DO
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, clearsky, message_text) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,clearsky) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
