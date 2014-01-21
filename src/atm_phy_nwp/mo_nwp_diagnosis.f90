@@ -690,7 +690,7 @@ CONTAINS
        
          d_theta_dz_max = -1.e6_wp
 
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
               & i_startidx, i_endidx, rl_start, rl_end)
