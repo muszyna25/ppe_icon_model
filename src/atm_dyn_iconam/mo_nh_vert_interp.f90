@@ -322,7 +322,7 @@ CONTAINS
     IF (init_mode /= MODE_COSMODE) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
-!$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            rdalpha, geop_mc, geop_ic) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = 1,p_patch%nblks_c
 
