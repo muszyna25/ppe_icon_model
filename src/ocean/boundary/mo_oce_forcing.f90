@@ -882,12 +882,12 @@ CONTAINS
   END SUBROUTINE set_windstress
 
   SUBROUTINE basin_zonal(subset, mask, threshold, field_2d, amplitude,length_opt, zonal_waveno_opt)
-    TYPE(t_subset_range), INTENT(IN)   :: subset
-    INTEGER,  INTENT(IN)            :: mask(:,:)
-    INTEGER, INTENT(IN)            :: threshold
-    REAL(wp),INTENT(INOUT)          :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN) , OPTIONAL :: length_opt,zonal_waveno_opt
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER,  INTENT(IN)             :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,zonal_waveno_opt
     
     REAL(wp) :: length, zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -906,11 +906,11 @@ CONTAINS
   END SUBROUTINE basin_zonal
   SUBROUTINE basin_meridional(subset, mask, threshold, field_2d, amplitude,length_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN) , OPTIONAL :: length_opt,meridional_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,meridional_waveno_opt
  
     REAL(wp) :: length, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -930,11 +930,11 @@ CONTAINS
   SUBROUTINE zonal_periodic_nonzero_around_center_zero_at_pols(subset, mask, threshold, field_2d, amplitude,&
       & center_opt,length_opt,zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN),OPTIONAL   :: center_opt, length_opt, zonal_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN),OPTIONAL    :: center_opt, length_opt, zonal_waveno_opt
     
     REAL(wp) :: center, length, zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -955,11 +955,11 @@ CONTAINS
   SUBROUTINE meridional_periodic_around_center_zero_at_pols(subset, mask, threshold, field_2d, amplitude, &
       & center_opt,length_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN),OPTIONAL   :: center_opt, length_opt, meridional_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN),OPTIONAL    :: center_opt, length_opt, meridional_waveno_opt
     
     REAL(wp) :: center, length, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -979,11 +979,11 @@ CONTAINS
   END SUBROUTINE meridional_periodic_around_center_zero_at_pols
   SUBROUTINE zonal_periodic_zero_at_pols(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN),OPTIONAL   :: zonal_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt
     
     REAL(wp) :: zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -1000,11 +1000,11 @@ CONTAINS
  
   SUBROUTINE cells_zonal_periodic(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN),OPTIONAL   :: zonal_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt
  
     REAL(wp) :: zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -1023,11 +1023,11 @@ CONTAINS
   SUBROUTINE cells_zonal_and_meridional_periodic(subset, mask, threshold, field_2d, amplitude, &
       & zonal_waveno_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp),INTENT(INOUT)        :: field_2d(:,:)
-    REAL(wp), INTENT(IN)            :: amplitude
-    REAL(wp), INTENT(IN),OPTIONAL   :: zonal_waveno_opt, meridional_waveno_opt
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt, meridional_waveno_opt
     
     REAL(wp) :: zonal_waveno, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
@@ -1049,32 +1049,32 @@ CONTAINS
   END SUBROUTINE cells_zonal_and_meridional_periodic
  
   ! a test loop for getting everything from the subset avoiding ifs
-  SUBROUTINE testloop(subset, mask, threshold,field_2d)
-    TYPE(t_subset_range), INTENT(IN) :: subset
-    INTEGER, INTENT(IN)           :: mask(:,:)
-    INTEGER, INTENT(IN)          :: threshold
-    REAL(wp), INTENT(INOUT)       :: field_2d(:,:)
-    
-    ! Local variables
-    INTEGER :: jc, jb
-    INTEGER :: i_start, i_end
-    
-    REAL(wp) :: ampl, waveno
-    REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
-    ampl     = 1.0_wp
-    waveno   = 1.0_wp
+ !SUBROUTINE testloop(subset, mask, threshold,field_2d)
+ !  TYPE(t_subset_range), INTENT(IN) :: subset
+ !  INTEGER, INTENT(IN)           :: mask(:,:)
+ !  INTEGER, INTENT(IN)          :: threshold
+ !  REAL(wp), INTENT(INOUT)       :: field_2d(:,:)
+ !  
+ !  ! Local variables
+ !  INTEGER :: jc, jb
+ !  INTEGER :: i_start, i_end
+ !  
+ !  REAL(wp) :: ampl, waveno
+ !  REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
+ !
+ !  ampl     = 1.0_wp
+ !  waveno   = 1.0_wp
 
-    lat(:,:) = subset%patch%cells%center(:,:)%lat
-    lon(:,:) = subset%patch%cells%center(:,:)%lon
+ !  lat(:,:) = subset%patch%cells%center(:,:)%lat
+ !  lon(:,:) = subset%patch%cells%center(:,:)%lon
 
-    DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, i_start, i_end)
-      DO jc = i_start, i_end
-        field_2d(:,:) = MERGE(ampl * COS(waveno*pi*lat(:,:)), 0.0_wp, mask(:,:) <= threshold)
-      END DO
-    END DO
-  END SUBROUTINE
+ !  DO jb = subset%start_block, subset%end_block
+ !    CALL get_index_range(subset, jb, i_start, i_end)
+ !    DO jc = i_start, i_end
+ !      field_2d(:,:) = MERGE(ampl * COS(waveno*pi*lat(:,:)), 0.0_wp, mask(:,:) <= threshold)
+ !    END DO
+ !  END DO
+ !END SUBROUTINE
    !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS)
 
