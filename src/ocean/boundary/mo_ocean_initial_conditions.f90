@@ -386,7 +386,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: z_c(:,:,:)
     REAL(wp):: cell_lat, cell_lon
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
+    REAL(wp):: perturbation_lon, perturbation_lat, max_perturbation, perturbation_width !,z_H_0
     REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
     REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
     REAL(wp):: t,s
@@ -513,14 +513,14 @@ CONTAINS
 
           !         !After hot spot now a cool spot at a slightly different location
           !         ! Add temperature perturbation at new values - 35N; 10W
-          !         z_perlat = basin_center_lat - 0.1_wp*basin_height_deg!             !45.5_wp
-          !         z_perlon =  -0.1_wp*basin_width_deg                                 !4.5_wp
-          !         z_permax  = 10.0_wp!20.1_wp
-          !         z_perwid  =  5.0_wp!1.5_wp
-          ! !         z_perlat  = 25.0_wp
-          ! !         z_perlon  = 8.0_wp
-          ! !         z_permax  = -2.0_wp
-          ! !         z_perwid  =  5.0_wp
+          !         perturbation_lat = basin_center_lat - 0.1_wp*basin_height_deg!             !45.5_wp
+          !         perturbation_lon =  -0.1_wp*basin_width_deg                                 !4.5_wp
+          !         max_perturbation  = 10.0_wp!20.1_wp
+          !         perturbation_width  =  5.0_wp!1.5_wp
+          ! !         perturbation_lat  = 25.0_wp
+          ! !         perturbation_lon  = 8.0_wp
+          ! !         max_perturbation  = -2.0_wp
+          ! !         perturbation_width  =  5.0_wp
           !         DO jb = i_startblk_c, i_endblk_c
           !           CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
           !            &                start_cell_index, end_cell_index, rl_start, rl_end_c)
@@ -533,7 +533,7 @@ CONTAINS
           !               ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
           !               ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
           !               ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
-          !               distan=sqrt((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
+          !               distan=sqrt((cell_lat-perturbation_lat*deg2rad)**2+(cell_lon-perturbation_lon*deg2rad)**2)
           !               !write(123,*)'zdist',cell_lat,cell_lon,distan,10.5_wp*deg2rad
           !               !IF(distan<=25.5_wp*deg2rad)cycle
           !               ! at distan > 25.5 degrees:
@@ -545,7 +545,7 @@ CONTAINS
           !               DO jk = 1, z_dolic
           !                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
           !                 & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
-          !                 &   - z_permax*exp(-(distance/(z_perwid*deg2rad))**2) &
+          !                 &   - max_perturbation*exp(-(distance/(perturbation_width*deg2rad))**2) &
           !                 &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
           !               ENDDO
           !             END IF
@@ -575,10 +575,10 @@ CONTAINS
         ! !           END IF
         ! !         END DO
         ! !       END DO
-        ! !       z_perlat = basin_center_lat + 0.1_wp*basin_height_deg!             !45.5_wp
-        ! !       z_perlon =  0.1_wp*basin_width_deg                                 !4.5_wp
-        ! !       z_permax  = 10.0_wp!20.1_wp
-        ! !       z_perwid  =  5.0_wp!1.5_wp
+        ! !       perturbation_lat = basin_center_lat + 0.1_wp*basin_height_deg!             !45.5_wp
+        ! !       perturbation_lon =  0.1_wp*basin_width_deg                                 !4.5_wp
+        ! !       max_perturbation  = 10.0_wp!20.1_wp
+        ! !       perturbation_width  =  5.0_wp!1.5_wp
         ! !       IF (no_tracer > 0 ) THEN
         ! !         DO jb = i_startblk_c, i_endblk_c
         ! !           CALL get_indices_c(patch_2D, jb, i_startblk_c, i_endblk_c, &
@@ -588,13 +588,13 @@ CONTAINS
         ! !             cell_lon = patch_2D%cells%center(jc,jb)%lon
         ! !             z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
         ! !             IF (z_dolic > 0) THEN
-        ! !               distance=sqrt((cell_lat-z_perlat*deg2rad)**2+(cell_lon-z_perlon*deg2rad)**2)
+        ! !               distance=sqrt((cell_lat-perturbation_lat*deg2rad)**2+(cell_lon-perturbation_lon*deg2rad)**2)
         ! !               !Local hot perturbation
         ! !               !IF(distance<=5.0_wp*deg2rad)THEN
         ! !               DO jk = 1, z_dolic
         ! !                  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
         ! !                  & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
-        ! !                  &   + z_permax*exp(-(distance/(z_perwid*deg2rad))**2) &
+        ! !                  &   + max_perturbation*exp(-(distance/(perturbation_width*deg2rad))**2) &
         ! !                  &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
         ! !               END DO
         ! !               !ENDIF
@@ -842,37 +842,17 @@ CONTAINS
         ENDIF
 
         ! use topography_type = 200, topography_height_reference = -200
-
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            patch_3d%p_patch_1d(1)%dolic_c(jc,jb)      = 1
-            
-            !latitude given in radians
-            cell_lat = patch_2d%cells%center(jc,jb)%lat
-            lat_deg = cell_lat*rad2deg
-            !Impose emperature profile. Profile
-            !depends on latitude only
-            IF(ABS(lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp
-              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1) = 5.0_wp
-            ELSEIF(ABS(lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
-              ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
-              ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
-            ENDIF
-            !           !write(90,*)'lat-degrees', jc,jb,cell_lat, lat_deg, ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1)
-          END DO
-        END DO
+        ! use initial_temperature_type = 210
         
       CASE(28)
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (28)')
 
         ! use initial_velocity_type = 203, initial_velocity_amplitude = 20.0
 
-        z_perlat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
-        z_perlon =  0.0_wp!0.1_wp*basin_width_deg                                 !4.5_wp
-        !z_permax  = 20.0_wp            !20.1_wp
-        z_perwid  =  7.0_wp*pi/64.0_wp !10.0_wp!5.0_wp!1.5_wp
+        perturbation_lat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
+        perturbation_lon =  0.0_wp!0.1_wp*basin_width_deg                           !4.5_wp
+        !max_perturbation  = 20.0_wp            !20.1_wp
+        perturbation_width  =  7.0_wp*pi/64.0_wp !10.0_wp!5.0_wp!1.5_wp
         
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -882,12 +862,12 @@ CONTAINS
               ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
               ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer) = 0.0_wp
               
-              distan=SQRT((cell_center(jc,jb)%lat - z_perlat * deg2rad)**2 + &
-                & (cell_center(jc,jb)%lon - z_perlon*deg2rad)**2)
+              distan=SQRT((cell_center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
+                & (cell_center(jc,jb)%lon - perturbation_lon*deg2rad)**2)
               !Local hot perturbation
-              IF(distan<=z_perwid)THEN
+              IF(distan<=perturbation_width)THEN
                 ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer) =        &
-                  & (1.0_wp+COS(pi*distan/z_perwid))/2.0_wp +2.0_wp
+                  & (1.0_wp+COS(pi*distan/perturbation_width))/2.0_wp +2.0_wp
               ENDIF
               ocean_state%p_prog(nnew(1))%tracer(jc,1,jb,1:no_tracer)= ocean_state%p_prog(nold(1))%tracer(jc,1,jb,1:no_tracer)
             ENDIF
@@ -1053,10 +1033,13 @@ CONTAINS
       !Add local perturbation
       CALL temperature_AddLocalPerturbation(patch_3d, ocean_temperature)
 
-
     !------------------------------
     CASE (209)
-      CALL temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
+      CALL temperature_uniform_SeparationAtLon(patch_3d, ocean_temperature, wallLonDeg=0.0_wp)
+
+    !------------------------------
+    CASE (210)
+      CALL temperature_uniform_SeparationAtLat(patch_3d, ocean_temperature, wallLatDeg=basin_center_lat)
 
     !------------------------------
     CASE (401)
@@ -1240,9 +1223,10 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+  SUBROUTINE temperature_uniform_SeparationAtLon(patch_3d, ocean_temperature, wallLonDeg)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: wallLonDeg
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1251,7 +1235,53 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_UniformWithWallAtlon'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_uniform_SeparationAtLon'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        lat_deg = patch_2d%cells%center(jc,jb)%lat * rad2deg
+        lon_deg = patch_2d%cells%center(jc,jb)%lon * rad2deg
+
+        IF((lon_deg-basin_center_lon) >= wallLonDeg) THEN
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = 10.0_wp
+          ENDDO
+        ELSE
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            ocean_temperature(jc,jk,jb) = 5.0_wp
+          ENDDO
+        ENDIF
+
+      END DO
+    END DO
+
+  END SUBROUTINE temperature_uniform_SeparationAtLon
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_uniform_SeparationAtLat(patch_3d, ocean_temperature, wallLatDeg)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), INTENT(in) :: wallLatDeg
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_uniform_SeparationAtLon'
     !-------------------------------------------------------------------------
 
     CALL message(TRIM(method_name), ' ')
@@ -1266,7 +1296,7 @@ CONTAINS
         lat_deg = patch_2d%cells%center(jc,jb)%lat
         lon_deg = patch_2d%cells%center(jc,jb)%lon
 
-        IF((lon_deg-basin_center_lon)>=0.0_wp)THEN
+        IF((lon_deg-basin_center_lon) >= wallLatDeg)THEN
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
             ocean_temperature(jc,jk,jb) = 10.0_wp
           ENDDO
@@ -1279,8 +1309,9 @@ CONTAINS
       END DO
     END DO
 
-  END SUBROUTINE temperature_UniformWithWallatlon
+  END SUBROUTINE temperature_uniform_SeparationAtLat
   !-------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
   SUBROUTINE temperature_AddLocalPerturbation(patch_3d, ocean_temperature)
@@ -1604,7 +1635,7 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_WeakGrad'
@@ -1695,7 +1726,7 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_TropicsPolar'
@@ -1781,7 +1812,7 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width, z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_DanilovsMunkGyre'
@@ -1794,10 +1825,10 @@ CONTAINS
     !------------------------------
     CALL message(TRIM(method_name), ': Danilovs Munk gyre flow')
 
-    z_perlat = basin_center_lat + 0.1_wp * basin_height_deg
-    z_perlon = basin_center_lon + 0.1_wp * basin_width_deg
-    z_permax  = 0.1_wp!20.1_wp
-    z_perwid  = 10.0_wp!1.5_wp
+    perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+    perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+    max_perturbation  = 0.1_wp!20.1_wp
+    perturbation_width  = 10.0_wp!1.5_wp
 
     ! Next update 2011-05-24: due to Danilov the perturbation should be -1 Kelvin, width 3.0
     ! 05-25: max and width larger: -2.0 and 5.0
@@ -1813,21 +1844,17 @@ CONTAINS
           ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
           ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
           ocean_temperature(jc,1:z_dolic,jb) = 20.0_wp
-          distan = SQRT((cell_center(jc,jb)%lat - z_perlat * deg2rad)**2 + &
-            & (cell_center(jc,jb)%lon - z_perlon * deg2rad)**2)
+          distan = SQRT((cell_center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
+            & (cell_center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
 
           !Local hot perturbation
           IF(distan<=5.0_wp*deg2rad)THEN
             DO jk = 1, z_dolic
               ocean_temperature(jc,jk,jb) =          &
                 & ocean_temperature(jc,jk,jb)          &
-                & + z_permax*EXP(-(distan/(z_perwid*deg2rad))**2) &
+                & + max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
               !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
                 & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk) / patch_3d%p_patch_1d(1)%zlev_i(z_dolic+1))
-              !&v_base%del_zlev_i(z_dolic))
-              ! WRITE(0,*)'temp init',jc,jb,jk,ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1),&
-              !  & z_permax*EXP(-(distan/(z_perwid*deg2rad))**2) &
-              !  & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk)/4000.0_wp)
             END DO
           ENDIF !Local hot perturbation
 
@@ -1894,7 +1921,7 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
     REAL(wp):: lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlat, z_perlon,  z_permax, z_perwid, z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width, z_ldiff, z_ltrop, z_lpol
     REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_StuhnePeltier'
@@ -2067,7 +2094,7 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: z_perlat, z_perlon
+    REAL(wp):: perturbation_lat, perturbation_lon
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
@@ -2102,16 +2129,16 @@ CONTAINS
     CASE (202)
       ! Add elevation perturbation at new values - 35N; 10W
       ! not clear yet
-      z_perlat = basin_center_lat + 0.1_wp * basin_height_deg
-      z_perlon = basin_center_lon + 0.1_wp * basin_width_deg
+      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
 
           IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
 
-            distan=SQRT((cell_center(jc, jb)%lat - z_perlat * deg2rad)**2 + &
-              & (cell_center(jc, jb)%lon - z_perlon * deg2rad)**2)
+            distan=SQRT((cell_center(jc, jb)%lat - perturbation_lat * deg2rad)**2 + &
+              & (cell_center(jc, jb)%lon - perturbation_lon * deg2rad)**2)
             !IF(distan<=15.5_wp*deg2rad) cycle
             IF(distan < 10.0_wp * deg2rad) THEN
               ocean_height(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
