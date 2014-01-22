@@ -126,6 +126,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_center                       = 0.0_wp
+  REAL(wp) :: forcing_length                       = 0.0_wp
   REAL(wp) :: analytic_wind_amplitude              = 1.0_wp
   ! } END FORCING
 
@@ -396,6 +398,8 @@ MODULE mo_ocean_nml
     &                 forcing_windstress_meridional_waveno,&
     &                 forcing_wind_u_amplitude ,          &
     &                 forcing_wind_v_amplitude ,          &
+    &                 forcing_center ,                    &
+    &                 forcing_length ,                    &
     &                 analytic_wind_amplitude
 
   !----------------------------------------------------------------------------

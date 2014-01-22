@@ -869,13 +869,14 @@ CONTAINS
       CASE(103)       ! basin setup, meridionally changed
         CALL basin_meridional(subset,mask,threshold,windstress,amplitude,length)
       CASE(104)       ! zonally periodic, nonzero at pols, meridionally constant
-        !CALL zonal_periodic_around_center_zero_at_pols(subset,mask,threshold,windstress,amplitude)
+        CALL zonal_periodic_nonzero_around_center_zero_at_pols(subset, mask, threshold, windstress, amplitude)
+      CASE(105)
         CALL meridional_periodic_around_center_zero_at_pols(subset,mask,threshold,windstress, amplitude)
-      CASE(105)       ! zonally periodic around a given center, zero at pols, meridionally constant
+      CASE(106)       ! zonally periodic around a given center, zero at pols, meridionally constant
         CALL zonal_periodic_zero_at_pols(subset,mask,threshold,windstress,amplitude,zonal_waveno)
-      CASE(106)       ! latteral cells, zonal period only
+      CASE(107)       ! latteral cells, zonal period only
         CALL cells_zonal_periodic(subset,mask,threshold,windstress,amplitude,zonal_waveno)
-      CASE(107)       ! latteral cells, zonally and meridionally periodic
+      CASE(108)       ! latteral cells, zonally and meridionally periodic
         CALL cells_zonal_and_meridional_periodic(subset,mask,threshold,windstress,amplitude,zonal_waveno,meridional_waveno)
       END SELECT
     END SELECT
