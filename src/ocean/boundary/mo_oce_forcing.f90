@@ -47,11 +47,11 @@ MODULE mo_oce_forcing
   USE mo_io_units,            ONLY: filename_max
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc, &
-    & wstress_coeff, iforc_stat_oce, basin_height_deg, basin_width_deg, no_tracer, &
-    & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno, &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,     &
-    & analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude, &
+  USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc,              &
+    & wstress_coeff, iforc_stat_oce, basin_height_deg, basin_width_deg, no_tracer,      &
+    & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,            &
+    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,    &
+    & analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -809,43 +809,6 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
-  
-  
-  SUBROUTINE set_lateral_pattern(lat,lon,amplitude,coeff,forc_wind_u,forc_wind_v)
-    REAL(wp),INTENT(IN) :: lat,lon,amplitude,coeff
-    REAL(wp),INTENT(INOUT) :: forc_wind_u, forc_wind_v
-
-    REAL(wp) :: y_length,y_center,x_length,x_center
-    !1,2 basin init
-        y_length                        = basin_height_deg * deg2rad
-        x_length                        = basin_width_deg * deg2rad
-        forc_wind_u = coeff * COS(forcing_windstress_zonal_waveno*pi*(lat-y_length)/y_length)
-        forc_wind_v = coeff * COS(forcing_windstress_meridional_waveno*pi*(lon-x_length)/x_length) !added
-
-    ! 3 global zonal, nonzero at pols
-        y_length                        = 180.0_wp * deg2rad
-        y_center                        = -60.0_wp * deg2rad
-        x_length                        =  90.0_wp * deg2rad
-        x_center                        = -20.0_wp * deg2rad
-        forcing_windstress_zonal_waveno = 3.0_wp
-        forcing_windstress_meridional_waveno = 3.0_wp
-        forc_wind_u = amplitude * COS(forcing_windstress_zonal_waveno*pi*(lat-y_center)/y_length)
-        forc_wind_v = amplitude * COS(forcing_windstress_meridional_waveno*pi*(lon-x_center)/x_length) !added
-
-    ! 4 global u and v in global cells
-        forcing_windstress_zonal_waveno      = 3.0_wp
-        forcing_windstress_meridional_waveno = 3.0_wp
-        forc_wind_u =   coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat) * COS(lon)
-        forc_wind_v = - coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat) * &
-          & SIN(forcing_windstress_meridional_waveno * lon)
-    ! 5 global, zero at pols
-        forcing_windstress_zonal_waveno      = 3.0_wp
-        forcing_windstress_meridional_waveno = 3.0_wp
-        forc_wind_u = coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat)
-        forc_wind_v = coeff * amplitude * COS(lat) * COS(forcing_windstress_zonal_waveno * lat)
-
-  END SUBROUTINE set_lateral_pattern
-
   SUBROUTINE init_new_ocean_forcing(all_cells, land_sea_mask,p_sfc_flx)
     !
     TYPE(t_subset_range), INTENT(IN) :: all_cells
@@ -880,7 +843,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: center, length
 
     CALL set_windstress(subset, mask, threshold, windstress, &
-      & forcing_windstress_u_type, amplitude, zonal_waveno, meridional_waveno, center, length)
+      & forcing_windstress_v_type, amplitude, zonal_waveno, meridional_waveno, center, length)
   END SUBROUTINE set_windstress_v
 
   SUBROUTINE set_windstress(subset, mask, threshold, windstress, control, amplitude, zonal_waveno, meridional_waveno,center,length)
