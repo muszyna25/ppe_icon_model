@@ -124,8 +124,8 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_windstress_v_type            = 0
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
   REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
-  REAL(wp) :: forcing_wind_u_amplitude             = 1.0_wp
-  REAL(wp) :: forcing_wind_v_amplitude             = 1.0_wp
+  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: analytic_wind_amplitude              = 1.0_wp
   ! } END FORCING
 
@@ -381,12 +381,12 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_forcing_nml/iforc_oce, iforc_type, forcing_timescale,    &
-    &                 iforc_stat_oce, init_oce_relax,       &
-    &                 l_relaxsal_ice,            &
-    &                 temperature_relaxation, relaxation_param,            &
-    &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
+    &                 iforc_stat_oce, init_oce_relax,                     &
+    &                 l_relaxsal_ice,                                     &
+    &                 temperature_relaxation, relaxation_param,           &
+    &                 irelax_2d_S, relax_2d_mon_S,                        &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 forcing_enable_freshwater, limit_elevation, seaice_limit,        &
+    &                 forcing_enable_freshwater, limit_elevation, seaice_limit, &
     &                 forcing_set_runoff_to_zero,         &
     &                 use_new_forcing,                    &
     &                 forcing_fluxes_type,                &
