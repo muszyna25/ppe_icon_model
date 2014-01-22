@@ -688,24 +688,27 @@ CONTAINS
 !     !2D Boundary layer height
 !     Switch to a more general formulation applicable for stable case as well (AD,2013-11-16)
        
-         d_theta_dz_max = -1.e6_wp
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
               & i_startidx, i_endidx, rl_start, rl_end)
             DO jc = i_startidx, i_endidx           
+              d_theta_dz_max = -1.0_wp
+              jk_max = -1
               DO jk = 5 , nlev-1
                 d_theta_dz  = (pt_diag%temp(jc,jk-1,jb)/pt_prog%exner(jc,jk-1,jb) - &
                       pt_diag%temp(jc,jk,jb)/pt_prog%exner(jc,jk,jb))*p_metrics%inv_ddqz_z_half(jc,jk,jb) 
 
-                IF(d_theta_dz>d_theta_dz_max)THEN
+                IF(d_theta_dz > d_theta_dz_max)THEN
                   jk_max = jk
                   d_theta_dz_max = d_theta_dz
                 END IF
 
               END DO !jk
+
               prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk_max,jb)
+
             ENDDO
           ENDDO ! jb
 !$OMP END DO
@@ -953,7 +956,7 @@ CONTAINS
   !!
   !! @Literature
   !! Based on proposal found in 
-  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Strömungen, Teubner
+  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Strï¿½mungen, Teubner
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-17)
