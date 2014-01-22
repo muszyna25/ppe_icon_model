@@ -415,6 +415,7 @@ MODULE mo_ocean_nml
   INTEGER  :: initial_temperature_type = 0
   CHARACTER(LEN=max_char_length) :: initial_sst_type = 'sst1'
   INTEGER  :: initial_velocity_type    = 0
+  REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -423,7 +424,7 @@ MODULE mo_ocean_nml
     &  initial_salinity_top, initial_salinity_bottom, &
     &  topography_type, topography_height_reference, sea_surface_height_type, &
     &  initial_salinity_type, initial_temperature_type, initial_sst_type,     &
-    &  initial_velocity_type
+    &  initial_velocity_type, initial_velocity_amplitude
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &

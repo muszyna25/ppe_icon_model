@@ -56,7 +56,7 @@ MODULE mo_ocean_initial_conditions
     & initial_salinity_top, initial_salinity_bottom, &
     & use_tracer_x_height, topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
-    & initial_sst_type, initial_velocity_type
+    & initial_sst_type, initial_velocity_type, initial_velocity_amplitude
 
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -97,7 +97,6 @@ MODULE mo_ocean_initial_conditions
   
   CHARACTER(LEN=*), PARAMETER :: module_name = 'ocean_initial_conditions'
 
-  ! @Stephan: can we find better names?
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
     & (/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp,  9.902_wp, &
@@ -127,19 +126,22 @@ CONTAINS
     TYPE(t_operator_coeff)            :: operators_coeff
     ! TYPE(t_sfc_flx)                   :: p_sfc_flx
 
+    sphere_radius = grid_sphere_radius
+    u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
+
     IF (use_file_initialConditions) THEN
       CALL init_ocean_fromFile(patch_2d, patch_3d, ocean_state)
 
     ELSE
 
-      CALL init_ocean_bathymetry(patch_3d, external_data%oce%bathymetry_c(:,:))
-      CALL init_ocean_surface_height(patch_3d, ocean_state%p_prog(nold(1))%h(:,:))
-      IF (no_tracer > 0) &
-        & CALL init_ocean_temperature(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
-      IF (no_tracer > 1) &
-        & CALL init_ocean_salinity(patch_3d, ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
+      CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
+      CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
+      CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
 
-!      CALL init_ocean_analytically(patch_3d, ocean_state)
+      IF (no_tracer > 0) &
+        & CALL init_ocean_temperature(patch_3d=patch_3d, ocean_temperature=ocean_state%p_prog(nold(1))%tracer(:,:,:,1))
+      IF (no_tracer > 1) &
+        & CALL init_ocean_salinity(patch_3d=patch_3d, ocean_salinity=ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
 
     END IF
 
@@ -182,8 +184,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     
     CALL message (TRIM(method_name), 'start')
-    sphere_radius = grid_sphere_radius
-    u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     
     all_cells => patch_2d%cells%ALL
     
@@ -205,35 +205,26 @@ CONTAINS
       WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
       CALL message(TRIM(method_name),TRIM(message_text))
       
-      !
       ! open file
-      !
       CALL nf(nf_open(TRIM(prog_init_file), nf_nowrite, ncid))
       
-      !
       ! get number of cells
-      !
       CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
       CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
       
-      !
       ! check the number of cells
-      !
       WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
       CALL message(TRIM(method_name),TRIM(message_text))
       IF(patch_2d%n_patch_cells_g /= no_cells) THEN
         CALL finish(TRIM(method_name),&
           & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
       ENDIF
-      !
+
       ! get number of levels
-      !
       CALL nf(nf_inq_dimid(ncid, 'level', dimid))
       CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
       
-      !
-      ! check the number of cells
-      !
+      ! check the number of levels
       WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
       CALL message(TRIM(method_name),TRIM(message_text))
       IF(n_zlev /= no_levels) THEN
@@ -243,14 +234,12 @@ CONTAINS
       ENDIF
       
     ENDIF
-    
-    
+
     !-------------------------------------------------------
     !
     ! Read ocean init data at cells
     !
     !-------------------------------------------------------
-    
     ! triangle center and edges
     
     ! read temperature
@@ -265,8 +254,7 @@ CONTAINS
     ELSE
       CALL message( TRIM(method_name),'WARNING: no tracer used, but init temperature attempted')
     END IF
-    
-    
+
     ! read salinity
     !  - "S": annual mean salinity
     IF (no_tracer > 1) THEN
@@ -275,7 +263,6 @@ CONTAINS
       ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
     
-
     IF (no_tracer >=2) THEN
       DO jk=1, n_zlev
         DO jb = all_cells%start_block, all_cells%end_block
@@ -297,10 +284,9 @@ CONTAINS
       ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=ocean_state%p_diag%temp_insitu(:,1:n_zlev,:)
     ENDIF
     
-    !
     ! close file
-    !
     IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+    !---------------------------------------------------
     
     DO jk=1, n_zlev
       DO jb = all_cells%start_block, all_cells%end_block
@@ -310,7 +296,7 @@ CONTAINS
           ! set values on land to zero/reference
           IF ( patch_3d%lsm_c(jc,jk,jb) > sea_boundary ) THEN
             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-            IF (no_tracer>=2) ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
+            IF (no_tracer>=2) ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp !sal_ref
           ENDIF
           
         END DO
@@ -351,10 +337,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff)                        :: operators_coeff
-    
- !   sphere_radius = grid_sphere_radius
- !   u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-    
+
     IF(discretization_scheme==1)THEN
 
       IF (is_restart_run()) CALL update_time_indices(1)
@@ -827,83 +810,24 @@ CONTAINS
         
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (24)')
         CALL message(TRIM(method_name), ' - here: h and bathy for solid body rotation (Laeuter Test)')
-        
         ! use topography_type = 200, topography_height_reference = 0
-
         ! use sea_surface_height_type = 203
-        
-        !init normal velocity
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
-            cell_lat = patch_2d%edges%center(je,jb)%lat
-            cell_lon = patch_2d%edges%center(je,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(cell_lon, cell_lat,0.0_wp)* &
-              & patch_2d%edges%primal_normal(je,jb)%v1&
-              & + test_usbr_v(cell_lon, cell_lat,0.0_wp)* &
-              & patch_2d%edges%primal_normal(je,jb)%v2
-          END DO
-        END DO
+        ! use initial_velocity_type = 201
+
       CASE (25)
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (25)')
         CALL message(TRIM(method_name), ' - here: h and bathy of Williamson Test 2')
-        
         ! use topography_type = 200, topography_height_reference = 0
         ! use sea_surface_height_type = 204
+        ! use initial_velocity_type = 202
 
-        !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
-        !                  & patch_2D,    &
-        !                  & ocean_state%p_diag%grad(:,1,:))
-        !       ocean_state%p_diag%grad(:,1,:)= -ocean_state%p_diag%grad(:,1,:)*grav
-        !       ocean_state%p_prog(nold(1))%vn(:,1,:) = &
-        !       &geo_balance_mim(patch_2D, ocean_state%p_diag%h_e, ocean_state%p_diag%grad(:,1,:))
-        
-        
-        !init normal velocity
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
-            cell_lat = patch_2d%edges%center(je,jb)%lat
-            cell_lon = patch_2d%edges%center(je,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-              & test2_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-              & + test2_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
-            !           write(*,*)'vn:expl: inverse', je,jb,&
-            !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
-          END DO
-        END DO
-        
       CASE (26)
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (26)')
         CALL message(TRIM(method_name), ' - here: h and bathy of Williamson Test 5')
         
         ! use topography_type = 201 (test5_oro)
         ! use sea_surface_height_type = 205
-
-        !       CALL grad_fd_norm_oce_2D( ocean_state%p_prog(nold(1))%h, &
-        !                  & patch_2D,    &
-        !                  & ocean_state%p_diag%grad(:,1,:))
-        !       ocean_state%p_diag%grad(:,1,:)= -ocean_state%p_diag%grad(:,1,:)*grav
-        !       ocean_state%p_prog(nold(1))%vn(:,1,:) = &
-        !       &geo_balance_mim(patch_2D, ocean_state%p_diag%h_e, ocean_state%p_diag%grad(:,1,:))
-        
-        
-        !init normal velocity
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
-            cell_lat = patch_2d%edges%center(je,jb)%lat
-            cell_lon = patch_2d%edges%center(je,jb)%lon
-            
-            ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-              & test5_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-              & + test5_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2
-            !           write(*,*)'vn:expl: inverse', je,jb,&
-            !           &ocean_state%p_prog(nold(1))%vn(je,1,jb),ocean_state%p_prog(nnew(1))%vn(je,1,jb)
-          END DO
-        END DO
+        ! use initial_velocity_type = 203, initial_velocity_amplitude = 20.0
         
       CASE(27)!temperature ditribution
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (27)')
@@ -943,22 +867,7 @@ CONTAINS
       CASE(28)
         CALL message(TRIM(method_name), 'Shallow-Water-Testcase (28)')
 
-        !init normal velocity
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-          DO je = i_startidx_e, i_endidx_e
-            cell_lat = patch_2d%edges%center(je,jb)%lat
-            cell_lon = patch_2d%edges%center(je,jb)%lon
-            IF(patch_3d%lsm_e(je,1,jb)<=sea_boundary)THEN
-              ocean_state%p_prog(nold(1))%vn(je,1,jb) = &
-                & (test5_u(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v1  &
-                & + test5_v(cell_lon, cell_lat,0.0_wp)*patch_2d%edges%primal_normal(je,jb)%v2)!/30.0_wp
-              ocean_state%p_prog(nnew(1))%vn(je,1,jb) = ocean_state%p_prog(nold(1))%vn(je,1,jb)
-              ocean_state%p_diag%h_e(je,jb) = 1.0_wp
-              ocean_state%p_diag%vn_time_weighted(je,1,jb)=ocean_state%p_prog(nnew(1))%vn(je,1,jb)
-            ENDIF
-          END DO
-        END DO
+        ! use initial_velocity_type = 203, initial_velocity_amplitude = 20.0
 
         z_perlat = basin_center_lat! + 0.1_wp*basin_height_deg!             !45.5_wp
         z_perlon =  0.0_wp!0.1_wp*basin_width_deg                                 !4.5_wp
@@ -1182,7 +1091,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity'
     !-------------------------------------------------------------------------
 
-    IF (initial_velocity_type < 200) RETURN ! not analytic temperature
+    IF (initial_velocity_type < 200) RETURN ! not analytic velocity
 
     SELECT CASE (initial_velocity_type)
     !------------------------------
@@ -1193,6 +1102,16 @@ CONTAINS
     !------------------------------
     CASE (201)
       CALL velocity_usbr(patch_3d, normal_velocity)
+
+    !------------------------------
+    CASE (202)
+      CALL message(TRIM(method_name), 'Williamson Test 2 ')
+      CALL velocity_WilliamsonTest_2_5(patch_3d, normal_velocity, velocity_amplitude=u0)
+
+    !------------------------------
+    CASE (203)
+      CALL message(TRIM(method_name), 'Williamson Test 5 ')
+      CALL velocity_WilliamsonTest_2_5(patch_3d, normal_velocity, velocity_amplitude=initial_velocity_amplitude)
 
     !------------------------------
 
@@ -1212,8 +1131,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
   !> Initial datum for zonal velocity u, test case unsteady solid body
   ! rotation of L\"auter et al.(2007).
-
-  ! !REVISION HISTORY:
+  !
   ! Developed by Th.Heinze, DWD, (2007-03)
   !-------------------------------------------------------------------------
   SUBROUTINE velocity_usbr(patch_3d, vn)
@@ -1230,7 +1148,7 @@ CONTAINS
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
 
-   CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_usbr_u'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_usbr_u'
     !-------------------------------------------------------------------------
 
     CALL message(TRIM(method_name), ' ')
@@ -1270,38 +1188,56 @@ CONTAINS
   END SUBROUTINE  velocity_usbr
   !-----------------------------------------------------------------------------------
 
-  FUNCTION test_usbr_u( p_lon, p_lat, p_t) RESULT( p_uu)
-!
-! !DESCRIPTION:
-! Initial datum for zonal velocity u, test case unsteady solid body
-! rotation of L\"auter et al.(2007).
+  !-----------------------------------------------------------------------------------
+  SUBROUTINE velocity_WilliamsonTest_2_5(patch_3d, vn, velocity_amplitude)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: vn(:,:,:)
+    REAL(wp), INTENT(in) :: velocity_amplitude
 
-! !REVISION HISTORY:
-! Developed by Th.Heinze, DWD, (2007-03)
-!
-! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_edges
 
-! !RETURN VALUE:
-    REAL(wp)             :: p_uu      ! zonal velocity
+    INTEGER :: edge_block, edge_index, level
+    INTEGER :: start_edges_index, end_edges_index
+    REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: t       ! point of time
+    REAL(wp) :: uu, vv      ! zonal,  meridional velocity
+    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
 
-! !LOCAL VARIABLES:
-    REAL(wp)             :: z_angle1  ! 1st angle
-    REAL(wp)             :: z_angle2  ! 2nd angle
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
+    !-------------------------------------------------------------------------
 
-!EOP
-!-----------------------------------------------------------------------
-!BOC
+    ! CALL message(TRIM(method_name), ' ')
 
-    z_angle1 = .25_wp * pi
-    z_angle2 = p_lon + grid_angular_velocity * p_t
-    p_uu = COS(p_lat) * COS(z_angle1)
-    p_uu = p_uu + COS(z_angle2) * SIN(p_lat) * SIN(z_angle1)
-    p_uu = u0 * p_uu
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_edges => patch_2d%edges%ALL
 
-  END FUNCTION test_usbr_u
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+
+        uu = COS(point_lat) * COS(aleph)
+        uu = uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
+        uu = velocity_amplitude * uu
+
+        vv = SIN(point_lon) * SIN(aleph)
+        vv = -1._wp * velocity_amplitude * vv
+
+        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          vn(edge_index, level, edge_block) = edge_vn
+        ENDDO
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE  velocity_WilliamsonTest_2_5
+  !-----------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
   SUBROUTINE temperature_UniformWithWallAtlon(patch_3d, ocean_temperature)
@@ -1564,11 +1500,9 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
     !-------------------------------------------------------------------------
-
     ! Important:
     !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
     !   to be consistent with the old setup
-
     CALL message(TRIM(method_name), ' using sst1')
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -1639,7 +1573,6 @@ CONTAINS
     REAL(wp) :: linear_decrease
 
     !-------------------------------------------------------------------------
-
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     linear_decrease = (top_value - bottom_value) / (REAL(n_zlev,wp)-1.0_wp)
@@ -2530,56 +2463,7 @@ CONTAINS
   END FUNCTION test2_h
   !-------------------------------------------------------------------------
   
-  !-------------------------------------------------------------------------
-  FUNCTION test2_u( point_lon, point_lat, p_t) result( p_uu)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for zonal velocity u, test case 2 of Williamson et al.(1992).
-    ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_uu      ! zonal velocity
 
-    p_uu = COS(point_lat) * COS(aleph)
-    p_uu = p_uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
-    p_uu = u0 * p_uu
-    
-  END FUNCTION test2_u
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  FUNCTION test2_v( point_lon, point_lat, p_t) result(p_vv)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for meridional velocity v, test case 2 of Williamson
-    ! et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_vv      ! meridional velocity
-
-    p_vv = SIN(point_lon) * SIN(aleph)
-    p_vv = -1._wp * u0 * p_vv
-    
-  END FUNCTION test2_v
-  !-------------------------------------------------------------------------
-  
   !-------------------------------------------------------------------------
   FUNCTION test2_vort( point_lon, point_lat, p_t) result(p_vort)
     !
@@ -2649,62 +2533,6 @@ CONTAINS
     
   END FUNCTION test5_h
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  FUNCTION test5_u( point_lon, point_lat, p_t) result( p_uu)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for zonal velocity u, test case 5 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
-    !
-    ! !DEFINED PARAMETERS:
-    REAL(wp), PARAMETER :: uzero = 20._wp    ! maximum velocity
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_uu      ! zonal velocity
-    
-    p_uu = COS(point_lat) * COS(aleph)
-    p_uu = p_uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
-    p_uu = uzero * p_uu
-    
-  END FUNCTION test5_u
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  FUNCTION test5_v( point_lon, point_lat, p_t) result(p_vv)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for meridional velocity v, test case 5 of Williamson
-    ! et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
-    !
-    ! !DEFINED PARAMETERS:
-    REAL(wp), PARAMETER :: uzero = 20._wp    ! maximum velocity
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_vv      ! meridional velocity
-
-    p_vv = SIN(point_lon) * SIN(aleph)
-    p_vv = -1._wp * uzero * p_vv
-    
-  END FUNCTION test5_v
-  !-----------------------------------------------------------------------------------
   
 
   !-----------------------------------------------------------------------------------
@@ -3177,38 +3005,7 @@ CONTAINS
     !stop
   END FUNCTION test_usbr_h
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  FUNCTION test_usbr_v( point_lon, point_lat,p_t) result(p_vv)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for meridional velocity v, test case unsteady solid body
-    ! rotation of L\"auter et al.(2007).
     
-    ! !REVISION HISTORY:
-    ! Developed by Th.Heinze, DWD, (2007-03)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_vv      ! meridional velocity
-    
-    ! !LOCAL VARIABLES:
-    REAL(wp)             :: z_angle   ! angle
-    !-----------------------------------------------------------------------
-    
-    z_angle = point_lon + grid_angular_velocity * p_t
-    p_vv = SIN(z_angle)
-    z_angle = .25_wp * pi
-    p_vv = p_vv * SIN(z_angle)
-    p_vv = -1._wp * u0 * p_vv
-    
-  END FUNCTION test_usbr_v
-  !-----------------------------------------------------------------------------------
-  
 
   !-------------------------------------------------------------------------
   FUNCTION test_usbr_oro(point_lon,point_lat,p_t) result(point_height)
