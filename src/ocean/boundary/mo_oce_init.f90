@@ -894,9 +894,9 @@ CONTAINS
 
   ! initialize salinity with reference value rather than with zero
   !  - mainly for plotting purpose
-  IF ( no_tracer >= 2) THEN
-    p_os%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
-  END IF
+  ! IF ( no_tracer >= 2) THEN
+  !  p_os%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
+  ! END IF
 
   !IF shallow-water option is NOT selected then)
   IF ( iswm_oce /= 1 )THEN
