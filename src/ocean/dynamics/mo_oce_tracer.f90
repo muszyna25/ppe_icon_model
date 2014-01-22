@@ -282,7 +282,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
         ! abs(vn) > 10 m/s default limit for abort
         IF ((minmaxmean(1) < -threshold_vn).OR. (minmaxmean(2) > threshold_vn)) THEN
           write(0,*) ' ABSOLUTE VELOCITY ABOVE THRESHOLD = ', threshold_vn
-          write(0,*) ' too high velocities at jk =', jk, minmaxmean(2)
+          write(0,*) ' too high velocities at jk =', jk, minmaxmean(1), minmaxmean(2)
           CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
             &              'Velocity above threshold')
         ENDIF
