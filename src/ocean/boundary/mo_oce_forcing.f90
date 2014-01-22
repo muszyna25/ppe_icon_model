@@ -852,9 +852,9 @@ CONTAINS
     INTEGER, INTENT(IN)           :: land_sea_mask(:,:)
     TYPE(t_sfc_flx)               :: p_sfc_flx
 
-
     CALL set_windstress_u(all_cells, land_sea_mask, sea_boundary, p_sfc_flx%forc_wind_u, &
       & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
+
     CALL set_windstress_v(all_cells, land_sea_mask, sea_boundary, p_sfc_flx%forc_wind_v, &
       & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
   END SUBROUTINE init_new_ocean_forcing
