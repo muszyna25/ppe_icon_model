@@ -93,11 +93,11 @@ MODULE mo_ext_data_state
   USE mo_var_list,           ONLY: default_var_list_settings,   &
     &                              add_var, add_ref,            &
     &                              new_var_list,                &
-    &                              delete_var_list,             &
-    &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata, post_op, &
-    &                              groups
-  USE mo_var_metadata,       ONLY: POST_OP_SCALE
+    &                              delete_var_list
+  USE mo_var_metadata_types, ONLY: POST_OP_SCALE
+  USE mo_var_metadata,       ONLY: create_vert_interp_metadata, &
+    &                              create_hor_interp_metadata,  &
+    &                              post_op, groups
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var

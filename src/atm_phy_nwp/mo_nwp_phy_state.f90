@@ -82,10 +82,11 @@ USE mo_linked_list,         ONLY: t_list_element, t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
-  &                               add_var, add_ref, new_var_list, delete_var_list,  &
-  &                               create_vert_interp_metadata, groups, vintp_types, &
-  &                               create_hor_interp_metadata, post_op
-USE mo_var_metadata,        ONLY: POST_OP_SCALE
+  &                               add_var, add_ref, new_var_list, delete_var_list
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE
+USE mo_var_metadata,        ONLY: create_vert_interp_metadata, &
+  &                               create_hor_interp_metadata,  &
+  &                               groups, vintp_types, post_op
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var

@@ -55,7 +55,7 @@ MODULE mo_pp_tasks
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
-  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp,                    ONLY: verts2cells_scalar, cell_avg,       &
     &                                   cells2edges_scalar
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &

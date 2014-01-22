@@ -92,7 +92,7 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
+  USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group, &
     &                               total_number_of_variables

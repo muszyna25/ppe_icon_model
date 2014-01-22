@@ -77,10 +77,10 @@ MODULE mo_nwp_lnd_state
   USE mo_var_list,             ONLY: default_var_list_settings,  &
     &                                add_var, add_ref,           &
     &                                new_var_list,               &
-    &                                delete_var_list, groups,    &
-    &                                create_hor_interp_metadata, &
-    &                                post_op
-  USE mo_var_metadata,         ONLY: t_var_metadata, POST_OP_SCALE
+    &                                delete_var_list
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, POST_OP_SCALE
+  USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
+    &                                groups, post_op
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,     & 

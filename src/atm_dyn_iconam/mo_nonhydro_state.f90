@@ -74,12 +74,13 @@ MODULE mo_nonhydro_state
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
-    &                                create_tracer_metadata, add_var_list_reference, &
-    &                                create_vert_interp_metadata,            &
-    &                                create_hor_interp_metadata, groups,     &
-    &                                vintp_types
+    &                                add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata,         ONLY: t_var_metadata, t_tracer_meta
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_tracer_meta
+  USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
+    &                                create_vert_interp_metadata,            &
+    &                                create_hor_interp_metadata,             &
+    &                                groups, vintp_types
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_gribout_config,       ONLY: gribout_config

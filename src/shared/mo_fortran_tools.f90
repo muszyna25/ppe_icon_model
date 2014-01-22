@@ -65,7 +65,7 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_tracer!,pcen,ptenc
 
 
-  INTERFACE assign_if_present  ! purely internal
+  INTERFACE assign_if_present
     MODULE PROCEDURE assign_if_present_character
     MODULE PROCEDURE assign_if_present_logical
     MODULE PROCEDURE assign_if_present_logicals

@@ -100,7 +100,8 @@
       &                               GRID_CELL, ZA_SURFACE, TIME_CONSTANT,                 &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
-    USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
+    USE mo_var_list,            ONLY: add_var
+    USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
     USE mo_util_sort,           ONLY: quicksort

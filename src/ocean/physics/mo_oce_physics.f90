@@ -76,7 +76,8 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
   &                               delete_var_list,          &
   &                               default_var_list_settings,&
-  &                               add_ref, groups
+  &                               add_ref
+USE mo_var_metadata,        ONLY: groups
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants,       ONLY: GRID_CELL, GRID_EDGE, GRID_REFERENCE,           &

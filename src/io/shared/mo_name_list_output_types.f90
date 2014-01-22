@@ -19,7 +19,7 @@ MODULE mo_name_list_output_types
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
     &                                 MAX_TIME_LEVELS, max_levels
   USE mo_io_units,              ONLY: filename_max
-  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_communication,         ONLY: t_comm_pattern, t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN

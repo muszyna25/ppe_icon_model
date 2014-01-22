@@ -92,14 +92,14 @@ MODULE mo_pp_scheduler
     &                                   vname_len
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,                         &
-    &                                   create_hor_interp_metadata,                         &
-    &                                   nvar_lists, var_lists, vintp_types,                 &
-    &                                   vintp_type_id, get_var_name,                        &
+    &                                   nvar_lists, var_lists, get_var_name,                &
     &                                   get_var_timelevel
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,                  &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata,            ONLY: t_var_metadata, t_vert_interp_meta,                 &
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta,                 &
     &                                   VINTP_TYPE_LIST, VARNAME_LEN, t_post_op_meta
+  USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_types,            &
+    &                                   vintp_type_id
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,                      &
     &                                   t_lon_lat_intp, p_int_state,                        &
     &                                   MAX_LONLAT_GRIDS

@@ -45,7 +45,7 @@ MODULE mo_art_washout_interface
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
-    USE mo_var_metadata,        ONLY: t_var_metadata
+    USE mo_var_metadata_types,  ONLY: t_var_metadata
     USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
     USE mo_run_config,          ONLY: iqr,iqs
 

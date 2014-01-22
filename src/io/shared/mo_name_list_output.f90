@@ -52,7 +52,7 @@ MODULE mo_name_list_output
   USE mo_io_units,                  ONLY: FILENAME_MAX, nnml, nnml_output, find_next_free_unit
   USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_exception,                 ONLY: finish, message, message_text
-  USE mo_var_metadata,              ONLY: t_var_metadata, POST_OP_SCALE
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
     &                                     level_type_il, lev_type_str
   ! MPI Communication routines

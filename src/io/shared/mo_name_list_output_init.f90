@@ -41,7 +41,7 @@ MODULE mo_name_list_output_init
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_var_metadata,                      ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
     &                                             new_var_list, get_all_var_names,                &
