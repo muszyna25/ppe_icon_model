@@ -214,10 +214,12 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
-  iforc_stat_oce = 5
-  forcing_wind_u_amplitude = 1.0_wp
-  forcing_windstress_zonal_waveno     = 1.0_wp
-  forcing_windstress_meridional_waveno = 1.0_wp
+  use_new_forcing = .TRUE.
+  forcing_windstress_u_type = 105
+  forcing_windstress_v_type = 0
+  forcing_wind_u_amplitude = 0.3
+  forcing_windstress_zonal_waveno      = 3.0
+  forcing_windstress_meridional_waveno = 3.0
 /
 &ocean_initialConditions_nml
   itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
