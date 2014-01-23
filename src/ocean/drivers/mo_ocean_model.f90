@@ -83,10 +83,10 @@ MODULE mo_ocean_model
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
     & construct_patch_3d, destruct_patch_3d, ocean_default_list
-  USE mo_ocean_initialization,    ONLY:    setup_ocean_namelists,  init_ho_base, &
+  USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
-    & init_patch_3d, setup_ocean_namelists
-  USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions
+    & init_patch_3d, construct_ocean_var_lists
+  USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -347,7 +347,7 @@ CONTAINS
     ! Setup the information for the physical patches
     CALL setup_phys_patches
 
-    CALL setup_ocean_namelists(ocean_patch_3d%p_patch_2d(1))
+    CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -383,6 +383,9 @@ CONTAINS
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
     CALL construct_ocean_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data)
+    ! initial analytic bathymetry via namelist
+    CALL init_ocean_bathymetry(patch_3d=ocean_patch_3d,  &
+      & cells_bathymetry=ext_data(1)%oce%bathymetry_c(:,:))
 
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
@@ -398,13 +401,13 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  SUBROUTINE construct_ocean_states(patch_3d, p_os, p_ext_data, p_sfc_flx, &
+  SUBROUTINE construct_ocean_states(patch_3d, p_os, external_data, p_sfc_flx, &
     & p_phys_param, p_as,&
     & p_atm_f, p_ice, p_op_coeff)
 
     TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state),  INTENT(inout)  :: p_os(n_dom)
-    TYPE(t_external_data),      INTENT(inout)  :: p_ext_data(n_dom)
+    TYPE(t_external_data),      INTENT(inout)  :: external_data(n_dom)
     TYPE(t_sfc_flx),            INTENT(inout)  :: p_sfc_flx
     TYPE(t_ho_params),          INTENT(inout)  :: p_phys_param
     TYPE(t_atmos_for_ocean ),   INTENT(inout)  :: p_as
@@ -441,10 +444,10 @@ CONTAINS
     CALL construct_patch_3d(patch_3d)
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(jg), v_base)
-    CALL init_ho_base     (patch_3d%p_patch_2d(jg), p_ext_data(jg), v_base)
+    CALL init_ho_base     (patch_3d%p_patch_2d(jg), external_data(jg), v_base)
     CALL init_ho_basins   (patch_3d%p_patch_2d(jg),                 v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(jg) )
-    CALL init_patch_3d    (patch_3d,                p_ext_data(jg), v_base)
+    CALL init_patch_3d    (patch_3d,                external_data(jg), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
 
     CALL construct_operators_coefficients     ( patch_3d, p_op_coeff, ocean_default_list)
@@ -471,7 +474,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL init_ho_params(patch_3d, p_phys_param)
 
-    CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
+    CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), external_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d%p_patch_2d(jg)%cells%All, &
@@ -482,7 +485,7 @@ CONTAINS
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)
 
     ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, p_ext_data )
+    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, external_data )
 
     IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
 

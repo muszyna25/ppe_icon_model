@@ -119,7 +119,7 @@ MODULE mo_ocean_initialization
   PUBLIC :: init_coriolis_oce
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
-  PUBLIC :: setup_ocean_namelists
+  PUBLIC :: construct_ocean_var_lists
   PUBLIC :: check_ocean_subsets
   
   PUBLIC :: init_patch_3d
@@ -130,7 +130,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !
-  SUBROUTINE setup_ocean_namelists(patch_2d)
+  SUBROUTINE construct_ocean_var_lists(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
     CHARACTER(LEN=max_char_length) :: listname
@@ -145,10 +145,10 @@ CONTAINS
     CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_default_list,            &
       & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-  END SUBROUTINE setup_ocean_namelists
+  END SUBROUTINE construct_ocean_var_lists
+  !-------------------------------------------------------------------------
   
-  
-  
+
   
   !-------------------------------------------------------------------------
   !>

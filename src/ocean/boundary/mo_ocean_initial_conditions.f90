@@ -5,9 +5,209 @@
 !! This module controls the initial conditions as well as the initialisation of
 !! test cases, the top and bottom boundary conditions, and the structure of the
 !! forcing quantities.
+!  !-------------------------------------------------------------------------
+!  INITIAL CONDITIONS
+!
+!  !-------------------------------------------------------------------------------
+!  init_ocean_bathymetry
+!
+!    SELECT CASE (topography_type)
+!    CASE (200)
+!      ! constant depth given by topography_height_reference
+!      CALL depth_uniform(patch_3d, cells_bathymetry)
+!
+!    CASE (201)
+!      CALL mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
+!
+!    CASE default
+!      CALL finish(method_name, "unknown topography_type")
+!    END SELECT
+!
+!  END init_ocean_bathymetry
+!  !-------------------------------------------------------------------------------
+!
+!  !-------------------------------------------------------------------------------
+!  init_ocean_salinity(patch_3d, ocean_salinity)
+!
+!    SELECT CASE (initial_salinity_type)
+!    !------------------------------
+!    CASE (200)
+!      ! uniform salinity or vertically linarly increasing
+!      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
+!      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+!        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+!
+!    !------------------------------
+!    CASE (201)
+!      CALL salinity_Uniform_SpecialArea(patch_3d, ocean_salinity)
+!
+!    !------------------------------
+!    CASE (202)
+!      CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
+!
+!    !------------------------------
+!    CASE (401)
+!      ! assign from adhoc array values
+!      IF (n_zlev==4) THEN
+!        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_salinity, VerticalProfileValue=sprof_4layerstommel)
+!      ELSEIF  (n_zlev <= 20) THEN
+!        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_salinity, VerticalProfileValue=sprof)
+!      ELSE
+!        CALL finish(TRIM(method_name), 'Number of vertical levels to small or to big: >=4 and <=20')
+!      ENDIF
+!
+!    !------------------------------
+!    CASE (402)
+!      IF  (n_zlev <= 20) THEN
+!        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_salinity, VerticalProfileValue=salinity_profile_20levels)
+!      ELSE
+!        CALL finish(TRIM(method_name), 'Number of vertical levels > 20')
+!      ENDIF
+!
+!  END init_ocean_salinity
+!  !-------------------------------------------------------------------------------
+!
+!  !-------------------------------------------------------------------------------
+!  init_ocean_temperature
+!
+!    SELECT CASE (initial_temperature_type)
+!    !------------------------------
+!    CASE (200)
+!      ! uniform or linearly decreasing temperature
+!      ! Temperature is homogeneous in each layer.
+!      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
+!      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+!
+!    !------------------------------
+!    CASE (201)
+!      CALL temperature_CollapsingDensityFront_StuhnePeltier(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (202)
+!      CALL temperature_BasinWithVerticalWall(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (203)
+!      CALL temperature_DanilovsMunkGyre(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (204)
+!      CALL temperature_TropicsPolar(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (205)
+!      CALL temperature_CollapsingDensityFront_WeakGrad(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (206)
+!      CALL temperature_Uniform_SpecialArea(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (207)
+!      CALL temperature_APE(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (208)
+!      CALL message(TRIM(method_name), ': horizontally non-homogenous, local pertubation')
+!      ! first create linearly vertically decreasing temperature, uniform horizontally
+!      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+!      !Add horizontal variation
+!      CALL temperature_AddHorizontalVariation(patch_3d, ocean_temperature)
+!      !Add local perturbation
+!      CALL temperature_AddLocalPerturbation(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (209)
+!      CALL temperature_uniform_SeparationAtLon(patch_3d, ocean_temperature, wallLonDeg=0.0_wp)
+!
+!    !------------------------------
+!    CASE (210)
+!      CALL temperature_uniform_SeparationAtLat(patch_3d, ocean_temperature, wallLatDeg=basin_center_lat)
+!
+!    !------------------------------
+!    CASE (211)
+!      CALL temperature_circularLonLatPerturbation(patch_3d, ocean_temperature)
+!
+!    !------------------------------
+!    CASE (401)
+!      ! assign from adhoc array values
+!      IF(n_zlev==4)THEN
+!        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=tprof_4layerstommel)
+!      ELSE
+!        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=tprof)
+!      ENDIF
+!
+!    !------------------------------
+!    CASE (402)
+!       CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=tprof_var)
+!
+!  END init_ocean_temperature
+!  !-------------------------------------------------------------------------------
+!
+!  !-------------------------------------------------------------------------------
+!  init_ocean_velocity
+!
+!    SELECT CASE (initial_velocity_type)
+!    !------------------------------
+!    CASE (200)
+!      ! uniform velocity
+!      CALL message(TRIM(method_name), ': uniform velocity')
+!
+!    !------------------------------
+!    CASE (201)
+!      CALL velocity_LauterRotation(patch_3d, normal_velocity)
+!
+!    !------------------------------
+!    CASE (202)
+!      CALL message(TRIM(method_name), 'Williamson Test 2 ')
+!      CALL velocity_WilliamsonTest_2_5(patch_3d, normal_velocity, velocity_amplitude=u0)
+!
+!    !------------------------------
+!    CASE (203)
+!      CALL message(TRIM(method_name), 'Williamson Test 5 ')
+!      CALL velocity_WilliamsonTest_2_5(patch_3d, normal_velocity, velocity_amplitude=initial_velocity_amplitude)
+!
+!  END init_ocean_velocity
+!  !-------------------------------------------------------------------------------
+!
+!  !-------------------------------------------------------------------------------
+!  init_ocean_surface_height
+!
+!    SELECT CASE (sea_surface_height_type)
+!    !------------------------------
+!    CASE (200)
+!      ! 0 height, this is the initialization value,
+!      ! so no need to explicilty define this case
+!      ocean_height(:,:) = 0.0_wp
+!
+!    !------------------------------
+!    CASE (201)
+!      CALL height_sinLon_cosLat(patch_3d, ocean_height)
+!
+!    !------------------------------
+!    CASE (202)
+!      CALL height_exponentialDistance(patch_3d, ocean_height)
+!
+!    !------------------------------
+!    CASE (203)
+!      CALL height_LauterRotation(patch_3d, ocean_height)
+!
+!    !------------------------------
+!    CASE (204)
+!      CALL height_WilliamsonTest2(patch_3d, ocean_height)
+!
+!    !------------------------------
+!    CASE (205)
+!      CALL height_WilliamsonTest5(patch_3d, ocean_height)
+!
+!  END init_ocean_surface_height
+!  !-------------------------------------------------------------------------------
 !!
 !! @author Peter Korn, MPI
 !! @author Stephan Lorenz, MPI
+!! @author Leonidas Linardakis, MPI
 !
 !! @par Revision History
 !! Initial version  by Peter Korn (MPI-M)  (2006).
@@ -84,18 +284,18 @@ MODULE mo_ocean_initial_conditions
   PRIVATE
   INCLUDE 'netcdf.inc'
 
-  PUBLIC :: apply_initial_conditions
+  PUBLIC :: apply_initial_conditions, init_ocean_bathymetry
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  CHARACTER(LEN=12)           :: str_module    = 'oceInit     '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
   
   REAL(wp) :: sphere_radius, u0
   REAL(wp), PARAMETER :: aleph = 0.0_wp
   
-  CHARACTER(LEN=*), PARAMETER :: module_name = 'ocean_initial_conditions'
+  ! CHARACTER(LEN=*), PARAMETER :: module_name = 'ocean_initial_conditions'
+  CHARACTER(LEN=12), PARAMETER :: module_name = 'ocean_initial_conditions'
 
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -133,7 +333,8 @@ CONTAINS
 
     ELSE
 
-      CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
+      ! the bathymetry initialization is called  after read_external_data and before seting up the sea-land mask
+      !CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
       CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
       CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
 
@@ -146,7 +347,6 @@ CONTAINS
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
     CALL fill_tracer_x_height(patch_3d, ocean_state)
-
 
   END SUBROUTINE apply_initial_conditions
   !-------------------------------------------------------------------------
@@ -305,10 +505,12 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print level - 0: print in any case
     z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-    CALL dbg_print('init prognostic - T'       ,z_c                     ,str_module,idt_src)
+    CALL dbg_print('init prognostic - T'       ,z_c                     ,module_name,idt_src, &
+        & in_subset=patch_2d%cells%owned)
     IF (no_tracer > 1) THEN
       z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-      CALL dbg_print('init prognostic - S'       ,z_c                   ,str_module,idt_src)
+      CALL dbg_print('init prognostic - S'       ,z_c                   ,module_name,idt_src, &
+        & in_subset=patch_2d%cells%owned)
     END IF
     !---------------------------------------------------------------------
     
@@ -340,7 +542,7 @@ CONTAINS
     
     !---------Debug Diagnostics-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1)  ,str_module,idt_src)
+    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1)  ,module_name,idt_src)
     !---------------------------------------------------------------------
     
     !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, ocean_state, operators_coeff)
@@ -376,13 +578,10 @@ CONTAINS
     SELECT CASE (topography_type)
     CASE (200)
       ! constant depth given by topography_height_reference
-      ! the whole grid is considered sea
-      patch_3d%lsm_c(:,:,:) = sea
-      patch_3d%lsm_e(:,:,:) = sea
-      cells_bathymetry(:,:) = topography_height_reference
+      CALL depth_uniform(patch_3d, cells_bathymetry)
 
     CASE (201)
-      CALL mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
+      CALL depth_mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
 
     CASE default
       CALL finish(method_name, "unknown topography_type")
@@ -422,7 +621,7 @@ CONTAINS
     CASE (200)
       ! uniform salinity or vertically linarly increasing
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
         & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
     !------------------------------
@@ -459,7 +658,7 @@ CONTAINS
     END SELECT
 
     CALL dbg_print('init_ocean_salinity', ocean_salinity(:,:,:), &
-      & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE init_ocean_salinity
   !-------------------------------------------------------------------------------
@@ -484,7 +683,7 @@ CONTAINS
       ! uniform or linearly decreasing temperature
       ! Temperature is homogeneous in each layer.
       CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear')
-      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
     !------------------------------
@@ -520,7 +719,7 @@ CONTAINS
       CALL message(TRIM(method_name), ': horizontally non-homogenous, local pertubation')
 
       ! first create linearly vertically decreasing temperature, uniform horizontally
-      CALL tracer_VerticallyLinearlyDecreasing(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+      CALL tracer_VerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
       !Add horizontal variation
@@ -561,7 +760,7 @@ CONTAINS
     END SELECT
 
     CALL dbg_print('init_ocean_temperature', ocean_temperature(:,:,:), &
-      & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE init_ocean_temperature
   !-------------------------------------------------------------------------------
@@ -584,7 +783,7 @@ CONTAINS
 
     !------------------------------
     CASE (201)
-      CALL velocity_usbr(patch_3d, normal_velocity)
+      CALL velocity_LauterRotation(patch_3d, normal_velocity)
 
     !------------------------------
     CASE (202)
@@ -603,13 +802,62 @@ CONTAINS
     END SELECT
 
     CALL dbg_print('init_ocean_velocity', normal_velocity(:,:,:), &
-      & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%edges%owned)
+      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%edges%owned)
 
   END SUBROUTINE init_ocean_velocity
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
+    !-------------------------------------------------------------------------
+
+    IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
+
+    patch_2d => patch_3d%p_patch_2d(1)
+
+    ! needs to be written with calls !
+    SELECT CASE (sea_surface_height_type)
+    CASE (200)
+      ! 0 height, this is the initialization value,
+      ! so no need to explicilty define this case
+      ! the whole grid is considered sea
+      ocean_height(:,:) = 0.0_wp
+
+    CASE (201)
+      CALL height_sinLon_cosLat(patch_3d, ocean_height)
+
+    CASE (202)
+      CALL height_exponentialDistance(patch_3d, ocean_height)
+
+    CASE (203)
+      CALL height_LauterRotation(patch_3d, ocean_height)
+
+    CASE (204)
+      CALL height_WilliamsonTest2(patch_3d, ocean_height)
+
+    CASE (205)
+      CALL height_WilliamsonTest5(patch_3d, ocean_height)
+
+    CASE default
+      CALL finish(method_name, "unknown sea_surface_height_type")
+
+    END SELECT
+
+    CALL dbg_print('init_ocean_surface_height', ocean_height, module_name,  1, &
+        & in_subset=patch_2d%cells%owned)
+
+  END SUBROUTINE init_ocean_surface_height
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_sinLon_cosLat(patch_3d, ocean_height)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_height(:,:)
 
@@ -623,101 +871,185 @@ CONTAINS
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_sinLon_cosLat'
     !-------------------------------------------------------------------------
-
-    IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
+    ! CASE (201)
+    CALL message(TRIM(method_name), ' ')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
 
-    ! needs to be written with calls !
-    SELECT CASE (sea_surface_height_type)
-    CASE (200)
-      ! 0 height, this is the initialization value,
-      ! so no need to explicilty define this case
-      ! the whole grid is considered sea
-      ocean_height(:,:) = 0.0_wp
+    ! #slo#: simple elevation between 30W and 30E (pi/3.)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
-    CASE (201)
-      ! #slo#: simple elevation between 30W and 30E (pi/3.)
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          ocean_height(jc,jb) = 10.0_wp * &
+            & SIN(cell_center(jc, jb)%lon * 6.0_wp) * COS(cell_center(jc, jb)%lat * 3.0_wp)
 
-            ocean_height(jc,jb) = 10.0_wp * &
-              & SIN(cell_center(jc, jb)%lon * 6.0_wp) * COS(cell_center(jc, jb)%lat * 3.0_wp)
-
-          ENDIF
-        END DO
+        ENDIF
       END DO
+    END DO
 
-    CASE (202)
-      ! Add elevation perturbation at new values - 35N; 10W
-      ! not clear yet
-      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
-      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-
-          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
-
-            distan=SQRT((cell_center(jc, jb)%lat - perturbation_lat * deg2rad)**2 + &
-              & (cell_center(jc, jb)%lon - perturbation_lon * deg2rad)**2)
-            !IF(distan<=15.5_wp*deg2rad) cycle
-            IF(distan < 10.0_wp * deg2rad) THEN
-              ocean_height(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
-                & + 0.3_wp * EXP(-(distan/(2.2_wp*deg2rad))**2)
-            ENDIF
-
-          ENDIF
-
-        END DO
-      END DO
-
-    CASE (203)
-      ! test_usbr_h
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb)  = test_usbr_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-          ! write(*,*)'h orig, bathy_c:', cell_center(jc, jb)%lon, cell_center(jc, jb)%lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
-        END DO
-      END DO
-
-    CASE (204)
-      ! test2_h
-      CALL message(TRIM(method_name), ' h for Williamson Test 2')
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb) = test2_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-        END DO
-      END DO
-
-    CASE (205)
-      ! test5_h
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb) = test5_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-        END DO
-      END DO
-
-
-    CASE default
-      CALL finish(method_name, "unknown sea_surface_height_type")
-
-    END SELECT
-
-    CALL dbg_print('init_ocean_surface_height', ocean_height, str_module,  1, &
-        & in_subset=patch_2d%cells%owned)
-
-  END SUBROUTINE init_ocean_surface_height
+  END SUBROUTINE height_sinLon_cosLat
   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_exponentialDistance(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: z_dolic
+    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: perturbation_lat, perturbation_lon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_exponentialDistance'
+    !-------------------------------------------------------------------------
+    ! CASE (202)
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! Add elevation perturbation at new values - 35N; 10W
+    ! not clear yet
+    perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+    perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
+
+          distan=SQRT((cell_center(jc, jb)%lat - perturbation_lat * deg2rad)**2 + &
+            & (cell_center(jc, jb)%lon - perturbation_lon * deg2rad)**2)
+          !IF(distan<=15.5_wp*deg2rad) cycle
+          IF(distan < 10.0_wp * deg2rad) THEN
+            ocean_height(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
+              & + 0.3_wp * EXP(-(distan/(2.2_wp*deg2rad))**2)
+          ENDIF
+
+        ENDIF
+
+      END DO
+    END DO
+
+  END SUBROUTINE height_exponentialDistance
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  ! Initial datum for height h, test case unsteady solid body
+  ! rotation of L\"auter et al.(2007).
+  SUBROUTINE height_LauterRotation(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: z_dolic
+    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: perturbation_lat, perturbation_lon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_LauterRotation'
+    !-------------------------------------------------------------------------
+    ! CASE (203)
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! test_usbr_h
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        ocean_height(jc,jb)  = test_usbr_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+      END DO
+    END DO
+
+  END SUBROUTINE height_LauterRotation
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_WilliamsonTest2(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: z_dolic
+    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: perturbation_lat, perturbation_lon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest2'
+    !-------------------------------------------------------------------------
+    ! CASE (204)
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! test2_h
+    CALL message(TRIM(method_name), ' h for Williamson Test 2')
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        ocean_height(jc,jb) = test2_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+      END DO
+    END DO
+
+  END SUBROUTINE height_WilliamsonTest2
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_WilliamsonTest5(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: z_dolic
+    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: perturbation_lat, perturbation_lon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
+    !-------------------------------------------------------------------------
+    ! CASE (205)
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! test5_h
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        ocean_height(jc,jb) = test5_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+      END DO
+    END DO
+
+  END SUBROUTINE height_WilliamsonTest5
+  !-------------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------------
   !> Initial datum for zonal velocity u, test case unsteady solid body
@@ -725,7 +1057,7 @@ CONTAINS
   !
   ! Developed by Th.Heinze, DWD, (2007-03)
   !-------------------------------------------------------------------------
-  SUBROUTINE velocity_usbr(patch_3d, vn)
+  SUBROUTINE velocity_LauterRotation(patch_3d, vn)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: vn(:,:,:)
 
@@ -776,7 +1108,7 @@ CONTAINS
       ENDDO
     ENDDO
 
-  END SUBROUTINE  velocity_usbr
+  END SUBROUTINE  velocity_LauterRotation
   !-----------------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------------
@@ -1165,7 +1497,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_VerticallyLinearlyDecreasing(patch_3d, ocean_tracer, top_value, bottom_value)
+  SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
     REAL(wp), INTENT(in) :: top_value, bottom_value
@@ -1176,7 +1508,7 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearlyDecreasing'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -1193,7 +1525,7 @@ CONTAINS
 
     CALL decreaseTracerVerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
 
-  END SUBROUTINE tracer_VerticallyLinearlyDecreasing
+  END SUBROUTINE tracer_VerticallyLinearly
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -1771,18 +2103,18 @@ CONTAINS
   ! Developed  by L.Bonaventura  (2002-5).
   ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
   !
-  SUBROUTINE mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
+  SUBROUTINE depth_mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET, INTENT(inout)  :: cells_bathymetry(:,:)
 
     REAL(wp), PARAMETER :: h_s0  = 2000._wp  ! maximum height of mountain
-    
+
     REAL(wp) :: point_lon     ! longitude of point
     REAL(wp) :: point_lat     ! latitude of point
     REAL(wp) :: p_t           ! point of time
-    
+
     REAL(wp)             :: point_height      ! orography
-    
+
     REAL(wp)             :: z_lon_mc  ! Mountain center, longitude ...
     REAL(wp)             :: z_lat_mc  !          ... and latitude
     REAL(wp)             :: z_rad_mt  ! radius of mountain
@@ -1797,7 +2129,7 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':mountain_orography_Williamson_test5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':depth_mountain_orography_Williamson_test5'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -1807,9 +2139,9 @@ CONTAINS
     z_lon_mc = -pi_2
     z_lat_mc = pi / 6._wp
     z_rad_mt = pi / 9._wp
-    
-    patch_3d%lsm_c(:,:,:) = sea
-    patch_3d%lsm_e(:,:,:) = sea
+
+ !   patch_3d%lsm_c(:,:,:) = sea
+ !   patch_3d%lsm_e(:,:,:) = sea
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
@@ -1845,8 +2177,38 @@ CONTAINS
 
       ENDDO
     ENDDO
+
+  END SUBROUTINE depth_mountain_orography_Williamson_test5
+  !-----------------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------------
+  SUBROUTINE depth_uniform(patch_3d, cells_bathymetry)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET, INTENT(inout)  :: cells_bathymetry(:,:)
+
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':depth_uniform'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        cells_bathymetry(jc, jb) = topography_height_reference
+
+      ENDDO
+    ENDDO
     
-  END SUBROUTINE mountain_orography_Williamson_test5
+  END SUBROUTINE depth_uniform
   !-----------------------------------------------------------------------------------
   
 
