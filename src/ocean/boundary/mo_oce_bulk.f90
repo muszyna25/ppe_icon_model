@@ -67,7 +67,7 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, itestcase_oce,         &
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, wstress_coeff, i_apply_bulk,           &
+  &                               relaxation_param, forcing_wind_u_amplitude, i_apply_bulk,&
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
@@ -1203,9 +1203,9 @@ CONTAINS
              z_lat = p_patch%cells%center(jc,jb)%lat
              z_lon = p_patch%cells%center(jc,jb)%lon
 
-             zonal_str = wstress_coeff*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
+             zonal_str = forcing_wind_u_amplitude*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = forcing_wind_u_amplitude*zonal_str*sin(z_lon)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = forcing_wind_u_amplitude*zonal_str*cos(z_lon)
              p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
  
              CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
@@ -1304,9 +1304,9 @@ CONTAINS
 ! !           z_lat = p_patch%cells%center(jc,jb)%lat
 ! !           z_lon = p_patch%cells%center(jc,jb)%lon
 ! !           IF(v_base%lsm_c(jc,1,jb)<=sea_boundary)THEN
-! !             zonal_str = wstress_coeff*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
+! !             zonal_str = forcing_wind_u_amplitude*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
+! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = forcing_wind_u_amplitude*zonal_str*sin(z_lon)
+! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = forcing_wind_u_amplitude*zonal_str*cos(z_lon)
 ! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
 ! !             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
 ! !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
@@ -1372,9 +1372,9 @@ CONTAINS
              z_lat = p_patch%cells%center(jc,jb)%lat
              z_lon = p_patch%cells%center(jc,jb)%lon
 
-             zonal_str = wstress_coeff*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
+             zonal_str = forcing_wind_u_amplitude*cos(forcing_windstress_zonal_waveno*pi*z_lat-y_length/y_length)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = forcing_wind_u_amplitude*zonal_str*sin(z_lon)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = forcing_wind_u_amplitude*zonal_str*cos(z_lon)
              p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
  
              CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
@@ -1426,7 +1426,7 @@ CONTAINS
              z_lat = p_patch%cells%center(jc,jb)%lat
              z_lon = p_patch%cells%center(jc,jb)%lon
 
-             p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * &
+             p_sfc_flx%forc_wind_u(jc,jb) = forcing_wind_u_amplitude * &
              & cos(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
 
              p_sfc_flx%forc_wind_v(jc,jb)= 0.0_wp

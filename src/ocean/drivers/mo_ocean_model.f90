@@ -100,7 +100,7 @@ MODULE mo_ocean_model
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice
-  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, init_new_ocean_forcing
+  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
@@ -474,13 +474,9 @@ CONTAINS
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), p_ext_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
-    IF (use_new_forcing) THEN
-      CALL init_new_ocean_forcing(patch_3d%p_patch_2d(jg)%cells%All, &
-        & patch_3d%lsm_c(:,1,:), &
-        & p_sfc_flx)
-    ELSE
-      CALL init_ocean_forcing(patch_3d, p_sfc_flx, p_os(jg))
-    ENDIF
+    CALL init_ocean_forcing(patch_3d%p_patch_2d(jg)%cells%All, &
+      & patch_3d%lsm_c(:,1,:), &
+      & p_sfc_flx)
 
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)

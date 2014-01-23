@@ -48,7 +48,7 @@ MODULE mo_oce_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc,              &
-    & wstress_coeff, iforc_stat_oce, basin_height_deg, basin_width_deg, no_tracer,      &
+    & basin_height_deg, basin_width_deg, no_tracer,                                     &
     & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,            &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,    &
     & analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
@@ -73,21 +73,21 @@ MODULE mo_oce_forcing
   USE mo_cdi_constants
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_netcdf_read,        ONLY: read_netcdf_data
-  
+
   IMPLICIT NONE
   PRIVATE
   INCLUDE 'netcdf.inc'
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(LEN=12)           :: str_module    = 'oceForcing  '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
-  
+
   ! Public interface
   PUBLIC :: construct_ocean_forcing, destruct_ocean_forcing
-  PUBLIC :: init_ocean_forcing, init_new_ocean_forcing
-  
+  PUBLIC :: init_ocean_forcing
+
 CONTAINS
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Constructor of surface fluxes for hydrostatic ocean
@@ -413,213 +413,7 @@ CONTAINS
 
   END SUBROUTINE destruct_ocean_forcing
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Initialization of stationary surface fluxes for hydrostatic ocean
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2011-09)
-  !
-  SUBROUTINE init_ocean_forcing(patch_3d, p_sfc_flx, ocean_state)
-    !
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_sfc_flx)                         :: p_sfc_flx
-    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
-    
-    ! Local variables
-    INTEGER :: jc, jb
-    INTEGER :: i_startidx_c, i_endidx_c
-    
-    REAL(wp) :: z_lat, z_lon, y_length, y_center
-    
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:init_ho_sfcflx'
-    
-    !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: patch_2d
-    !-----------------------------------------------------------------------
-    patch_2d   => patch_3d%p_patch_2d(1)
-    !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
-    
-    all_cells => patch_2d%cells%ALL
-    
-    ! analytical forcing
-    IF (iforc_oce == analyt_forc) THEN
-      
-      IF (itestcase_oce == 27 .OR. itestcase_oce == 29) iforc_stat_oce = 1
-      
-      SELECT CASE (iforc_stat_oce)
-      
-      CASE (0)
-        CALL message(TRIM(routine), 'iforc_stat_oce=0: no stationary wind forcing applied' )
-        
-      CASE (1,2)
-        CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
-        y_length                        = basin_height_deg * deg2rad
-        forcing_windstress_zonal_waveno = 1.0_wp
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          
-          DO jc = i_startidx_c, i_endidx_c
-            
-            IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
-              
-              z_lat = patch_2d%cells%center(jc,jb)%lat
-              z_lon = patch_2d%cells%center(jc,jb)%lon
-              
-              p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_length)/y_length)
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-            ENDIF
-            p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-            
-            !Init cartesian wind
-            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-              & p_sfc_flx%forc_wind_v(jc,jb),&
-              & patch_2d%cells%center(jc,jb)%lon,&
-              & patch_2d%cells%center(jc,jb)%lat,&
-              & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-              & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-              & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            
-          END DO
-        END DO
-        
-      CASE (3)
-        CALL message(TRIM(routine), 'iforc_stat_oce=3: apply stationary wind forcing globally - u=cos(n*lat/lat_0); v=0')
-        
-        ! Use here global scale:
-        y_length                        = 180.0_wp * deg2rad
-        y_center                        = -60.0_wp * deg2rad
-        forcing_windstress_zonal_waveno = 3.0_wp
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            IF (patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
-              p_sfc_flx%forc_wind_u(jc,jb) = analytic_wind_amplitude * &
-                & COS(forcing_windstress_zonal_waveno*pi*(z_lat-y_center)/y_length)
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-            ENDIF
-            p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-            
-            !Init cartesian wind
-            IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
-                & p_sfc_flx%forc_wind_v(jc,jb),      &
-                & patch_2d%cells%center(jc,jb)%lon,   &
-                & patch_2d%cells%center(jc,jb)%lat,   &
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            ELSE
-              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        
-      CASE (4)
-        CALL message(TRIM(routine),'iforc_stat_oce=4: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
-        
-        ! Forcing for ape
-        forcing_windstress_zonal_waveno      = 3.0_wp
-        forcing_windstress_meridional_waveno = 3.0_wp
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            IF (patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
-              
-              p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * forcing_wind_u_amplitude * &
-                & COS(z_lat) * COS(forcing_windstress_zonal_waveno * z_lat) * COS(z_lon)
-              
-              p_sfc_flx%forc_wind_v(jc,jb) = - wstress_coeff *forcing_wind_v_amplitude * &
-                & COS(z_lat) * COS(forcing_windstress_zonal_waveno * z_lat) * SIN(forcing_windstress_meridional_waveno * z_lon)
-              
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-              p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-            ENDIF
-            
-            !Init cartesian wind
-            IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
-                & p_sfc_flx%forc_wind_v(jc,jb),      &
-                & patch_2d%cells%center(jc,jb)%lon,   &
-                & patch_2d%cells%center(jc,jb)%lat,   &
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            ELSE
-              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        
-      CASE (5)
-        CALL message(TRIM(routine),'iforc_stat_oce=5: stationary wind forcing: u=cos(n*lat)*cos(lat) for APE (still does not work)')
-        
-        ! Forcing for ape
-        forcing_windstress_zonal_waveno      = 3.0_wp
-        forcing_windstress_meridional_waveno = 3.0_wp
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = patch_2d%cells%center(jc,jb)%lat
-            z_lon = patch_2d%cells%center(jc,jb)%lon
-            IF (patch_3d%lsm_c(jc,1,jb)<=sea_boundary) THEN
-              
-              p_sfc_flx%forc_wind_u(jc,jb) =  wstress_coeff * forcing_wind_u_amplitude * &
-                & COS(z_lat) * COS(forcing_windstress_zonal_waveno * z_lat)
-              
-              p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-              p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-            ENDIF
-            
-            !Init cartesian wind
-            IF(patch_3d%lsm_c(jc,1,jb)<=sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
-                & p_sfc_flx%forc_wind_v(jc,jb),      &
-                & patch_2d%cells%center(jc,jb)%lon,   &
-                & patch_2d%cells%center(jc,jb)%lat,   &
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-            ELSE
-              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        
-      CASE DEFAULT
-        
-        CALL message(TRIM(routine), 'STOP: Stationary Analytical Forcing not implemented' )
-        CALL finish(TRIM(routine), 'CHOSEN STATIONARY FORCING OPTION NOT SUPPORTED - TERMINATE')
-        
-      END SELECT
-      
-      !---------Debug Diagnostics-------------------------------------------
-      idt_src=0  ! output print level - 0: print in any case
-      CALL dbg_print('analytical forcing u',p_sfc_flx%forc_wind_u, str_module,idt_src, in_subset=patch_2d%cells%owned)
-      CALL dbg_print('analytical forcing v',p_sfc_flx%forc_wind_v, str_module,idt_src, in_subset=patch_2d%cells%owned)
-      !---------------------------------------------------------------------
-      
-    END IF
 
-    IF (init_oce_relax == 1) THEN
-      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
-    END IF
-    
-  END SUBROUTINE init_ocean_forcing
-  
   !-------------------------------------------------------------------------
   !>
   !! Initialization of temperature and salinity relaxation for the hydrostatic ocean model.
@@ -809,7 +603,7 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
-  SUBROUTINE init_new_ocean_forcing(all_cells, land_sea_mask,p_sfc_flx)
+  SUBROUTINE init_ocean_forcing(all_cells, land_sea_mask,p_sfc_flx)
     !
     TYPE(t_subset_range), INTENT(IN) :: all_cells
     INTEGER, INTENT(IN)           :: land_sea_mask(:,:)
@@ -820,7 +614,7 @@ CONTAINS
 
     CALL set_windstress_v(all_cells, land_sea_mask, sea_boundary, p_sfc_flx%forc_wind_v, &
       & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
-  END SUBROUTINE init_new_ocean_forcing
+  END SUBROUTINE init_ocean_forcing
 
   SUBROUTINE set_windstress_u(subset, mask, threshold, windstress, amplitude, zonal_waveno, meridional_waveno, center, length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -889,7 +683,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,zonal_waveno_opt
-    
+
     REAL(wp) :: length, zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
@@ -912,22 +706,22 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,meridional_waveno_opt
- 
+
     REAL(wp) :: length, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
+
     length            = basin_width_deg * deg2rad
     meridional_waveno = forcing_windstress_meridional_waveno
- 
+
     CALL assign_if_present(length,length_opt)
     CALL assign_if_present(meridional_waveno,meridional_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude * COS(meridional_waveno*pi*(lon(:,:)-length)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE basin_meridional
-  
+
   SUBROUTINE zonal_periodic_nonzero_around_center_zero_at_pols(subset, mask, threshold, field_2d, amplitude,&
       & center_opt,length_opt,zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -936,21 +730,21 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN),OPTIONAL    :: center_opt, length_opt, zonal_waveno_opt
-    
+
     REAL(wp) :: center, length, zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
+
     length       = 180.0_wp * deg2rad
     center       = -60.0_wp * deg2rad
     zonal_waveno = forcing_windstress_zonal_waveno
- 
+
     CALL assign_if_present(center,center_opt)
     CALL assign_if_present(length,length_opt)
     CaLL assign_if_present(zonal_waveno, zonal_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE zonal_periodic_nonzero_around_center_zero_at_pols
   SUBROUTINE meridional_periodic_around_center_zero_at_pols(subset, mask, threshold, field_2d, amplitude, &
@@ -961,21 +755,21 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN),OPTIONAL    :: center_opt, length_opt, meridional_waveno_opt
-    
+
     REAL(wp) :: center, length, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     length                        =  90.0_wp * deg2rad
     center                        = -20.0_wp * deg2rad
     meridional_waveno             = forcing_windstress_meridional_waveno
- 
+
     CALL assign_if_present(center,center_opt)
     CALL assign_if_present(length,length_opt)
     CALL assign_if_present(meridional_waveno, meridional_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude * COS(meridional_waveno*pi*(lon(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE meridional_periodic_around_center_zero_at_pols
   SUBROUTINE zonal_periodic_zero_at_pols(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
@@ -985,20 +779,20 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt
-    
+
     REAL(wp) :: zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
+
     zonal_waveno = forcing_windstress_zonal_waveno
- 
+
     CaLL assign_if_present(zonal_waveno, zonal_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * COS(zonal_waveno * lat(:,:)), 0.0_wp, mask(:,:) <= threshold)
   END SUBROUTINE zonal_periodic_zero_at_pols
- 
+
   SUBROUTINE cells_zonal_periodic(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)
@@ -1006,16 +800,16 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt
- 
+
     REAL(wp) :: zonal_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
+
     zonal_waveno = forcing_windstress_zonal_waveno
     CALL assign_if_present(zonal_waveno, zonal_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude &
                 & * COS(lat) &
                 & * COS(zonal_waveno * lat) &
@@ -1029,54 +823,26 @@ CONTAINS
     REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
     REAL(wp), INTENT(IN)             :: amplitude
     REAL(wp), INTENT(IN),OPTIONAL    :: zonal_waveno_opt, meridional_waveno_opt
-    
+
     REAL(wp) :: zonal_waveno, meridional_waveno
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- 
+
     zonal_waveno      = forcing_windstress_zonal_waveno
     meridional_waveno = forcing_windstress_meridional_waveno
- 
+
     CALL assign_if_present(zonal_waveno, zonal_waveno_opt)
     CALL assign_if_present(meridional_waveno, meridional_waveno_opt)
- 
+
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
- 
+
     field_2d(:,:) = MERGE(amplitude &
       & * COS(lat(:,:)) &
       & * COS(zonal_waveno * lat(:,:)) &
       & * SIN(meridional_waveno * lon(:,:)),0.0_wp,mask(:,:) <= threshold)
- 
+
   END SUBROUTINE cells_zonal_and_meridional_periodic
- 
-  ! a test loop for getting everything from the subset avoiding ifs
- !SUBROUTINE testloop(subset, mask, threshold,field_2d)
- !  TYPE(t_subset_range), INTENT(IN) :: subset
- !  INTEGER, INTENT(IN)           :: mask(:,:)
- !  INTEGER, INTENT(IN)          :: threshold
- !  REAL(wp), INTENT(INOUT)       :: field_2d(:,:)
- !  
- !  ! Local variables
- !  INTEGER :: jc, jb
- !  INTEGER :: i_start, i_end
- !  
- !  REAL(wp) :: ampl, waveno
- !  REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
- !
- !  ampl     = 1.0_wp
- !  waveno   = 1.0_wp
 
- !  lat(:,:) = subset%patch%cells%center(:,:)%lat
- !  lon(:,:) = subset%patch%cells%center(:,:)%lon
-
- !  DO jb = subset%start_block, subset%end_block
- !    CALL get_index_range(subset, jb, i_start, i_end)
- !    DO jc = i_start, i_end
- !      field_2d(:,:) = MERGE(ampl * COS(waveno*pi*lat(:,:)), 0.0_wp, mask(:,:) <= threshold)
- !    END DO
- !  END DO
- !END SUBROUTINE
-   !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS)
 
     INTEGER, INTENT(in) :: STATUS

@@ -108,11 +108,6 @@ MODULE mo_ocean_nml
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
   INTEGER            :: iforc_type = 10
 
-
-  ! switch for stationary forcing for special testcases of ocean model:
-  INTEGER            :: iforc_stat_oce = 3
-!TODO
-
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
@@ -175,18 +170,18 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
   ! parameterized choice of tracer transport scheme
-  INTEGER, PARAMETER :: UPWIND = 1
-  INTEGER, PARAMETER :: CENTRAL= 2
-  INTEGER, PARAMETER :: MIMETIC= 3
-  INTEGER, PARAMETER :: MIMETIC_MIURA= 4
-  !INTEGER, PARAMETER :: ADPO   = 5
-  INTEGER, PARAMETER :: FLUX_CORR_TRANSP_horz = 5
+  INTEGER, PARAMETER :: UPWIND                     = 1
+  INTEGER, PARAMETER :: CENTRAL                    = 2
+  INTEGER, PARAMETER :: MIMETIC                    = 3
+  INTEGER, PARAMETER :: MIMETIC_MIURA              = 4
+  !INTEGER, PARAMETER :: ADPO                      = 5
+  INTEGER, PARAMETER :: FLUX_CORR_TRANSP_horz      = 5
   INTEGER, PARAMETER :: FLUX_CORR_TRANSP_vert_adpo = 6
-  !INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC  ! consistent with l_edge_based=.FALSE.
-  !INTEGER            :: FLUX_CALCULATION_VERT = UPWIND   ! consistent with l_edge_based=.FALSE.
-  INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.
-  INTEGER            :: FLUX_CALCULATION_VERT = MIMETIC_MIURA  ! consistent with l_edge_based=.TRUE.
-  LOGICAL            :: l_adpo_flowstrength   = .TRUE.     ! .TRUE.: activate second condition for adpo weight
+  !INTEGER            :: FLUX_CALCULATION_HORZ     = MIMETIC  ! consistent with l_edge_based = .FALSE.
+  !INTEGER            :: FLUX_CALCULATION_VERT     = UPWIND   ! consistent with l_edge_based = .FALSE.
+  INTEGER            :: FLUX_CALCULATION_HORZ      = MIMETIC_MIURA  ! consistent with l_edge_based = .TRUE.
+  INTEGER            :: FLUX_CALCULATION_VERT      = MIMETIC_MIURA  ! consistent with l_edge_based = .TRUE.
+  LOGICAL            :: l_adpo_flowstrength        = .TRUE.   ! .TRUE.: activate second condition for adpo weight
 
 
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
@@ -275,7 +270,6 @@ MODULE mo_ocean_nml
                                                  ! are set to the background values in case of stable stratification
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
-  REAL(wp) :: wstress_coeff         = 0.3_wp     ! windstress coefficient for analytical wind forcing
                                                  ! 2-dimensional surface relaxation of temperature and salinity
   INTEGER  :: temperature_relaxation= 0          ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file
                                                  ! 3=use initialized values for temperature relaxation
@@ -368,7 +362,7 @@ MODULE mo_ocean_nml
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
-    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff,         &
+    &                 CWA, CWT,  bottom_drag_coeff,                        &
     &                 i_sea_ice,                                           &
     &                 biharmonic_diffusion_factor,                         &
     &                 l_smooth_veloc_diffusion,                            &
@@ -383,7 +377,7 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_forcing_nml/iforc_oce, iforc_type, forcing_timescale,    &
-    &                 iforc_stat_oce, init_oce_relax,                     &
+    &                 init_oce_relax,                                     &
     &                 l_relaxsal_ice,                                     &
     &                 temperature_relaxation, relaxation_param,           &
     &                 irelax_2d_S, relax_2d_mon_S,                        &
