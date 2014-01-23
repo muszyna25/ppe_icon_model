@@ -49,7 +49,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, itestcase_oce, i_sea_ice,     &
+  USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
     & initial_temperature_bottom, initial_temperature_top, &
@@ -78,8 +78,8 @@ MODULE mo_ocean_initial_conditions
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-
+  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_netcdf_read,        ONLY: nf
   IMPLICIT NONE
   PRIVATE
   INCLUDE 'netcdf.inc'
@@ -124,7 +124,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data)             :: external_data
     TYPE(t_operator_coeff)            :: operators_coeff
-    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
 
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
@@ -168,7 +167,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     
     ! Local Variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: method_name = 'mo_ocean_initial_conditions:init_ocean_fromFile'
     CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
     
     LOGICAL :: l_exist
@@ -179,8 +177,9 @@ CONTAINS
     
     REAL(wp):: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_prog(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: all_cells
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_fromFile'
     !-------------------------------------------------------------------------
     
     CALL message (TRIM(method_name), 'start')
@@ -206,11 +205,11 @@ CONTAINS
       CALL message(TRIM(method_name),TRIM(message_text))
       
       ! open file
-      CALL nf(nf_open(TRIM(prog_init_file), nf_nowrite, ncid))
+      CALL nf(nf_open(TRIM(prog_init_file), nf_nowrite, ncid), method_name)
       
       ! get number of cells
-      CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+      CALL nf(nf_inq_dimid(ncid, 'ncells', dimid), method_name)
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), method_name)
       
       ! check the number of cells
       WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
@@ -221,8 +220,8 @@ CONTAINS
       ENDIF
 
       ! get number of levels
-      CALL nf(nf_inq_dimid(ncid, 'level', dimid))
-      CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+      CALL nf(nf_inq_dimid(ncid, 'level', dimid), method_name)
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), method_name)
       
       ! check the number of levels
       WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
@@ -285,7 +284,7 @@ CONTAINS
     ENDIF
     
     ! close file
-    IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+    IF(my_process_is_stdio()) CALL nf(nf_close(ncid), method_name)
     !---------------------------------------------------
     
     DO jk=1, n_zlev
@@ -318,19 +317,6 @@ CONTAINS
   END SUBROUTINE init_ocean_fromFile
   !-------------------------------------------------------------------------
   
-  
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(STATUS)
-    
-    INTEGER, INTENT(in) :: STATUS
-    
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(STATUS))
-    ENDIF
-    
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
-  
   !-------------------------------------------------------------------------
   SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
@@ -338,7 +324,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff)                        :: operators_coeff
 
-    IF(discretization_scheme==1)THEN
+    IF(discretization_scheme == 1)THEN
 
       IF (is_restart_run()) CALL update_time_indices(1)
 
@@ -349,7 +335,7 @@ CONTAINS
         & operators_coeff)
       
       IF (is_restart_run()) CALL update_time_indices(1)
-    ELSE
+
     ENDIF
     
     !---------Debug Diagnostics-------------------------------------------
@@ -361,305 +347,51 @@ CONTAINS
     
   END SUBROUTINE initialize_diagnostic_fields
   !-------------------------------------------------------------------------
-  
 
-  !-------------------------------------------------------------------------
-  !>
-  !! Initialization of test cases for the hydrostatic ocean model.
-  !! Currently only some simple test value are set.
-  !! Finally the prognostic state should be initialized from some restart file.
-  !
-  !! @par Revision History
-  !! Developed  by Peter Korn, MPI-M, 2006-08
-  !
-  !-------------------------------------------------------------------------
-  SUBROUTINE init_ocean_analytically(patch_3d, ocean_state)
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_bathymetry(patch_3d, cells_bathymetry)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_external_data)             :: external_data
-    ! TYPE(t_sfc_flx)                   :: p_sfc_flx
+    REAL(wp), TARGET  :: cells_bathymetry(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
     ! Local Variables
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: z_dolic
-    REAL(wp), ALLOCATABLE :: z_c(:,:,:)
-    REAL(wp):: cell_lat, cell_lon
-    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: perturbation_lon, perturbation_lat, max_perturbation, perturbation_width !,z_H_0
-    REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
-    REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
-    REAL(wp):: t,s
-    CHARACTER(LEN=max_char_length) :: initial_sst_type
+    REAL(wp):: lat_deg, lon_deg, z_tmp
 
-    REAL(wp) :: salinity_profile(n_zlev)
-
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
-    
-    TYPE(t_patch), POINTER   :: patch_2d
-    CHARACTER(LEN=max_char_length), PARAMETER :: method_name = 'mo_ocean_initial_conditions:init_ocean_analytically'
-
-    TYPE(t_subset_range), POINTER :: all_cells, owned_cells, all_edges
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_bathymetry'
     !-------------------------------------------------------------------------
 
-    CALL message (TRIM(method_name), 'start')
-    
-    sphere_radius = grid_sphere_radius
-    u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
+    IF (topography_type < 200) RETURN ! not analytic bathymetry
 
-    !-------------------------------------------------------------------------
-    
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    owned_cells => patch_2d%cells%owned
-    all_edges => patch_2d%edges%ALL
     cell_center => patch_2d%cells%center
-    ALLOCATE(z_c(nproma,n_zlev,patch_2d%alloc_cell_blocks))
 
-    ! initialize salinity with reference value rather than with zero
-    !  - mainly for plotting purpose
-    IF ( no_tracer >= 2) THEN
-      ocean_state%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
-    END IF
-    
-    !IF shallow-water option is NOT selected then)
-    IF ( iswm_oce /= 1 )THEN
-      
-      SELECT CASE (itestcase_oce)
-      
-      CASE (oce_testcase_zero)
-        CALL message(TRIM(method_name), 'you have selected the "no-testcase" option')
-      CASE (oce_testcase_init)
-        
-      CASE (oce_testcase_file)
-        CALL finish(TRIM(method_name), 'Initialization from file NOT SUPPORTED YET - TERMINATE')
-        !CALL init_from_file(patch_2D)
-        
-      CASE (30, 31)
-        CALL message(TRIM(method_name), 'Simple Initialization of testcases (30, 31)')
-        CALL message(TRIM(method_name), ' - here: horizontally homogen, vertical profile for T and S')
-        CALL message(TRIM(method_name), ' - Add forcing / restoring / wave for dynamic test')
-        
-        !Ocean at rest
-        ocean_state%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
-        
-        !init temperature and salinity with vertical profiles
-        ! use initial_salinity_type    = 401
-        ! use initial_temperature_type = 401
+    SELECT CASE (topography_type)
+    CASE (200)
+      ! constant depth given by topography_height_reference
+      ! the whole grid is considered sea
+      patch_3d%lsm_c(:,:,:) = sea
+      patch_3d%lsm_e(:,:,:) = sea
+      cells_bathymetry(:,:) = topography_height_reference
 
-        IF (itestcase_oce == 31) THEN
-          CALL message(TRIM(method_name), 'Simple Initialization of testcases (31)')
-          CALL message(TRIM(method_name), ' - here: external gravity wave')
-          
-          ! set sea_surface_height_type = 201
+    CASE (201)
+      CALL mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
 
-        END IF
-        
-      CASE (33)
-        ! collapsing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
-        CALL message(TRIM(method_name), 'Initialization of testcases (33)')
-        CALL message(TRIM(method_name), ' - here: Collapsing density front, Stuhne-Peltier')
-        ! use initial_salinity_type    = 401
-        ! use initial_temperature_type = 201
-        
+    CASE default
+      CALL finish(method_name, "unknown topography_type")
+    END SELECT
 
-      CASE (34)
-        ! Adjusting density front in a basin: vertical wall at basin_center_lon
-        CALL message(TRIM(method_name), 'Initialization of testcases (34)')
-        CALL message(TRIM(method_name),' - here: Adjusting density front in a basin with vertical wall')
-        ! use initial_temperature_type = 202
-        
-        
-      CASE (32) !from Sergy Danilov
-        CALL message(TRIM(method_name), 'Simple Initialization of testcases (32)')
-        CALL message(TRIM(method_name), ' - here: Danilovs Munk gyre flow')
-        ! use initial_temperature_type = 203
-        ! use sea_surface_height_type = 202
-        
-      CASE (40)
-        ! Temperature profile depends on latitude and depth
-        ! Construct temperature profile
-        !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
-        !   for maximum tropical temperature see values above
-        CALL message(TRIM(method_name), 'Simple Initialization of testcases (40)')
-        CALL message(TRIM(method_name), ' - here: simple tropics-pol/vertical temperature profile')
-        ! use initial_temperature_type = 204
-
-
-      CASE (41)
-        ! #slo 2011-10-05#
-        !  incorrect (for n_zlev>9) old testcase 40 with z_tpol=0.0 at poles saved for reference
-        CALL message(TRIM(method_name), 'Simple Initialization of testcases (41)')
-        CALL message(TRIM(method_name), ' - here: old erroneous profile saved for reference')
-
-        
-      CASE (43)
-        ! #slo# collapsing density front with much weaker gradient than testcase 33
-        ! without temperature restoring / relaxation
-        CALL message(TRIM(method_name), 'Initialization of testcases (43)')
-        CALL message(TRIM(method_name), ' - here: Collapsing density front with weaker gradient')
-        
-        ! use initial_temperature_type = 205
-        ! use initial_salinity_type = 401
-
-      CASE (44)
-        ! Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
-        CALL message(TRIM(method_name), 'Initialization of testcases (44)')
-        CALL message(TRIM(method_name), ' - here: horizontally homogen, stable vertical profile')
-
-        ! use initial_temperature_type = 200
-        
-      CASE (45)
-        ! T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
-        CALL message(TRIM(method_name), 'Initialization of testcases (45)')
-        CALL message(TRIM(method_name), &
-          & ' - here: horizontally homogen, use tprof_var and salinity_profile_20levels vertical profiles')
-        ! use initial_temperature_type = 402
-        ! use initial_salinity_type = 402
-        
-      CASE (46,461)
-        ! T and S are horizontally and vertically homegeneous
-        ! Values are taken from namelist and used for comparison with MPIOM; default: t=16 C, s=35 psu
-        CALL message(TRIM(method_name), 'Initialization of testcases (46)')
-        CALL message(TRIM(method_name), &
-          & ' - here: horizontally and vertically homogen')
-        ! use initial_temperature_type = 200
-        ! use initial_salinity_type = 200
-
-      CASE (47)
-        ! T and S are horizontally and vertically homegeneous
-        ! include some special init - here Indonesia set to warm/salty surface
-        CALL message(TRIM(method_name), 'Initialization of testcases (47)')
-        CALL message(TRIM(method_name), &
-          & ' - here: horizontally and vertically homogen+warm/salty Indonesia')
-        
-        ! use initial_temperature_type = 206
-        ! use initial_salinity_type = 201
-
-        
-      CASE (50)
-        ! Testcase for coupled Aquaplanet:
-        !  - following APE_ATLAS Equations (2.1) - (2.5)
-        !  - use function ape_sst for initializing SST
-        !  - decrease maximum temperature vertically by z_temp_incr
-        !  - use parameter 'sst_qobs' - maximum temperature = 27, minimum polar temperature = 0 deg C
-        CALL message(TRIM(method_name), 'Initialization of testcases (50)')
-        CALL message(TRIM(method_name), ' - here: testcase for coupled aquaplanet, using sst_qobs')
-        
-        ! use initial_salinity_type = 402
-        ! use initial_temperature_type = 207
-        ! use initial_sst_type='sst1'
-
-        ! Important:
-        !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
-        !   to be consistent with the old setup
-        
-      CASE (1050)
-        ! as 50, but salinity is analytically calculated
-        CALL message(TRIM(method_name), 'Initialization of testcase (1050)')
-        CALL message(TRIM(method_name), ' - here: testcase for coupled aquaplanet, using analytic s')
-        
-        ! use initial_temperature_type = 200 top_temperature = bottom_temperature = 10
-        ! use initial_salinity_type = 202    top_salinity = 34.1, bottom_salinity = 35.0
-
-
-      CASE (52)
-        ! Testcase for coupled Aquaplanet:
-        !  - following APE_ATLAS Equations (2.1) - (2.5)
-        !  - use function ape_sst for initializing SST
-        !  - decrease maximum temperature vertically by z_temp_incr
-        !  - now warmer init to avoid growing of sea ice:
-        !    maximum temperature = 27, minimum polar temperature = 10 deg C
-        CALL message(TRIM(method_name), 'Initialization of testcases (52)')
-        CALL message(TRIM(method_name), &
-          & ' - here: testcase for coupled aquaplanet, using sst_qobs, min=10 deg C')
-
-        ! use initial_salinity_type = 402
-        ! use initial_temperature_type = 207
-        ! use initial_sst_type='sst_qobs'
-
-        ! Important:
-        !   use initial_temperature_top=27.0 initial_temperature_bottom=10.0
-        !   to be consistent with the old setup
-        
-        
-       CASE (51)
-        CALL message(TRIM(method_name), 'Simple Initialization of testcases (51)')
-        CALL message(TRIM(method_name), &
-          & ' - here: horizontally varying T with local perturbation')
-        
-        ! use initial_temperature_type = 208, top_temperature = 30.5,  bottom_temperature = 0,5
-        
-      CASE(53)
-        CALL message(TRIM(method_name), 'LOCK exchange (53)')
-        ! use initial_temperature_type = 209
-
-      CASE default
-        WRITE(0,*)'testcase',itestcase_oce
-        CALL finish(TRIM(method_name), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
-      END SELECT
-
-      ! Shallow water testcases:
-    ELSEIF( iswm_oce == 1 )THEN
-      
-      SELECT CASE (itestcase_oce)
-      
-      CASE (oce_testcase_zero)
-        
-        CALL message(TRIM(method_name), 'you have selected the "no-testcase" option')
-        
-      CASE (24)
-        
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (24)')
-        CALL message(TRIM(method_name), ' - here: h and bathy for solid body rotation (Laeuter Test)')
-        ! use topography_type = 200, topography_height_reference = 0
-        ! use sea_surface_height_type = 203
-        ! use initial_velocity_type = 201
-
-      CASE (25)
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (25)')
-        CALL message(TRIM(method_name), ' - here: h and bathy of Williamson Test 2')
-        ! use topography_type = 200, topography_height_reference = 0
-        ! use sea_surface_height_type = 204
-        ! use initial_velocity_type = 202
-
-      CASE (26)
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (26)')
-        CALL message(TRIM(method_name), ' - here: h and bathy of Williamson Test 5')
-        
-        ! use topography_type = 201 (test5_oro)
-        ! use sea_surface_height_type = 205
-        ! use initial_velocity_type = 203, initial_velocity_amplitude = 20.0
-        
-      CASE(27)!temperature ditribution
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (27)')
-
-        ! use topography_type = 200, topography_height_reference = -200
-        ! use initial_temperature_type = 210
-        
-      CASE(28)
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (28)')
-
-        ! use initial_velocity_type = 203, initial_velocity_amplitude = 20.0
-        ! use initial_temperature_type = 210
-        
-      CASE(29)!State at rest, forced by wind
-        CALL message(TRIM(method_name), 'Shallow-Water-Testcase (29)')
-
-      CASE default
-        WRITE(0,*)'testcase',itestcase_oce
-        CALL finish(TRIM(method_name), 'CHOSEN INITIALIZATION NOT SUPPORTED in SW MODE - TERMINATE')
-      END SELECT
-    ENDIF  !  iswm_oce
-
-    !---------------------------------------------------
-    DEALLOCATE(z_c )
-
-    CALL message (TRIM(method_name), 'end')
-    
-  END SUBROUTINE init_ocean_analytically
+  END SUBROUTINE init_ocean_bathymetry
   !-------------------------------------------------------------------------------
 
+  
   !-------------------------------------------------------------------------------
   SUBROUTINE init_ocean_salinity(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -865,19 +597,127 @@ CONTAINS
       CALL velocity_WilliamsonTest_2_5(patch_3d, normal_velocity, velocity_amplitude=initial_velocity_amplitude)
 
     !------------------------------
-
-    !------------------------------
      CASE default
       CALL finish(method_name, "unknown initial_velocity_type")
 
     END SELECT
 
- !   CALL dbg_print('init_ocean_salinity', ocean_salinity(:,:,:), &
- !     & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('init_ocean_velocity', normal_velocity(:,:,:), &
+      & str_module,  1, in_subset=patch_3d%p_patch_2d(1)%edges%owned)
 
   END SUBROUTINE init_ocean_velocity
   !-------------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: z_dolic
+    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: perturbation_lat, perturbation_lon
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
+    !-------------------------------------------------------------------------
+
+    IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    ! needs to be written with calls !
+    SELECT CASE (sea_surface_height_type)
+    CASE (200)
+      ! 0 height, this is the initialization value,
+      ! so no need to explicilty define this case
+      ! the whole grid is considered sea
+      ocean_height(:,:) = 0.0_wp
+
+    CASE (201)
+      ! #slo#: simple elevation between 30W and 30E (pi/3.)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            ocean_height(jc,jb) = 10.0_wp * &
+              & SIN(cell_center(jc, jb)%lon * 6.0_wp) * COS(cell_center(jc, jb)%lat * 3.0_wp)
+
+          ENDIF
+        END DO
+      END DO
+
+    CASE (202)
+      ! Add elevation perturbation at new values - 35N; 10W
+      ! not clear yet
+      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
+      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
+
+            distan=SQRT((cell_center(jc, jb)%lat - perturbation_lat * deg2rad)**2 + &
+              & (cell_center(jc, jb)%lon - perturbation_lon * deg2rad)**2)
+            !IF(distan<=15.5_wp*deg2rad) cycle
+            IF(distan < 10.0_wp * deg2rad) THEN
+              ocean_height(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
+                & + 0.3_wp * EXP(-(distan/(2.2_wp*deg2rad))**2)
+            ENDIF
+
+          ENDIF
+
+        END DO
+      END DO
+
+    CASE (203)
+      ! test_usbr_h
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          ocean_height(jc,jb)  = test_usbr_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+          ! write(*,*)'h orig, bathy_c:', cell_center(jc, jb)%lon, cell_center(jc, jb)%lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
+        END DO
+      END DO
+
+    CASE (204)
+      ! test2_h
+      CALL message(TRIM(method_name), ' h for Williamson Test 2')
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          ocean_height(jc,jb) = test2_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+        END DO
+      END DO
+
+    CASE (205)
+      ! test5_h
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          ocean_height(jc,jb) = test5_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
+        END DO
+      END DO
+
+
+    CASE default
+      CALL finish(method_name, "unknown sea_surface_height_type")
+
+    END SELECT
+
+    CALL dbg_print('init_ocean_surface_height', ocean_height, str_module,  1, &
+        & in_subset=patch_2d%cells%owned)
+
+  END SUBROUTINE init_ocean_surface_height
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   !> Initial datum for zonal velocity u, test case unsteady solid body
@@ -1530,34 +1370,24 @@ CONTAINS
         z_tpols = z_tpol
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
-            ! set maximum tropical temperature from profile above
-            !IF(n_zlev<=10)THEN
-            !  z_ttrop = tprof_var(jk)
-            !  z_tpols = MIN(z_tpols,tprof_var(jk))
-            !ELSEIF(n_zlev>10.and.n_zlev<=20)THEN
-            z_ttrop = tprof(jk)
-            z_tpols = MIN(z_tpols,tprof(jk))
-            !ENDIF
+          z_ttrop = tprof(jk)
+          z_tpols = MIN(z_tpols,tprof(jk))
 
-            IF(ABS(lat_deg)>=z_lpol)THEN
+          IF(ABS(lat_deg)>=z_lpol)THEN
 
-              ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpols
-              ocean_temperature(jc,jk,jb) = z_tpols
+             ocean_temperature(jc,jk,jb) = z_tpols
 
-            ELSEIF(ABS(lat_deg)<=z_ltrop)THEN
+          ELSEIF(ABS(lat_deg)<=z_ltrop)THEN
 
-              ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
-              ocean_temperature(jc,jk,jb) = z_ttrop
+            ocean_temperature(jc,jk,jb) = z_ttrop
 
+          ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
 
-            ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
+            z_tdiff = z_ttrop - z_tpols
+            z_tmp = 0.5_wp*pi*((ABS(lat_deg) - z_ltrop)/z_ldiff)
+            ocean_temperature(jc,jk,jb) = z_ttrop - z_tdiff * SIN(z_tmp)
 
-              z_tdiff = z_ttrop - z_tpols
-              z_tmp = 0.5_wp*pi*((ABS(lat_deg) - z_ltrop)/z_ldiff)
-              ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
-              ocean_temperature(jc,jk,jb) = z_ttrop - z_tdiff * SIN(z_tmp)
-
-            ENDIF
+          ENDIF
 
         END DO
       END DO
@@ -1768,22 +1598,9 @@ CONTAINS
 
             ocean_temperature(jc,jk,jb) = 5.0_wp
 
-            !ocean_state%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
-            !convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
-            !                      &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-            !                      &sfc_press_bar)
-            !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)
-
           ELSEIF (ABS(lat_deg) <= 20.0_wp) THEN
 
             ocean_temperature(jc,jk,jb) =  30.0_wp
-
-            ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
-            !convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
-            !                     &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-            !                     &sfc_press_bar)
-            !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
-
 
           ELSE ! IF (ABS(lat_deg) < 40.0_wp .AND. ABS(lat_deg) > 20.0_wp)THEN
 
@@ -1792,13 +1609,6 @@ CONTAINS
             ocean_temperature(jc,jk,jb) = &
               & 5.0_wp + 0.5_wp * 25.0_wp * (1.0_wp + COS(z_tmp))
 
-            ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
-            !  & + 0.5_wp*25.0_wp*(1.0_wp+COS(z_tmp))
-            !  ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)= &
-            !      convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
-            !                                                &ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-            !                                                &sfc_press_bar)
-            !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
           ENDIF
 
         END DO
@@ -1868,415 +1678,15 @@ CONTAINS
   END SUBROUTINE fill_FromVerticalArrayProfile
   !-------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------------
-!  FUNCTION tropical_polar_temperature()
-!              ! set maximum tropical temperature from profile above
-!              !IF(n_zlev<=10)THEN
-!              !  z_ttrop = tprof_var(jk)
-!              !  z_tpols = MIN(z_tpols,tprof_var(jk))
-!              !ELSEIF(n_zlev>10.and.n_zlev<=20)THEN
-!              z_ttrop = tprof(jk)
-!              z_tpols = MIN(z_tpols,tprof(jk))
-!              !ENDIF
-!
-!              IF(ABS(lat_deg)>=z_lpol)THEN
-!
-!                ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_tpols
-!                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = z_tpols
-!
-!              ELSEIF(ABS(lat_deg)<=z_ltrop)THEN
-!
-!                ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
-!                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = z_ttrop
-!
-!
-!              ELSE ! IF(ABS(lat_deg)<z_lpol .AND. ABS(lat_deg)>z_ltrop)THEN
-!
-!                z_tdiff = z_ttrop - z_tpols
-!                z_tmp = 0.5_wp*pi*((ABS(lat_deg) - z_ltrop)/z_ldiff)
-!                ! ocean_state%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*SIN(z_tmp)
-!                ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = z_ttrop - z_tdiff * SIN(z_tmp)
-!
-!              ENDIF
-!  END FUNCTION tropical_polar_temperature
-  !-------------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------------
-  SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    REAL(wp), TARGET :: ocean_height(:,:)
-
-    TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
-    TYPE(t_subset_range), POINTER :: all_cells
-
-    INTEGER :: jb, jc, je, jk
-    INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
-    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: perturbation_lat, perturbation_lon
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
-    !-------------------------------------------------------------------------
-
-    IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
-
-    patch_2d => patch_3d%p_patch_2d(1)
-    all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-
-    SELECT CASE (sea_surface_height_type)
-    CASE (200)
-      ! 0 height, this is the initialization value,
-      ! so no need to explicilty define this case
-      ! the whole grid is considered sea
-      ocean_height(:,:) = 0.0_wp
-
-    CASE (201)
-      ! #slo#: simple elevation between 30W and 30E (pi/3.)
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          IF ( patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-
-            ocean_height(jc,jb) = 10.0_wp * &
-              & SIN(cell_center(jc, jb)%lon * 6.0_wp) * COS(cell_center(jc, jb)%lat * 3.0_wp)
-
-          ENDIF
-        END DO
-      END DO
-
-    CASE (202)
-      ! Add elevation perturbation at new values - 35N; 10W
-      ! not clear yet
-      perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
-      perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-
-          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
-
-            distan=SQRT((cell_center(jc, jb)%lat - perturbation_lat * deg2rad)**2 + &
-              & (cell_center(jc, jb)%lon - perturbation_lon * deg2rad)**2)
-            !IF(distan<=15.5_wp*deg2rad) cycle
-            IF(distan < 10.0_wp * deg2rad) THEN
-              ocean_height(jc,jb) = 0.5_wp & !ocean_state%p_prog(nold(1))%h(jc,jb)&
-                & + 0.3_wp * EXP(-(distan/(2.2_wp*deg2rad))**2)
-            ENDIF
-
-          ENDIF
-
-        END DO
-      END DO
-
-    CASE (203)
-      ! test_usbr_h
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb)  = test_usbr_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-          ! write(*,*)'h orig, bathy_c:', cell_center(jc, jb)%lon, cell_center(jc, jb)%lat,ocean_state%p_prog(nold(1))%h(jc,jb)!
-        END DO
-      END DO
-
-    CASE (204)
-      ! test2_h
-      CALL message(TRIM(method_name), ' h for Williamson Test 2')
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb) = test2_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-        END DO
-      END DO
-
-    CASE (205)
-      ! test5_h
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          ocean_height(jc,jb) = test5_h( cell_center(jc, jb)%lon, cell_center(jc, jb)%lat, 0.0_wp)
-        END DO
-      END DO
-
-
-    CASE default
-      CALL finish(method_name, "unknown sea_surface_height_type")
-
-    END SELECT
-
-    CALL dbg_print('init_ocean_surface_height', ocean_height, str_module,  1, &
-        & in_subset=patch_2d%cells%owned)
-
-  END SUBROUTINE init_ocean_surface_height
-  !-------------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------------
-  SUBROUTINE init_ocean_bathymetry(patch_3d, cells_bathymetry)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    REAL(wp), TARGET  :: cells_bathymetry(:,:)
-
-    TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
-    TYPE(t_subset_range), POINTER :: all_cells
-
-    ! Local Variables
-    INTEGER :: jb, jc, je, jk
-    INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
-    REAL(wp):: lat_deg, lon_deg, z_tmp
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_bathymetry'
-    !-------------------------------------------------------------------------
-
-    IF (topography_type < 200) RETURN ! not analytic bathymetry
-
-    patch_2d => patch_3d%p_patch_2d(1)
-    all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-
-    SELECT CASE (topography_type)
-    CASE (200)
-      ! constant depth given by topography_height_reference
-      ! the whole grid is considered sea
-      patch_3d%lsm_c(:,:,:) = sea
-      patch_3d%lsm_e(:,:,:) = sea
-      cells_bathymetry(:,:) = topography_height_reference
-
-    CASE (201)
-      CALL mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
-
-    CASE default
-      CALL finish(method_name, "unknown topography_type")
-    END SELECT
-
-  END SUBROUTINE init_ocean_bathymetry
-  !-------------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------------
-  FUNCTION geo_balance_mim(patch_2d, h_e,grad_coeff, rhs_e) result(vn_e)
-    !
-    TYPE(t_patch) :: patch_2d
-    REAL(wp)      :: h_e(:,:)
-    REAL(wp)      :: grad_coeff(:,:,:)
-    REAL(wp)      :: rhs_e(:,:)!(nproma,n_zlev,patch_2D%nblks_e)
-    REAL(wp)      :: vn_e(SIZE(rhs_e,1),SIZE(rhs_e,2))
-    !
-    !LOCAL VARIABLES
-    ! INTEGER,PARAMETER :: nmax_iter= 200 ! maximum number of iterations
-    REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
-    REAL(wp) :: zimpl_prime_coeff
-    ! INTEGER  :: n_iter =0               ! number of iterations
-    REAL(wp) :: tolerance               ! (relative or absolute) tolerance
-    ! REAL(wp) :: z_residual(nmax_iter)
-    LOGICAL :: lmax_iter               ! true if reached m iterations
-    ! LOGICAL  :: lverbose = .TRUE.
-    ! INTEGER  :: jk
-    REAL(wp) :: rhstemp(nproma,patch_2d%nblks_e)
-    REAL(wp), ALLOCATABLE :: vn_e2(:,:)!(nproma,patch_2D%nblks_e)
-    ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    ! INTEGER :: rl_start_e, rl_end_e, je,jb
-    
-    !-----------------------------------------------------------------------
-    tolerance         = 1.0e-13_wp  ! solver_tolerance
-    zimpl_prime_coeff = (1.0_wp-zimpl_coeff)
-    
-    ALLOCATE (vn_e2(nproma,patch_2d%nblks_e))
-    vn_e2(:,:)   = 0.0_wp
-    rhstemp(:,:) = 0.0_wp
-    
-    
-    vn_e2(:,:) = rhs_e(:,:)
-    !rhstemp(:,:) = rhs_e(:,:)&
-    !  & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,patch_2D,jk,zimpl_coeff,grad_coeff,h_e)
-    
-    IF (MAXVAL (ABS (rhstemp (:,:))) <= tolerance) THEN
-      vn_e(:,:) = vn_e2(:,:)
-      PRINT*, "Inv_geo balance GMRES solved by initial guess!",&
-        & MAXVAL(ABS(rhstemp(:,:))), MAXVAL(ABS(rhs_e(:,:)))
-    ELSE
-      vn_e2 = 0.0_wp!rhs_e(:,jk,:)
-      
-      !  rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),patch_2D, jk,&
-      !    &            zimpl_coeff,grad_coeff, h_e)
-      ! WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
-      !&jk, maxval(rhstemp),minval(rhstemp)
-      
-      IF (MAXVAL (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .TRUE.
-      !          IF (lverbose) THEN
-      !            IF (lmax_iter) THEN
-      !              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
-      !              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-      !              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
-      !            ELSE
-      !              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
-      !              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-      !              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
-      !            ENDIF
-      !        ENDIF
-      vn_e(:,:) = vn_e2(:,:)
-    END IF
-    
-    ! DO jk=1, 1
-    !   DO jb = i_startblk_e, i_endblk_e
-    !     CALL get_indices_e(patch_2D, jb,&
-    !                      & i_startblk_e, i_endblk_e,&
-    !                      & i_startidx_e, i_endidx_e,&
-    !                      & rl_start_e, rl_end_e)
-    !     DO je =  i_startidx_e, i_endidx_e
-    !       IF(rhs_e(je,jk,jb)/=0.0_wp)THEN
-    !       write(*,*)'RHS:solution:', jk,je,jb,rhs_e(je,jk,jb), inv_flip_flop_e(je,jk,jb)
-    !       ENDIF
-    !     END DO
-    !   END DO
-    ! END DO
-    
-    
-    DEALLOCATE (vn_e2)
-    
-  END FUNCTION geo_balance_mim
-  !--------------------------------------------------------------------
-
-
-  !--------------------------------------------------------------------
-  FUNCTION lhs_geo_balance_mim( x, patch_2d, patch_3d, lev,p_coeff,grad_coeff, h_e) result(llhs)
-    TYPE(t_patch),TARGET,INTENT(in) :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
-    INTEGER :: lev
-    REAL(wp),INTENT(inout)          :: x(nproma,patch_2d%nblks_e)!(:,:)
-    REAL(wp),INTENT(in)             :: p_coeff
-    REAL(wp), INTENT(in)            :: grad_coeff(:,:,:)
-    REAL(wp),OPTIONAL,INTENT(in)    :: h_e(nproma,patch_2d%nblks_e)!(SIZE(x,1), SIZE(x,2))!(:,:)
-    REAL(wp)                        :: llhs(nproma,patch_2d%nblks_e)!(SIZE(x,1), SIZE(x,2))
-    
-    !locl variables
-    INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: jc,jb
-    REAL(wp) :: z_x_e(nproma,patch_2d%nblks_e)
-    REAL(wp) :: z_x_vort(nproma,1,patch_2d%nblks_v)
-    REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,patch_2D%nblks_e)
-    !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,patch_2D%nblks_e)
-    REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,patch_2D%nblks_e)
-    REAL(wp) :: z_kin(nproma,1,patch_2d%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,patch_2d%alloc_cell_blocks)
-    !-----------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
-    !-----------------------------------------------------------------------
-    all_cells => patch_2d%cells%ALL
-    
-    z_x_vort(:,:,:)= 0.0_wp
-    z_x_out(:,:,:) = 0.0_wp
-    z_x_e(:,:)   = x(:,:)
-    WRITE(*,*)'warning: edge2cell mapping missing'
-    STOP
-    !       CALL map_edges2cell_3D( patch_2D, &
-    !                             & z_x_e,   &
-    !                             &  z_pv_cc,&
-    !                             & p_coeff, &
-    !                             & level=1)
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-      DO jc =  start_cell_index, end_cell_index
-        z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,jb)%x,z_pv_cc(jc,jb)%x)
-      END DO
-    END DO
-    
-    CALL grad_fd_norm_oce_3d( z_kin,  &
-      & patch_3d,  &
-      & grad_coeff,&
-      & z_grad)
-    
-    !   z_x_out(:,:,:) = dual_flip_flop(patch_2D, z_x_e, z_x_e, z_x_vort, h_e,&
-    !                                  &opt_slev=1, opt_elev=1)
-    
-    z_x_out=z_x_out!+z_grad
-    llhs(1:nproma,1:patch_2d%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:patch_2d%nblks_e)
-    !write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:))
-    
-  END FUNCTION lhs_geo_balance_mim
-  !--------------------------------------------------------------------
-
-  
-  !--------------------------------------------------------------------
-  !--Below are functions from to implement tests from Williamson shallow-water tests
   !-------------------------------------------------------------------------
+  ! Initial datum for height, test case 2 of Williamson et al.(1992).
   !
-  ! !F*UNCTION INTERFACE:
-  FUNCTION test0_h( point_lon, point_lat, p_t) result( p_hh)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for height, test case 0 (conical mountain). \\
-    ! Not included in Williamson et al. (1992)
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-    !
-    ! !DEFINED PARAMETERS:
-    REAL(wp), PARAMETER :: h0=2000._wp  ! basic height level
-    REAL(wp), PARAMETER :: h1=1000._wp  ! max height of conical mountain
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_hh      ! geopotential height
-    
-    ! !LOCAL VARIABLES:
-    REAL(wp)             :: z_r1      ! distance point to center of con. mount.
-    REAL(wp)             :: z_r2      ! radius of conical mountain
-    REAL(wp)             :: z_lon2    ! longitude of center of conical mount.
-    REAL(wp)             :: z_lat2    ! latitude of center of conical mount.
-    REAL(wp)             :: z_dlon    ! longitudinal distance
-    REAL(wp)             :: z_dlat    ! latitudinal distance
-    
-    ! center and radius of conical mountain
-    
-    z_lon2  = 1.5_wp * pi
-    z_lat2  = pi / 6._wp
-    z_r2    = pi / 9._wp
-    
-    ! distance of point to center (not great arc distance!)
-    
-    z_dlon = point_lon - z_lon2
-    z_dlat = point_lat - z_lat2
-    
-    z_dlon = z_dlon * z_dlon
-    z_dlat = z_dlat * z_dlat
-    
-    z_r1 = z_dlon + z_dlat
-    z_r1 = MIN( z_r2 * z_r2, z_r1)
-    z_r1 = SQRT(z_r1)
-    
-    ! geopotential height
-    
-    IF( z_r1 < z_r2) THEN              ! point within radius
-      
-      p_hh = 1._wp - z_r1 / z_r2
-      p_hh = h0 + h1 * p_hh
-      
-    ELSE                               ! point outside of radius
-      
-      p_hh = h0
-      
-    ENDIF
-    
-  END FUNCTION test0_h
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
+  ! !REVISION HISTORY:
+  ! Developed  by L.Bonaventura  (2002-5).
+  ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
+  !
   FUNCTION test2_h( point_lon, point_lat, p_t) result(p_hh)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for height, test case 2 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-    !
-    ! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER :: h0 = 2.94e4_wp * rgrav  ! maximum height
     
     ! !INPUT PARAMETERS:
@@ -2310,43 +1720,14 @@ CONTAINS
   END FUNCTION test2_h
   !-------------------------------------------------------------------------
   
-
-  !-------------------------------------------------------------------------
-  FUNCTION test2_vort( point_lon, point_lat, p_t) result(p_vort)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for relative vorticity, test case 2 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: p_vort    ! relative vorticity
-
-    p_vort = SIN(point_lat)* COS(aleph)
-    p_vort = p_vort - COS(point_lon) * COS(point_lat) * SIN(aleph)
-    p_vort = 2._wp * u0 * sphere_radius * p_vort
-    
-  END FUNCTION test2_vort
-  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+  ! Initial datum for height, test case 5 of Williamson et al.(1992).
+  !
+  ! !REVISION HISTORY:
+  ! Developed  by L.Bonaventura  (2002-5).
+  ! Revised to programming guide by Th.Heinze, DWD, (2007-01)
   FUNCTION test5_h( point_lon, point_lat, p_t) result(p_hh)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for height, test case 5 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Revised to programming guide by Th.Heinze, DWD, (2007-01)
-    !
-    ! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER :: h0    = 5960._wp  ! maximum height
     REAL(wp), PARAMETER :: uzero = 20._wp    ! maximum velocity
     
@@ -2470,335 +1851,6 @@ CONTAINS
   
 
   !-----------------------------------------------------------------------------------
-  FUNCTION test6_h(point_lon, point_lat, p_t) result(p_hh)
-    !
-    ! !DESCRIPTION:
-    !
-    ! Initial datum for geopotential h, test case 6 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-02)
-    
-    ! !DEFINED PARAMETERS:
-    !    REAL (wp), PARAMETER  :: h0 = 8000._wp, re_omg_kk = 50._wp
-    REAL (wp), PARAMETER :: h0 = 8000._wp, omg_kk = 7.848e-6_wp !(sphere_radius * omg_kk is not 50.)
-    ! pripodas
-    INTEGER,   PARAMETER :: r = 4
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp) , INTENT(in) :: point_lon, point_lat, p_t
-    
-    ! !RETURN VALUE:
-    REAL(wp)              :: p_hh
-    
-    ! !LOCAL VARIABLES:
-    ! REAL(wp)              :: z_omg, z_phia, z_phib, z_phic, z_r_omega
-    REAL(wp)              :: z_phia, z_phib, z_phic, z_r_omega , z_re_omg_kk
-    REAL(wp)              :: z_cosfi, z_cosfi2, z_cosfir, z_cosfir2, z_cosfir2m2
-    REAL(wp)              :: z_cosdl, z_cosd2l, z_dlon, z_rr1r2
-    REAL(wp)              :: z_val
-    
-    !INTEGER               :: i_r1, i_r1r1, i_r1r2, i_r2, j
-    INTEGER :: j
-    REAL(wp)              :: z_r, z_r1, z_r1r1, z_r1r2, z_r2
-    !-----------------------------------------------------------------------
-    
-    z_r_omega  = sphere_radius * grid_angular_velocity
-    !z_omg     = re_omg_kk / sphere_radius
-    z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
-    !    i_r1      = r + 1
-    !    i_r2      = r + 2
-    !    i_r1r1    = i_r1 * i_r1
-    !    i_r1r2    = i_r1 * i_r2
-    !    z_rr1r2   = 1._wp / i_r1r2
-    
-    z_r       = REAL(r,wp)
-    z_r1      = z_r + 1._wp
-    z_r2      = z_r + 2._wp
-    z_r1r1    = z_r1 * z_r1
-    z_r1r2    = z_r1 * z_r2
-    z_rr1r2   = 1._wp / z_r1r2
-    
-    z_dlon    = omg_kk * z_r * (3._wp+z_r) - 2.0_wp * grid_angular_velocity
-    z_dlon    = z_dlon * z_rr1r2 * p_t
-    z_dlon    = (point_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)
-    z_cosd2l  = COS(2._wp * z_dlon)
-    
-    z_cosfi   = COS(point_lat)
-    z_cosfi2  = z_cosfi  * z_cosfi    ! cos^2(lat)
-    
-    z_cosfir  = z_cosfi
-
-    DO j= 2, r-1
-      z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
-    ENDDO
-
-    z_cosfir2m2 = z_cosfir
-    z_cosfir2m2 = z_cosfir2m2 * z_cosfir2m2   ! cos^{2*r1-2}(lat)
-    
-    z_cosfir  = z_cosfir * z_cosfi    ! cos^{r1}(lat)
-    z_cosfir2 = z_cosfir * z_cosfir   ! cos^{2*r1}(lat)
-    
-    z_val  = -.25_wp + z_r
-    z_val  = 2._wp * z_val * z_val - 2.125_wp   ! 2r^2 - r -2
-    
-    z_phia = z_val * z_cosfi2
-    
-    z_val  = 2._wp * REAL(r,wp) * z_r
-    
-    z_phia = z_phia - z_val
-    z_val  = z_cosfi2 * z_cosfi2 * z_r1
-    z_phia = z_phia + z_val
-    
-    z_phia = .25_wp * z_re_omg_kk * z_re_omg_kk * z_cosfir2m2 * z_phia
-    z_val  = .5_wp * z_re_omg_kk * (2._wp * z_r_omega + z_re_omg_kk) * z_cosfi2
-    z_phia = z_val + z_phia
-    
-    z_phib = -1._wp * z_cosfi2 * z_r1r1 + z_r1r1 + 1._wp
-    z_phib = z_re_omg_kk * (z_r_omega + z_re_omg_kk) * z_cosfir * z_phib
-    z_phib = 2._wp * z_rr1r2 * z_phib
-    
-    z_phic = z_r1 * z_cosfi2 - 1._wp * z_r2
-    z_phic = .25_wp * z_re_omg_kk * z_re_omg_kk * z_cosfir2 * z_phic
-    
-    p_hh   = (z_phia + z_phib * z_cosdl + z_phic * z_cosd2l) * rgrav
-    p_hh   = h0 + p_hh
-    
-  END FUNCTION test6_h
-  !-----------------------------------------------------------------------------------
-  
-
-  !-----------------------------------------------------------------------------------
-  FUNCTION test6_u( point_lon, point_lat, p_t) result(p_uu)
-    !
-    ! !DESCRIPTION:
-    !
-    ! Initial datum for zonal velocity u, test case 6 of Williamson et al.(1992) .
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-02)
-    
-    ! !DEFINED PARAMETERS:
-    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER ::  omg_kk = 7.848e-6_wp !(sphere_radius * omg_kk is not 50.)
-    ! pripodas
-    INTEGER,   PARAMETER :: r = 4
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp) , INTENT(in) :: point_lon, point_lat, p_t
-    
-    ! !RETURN VALUE:
-    REAL(wp)              :: p_uu
-    
-    ! !LOCAL VARIABLES:
-    !REAL(wp)              :: z_omg, z_r_omega
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
-    REAL(wp)              :: z_cosfi, z_cosfi2, z_sinfi, z_sinfi2
-    REAL(wp)              :: z_cosfir, z_cosfirm1
-    REAL(wp)              :: z_cosdl, z_dlon, z_rr1r2
-    REAL(wp)              :: z_val
-    
-    !    INTEGER               :: i_r1, i_r1r2, i_r2, j
-    INTEGER :: j
-    REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2    !pripodas, better transform to real values
-    !-----------------------------------------------------------------------
-
-    z_r_omega  = sphere_radius * grid_angular_velocity
-    !z_omg     = re_omg_kk / sphere_radius
-    z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
-    
-    
-    !    i_r1      = r + 1
-    !    i_r2      = r + 2
-    !    i_r1r2    = i_r1 * i_r2
-    !    z_rr1r2   = 1._wp / i_r1r2
-    
-    z_r       = REAL(r, wp)
-    z_r1      = z_r + 1._wp
-    z_r2      = z_r + 2._wp
-    z_r1r2    = z_r1 * z_r2
-    z_rr1r2   = 1._wp / z_r1r2
-    
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
-    z_dlon    = z_dlon * z_rr1r2 * p_t
-    z_dlon    = (point_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)
-    
-    z_sinfi   = SIN(point_lat)
-    z_sinfi2  = z_sinfi * z_sinfi
-    
-    z_cosfi   = COS(point_lat)
-    z_cosfi2  = z_cosfi * z_cosfi
-    
-    z_cosfir  = z_cosfi
-    DO j= 2, r-1
-      z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
-    ENDDO
-    z_cosfirm1 = z_cosfir
-    
-    z_val      = z_r * z_sinfi2 - z_cosfi2
-    z_val      = z_cosfirm1 * z_val * z_cosdl
-    z_val      = z_cosfi + z_val
-    p_uu       = z_re_omg_kk * z_val
-    
-  END FUNCTION test6_u
-  !-----------------------------------------------------------------------------------
-  
-
-  !-----------------------------------------------------------------------------------
-  FUNCTION test6_v( point_lon, point_lat, p_t) result(p_vv)
-    !
-    ! !DESCRIPTION:
-    !
-    ! Initial datum for meridional velocity v, test case 6 of Williamson
-    ! et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-02)
-    
-    ! !DEFINED PARAMETERS:
-    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER ::  omg_kk = 7.848e-6_wp !(sphere_radius * omg_kk is not 50.)
-    ! pripodas
-    INTEGER,   PARAMETER :: r = 4
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp) , INTENT(in) :: point_lon, point_lat, p_t
-    
-    ! !RETURN VALUE:
-    REAL(wp)              :: p_vv
-    
-    ! !LOCAL VARIABLES:
-    !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
-    REAL(wp)              :: z_cosfi, z_sinfi
-    REAL(wp)              :: z_cosfir, z_cosfirm1
-    REAL(wp)              :: z_sindl, z_dlon, z_rr1r2
-    REAL(wp)              :: z_val
-    
-    !    INTEGER               :: i_r1, i_r1r2, i_r2, j
-    INTEGER :: j
-    REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2    !pripodas, better transform to real values
-    !-----------------------------------------------------------------------
-    
-    z_r_omega = sphere_radius * grid_angular_velocity
-    !z_omg     = re_omg_kk / sphere_radius
-    z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
-    !    i_r1      = r + 1
-    !    i_r2      = r + 2
-    !    i_r1r2    = i_r1 * i_r2
-    !    z_rr1r2   = 1._wp / i_r1r2
-    
-    z_r       = REAL(r,wp)
-    z_r1      = z_r + 1._wp
-    z_r2      = z_r + 2._wp
-    z_r1r2    = z_r1 * z_r2
-    z_rr1r2   = 1._wp / z_r1r2
-    
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
-    z_dlon    = z_dlon * z_rr1r2 * p_t
-    z_dlon    = (point_lon - z_dlon) * z_r
-    z_sindl   = SIN(z_dlon)
-    
-    z_sinfi   = SIN(point_lat)
-    
-    z_cosfi   = COS(point_lat)
-    
-    z_cosfir  = z_cosfi
-    DO j= 2, r-1
-      z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
-    ENDDO
-    z_cosfirm1 = z_cosfir
-    
-    z_val      = z_cosfirm1 * z_sinfi * z_sindl
-    p_vv       = -1._wp * z_re_omg_kk * z_r * z_val
-    
-  END FUNCTION test6_v
-  !-----------------------------------------------------------------------------------
-  
-
-  !-----------------------------------------------------------------------------------
-  FUNCTION test6_vort( point_lon, point_lat, p_t) result(p_vt)
-    !
-    ! !DESCRIPTION:
-    !
-    ! Initial datum for relative vorticity, test case 6 of Williamson et al.(1992).
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-02):
-    ! - corrected vorticity
-    
-    ! !DEFINED PARAMETERS:
-    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
-    REAL (wp), PARAMETER ::  omg_kk = 7.848e-6_wp !(sphere_radius * omg_kk is not 50.)
-    ! pripodas
-    INTEGER,   PARAMETER :: r = 4
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp) , INTENT(in) :: point_lon, point_lat, p_t
-    
-    ! !RETURN VALUE:
-    REAL(wp)              :: p_vt
-    
-    ! !LOCAL VARIABLES:
-    !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
-    REAL(wp)              :: z_cosfi, z_sinfi
-    REAL(wp)              :: z_cosfir
-    REAL(wp)              :: z_cosdl, z_dlon, z_rr1r2
-    REAL(wp)              :: z_val
-    
-    !INTEGER               :: i_r1, i_r1r2, i_r2, j
-    INTEGER :: j
-    REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2   !pripodas, better transform to real values
-    !-----------------------------------------------------------------------
-    
-    z_r_omega = sphere_radius * grid_angular_velocity
-    !z_omg     = re_omg_kk / sphere_radius
-    z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
-    ! i_r1      = r + 1
-    ! i_r2      = r + 2
-    ! i_r1r2    = i_r1 * i_r2
-    ! z_rr1r2   = 1._wp / i_r1r2
-    
-    z_r       = REAL(r,wp)
-    z_r1      = z_r + 1._wp
-    z_r2      = z_r + 2._wp
-    z_r1r2    = z_r1 * z_r2
-    z_rr1r2   = 1._wp / z_r1r2
-    
-    z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * grid_angular_velocity
-    z_dlon    = z_dlon * z_rr1r2 * p_t
-    z_dlon    = (point_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)
-    
-    z_sinfi   = SIN(point_lat)
-    
-    z_cosfi   = COS(point_lat)
-    
-    z_cosfir  = z_cosfi
-    DO j= 2, r
-      z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
-    ENDDO
-    
-    z_val     = z_cosfir * z_r1 * z_r2 * z_cosdl
-    z_val     = 2._wp - z_val
-    p_vt      = omg_kk * z_sinfi * z_val
-    
-  END FUNCTION test6_vort
-  !-----------------------------------------------------------------------------------
-  
-
-  !-----------------------------------------------------------------------------------
   FUNCTION test_usbr_h( point_lon, point_lat, p_t) result(p_hh)
     !
     ! !DESCRIPTION:
@@ -2855,140 +1907,20 @@ CONTAINS
     
 
   !-------------------------------------------------------------------------
-  FUNCTION test_usbr_oro(point_lon,point_lat,p_t) result(point_height)
-    !
-    ! !DESCRIPTION:
-    ! Initial datum for orography, test case unsteady solid body rotation
-    ! of L\"auter et al.(2007).
-    !
-    ! !REVISION HISTORY:
-    ! Developed by Th.Heinze, DWD, (2007-03)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    
-    ! !RETURN VALUE:
-    REAL(wp)             :: point_height      ! orography
-    
-    ! !LOCAL VARIABLES:
-    REAL(wp)             :: z_fact    ! factor
-    !-----------------------------------------------------------------------
-
-    ! calculate factor
-    
-    z_fact = sphere_radius * grid_angular_velocity * SIN(point_lat)
-    z_fact = z_fact * z_fact
-    
-    ! height of orography
-    
-    point_height = .5_wp * z_fact * rgrav
-    
-  END FUNCTION test_usbr_oro
-  !-----------------------------------------------------------------------------------
-  
-  
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE rotate(point_lon, point_lat, p_alpha, p_rotlon, p_rotlat)
-    !
-    ! !DESCRIPTION:
-    ! This subroutine computes the rotated coordinates p\_rotlon, p\_rotlat
-    ! for a roatation by angle p\_alpha, given the coordinates p\_lon and p\_lat.
-    !
-    ! !REVISION HISTORY:
-    ! Developed originally by R.Jakob for NCAR shallow water model.
-    ! Adapted to ICON code by L.Bonaventura (2002-5).
-    ! Adapted to ICON programming guide by Th.Heinze, DWD, (2006-12-12)
-    !
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in)  :: point_lon     ! ORIGINAL LONGITUDE
-    REAL(wp), INTENT(in)  :: point_lat     ! ORIGINAL LATITUDE
-    REAL(wp), INTENT(in)  :: p_alpha   ! ROTATION ANGLE
-    
-    ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(inout) :: p_rotlon  ! ROTATED LONGITUDE
-    REAL(wp), INTENT(inout) :: p_rotlat  ! ROTATED LATITUDE
-    
-    ! !LOCAL VARIABLES:
-    REAL(wp)              :: z_test    ! checking value
-    !-----------------------------------------------------------------------
-
-    IF (p_alpha == 0.0_wp) THEN       !        NO ROTATION
-      
-      p_rotlon = point_lon
-      p_rotlat = point_lat
-      
-    ELSE                              !        ROTATION BY ANGLE p_alpha
-      
-      !     ROTATED LATITUDE
-      
-      z_test = SIN(point_lat)*COS(p_alpha)- COS(point_lat)*COS(point_lon)*SIN(p_alpha)
-      
-      IF (z_test > 1.0_wp) THEN
-        p_rotlat = pi_2
-      ELSEIF (z_test < -1.0_wp) THEN
-        p_rotlat = -1.0_wp * pi_2
-      ELSE
-        p_rotlat = ASIN(z_test)
-      ENDIF
-      
-      !     ROTATED LONGITUDE
-      
-      z_test = COS(p_rotlat)
-      
-      IF (z_test == 0.0_wp) THEN
-        p_rotlon = 0.0_wp
-      ELSE
-        z_test = SIN(point_lon)*COS(point_lat)/z_test
-        IF (z_test > 1.0_wp) THEN
-          p_rotlon = pi_2
-        ELSEIF (z_test < -1.0_wp) THEN
-          p_rotlon = -1.0_wp * pi_2
-        ELSE
-          p_rotlon = ASIN(z_test)
-        ENDIF
-      ENDIF
-      
-      !        ADJUST FOR CORRECT BRANCH OF INVERSE SINE
-      
-      z_test = COS(p_alpha)*COS(point_lon)*COS(point_lat) + SIN(p_alpha)*SIN(point_lat)
-      
-      IF (z_test < 0.0_wp) THEN
-        p_rotlon = pi - p_rotlon
-      ENDIF
-      
-    ENDIF
-    
-  END SUBROUTINE rotate
-  !-------------------------------------------------------------------------
-  
-
-  !-------------------------------------------------------------------------
   !
-  ! !IROUTINE:  geostr_balance
+  ! Performs  numerical integration between -$\frac{\pi}{2}$ and $\frac{\pi}{2}$
+  ! to compute geostrophically balanced initial state used
+  ! in test 3.
   !
-  ! !FUNCTION INTERFACE:
-  FUNCTION geostr_balance( point_lat, func)  result(p_hh)
-    !
-    ! !DESCRIPTION:
-    ! Performs  numerical integration between -$\frac{\pi}{2}$ and $\frac{\pi}{2}$
-    ! to compute geostrophically balanced initial state used
-    ! in test 3.
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-22):
-    ! - introduced INTERFACE uu (got an error message with g95 compiler,
-    !   scanned the code, this seems to be the correct way, but might be wrong)
-    ! Modified by Th.Heinze, DWD, (2006-12-12):
-    ! - renamed it to geostr_balance
-    !
-    ! !REMARKS:
-    ! was htmp2 in previous code
+  ! !REVISION HISTORY:
+  ! Developed  by L.Bonaventura  (2002-5).
+  ! Modified by Th.Heinze, DWD, (2006-11-22):
+  ! - introduced INTERFACE uu (got an error message with g95 compiler,
+  !   scanned the code, this seems to be the correct way, but might be wrong)
+  ! Modified by Th.Heinze, DWD, (2006-12-12):
+  ! - renamed it to geostrophic_balance
+  FUNCTION geostrophic_balance( point_lat, func)  result(p_hh)
     
-    ! !INTERFACE:
     INTERFACE                        ! selected function
       
       FUNCTION func(p_t) result(p_vv)
@@ -3040,136 +1972,24 @@ CONTAINS
       
     ENDDO
     
-  END FUNCTION geostr_balance
+  END FUNCTION geostrophic_balance
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  FUNCTION test11_h(lon,lat) result(hh)
     
-    IMPLICIT NONE
-    REAL(wp) , INTENT(in):: lon,lat
-    REAL(wp) :: hh, hdach, alpha, beta, phi2
-    REAL(wp)             :: z_rotlon  ! rotated longitude
-    REAL(wp)             :: z_rotlat  ! rotated latitude
-    
-    ! rotate
-    CALL rotate( lon, lat, aleph, z_rotlon, z_rotlat)
-    ! calculate height
-    hh = geostr_balance11( z_rotlat, test11_u2)
-    
-    
-    hdach = 120._wp
-    alpha = 1._wp/3._wp
-    beta  = 1._wp/15._wp
-    phi2  = pi/4._wp
-    hh    = hh + hdach*COS(lat)*EXP(-((lon)/alpha)**2)*EXP(-((phi2-lat)/beta)**2)
-    
-  END FUNCTION test11_h
-  !-----------------------------------------------------------------------------------
-  
   
   !-----------------------------------------------------------------------------------
-  FUNCTION test11_u(lat) result(uu)
+  ! Performs  numerical integration between -$\frac{\pi}{2}$ and $\frac{\pi}{2}$
+  ! to compute geostrophically balanced initial state used
+  ! in test 3.
+  !
+  ! !REVISION HISTORY:
+  ! Developed  by L.Bonaventura  (2002-5).
+  ! Modified by Th.Heinze, DWD, (2006-11-22):
+  ! - introduced INTERFACE uu (got an error message with g95 compiler,
+  !   scanned the code, this seems to be the correct way, but might be wrong)
+  ! Modified by F. Rauser, MPI (2009,10) for testcase 11 galewsky
+  !
+  FUNCTION geostrophic_balance_11( phi, func)  result(p_hh)
     
-    IMPLICIT NONE
-    REAL(wp) , INTENT(in):: lat
-    REAL(wp) ::  uu, d
-    REAL(wp) ::  phi0, phi1, umax, en
-    
-    phi0=pi/7._wp
-    phi1=pi/2._wp - phi0
-    en=EXP(-4._wp/(phi0-phi1)**2)
-    umax=80._wp
-    
-    d=.1_wp
-    
-    IF ((lat.GT.phi0).AND.(lat.LT.phi1))THEN
-      uu=umax/en*EXP(1._wp/(lat-phi0)/(lat-phi1))
-      IF (uu.LT. 0.001_wp) THEN
-        uu  = 0.0_wp
-      END IF
-      !         print*, "assigning u values", uu
-    ELSE
-      uu=0._wp
-    ENDIF
-    
-    !    1451 !     For jet on southern hemisphere additionally:
-    !    1452 ! if ((lat.lt.-phi0).and.(lat.gt.-phi1)) then
-    !    1453 ! uu=+umax/en*exp(1._wp/(lat+phi0)/(lat+phi1))!!! For volume tests
-    !    1454 ! ! uu=uu-umax/en*exp(1._wp/(lat+phi0)/(lat+phi1))!!! For Galewsky tests
-    !    1455 ! endif
-    
-  END FUNCTION test11_u
-  !-----------------------------------------------------------------------------------
-  
-  !-----------------------------------------------------------------------------------
-  FUNCTION test11_u2(lat) result(uu)
-    
-    IMPLICIT NONE
-    REAL(wp) , INTENT(in):: lat
-    REAL(wp) ::  uu, d
-    REAL(wp) ::  phi0, phi1, umax, en
-    
-    phi0=pi/7._wp
-    phi1=pi/2._wp - phi0
-    en=EXP(-4._wp/(phi0-phi1)**2)
-    umax=80._wp
-    
-    d=.1_wp
-    
-    IF ((lat.GT.phi0).AND.(lat.LT.phi1))THEN
-      uu=umax/en*EXP(1._wp/(lat-phi0)/(lat-phi1))
-      IF (uu.LT. 0.001_wp) THEN
-        uu  = 0.0_wp
-      END IF
-      !         print*, "assigning u values", uu
-    ELSE
-      uu=0._wp
-    ENDIF
-    
-    !     For jet on southern hemisphere additionally:
-    ! if ((lat.lt.-phi0).and.(lat.gt.-phi1)) then
-    ! uu=+umax/en*exp(1._wp/(lat+phi0)/(lat+phi1))!!! For volume tests
-    ! ! uu=uu-umax/en*exp(1._wp/(lat+phi0)/(lat+phi1))!!! For Galewsky tests
-    ! endif
-    
-  END FUNCTION test11_u2
-  
-  FUNCTION test11_v(lon,lat) result(vv)
-    
-    IMPLICIT NONE
-    REAL(wp) , INTENT(in):: lon,lat
-    REAL(wp) ::  vv
-    
-    vv = lat
-    vv = lon
-    vv = 0.0_wp
-    
-  END FUNCTION test11_v
-  !-----------------------------------------------------------------------------------
-  
-  
-  !-----------------------------------------------------------------------------------
-  FUNCTION geostr_balance11( phi, func)  result(p_hh)
-    
-    ! !DESCRIPTION:
-    ! Performs  numerical integration between -$\frac{\pi}{2}$ and $\frac{\pi}{2}$
-    ! to compute geostrophically balanced initial state used
-    ! in test 3.
-    !
-    ! !REVISION HISTORY:
-    ! Developed  by L.Bonaventura  (2002-5).
-    ! Modified by Th.Heinze, DWD, (2006-11-22):
-    ! - introduced INTERFACE uu (got an error message with g95 compiler,
-    !   scanned the code, this seems to be the correct way, but might be wrong)
-    ! Modified by Th.Heinze, DWD, (2006-12-12):
-    ! - renamed it to geostr_balance
-    ! Modified by F. Rauser, MPI (2009,10) for testcase 11 galewsky
-    !
-    ! !REMARKS:
-    ! was htmp2 in previous code
-    
-    ! !INTERFACE:
     INTERFACE                        ! selected function
       
       FUNCTION func(p_t) result(p_vv)
@@ -3222,7 +2042,7 @@ CONTAINS
     p_hh = 10000._wp - p_hh
     !     print*, "phh", INT(360*phi/pi), INT(p_hh)
     
-  END FUNCTION geostr_balance11
+  END FUNCTION geostrophic_balance_11
   !-----------------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------------
