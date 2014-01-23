@@ -57,7 +57,6 @@ MODULE mo_util_phys
   PRIVATE
 
   PUBLIC :: nwp_dyn_gust
-  PUBLIC :: nwp_dyn_gust1
   PUBLIC :: virtual_temp
   PUBLIC :: vap_pres
   PUBLIC :: rel_hum
@@ -67,8 +66,6 @@ MODULE mo_util_phys
 
   CHARACTER(len=*), PARAMETER :: version = &
     &  '$Id$'
-
-  REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
 
 CONTAINS
 
@@ -82,44 +79,23 @@ CONTAINS
   !! @par Revision History
   !! Developed by Helmut Frank, DWD (2013-03-13)
   !!
+  ELEMENTAL FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
 
-  FUNCTION nwp_dyn_gust( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
+    REAL(wp), INTENT(IN) :: u_10m, &    ! zonal wind component at 10 m above ground [m/s]
+      &                     v_10m, &    ! meridional wind component at 10 m above ground [m/s]
+      &                     tcm  , &    ! transfer coefficient for momentum at surface
+      &                     u1   , &    ! zonal wind at lowest model layer above ground [m/s]
+      &                     v1          ! meridional wind at lowest model layer above ground [m/s]
+    REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
-    REAL(KIND=wp), INTENT(IN) :: u_10m(:), &    ! zonal wind component at 10 m above ground [m/s]
-      &                          v_10m(:), &    ! meridional wind component at 10 m above ground [m/s]
-      &                          tcm(:)  , &    ! transfer coefficient for momentum at surface
-      &                          u1(:)   , &    ! zonal wind at lowest model layer above ground [m/s]
-      &                          v1(:)          ! meridional wind at lowest model layer above ground [m/s]
-    REAL(KIND=wp) :: vgust_dyn(SIZE(u_10m))     ! dynamic gust at 10 m above ground [m/s]
-
-    REAL(KIND=wp) :: ff10m(SIZE(u_10m)),  &
-                     ustar(SIZE(u_10m))
-!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
-
-    ff10m(:) = SQRT( u_10m(:)**2 + v_10m(:)**2)
-    ustar(:) = SQRT( MAX( tcm(:), 5.e-4_wp) * ( u1(:)**2 + v1(:)**2) )
-    vgust_dyn(:) = ff10m(:) + gust_factor*ustar(:)
-
-  END FUNCTION nwp_dyn_gust
-
-
-  FUNCTION nwp_dyn_gust1( u_10m, v_10m, tcm, u1, v1) RESULT( vgust_dyn)
-
-    REAL(KIND=wp), INTENT(IN) :: u_10m, &    ! zonal wind component at 10 m above ground [m/s]
-      &                          v_10m, &    ! meridional wind component at 10 m above ground [m/s]
-      &                          tcm  , &    ! transfer coefficient for momentum at surface
-      &                          u1   , &    ! zonal wind at lowest model layer above ground [m/s]
-      &                          v1          ! meridional wind at lowest model layer above ground [m/s]
-    REAL(KIND=wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
-
-    REAL(KIND=wp) :: ff10m, ustar
-!   REAL(KIND=wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
+    REAL(wp) :: ff10m, ustar
+    REAL(wp), PARAMETER :: gust_factor = 3.0_wp * 2.4_wp
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
     ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
     vgust_dyn = ff10m + gust_factor*ustar
 
-  END FUNCTION nwp_dyn_gust1
+  END FUNCTION nwp_dyn_gust
 
 
 

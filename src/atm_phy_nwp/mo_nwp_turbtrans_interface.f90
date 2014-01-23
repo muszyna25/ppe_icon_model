@@ -68,7 +68,7 @@ MODULE mo_nwp_turbtrans_interface
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
-  USE mo_util_phys,            ONLY: nwp_dyn_gust, nwp_dyn_gust1
+  USE mo_util_phys,            ONLY: nwp_dyn_gust
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
@@ -626,7 +626,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
             ! maximum gust
-            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust1(prm_diag%u_10m_t(jc,jb,jt),   &
+            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust (prm_diag%u_10m_t(jc,jb,jt),   &
               &                                           prm_diag%v_10m_t(jc,jb,jt),   &
               &                                           prm_diag%tcm_t  (jc,jb,jt),   &
               &                                           p_diag%u      (jc,nlev,jb),   &
