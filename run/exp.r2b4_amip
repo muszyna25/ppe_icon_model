@@ -43,7 +43,7 @@ start_date="1978-01-01T00:00:00Z"        # start and end date
 #
 # atm_dyn output
 (( dt_file_atm_dyn =  1 * day         )) # [s] data file interval
-(( dt_data_atm_dyn =  1 * day         )) # [s] data output interval
+(( dt_data_atm_dyn =  1 * hour        )) # [s] data output interval
 (( steps_per_file_atm_dyn = dt_file_atm_dyn / dt_data_atm_dyn ))
 #
 # atm_phy output
@@ -155,7 +155,7 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  steps_per_file   = ${steps_per_file_atm_dyn}
  include_last     = .FALSE.
  output_filename  = "${EXPNAME}_atm_dyn"
- ml_varlist       = 'ps'      , 'ta'      ,
+ ml_varlist       = 'ps'      , 'ta'      , 'cl'      , 'hur'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'ua'      , 'va'      , 'wap'     ,
                     'pfull'   , 'gpfull'
