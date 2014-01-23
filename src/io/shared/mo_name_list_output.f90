@@ -1551,9 +1551,9 @@ CONTAINS
           ! Blocking receive call:
           IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
           CALL p_recv(msg, wait_list(i), 0)
+          ! Just for safety: Check if we got the correct tag
+          IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
         END DO
-        ! Just for safety: Check if we got the correct tag
-        IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
       END IF
     ENDIF
     ! Wait in barrier until message is here
