@@ -12,7 +12,7 @@ else
 echo "no model ${MODEL_DIR} found"
 exit
 fi
-${SCRIPT_DIR}/make_runscripts
+${MODEL_DIR}/make_runscripts
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
