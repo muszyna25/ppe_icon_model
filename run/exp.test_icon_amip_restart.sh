@@ -7,12 +7,12 @@ EXP2=r2b4_amip_restart
 cd ${MODEL_DIR}/
 STATUS=$?
 if [ ${STATUS} == 0 ]; then
-echo 'found model ${MODEL_DIR}'
+echo "found model ${MODEL_DIR}"
 else
-echo 'no model ${MODEL_DIR} found'
+echo "no model ${MODEL_DIR} found"
 exit
 fi
-make_runscripts
+${SCRIPT_DIR}/make_runscripts
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -27,7 +27,7 @@ exit
 fi
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
-${RUN_SCRIPT}
+${SCRIPT_DIR}/${RUN_SCRIPT}
 cd ../experiments
 mkdir ${EXP2}
 cd ${EXP2}
@@ -39,7 +39,7 @@ RUN_SCRIPT=exp.${EXP2}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
-${RUN_SCRIPT}
+${SCRIPT_DIR}/${RUN_SCRIPT}
 $SCRIPT_DIR/diff_restart.sh $MODEL_DIR $EXP1 $EXP2
 STATUS=$?
 if [ $STATUS == 0 ]; then
