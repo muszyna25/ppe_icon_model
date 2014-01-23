@@ -58,7 +58,7 @@ MODULE mo_oce_forcing
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
-  USE mo_math_utilities,      ONLY: gvec2cvec
+  USE mo_math_utilities,      ONLY: gvec2cvec,cvec2gvec,t_cartesian_coordinates
   USE mo_sea_ice_types,       ONLY: t_sfc_flx
   USE mo_oce_state,           ONLY: set_oce_tracer_info
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
@@ -699,6 +699,7 @@ CONTAINS
     field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-length)/length),0.0_wp,mask(:,:) <= threshold)
 
   END SUBROUTINE basin_zonal
+
   SUBROUTINE basin_meridional(subset, mask, threshold, field_2d, amplitude,length_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)
@@ -747,6 +748,7 @@ CONTAINS
 
     field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE zonal_periodic_nonzero_around_center_zero_at_pols
+
   SUBROUTINE meridional_periodic_around_center_zero_at_pols(subset, mask, threshold, field_2d, amplitude, &
       & center_opt,length_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -772,6 +774,7 @@ CONTAINS
 
     field_2d(:,:) = MERGE(amplitude * COS(meridional_waveno*pi*(lon(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
   END SUBROUTINE meridional_periodic_around_center_zero_at_pols
+
   SUBROUTINE zonal_periodic_zero_at_pols(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)
@@ -842,6 +845,46 @@ CONTAINS
       & * SIN(meridional_waveno * lon(:,:)),0.0_wp,mask(:,:) <= threshold)
 
   END SUBROUTINE cells_zonal_and_meridional_periodic
+
+  SUBROUTINE cells_zonal_and_meridional_periodic_constant_amplitude(subset, mask, threshold, field_2d, field_2d_cc, &
+      & amplitude,length_opt, zonal_waveno_opt)
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER,  INTENT(IN)             :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    TYPE(t_cartesian_coordinates)    :: field_2d_cc(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN) , OPTIONAL  :: length_opt,zonal_waveno_opt
+
+    REAL(wp) :: length, zonal_waveno
+    REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), &
+      &         lon(nproma,subset%patch%alloc_cell_blocks), &
+      &         zonal_strength(nproma,subset%patch%alloc_cell_blocks)
+
+    length       = basin_height_deg * deg2rad
+    zonal_waveno = forcing_windstress_zonal_waveno
+
+    CALL assign_if_present(length,length_opt)
+    CALL assign_if_present(zonal_waveno,zonal_waveno_opt)
+
+    lat(:,:) = subset%patch%cells%center(:,:)%lat
+    lon(:,:) = subset%patch%cells%center(:,:)%lon
+
+    field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-length)/length),0.0_wp,mask(:,:) <= threshold)
+
+    zonal_strength = MERGE(amplitude*cos(zonal_waveno*pi*lat(:,:)-length/length),0.0_wp, mask(:,:) <= threshold)
+    field_2d_cc(:,:)%x(1) = forcing_wind_u_amplitude*zonal_strength*sin(lon(:,:))
+    field_2d_cc(:,:)%x(2) = forcing_wind_u_amplitude*zonal_strength*cos(lon(:,:))
+    field_2d_cc(:,:)%x(3) = 0.0_wp
+
+    !        CALL cvec2gvec(field_2d_cc(jc,jb)%x(1),&
+    !                     & field_2d_cc(jc,jb)%x(2),&
+    !                     & field_2d_cc(jc,jb)%x(3),&
+    !                     & z_lon, z_lat,                      &
+    !                     & field_2d(jc,jb),      &
+    !                     & field_2d(jc,jb))
+
+  END SUBROUTINE cells_zonal_and_meridional_periodic_constant_amplitude
 
   SUBROUTINE nf(STATUS)
 
