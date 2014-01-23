@@ -47,7 +47,7 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & itestcase_oce, diagnostics_level, &
+    & diagnostics_level, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
@@ -270,14 +270,14 @@ CONTAINS
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
       
-      IF(itestcase_oce==28)THEN
-        CALL calc_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
-        CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
-          & p_phys_param,p_sfc_flx,&
-          & operators_coefficients,&
-          & jstep)
-      ELSE
+!      IF(itestcase_oce==28)THEN
+!        CALL calc_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
+!        CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
+!        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
+!          & p_phys_param,p_sfc_flx,&
+!          & operators_coefficients,&
+!          & jstep)
+!       ELSE
         !In case of a time-varying forcing:
         IF (ltimer) CALL timer_start(timer_upd_flx)
         CALL update_sfcflx( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
@@ -311,7 +311,7 @@ CONTAINS
             & patch_2d%edges%owned )
           !---------------------------------------------------------------------
           
-        ENDIF
+!        ENDIF
         IF (ltimer) CALL timer_stop(timer_upd_flx)
         
         IF (ltimer) CALL timer_start(timer_upd_phys)
