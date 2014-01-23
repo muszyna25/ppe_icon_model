@@ -1483,13 +1483,6 @@ CONTAINS
 
       END IF
 
-  ! CASE (43)
-  !   ! no forcing applied
-  !   CONTINUE
-
-  ! CASE DEFAULT
-  !   CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
-  !   CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
     END SELECT
 
   END SUBROUTINE update_sfcflx_analytical
