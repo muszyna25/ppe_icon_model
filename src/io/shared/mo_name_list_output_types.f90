@@ -45,6 +45,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_reorder_info
   PUBLIC :: t_grid_info
   PUBLIC :: t_patch_info
+  PUBLIC :: t_patch_info_ll
   PUBLIC :: t_output_name_list
   PUBLIC :: t_rptr_5d
   PUBLIC :: t_iptr_5d
@@ -104,6 +105,19 @@ MODULE mo_name_list_output_types
   ! DERIVED DATA TYPES
   !------------------------------------------------------------------------------------------------
 
+  !> Data structure containing info on computational mesh (for output)
+  !
+  TYPE t_grid_info
+    ! only used when copying grid info from file (grid_info_mode = GRID_INFO_BCAST):
+    REAL(wp), ALLOCATABLE :: lon   (:), lat   (:)
+    REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
+
+    ! only used when copying grid info from file (grid_info_mode = GRID_INFO_FILE):
+    INTEGER,  ALLOCATABLE :: log_dom_index(:)
+    ! Index where a point of the physical domains is in the logical domain
+  END TYPE t_grid_info
+
+
   !------------------------------------------------------------------------------------------------
   ! TYPE t_reorder_info describes how local cells/edges/verts
   ! have to be reordered to get the global array.
@@ -115,40 +129,35 @@ MODULE mo_name_list_output_types
   !          "transfer_reorder_info" in the setup phase!
 
   TYPE t_reorder_info
-    INTEGER :: n_glb  ! Global number of points per physical patch
-    INTEGER :: n_log  ! Global number of points in the associated logical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
+    INTEGER                    :: n_glb  ! Global number of points per physical patch
+    INTEGER                    :: n_log  ! Global number of points in the associated logical patch
+    INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
     ! Only set on compute PEs, set to 0 on IO PEs
-    INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
+    INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
     ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE :: own_dst_idx(:), own_dst_blk(:)
+    INTEGER, ALLOCATABLE       :: own_dst_idx(:), own_dst_blk(:)
     ! dest idx and blk for own points, only set on sequential/test PEs
-    INTEGER, ALLOCATABLE :: pe_own(:)
+    INTEGER, ALLOCATABLE       :: pe_own(:)
     ! n_own, gathered for all compute PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: pe_off(:)
+    INTEGER, ALLOCATABLE       :: pe_off(:)
     ! offset of contributions of PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: reorder_index(:)
+    INTEGER, ALLOCATABLE       :: reorder_index(:)
     ! Index how to reorder the contributions of all compute PEs
     ! into the global array (set on all PEs)
 
-    ! only used when copying grid info from file (l_grid_info_from_file = .TRUE.):
-    INTEGER, ALLOCATABLE :: log_dom_index(:)
-    ! Index where a point of the physical domains is in the logical domain
+    ! grid information: geographical locations of cells, edges, and
+    ! vertices which is first collected on working PE 0 - from where
+    ! it will be broadcasted to the pure I/O PEs.
+    TYPE (t_grid_info)         :: grid_info
   END TYPE t_reorder_info
-
-
-  TYPE t_grid_info
-    REAL(wp), ALLOCATABLE :: lon   (:), lat   (:)
-    REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
-  END TYPE t_grid_info
 
 
   ! TYPE t_patch_info contains the reordering info for cells, edges and verts
   TYPE t_patch_info
-    TYPE(t_reorder_info) :: cells
-    TYPE(t_reorder_info) :: edges
-    TYPE(t_reorder_info) :: verts
-    INTEGER :: log_patch_id
+    TYPE(t_reorder_info)                 :: cells
+    TYPE(t_reorder_info)                 :: edges
+    TYPE(t_reorder_info)                 :: verts
+    INTEGER                              :: log_patch_id
 
     ! pointer to communication pattern for GATHER operation;
     ! corresponds to physical or logical patch, depending on
@@ -157,24 +166,30 @@ MODULE mo_name_list_output_types
 
     ! global number of points, corresponds to physical or logical
     ! patch, depending on "l_output_phys_patch"
-    INTEGER :: nblks_glb_c, nblks_glb_v, nblks_glb_e
-
-    ! grid information: geographical locations of cells, edges, and
-    ! vertices which is first collected on working PE 0 - from where
-    ! it will be broadcasted to the pure I/O PEs.
-    TYPE (t_grid_info) :: grid_c, grid_e, grid_v
+    INTEGER                              :: nblks_glb_c, nblks_glb_v, nblks_glb_e
 
     ! Filename of grid file, needed only if grid information is output
     ! to NetCDF since this information is normally not read and
     ! thus not present in the patch description
-    CHARACTER(LEN=filename_max) :: grid_filename
+    CHARACTER(LEN=filename_max)          :: grid_filename
 
     ! uuid of grid (provided by grid file)
-    TYPE(t_uuid) :: grid_uuid
+    TYPE(t_uuid)                         :: grid_uuid
 
     ! Number of grid used (provided by grid file)
-    INTEGER :: number_of_grid_used
+    INTEGER                              :: number_of_grid_used
+
+    ! mode how to collect grid information (for output)
+    INTEGER                              :: grid_info_mode
   END TYPE t_patch_info
+
+
+  !> Reordering info for regular (lon-lat) grids
+  TYPE t_patch_info_ll
+    TYPE(t_reorder_info)                 :: ri
+    ! mode how to collect grid information (for output)
+    INTEGER                              :: grid_info_mode
+  END TYPE t_patch_info_ll
 
 
   TYPE t_output_name_list

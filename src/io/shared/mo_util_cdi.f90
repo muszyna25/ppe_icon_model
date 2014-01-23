@@ -45,9 +45,10 @@ MODULE mo_util_cdi
   USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,           &
     &                              p_comm_work, p_comm_work_test,          &
     &                              p_io, p_pe
-  USE mo_util_string,        ONLY: tolower
+  USE mo_util_string,        ONLY: tolower, MAX_STRING_LEN
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
+  USE mo_gribout_config,     ONLY: t_gribout_config
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -57,6 +58,7 @@ MODULE mo_util_cdi
   PUBLIC  :: read_cdi_2d, read_cdi_3d
   PUBLIC  :: get_cdi_varID
   PUBLIC  :: test_cdi_varID
+  PUBLIC  :: set_additional_GRIB2_keys
 
   CHARACTER(len=*), PARAMETER :: version = &
     &    '$Id$'
@@ -423,5 +425,123 @@ CONTAINS
       CALL read_cdi_2d (streamID, varID, glb_arr_len, loc_arr_len, glb_index, var_out(:,:,jt))
     END DO
   END SUBROUTINE read_cdi_2d_time
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Set additional GRIB2 keys
+  !
+  ! GRIB2 Quick hack
+  ! ----------------
+  !
+  ! Set additional GRIB2 keys. These are added to each single variable, even though
+  ! adding it to the vertical or horizontal grid description may be more elegant.
+  !
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx)
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+    INTEGER,                INTENT(IN) :: tileidx
+
+    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
+    INTEGER :: cent, year, month, day    ! date
+    INTEGER :: hour, minute              ! time
+
+    IF (grib_conf%ldate_grib_act) THEN
+      ! get date and time
+      ! ydate : ccyymmdd, ytime : hhmmss.sss
+      CALL date_and_time(ydate,ytime)
+      READ(ydate,'(4i2)') cent, year, month, day
+      READ(ytime,'(2i2)') hour, minute
+    ELSE ! set date to "01010101" (for better comparability of GRIB files)
+      cent  = 1
+      year  = 1
+      month = 1
+      year  = 1
+      hour  = 1
+      minute= 1
+    ENDIF
+
+    ! Load correct tables and activate section 2
+    !
+    ! set tablesVersion=5
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+    ! Initialize section 2
+    CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
+    !
+    ! Product definition
+    CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
+      &                    grib_conf%significanceOfReferenceTime)
+    CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
+      &                    grib_conf%productionStatusOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
+      &                    grib_conf%typeOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
+      &                    grib_conf%backgroundProcess)
+    ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
+    CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
+      &                    grib_conf%generatingProcessIdentifier)
+
+
+    CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
+
+
+    ! Product Generation (local), !! DWD only !!
+    ! DWD :: center    = 78
+    !        subcenter = 255
+    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
+      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+        &                    grib_conf%localDefinitionNumber)
+
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+
+      ! preliminary HACK for identifying tile based variables
+      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",                 &
+        &                    grib_conf%localNumberOfExperiment)
+
+      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
+
+      IF (grib_conf%localDefinitionNumber == 254) THEN
+        !
+        ! -------------------------------------------
+        ! Local definition for deterministic forecast
+        ! -------------------------------------------
+
+        ! store GRIB_API library version
+        ! TODO: replace by wrapper call in cdi not available yet (2013-07-29)
+        !CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
+
+        !
+      ELSE IF (grib_conf%localDefinitionNumber == 253) THEN
+        !
+        ! --------------------------------------
+        ! Local definition for ensemble products
+        ! --------------------------------------
+
+        IF (grib_conf%productDefinitionTemplateNumber /= -1)                              &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",   &
+          &                          grib_conf%productDefinitionTemplateNumber)
+        IF (grib_conf%typeOfEnsembleForecast /= -1)                                       &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "typeOfEnsembleForecast" ,           &
+          &                          grib_conf%typeOfEnsembleForecast)
+        IF (grib_conf%localTypeOfEnsembleForecast /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "localTypeOfEnsembleForecast" ,      &
+          &                          grib_conf%localTypeOfEnsembleForecast)
+        IF (grib_conf%numberOfForecastsInEnsemble /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "numberOfForecastsInEnsemble" ,      &
+          &                          grib_conf%numberOfForecastsInEnsemble)
+        IF (grib_conf%perturbationNumber /= -1)                                           &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "perturbationNumber" ,               &
+          &                          grib_conf%perturbationNumber)
+      END IF ! localDefinitionNumber
+    END IF
+
+    ! SECTION 3
+    CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
+
+  END SUBROUTINE set_additional_GRIB2_keys
 
 END MODULE mo_util_cdi

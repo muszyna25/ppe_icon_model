@@ -89,17 +89,18 @@ MODULE mo_name_list_output
     &                                     t_comm_gather_pattern, idx_no, blk_no
   USE mo_math_constants,            ONLY: pi, pi_180
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
-  USE mo_name_list_output_types,    ONLY:  l_output_phys_patch, t_output_name_list,                 &
-  &                                        t_output_file, t_var_desc,                               &
-  &                                        t_reorder_info, t_grid_info,                             &
-  &                                        REMAP_NONE, REMAP_REGULAR_LATLON,                        &
-  &                                        msg_io_start, msg_io_done, msg_io_shutdown,              &
-  &                                        IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,              &
-  &                                        all_events
-  USE mo_name_list_output_init,     ONLY:  init_name_list_output, setup_output_vlist,               &
-    &                                      varnames_dict, out_varnames_dict,                        &
-    &                                      output_file, patch_info, lonlat_info,                    &
-    &                                      i_sample
+  USE mo_name_list_output_types,    ONLY: l_output_phys_patch, t_output_name_list,                  &
+  &                                       t_output_file, t_var_desc,                                &
+  &                                       t_reorder_info,                                           &
+  &                                       REMAP_NONE, REMAP_REGULAR_LATLON,                         &
+  &                                       msg_io_start, msg_io_done, msg_io_shutdown,               &
+  &                                       IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,               &
+  &                                       all_events
+  USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
+  USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
+    &                                     varnames_dict, out_varnames_dict,                         &
+    &                                     output_file, patch_info, lonlat_info,                     &
+    &                                     i_sample
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer
   USE mo_dictionary,                ONLY: t_dictionary, dict_finalize
   USE mo_fortran_tools,             ONLY: assign_if_present
@@ -155,77 +156,6 @@ MODULE mo_name_list_output
 
 CONTAINS
 
-  !------------------------------------------------------------------------------------------------
-  !> Writes the grid information in output file, GRIB2 format.
-  !
-#ifndef __NO_ICON_ATMO__
-  SUBROUTINE write_grid_info_grb2(of)
-    TYPE (t_output_file), INTENT(INOUT) :: of
-    ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
-
-    TYPE t_grid_info_ptr
-      TYPE (t_grid_info), POINTER :: ptr
-    END TYPE t_grid_info_ptr
-
-    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3), idom_log
-    TYPE (t_lon_lat_grid), POINTER :: grid
-    REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
-    TYPE(t_grid_info_ptr)          :: gptr(3)
-
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
-
-    SELECT CASE(of%name_list%remap)
-    CASE (REMAP_NONE)
-      idom     = of%phys_patch_id
-      idom_log = patch_info(idom)%log_patch_id
-      idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      isize(:)  = (/ patch_info(idom_log)%cells%n_glb, &
-        &            patch_info(idom_log)%edges%n_glb, &
-        &            patch_info(idom_log)%verts%n_glb /)
-      gptr(1)%ptr => patch_info(idom_log)%grid_c
-      gptr(2)%ptr => patch_info(idom_log)%grid_e
-      gptr(3)%ptr => patch_info(idom_log)%grid_v
-      DO igrid=1,3
-        ! allocate data buffer:
-        ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
-        IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
-        ! write RLON, RLAT
-        r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
-        r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
-        ! clean up
-        DEALLOCATE(r_out_dp_1D, stat=errstat)
-        IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
-      END DO
-
-    CASE (REMAP_REGULAR_LATLON)
-      ! allocate data buffer:
-      grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
-      ! compute some entries of lon-lat grid specification:
-      CALL compute_lonlat_specs(grid)
-      ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), &
-        &      r_out_dp(grid%lon_dim,grid%lat_dim), stat=errstat)
-      IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
-      ! compute grid points of rotated lon/lat grid
-      CALL rotate_latlon_grid(grid, rotated_pts)
-      ! write RLON, RLAT
-      r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
-      r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
-      CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
-      ! clean up
-      DEALLOCATE(rotated_pts, r_out_dp, stat=errstat)
-      IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
-
-    CASE DEFAULT
-      CALL finish(routine, "Unsupported grid type.")
-    END SELECT
-
-  END SUBROUTINE write_grid_info_grb2
-#endif
 
   !------------------------------------------------------------------------------------------------
   !> open_output_file:
@@ -334,10 +264,11 @@ CONTAINS
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
 #ifndef __NO_ICON_ATMO__
-      IF (of%name_list%output_grid .AND. &
-        & is_output_process        .AND. &
+      IF ((of%name_list%output_grid)                                      .AND. &
+        & (patch_info(of%phys_patch_id)%grid_info_mode /= GRID_INFO_NONE) .AND. &
+        & is_output_process                                               .AND. &
         & (of%name_list%filetype == FILETYPE_GRB2)) THEN
-        CALL write_grid_info_grb2(of)
+        CALL write_grid_info_grb2(of, patch_info)
       END IF
 #endif
 
@@ -791,7 +722,7 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
-        p_ri  => lonlat_info(lonlat_id, i_log_dom)
+        p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
 #endif
 ! #ifndef __NO_ICON_ATMO__
@@ -1172,7 +1103,7 @@ CONTAINS
       IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
         lonlat_id = info%hor_interp%lonlat_id
         i_log_dom = of%log_patch_id
-        p_ri  => lonlat_info(lonlat_id, i_log_dom)
+        p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
         nval = MAX(nval, p_ri%n_glb)
       END IF
     END DO
@@ -1194,7 +1125,7 @@ CONTAINS
 
     ! Go over all name list variables for this output file
 
-    ioff(:) = 0
+    ioff(:) = 0_MPI_ADDRESS_KIND
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
@@ -1223,7 +1154,7 @@ CONTAINS
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = info%hor_interp%lonlat_id
           i_log_dom = of%log_patch_id
-          p_ri  => lonlat_info(lonlat_id, i_log_dom)
+          p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
 #endif
 ! #ifndef __NO_ICON_ATMO__
 
