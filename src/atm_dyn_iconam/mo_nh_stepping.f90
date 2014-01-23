@@ -1210,7 +1210,6 @@ MODULE mo_nh_stepping
             !> moist tracer update is now synchronized with advection and satad
             CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
               &                  lredgrid_phys(jg),                  & !in
-              &                  dt_loc,                             & !in
               &                  dtadv_loc,                          & !in
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
@@ -1575,7 +1574,6 @@ MODULE mo_nh_stepping
   
       CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
         &                  lredgrid_phys(jg),                  & !in
-        &                  dt_loc,                             & !in
         &                  dtadv_loc,                          & !in
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in
