@@ -3,6 +3,7 @@ MODULE mo_var_metadata_types
   USE mo_kind,           ONLY: dp, wp
   USE mo_grib1,          ONLY: t_grib1_var
   USE mo_grib2,          ONLY: t_grib2_var
+  USE mo_action_types,   ONLY: t_var_action
   USE mo_cf_convention,  ONLY: t_cf_var
 
   IMPLICIT NONE
@@ -195,7 +196,11 @@ MODULE mo_var_metadata_types
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !
-    TYPE (t_post_op_meta)      :: post_op               !<  "post-op" (small arithmetic operations) for this variable
+    TYPE(t_post_op_meta)       :: post_op               !<  "post-op" (small arithmetic operations) for this variable
+    !
+    ! Metadata for "actions" (regularly triggered events)
+    !
+    TYPE(t_var_action)         :: action_list
     !
     ! Metadata for vertical/horizontal interpolation
     !

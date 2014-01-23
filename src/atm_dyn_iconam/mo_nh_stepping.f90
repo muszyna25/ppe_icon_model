@@ -157,12 +157,13 @@ MODULE mo_nh_stepping
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,    ONLY: prep_adv, jstep_adv
+  USE mo_action,              ONLY: reset_action
 
 #ifdef MESSY
-  USE messy_main_channel_bi,   ONLY: messy_channel_write_output &
-    &                              , IOMODE_RST
+  USE messy_main_channel_bi,  ONLY: messy_channel_write_output &
+    &                             , IOMODE_RST
 #ifdef MESSYTIMER
-  USE messy_main_timer_bi,     ONLY: messy_timer_reset_time 
+  USE messy_main_timer_bi,    ONLY: messy_timer_reset_time 
 #endif
 #endif
 
@@ -624,6 +625,7 @@ MODULE mo_nh_stepping
     CALL messy_write_output
 #endif
 
+
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_nml_output) THEN
@@ -662,6 +664,13 @@ MODULE mo_nh_stepping
         CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
     ENDIF
+
+
+    ! re-initialize MAX/MIN fields with 'resetval'
+    ! must be done AFTER output
+    !
+    CALL reset_action()
+
 
     !--------------------------------------------------------------------------
     ! Write restart file

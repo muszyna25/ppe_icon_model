@@ -84,9 +84,10 @@ USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE
-USE mo_var_metadata,        ONLY: create_vert_interp_metadata, &
-  &                               create_hor_interp_metadata,  &
-  &                               groups, vintp_types, post_op
+USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
+  &                               create_hor_interp_metadata,   &
+  &                               groups, vintp_types, post_op, &
+  &                               new_action, actions
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -106,6 +107,7 @@ USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 USE mo_advection_config,     ONLY: advection_config
 USE mo_art_config,           ONLY: t_art_config,art_config,nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
+USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 
 IMPLICIT NONE
@@ -503,22 +505,24 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX )
+!DR                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'maximum 10m dynamical gust', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'vgust_dyn', diag%dyn_gust,                       &
+    CALL add_var( diag_list, 'dyn_gust', diag%dyn_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
-                & loutput=.FALSE.)
+                & loutput=.TRUE. )
+!DR                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
 
     ! &      diag%con_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'maximum 10m convective gust', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'vgust_con', diag%con_gust,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,   &
-                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
-                & loutput=.FALSE.)
+    CALL add_var( diag_list, 'con_gust', diag%con_gust,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
+                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_INSTANT,     &
+                & loutput=.TRUE. )
    
     ! &      diag%rain_upd(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_upd', 'kg m-2 s-1', 'rain in updroughts', DATATYPE_FLT32)
@@ -1404,7 +1408,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
-          & isteptype=TSTEP_MAX )
+          & isteptype=TSTEP_MAX, initval_r=-999._wp, resetval_r=-999._wp,     &
+          & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
 
         ! &      diag%tmin_2m(nproma,nblks_c)
         cf_desc    = t_cf_var('tmin_2m', 'K ','Min 2m temperature', DATATYPE_FLT32)
@@ -1412,7 +1417,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
           & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.TRUE.,                                   &
-          & isteptype=TSTEP_MIN )
+          & isteptype=TSTEP_MIN, initval_r=999._wp, resetval_r=999._wp,       &
+          & action_list=actions(new_action(ACTION_RESET,'PT03H')) ) 
 
 
         ! &      diag%qv_2m(nproma,nblks_c)

@@ -385,6 +385,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)),  &
           &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
 
+        prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+          &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
+        prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+          &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+
       ELSE ! tile approach used
 
         ! preset variables for land tile indices
@@ -597,6 +602,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
             prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
 
+            prm_diag%tmax_2m(jc,jb) = MAX(t_2m_t(ic,jt), prm_diag%tmax_2m(jc,jb))
+            prm_diag%tmin_2m(jc,jb) = MIN(t_2m_t(ic,jt), prm_diag%tmin_2m(jc,jb))
 
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
@@ -688,6 +695,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &                             p_diag%v      (i_startidx:i_endidx,nlev,jb) ), &
         &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
 
+      prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
+      prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
 
       DO jt = 1, ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx

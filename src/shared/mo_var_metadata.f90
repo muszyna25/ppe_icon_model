@@ -49,10 +49,9 @@ MODULE mo_var_metadata
     &                              t_tracer_meta, t_var_metadata,         &
     &                              t_post_op_meta, VAR_GROUPS,            &
     &                              VINTP_TYPE_LIST, VARNAME_LEN, POST_OP_NONE
-  USE mo_linked_list,        ONLY: t_list_element
+  USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present
-
 
   IMPLICIT NONE
 
@@ -66,6 +65,8 @@ MODULE mo_var_metadata
   PUBLIC  :: post_op
   PUBLIC  :: vintp_types
   PUBLIC  :: vintp_type_id
+  PUBLIC  :: new_action
+  PUBLIC  :: actions
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -416,6 +417,81 @@ CONTAINS
     END IF
   END FUNCTION post_op
 
+
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF ACTION EVENTS
+  !------------------------------------------------------------------------------------------------
+  !>
+  !! Initialize single variable specific action
+  !!
+  !! Initialize single variable specific action. A variable named 'var_action' 
+  !! of type t_var_action_element is initialized.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !!
+  FUNCTION new_action(actionID, intvl) RESULT(var_action)
+
+    INTEGER           , INTENT(IN) :: actionID  ! action ID  
+    CHARACTER(LEN=*)  , INTENT(IN) :: intvl     ! action interval [h]
+    TYPE(t_var_action_element)     :: var_action
+
+    ! define var_action
+    var_action%actionID   = actionID
+    var_action%intvl      = TRIM(intvl)
+    var_action%lastActive ='0000-00-00T00:00:00.000Z'  ! init
+    var_action%event      => NULL()    !initialized in collect_action
+
+  END FUNCTION new_action
+
+
+  !>
+  !! Generate list (array) of variable specific actions
+  !!
+  !! Generate list (array) of variable specific actions.
+  !! Creates array 'action_list' of type t_var_action
+  !
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !!
+  FUNCTION actions(a01, a02, a03, a04, a05)  RESULT(action_list)
+
+    TYPE(t_var_action_element), INTENT(IN), OPTIONAL :: a01, a02, a03, a04, a05
+    TYPE(t_var_action)             :: action_list
+
+    INTEGER :: n_act             ! action counter
+
+    ! create action list
+    !
+    n_act = 0
+    IF (PRESENT(a01))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a01
+    ENDIF
+
+    IF (PRESENT(a02))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a02
+    ENDIF
+
+    IF (PRESENT(a03))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a03
+    ENDIF
+
+    IF (PRESENT(a04))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a04
+    ENDIF
+
+    IF (PRESENT(a05))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a05
+    ENDIF
+
+    action_list%n_actions = n_act
+
+  END FUNCTION actions
 
 END MODULE mo_var_metadata
 

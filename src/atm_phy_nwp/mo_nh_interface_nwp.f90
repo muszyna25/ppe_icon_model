@@ -718,6 +718,8 @@ CONTAINS
 
             prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
             prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
+!!$            prm_diag%tmax_2m (i_startidx:i_endidx,jb) = -999._wp
+!!$            prm_diag%tmin_2m (i_startidx:i_endidx,jb) = 999._wp
         END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

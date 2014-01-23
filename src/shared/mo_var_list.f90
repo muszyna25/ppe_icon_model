@@ -14,7 +14,8 @@ MODULE mo_var_list
        &                         DATATYPE_INT8,                     &
        &                         TIME_VARIABLE,                     &
        &                         TSTEP_INSTANT,                     &
-       &                         GRID_UNSTRUCTURED_CELL
+       &                         GRID_UNSTRUCTURED_CELL,            &
+       &                         GRID_REGULAR_LONLAT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
@@ -27,7 +28,7 @@ MODULE mo_var_list
   USE mo_var_metadata,     ONLY: create_tracer_metadata,            &
     &                            create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
-    &                            post_op, groups, group_id
+    &                            post_op, groups, group_id, actions
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
@@ -39,8 +40,8 @@ MODULE mo_var_list
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
-  USE mo_fortran_tools,    ONLY: assign_if_present, t_ptr_2d3d
-  
+  USE mo_fortran_tools,    ONLY: assign_if_present
+  USE mo_action_types,     ONLY: t_var_action 
 
   IMPLICIT NONE
 
@@ -125,6 +126,7 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_vert_interp
     MODULE PROCEDURE assign_if_present_hor_interp
     MODULE PROCEDURE assign_if_present_post_op
+    MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
@@ -588,6 +590,8 @@ CONTAINS
     !
     this_info%in_group(:)         = groups()
     !
+    this_info%action_list         = actions()
+    !
     this_info%l_pp_scheduler_task = 0
 
   END FUNCTION default_var_list_metadata
@@ -608,7 +612,7 @@ CONTAINS
          &                     initval, isteptype, resetval, lmiss,            &
          &                     missval, tlev_source, tracer_info, vert_interp, &
          &                     hor_interp, in_group, verbose,                  &
-         &                     l_pp_scheduler_task, post_op)
+         &                     l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -634,6 +638,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list   !< regularly triggered events
     !
     LOGICAL :: lverbose
     !
@@ -691,6 +696,8 @@ CONTAINS
     CALL assign_if_present (info%l_pp_scheduler_task, l_pp_scheduler_task)
 
     CALL struct_assign_if_present (info%post_op, post_op)
+
+    CALL struct_assign_if_present (info%action_list, action_list) 
     
     !
     ! printout (optional)
@@ -716,7 +723,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -745,6 +752,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -787,7 +795,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
+         action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -846,7 +855,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -875,6 +884,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -917,7 +927,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
+         action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -977,7 +988,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1006,6 +1017,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1048,7 +1060,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
+         action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1108,7 +1121,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1137,6 +1150,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1179,7 +1193,8 @@ CONTAINS
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
+         action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1239,7 +1254,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_r, isteptype,          &
        resetval_r, lmiss, missval_r, tlev_source, info, p5,    &
        vert_interp, hor_interp, in_group, verbose, new_element, &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1268,6 +1283,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1310,7 +1326,8 @@ CONTAINS
          isteptype=isteptype,resetval=resetval, lmiss=lmiss,                      &
          missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
          hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op)
+         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
+         action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1372,7 +1389,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, hor_interp,     &
        vert_interp, in_group, verbose, new_element,            &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1399,6 +1416,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1442,7 +1460,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1494,7 +1512,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1521,6 +1539,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1564,7 +1583,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list )
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1616,7 +1635,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1644,6 +1663,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1687,7 +1707,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp,         &
          in_group=in_group, verbose=verbose,                                      &
          l_pp_scheduler_task=l_pp_scheduler_task,                                 &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1740,7 +1760,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1767,6 +1787,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1810,7 +1831,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1862,7 +1883,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_i, isteptype,          &
        resetval_i, lmiss, missval_i, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1889,6 +1910,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1932,7 +1954,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1986,7 +2008,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2013,6 +2035,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2056,7 +2079,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2108,7 +2131,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2135,6 +2158,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2178,7 +2202,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2230,7 +2254,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2257,6 +2281,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2300,7 +2325,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -2352,7 +2377,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2379,6 +2404,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2422,7 +2448,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -2474,7 +2500,7 @@ CONTAINS
        lrestart, lrestart_cont, initval_l, isteptype,          &
        resetval_l, lmiss, missval_l, info, p5, vert_interp,    &
        hor_interp, in_group, verbose, new_element,             &
-       l_pp_scheduler_task, post_op)
+       l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2501,6 +2527,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2544,7 +2571,7 @@ CONTAINS
          missval=missval, vert_interp=vert_interp, hor_interp=hor_interp, &
          in_group=in_group, verbose=verbose,                              &
          l_pp_scheduler_task=l_pp_scheduler_task,                         &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2848,7 +2875,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_r, isteptype,          &
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, l_pp_scheduler_task, post_op)
+       &                                 new_element, l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2878,6 +2905,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
     REAL(wp), POINTER :: target_ptr4d(:,:,:,:)
@@ -2955,7 +2983,7 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -3007,7 +3035,7 @@ CONTAINS
        &                                 resetval_r, lmiss, missval_r, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, l_pp_scheduler_task,              &
-       &                                 post_op)
+       &                                 post_op, action_list)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -3037,6 +3065,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     REAL(wp), POINTER :: target_ptr2d(:,:)
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
@@ -3113,7 +3142,7 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions
@@ -3163,7 +3192,7 @@ CONTAINS
        &                                 lrestart, lrestart_cont, initval_i, isteptype,          &
        &                                 resetval_i, lmiss, missval_i, tlev_source, tracer_info, &
        &                                 info, vert_interp, hor_interp, in_group, verbose,       &
-       &                                 new_element, l_pp_scheduler_task, post_op)
+       &                                 new_element, l_pp_scheduler_task, post_op, action_list)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -3193,6 +3222,7 @@ CONTAINS
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     INTEGER,              INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op             !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),   INTENT(IN), OPTIONAL :: action_list         !< regularly triggered events
     !
     INTEGER, POINTER :: target_ptr2d(:,:)
     INTEGER, POINTER :: target_ptr3d(:,:,:)
@@ -3269,7 +3299,7 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                    &
          in_group=in_group, verbose=verbose,                                &
          l_pp_scheduler_task=l_pp_scheduler_task,                           &
-         post_op=post_op)
+         post_op=post_op, action_list=action_list)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -3728,10 +3758,18 @@ CONTAINS
             CYCLE LOOPVAR
           END IF
 
-          IF (lremap_lonlat .AND. &
-            & (info%hgrid /= GRID_UNSTRUCTURED_CELL)) THEN
-            CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
-            CYCLE LOOPVAR
+          IF (lremap_lonlat) THEN
+            IF (info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
+              CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
+              CYCLE LOOPVAR
+            ENDIF
+          ELSE IF (.NOT. lremap_lonlat) THEN
+            ! If no lon-lat interpolation is requested for this output file, 
+            ! skip all variables of this kind:
+            IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
+              CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+              CYCLE LOOPVAR
+            ENDIF
           END IF
 
           nvars = nvars + 1
@@ -3794,5 +3832,12 @@ CONTAINS
     IF (.NOT.PRESENT(x)) RETURN
     y = x
   END SUBROUTINE assign_if_present_post_op
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE assign_if_present_action_list (y,x)
+    TYPE(t_var_action), INTENT(inout)        :: y
+    TYPE(t_var_action) ,INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
 END MODULE mo_var_list

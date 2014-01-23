@@ -226,6 +226,9 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
 
+    ! set mtime-Calendar
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
 
@@ -341,7 +344,6 @@ CONTAINS
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-          CALL setCalendar(PROLEPTIC_GREGORIAN)
           ! compute sim_start, sim_end
           CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
           CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)

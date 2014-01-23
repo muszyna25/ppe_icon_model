@@ -57,7 +57,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
   &                                iqc, iqt
-USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
+USE mo_dynamics_config,      ONLY: iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, is_plane_torus
@@ -76,7 +76,6 @@ USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_diag_list, prm_nwp_tend_lis
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
-USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
@@ -90,12 +89,11 @@ USE mo_name_list_output_config,   ONLY: first_output_name_list, &
 USE mo_name_list_output_init, ONLY: init_name_list_output, &
   &                               parse_variable_groups
 USE mo_name_list_output,    ONLY: close_name_list_output
-USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
-USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
+USE mo_action,              ONLY: action_init
 USE mo_turbulent_diagnostic, ONLY: init_les_turbulent_output, close_les_turbulent_output
 
 !-------------------------------------------------------------------------
@@ -150,6 +148,7 @@ CONTAINS
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
+
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -344,15 +343,18 @@ CONTAINS
         &                     p_patch(jg)%nblks_c)
     ENDDO
 
+
+    ! Add a special metrics variable containing the area weights of
+    ! the regular lon-lat grid.
+    CALL compute_lonlat_area_weights()
+
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
+    ! ATTENTION: all add_vars must be finished before calling this routine.
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
     END IF
    
-    ! Add a special metrics variable containing the area weights of
-    ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights()
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
@@ -361,7 +363,6 @@ CONTAINS
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
@@ -378,6 +379,15 @@ CONTAINS
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info, opt_isample=iadv_rcf)
     END IF
+
+
+    !----------------------!
+    !  Initialize actions  !
+    !----------------------!
+    !
+    ! assign variables to existing actions
+    CALL action_init()
+
 
     ! for debug purpose: print var lists
     IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
