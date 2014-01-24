@@ -426,14 +426,14 @@ MODULE mo_ocean_nml
     & initial_temperature_top    , &
     & initial_salinity_top       , &
     & initial_salinity_bottom    , &
-    & topography_type            , &
-    & topography_height_reference, &
-    & sea_surface_height_type    , &
     & initial_salinity_type      , &
     & initial_temperature_type   , &
     & initial_sst_type           , &
     & initial_velocity_type      , &
-    & initial_velocity_amplitude
+    & initial_velocity_amplitude , &
+    & topography_type            , &
+    & topography_height_reference, &
+    & sea_surface_height_type
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
