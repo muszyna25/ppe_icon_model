@@ -2676,9 +2676,11 @@ CONTAINS
 
         ! write field content into a file
         DO ilev=chunk_start, chunk_end
+!$OMP PARALLEL DO
           DO i = 1, p_ri%n_glb
             var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
           ENDDO
+!$OMP END PARALLEL DO
           CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         END DO
