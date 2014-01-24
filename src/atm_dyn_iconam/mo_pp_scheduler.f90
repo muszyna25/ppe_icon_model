@@ -322,7 +322,7 @@ CONTAINS
         element_v => find_list_element (p_nh_state(jg)%diag_list, "v")
         
         !- predefined array shapes
-        nlev = element_u%field%info%used_dimensions(2)
+        nlev = element%field%info%used_dimensions(2)
         nblks_e   = p_patch(jg)%nblks_e
         ptr_int_lonlat => lonlat_grid_list(ll_grid_id)%intp(jg)
         nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1

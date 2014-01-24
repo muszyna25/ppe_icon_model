@@ -1061,8 +1061,8 @@ CONTAINS
       &                               lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER                        :: voff(0:num_work_procs-1)
-    REAL(sp), ALLOCATABLE          :: var1_sp(:), var2_sp(:), var3_sp(:,:)
-    REAL(dp), ALLOCATABLE          :: var1_dp(:), var2_dp(:), var3_dp(:,:)
+    REAL(sp), ALLOCATABLE          :: var1_sp(:), var2_sp(:), var3_sp(:)
+    REAL(dp), ALLOCATABLE          :: var1_dp(:), var2_dp(:), var3_dp(:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
@@ -1139,7 +1139,6 @@ CONTAINS
       ELSE
         nlevs = info%used_dimensions(2)
       ENDIF
-
       ! Get pointer to appropriate reorder_info
 
       SELECT CASE (info%hgrid)
@@ -1205,17 +1204,19 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      t_0 = p_mpi_wtime()
+      t_0 = p_mpi_wtime() ! performance measurement
       have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        ALLOCATE(var3_dp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+        ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
-        ALLOCATE(var3_sp(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+        ALLOCATE(var3_sp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
+      t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
       LevelLoop: DO jk = 1, nlevs
+
+        t_0 = p_mpi_wtime() ! performance measurement
 
         nv_off = 0
         IF (use_dp_mpi2io) THEN
@@ -1226,9 +1227,8 @@ CONTAINS
             nv_off   = nv_off+p_ri%pe_own(np)
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
-
 !$OMP PARALLEL WORKSHARE
-          var3_dp(1:p_ri%n_glb,jk) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
+          var3_dp(1:p_ri%n_glb) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
 !$OMP END PARALLEL WORKSHARE
         ELSE
 
@@ -1238,38 +1238,36 @@ CONTAINS
             nv_off   = nv_off+p_ri%pe_own(np)
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
-
           IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
 !$OMP PARALLEL WORKSHARE
-            var3_dp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
+            var3_dp(1:p_ri%n_glb) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
 !$OMP END PARALLEL WORKSHARE
           ELSE
 !$OMP PARALLEL WORKSHARE
-            var3_sp(1:p_ri%n_glb,jk) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
+            var3_sp(1:p_ri%n_glb) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
 !$OMP END PARALLEL WORKSHARE
           END IF
-
         ENDIF
-
+        t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
+        ! Write calls (via CDIs) of the asynchronous I/O PEs:
+        t_0 = p_mpi_wtime() ! performance measurement
+        IF (use_dp_mpi2io .OR. have_GRIB) THEN
+          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, 0)
+          mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
+        ELSE
+          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, 0)
+          mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
+        ENDIF
+        t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
       ENDDO LevelLoop
-      t_copy = t_copy + p_mpi_wtime() - t_0
 
-
-      t_0 = p_mpi_wtime()
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3_dp, 0)
-        mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
-        t_write = t_write + p_mpi_wtime() - t_0
         DEALLOCATE(var3_dp, STAT=ierrstat)
       ELSE
-        CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, var3_sp, 0)
-        mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
-        t_write = t_write + p_mpi_wtime() - t_0
         DEALLOCATE(var3_sp, STAT=ierrstat)
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
     ENDDO ! Loop over output variables
 
     IF (use_dp_mpi2io) THEN
@@ -1278,7 +1276,6 @@ CONTAINS
       DEALLOCATE(var1_sp, var2_sp, STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
 
     !
     !-- timing report
