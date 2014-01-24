@@ -43,7 +43,7 @@ ${SCRIPT_DIR}/${RUN_SCRIPT}
 $SCRIPT_DIR/diff_restart.sh $MODEL_DIR $EXP1 $EXP2
 STATUS=$?
 if [ $STATUS == 0 ]; then
-cd ${MODEL_DIR}/experiments/
-mv ${EXP1} ${EXP1}_arch
-mv ${EXP2} ${EXP2}_arch
+exit 0
+else
+exit 1
 fi
