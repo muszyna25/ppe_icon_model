@@ -131,6 +131,8 @@ MODULE mo_ocean_nml
   INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
   INTEGER            :: relax_sal_type            = 0 ! will cover parts of init_oce_relax
   INTEGER            :: relax_sal_param           = 0 ! replacement for relax_2d_mon_S
+  INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
+                                                      ! bulk module; This will be replaced during the planned relaxation rewrite
 
   ! switch for reading relaxation data: 1: read from file
   INTEGER            :: init_oce_relax = 0
@@ -380,6 +382,7 @@ MODULE mo_ocean_nml
     &                 init_oce_relax,                                     &
     &                 l_relaxsal_ice,                                     &
     &                 temperature_relaxation, relaxation_param,           &
+    &                 relax_analytical_type,                              &
     &                 irelax_2d_S, relax_2d_mon_S,                        &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 forcing_enable_freshwater, limit_elevation, seaice_limit, &
