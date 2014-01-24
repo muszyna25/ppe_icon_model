@@ -67,12 +67,15 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, relax_analytical_type,&
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, forcing_wind_u_amplitude, i_apply_bulk,&
+  &                               relaxation_param, i_apply_bulk,&
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, forcing_enable_freshwater,    &
-  &                               forcing_set_runoff_to_zero,                                           &
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, forcing_enable_freshwater, &
+  &                               forcing_set_runoff_to_zero, &
+  &                               forcing_windstress_u_type, &
+  &                               forcing_windstress_v_type, &
+  &                               forcing_fluxes_type,&
   &                               limit_elevation, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -212,7 +215,8 @@ CONTAINS
       !   - for iforc_type=5 only - NCEP type forcing
       !   - read annual data at Jan, 1st: seconds of year are less than a timestep
       !   - or at begin of each run (must not be first of january)
-      IF (iforc_type == 5) THEN
+      !IF (iforc_type == 5) THEN
+      IF (forcing_windstress_u_type == 5 .AND. forcing_windstress_v_type == 5 .AND. forcing_fluxes_type == 5) THEN
         dtm1 = dtime - 1.0_wp
 
         IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
@@ -296,7 +300,8 @@ CONTAINS
       !
       ! OMIP data read in mo_ext_data into variable ext_data
       !
-      IF (iforc_type >= 1)  THEN
+      ! IF (iforc_type >= 1)  THEN
+      IF (forcing_windstress_u_type > 0 .OR. forcing_windstress_u_type < 101 ) THEN
 
         ! provide OMIP fluxes for wind stress forcing
         ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
@@ -305,8 +310,6 @@ CONTAINS
         ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
         p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
-        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
-          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
 
        ! Wind stress boundary condition for vertical diffusion D:
        !   D = d/dz(K_v*du/dz)  where
@@ -323,8 +326,13 @@ CONTAINS
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
       END IF
+      IF (forcing_windstress_v_type > 0 .OR. forcing_windstress_v_type < 101 ) THEN
+        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
+      END IF
 
-      IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+      !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+      IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
 
         !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
@@ -468,7 +476,8 @@ CONTAINS
 
       IF (i_sea_ice >= 1) THEN
 
-        IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+        !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+        IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
 
           ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
@@ -555,7 +564,8 @@ CONTAINS
 
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-        IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) ) THEN
 
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
@@ -611,8 +621,8 @@ CONTAINS
 
         IF (i_apply_bulk == 1) THEN
 
-          IF (iforc_type == 2 .OR. iforc_type == 5) &
-            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
+          IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
+          !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
