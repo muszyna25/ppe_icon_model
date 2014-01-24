@@ -477,10 +477,10 @@ CONTAINS
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), external_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
-    CALL init_ocean_forcing(patch_3d%p_patch_2d(jg)%cells%All, &
-      & patch_3d%lsm_c(:,1,:), &
-      & p_sfc_flx)
-
+    CALL init_ocean_forcing(patch_3d%p_patch_2d(1), 
+      &                     patch_3d, &
+      &                     p_os(jg), &
+      &                     p_sfc_flx)
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)
 

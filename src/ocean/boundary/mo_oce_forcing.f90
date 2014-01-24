@@ -602,18 +602,26 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
-  SUBROUTINE init_ocean_forcing(all_cells, land_sea_mask,p_sfc_flx)
+  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, p_sfc_flx)
     !
-    TYPE(t_subset_range), INTENT(IN) :: all_cells
-    INTEGER, INTENT(IN)              :: land_sea_mask(:,:)
-    TYPE(t_sfc_flx)                  :: p_sfc_flx
+    TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_sfc_flx)                         :: p_sfc_flx
 
-    CALL set_windstress_u(all_cells, land_sea_mask, sea_boundary, p_sfc_flx%forc_wind_u,&
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    all_cells => patch_3d%p_patch_2d(1)%cells%All
+
+    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_u,&
       & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
 
-    CALL set_windstress_v(all_cells, land_sea_mask, sea_boundary, p_sfc_flx%forc_wind_v,&
+    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
       & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
 
+    IF (init_oce_relax == 1) THEN
+      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
+    END IF
   END SUBROUTINE init_ocean_forcing
 
   SUBROUTINE set_windstress_u(subset, mask, threshold, windstress, &
