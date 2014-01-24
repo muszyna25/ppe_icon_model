@@ -216,7 +216,7 @@ cat > ${ocean_namelist} << EOF
   forcing_wind_u_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /
 &ocean_initialConditions_nml
-  itestcase_oce      =   46      ! 50=zonally homogen temperature for APE SST (Williamson)
+  ! itestcase_oce      =   46      ! 50=zonally homogen temperature for APE SST (Williamson)
   initial_temperature_type = 200
   initial_salinity_type = 200
 /

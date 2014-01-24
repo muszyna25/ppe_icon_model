@@ -248,7 +248,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1

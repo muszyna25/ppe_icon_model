@@ -218,7 +218,7 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_meridional_waveno     = 3.0_wp
 /
 &ocean_initialConditions_nml
-  itestcase_oce = 1050
+  ! itestcase_oce = 1050
   initial_salinity_type      = 202    
   initial_salinity_top       = 34.1
   initial_salinity_bottom    = 35.0

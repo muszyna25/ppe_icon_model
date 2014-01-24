@@ -273,7 +273,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
-  itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  ! itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography

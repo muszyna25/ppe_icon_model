@@ -201,7 +201,7 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
 /
 &ocean_initialConditions_nml
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   initial_salinity_type      = 402
   initial_temperature_type   = 207
   initial_sst_type           = 'sst1'

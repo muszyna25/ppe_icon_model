@@ -195,7 +195,7 @@ cat > ${ocean_namelist} << EOF
   analytic_wind_amplitude = 0.1  ! analytic forcing wind amplitude (currently *wstress_coeff)
 /
 &ocean_initialConditions_nml
-  itestcase_oce      =   46      ! 51=analytical wind and temperature forcing for circumpolar channel
+  ! itestcase_oce      =   46      ! 51=analytical wind and temperature forcing for circumpolar channel
   initial_temperature_type = 200
   initial_salinity_type = 200
 /

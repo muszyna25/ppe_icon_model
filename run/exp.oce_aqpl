@@ -205,7 +205,7 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &ocean_initialConditions_nml
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   initial_salinity_type      = 402
   initial_temperature_type   = 207
   initial_sst_type           = 'sst1'
