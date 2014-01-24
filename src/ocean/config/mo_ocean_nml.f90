@@ -98,8 +98,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
-
   INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
+
   ! read time varying OMIP or NCEP flux forcing from file:
                       ! 1: read wind stress (records 1, 2) and temperature (record 3)
                       ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
@@ -114,7 +114,14 @@ MODULE mo_ocean_nml
   LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: use_new_forcing                      = .FALSE.
+  ! _type variables range
+  !    0    : not used
+  !   1:100 : file based input
+  ! 101:200 : analytic setup
   INTEGER  :: forcing_fluxes_type                  = 0
+  ! forcing_windstress_(u|v|fluxes)_type values
+  ! 1   : omip intpu
+  ! 5   : ncep input
   INTEGER  :: forcing_windstress_u_type            = 0
   INTEGER  :: forcing_windstress_v_type            = 0
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
@@ -122,7 +129,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
-  REAL(wp) :: forcing_length                       = 0.0_wp
   ! } END FORCING
 
 
@@ -418,7 +424,6 @@ MODULE mo_ocean_nml
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 forcing_fluxes_type                 , &
-    &                 forcing_length                      , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
     &                 forcing_wind_u_amplitude            , &
