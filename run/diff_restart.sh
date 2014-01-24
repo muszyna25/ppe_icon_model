@@ -20,7 +20,7 @@ done
 cdo -O mergetime $FILES ${EXP2}_${TYPE}.nc
 cdo -O sub ${EXP2}_${TYPE}.nc ../${EXP1}/${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}.nc
 REMAP_FILE=/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc
-if [ -f ${REMAP_FILE}]; then
+if [ -f ${REMAP_FILE} ]; then
 cdo remap,${REMAP_FILE} diff_${EXP2}-${EXP1}_${TYPE}.nc diff_${EXP}_${TYPE}_t63.nc
 fi
 if [ -f test$$.dat ]; then
