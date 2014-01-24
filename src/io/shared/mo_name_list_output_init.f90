@@ -896,7 +896,7 @@ CONTAINS
         IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
           ! logical domain ID
           idom_log = patch_info(idom)%log_patch_id
-          CALL collect_all_grid_info(p_patch(idom_log), patch_info(idom_log))
+          CALL collect_all_grid_info(p_patch(idom_log), patch_info(idom))
         END IF
       END DO
     END IF
