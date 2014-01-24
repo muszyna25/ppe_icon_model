@@ -420,7 +420,7 @@ MODULE mo_ocean_nml
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
-  NAMELIST/ocean_initialConditions_nml/ use_file_initialConditions, itestcase_oce,      &
+  NAMELIST/ocean_initialConditions_nml/ use_file_initialConditions,  &
     &  initial_temperature_bottom, initial_temperature_top, &
     &  initial_salinity_top, initial_salinity_bottom, &
     &  topography_type, topography_height_reference, sea_surface_height_type, &

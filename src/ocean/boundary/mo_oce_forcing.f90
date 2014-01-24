@@ -47,8 +47,7 @@ MODULE mo_oce_forcing
   USE mo_io_units,            ONLY: filename_max
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: itestcase_oce, iforc_oce, analyt_forc,              &
-    & basin_height_deg, basin_width_deg, no_tracer,                                     &
+  USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,                                     &
     & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,            &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,    &
     & analytic_wind_amplitude, forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
