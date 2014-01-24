@@ -123,7 +123,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   REAL(wp) :: forcing_length                       = 0.0_wp
-  REAL(wp) :: analytic_wind_amplitude              = 1.0_wp
   ! } END FORCING
 
 
