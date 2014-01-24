@@ -477,7 +477,7 @@ CONTAINS
     CALL apply_initial_conditions(patch_3d%p_patch_2d(jg),patch_3d, p_os(jg), external_data(jg), p_op_coeff)
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
-    CALL init_ocean_forcing(patch_3d%p_patch_2d(1), 
+    CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
       &                     patch_3d, &
       &                     p_os(jg), &
       &                     p_sfc_flx)
