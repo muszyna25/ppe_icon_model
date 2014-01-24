@@ -205,17 +205,17 @@ MODULE mo_ocean_nml
 
 
   ! parameters for gmres solver
-  REAL(wp) :: solver_tolerance                 = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
-!  REAL(wp) :: solver_start_tolerance           = -1.0_wp
-  INTEGER  :: solver_max_restart_iterations    = 100       ! For restarting gmres
-  INTEGER  :: solver_max_iter_per_restart      = 200       ! For inner loop after restart
-!  REAL(wp) :: solver_tolerance_decrease_ratio  = 0.1_wp    ! For restarting gmres, must be < 1
-  LOGICAL  :: use_absolute_solver_tolerance    = .true.   ! Maximum value allowed for solver tolerance
-  INTEGER, PARAMETER :: select_gmres = 1
-  INTEGER, PARAMETER :: select_restart_gmres = 2
-  INTEGER :: select_solver = select_restart_gmres
-  LOGICAL :: use_continuity_correction = .false.
-  LOGICAL :: use_edges2edges_viacell_fast = .false.
+  REAL(wp) :: solver_tolerance                   = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+  !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
+  INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
+  INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
+  !  REAL(wp) :: solver_tolerance_decrease_ratio = 0.1_wp    ! For restarting gmres, must be < 1
+  LOGICAL  :: use_absolute_solver_tolerance      = .true.   ! Maximum value allowed for solver tolerance
+  INTEGER, PARAMETER :: select_gmres             = 1
+  INTEGER, PARAMETER :: select_restart_gmres     = 2
+  INTEGER :: select_solver                       = select_restart_gmres
+  LOGICAL :: use_continuity_correction           = .false.
+  LOGICAL :: use_edges2edges_viacell_fast        = .false.
 
 
   ! physical parameters for  aborting the ocean model
@@ -315,8 +315,8 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
 
-  LOGICAL  :: l_skip_tracer         = .FALSE.    ! TRUE: no advection and diffusion (incl. convection) of tracer
-  LOGICAL  :: use_tracer_x_height   = .FALSE.    ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
+  LOGICAL  :: l_skip_tracer                = .FALSE. ! TRUE: no advection and diffusion (incl. convection) of tracer
+  LOGICAL  :: use_tracer_x_height          = .FALSE. ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
   LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.  ! FALSE: no horizontal tracer diffusion
   LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.  ! FALSE: no vertical tracer diffusion
   LOGICAL  :: l_with_horz_tracer_advection = .TRUE.  ! FALSE: no horizontal tracer advection
@@ -336,68 +336,114 @@ MODULE mo_ocean_nml
   INTEGER :: scotland_iceland(100)       = -1
 
 
-  NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, discretization_scheme,              &
-    &                 iswm_oce, l_staggered_timestep,                      &
-    &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
-    &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
-    &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
-    &                 l_edge_based, i_apply_bulk, l_max_bottom,            &
-    &                 l_partial_cells, l_skip_tracer,                      &
-    &                 coriolis_type, basin_center_lat, basin_center_lon,   &
-    &                 basin_width_deg,basin_height_deg,                    &
-    &                 expl_vertical_velocity_diff,                         &
-    &                 expl_vertical_tracer_diff,                           &
-    &                 veloc_diffusion_order,veloc_diffusion_form,          &
-    &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,        &
-    &                 dhdtw_abort, l_adpo_flowstrength,                    &
-    &                 threshold_min_T, threshold_max_T, threshold_vn,      &
-    &                 threshold_min_S, threshold_max_S,                    &
-    &                 solver_max_restart_iterations,                       &
-    &                 solver_max_iter_per_restart,                         &
-    &                 select_solver, use_continuity_correction,            &
-    &                 use_edges2edges_viacell_fast
+  NAMELIST/ocean_dynamics_nml/&
+    &                 FLUX_CALCULATION_HORZ        , &
+    &                 FLUX_CALCULATION_VERT        , &
+    &                 ab_beta                      , &
+    &                 ab_const                     , &
+    &                 ab_gam                       , &
+    &                 basin_center_lat             , &
+    &                 basin_center_lon             , &
+    &                 basin_height_deg             , &
+    &                 basin_width_deg              , &
+    &                 coriolis_type                , &
+    &                 dhdtw_abort                  , &
+    &                 discretization_scheme        , &
+    &                 dzlev_m                      , &
+    &                 expl_vertical_tracer_diff    , &
+    &                 expl_vertical_velocity_diff  , &
+    &                 i_apply_bulk                 , &
+    &                 i_bc_veloc_bot               , &
+    &                 i_bc_veloc_lateral           , &
+    &                 i_bc_veloc_top               , &
+    &                 iswm_oce                     , &
+    &                 l_RIGID_LID                  , &
+    &                 l_adpo_flowstrength          , &
+    &                 l_edge_based                 , &
+    &                 l_inverse_flip_flop          , &
+    &                 l_max_bottom                 , &
+    &                 l_partial_cells              , &
+    &                 l_skip_tracer                , &
+    &                 l_staggered_timestep         , &
+    &                 lviscous                     , &
+    &                 n_zlev                       , &
+    &                 select_solver                , &
+    &                 solver_max_iter_per_restart  , &
+    &                 solver_max_restart_iterations, &
+    &                 solver_tolerance             , &
+    &                 threshold_max_S              , &
+    &                 threshold_max_T              , &
+    &                 threshold_min_S              , &
+    &                 threshold_min_T              , &
+    &                 threshold_vn                 , &
+    &                 use_continuity_correction    , &
+    &                 use_edges2edges_viacell_fast , &
+    &                 veloc_diffusion_form         , &
+    &                 veloc_diffusion_order
 
 
-  NAMELIST/ocean_physics_nml/EOS_TYPE, density_computation,                &
-    &                 no_tracer, HORZ_VELOC_DIFF_TYPE,                     &
-    &                 N_POINTS_IN_MUNK_LAYER,                              &
-    &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
-    &                 k_sal_h, k_sal_v,                                    &
-    &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
-    &                 CWA, CWT,  bottom_drag_coeff,                        &
-    &                 i_sea_ice,                                           &
-    &                 biharmonic_diffusion_factor,                         &
-    &                 l_smooth_veloc_diffusion,                            &
-    &                 richardson_veloc, richardson_tracer,                 &
-    &                 l_constant_mixing, l_wind_mixing,                    &
-    &                 l_with_vert_tracer_diffusion,                        &
-    &                 l_with_horz_tracer_diffusion,                        &
-    &                 l_with_vert_tracer_advection,                        &
-    &                 l_with_horz_tracer_advection,                        &
-    &                 l_horz_limiter_advection, l_vert_limiter_advection,  &
+  NAMELIST/ocean_physics_nml/&
+    &                 CWA                         , &
+    &                 CWT                         , &
+    &                 EOS_TYPE                    , &
+    &                 HORZ_VELOC_DIFF_TYPE        , &
+    &                 MAX_VERT_DIFF_TRAC          , &
+    &                 MAX_VERT_DIFF_VELOC         , &
+    &                 N_POINTS_IN_MUNK_LAYER      , &
+    &                 biharmonic_diffusion_factor , &
+    &                 bottom_drag_coeff           , &
+    &                 density_computation         , &
+    &                 i_sea_ice                   , &
+    &                 k_pot_temp_h                , &
+    &                 k_pot_temp_v                , &
+    &                 k_sal_h                     , &
+    &                 k_sal_v                     , &
+    &                 k_veloc_h                   , &
+    &                 k_veloc_v                   , &
+    &                 l_constant_mixing           , &
+    &                 l_horz_limiter_advection    , &
+    &                 l_smooth_veloc_diffusion    , &
+    &                 l_vert_limiter_advection    , &
+    &                 l_wind_mixing               , &
+    &                 l_with_horz_tracer_advection, &
+    &                 l_with_horz_tracer_diffusion, &
+    &                 l_with_vert_tracer_advection, &
+    &                 l_with_vert_tracer_diffusion, &
+    &                 no_tracer                   , &
+    &                 richardson_tracer           , &
+    &                 richardson_veloc            , &
     &                 use_tracer_x_height
 
 
-  NAMELIST/ocean_forcing_nml/iforc_oce, iforc_type, forcing_timescale,    &
-    &                 init_oce_relax,                                     &
-    &                 l_relaxsal_ice,                                     &
-    &                 temperature_relaxation, relaxation_param,           &
-    &                 relax_analytical_type,                              &
-    &                 irelax_2d_S, relax_2d_mon_S,                        &
-    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 forcing_enable_freshwater, limit_elevation, seaice_limit, &
-    &                 forcing_set_runoff_to_zero,         &
-    &                 use_new_forcing,                    &
-    &                 forcing_fluxes_type,                &
-    &                 forcing_windstress_u_type,          &
-    &                 forcing_windstress_v_type,          &
-    &                 forcing_windstress_zonal_waveno,    &
-    &                 forcing_windstress_meridional_waveno,&
-    &                 forcing_wind_u_amplitude ,          &
-    &                 forcing_wind_v_amplitude ,          &
-    &                 forcing_center ,                    &
-    &                 forcing_length ,                    &
-    &                 analytic_wind_amplitude
+  NAMELIST/ocean_forcing_nml/&
+    &                 forcing_center                      , &
+    &                 forcing_enable_freshwater           , &
+    &                 forcing_fluxes_type                 , &
+    &                 forcing_length                      , &
+    &                 forcing_set_runoff_to_zero          , &
+    &                 forcing_timescale                   , &
+    &                 forcing_wind_u_amplitude            , &
+    &                 forcing_wind_v_amplitude            , &
+    &                 forcing_windstress_meridional_waveno, &
+    &                 forcing_windstress_u_type           , &
+    &                 forcing_windstress_v_type           , &
+    &                 forcing_windstress_zonal_waveno     , &
+    &                 iforc_oce                           , &
+    &                 iforc_type                          , &
+    &                 init_oce_relax                      , &
+    &                 irelax_2d_S                         , &
+    &                 irelax_3d_S                         , &
+    &                 irelax_3d_T                         , &
+    &                 l_relaxsal_ice                      , &
+    &                 limit_elevation                     , &
+    &                 relax_2d_mon_S                      , &
+    &                 relax_3d_mon_S                      , &
+    &                 relax_3d_mon_T                      , &
+    &                 relax_analytical_type               , &
+    &                 relaxation_param                    , &
+    &                 seaice_limit                        , &
+    &                 temperature_relaxation              , &
+    &                 use_new_forcing
 
   !----------------------------------------------------------------------------
   ! initial conditions
