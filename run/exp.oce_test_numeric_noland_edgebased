@@ -33,8 +33,6 @@
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=0     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 # number of levels and thickness of surface and bottom layer
@@ -59,33 +57,32 @@ init_relax=0   # 1: use relaxation initialization file
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=11
+iforc=10
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=1
-iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2005-01-01T12:00:00Z"
-  # end_date="2001-06-01T00:00:00Z"
+  end_date="2001-01-05T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=24       # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
-ndays_checkp=9999999      # write restart file interval [days]
-ndays_restart=9999999     # stop model for restart [days]
+ndays_checkp=90      # write restart file interval [days]
+ndays_restart=10     # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -110,9 +107,18 @@ LOC='none'
 #
 #grids_folder=""
 #ocean_grids="iconR2B04-ocean_etopo40_planet_t-noinland.nc"
-# grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
-# ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
+grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
+ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 
+p_test_run=${p_test:=".false."}
+if [ $p_test_run = ".true." ] ; then
+  l_test_openmp=".true."
+#  l_log_checks=".true."
+else
+  l_test_openmp=".false."
+  l_fast_sum=".true."
+fi
+l_log_checks=".false."
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -136,11 +142,11 @@ cat > ${ocean_namelist} << EOF
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = ${dtime}         ! model timestep in seconds
- output      = 'none'  ! 'nml'        ! namelist controlled output scheme
+ dtime       = 3600         ! model timestep in seconds
+ output      = 'none' ! 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  write_timer_files    = .TRUE.
- msg_timestamp        = .FALSE.
+ ! msg_timestamp        = .TRUE.
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
@@ -153,10 +159,10 @@ cat > ${ocean_namelist} << EOF
    'h' 'wet_c' 't' 's' 'rhopot'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
+  idbg_elev=40                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
   dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
@@ -167,34 +173,21 @@ cat > ${ocean_namelist} << EOF
 !  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
-  n_zlev             =   40
+ n_zlev             =   40
  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
- !n_zlev             =   40
- !dzlev_m(1:40)      =   14.0,   12.0,   12.0,   12.0,   12.0,   12.0,   13.0,   15.0,   20.0,   25.0,
- !                       30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
- !                      100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
- !                      220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-! n_zlev             = 80
-! dzlev_m(1:80)      = 12.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 12.0,
-!                      12.0, 12.0, 14.0, 14.0, 14.0, 14.0, 18.0, 14.0, 18.0, 18.0, 18.0, 22.0, 18.0,
-!                      24.0, 20.0, 26.0, 22.0, 30.0, 22.0, 34.0, 22.0, 38.0, 26.0, 40.0, 28.0, 44.0,
-!                      32.0, 48.0, 34.0, 52.0, 38.0, 56.0, 42.0, 60.0, 48.0, 66.0, 52.0, 70.0, 60.0,
-!                      74.0, 68.0, 80.0, 74.0, 88.0, 82.0, 96.0, 90.0, 104.0, 100.0, 112.0, 108.0,
-!                      124.0, 120.0, 134.0, 132.0, 146.0, 144.0, 160.0, 158.0, 176.0, 172.0, 192.0,
-!                      188.0, 212.0, 204.0, 232.0, 224.0, 254.0, 244.0, 278.0, 268.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
+  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
   select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 20   !  inner solver loop without syncing (default: 200)
+  solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction = .true.
 /
@@ -206,32 +199,33 @@ cat > ${ocean_namelist} << EOF
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h       = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h            = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&sea_ice_nml
-  i_ice_therm   = 1
-  i_ice_dyn     = 0
-/
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce = 11
-  itestcase_oce = 1050
   iforc_stat_oce = 5
-  analytic_wind_amplitude = 0.1
-  z_forc_period     = 3.0_wp
-  y_forc_period     = 3.0_wp
-  idiag_oce         =  0      !  0: no diagnostics; 1: write diagnostics to stderr
+ ! analytic_wind_amplitude = 0.25
+  forcing_wind_u_amplitude = 0.5
+  forcing_windstress_zonal_waveno       = 3.0
+  forcing_windstress_meridional_waveno  = 3.0
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce = 1050
+  initial_salinity_type      = 202    
+  initial_salinity_top       = 34.1
+  initial_salinity_bottom    = 35.0
+  initial_temperature_type   = 200
+  initial_temperature_top    = 10.0 
+  initial_temperature_bottom = 10.0
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .FALSE.          ! sync after each timestep
-/
-&time_nml
-  dt_restart   = ${dt_restart}
+  lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------

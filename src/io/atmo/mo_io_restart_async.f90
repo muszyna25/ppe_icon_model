@@ -53,7 +53,6 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
-  ! USE mo_oce_state,               ONLY: set_zlev
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist

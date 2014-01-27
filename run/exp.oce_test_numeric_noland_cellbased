@@ -33,8 +33,6 @@
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=0     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 # number of levels and thickness of surface and bottom layer
@@ -66,22 +64,22 @@ iforc=10
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=1
-iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-05T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=24       # ocean model output interval hours [hours]
+nhours_data=2       # ocean model output interval hours [hours]
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=10     # stop model for restart [days]
@@ -157,8 +155,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       =
-   'h' 'wet_c' 't' 's' 'rhopot'
+  ml_varlist       =  'h' 'wet_c' 't' 's' 'rhopot'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -194,7 +191,7 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
+  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -208,14 +205,21 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce = 11
-  itestcase_oce = 1050
   iforc_stat_oce = 5
-  analytic_wind_amplitude = 0.5
-  z_forc_period     = 3.0_wp
-  y_forc_period     = 3.0_wp
-  idiag_oce         =  0      !  0: no diagnostics; 1: write diagnostics to stderr
+  forcing_wind_u_amplitude = 0.5
+  forcing_windstress_zonal_waveno      = 3.0_wp
+  forcing_windstress_meridional_waveno = 3.0_wp
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce = 1050
+  initial_salinity_type      = 202    
+  initial_salinity_top       = 34.1
+  initial_salinity_bottom    = 35.0
+  initial_temperature_type   = 200
+  initial_temperature_top    = 10.0 
+  initial_temperature_bottom = 10.0
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

@@ -51,7 +51,7 @@ MODULE mo_oce_boundcond
   USE mo_exception,          ONLY: message, finish
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_oce_state,          ONLY: t_hydro_ocean_state
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
@@ -512,14 +512,14 @@ CONTAINS
 ! ! !          &                  z_gradh_e(:,1,:))
 ! !     CALL sync_patch_array(SYNC_E, patch_2D, z_grad_h(:,1,:))
 ! !     
-! !     IF(idisc_scheme==1)THEN
+! !     IF(discretization_scheme==1)THEN
 ! ! !       CALL map_edges2cell( patch_2D,        &
 ! ! !         & z_grad_h,       &
 ! ! !         & z_grad_h_cc_vec,&
 ! ! !       !                         & p_os%p_diag%h_e,&
 ! ! !         & opt_slev=1,opt_elev=1 )
 ! !       
-! ! ! !     ELSEIF(idisc_scheme==2)THEN
+! ! ! !     ELSEIF(discretization_scheme==2)THEN
 ! ! ! !       
 ! ! ! !       CALL rbf_vec_interpol_cell( z_grad_h,&
 ! ! ! !         & patch_2D,    &

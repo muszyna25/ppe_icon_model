@@ -118,8 +118,8 @@ CONTAINS
         * REAL(time_config%end_datetime%daylen,wp)
 
       IF (end_datetime_calsec < cur_datetime_calsec) &
-	& CALL finish(TRIM(method_name),'The end date and time must not be '// &
-	&            'before the current date and time')
+        & CALL finish(TRIM(method_name),'The end date and time must not be '// &
+        &            'before the current date and time')
 
       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
     END IF

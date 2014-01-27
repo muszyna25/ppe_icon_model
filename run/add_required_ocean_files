@@ -56,17 +56,17 @@
      ocean_flux_filename=iconR${R}B0${B}-flux.nc
 
      # general filename: OMIP annual file
-     if [[ "x$iforc_len" = "x1" ]] ; then
+     if [[ "x$forcing_timescale" = "x1" ]] ; then
        ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-annual.nc
      # filename for OMIP 12 sets of monthly means
-     elif [[ "x$iforc_len" = "x12" ]] ; then
+     elif [[ "x$forcing_timescale" = "x12" ]] ; then
        ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-monmean.nc
        # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
        if [[ "x$iforc_type" = "x5" ]] ; then
          ocean_force_filename=ncep4icon_${ocean_grid_desc}.nc
        fi
      # filename for OMIP 365 sets of daily data
-     elif [[ "x$iforc_len" = "x365" ]] ; then
+     elif [[ "x$forcing_timescale" = "x365" ]] ; then
        ocean_force_filename=${omip_prefix}${ocean_grid_desc}${omip_postfix}-daily.nc
      fi
 
@@ -83,7 +83,7 @@
    # =======================================================
    # provide netcdf file for initialization of ocean prognostic variables
    # --------------------------------------------------------------------
-   if [[ "x$init_oce" = "x1" ]] ; then
+   if [[ "x$use_file_initialConditions" = "x.true." ]] ; then
 
      ocean_prog_filename=iconR${R}B0${B}-prog.nc
      ocean_oini_filename=${init_prefix}annual${init_grid_desc}${init_oce_suff}

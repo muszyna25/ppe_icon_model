@@ -51,7 +51,7 @@ MODULE mo_ice_fem_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message

@@ -52,7 +52,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & use_absolute_solver_tolerance,                      &
     & solver_max_restart_iterations,                      &
     & solver_max_iter_per_restart, dhdtw_abort,           &
-    & l_forc_freshw, select_solver,select_restart_gmres,  &
+    & forcing_enable_freshwater, select_solver,select_restart_gmres,  &
     & select_gmres, use_continuity_correction
   
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -60,8 +60,8 @@ MODULE mo_oce_ab_timestepping_mimetic
     & timer_ab_rhs4sfc, timer_lhs
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_physical_constants,        ONLY: grav,rho_inv
-  USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, is_initial_timestep !,&
-  ! &                                     set_lateral_boundary_values
+  USE mo_ocean_initialization,      ONLY: is_initial_timestep
+  USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e
@@ -73,8 +73,8 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d, & ! map_cell2edges_3D,&
     & calc_scalar_product_veloc_3d,&
-  !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
     & map_edges2edges_viacell_3d_const_z
+  !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
     & grad_fd_norm_oce_2d_3d, calc_thickness! , height_related_quantities
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
@@ -1163,9 +1163,7 @@ CONTAINS
       ! !-------------------------------------------------------------------------------
       
       IF( iswm_oce /= 1 ) THEN !the 3D case
-        
         CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_vn_ab, op_coeffs, z_e )
-        
       ELSEIF( iswm_oce == 1 ) THEN
         !    CALL map_edges2edges_viacell_3D( patch_3d,    &
         !                                    & z_vn_ab(:,1,:),&
@@ -1194,7 +1192,7 @@ CONTAINS
     
     !-------------------------------------------------------------------------
     ! Apply net surface freshwater flux to elevation - incorrect?
-    !IF(l_forc_freshw)THEN
+    !IF(forcing_enable_freshwater)THEN
     !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     !    DO jc = i_startidx_c, i_endidx_c
@@ -1206,7 +1204,7 @@ CONTAINS
     !    ENDDO
     !  END DO
     
-    !ELSEIF(.NOT.l_forc_freshw)THEN
+    !ELSEIF(.NOT.forcing_enable_freshwater)THEN
     
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)

@@ -49,7 +49,7 @@ MODULE mo_sea_ice_shared_sr
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: rho_ref, clw, Cd_io, Ch_io
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state!, v_base, ocean_restart_list
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_io_units,            ONLY: nerr
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 

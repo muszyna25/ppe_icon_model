@@ -735,11 +735,12 @@ run/exp.oce_channel -text
 run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_newInput_woLand -text
-run/exp.oce_numeric_noland_40levels -text
 run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
-run/exp.oce_test_numeric_noland -text
+run/exp.oce_test_numeric_noland_cellbased -text
+run/exp.oce_test_numeric_noland_cellbased_fast -text
+run/exp.oce_test_numeric_noland_edgebased -text
 run/exp.oce_test_numeric_r2b5 -text
 run/exp.oce_test_parallel -text
 run/exp.oce_tracer_conservation_sl -text
@@ -1508,13 +1509,16 @@ src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
 src/ocean/attic/impl_vert_tracer_diff -text
+src/ocean/attic/mo_ocean_bulk-2014-01-24 -text
 src/ocean/attic/mo_ocean_intperpolation_coeffs.f90.not_used -text
 src/ocean/attic/mo_simple_expl_run -text
 src/ocean/boundary/mo_oce_boundcond.f90 -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_oce_forcing.f90 -text
-src/ocean/boundary/mo_oce_init.f90 -text
+src/ocean/boundary/mo_ocean_coupling.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
+src/ocean/boundary/mo_ocean_initial_conditions.f90 -text
+src/ocean/boundary/testcases.txt -text svneol=unset#text/plain
 src/ocean/config/mo_ocean_config.f90 -text
 src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
@@ -1531,7 +1535,9 @@ src/ocean/dynamics/mo_oce_state.f90 -text
 src/ocean/dynamics/mo_oce_tracer.f90 -text
 src/ocean/dynamics/mo_oce_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_oce_tracer_transport_vert.f90 -text
+src/ocean/dynamics/mo_oce_types.f90 -text
 src/ocean/dynamics/mo_oce_veloc_advection.f90 -text
+src/ocean/dynamics/mo_ocean_initialization.f90 -text
 src/ocean/math/mo_oce_math_operators.f90 -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text

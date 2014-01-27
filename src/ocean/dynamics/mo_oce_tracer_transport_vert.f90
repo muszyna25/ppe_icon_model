@@ -54,7 +54,7 @@ USE mo_parallel_config,           ONLY: nproma
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
   &                                     timer_adpo_vert !, timer_dif_vert,
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state!,v_base
+USE mo_oce_types,                 ONLY: t_hydro_ocean_state
 USE mo_model_domain,              ONLY: t_patch,t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_util_dbg_prnt,             ONLY: dbg_print

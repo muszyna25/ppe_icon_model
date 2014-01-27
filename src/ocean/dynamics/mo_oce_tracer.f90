@@ -54,12 +54,12 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA,        &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-  &                                     use_tracer_x_height, l_forc_freshw, l_skip_tracer
+  &                                     use_tracer_x_height, forcing_enable_freshwater, l_skip_tracer
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer 
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 !USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
@@ -346,7 +346,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   ENDIF
     
   !! apply additional volume flux to surface elevation - add to h_new after tracer advection
-  !IF (l_forc_freshw) THEN
+  !IF (forcing_enable_freshwater) THEN
   !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
   !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
   !    DO jc = i_startidx_c, i_endidx_c
