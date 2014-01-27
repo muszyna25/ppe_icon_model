@@ -9,7 +9,8 @@ MODULE mo_io_restart
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
-  USE mo_util_string,           ONLY: separator
+  USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
+    &                                 int2string, separator
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
@@ -223,6 +224,7 @@ CONTAINS
   SUBROUTINE set_restart_vct(vct)
     REAL(wp), INTENT(in) :: vct(:)
     IF (lvct_initialised) RETURN
+    IF (ALLOCATED(private_vct))  DEALLOCATE(private_vct)
     ALLOCATE(private_vct(SIZE(vct)))
     private_vct(:) = vct(:)
     lvct_initialised = .TRUE.
@@ -234,6 +236,8 @@ CONTAINS
   SUBROUTINE set_restart_depth(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (ldepth_initialised) RETURN
+    IF (ALLOCATED(private_depth_half))  &
+      &  DEALLOCATE(private_depth_half, private_depth_full)
     ALLOCATE(private_depth_half(SIZE(zh)), private_depth_full(SIZE(zf)))
     private_depth_half(:) = zh(:)
     private_depth_full(:) = zf(:)
@@ -246,6 +250,8 @@ CONTAINS
   SUBROUTINE set_restart_depth_lnd(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (ldepth_lnd_initialised) RETURN
+    IF (ALLOCATED(private_depth_lnd_half)) &
+      &  DEALLOCATE(private_depth_lnd_half, private_depth_lnd_full)
     ALLOCATE(private_depth_lnd_half(SIZE(zh)), private_depth_lnd_full(SIZE(zf)))
     private_depth_lnd_half(:) = zh(:)
     private_depth_lnd_full(:) = zf(:)
@@ -258,6 +264,8 @@ CONTAINS
   SUBROUTINE set_restart_height_snow(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (lheight_snow_initialised) RETURN
+    IF (ALLOCATED(private_height_snow_half, private_height_snow_full))  &
+      &  DEALLOCATE(private_height_snow_half, private_height_snow_full)
     ALLOCATE(private_height_snow_half(SIZE(zh)), private_height_snow_full(SIZE(zf)))
     private_height_snow_half(:) = zh(:)
     private_height_snow_full(:) = zf(:)
@@ -1095,6 +1103,7 @@ CONTAINS
     CHARACTER(LEN=132) :: string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
@@ -1244,8 +1253,12 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-    message_text = get_filename_noext(patch%grid_filename)
-    WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
+
+    restart_filename = "<gridfile>_restart_DOM<idom>.nc"
+    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
+    CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
+    ! replace keywords in file name
+    string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
     CALL open_writing_restart_files( TRIM(string) )
 
