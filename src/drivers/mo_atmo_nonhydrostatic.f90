@@ -270,12 +270,12 @@ CONTAINS
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
 #ifdef NOMPI
+      ! TODO : Non-MPI mode does not work for multiple domains
       CALL read_restart_files
 #else
-      jg = 1
-      !DO jg = n_dom_start,n_dom
-      CALL read_restart_files( p_patch(jg) )
-      !END DO
+      DO jg = 1,n_dom
+        CALL read_restart_files( p_patch(jg), n_dom )
+      END DO
 #endif      
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)

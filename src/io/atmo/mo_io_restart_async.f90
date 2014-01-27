@@ -131,7 +131,7 @@ MODULE mo_io_restart_async
 
   ! minimum number of dynamic restart patch data
   ! id, l_dom_active, time levels and optional attributes
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 21
+  INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 23
 
   ! maximumm number of verticale axes
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 19
@@ -290,6 +290,9 @@ MODULE mo_io_restart_async
     INTEGER               :: opt_jstep_adv_marchuk_order
     LOGICAL               :: l_opt_sim_time
     REAL(wp)              :: opt_sim_time
+    LOGICAL               :: l_opt_ndom
+    INTEGER               :: opt_ndom
+    !
     INTEGER               :: n_opt_pvct
     REAL(wp), ALLOCATABLE :: opt_pvct(:)
     INTEGER               :: n_opt_lcall_phy
@@ -407,7 +410,8 @@ CONTAINS
                                 &   opt_depth,                    &
                                 &   opt_depth_lnd,                &
                                 &   opt_nlev_snow,                &
-                                &   opt_nice_class)
+                                &   opt_nice_class,               &
+                                &   opt_ndom )
 
     INTEGER,  INTENT(IN)           :: patch_id
     LOGICAL,  INTENT(IN)           :: l_dom_active
@@ -422,6 +426,7 @@ CONTAINS
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
 
     TYPE(t_patch_data), POINTER    :: p_pd
     INTEGER                        :: ierrstat
@@ -468,7 +473,7 @@ CONTAINS
         ENDIF
         p_pd%opt_t_elapsed_phy = opt_t_elapsed_phy
       ENDIF
-!
+      !
       IF (PRESENT(opt_lcall_phy)) THEN
         IF (SIZE(opt_lcall_phy) /= p_pd%n_opt_lcall_phy) THEN
           CALL finish(subname, WRONG_ARRAY_SIZE//'opt_lcall_phy')
@@ -528,6 +533,13 @@ CONTAINS
         p_pd%l_opt_sim_time = .TRUE.
       ELSE
         p_pd%l_opt_sim_time = .FALSE.
+      ENDIF
+
+      IF (PRESENT(opt_ndom)) THEN
+        p_pd%opt_ndom = opt_ndom
+        p_pd%l_opt_ndom = .TRUE.
+      ELSE
+        p_pd%l_opt_ndom = .FALSE.
       ENDIF
   ENDIF
 #endif
@@ -591,8 +603,8 @@ CONTAINS
 
           ! collective call to write the restart variables
           CALL restart_write_var_list(p_pd)
-
-          CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id)
+          CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id, p_pd%id, &
+            &                           p_pd%l_opt_ndom, p_pd%opt_ndom )
           CALL create_restart_info_file(p_pd%restart_file)
           CALL close_restart_file(p_pd%restart_file)
 
@@ -840,6 +852,8 @@ CONTAINS
           p_pd%opt_jstep_adv_marchuk_order    = p_msg(incr(i))
           p_pd%l_opt_sim_time                 = get_flag(p_msg(incr(i)))
           p_pd%opt_sim_time                   = p_msg(incr(i))
+          p_pd%l_opt_ndom                     = get_flag(p_msg(incr(i)))
+          p_pd%opt_ndom                       = p_msg(incr(i))
 
           ! optional parameter arrays
           IF (p_pd%n_opt_pvct > 0) THEN
@@ -1008,6 +1022,8 @@ CONTAINS
         p_msg(incr(i)) = REAL(p_pd%opt_jstep_adv_marchuk_order, wp)
         p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_sim_time)
         p_msg(incr(i)) = p_pd%opt_sim_time
+        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_ndom)
+        p_msg(incr(i)) = p_pd%opt_ndom
 
         ! optional parameter arrays
         IF (ALLOCATED(p_pd%opt_pvct)) THEN
@@ -3342,10 +3358,13 @@ CONTAINS
   !
   ! Creates a symbolic link from the given restart file.
   !
-  SUBROUTINE create_restart_file_link (rf, proc_id)
+  SUBROUTINE create_restart_file_link (rf, proc_id, jg, l_opt_ndom, opt_ndom)
 
     TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    INTEGER, INTENT(IN)                   :: proc_id
+    INTEGER,               INTENT(IN)     :: proc_id
+    INTEGER,               INTENT(IN)     :: jg                   !< patch ID
+    LOGICAL                               :: l_opt_ndom
+    INTEGER                               :: opt_ndom
 
     INTEGER                               :: iret, id
     CHARACTER(LEN=5)                      :: str_id
@@ -3359,7 +3378,11 @@ CONTAINS
       WRITE(str_id, '(I5)')id
     ENDIF
     rf%linkprefix = 'restart'//TRIM(str_id)
-    rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'.nc'
+    IF (l_opt_ndom .AND. (opt_ndom > 1)) THEN
+      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+    ELSE
+      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'.nc'
+    END IF
 
     ! delete old symbolic link, if exists
     IF (util_islink(TRIM(rf%linkname))) THEN

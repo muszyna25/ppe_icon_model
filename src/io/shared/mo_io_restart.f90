@@ -1080,7 +1080,8 @@ CONTAINS
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
                                 & opt_nlev_snow,               &
-                                & opt_nice_class)
+                                & opt_nice_class,              &
+                                & opt_ndom)
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -1096,6 +1097,7 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
@@ -1265,7 +1267,7 @@ CONTAINS
 
     CALL write_restart( patch )
 
-    CALL close_writing_restart_files
+    CALL close_writing_restart_files(jg, opt_ndom)
     CALL finish_restart
 
     IF (ltimer) CALL timer_stop(timer_write_restart_file)
@@ -1274,7 +1276,9 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE close_writing_restart_files
+  SUBROUTINE close_writing_restart_files(jg, opt_ndom)
+    INTEGER,  INTENT(IN)           :: jg           !< patch ID
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom     !< no. of domains (appended to symlink name)
     !
     ! Loop over all the output streams and close the associated files, set
     ! opened to false
@@ -1308,7 +1312,15 @@ CONTAINS
             ENDDO
           ENDIF
           !
-          linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+          IF (PRESENT(opt_ndom)) THEN
+            IF (opt_ndom > 1) THEN
+              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+            ELSE
+              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+            END IF
+          ELSE
+            linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+          END IF
           IF (util_islink(TRIM(linkname))) THEN
             iret = util_unlink(TRIM(linkname))
           ENDIF
@@ -1680,9 +1692,11 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE read_restart_files(p_patch)
+  SUBROUTINE read_restart_files(p_patch, opt_ndom)
     !
+
     TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+    INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     !
     CHARACTER(len=80) :: restart_filename, name
     !
@@ -1716,30 +1730,30 @@ CONTAINS
     key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
-! --------------------------------------------------------------
-     key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
+      ! skip var_list if it does not match the current patch ID
+      IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+
+      key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key
         n = n+1
       ENDIF
     ENDDO for_all_model_types
-! --------------------------------------------------------------
+
     nfiles = n-1
-!     write(0,*) 'nfiles=', nfiles
-    !
-!    CALL message('--','--')
-!     CALL message('--',separator)
-!     CALL message('','')
     !
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
-      restart_filename = 'restart_'//TRIM(model_type)//'.nc'
-!       write(0,*) "n=", n
-!       write(0,*) "model_type=", model_type
-!       write(0,*) "restart_filename=", restart_filename
-!       write(0,*) "util_islink(TRIM(restart_filename)=", &
-!        util_islink(TRIM(restart_filename))
+      IF (PRESENT(opt_ndom) .AND. PRESENT(p_patch)) THEN
+        IF (opt_ndom > 1) THEN
+          restart_filename = 'restart_'//TRIM(model_type)//"_DOM"//TRIM(int2string(p_patch%id, "(i2.2)"))//'.nc'
+        ELSE
+          restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+        END IF
+      ELSE
+        restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+      END IF
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
@@ -1751,25 +1765,17 @@ CONTAINS
 
       string_length=LEN_TRIM(restart_filename)
       name = TRIM(restart_filename)//CHAR(0)
-      ! check if the netcdf open works
-!       write(0,*) "nf_open ", TRIM(restart_filename)
-!       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
-!       CALL nf(nf_close(ncid))
 
       IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
       IF (my_process_is_mpi_workroot()) write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
-!       write(0,*) "vlistID=",vlistID
 
       taxisID = vlistInqTaxis(vlistID)
-!       write(0,*) "taxisID=",taxisID
       !
       idate = taxisInqVdate(taxisID)
-!       write(0,*) "idate=",idate
       itime = taxisInqVtime(taxisID)
-!       write(0,*) "itime=",itime
       !
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
@@ -1782,6 +1788,9 @@ CONTAINS
         CALL vlistInqVarName(vlistID, varID, name)
         !
         for_all_lists: DO i = 1, nvar_lists
+          ! skip var_list if it does not match the current patch ID
+          IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+
           IF (var_lists(i)%p%model_type == model_type) THEN
             element => find_list_element(var_lists(i), TRIM(name))
             IF (ASSOCIATED(element)) THEN

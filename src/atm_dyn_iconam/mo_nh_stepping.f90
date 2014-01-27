@@ -691,7 +691,8 @@ MODULE mo_nh_stepping
             & opt_jstep_adv_ntstep       = jstep_adv(jg)%ntsteps,      &
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
             & opt_depth_lnd              = nsoil(jg),                  &
-            & opt_nlev_snow              = nsnow)
+            & opt_nlev_snow              = nsnow,                      &
+            & opt_ndom                   = n_dom)
         ENDDO
         CALL write_async_restart(datetime, jstep)
       ELSE
@@ -705,7 +706,8 @@ MODULE mo_nh_stepping
                                   & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                   & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                   & opt_depth_lnd              = nsoil(jg),                  &
-                                  & opt_nlev_snow              = nsnow )
+                                  & opt_nlev_snow              = nsnow,                      &
+                                  & opt_ndom                   = n_dom )
         END DO
 
         ! Create the master (meta) file in ASCII format which contains
