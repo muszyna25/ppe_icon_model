@@ -1125,6 +1125,7 @@ src/advection/mo_advection_traj.f90 -text
 src/advection/mo_advection_utils.f90 -text
 src/advection/mo_advection_vflux.f90 -text
 src/advection/mo_integrate_density_pa.f90 -text
+src/art_interface/mo_add_tracer_ref.f90 -text
 src/art_interface/mo_art_emission_interface.f90 -text
 src/art_interface/mo_art_reaction_interface.f90 -text
 src/art_interface/mo_art_sedimentation_interface.f90 -text
@@ -1510,7 +1511,6 @@ src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
-src/not_used/mo_add_tracer_ref.f90 -text
 src/ocean/attic/impl_vert_tracer_diff -text
 src/ocean/attic/mo_ocean_bulk-2014-01-24 -text
 src/ocean/attic/mo_ocean_intperpolation_coeffs.f90.not_used -text
