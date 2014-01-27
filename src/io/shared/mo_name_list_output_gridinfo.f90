@@ -903,7 +903,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Writes the grid information in output file, GRIB2 format.
   !
-#ifndef __NO_ICON_ATMO__
+! #ifndef __NO_ICON_ATMO__
   SUBROUTINE write_grid_info_grb2(of, patch_info)
     TYPE (t_output_file), INTENT(INOUT)           :: of
     TYPE(t_patch_info),   INTENT(IN),   TARGET    :: patch_info (:)
@@ -971,6 +971,6 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE write_grid_info_grb2
-#endif
+! #endif
 
 END MODULE mo_name_list_output_gridinfo
