@@ -754,7 +754,7 @@ CONTAINS
     ! add new variable, copy the meta-data from the existing variable
     CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,  &
       &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,    &
-      &           post_op=element%field%info%post_op, loutput=.TRUE. )
+      &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE. )
   END SUBROUTINE copy_variable
 
 
@@ -840,7 +840,7 @@ CONTAINS
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
           &           dst_axis, info%cf, info%grib2, ldims=shape3d_e,                             &
           &           vert_interp=info%vert_interp, new_element=vn_element,                       &
-          &           post_op=info%post_op )
+          &           post_op=info%post_op, lrestart=.FALSE. )
          
         !-- create a post-processing task for vertical interpolation of "vn"
         task => pp_task_insert(DEFAULT_PRIORITY0)
@@ -1052,7 +1052,7 @@ CONTAINS
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
-          & ldims=shape3d )
+          & ldims=shape3d, lrestart=.FALSE. )
         CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_PRESSURE, shape3d, &
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
@@ -1062,7 +1062,7 @@ CONTAINS
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
-          & ldims=shape3d )
+          & ldims=shape3d, lrestart=.FALSE. )
         CALL copy_variable("temp",   p_nh_state(jg)%diag_list,    ZA_ISENTROPIC, shape3d, &
           &                p_diag_pz%i_temp, p_opt_diag_list_i)
       END IF

@@ -10,7 +10,7 @@ MODULE mo_io_restart
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                 int2string, separator
+    &                                 int2string, separator, MAX_STRING_LEN
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
@@ -264,7 +264,7 @@ CONTAINS
   SUBROUTINE set_restart_height_snow(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (lheight_snow_initialised) RETURN
-    IF (ALLOCATED(private_height_snow_half, private_height_snow_full))  &
+    IF (ALLOCATED(private_height_snow_half))  &
       &  DEALLOCATE(private_height_snow_half, private_height_snow_full)
     ALLOCATE(private_height_snow_half(SIZE(zh)), private_height_snow_full(SIZE(zf)))
     private_height_snow_half(:) = zh(:)
@@ -441,10 +441,10 @@ CONTAINS
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
   !
-  SUBROUTINE open_writing_restart_files(basename)
-    CHARACTER(len=*), INTENT(in) :: basename
+  SUBROUTINE open_writing_restart_files(jg, restart_filename)
+    INTEGER,          INTENT(IN) :: jg                   !< patch ID
+    CHARACTER(len=*), INTENT(IN) :: restart_filename
     !
-    CHARACTER(len=1024) :: restart_filename
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
@@ -467,7 +467,7 @@ CONTAINS
     CALL message('','')
     CALL message('','Open restart files:')
     CALL message('','')
-    WRITE(message_text,'(t1,a,t50,a,t84,a,t94,a)') 'file', 'var list', 'file ID', 'restart'
+    WRITE(message_text,'(t1,a,t70,a,t84,a,t94,a)') 'file', 'var list', 'file ID', 'restart'
     CALL message('',message_text)
     CALL message('','')
     !
@@ -488,6 +488,9 @@ CONTAINS
       !
       IF (.NOT. var_lists(i)%p%lrestart) CYCLE
       !
+      ! skip, if var_list does not match the current patch ID
+      IF (var_lists(i)%p%patch_id /= jg) CYCLE
+      !
       ! check restart file type
       !
       SELECT CASE (var_lists(i)%p%restart_type)
@@ -500,9 +503,6 @@ CONTAINS
       END SELECT
       !
       var_lists(i)%p%first = .TRUE.
-      !
-      restart_filename = basename//'_'//TRIM(private_restart_time) &
-           &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
       !
       IF (my_process_is_mpi_workroot()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
@@ -835,8 +835,10 @@ CONTAINS
       !
       DO j = 1, nvar_lists
         !
+        IF (i == j)                        CYCLE
         IF (var_lists(j)%p%restart_opened) CYCLE
         IF (.NOT. var_lists(j)%p%lrestart) CYCLE
+        IF (var_lists(j)%p%patch_id /= jg) CYCLE
         !
         IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
           CALL finish('open_output_streams', 'different file types for the same restart file')
@@ -1095,6 +1097,10 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
 
+    ! DEVELOPMENT
+    ! TODO : THIS MUST BE A NAMELIST PARAMETER
+    CHARACTER(len=MAX_STRING_LEN)  :: restart_filename
+
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
@@ -1254,13 +1260,15 @@ CONTAINS
 
     ! Open new file, write data, close and then clean-up.
 
-    restart_filename = "<gridfile>_restart_DOM<idom>.nc"
+    restart_filename = "<gridfile>_restart_DOM<idom>_<mtype>_<rsttime>.nc"
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
     CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)
+    CALL associate_keyword("<mtype>",      TRIM(var_lists(i)%p%model_type),                keywords)
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files( TRIM(string) )
+    CALL open_writing_restart_files( jg, TRIM(string) )
 
     CALL write_restart( patch )
 
@@ -1388,6 +1396,9 @@ CONTAINS
         ! loop over all streams associated with the file
         !
         DO j = i, nvar_lists
+
+          ! skip var_list if it does not match the current patch ID
+          IF (var_lists(j)%p%patch_id /= p_patch%id) CYCLE
 
           IF (var_lists(j)%p%cdiFileID_restart == var_lists(i)%p%cdiFileID_restart) THEN
             !
