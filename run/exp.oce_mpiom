@@ -99,17 +99,19 @@ ndays_data=30        # ocean model output interval [days]  - no longer than 30 d
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
+nout_interv="P$0{ndays_data}D"                   # ocean model output interval in days <10 days
 nout_interv="P${ndays_data}D"                    # ocean model output interval in days
 #(( dt_data       = nhours_data   * 3600 ))      # used for output_bounds and buildbot
- (( dt_data       = ndays_data    * 86400 ))     # used for production runs
 #(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_data       = ndays_data    * 86400 ))      # used for production runs
 (( dt_restart    = ndays_restart * 86400 ))
-dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
 #(( dt_file       = ndays_file    * 86400 ))     # not yet tested
+dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
 dt_checkpoint=$dt_restart                        # for production runs both must be equal
-(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
-(( outputLength  = nyear_outpLen * 86400*365 ))
+#(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+#(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
+(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
+#(( outputLength  = nyear_outpLen * 86400*365 ))  # for output_bounds only
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -153,21 +155,11 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"                    ! production runs: end in ISO-format
   output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
   steps_per_file   = ${steps_per_file}
-  include_last     = .TRUE.
+! include_last     = .TRUE.                           ! leads to suffix "_part_2+"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','hi','hs','conc','ice_u','ice_v'
-! ml_varlist       =  'group:oce_default','group:ice_default'
-!/
-! no complete sea ice
-!&output_nml
-!  output_bounds    = 0, ${outputLength}, ${dt_data}   !start, end, increment
-!  steps_per_file   = ${steps_per_file}
-!  include_last     = .TRUE.
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-!  ml_varlist       = 'wet_c','group:ice_default','group:ice_diag'
+  ml_varlist       =  'group:oce_default','group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -211,7 +203,7 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -226,8 +218,8 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &sea_ice_nml
-  i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_therm   = 1              !  1=zero-layer, 2=Winton
+  i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
   !i_Qio_type    = 2              !  1=MPIOM-type, 2=flux-type ice-ocean heat flux coupling
 
 /
