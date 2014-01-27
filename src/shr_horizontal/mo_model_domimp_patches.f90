@@ -432,7 +432,7 @@ CONTAINS
 
   SUBROUTINE complete_patches(patch)
 
-    TYPE(t_patch), INTENT(inout) :: patch(n_dom_start:)
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'

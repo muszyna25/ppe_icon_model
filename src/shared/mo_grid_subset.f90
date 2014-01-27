@@ -66,7 +66,7 @@ CONTAINS
   ! Assumes that mask is of the shape (1:,1:)
   SUBROUTINE fill_subset(subset, patch, mask, start_mask, end_mask, subset_name, located)
     TYPE(t_subset_range), INTENT(inout) :: subset
-    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
+    TYPE(t_patch), TARGET :: patch  ! nag does not return the values in subset
     INTEGER, OPTIONAL, INTENT(in) :: located
     CHARACTER(len=32), OPTIONAL :: subset_name
                                                 ! unless the patch is declared INTENT(in)!
