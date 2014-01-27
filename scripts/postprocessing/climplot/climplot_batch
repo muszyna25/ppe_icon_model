@@ -101,6 +101,8 @@ fi
 #metview=metview3
 #metview=metview4_old
 metview=metview4_dev
+#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions"
+
 pgi_path="/usr/local/apps/nag/22/LP64"
 NAGLIB="-libnag.a"
 
@@ -813,13 +815,15 @@ if [[ $TASK_A = "plot_obs" ]] ; then
     if [[ $LMLDIF = 0 && $LZONNOML = 1 && $LDCYCLE = 0  ]]; then
       plotml=0
     fi
+    model='icon'
+   #model='ifs'
     $metview -b climate_obs.met $EXPVER $nens ${iniyearmonth} \
       ${mm_len[${iperiod}]} ${FCRANGE} 1 $plot 0  ${res} ${eratext} ${freadobs} ${obsdir} \
-      $LSIGT $LCOL $LARTIC $plotml 24
+      $LSIGT $LCOL $LARTIC $plotml 24 $model
     if [[ $LCLIM = 1 ]] ; then
      $metview -b climate_obs.met $EXPVER $nens ${iniyearmonth} \
        ${mm_len[${iperiod}]} ${FCRANGE} 1 $plot 1  ${res} ERA40 ${freadobs} ${obsdir} \
-       $LSIGT $LCOL $LARTIC $plotml 24
+       $LSIGT $LCOL $LARTIC $plotml 24 $model
     fi
 #                                                              ^
 #   change this "1" to $NLEV if you                            |

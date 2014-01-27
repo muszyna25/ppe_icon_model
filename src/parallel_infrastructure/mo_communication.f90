@@ -3078,24 +3078,31 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, gather_pattern)
   REAL(wp), INTENT(INOUT) :: out_array(:)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
-  REAL(wp), ALLOCATABLE :: tmp_out_array(:, :)
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, idx, blk
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  ALLOCATE(send_buffer(1, num_send_points))
 
   IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(tmp_out_array(SIZE(out_array), 1))
-    tmp_out_array(:,1) = out_array(:)
+    ALLOCATE(recv_buffer(1, SUM(gather_pattern%collector_size(:))))
   ELSE
-    ALLOCATE(tmp_out_array(0, 0))
+    ALLOCATE(recv_buffer(0,0))
   END IF
 
-  CALL gather_r_2d_deblock(RESHAPE(in_array, &
-    &                              (/SIZE(in_array,1),1, &
-    &                                SIZE(in_array,2)/)), &
-    &                      tmp_out_array, gather_pattern)
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(1,i) = in_array(idx, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
 
   IF (p_pe_work == process_mpi_root_id) &
-    out_array(:) = tmp_out_array(:,1)
+    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
 
-  DEALLOCATE(tmp_out_array)
+  DEALLOCATE(send_buffer,recv_buffer)
 
 END SUBROUTINE gather_r_1d_deblock
 
@@ -3106,24 +3113,31 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, gather_pattern)
   INTEGER, INTENT(INOUT) :: out_array(:)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
-  INTEGER, ALLOCATABLE :: tmp_out_array(:, :)
+  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, idx, blk
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  ALLOCATE(send_buffer(1, num_send_points))
 
   IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(tmp_out_array(SIZE(out_array), 1))
-    tmp_out_array(:,1) = out_array(:)
+    ALLOCATE(recv_buffer(1, SUM(gather_pattern%collector_size(:))))
   ELSE
-    ALLOCATE(tmp_out_array(0, 0))
+    ALLOCATE(recv_buffer(0,0))
   END IF
 
-  CALL gather_i_2d_deblock(RESHAPE(in_array, &
-    &                              (/SIZE(in_array,1),1, &
-    &                                SIZE(in_array,2)/)), &
-    &                      tmp_out_array, gather_pattern)
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(1,i) = in_array(idx, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
 
   IF (p_pe_work == process_mpi_root_id) &
-    out_array(:) = tmp_out_array(:,1)
+    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
 
-  DEALLOCATE(tmp_out_array)
+  DEALLOCATE(send_buffer,recv_buffer)
 
 END SUBROUTINE gather_i_1d_deblock
 

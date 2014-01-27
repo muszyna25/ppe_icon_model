@@ -23,10 +23,9 @@ module load python
 module load cdo/1.6.0
 module swap grib_api grib_api/1.11.0
 
-#dwd_grib_api=/home/ms/de/dwd/grib_api
-dwd_grib_api=/home/ms/de/dei4
-
-export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
+dwd_grib_api=/home/ms/de/dwd/grib_api
+#export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0-12"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions"
 
 lsplitdata=1
 lseasmean=0

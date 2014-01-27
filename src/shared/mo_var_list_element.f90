@@ -1,7 +1,7 @@
 MODULE mo_var_list_element
 
-  USE mo_kind,         ONLY: dp
-  USE mo_var_metadata, ONLY: t_var_metadata
+  USE mo_kind,               ONLY: dp
+  USE mo_var_metadata_types, ONLY: t_var_metadata
 
   IMPLICIT NONE
 

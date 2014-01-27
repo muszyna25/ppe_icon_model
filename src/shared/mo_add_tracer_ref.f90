@@ -38,19 +38,20 @@ MODULE mo_add_tracer_ref
   USE mo_fortran_tools,    ONLY: t_ptr_2d3d
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
-  USE mo_var_list,         ONLY: create_tracer_metadata, add_ref
+  USE mo_var_list,         ONLY: add_ref
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
        &                         find_list_element,                 &
        &                         delete_list_element
-  USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals,      &
+  USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
     &                            t_tracer_meta,                     &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
     &                            VARNAME_LEN, VAR_GROUPS,           &
     &                            VINTP_TYPE_LIST,                   &
     &                            t_post_op_meta, POST_OP_NONE
+  USE mo_var_metadata,     ONLY: create_tracer_metadata
   
   USE mo_advection_config, ONLY: t_advection_config
   USE mo_art_config,       ONLY: t_art_config, art_config

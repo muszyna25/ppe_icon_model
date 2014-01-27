@@ -93,11 +93,11 @@ MODULE mo_ext_data_state
   USE mo_var_list,           ONLY: default_var_list_settings,   &
     &                              add_var, add_ref,            &
     &                              new_var_list,                &
-    &                              delete_var_list,             &
-    &                              create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata, post_op, &
-    &                              groups
-  USE mo_var_metadata,       ONLY: POST_OP_SCALE
+    &                              delete_var_list
+  USE mo_var_metadata_types, ONLY: POST_OP_SCALE
+  USE mo_var_metadata,       ONLY: create_vert_interp_metadata, &
+    &                              create_hor_interp_metadata,  &
+    &                              post_op, groups
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
@@ -111,7 +111,8 @@ MODULE mo_ext_data_state
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
     &                              ZA_LAKE_BOTTOM
-  USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d
+  USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
+    &                              read_cdi_3d
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
 
@@ -1794,7 +1795,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::inquire_extpar_file'
-    INTEGER                 :: mpi_comm, vlist_id, grid_id, lu_class_fraction_id
+    INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
 
@@ -1823,8 +1824,8 @@ CONTAINS
       ! get the number of landuse classes
       lu_class_fraction_id = get_cdi_varID(cdi_extpar_id, "LU_CLASS_FRACTION")
       vlist_id             = streamInqVlist(cdi_extpar_id)
-      grid_id              = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
-      nclass_lu            = gridInqYsize(grid_id)
+      zaxis_id             = vlistInqVarZaxis(vlist_id, lu_class_fraction_id)
+      nclass_lu            = zaxisInqSize(zaxis_id)
 
       ! get time dimension from external data file
       nmonths_ext     = vlistNtsteps(vlist_id)
@@ -2415,10 +2416,10 @@ CONTAINS
             &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
             &              ext_data(jg)%atm%soiltyp, opt_dict=extpar_varnames_dict)
 
-          CALL read_cdi_2d(cdi_extpar_id(jg), 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,               &
+          CALL read_cdi_3d(cdi_extpar_id(jg), 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
             &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
             &              nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction,                    &
-            &              opt_dict=extpar_varnames_dict )
+            &              opt_dict=extpar_varnames_dict, opt_lev_dim=3 )
 
           IF ( l_emiss ) THEN
             CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &

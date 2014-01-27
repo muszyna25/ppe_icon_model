@@ -863,12 +863,21 @@ schedulers/ecmwf/sms/mmeans_sfc.sms -text
 schedulers/ecmwf/sms/model.sms -text
 schedulers/ecmwf/sms/once.sms -text
 schedulers/ecmwf/sms/plot_2d.sms -text
+schedulers/ecmwf/sms/plot_dcycle.sms -text
 schedulers/ecmwf/sms/plot_obs_1.sms -text
+schedulers/ecmwf/sms/plot_obs_10.sms -text
 schedulers/ecmwf/sms/plot_obs_2.sms -text
 schedulers/ecmwf/sms/plot_obs_3.sms -text
+schedulers/ecmwf/sms/plot_obs_4.sms -text
+schedulers/ecmwf/sms/plot_obs_5.sms -text
 schedulers/ecmwf/sms/plot_obs_6.sms -text
 schedulers/ecmwf/sms/plot_obs_7.sms -text
 schedulers/ecmwf/sms/plot_obs_8.sms -text
+schedulers/ecmwf/sms/plot_obs_9.sms -text
+schedulers/ecmwf/sms/plot_vdspectra.sms -text
+schedulers/ecmwf/sms/plot_wavfreq.sms -text
+schedulers/ecmwf/sms/plot_wind.sms -text
+schedulers/ecmwf/sms/plot_z500.sms -text
 schedulers/ecmwf/sms/plot_zon.sms -text
 schedulers/ecmwf/sms/post_archive.sms -text
 schedulers/ecmwf/sms/post_prepare.sms -text
@@ -1253,6 +1262,7 @@ src/atm_phy_les/mo_mcrph_main.f90 -text
 src/atm_phy_les/mo_mcrph_sb.f90 -text
 src/atm_phy_les/mo_sgs_turbulence.f90 -text
 src/atm_phy_les/mo_surface_les.f90 -text
+src/atm_phy_les/mo_turbulent_diagnostic.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
@@ -1434,6 +1444,7 @@ src/io/shared/mo_io_restart_namelist.f90 -text
 src/io/shared/mo_io_units.f90 -text
 src/io/shared/mo_io_util.f90 -text
 src/io/shared/mo_name_list_output.f90 -text
+src/io/shared/mo_name_list_output_gridinfo.f90 -text
 src/io/shared/mo_name_list_output_init.f90 -text
 src/io/shared/mo_name_list_output_types.f90 -text
 src/io/shared/mo_netcdf_read.f90 -text
@@ -1448,6 +1459,7 @@ src/io/shared/mo_util_cdi.f90 -text
 src/io/shared/mo_util_cdi_table.f90 -text
 src/io/shared/mo_util_file.f90 -text
 src/io/shared/mo_util_nml.f90 -text
+src/io/shared/mo_write_netcdf.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_types.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
@@ -1566,6 +1578,8 @@ src/sea_ice/thermodyn/mo_sea_ice_types.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/libmtime.f90 -text
+src/shared/mo_action.f90 -text
+src/shared/mo_action_types.f90 -text
 src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
@@ -1614,6 +1628,7 @@ src/shared/mo_util_uuid.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
 src/shared/mo_var_metadata.f90 -text
+src/shared/mo_var_metadata_types.f90 -text
 src/shared/mo_vert_utilities.f90 -text
 src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.inc -text
@@ -1697,7 +1712,6 @@ support/cdilib.c -text
 support/cfortran.h -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
-support/resource_handle.h -text
 support/rtc_sx.s -text
 support/util_backtrace.c -text
 support/util_backtrace.c_luis -text

@@ -69,11 +69,11 @@ MODULE mo_oce_state
   
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
-    & new_var_list,             &
-    & delete_var_list,          &
-    & default_var_list_settings,&
-    & add_ref,                  &
-    & groups
+    &                               new_var_list,             &
+    &                               delete_var_list,          &
+    &                               default_var_list_settings,&
+    &                               add_ref
+  USE mo_var_metadata,        ONLY: groups 
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
@@ -723,11 +723,11 @@ CONTAINS
     CALL add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,za_surface, &
       & t_cf_var('mld', 'm', 'mixed layer depth', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
     CALL add_var(ocean_default_list, 'condep', p_os_diag%condep , grid_unstructured_cell, za_surface,&
-      & t_cf_var('condep', '', 'convection depth index', datatype_int16),&
+    &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
     
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), stat=ist)

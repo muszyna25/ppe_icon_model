@@ -46,7 +46,8 @@ MODULE mo_atmo_model
   USE mo_sync,                    ONLY: enable_sync_checks, disable_sync_checks,              &
     &                                   decomposition_statistics
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
-    &                                   timers_level, timer_model_init
+    &                                   timers_level, timer_model_init,                       &
+    &                                   timer_domain_decomp, timer_compute_coeffs, timer_ext_data
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs, nproma,      &
     &                                   use_icon_comm, division_method, num_restart_procs,    &
     &                                   use_async_restart_output
@@ -225,6 +226,9 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
 
+    ! set mtime-Calendar
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
 
@@ -340,7 +344,6 @@ CONTAINS
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
         IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-          CALL setCalendar(PROLEPTIC_GREGORIAN)
           ! compute sim_start, sim_end
           CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
           CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
@@ -382,12 +385,15 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
+    IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
     CALL build_decomposition(num_lev,num_levp1,nshift,  is_ocean_decomposition = .false.)
+    IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
+    IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
     CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level, &
                                   p_patch(1)%geometry_info )
 
@@ -462,6 +468,7 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
     ENDIF
+    IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
    ! 8. Import vertical grid/ define vertical coordinate
@@ -517,8 +524,9 @@ CONTAINS
 
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
+    IF (timers_level > 5) CALL timer_start(timer_ext_data)
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-
+    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
 
     CALL init_rrtm_model_repart()
 

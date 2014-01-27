@@ -60,7 +60,7 @@ MODULE mo_icon_comm_lib
     & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_isend, timer_icon_comm_barrier_2, timer_icon_comm_send, &
-    & timer_start, timer_stop, timer_extra1
+    & timer_start, timer_stop
 
   USE mo_master_control,  ONLY: get_my_process_name
 #ifndef NOMPI
@@ -2491,9 +2491,7 @@ CONTAINS
 
     ! Temporarily introduce a timer to facilitate analyzing possible
     ! load balance issues
-    IF (ltimer) CALL timer_start(timer_extra1)
     CALL MPI_ALLREDUCE( MPI_IN_PLACE, in, total_dim, min_type, mintype_op, comm, ierr)
-    IF (ltimer) CALL timer_stop(timer_extra1)
 #endif
 
   END SUBROUTINE mpi_reduce_mindistance_pts

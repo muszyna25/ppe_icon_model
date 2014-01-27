@@ -132,8 +132,6 @@ MODULE mo_nh_latbc
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
       "mo_nh_latbc::allocate_latbc_data"
 
-    CALL message(TRIM(routine),'start')
-
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
@@ -152,7 +150,7 @@ MODULE mo_nh_latbc
     nblks_c = p_patch%nblks_c
     nblks_v = p_patch%nblks_v
     nblks_e = p_patch%nblks_e
-
+      
     DO tlev = 1, 2
       ! Basic icon_remap data
       ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
@@ -234,8 +232,6 @@ MODULE mo_nh_latbc
       &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
       &                   lopt_time_incr=.TRUE.                               )
 
-    CALL message(TRIM(routine),'done')
-
   END SUBROUTINE prepare_latbc_data
   !-------------------------------------------------------------------------
 
@@ -305,14 +301,11 @@ MODULE mo_nh_latbc
     !
     ! start reading boundary data
     !
-    SELECT CASE (latbc_config%itype_latbc)
-    CASE(1)
-      CALL message(TRIM(routine), 'IFS or COSMO-DE boundary data')
+    IF (latbc_config%itype_latbc == 1) THEN
       CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data )
-    CASE(2)
-      CALL message(TRIM(routine), 'ICON output boundary data')
+    ELSE
       CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data )
-    END SELECT
+    ENDIF
 
     ! Compute tendencies for nest boundary update
     CALL compute_boundary_tendencies(p_patch, p_nh_state)
@@ -516,7 +509,7 @@ MODULE mo_nh_latbc
     INTEGER                             :: jc, jk, jb, i_startidx, i_endidx
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
-    CHARACTER(LEN=filename_max)           :: latbc_full_filename
+    CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
     INTEGER                             :: tlev
                                             
     nlev_in   = latbc_config%nlev_in
@@ -529,13 +522,14 @@ MODULE mo_nh_latbc
     ENDIF
 
     IF (my_process_is_stdio()) THEN
-      latbc_full_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+      latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
-      WRITE(message_text,'(a,a)') 'reading from', TRIM(latbc_full_filename)
+      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+      WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
-        WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_full_filename)
+        WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
         CALL finish(TRIM(routine), message_text)
       ENDIF
 
@@ -663,7 +657,7 @@ MODULE mo_nh_latbc
       CALL read_netcdf_data_single( latbc_fileid, 'HHL', p_patch%n_patch_cells_g,         &
         &                     p_patch%n_patch_cells,  p_patch%cells%decomp_info%glb_index,         &
         &                     nlev_in+1, p_latbc_data(tlev)%atm_in%z3d_ifc )
-      !
+      
       ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
       !
 !$OMP PARALLEL
@@ -746,7 +740,7 @@ MODULE mo_nh_latbc
     ! close file
     !
     IF (my_process_is_stdio()) THEN
-      WRITE(message_text,'(a,a)') 'closing file', TRIM(latbc_full_filename)
+      WRITE(message_text,'(a,a)') 'closing file ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       CALL nf(nf_close(latbc_fileid), routine)
     END IF

@@ -92,7 +92,7 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
+  USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group, &
     &                               total_number_of_variables
@@ -2542,6 +2542,7 @@ MODULE mo_nh_initicon
     i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
+
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
@@ -2550,6 +2551,18 @@ MODULE mo_nh_initicon
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
+
+          !******** CONSISTENCY CHECK ************
+          ! 
+          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+          ! below threshhold (currently 5E-7 kg/kg)
+          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
+          ! Note: So far we are not fully convinced that the observed 'zeros' are 
+          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
+          ! numerical artifacts. 
+          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
+            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
+          !******** END CONSISTENCY CHECK ********
 
           ! compute exner function
           p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &

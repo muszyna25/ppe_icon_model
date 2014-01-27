@@ -64,7 +64,8 @@ MODULE mo_oce_forcing
   USE mo_dynamics_config,     ONLY: nold
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_var_list,            ONLY: add_var, add_ref, groups
+  USE mo_var_list,            ONLY: add_var, add_ref
+  USE mo_var_metadata,        ONLY: groups
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_cf_convention

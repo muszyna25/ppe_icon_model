@@ -299,15 +299,15 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
   ENDDO CD_LOOP
 
   ! Feedback weights for cell-based variables
-  ALLOCATE (ptr_grf%fbk_wgt_c(nproma,nblks_c,4), STAT=ist )
+  ALLOCATE (ptr_grf%fbk_wgt_aw(nproma,nblks_c,4), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'allocation for fbk_wgt_c failed')
+      &             'allocation for fbk_wgt_aw failed')
   ENDIF
-  ALLOCATE (ptr_grf%fbk_wgt_ct(nproma,nblks_c,4), STAT=ist )
+  ALLOCATE (ptr_grf%fbk_wgt_bln(nproma,nblks_c,4), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'allocation for fbk_wgt_ct failed')
+      &             'allocation for fbk_wgt_bln failed')
   ENDIF
 
   ! Feedback weights for edge-based variables
@@ -323,8 +323,8 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
       &             'allocation for fbk_dom_area failed')
   ENDIF
 
-  ptr_grf%fbk_wgt_c     = 0._wp
-  ptr_grf%fbk_wgt_ct    = 0._wp
+  ptr_grf%fbk_wgt_aw    = 0._wp
+  ptr_grf%fbk_wgt_bln   = 0._wp
   ptr_grf%fbk_wgt_e     = 0._wp
   ptr_grf%fbk_dom_area  = 0._wp
 
@@ -742,11 +742,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   n = 0
   DO k = 1, 4
     n = n+1
-    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_c(:,:,k)
+    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_aw(:,:,k)
   ENDDO
   DO k = 1, 4
     n = n+1
-    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_ct(:,:,k)
+    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_bln(:,:,k)
   ENDDO
 
   CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
@@ -754,11 +754,11 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   n = 0
   DO k = 1, 4
     n = n+1
-    p_grf%fbk_wgt_c(:,:,k) = z_tmp_r(:,n,:)
+    p_grf%fbk_wgt_aw(:,:,k) = z_tmp_r(:,n,:)
   ENDDO
   DO k = 1, 4
     n = n+1
-    p_grf%fbk_wgt_ct(:,:,k) = z_tmp_r(:,n,:)
+    p_grf%fbk_wgt_bln(:,:,k) = z_tmp_r(:,n,:)
   ENDDO
 
   DEALLOCATE(z_tmp_s)
@@ -1764,15 +1764,15 @@ INTEGER :: ist
 
   ENDDO
 
-  DEALLOCATE (ptr_grf%fbk_wgt_c, STAT=ist )
+  DEALLOCATE (ptr_grf%fbk_wgt_aw, STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'deallocation for fbk_wgt_c failed')
+      &             'deallocation for fbk_wgt_aw failed')
   ENDIF
-  DEALLOCATE (ptr_grf%fbk_wgt_ct, STAT=ist )
+  DEALLOCATE (ptr_grf%fbk_wgt_bln, STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'deallocation for fbk_wgt_ct failed')
+      &             'deallocation for fbk_wgt_bln failed')
   ENDIF
   DEALLOCATE (ptr_grf%fbk_wgt_e, STAT=ist )
   IF (ist /= SUCCESS) THEN

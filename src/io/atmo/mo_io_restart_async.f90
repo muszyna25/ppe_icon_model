@@ -53,7 +53,7 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
-  USE mo_var_metadata,            ONLY: t_var_metadata
+  USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
   USE mo_name_list_output_init,   ONLY: output_file
@@ -2675,9 +2675,11 @@ CONTAINS
 
         ! write field content into a file
         DO ilev=chunk_start, chunk_end
+!$OMP PARALLEL DO
           DO i = 1, p_ri%n_glb
             var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
           ENDDO
+!$OMP END PARALLEL DO
           CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         END DO

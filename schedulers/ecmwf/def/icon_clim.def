@@ -23,24 +23,24 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "006"                #---experiment number---
-set EXPNUM2       "006"                #---experiment number used for score comparison---
-set SUITE2        "dei3"               #---suite             used for score comparison---
+set EXPNUM        "118"                #---experiment number---
+set EXPNUM2       "118"                #---experiment number used for score comparison---
+set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20000801
 set LAST_DATE     20000804
 set DATE_LIST     "2000080100 2000080206 2000080312 2000080418"
 set HOUR_LIST     "00 06 12 18"
 set TIME_LIST     "2000080100/2000080206/2000080312/2000080418"
-set FIRST_DATE_S    2000-09-01T00:00:00           # First date to save in the output
-#set LAST_DATE_S     2001-11-30T12:00:00           # Last date to save in the output
-set LAST_DATE_S     2001-08-31T18:00:00           # Last date to save in the output
+set FIRST_DATE_S  2000-09-01T00:00:00  # First date to save in the output
+#set LAST_DATE_S  2001-11-30T12:00:00  # Last date to save in the output
+set LAST_DATE_S   2001-08-31T18:00:00  # Last date to save in the output
 set FIRST_SSTICE_YEAR 2000             # First and last year for which we neeed the external SST
 set LAST_SSTICE_YEAR  2002             #  and CI external files 
 set MONTHS        200008               #---months to be run e.g. 201201_201207
 set ICON_HOME     /home/ms/de/deia 
-set ICON_ID       deia
-set RES           "R02B05"              #---ICON resolution dynamics
-set RESRAD        "R02B04"              #---ICON resolution radiation (requires namelist)
+set ICON_ID       deia 
+set RES           "R02B05"             #---ICON resolution dynamics
+set RESRAD        "R02B04"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
 #set NSTEPS       12000  # R2B6 10d
@@ -53,8 +53,7 @@ set FCLENGTH     9840    # 410*24 hours
 #set NSTEPS      2880   # 3*86400s/90s
 #set FCLENGTH     72    # 3*24 hours
 
-
-# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
+# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year), 4:B-matrix
 set SIMMODE      3
 
 # no. of ensemble members (dummies here)
@@ -78,8 +77,6 @@ setenv -i TMPDIR
 # HPC environment:
 set SCHOST      c2a
 set WSHOST      ecgb
-
-
 set SCTEMP      /scratch/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$ICON_ID/icon
 set SCPERM      /perm/ms/de/$USER
@@ -128,7 +125,6 @@ define on_ecgate_submit {
   edit SMSSTATUSCMD "sms_status $ICON_ID $WSHOST %SMSRID% %SMSJOB%"
 }
 
-
 define on_hpc_parallel {
   label host "$SCHOST parallel"
   edit SMSCMD       "sms_submit $ICON_ID %SCHOST% %SMSJOB% %SMSJOBOUT%"
@@ -158,6 +154,8 @@ define on_hpc_serial {
 #  edit SMSKILL      "/home/ma/emos/bin/smskill   $ICON_ID %SCHOST% %SMSRID% %SMSJOB% %SMSJOBOUT%"
 #  edit SMSSTATUSCMD "/home/ma/emos/bin/smsstatus $ICON_ID %SCHOST% %SMSRID% %SMSJOB%"
 
+
+
 # -------------------------------------------------
 
 suite $USER
@@ -176,8 +174,8 @@ suite $USER
     set ENABLE_INIT               1 #to avoid running again
     set     ENABLE_GET_DATA       1
     set     ENABLE_INIT_DATA      1
-    set     ENABLE_BUILD          1
-    set         ENABLE_INIT_SVN   1
+    set     ENABLE_BUILD          0
+    set         ENABLE_INIT_SVN   0
     set ENABLE_FORECAST           1 #to avoid running again
     set     ENABLE_DUMPSTATE      0
     set     ENABLE_MODEL          1
@@ -223,11 +221,9 @@ suite $USER
     edit WAITINTVL  $WAITINTVL
     edit USER       $USER
     edit SCPERM     $SCPERM
-
     edit ECPERM     $ECPERM
     edit SCPERMIII  $SCPERMIII
     edit ECPERMIII  $ECPERMIII
-
     edit TMPDIR     $TMPDIR
     edit SCHOST     $SCHOST
     edit WSHOST     $WSHOST
@@ -239,12 +235,11 @@ suite $USER
     edit MONTHS     $MONTHS
     edit FIRST_SSTICE_YEAR $FIRST_SSTICE_YEAR
     edit LAST_SSTICE_YEAR  $LAST_SSTICE_YEAR
-    edit FDATE $FIRST_DATE
-    edit FDATE_S $FIRST_DATE_S
-    edit LDATE_S $LAST_DATE_S
-    edit TIME_LIST $TIME_LIST
-    edit FCLENGTH $FCLENGTH
-
+    edit FDATE      $FIRST_DATE
+    edit FDATE_S    $FIRST_DATE_S
+    edit LDATE_S    $LAST_DATE_S
+    edit TIME_LIST  $TIME_LIST
+    edit FCLENGTH   $FCLENGTH
 
     edit ICONNODES        $ICONNODES        
     edit ICONTASKSPERNODE $ICONTASKSPERNODE 
@@ -262,17 +257,13 @@ suite $USER
     # INITIALIZATION ----------------------------------
 
     family init
-       # repeat date YMD ${FIRST_DATE} ${LAST_DATE}   1   # cycle over dates
+       #repeat date YMD ${FIRST_DATE} ${LAST_DATE}   1   # cycle over dates
         repeat string YMD ${DATE_LIST}
         trigger  (once == complete)
         complete ($ENABLE_INIT == 0)
         edit INIHOUR ""  # this is a work around, YMD contains INIHOUR       
 
         extern /ifs_trigger/fct_ifs
-        #set L_YMDHH "%YMDHH%"
-        #edit YMD     `echo %%YMDHH%% |cut -c 1-8`
-        #edit INIHOUR `echo %%YMDHH%% |cut -c 9-10`
-        
 
         task testday
             on_ecgate
@@ -282,16 +273,15 @@ suite $USER
         task setup
            #time 06:00                                  # use this for tasks running daily (not catch-up mode)
            #trigger  (/ifs_trigger/fct_ifs == complete)
-           # trigger   testday:time_domonth
-           
-            complete (testday==complete) #and not (testday:time_domonth)
-            on_ecgate
+           #trigger   testday:time_domonth
+           #complete (testday==complete) #and not (testday:time_domonth)
+            on_ecgate_submit
             event enable_build
             event enable_dumpstate
 
         family build
             trigger (setup == complete) and (../once == complete)
-            complete (testday==complete) #and not (testday:time_domonth)
+           #complete (testday==complete) #and not (testday:time_domonth)
 
             task init_svn
                 complete ($ENABLE_INIT_SVN == 0) or ($ENABLE_INIT == 0) or \
@@ -323,8 +313,7 @@ suite $USER
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:02:00
 
-        endfamily   ###build
-
+        endfamily
 
         task get_data
             trigger (setup == complete) and (../once == complete)
@@ -344,12 +333,14 @@ suite $USER
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
             edit SCTOTALTASKS 32
-            edit SCCPUS       4
+            edit SCCPUS       8
             edit SCWALLCLOCKLIMIT 00:60:00
 
-    endfamily ###init
+    endfamily
 
- 
+
+    # SEA ICE -----------------------------------------
+
     family sst_ice
 
        repeat integer YYYY ${FIRST_SSTICE_YEAR}  ${LAST_SSTICE_YEAR} 
@@ -373,7 +364,7 @@ suite $USER
             edit SCCPUS       4
             edit SCMEM        3000MB
             edit SCWALLCLOCKLIMIT 02:00:00
-    endfamily  ###sst_ice
+    endfamily
 
 
     # FORECAST ----------------------------------------
@@ -401,7 +392,7 @@ suite $USER
                   on_hpc_parallel
                   event prepare
                   event create_dumpstate
-              endfamily ###prepare
+              endfamily
 	      
               task model
                 trigger (prepare == complete)
@@ -416,10 +407,17 @@ suite $USER
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 05:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
+
+              task seasonal_mean
+                trigger (model == complete)
+                complete ($ENABLE_SEAS_MEAN == 0)
+                on_hpc_serial
+                edit SCWALLCLOCKLIMIT 05:00:00
             endfamily
         endloop
 
     endfamily
+
 
     # POST SEASONAL  ----------------------------------------
 
@@ -427,37 +425,16 @@ suite $USER
         trigger forecast==complete
         complete ( $ENABLE_POST_SEAS == 0)
         set PLOTPERIODS   5
-        repeat string YMD ${DATE_LIST} 
-        edit INIHOUR "" #This is a work around, YMD contains the hour
+       #repeat string YMD ${DATE_LIST} 
+        edit YMD ` echo $LAST_DATE |cut -c 1-8`
+        edit INIHOUR `echo $DATE |cut -c 9-10`
+       #edit INIHOUR "" #This is a work around, YMD contains the hour
 
-        family climmeans
-                
-             # family prepare
-             #   task pre_clean
-             #     on_hpc_serial
-             #     edit SCWALLCLOCKLIMIT 00:20:00
-	     # 
-             #   task dumpstate
-             #     trigger (pre_clean == complete)
-             #     complete ($ENABLE_DUMPSTATE == 0)
-             #     on_hpc_parallel
-             #     event prepare
-             #     event create_dumpstate
-             # endfamily
-	      
-              task seasonal_mean
-                #trigger (prepare == complete)
-                complete ($ENABLE_SEAS_MEAN == 0)
-                on_hpc_serial
-                edit SCWALLCLOCKLIMIT 05:00:00
-                #event seasonal_mean_complete
-	endfamily ###climmeans
-   
         family climplot
              complete ( $ENABLE_CLIMPLOT == 0 ) 
              define rcmd { repeat integer PLOTPERIOD 1 \$PLOTPERIODS }
              rcmd
-             trigger ( climmeans == complete ) ## or \
+             #trigger ( climmeans == complete ) ## or \
                 ##   ( climplot:PLOTPERIOD lt climmeans:PLOTPERIOD ) or \
                 ##   ( climplot:PLOTPERIOD eq climmeans:PLOTPERIOD and \
                 ##     climmeans/mmeans_sfc == complete and \
@@ -472,62 +449,69 @@ suite $USER
              trigger getmeans==complete
              complete ($ENABLE_CLIMPLOT == 0)
              on_ecgate_submit
-##           task plot_wind
-##             trigger getmeans==complete
-##           task plot_z500
-##            trigger getmeans==complete
+           task plot_wind
+             trigger getmeans==complete
+             on_ecgate_submit
+           task plot_z500
+             trigger getmeans==complete
+             on_ecgate_submit
            task plot_zon
              trigger getmeans==complete
              on_ecgate_submit
-##           task plot_dcycle
-##             trigger getmeans==complete
-##           task plot_wavfreq
-##             trigger getmeans==complete
-##           task plot_vdspectra
-##             trigger getmeans==complete
+           task plot_dcycle
+             trigger getmeans==complete
+             on_ecgate_submit
+           task plot_wavfreq
+             trigger getmeans==complete
+             on_ecgate_submit
+           task plot_vdspectra
+             trigger getmeans==complete
+             on_ecgate_submit
            family plot_obs
              trigger (getmeans == complete)
-               task plot_obs_1
-                on_ecgate_submit
-                complete ($ENABLE_PLOT_OBS_1 == 0)
-#               task plot_obs_2
-#                on_ecgate_submit
-#                complete ($ENABLE_PLOT_OBS_2 == 0)
-              # task plot_obs_3
-              #  on_ecgate_submit
-              #  complete ($ENABLE_PLOT_OBS_3 == 0)
-              # task plot_obs_4
-              #  on_ecgate_submit
-              #  complete ($ENABLE_PLOT_OBS_4 == 0)
-              # task plot_obs_5
-              #  on_ecgate_submit
-              #  complete ($ENABLE_PLOT_OBS_5 == 0)
-               task plot_obs_6
-                on_ecgate_submit
-                complete ($ENABLE_PLOT_OBS_6 == 0)
-               task plot_obs_7
-                on_ecgate_submit
-                complete ($ENABLE_PLOT_OBS_7 == 0)
-               task plot_obs_8
-                on_ecgate_submit
-                complete ($ENABLE_PLOT_OBS_8 == 0)
-##               task plot_obs_9
-##               task plot_obs_10
-           endfamily ###plot_obs
-##           task plot_clean
-##            trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
+             task plot_obs_1
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_1 == 0)
+             task plot_obs_2
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_2 == 0)
+             task plot_obs_3
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_3 == 0)
+             task plot_obs_4
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_4 == 0)
+             task plot_obs_5
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_5 == 0)
+             task plot_obs_6
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_6 == 0)
+             task plot_obs_7
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_7 == 0)
+             task plot_obs_8
+               on_ecgate_submit
+               complete ($ENABLE_PLOT_OBS_8 == 0)
+             task plot_obs_9
+               on_ecgate_submit
+             task plot_obs_10
+               on_ecgate_submit
+           endfamily
+##         task plot_clean
+##           trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
 ##                    plot_z500==complete and plot_zon==complete and plot_obs==complete and \
 ##                    plot_dcycle==complete and plot_wavfreq==complete and plot_vdspectra==complete
        
-        endfamily  ###climplot
+        endfamily
 
         task climplot_save
            trigger climplot == complete
            complete ($ENABLE_CLIMPLOT_SAVE == 0)
            on_ecgate_submit
              
+  endfamily
 
-  endfamily ###post_seasonal
- endfamily ###EXPNUM
+ endfamily
 
 endsuite

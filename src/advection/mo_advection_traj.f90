@@ -361,27 +361,27 @@ CONTAINS
                                             !< instead
 
     REAL(wp) ::            &       !< coordinates of departure points 
-         &  depart_pts(2,2)           !< in edge-based coordinate system
+         &  depart_pts(nproma,2,2) !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
-         &  pos_dreg_vert_c(4,2)      !< as seen from translated coordinate system.
+         &  pos_dreg_vert_c(nproma,4,2)      !< as seen from translated coordinate system.
                                       !< origin at circumcenter of upwind cell
 
     REAL(wp) ::            &       !< position on tangential plane depending
-         &  pos_on_tplane_e(2)        !< on the sign of vn
+         &  pos_on_tplane_e(nproma,2)        !< on the sign of vn
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
          &  pn_cell(2), dn_cell(2)    !< in the direction of vn
 
     REAL(wp) ::            &       !< edge vertices
-         &  edge_verts(2,2)
+         &  edge_verts(nproma,2,2)
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos             !< vn > 0: TRUE/FALSE
-    LOGICAL :: lvn_sys_pos         !< vn*system_orient > 0
+    LOGICAL :: lvn_sys_pos(nproma,ptr_p%nlev)   !< vn*system_orient > 0
 
     ! for index list generation
     LOGICAL :: llist_gen           !< if TRUE, generate index list
@@ -442,6 +442,22 @@ CONTAINS
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
+      ! get local copy of edge vertices
+      DO je = i_startidx, i_endidx
+        edge_verts(je,1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
+      ENDDO
+
+      ! logical switch for merge options regarding the counterclockwise numbering
+      IF (lcounterclock) THEN
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+            lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%system_orientation(je,jb) >= 0._wp
+          ENDDO
+        ENDDO
+      ELSE
+        lvn_sys_pos(i_startidx:i_endidx,slev:elev) = .FALSE.
+      ENDIF
+
       ! generate list of points that require special treatment
       !
       IF (llist_gen) THEN
@@ -462,6 +478,7 @@ CONTAINS
             IF (traj_length > 1.25_wp*e2c_length) THEN   ! add point to index list
 !!$            IF (traj_length > ((1.4_wp - MIN(0.5_wp,(0.1_wp*ABS(p_vt(je,jk,jb)/MAX(dbl_eps,p_vn(je,jk,jb)))))) &
 !!$                               *e2c_length)) THEN   ! add point to index list
+
               ie = ie + 1
               opt_falist%eidx(ie,jb) = je
               opt_falist%elev(ie,jb) = jk
@@ -473,9 +490,8 @@ CONTAINS
         opt_falist%len(jb) = ie
       ENDIF
 
-
-
       DO jk = slev, elev
+!DIR$ IVDEP
         DO je = i_startidx, i_endidx
 
 
@@ -514,14 +530,6 @@ CONTAINS
           ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
           lvn_pos     = p_vn(je,jk,jb) * p_dt >= 0._wp
 
-          ! logical switch for merge options regarding the counterclockwise numbering
-          lvn_sys_pos = MERGE(&
-            &           (p_vn(je,jk,jb)*ptr_p%edges%system_orientation(je,jb)) >= 0._wp, &
-            &           .FALSE., &
-            &           lcounterclock)
-
-          ! get local copy of edge vertices
-          edge_verts(1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
 
           ! get line and block indices of upwind cell
           p_cell_idx(je,jk,jb) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
@@ -534,24 +542,24 @@ CONTAINS
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction
-          depart_pts(1,1)      = edge_verts(1,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(je,1,1)      = edge_verts(je,1,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in tangential direction
-          depart_pts(1,2)      = edge_verts(1,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(je,1,2)      = edge_verts(je,1,2) - p_vt(je,jk,jb) * p_dt
 
           ! position of vertex 3 in normal direction
-          depart_pts(2,1)      = edge_verts(2,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(je,2,1)      = edge_verts(je,2,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 3 in tangential direction
-          depart_pts(2,2)      = edge_verts(2,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(je,2,2)      = edge_verts(je,2,2) - p_vt(je,jk,jb) * p_dt
 
 
 
           ! determine correct position on tangential plane
-          pos_on_tplane_e(1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
+          pos_on_tplane_e(je,1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
                &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
 
-          pos_on_tplane_e(2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
+          pos_on_tplane_e(je,2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
                &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
 
           ! Calculate position of departure region vertices in a translated
@@ -561,19 +569,19 @@ CONTAINS
           !
           ! Take care of correct counterclockwise numbering below
           !
-          pos_dreg_vert_c(1,1:2) = edge_verts(1,1:2) - pos_on_tplane_e(1:2)
+          pos_dreg_vert_c(je,1,1:2) = edge_verts(je,1,1:2) - pos_on_tplane_e(je,1:2)
 
-          pos_dreg_vert_c(2,1)   = MERGE(depart_pts(1,1),edge_verts(2,1),lvn_sys_pos) &
-               &                    - pos_on_tplane_e(1)
-          pos_dreg_vert_c(2,2)   = MERGE(depart_pts(1,2),edge_verts(2,2),lvn_sys_pos) &
-               &                    - pos_on_tplane_e(2)
+          pos_dreg_vert_c(je,2,1)   = MERGE(depart_pts(je,1,1),edge_verts(je,2,1),lvn_sys_pos(je,jk)) &
+               &                    - pos_on_tplane_e(je,1)
+          pos_dreg_vert_c(je,2,2)   = MERGE(depart_pts(je,1,2),edge_verts(je,2,2),lvn_sys_pos(je,jk)) &
+               &                    - pos_on_tplane_e(je,2)
 
-          pos_dreg_vert_c(3,1:2) = depart_pts(2,1:2) - pos_on_tplane_e(1:2)
+          pos_dreg_vert_c(je,3,1:2) = depart_pts(je,2,1:2) - pos_on_tplane_e(je,1:2)
 
-          pos_dreg_vert_c(4,1)   = MERGE(edge_verts(2,1),depart_pts(1,1),lvn_sys_pos) &
-               &                    - pos_on_tplane_e(1)
-          pos_dreg_vert_c(4,2)   = MERGE(edge_verts(2,2),depart_pts(1,2),lvn_sys_pos) &
-               &                    - pos_on_tplane_e(2)
+          pos_dreg_vert_c(je,4,1)   = MERGE(edge_verts(je,2,1),depart_pts(je,1,1),lvn_sys_pos(je,jk)) &
+               &                    - pos_on_tplane_e(je,1)
+          pos_dreg_vert_c(je,4,2)   = MERGE(edge_verts(je,2,2),depart_pts(je,1,2),lvn_sys_pos(je,jk)) &
+               &                    - pos_on_tplane_e(je,2)
 
 
 
@@ -584,44 +592,24 @@ CONTAINS
           !
           ! Determine primal and dual normals of the cell lying in the direction of vn
           pn_cell(1) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
-               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
+               &             ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
 
           pn_cell(2) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
-               &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
+               &             ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
 
           dn_cell(1) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,       &
-               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
+               &             ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           dn_cell(2) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,       &
-               &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
+               &             ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
           ! components in longitudinal direction
-          p_coords_dreg_v(je,1,1,jk,jb) =                                         &
-               & pos_dreg_vert_c(1,1) * pn_cell(1) + pos_dreg_vert_c(1,2) * dn_cell(1)
-
-          p_coords_dreg_v(je,2,1,jk,jb) =                                         &
-               & pos_dreg_vert_c(2,1) * pn_cell(1) + pos_dreg_vert_c(2,2) * dn_cell(1)
-
-          p_coords_dreg_v(je,3,1,jk,jb) =                                        &
-               & pos_dreg_vert_c(3,1) * pn_cell(1) + pos_dreg_vert_c(3,2) * dn_cell(1)
-
-          p_coords_dreg_v(je,4,1,jk,jb) =                                         &
-               & pos_dreg_vert_c(4,1) * pn_cell(1) + pos_dreg_vert_c(4,2) * dn_cell(1)
-
+          p_coords_dreg_v(je,1:4,1,jk,jb) =                                         &
+               & pos_dreg_vert_c(je,1:4,1) * pn_cell(1) + pos_dreg_vert_c(je,1:4,2) * dn_cell(1)
 
           ! components in latitudinal direction
-          p_coords_dreg_v(je,1,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(1,1) * pn_cell(2) + pos_dreg_vert_c(1,2) * dn_cell(2)
-
-          p_coords_dreg_v(je,2,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(2,1) * pn_cell(2) + pos_dreg_vert_c(2,2) * dn_cell(2)
-
-          p_coords_dreg_v(je,3,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(3,1) * pn_cell(2) + pos_dreg_vert_c(3,2) * dn_cell(2)
-
-          p_coords_dreg_v(je,4,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(4,1) * pn_cell(2) + pos_dreg_vert_c(4,2) * dn_cell(2)
-
+          p_coords_dreg_v(je,1:4,2,jk,jb) =                                         &
+               & pos_dreg_vert_c(je,1:4,1) * pn_cell(2) + pos_dreg_vert_c(je,1:4,2) * dn_cell(2)
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
@@ -977,3 +965,4 @@ CONTAINS
       END SUBROUTINE btraj_o2
 
 END MODULE mo_advection_traj
+

@@ -45,9 +45,10 @@ MODULE mo_util_cdi
   USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,           &
     &                              p_comm_work, p_comm_work_test,          &
     &                              p_io, p_pe
-  USE mo_util_string,        ONLY: tolower
+  USE mo_util_string,        ONLY: tolower, MAX_STRING_LEN
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
+  USE mo_gribout_config,     ONLY: t_gribout_config
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -57,6 +58,7 @@ MODULE mo_util_cdi
   PUBLIC  :: read_cdi_2d, read_cdi_3d
   PUBLIC  :: get_cdi_varID
   PUBLIC  :: test_cdi_varID
+  PUBLIC  :: set_additional_GRIB2_keys
 
   CHARACTER(len=*), PARAMETER :: version = &
     &    '$Id$'
@@ -67,7 +69,6 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_2d_real
     MODULE PROCEDURE read_cdi_2d_int
     MODULE PROCEDURE read_cdi_2d_time
-    MODULE PROCEDURE read_cdi_2d_lu
   END INTERFACE
 
 CONTAINS
@@ -159,7 +160,7 @@ CONTAINS
   !  Initial revision by F. Prill, DWD (2013-02-19)
   ! 
   SUBROUTINE read_cdi_3d(streamID, varname, glb_arr_len, loc_arr_len, glb_index, &
-    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict)
+    &                     nlevs, var_out, opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
 
     INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
@@ -171,6 +172,7 @@ CONTAINS
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
+    INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_cdi_3d'
@@ -180,6 +182,10 @@ CONTAINS
       &                                dimlen(3), nmiss
     REAL(wp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     LOGICAL                         :: lvalue_add
+    INTEGER                         :: lev_dim
+
+    lev_dim = 2
+    CALL assign_if_present(lev_dim, opt_lev_dim)
 
     lvalue_add = .FALSE.
     CALL assign_if_present(lvalue_add, opt_lvalue_add)
@@ -224,19 +230,39 @@ CONTAINS
       ! broadcast data: 
       CALL p_bcast(tmp_buf, p_io, mpi_comm)
       ! Set var_out from global data
-      IF (lvalue_add) THEN
-        DO j = 1, loc_arr_len
-          jb = blk_no(j) ! Block index in distributed patch
-          jl = idx_no(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
-        ENDDO
-      ELSE
-        DO j = 1, loc_arr_len
-          jb = blk_no(j) ! Block index in distributed patch
-          jl = idx_no(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j)), wp)
-        ENDDO
-      END IF
+
+      SELECT CASE(lev_dim)
+      CASE(2) 
+        IF (lvalue_add) THEN
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = var_out(jl,jk,jb) + REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        ELSE
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jk,jb) = REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        END IF
+      CASE(3)
+        IF (lvalue_add) THEN
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jb,jk) = var_out(jl,jb,jk) + REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        ELSE
+          DO j = 1, loc_arr_len
+            jb = blk_no(j) ! Block index in distributed patch
+            jl = idx_no(j) ! Line  index in distributed patch
+            var_out(jl,jb,jk) = REAL(tmp_buf(glb_index(j)), wp)
+          ENDDO
+        END IF
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+      END SELECT
     END DO ! jk=1,nlevs
       
     ! clean up
@@ -401,71 +427,121 @@ CONTAINS
   END SUBROUTINE read_cdi_2d_time
 
 
-  !-------------------------------------------------------------------------
-  !> Read 2D dataset from file, specific read-routine for LU_CLASS_FRACTION. 
+  !------------------------------------------------------------------------------------------------
+  !> Set additional GRIB2 keys
   !
-  !  @par Revision History
-  ! 
-  !  Initial revision by F. Prill, DWD (2013-02-19)
+  ! GRIB2 Quick hack
+  ! ----------------
   !
-  SUBROUTINE read_cdi_2d_lu (streamID, varname, glb_arr_len, loc_arr_len, glb_index, nslice, var_out, opt_dict)
+  ! Set additional GRIB2 keys. These are added to each single variable, even though
+  ! adding it to the vertical or horizontal grid description may be more elegant.
+  !
+  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx)
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE(t_gribout_config), INTENT(IN) :: grib_conf
+    INTEGER,                INTENT(IN) :: tileidx
 
-    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
-    CHARACTER(len=*), INTENT(IN)    :: varname        !< Var name of field to be read
-    INTEGER,          INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
-    INTEGER,          INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
-    INTEGER,          INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-    INTEGER,          INTENT(IN)    :: nslice         !< slices of field
-    REAL(wp),         INTENT(INOUT) :: var_out(:,:,:) !< output field
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict  !< optional: variable name dictionary
-    ! local variables:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':read_cdi_2d_lu'
-    INTEGER       :: varID, mpi_comm, j, jl, jb, islice, &
-      &              nmiss, vlistID, gridID, ioffset
-    REAL(wp)      :: z_dummy_array(glb_arr_len)       !< local dummy array
-    REAL(wp), ALLOCATABLE :: z_dummy_array_lu(:)
+    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
+    INTEGER :: cent, year, month, day    ! date
+    INTEGER :: hour, minute              ! time
 
-    ! Get var ID
-    IF (p_pe == p_io) THEN
-      vlistID   = streamInqVlist(streamID)
-      varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_dict=opt_dict)
-      gridID    = vlistInqVarGrid(vlistID, varID)
-      ! Check variable dimensions:
-      IF ((gridInqXSize(gridID) /= glb_arr_len) .OR.  &
-        & (gridInqYSize(gridID) /= nslice)) THEN
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
-    END IF
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
+    IF (grib_conf%ldate_grib_act) THEN
+      ! get date and time
+      ! ydate : ccyymmdd, ytime : hhmmss.sss
+      CALL date_and_time(ydate,ytime)
+      READ(ydate,'(4i2)') cent, year, month, day
+      READ(ytime,'(2i2)') hour, minute
+    ELSE ! set date to "01010101" (for better comparability of GRIB files)
+      cent  = 1
+      year  = 1
+      month = 1
+      year  = 1
+      hour  = 1
+      minute= 1
     ENDIF
 
-    ! I/O PE reads and broadcasts data
+    ! Load correct tables and activate section 2
+    !
+    ! set tablesVersion=5
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+    ! Initialize section 2
+    CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
+    !
+    ! Product definition
+    CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
+      &                    grib_conf%significanceOfReferenceTime)
+    CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
+      &                    grib_conf%productionStatusOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
+      &                    grib_conf%typeOfProcessedData)
+    CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
+      &                    grib_conf%backgroundProcess)
+    ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
+    CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
+      &                    grib_conf%generatingProcessIdentifier)
 
-    IF (p_pe == p_io) THEN
-      ALLOCATE (z_dummy_array_lu(glb_arr_len*nslice))
-      ! read record as 1D field
-      CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array_lu(:), nmiss)
+
+    CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
+
+
+    ! Product Generation (local), !! DWD only !!
+    ! DWD :: center    = 78
+    !        subcenter = 255
+    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
+      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
+        &                    grib_conf%localDefinitionNumber)
+
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
+
+      ! preliminary HACK for identifying tile based variables
+      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",                 &
+        &                    grib_conf%localNumberOfExperiment)
+
+      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
+
+      IF (grib_conf%localDefinitionNumber == 254) THEN
+        !
+        ! -------------------------------------------
+        ! Local definition for deterministic forecast
+        ! -------------------------------------------
+
+        ! store GRIB_API library version
+        ! TODO: replace by wrapper call in cdi not available yet (2013-07-29)
+        !CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
+
+        !
+      ELSE IF (grib_conf%localDefinitionNumber == 253) THEN
+        !
+        ! --------------------------------------
+        ! Local definition for ensemble products
+        ! --------------------------------------
+
+        IF (grib_conf%productDefinitionTemplateNumber /= -1)                              &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",   &
+          &                          grib_conf%productDefinitionTemplateNumber)
+        IF (grib_conf%typeOfEnsembleForecast /= -1)                                       &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "typeOfEnsembleForecast" ,           &
+          &                          grib_conf%typeOfEnsembleForecast)
+        IF (grib_conf%localTypeOfEnsembleForecast /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "localTypeOfEnsembleForecast" ,      &
+          &                          grib_conf%localTypeOfEnsembleForecast)
+        IF (grib_conf%numberOfForecastsInEnsemble /= -1)                                  &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "numberOfForecastsInEnsemble" ,      &
+          &                          grib_conf%numberOfForecastsInEnsemble)
+        IF (grib_conf%perturbationNumber /= -1)                                           &
+          &   CALL vlistDefVarIntKey(vlistID, varID, "perturbationNumber" ,               &
+          &                          grib_conf%perturbationNumber)
+      END IF ! localDefinitionNumber
     END IF
 
-    ! Set var_out from global data
-    ioffset = 0
-    DO islice = 1, nslice
-      IF (p_pe == p_io) z_dummy_array(:) = z_dummy_array_lu(ioffset+1:ioffset+glb_arr_len)
-      CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-      var_out(:,:,islice) = 0._wp
-      DO j = 1, loc_arr_len
-        jb = blk_no(j) ! Block index in distributed patch
-        jl = idx_no(j) ! Line  index in distributed patch
-        var_out(jl,jb,islice) = z_dummy_array(glb_index(j))
-      ENDDO
-      ioffset = ioffset + glb_arr_len
-    END DO
-    IF (p_pe == p_io) DEALLOCATE (z_dummy_array_lu)
+    ! SECTION 3
+    CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
 
-  END SUBROUTINE read_cdi_2d_lu
+  END SUBROUTINE set_additional_GRIB2_keys
 
 END MODULE mo_util_cdi

@@ -112,7 +112,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
+  USE mo_mpi,                 ONLY: my_process_is_mpi_parallel,                      &
     &                               proc_split, push_glob_comm, pop_glob_comm,       &
     &                               get_my_mpi_all_id
 #ifdef NOMPI
@@ -157,12 +157,13 @@ MODULE mo_nh_stepping
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
     &                               close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,    ONLY: prep_adv, jstep_adv
+  USE mo_action,              ONLY: reset_action
 
 #ifdef MESSY
-  USE messy_main_channel_bi,   ONLY: messy_channel_write_output &
-    &                              , IOMODE_RST
+  USE messy_main_channel_bi,  ONLY: messy_channel_write_output &
+    &                             , IOMODE_RST
 #ifdef MESSYTIMER
-  USE messy_main_timer_bi,     ONLY: messy_timer_reset_time 
+  USE messy_main_timer_bi,    ONLY: messy_timer_reset_time 
 #endif
 #endif
 
@@ -510,7 +511,7 @@ MODULE mo_nh_stepping
 
 
       ! Check if MODIS albedo needs to be updated
-      IF ( albedo_type == MODIS) THEN
+      IF (iforcing == inwp .AND. albedo_type == MODIS) THEN
         ! Note that here only an update of the external parameter fields is 
         ! performed. The actual update happens in mo_albedo.
         DO jg = 1, n_dom
@@ -624,6 +625,7 @@ MODULE mo_nh_stepping
     CALL messy_write_output
 #endif
 
+
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_nml_output) THEN
@@ -662,6 +664,13 @@ MODULE mo_nh_stepping
         CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
     ENDIF
+
+
+    ! re-initialize MAX/MIN fields with 'resetval'
+    ! must be done AFTER output
+    !
+    CALL reset_action()
+
 
     !--------------------------------------------------------------------------
     ! Write restart file
@@ -1176,6 +1185,7 @@ MODULE mo_nh_stepping
               &                  dtadv_loc,                          & !in
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
+              &                  nstep_global,                       & !in
               &                  datetime,                           & !in
               &                  p_patch(jg)  ,                      & !in
               &                  p_int_state(jg),                    & !in
@@ -1200,7 +1210,6 @@ MODULE mo_nh_stepping
             !> moist tracer update is now synchronized with advection and satad
             CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
               &                  lredgrid_phys(jg),                  & !in
-              &                  dt_loc,                             & !in
               &                  dtadv_loc,                          & !in
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
@@ -1501,7 +1510,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now,n_now_rcf
+    INTEGER :: n_now,n_now_rcf, nstep
 
     INTEGER :: jgp, jgc, jn
 
@@ -1534,12 +1543,14 @@ MODULE mo_nh_stepping
 
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN!LES physics
 
+      nstep = 0
       CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
         &                  lredgrid_phys(jg),                  & !in
         &                  dt_loc,                             & !in
         &                  dtadv_loc,                          & !in
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in
+        &                  nstep,                              & !in
         &                  datetime,                           & !in
         &                  p_patch(jg)  ,                      & !in
         &                  p_int_state(jg),                    & !in
@@ -1563,7 +1574,6 @@ MODULE mo_nh_stepping
   
       CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
         &                  lredgrid_phys(jg),                  & !in
-        &                  dt_loc,                             & !in
         &                  dtadv_loc,                          & !in
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in

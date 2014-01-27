@@ -68,7 +68,7 @@ MODULE mo_nwp_turbtrans_interface
   USE src_turbdiff,            ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc
-  USE mo_util_phys,            ONLY: nwp_dyn_gust, nwp_dyn_gust1
+  USE mo_util_phys,            ONLY: nwp_dyn_gust
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
@@ -385,6 +385,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)),  &
           &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
 
+        prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+          &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
+        prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+          &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+
       ELSE ! tile approach used
 
         ! preset variables for land tile indices
@@ -597,6 +602,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
             prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
 
+            prm_diag%tmax_2m(jc,jb) = MAX(t_2m_t(ic,jt), prm_diag%tmax_2m(jc,jb))
+            prm_diag%tmin_2m(jc,jb) = MIN(t_2m_t(ic,jt), prm_diag%tmin_2m(jc,jb))
 
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
@@ -619,7 +626,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
             ! maximum gust
-            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust1(prm_diag%u_10m_t(jc,jb,jt),   &
+            prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust (prm_diag%u_10m_t(jc,jb,jt),   &
               &                                           prm_diag%v_10m_t(jc,jb,jt),   &
               &                                           prm_diag%tcm_t  (jc,jb,jt),   &
               &                                           p_diag%u      (jc,nlev,jb),   &
@@ -688,6 +695,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         &                             p_diag%v      (i_startidx:i_endidx,nlev,jb) ), &
         &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
 
+      prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
+      prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
 
       DO jt = 1, ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
@@ -716,6 +727,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
     prm_diag%gust10(i_startidx:i_endidx,jb) = MAX(                        &
           &                   prm_diag%gust10  (i_startidx:i_endidx,jb),  &
           &                   prm_diag%dyn_gust(i_startidx:i_endidx,jb))
+
+    ! wind speed in 10m
+    prm_diag%sp_10m(i_startidx:i_endidx,jb) = SQRT(prm_diag%u_10m(i_startidx:i_endidx,jb)**2 &
+      &                                     +      prm_diag%v_10m(i_startidx:i_endidx,jb)**2 )
 
   ENDDO ! jb
 !$OMP END DO NOWAIT

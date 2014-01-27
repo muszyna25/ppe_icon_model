@@ -89,7 +89,8 @@
       &                               my_process_is_mpi_seq, p_comm_work,                   &
       &                               my_process_is_mpi_test, p_max, p_send,                &
       &                               p_recv, process_mpi_all_test_id,                      &
-      &                               process_mpi_all_workroot_id, p_pe
+      &                               process_mpi_all_workroot_id, p_pe,                    &
+      &                               my_process_is_stdio
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no,                               &
       &                               setup_comm_pattern, setup_comm_gather_pattern
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
@@ -99,7 +100,8 @@
       &                               GRID_CELL, ZA_SURFACE, TIME_CONSTANT,                 &
       &                               TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
     USE mo_nonhydro_state,      ONLY: p_nh_state
-    USE mo_var_list,            ONLY: add_var, create_hor_interp_metadata
+    USE mo_var_list,            ONLY: add_var
+    USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
     USE mo_util_sort,           ONLY: quicksort
@@ -329,7 +331,7 @@
 
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
-            cf_desc    = t_cf_var('aw', '1', 'area weights for lat-lon grid', DATATYPE_FLT32)
+            cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', DATATYPE_FLT32)
             grib2_desc = t_grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
@@ -1577,8 +1579,9 @@
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,   &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
         rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
-        WRITE(message_text,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
-        CALL message(routine, message_text)
+        IF (my_process_is_stdio()) THEN
+          WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
+        END IF
       CASE DEFAULT
         CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
       END SELECT
@@ -1586,7 +1589,7 @@
       IF (rbf_shape_param <= 0._wp) &
         &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
       WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
-      CALL message(routine, message_text)
+      CALL message(routine, TRIM(message_text))
 
       CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, &
         &                                npromz_lonlat, rbf_shape_param )
@@ -1628,9 +1631,9 @@
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,       &
             &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l, rbf_shape_param)
           rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
-
-          WRITE(message_text,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
-          CALL message(routine, message_text)
+          IF (my_process_is_stdio()) THEN
+            WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
+          END IF
         CASE DEFAULT
           CALL finish(routine, "Unknown value for rbf_scale_mode_ll!")
         END SELECT
@@ -1638,7 +1641,7 @@
         IF (rbf_shape_param <= 0._wp) &
           &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
         WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
-        CALL message(routine, message_text)
+        CALL message(routine, TRIM(message_text))
         ! compute coefficients:
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &
           &                         nblks_lonlat, npromz_lonlat, rbf_shape_param )
@@ -2389,7 +2392,7 @@
       !-- apply interpolation coefficients
       IF (dbg_level > 1) THEN
         WRITE(message_text,*) "PE #", p_pe, ": apply interpolation coefficients"
-        CALL message(routine, message_text)
+        CALL message(routine, TRIM(message_text))
       END IF
 
       SELECT CASE(hintp_type)

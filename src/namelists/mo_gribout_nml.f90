@@ -1,7 +1,7 @@
 !>
 !! Namelist for Grib output
 !!
-!! These subroutines are called by  read_atmo_namelists and do the transport 
+!! These subroutines are called by  read_atmo_namelists and do the transport
 !! setup.
 !!
 !! @author Daniel Reinert, DWD
@@ -49,12 +49,12 @@ MODULE mo_gribout_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_gribout_config,      ONLY: gribout_config 
+  USE mo_gribout_config,      ONLY: gribout_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_util_string,         ONLY: int2string
   USE mo_exception,           ONLY: finish, message
 
-  
+
   IMPLICIT NONE
   PRIVATE
 
@@ -87,7 +87,7 @@ MODULE mo_gribout_nml
     & significanceOfReferenceTime       ! 0: Analysis
                                         ! 1: Start of forecast
                                         ! 2: Verifying time of forecast
-                                        ! 4: ... 
+                                        ! 4: ...
 
   INTEGER :: &                          ! Table 1.3
     & productionStatusOfProcessedData   ! 0: Oper. products
@@ -111,7 +111,7 @@ MODULE mo_gribout_nml
     & backgroundProcess                 ! 0: main run
                                         ! 1: pre-assimilation
                                         ! 2: assimilation
-                                        ! 3: ... 
+                                        ! 3: ...
 
   INTEGER :: &                          ! Table: generatingProcessIdentifier
     & generatingProcessIdentifier(0:max_dom) ! 1: icogl
@@ -121,24 +121,24 @@ MODULE mo_gribout_nml
 
   INTEGER :: &                          ! Table: local.78.254.def
     & localDefinitionNumber             ! 252: Ensemble system incl. postprocessing
-                                        ! 253: Ensemble system 
+                                        ! 253: Ensemble system
                                         ! 254: Deterministic system
 
   INTEGER :: &                          ! Table: local.78.254.def
-    & localNumberOfExperiment           !  
+    & localNumberOfExperiment           !
 
 
   INTEGER :: &                          ! Output generating center
-    & generatingCenter                  !  
+    & generatingCenter                  !
 
 
   INTEGER :: &                          ! Output generating subcenter
-    & generatingSubcenter               !  
+    & generatingSubcenter               !
 
 
   LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                         ! .TRUE. : activated
-                                        ! .FALSE.: deactivated (use dummy date/time) 
+                                        ! .FALSE.: deactivated (use dummy date/time)
 
   LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
                                         ! with 24bit precision
@@ -180,16 +180,16 @@ CONTAINS
   !
   !
   !>
-  !! Read Namelist for gribout. 
+  !! Read Namelist for gribout.
   !!
-  !! This subroutine 
+  !! This subroutine
   !! - reads the Namelist for gribout
   !! - sets default values
-  !! - potentially overwrites the defaults by values used in a 
+  !! - potentially overwrites the defaults by values used in a
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
   !! - stores the Namelist for restart
-  !! - fills the configuration state (partly)   
+  !! - fills the configuration state (partly)
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2013-01-29)
@@ -205,7 +205,7 @@ CONTAINS
       &  routine = 'mo_gribout_nml: read_gribout_nml'
 
     !-----------------------
-    ! 1. default settings   
+    ! 1. default settings
     !-----------------------
     preset                               = "deterministic"
 
@@ -221,7 +221,7 @@ CONTAINS
     typeOfGeneratingProcess              = UNDEFINED
     localDefinitionNumber                = UNDEFINED
     generatingCenter                     = UNDEFINED  ! output generating center
-    generatingSubcenter                  = UNDEFINED  ! output generating subcenter 
+    generatingSubcenter                  = UNDEFINED  ! output generating subcenter
     productDefinitionTemplateNumber      = UNDEFINED  ! (undefined, will not be set if unchanged)
     typeOfEnsembleForecast               = UNDEFINED  ! (undefined, will not be set if unchanged)
     localTypeOfEnsembleForecast          = UNDEFINED  ! (undefined, will not be set if unchanged)
@@ -229,7 +229,7 @@ CONTAINS
     perturbationNumber                   = UNDEFINED  ! (undefined, will not be set if unchanged)
 
     !------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (is_restart_run()) THEN
@@ -267,31 +267,31 @@ CONTAINS
 
     DO jg= 0,max_dom
       gribout_config(jg)%significanceOfReferenceTime       = &
-        &                significanceOfReferenceTime       
+        &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &
-        &                productionStatusOfProcessedData   
+        &                productionStatusOfProcessedData
       gribout_config(jg)%typeOfProcessedData               = &
-        &                typeOfProcessedData               
+        &                typeOfProcessedData
       gribout_config(jg)%typeOfGeneratingProcess           = &
-        &                typeOfGeneratingProcess           
+        &                typeOfGeneratingProcess
       gribout_config(jg)%backgroundProcess                 = &
-        &                backgroundProcess                 
+        &                backgroundProcess
       gribout_config(jg)%generatingProcessIdentifier       = &
-        &                generatingProcessIdentifier(jg)   
+        &                generatingProcessIdentifier(jg)
       gribout_config(jg)%localDefinitionNumber             = &
-        &                localDefinitionNumber             
+        &                localDefinitionNumber
       gribout_config(jg)%localNumberOfExperiment           = &
-        &                localNumberOfExperiment           
+        &                localNumberOfExperiment
       gribout_config(jg)%generatingCenter                  = &
-        &                generatingCenter                  
+        &                generatingCenter
       gribout_config(jg)%generatingSubcenter               = &
-        &                generatingSubcenter               
+        &                generatingSubcenter
       gribout_config(jg)%ldate_grib_act                    = &
-        &                ldate_grib_act                    
+        &                ldate_grib_act
       gribout_config(jg)%productDefinitionTemplateNumber   = &
-        &                productDefinitionTemplateNumber       
+        &                productDefinitionTemplateNumber
       gribout_config(jg)%typeOfEnsembleForecast            = &
-        &                typeOfEnsembleForecast       
+        &                typeOfEnsembleForecast
       gribout_config(jg)%localTypeOfEnsembleForecast       = &
         &                localTypeOfEnsembleForecast
       gribout_config(jg)%numberOfForecastsInEnsemble       = &
@@ -309,8 +309,8 @@ CONTAINS
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
-      WRITE(funit,NML=gribout_nml)                    
-      CALL store_and_close_namelist(funit, 'gribout_nml')             
+      WRITE(funit,NML=gribout_nml)
+      CALL store_and_close_namelist(funit, 'gribout_nml')
     ENDIF
 
     ! 7. write the contents of the namelist to an ASCII file
@@ -341,7 +341,7 @@ CONTAINS
       !
       ! values are preset according to
       !  GME   : pp_makepdt.f90
-      !  COSMO : io_metadata.f90 
+      !  COSMO : io_metadata.f90
       !
       ! The user is expected to set only
       !
@@ -373,6 +373,7 @@ CONTAINS
     LOGICAL,          INTENT(IN)    :: quiet             !< LOGICAL: if .FALSE. we print some screen output
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = modname//"::preset_value"
+    CHARACTER(len=20) :: cval, cpre
 
     IF (ival == UNDEFINED) THEN
       ival = preset_val
@@ -383,10 +384,13 @@ CONTAINS
       IF (ival /= preset_val) THEN
         ! obviously, the user tried to set both: the main switch for
         ! presetting values and the local value
-        CALL finish(routine, "Namelist setting of '"//TRIM(name)//"' contradicts to preset values!")
+        WRITE (cval,'(i0)') ival
+        WRITE (cpre,'(i0)') preset_val
+        CALL finish(routine, "Namelist setting "//TRIM(name)//"="//TRIM(cval)// &
+                             " contradicts preset value "//TRIM(cpre))
       END IF
     END IF
-    
+
   END SUBROUTINE preset_value
 
 END MODULE mo_gribout_nml

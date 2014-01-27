@@ -5,7 +5,7 @@ MODULE mo_io_restart
   USE mo_mpi,                   ONLY: p_barrier,p_comm_work
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
-  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants

@@ -98,6 +98,9 @@ MODULE mo_interface_les
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
+  USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
+                                     write_vertical_profiles, write_time_series, &
+                                     avg_interval_step, sampl_freq_step
 
   IMPLICIT NONE
 
@@ -117,7 +120,7 @@ CONTAINS
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
                             & dt_loc, dtadv_loc, dt_phy_jg,        & !input
-                            & p_sim_time, datetime,                & !input
+                            & p_sim_time, nstep, datetime,         & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -141,7 +144,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
-
+    INTEGER, INTENT(in)          :: nstep           !time step counter
     TYPE(t_datetime),            INTENT(in):: datetime
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
@@ -1633,7 +1636,7 @@ CONTAINS
     ENDIF
 
     IF (msg_level >= 13) THEN ! extended diagnostic
-      CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
+      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
     ENDIF
    
     CALL nwp_diagnosis(lcall_phy_jg,                        & !input
@@ -1644,6 +1647,25 @@ CONTAINS
                            & pt_prog, pt_prog_rcf,          & !in
                            & pt_diag,                       & !inout
                            & prm_diag)
+
+
+    !Special diagnostics for LES runs- 1D, time series
+    IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
+      CALL calculate_turbulent_diagnostics(                 &
+                              & pt_patch,                   & !in
+                              & pt_prog,  pt_prog_rcf,      & !in
+                              & pt_diag,                    & !in
+                              & lnd_prog_new, lnd_diag,     & !in
+                              & prm_diag                )     !inout
+
+      !write out time series
+      CALL write_time_series(prm_diag%turb_diag_0dvar, p_sim_time)
+    END IF
+	    
+    IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
+      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time)
+      prm_diag%turb_diag_1dvar = 0._wp
+    END IF 
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

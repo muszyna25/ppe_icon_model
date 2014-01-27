@@ -147,7 +147,7 @@ MODULE mo_output_event_handler
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
-    &                                  my_process_is_mpi_test
+    &                                  my_process_is_mpi_test, p_pe
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -185,7 +185,7 @@ MODULE mo_output_event_handler
   PUBLIC :: union_of_all_events
   PUBLIC :: deallocate_output_event
   PUBLIC :: wait_for_pending_irecvs
-  PUBLIC :: wait_for_final_irecvs
+  PUBLIC :: blocking_wait_for_irecvs
   ! inquiry functions
   PUBLIC :: get_current_date
   PUBLIC :: get_current_step
@@ -1994,10 +1994,10 @@ CONTAINS
     IF (.NOT. is_output_event_finished(event) .AND. &
       & (event%icomm /= MPI_COMM_NULL)) THEN
       ! wait for the last ISEND to be processed:
-      IF (ldebug) WRITE (0,*) "waiting for request handle."
+      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle."
       CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAIT.')
-      IF (ldebug) WRITE (0,*) "waiting for request handle."
+      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle done."
       ! launch a new non-blocking send:
       istep = event%output_event%i_event_step
       i_tag = event%output_event%event_step(istep)%event_step_data(1)%i_tag
@@ -2006,7 +2006,7 @@ CONTAINS
         WRITE (0,*) routine, ": sending message ", i_tag, " from ", get_my_global_mpi_id(), &
           &         " to ", event%iroot
       END IF
-      CALL MPI_ISEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
+      CALL MPI_IBSEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
         &            event%icomm, event%isend_req, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_ISEND.')
       IF (ldebug) THEN
@@ -2116,11 +2116,11 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE wait_for_final_irecvs(event)
+  SUBROUTINE blocking_wait_for_irecvs(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
 #ifndef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_final_irecvs"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::blocking_wait_for_irecvs"
     INTEGER                           :: ierrstat, nreq, ireq
     INTEGER, ALLOCATABLE              :: irecv_status(:,:), irecv_req(:)
     TYPE(t_par_output_event), POINTER :: ev
@@ -2165,7 +2165,7 @@ CONTAINS
       ev => ev%next
     END DO
 #endif
-  END SUBROUTINE wait_for_final_irecvs
+  END SUBROUTINE blocking_wait_for_irecvs
 
 
   !> Spool event state fast-forward to a given event step.

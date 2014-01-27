@@ -49,7 +49,7 @@ MODULE mo_name_list_output_config
     &                                 max_var_hl, max_var_il, &
     &                                 MAX_TIME_LEVELS
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
-  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_master_control,        ONLY: is_restart_run
   USE mo_name_list_output_types,ONLY: t_output_name_list, t_output_file, &

@@ -65,7 +65,8 @@ MODULE mo_sea_ice
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
-  USE mo_var_list,            ONLY: add_var, add_ref, groups
+  USE mo_var_list,            ONLY: add_var, add_ref
+  USE mo_var_metadata,        ONLY: groups
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention
   USE mo_grib2

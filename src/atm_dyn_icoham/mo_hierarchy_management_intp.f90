@@ -68,7 +68,7 @@ USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
 USE mo_gridref_config,      ONLY: grf_velfbk, grf_intmethod_c, grf_intmethod_e,   &
-                                  grf_intmethod_ct
+                                  grf_intmethod_ct, grf_scalfbk, grf_tracfbk
 USE mo_grf_intp_data_strc , ONLY: p_grf_state_local_parent
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
@@ -515,8 +515,17 @@ ALLOCATE(feedback_vn_tend(nproma, nlev, i_startblk:i_endblk))
 iidx => p_gcp%child_idx
 iblk => p_gcp%child_blk
 
-p_fbkwgt    => p_grf%fbk_wgt_c
-p_fbkwgt_tr => p_grf%fbk_wgt_ct
+IF (grf_scalfbk == 1) THEN
+  p_fbkwgt    => p_grf%fbk_wgt_aw
+ELSE
+  p_fbkwgt    => p_grf%fbk_wgt_bln
+ENDIF
+IF (grf_tracfbk == 1) THEN
+  p_fbkwgt_tr => p_grf%fbk_wgt_aw
+ELSE
+  p_fbkwgt_tr => p_grf%fbk_wgt_bln
+ENDIF
+
 p_fbarea    => p_gcp%area
 
 ! Preparation of feedback: compute child tendencies
