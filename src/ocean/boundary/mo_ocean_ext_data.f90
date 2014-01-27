@@ -56,7 +56,11 @@ MODULE mo_ocean_ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_char_length, LAND
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, forcing_timescale
+  USE mo_ocean_nml,          ONLY: iforc_oce, &
+    &                              forcing_timescale, &
+    &                              forcing_windstress_u_type, &
+    &                              forcing_windstress_v_type, &
+    &                              forcing_fluxes_type 
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -220,6 +224,8 @@ CONTAINS
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
+    LOGICAL :: use_windstress_only, use_full_file
+
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -236,11 +242,20 @@ CONTAINS
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, forcing_timescale data sets
     ! for type of forcing see mo_oce_bulk
     idim_omip = 0
-    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
-    IF (iforc_type == 2 ) idim_omip = 14    !  OMIP type forcing
-    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
-    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-    IF (iforc_type == 5 ) idim_omip = 14    !  NCEP type forcing - time dependent read in mo_oce_bulk
+    use_windstress_only = (&
+      & (forcing_windstress_u_type == 1 .OR. forcing_windstress_u_type == 5) .AND. &
+      & (forcing_windstress_v_type == 1 .OR. forcing_windstress_v_type == 5) .AND. &
+      & (forcing_fluxes_type       >  100 )                                        &
+      & )
+    use_full_file = ( &
+      & (forcing_windstress_u_type == 1 .OR. forcing_windstress_u_type == 5) .AND. &
+      & (forcing_windstress_v_type == 1 .OR. forcing_windstress_v_type == 5) .AND. &
+      & (forcing_fluxes_type       == 1 .OR. forcing_fluxes_type       == 5)       &
+      & )
+
+    IF ( use_windstress_only ) idim_omip =  3    !  stress (x, y) and SST
+    IF ( use_full_file )       idim_omip = 14    !  OMIP type forcing
+
     shape4d_c = (/ nproma, forcing_timescale, nblks_c, idim_omip /)
 
     !
@@ -359,6 +374,8 @@ CONTAINS
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
     INTEGER :: mpi_comm
+
+    LOGICAL :: use_omip_forcing, use_omip_windstress, use_omip_fluxes
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%nblks_c)
@@ -479,7 +496,11 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    IF (iforc_type .NE. 5 .AND. iforc_oce == 12) THEN
+    use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
+    use_omip_fluxes     = ( forcing_fluxes_type == 1 )
+    use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
+
+    IF ( use_omip_forcing .AND. iforc_oce == 12) THEN
 
     !DO jg = 1,n_dom
       jg = 1
@@ -550,7 +571,7 @@ CONTAINS
       ! 1:  'stress_x': zonal wind stress       [m/s]
       ! 2:  'stress_y': meridional wind stress  [m/s]
       ! 3:  'SST"     : sea surface temperature [K]
-
+!     IF ( use_omip_windstress ) THEN
       ! zonal wind stress
       CALL read_netcdf_data (ncid, 'stress_x', p_patch(jg)%n_patch_cells_g,          &
         &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
@@ -568,8 +589,8 @@ CONTAINS
         &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
         &                    no_tst, z_flux)
       ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
-
-      IF (iforc_type == 2) THEN
+!     ENDIF
+      IF ( use_omip_fluxes ) THEN
 
       ! Read complete OMIP data sets for focing ocean model
       !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
@@ -653,63 +674,64 @@ CONTAINS
 
       END IF
 
-      ! provide heat and freshwater flux for focing ocean model
-      IF (iforc_type == 3) THEN
+    ! TODO not needed at the moment, disabled through the restructuring of the forcing
+    ! ! provide heat and freshwater flux for focing ocean model
+    ! IF (iforc_type == 3) THEN
 
-        ! net surface heat flux
-        CALL read_netcdf_data (ncid, 'net_hflx', p_patch(jg)%n_patch_cells_g,          &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! surface freshwater flux
-        CALL read_netcdf_data (ncid, 'net_fflx', p_patch(jg)%n_patch_cells_g,          &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+    !   ! net surface heat flux
+    !   CALL read_netcdf_data (ncid, 'net_hflx', p_patch(jg)%n_patch_cells_g,          &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+    !
+    !   ! surface freshwater flux
+    !   CALL read_netcdf_data (ncid, 'net_fflx', p_patch(jg)%n_patch_cells_g,          &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
 
-      END IF
+    ! END IF
 
-      ! provide 4 parts of heat and 2 parts of freshwater flux for focing ocean model
-      IF (iforc_type == 4) THEN
+    ! ! provide 4 parts of heat and 2 parts of freshwater flux for focing ocean model
+    ! IF (iforc_type == 4) THEN
 
-        ! surface short wave heat flux
-        CALL read_netcdf_data (ncid, 'swflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! surface long wave heat flux
-        CALL read_netcdf_data (ncid, 'lwflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
-     
-        ! surface sensible heat flux
-        CALL read_netcdf_data (ncid, 'shflx_avg',    p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
-     
-        ! surface latent heat flux
-        CALL read_netcdf_data (ncid, 'lhflx_avg',    p_patch(jg)%n_patch_cells_g,      &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
-     
-        ! total precipiation
-        CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
-     
-        ! evaporation
-        CALL read_netcdf_data (ncid, 'evap'  , p_patch(jg)%n_patch_cells_g,            &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    no_tst, z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
+    !   ! surface short wave heat flux
+    !   CALL read_netcdf_data (ncid, 'swflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+    !
+    !   ! surface long wave heat flux
+    !   CALL read_netcdf_data (ncid, 'lwflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+    !
+    !   ! surface sensible heat flux
+    !   CALL read_netcdf_data (ncid, 'shflx_avg',    p_patch(jg)%n_patch_cells_g,      &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+    !
+    !   ! surface latent heat flux
+    !   CALL read_netcdf_data (ncid, 'lhflx_avg',    p_patch(jg)%n_patch_cells_g,      &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
+    !
+    !   ! total precipiation
+    !   CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
+    !
+    !   ! evaporation
+    !   CALL read_netcdf_data (ncid, 'evap'  , p_patch(jg)%n_patch_cells_g,            &
+    !     &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+    !     &                    no_tst, z_flux)
+    !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
 
-      END IF
+    ! END IF
 
       !
       ! close file

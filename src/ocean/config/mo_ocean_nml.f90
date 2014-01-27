@@ -118,12 +118,13 @@ MODULE mo_ocean_nml
   !    0    : not used
   !   1:100 : file based input
   ! 101:200 : analytic setup
-  INTEGER  :: forcing_fluxes_type                  = 0
   ! forcing_windstress_(u|v|fluxes)_type values
-  ! 1   : omip intpu
+  ! 1   : omip input
   ! 5   : ncep input
+  INTEGER  :: forcing_fluxes_type                  = 0
   INTEGER  :: forcing_windstress_u_type            = 0
   INTEGER  :: forcing_windstress_v_type            = 0
+
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
   REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
