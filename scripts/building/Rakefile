@@ -342,18 +342,16 @@ def doSync(build)
   $_temps << file
   myFile = file.path
   if File.exists?('.svn') then
-    #file.write(`find $(svn list -R) -type f | grep -v -F '.svn'`)
-    file.write(`svn list -R`)
+    file.write(`svn list -R | grep -E -v '\/$'`)
   else
     file.write(`git ls-files | grep -v -E '^(data|doc)'`)
   end
-  file.write("\n")
   file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
   # add non-added runscripts
   file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
   file.write("\n")
   # add grids directory for local external data
-  file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
+  #file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
   file.write("config/mh-override\n") if isLocal?(build)
   file.close
   system("cat #{file.path}") if  ENV.has_key?('DEBUG')
