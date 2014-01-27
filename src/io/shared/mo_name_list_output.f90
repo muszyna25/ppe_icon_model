@@ -317,8 +317,9 @@ CONTAINS
   !  This routine also cares about opening the output files the first time
   !  and reopening the files after a certain number of steps.
   !
-  SUBROUTINE write_name_list_output(jstep)
-    INTEGER, INTENT(IN) :: jstep         !< model step
+  SUBROUTINE write_name_list_output(jstep, opt_lhas_output)
+    INTEGER,           INTENT(IN)   :: jstep             !< model step
+    LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output   !< (Optional) Flag: .TRUE. if this async I/O PE has written during this step.
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, idate, itime, iret, jg
@@ -352,6 +353,8 @@ CONTAINS
 ! #ifndef __NO_ICON_ATMO__
 #endif
 ! NOMPI
+
+    IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
 
     ! Go over all output files
     OUTFILE_LOOP : DO i=1,SIZE(output_file)
@@ -410,6 +413,7 @@ CONTAINS
 #ifndef NOMPI
         IF(output_file(i)%io_proc_id == p_pe) THEN
           CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
+          IF (PRESENT(opt_lhas_output))  opt_lhas_output = .TRUE.
         ENDIF
 #endif 
       ELSE
@@ -939,8 +943,8 @@ CONTAINS
     ! local variables:
 
 #ifndef __NO_ICON_ATMO__
-    LOGICAL             :: done, l_complete
-    INTEGER             :: jg, jstep
+    LOGICAL             :: done, l_complete, lhas_output
+    INTEGER             :: jg, jstep, i
     TYPE(t_par_output_event), POINTER :: ev
 
     ! setup of meteogram output
@@ -970,10 +974,49 @@ CONTAINS
       IF(done) EXIT ! leave loop, we are done
 
       ! perform I/O
-      CALL write_name_list_output(jstep)
+      CALL write_name_list_output(jstep, lhas_output)
 
-      ! Inform compute PEs that we are done
-      CALL async_io_send_handshake(jstep)
+      ! Inform compute PEs that we are done, if this I/O PE has
+      ! written output:
+      IF (lhas_output)  CALL async_io_send_handshake(jstep)
+
+      ! Handle final pending "output step completed" messages: After
+      ! all participating I/O PE's have acknowledged the completion of
+      ! their write processes, we trigger a "ready file" on the first
+      ! I/O PE.
+      IF (.NOT.my_process_is_mpi_test()  .AND.  &
+        & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
+
+        ! Go over all output files
+        l_complete = .TRUE.
+        OUTFILE_LOOP : DO i=1,SIZE(output_file)
+          l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
+        END DO OUTFILE_LOOP
+
+        IF (l_complete) THEN
+          IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
+          WAIT_FINAL : DO           
+            CALL blocking_wait_for_irecvs(all_events)
+            ev => all_events
+            l_complete = .TRUE.
+            HANDLE_COMPLETE_STEPS : DO
+              IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+              
+              !--- write ready file
+              IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+              IF (.NOT. is_output_event_finished(ev)) THEN 
+                l_complete = .FALSE.
+                IF (is_output_step_complete(ev)) THEN 
+                  CALL trigger_output_step_irecv(ev)
+                END IF
+              END IF
+              ev => ev%next
+            END DO HANDLE_COMPLETE_STEPS
+            IF (l_complete) EXIT WAIT_FINAL
+          END DO WAIT_FINAL
+          IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
+        END IF
+      END IF
 
       ! write recent samples of meteogram output
       DO jg = 1, n_dom
@@ -982,36 +1025,6 @@ CONTAINS
         END IF
       END DO
     ENDDO
-
-    IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
-    WAIT_FINAL : DO
-       ! Handle final pending "output step completed" messages: After all
-       ! participating I/O PE's have acknowledged the completion of their
-       ! write processes, we trigger a "ready file" on the first I/O PE.
-       IF (.NOT.my_process_is_mpi_test()) THEN
-          IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-               & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-             CALL blocking_wait_for_irecvs(all_events)
-             ev => all_events
-             l_complete = .TRUE.
-             HANDLE_COMPLETE_STEPS : DO
-                IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-                
-                !--- write ready file
-                IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-                IF (.NOT. is_output_event_finished(ev)) THEN 
-                   l_complete = .FALSE.
-                   IF (is_output_step_complete(ev)) THEN 
-                      CALL trigger_output_step_irecv(ev)
-                   END IF
-                END IF
-                ev => ev%next
-             END DO HANDLE_COMPLETE_STEPS
-          END IF
-       END IF
-       IF (l_complete) EXIT WAIT_FINAL
-    END DO WAIT_FINAL
-    IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
 
     ! Finalization sequence:
     CALL close_name_list_output
@@ -1300,17 +1313,6 @@ CONTAINS
     ENDIF
 #endif
 ! __SX__
-
-    ! Convert mb_get/mb_wr to MB
-    IF (use_dp_mpi2io) THEN
-      mb_get = mb_get*8*1.d-6
-    ELSE
-      mb_get = mb_get*4*1.d-6
-    ENDIF
-    mb_wr = mb_wr*4*1.d-6 ! always 4 byte since dp output is implicitly converted to sp
-    ! PRINT *,' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
-    !   ' MB/s], time write: ',t_write,' s [',mb_wr/t_write, &
-    !   ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
 
   END SUBROUTINE io_proc_write_name_list
 
