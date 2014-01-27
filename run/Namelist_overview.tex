@@ -4471,6 +4471,17 @@ If the \texttt{output} namelist parameter is not set explicitly, the default set
  &
 \tabularnewline
 
+\hline
+restart\_filename&
+C &
+&
+&
+File name for restart/checkpoint files (containg keyword
+substitution patterns \texttt{<gridfile>}, \texttt{<idom>}, \texttt{<rsttime>}, \texttt{<mtype>}).
+default: ''\texttt{<gridfile>\_restart\_<mtype>\_<rsttime>.nc''.
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
