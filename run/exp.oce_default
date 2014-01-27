@@ -146,6 +146,7 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
  msg_timestamp        = .FALSE.
+ debug_check_level    = 10
 /
 &output_nml
   output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
