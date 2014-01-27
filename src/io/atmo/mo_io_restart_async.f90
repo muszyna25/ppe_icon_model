@@ -68,11 +68,13 @@ MODULE mo_io_restart_async
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
-  USE mo_run_config,              ONLY: msg_level
+  USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
   USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi_constants
+  USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
+    &                                   int2string
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, &
@@ -2925,7 +2927,6 @@ CONTAINS
   ! Initialize the variable list of the given restart file.
   !
   SUBROUTINE init_restart_variables(p_rf)
-
     TYPE(t_restart_file), POINTER, INTENT(IN) :: p_rf
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
@@ -3234,6 +3235,7 @@ CONTAINS
     CHARACTER(LEN=32)             :: datetime
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3273,10 +3275,12 @@ CONTAINS
     datetime = iso8601(restart_args%datetime)
 
     ! build the file name
-    p_rf%filename = 'restart.'// &
-      &             TRIM(get_filename_noext(p_pd%base_filename))//'_'// &
-      &             TRIM(datetime)//'_'// &
-      &             TRIM(p_rf%model_type)//'.nc'
+    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(p_pd%base_filename)),   keywords)
+    CALL associate_keyword("<idom>",       TRIM(int2string(p_pd%id, "(i2.2)")),            keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(datetime),                                 keywords)
+    CALL associate_keyword("<mtype>",      TRIM(p_rf%model_type),                          keywords)
+    ! replace keywords in file name
+    p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
     p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
 

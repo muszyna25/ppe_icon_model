@@ -25,7 +25,7 @@ MODULE mo_io_restart
   USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
-  USE mo_run_config,            ONLY: ltimer, output_mode
+  USE mo_run_config,            ONLY: ltimer, output_mode, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file, timer_write_output
   USE mo_math_utilities,        ONLY: set_zlev
@@ -443,7 +443,7 @@ CONTAINS
   !
   SUBROUTINE open_writing_restart_files(jg, restart_filename)
     INTEGER,          INTENT(IN) :: jg                   !< patch ID
-    CHARACTER(len=*), INTENT(IN) :: restart_filename
+    CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     !
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
@@ -1097,16 +1097,11 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
 
-    ! DEVELOPMENT
-    ! TODO : THIS MUST BE A NAMELIST PARAMETER
-    CHARACTER(len=MAX_STRING_LEN)  :: restart_filename
-
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+    CHARACTER(len=MAX_STRING_LEN)  :: string
 
-
-    CHARACTER(LEN=132) :: string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
@@ -1259,8 +1254,6 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-
-    restart_filename = "<gridfile>_restart_DOM<idom>_<mtype>_<rsttime>.nc"
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
     CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
     CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)

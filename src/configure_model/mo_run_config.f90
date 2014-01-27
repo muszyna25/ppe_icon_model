@@ -43,6 +43,7 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY
   USE mo_io_units,       ONLY: filename_max
+  USE mo_util_string,    ONLY: MAX_STRING_LEN
   USE mo_grid_config,    ONLY: get_grid_rescale_factor
 
   IMPLICIT NONE
@@ -69,6 +70,7 @@ MODULE mo_run_config
   PUBLIC :: configure_run
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
   PUBLIC :: debug_check_level
+  PUBLIC :: restart_filename
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -214,6 +216,10 @@ MODULE mo_run_config
     END TYPE t_output_mode
 
     TYPE (t_output_mode) output_mode
+
+    !> file name for restart/checkpoint files (containg keyword
+    !> substition patterns)
+    CHARACTER(len=MAX_STRING_LEN) :: restart_filename
 
 CONTAINS
   !>
