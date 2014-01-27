@@ -126,7 +126,8 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_windstress_v_type            = 0
 
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
-  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
+!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
+  REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
   REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
@@ -429,7 +430,8 @@ MODULE mo_ocean_nml
     &                 forcing_timescale                   , &
     &                 forcing_wind_u_amplitude            , &
     &                 forcing_wind_v_amplitude            , &
-    &                 forcing_windstress_meridional_waveno, &
+!DR    &                 forcing_windstress_meridional_waveno, &
+    &                 forcing_windstress_merid_waveno     , &
     &                 forcing_windstress_u_type           , &
     &                 forcing_windstress_v_type           , &
     &                 forcing_windstress_zonal_waveno     , &

@@ -48,7 +48,7 @@ MODULE mo_oce_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
-    & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,        &
+    & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
     & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type
@@ -615,10 +615,10 @@ CONTAINS
     all_cells => patch_3d%p_patch_2d(1)%cells%All
 
     CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_u,&
-      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
+      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
-      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
+      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax == 1) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
@@ -753,7 +753,7 @@ CONTAINS
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     length            = basin_width_deg * deg2rad
-    meridional_waveno = forcing_windstress_meridional_waveno
+    meridional_waveno = forcing_windstress_merid_waveno
 
     CALL assign_if_present(length,length_opt)
     CALL assign_if_present(meridional_waveno,meridional_waveno_opt)
@@ -804,7 +804,7 @@ CONTAINS
 
     length                        =  90.0_wp * deg2rad
     center                        = -20.0_wp * deg2rad
-    meridional_waveno             = forcing_windstress_meridional_waveno
+    meridional_waveno             = forcing_windstress_merid_waveno
 
     CALL assign_if_present(center,center_opt)
     CALL assign_if_present(length,length_opt)
@@ -873,7 +873,7 @@ CONTAINS
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     zonal_waveno      = forcing_windstress_zonal_waveno
-    meridional_waveno = forcing_windstress_meridional_waveno
+    meridional_waveno = forcing_windstress_merid_waveno
 
     CALL assign_if_present(zonal_waveno, zonal_waveno_opt)
     CALL assign_if_present(meridional_waveno, meridional_waveno_opt)
