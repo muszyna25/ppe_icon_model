@@ -651,30 +651,31 @@ CONTAINS
       & forcing_windstress_v_type, amplitude, zonal_waveno, meridional_waveno, center, length)
   END SUBROUTINE set_windstress_v
 
-  SUBROUTINE update_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
-    TYPE(t_subset_range),INTENT(IN)              :: cell_subset
-    REAL(wp), INTENT(IN)                         :: field_x(:,:), field_y(:,:)
-    TYPE(t_cartesian_coordinates), INTENT(OUT)   :: field_cc(:,:)
-    CALL gvec2cvec(  field_x(:,:),&
-      &              field_y(:,:),&
-      &              cell_subset%patch%cells%center(:,:)%lon,&
-      &              cell_subset%patch%cells%center(:,:)%lat,&
-      &              field_cc(:,:)%x(1),&
-      &              field_cc(:,:)%x(2),&
-      &              field_cc(:,:)%x(3))
-  END SUBROUTINE update_cartesian_coords_for_cells
-  SUBROUTINE update_from_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
-    TYPE(t_subset_range),INTENT(IN)           :: cell_subset
-    REAL(wp), INTENT(INOUT)                   :: field_x(:,:), field_y(:,:)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: field_cc(:,:)
-    CALL cvec2gvec(field_cc(:,:)%x(1),&
-      &            field_cc(:,:)%x(2),&
-      &            field_cc(:,:)%x(3),&
-      &            cell_subset%patch%cells%center(:,:)%lon,&
-      &            cell_subset%patch%cells%center(:,:)%lat,&
-      &            field_x(:,:),        &
-      &            field_y(:,:))
-  END SUBROUTINE update_from_cartesian_coords_for_cells
+!TODO disabled because of compiler error on blizzard
+! SUBROUTINE update_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
+!   TYPE(t_subset_range),INTENT(IN)              :: cell_subset
+!   REAL(wp), INTENT(IN)                         :: field_x(:,:), field_y(:,:)
+!   TYPE(t_cartesian_coordinates), INTENT(OUT)   :: field_cc(:,:)
+!   CALL gvec2cvec(  field_x(:,:),&
+!     &              field_y(:,:),&
+!     &              cell_subset%patch%cells%center(:,:)%lon,&
+!     &              cell_subset%patch%cells%center(:,:)%lat,&
+!     &              field_cc(:,:)%x(1),&
+!     &              field_cc(:,:)%x(2),&
+!     &              field_cc(:,:)%x(3))
+! END SUBROUTINE update_cartesian_coords_for_cells
+! SUBROUTINE update_from_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
+!   TYPE(t_subset_range),INTENT(IN)           :: cell_subset
+!   REAL(wp), INTENT(INOUT)                   :: field_x(:,:), field_y(:,:)
+!   TYPE(t_cartesian_coordinates), INTENT(IN) :: field_cc(:,:)
+!   CALL cvec2gvec(field_cc(:,:)%x(1),&
+!     &            field_cc(:,:)%x(2),&
+!     &            field_cc(:,:)%x(3),&
+!     &            cell_subset%patch%cells%center(:,:)%lon,&
+!     &            cell_subset%patch%cells%center(:,:)%lat,&
+!     &            field_x(:,:),        &
+!     &            field_y(:,:))
+! END SUBROUTINE update_from_cartesian_coords_for_cells
 
   SUBROUTINE set_windstress(subset, mask, threshold, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno,center,length)
