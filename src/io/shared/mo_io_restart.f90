@@ -92,13 +92,15 @@ MODULE mo_io_restart
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist
+  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist,                       &
+    &                                 read_restart_namelists
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
-       &                              read_attributes, delete_attributes,           &
-       &                              restart_attributes_count_text,                &
-       &                              restart_attributes_count_real,                &
-       &                              restart_attributes_count_int,                 &
-       &                              restart_attributes_count_bool
+    &                                 read_attributes, delete_attributes,           &
+    &                                 restart_attributes_count_text,                &
+    &                                 restart_attributes_count_real,                &
+    &                                 restart_attributes_count_int,                 &
+    &                                 restart_attributes_count_bool,                &
+    &                                 read_restart_attributes
   USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
@@ -143,6 +145,7 @@ MODULE mo_io_restart
   PUBLIC :: finish_restart
   PUBLIC :: write_restart_info_file
   PUBLIC :: read_restart_info_file
+  PUBLIC :: read_restart_header
   !
   TYPE t_restart_files
     CHARACTER(len=64) :: functionality
@@ -202,6 +205,10 @@ MODULE mo_io_restart
   !
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
+  !
+  !
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -285,6 +292,71 @@ CONTAINS
     CLOSE(nrf)
     !
   END SUBROUTINE read_restart_info_file
+  !
+  !------------------------------------------------------------------------------------------------
+  !> Reads attributes and namelists for all available domains from restart file.
+  SUBROUTINE read_restart_header(modeltype_str, grid_file_name)
+    CHARACTER(LEN=*), INTENT(IN)  :: modeltype_str
+    CHARACTER(LEN=*), INTENT(OUT) :: grid_file_name
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::read_restart_header"
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
+    LOGICAL :: lsuccess, lexists
+    INTEGER :: idom, total_dom
+
+    ! First read the restart master file (ASCII format) to find out
+    ! which NetCDF files the model should read.
+
+    CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
+
+    IF (lsuccess) THEN
+      CALL message( TRIM(routine),                &
+        & 'Running model in restart mode. '       &
+        & //'Horizontal grid should be read from '&
+        & //TRIM(grid_file_name) )
+    ELSE
+      CALL finish(TRIM(routine),'Failed to read restart info file')
+    END IF
+
+    idom = 1
+    rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
+
+    ! test if the domain-dependent restart file exists:
+    INQUIRE(file=TRIM(rst_filename), exist=lexists)
+    ! otherwise, give a warning and resort to the old naming scheme:
+    IF (.NOT. lexists) THEN
+      CALL finish(routine, "Restart file not found! Old (domain-independent) name for restart symlinks?")
+    END IF
+
+    ! Read all namelists used in the previous run
+    ! and store them in a buffer. These values will overwrite the
+    ! model default, and will later be overwritten if the user has
+    ! specified something different for this integraion.
+    !
+    ! Note: We read the namelists only once and assume that these
+    !       are identical for all domains.
+    CALL read_restart_namelists(TRIM(rst_filename))
+    CALL message(TRIM(routine), 'read namelists from restart file')
+
+    total_dom = 1
+    DO
+      IF (idom > total_dom) EXIT
+
+      ! Read all global attributs in the restart file and store them in a buffer.
+
+      CALL read_restart_attributes(rst_filename)
+      CALL message(TRIM(routine), 'read global attributes from restart file')
+
+      ! since we do not know about the total number of domains yet,
+      ! we have to ask the current restart file for this
+      ! information:
+      CALL get_restart_attribute( 'n_dom', total_dom )
+
+      idom = idom + 1
+      rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
+    END DO
+
+  END SUBROUTINE read_restart_header
   !
   !------------------------------------------------------------------------------------------------
   !

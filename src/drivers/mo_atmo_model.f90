@@ -55,6 +55,7 @@ MODULE mo_atmo_model
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
   USE mo_util_string,             ONLY: int2string
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_io_restart,              ONLY: read_restart_header
   USE mo_io_restart_attributes,   ONLY: get_restart_attribute
 
   ! namelist handling; control parameters: run control, dynamics
@@ -126,13 +127,11 @@ MODULE mo_atmo_model
   USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_io_restart,              ONLY: read_restart_info_file
-  USE mo_io_restart_namelist,     ONLY: read_restart_namelists, delete_restart_namelists
-  USE mo_io_restart_attributes,   ONLY: read_restart_attributes
-  USE mo_time_config,            ONLY: time_config      ! variable
-  USE mo_mtime_extensions,       ONLY: get_datetime_string
-  USE mo_output_event_types,     ONLY: t_sim_step_info
-  USE mtime,                     ONLY: setCalendar, PROLEPTIC_GREGORIAN
+  USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
+  USE mo_time_config,             ONLY: time_config      ! variable
+  USE mo_mtime_extensions,        ONLY: get_datetime_string
+  USE mo_output_event_types,      ONLY: t_sim_step_info
+  USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
 
   !-------------------------------------------------------------------------
@@ -216,16 +215,11 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
+    ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
-    LOGICAL :: lsuccess
-    INTEGER :: jg, jgp
-
-    INTEGER :: error_status
-
-    TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0, idom, total_dom
+    INTEGER                        :: jg, jgp, jstep0, error_status
+    TYPE(t_sim_step_info)          :: sim_step_info  
 
     ! set mtime-Calendar
     CALL setCalendar(PROLEPTIC_GREGORIAN)
@@ -238,52 +232,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     IF (is_restart_run()) THEN
-
-      ! First read the restart master file (ASCII format) to find out
-      ! which NetCDF files the model should read.
-      ! Comment by Hui Wan:
-      ! The namelist variable atmo_restart_info_filename should be
-      ! an input argument of the subroutine read_restart_info_file.
-      
-      CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-      
-      IF (lsuccess) THEN
-        CALL message( TRIM(routine),                          &
-          & 'Running model in restart mode. '       &
-          & //'Horizontal grid should be read from '&
-          & //TRIM(grid_file_name) )
-      ELSE
-        CALL finish(TRIM(routine),'Failed to read restart info file')
-      END IF
-
-      ! Read all namelists used in the previous run
-      ! and store them in a buffer. These values will overwrite the
-      ! model default, and will later be overwritten if the user has
-      ! specified something different for this integraion.
-      !
-      ! Note: We read the namelists only once and assume that these
-      !       are identical for all domains.
-      CALL read_restart_namelists('restart_atm_DOM01.nc')
-      CALL message(TRIM(routine), 'read namelists from atm restart file')
-
-      idom      = 1
-      total_dom = 1
-      DO
-        IF (idom > total_dom) EXIT
-     
-        ! Read all global attributs in the restart file and store them in a buffer.
-        
-        CALL read_restart_attributes('restart_atm_DOM'//TRIM(int2string(idom, "(i2.2)"))//'.nc')
-        CALL message(TRIM(routine), 'read global attributes from atm restart file')
-
-        ! since we do not know about the total number of domains yet,
-        ! we have to ask the current restart file for this
-        ! information:
-        CALL get_restart_attribute( 'n_dom', total_dom )
-
-        idom = idom + 1
-      END DO
-
+      CALL read_restart_header("atm", grid_file_name)
     END IF ! is_restart_run()
 
     !---------------------------------------------------------------------

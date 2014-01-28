@@ -94,9 +94,9 @@ MODULE mo_ocean_model
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
-  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
-  USE mo_io_restart_namelist, ONLY: read_restart_namelists
-  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
+  USE mo_io_restart,          ONLY: read_restart_header
+  USE mo_io_restart,          ONLY: read_restart_files
+  USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
@@ -160,10 +160,11 @@ CONTAINS
     INTEGER :: error_status
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
+    CHARACTER(LEN=max_char_length) :: grid_file_name
 
     !-------------------------------------------------------------------
     IF (is_restart_run()) THEN
-      CALL read_restart_ocean_namelists('restart_oce.nc')
+      CALL read_restart_header("oce", grid_file_name)
     END IF
 
     !-------------------------------------------------------------------
@@ -658,50 +659,6 @@ CONTAINS
 #endif
   END SUBROUTINE construct_ocean_coupling
 #endif
-  !--------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------
-  !>
-  !!
-  SUBROUTINE read_restart_ocean_namelists(restart_filename)
-
-    CHARACTER(LEN=*), INTENT(in) :: restart_filename
-
-    CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:read_restart_namelists"
-
-    CHARACTER(LEN=max_char_length) :: grid_file_name
-    LOGICAL :: lsuccess
-    !-------------------------------------------------------------------
-
-    ! First read the restart master file (ASCII format) to find out
-    ! which NetCDF files the model should read.
-    ! Comment by Hui Wan:
-    ! The namelist variable atmo_restart_info_filename should be
-    ! an input argument of the subroutine read_restart_info_file.
-    CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-
-    IF (lsuccess) THEN
-      CALL message( TRIM(routine),                          &
-        & 'Running model in restart mode. '       &
-        & //'Horizontal grid should be read from '&
-        & //TRIM(grid_file_name) )
-    ELSE
-      CALL finish(TRIM(routine),'Failed to read restart info file')
-    END IF
-
-    ! Read all namelists used in the previous run
-    ! and store them in a buffer. These values will overwrite the
-    ! model default, and will later be overwritten if the user has
-    ! specified something different for this integraion.
-    CALL read_restart_namelists(restart_filename)
-    CALL message(TRIM(routine), 'read namelists from ocean restart file')
-
-    ! Read all global attributs in the restart file and store them in a buffer.
-
-    CALL read_restart_attributes(restart_filename)
-    CALL message(TRIM(routine), 'read global attributes from ocean restart file')
-
-  END SUBROUTINE read_restart_ocean_namelists
   !--------------------------------------------------------------------------
 
   
