@@ -1236,7 +1236,7 @@ CONTAINS
     TYPE(t_patch),       INTENT(IN) :: patch
     TYPE(t_datetime),    INTENT(IN) :: datetime
     INTEGER,             INTENT(IN) :: jstep                ! simulation step
-    CHARACTER(len=8),    INTENT(IN) :: model_type           ! store model type
+    CHARACTER(len=*),    INTENT(IN) :: model_type           ! store model type
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
